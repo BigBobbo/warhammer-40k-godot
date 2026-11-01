@@ -45,7 +45,7 @@ Locks in use:
 
 ## Foundation (sequential — must complete before anything below)
 
-- [ ] **T01 — UIConstants color slot autoload**
+- [x] **T01 — UIConstants color slot autoload**
   - **Lock:** UIConstants  • **Doc:** §9  • **Depends:** —
   - **Touches:** new `40k/autoloads/UIConstants.gd`, `40k/project.godot` (autoload registration)
   - **Change:** Add an autoload exposing the strict slot table from the doc:
@@ -65,11 +65,26 @@ Locks in use:
       `Texture2D` (or equivalent shader handle).
     - Regression: passing-scenario count ≥ `_baseline.json.count`.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
-    - [ ] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
-    - [ ] No autoload conflicts in `project.godot`.
+    - [x] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
+      *(T01_after palette card shows live hex = doc hex, "match", on all 7 rows; a
+      `diff` of the two tables is empty.)*
+    - [x] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
+      *(1x and 4x swatches beside solid yellow in T01_after; row read-back: 63
+      transitions, 50% yellow.)*
+    - [x] No autoload conflicts in `project.godot`.
+      *(60 entries, none duplicated, UIConstants once as `*res://…`, no class_name
+      shadows an autoload. Checked by `tests/test_ui_constants_slots.gd`.)*
+  - **Note (2026-10-30 audit):** the autoload, its registration and `striped_pattern`
+    had already shipped. This pass closed the evidence gaps. Deviations from the
+    wording above: (1) doc §9's table named hues only, so "exact hex specified in doc
+    §9 table" could not be checked. The table now has Constant + Hex columns,
+    cross-checked 1:1 by `tests/test_ui_constants_slots.gd` (in the gate) and by the
+    scenario. (2) The scenario's single-line Expression path rejects `Color.YELLOW`
+    (`Expected '('`), so the `striped_pattern(Color.YELLOW)` checks run as
+    `multiline` steps. (3) No action is dispatched, so the hex checks are
+    `execute_script` `equals` steps rather than `expect_action_result`.
 
-- [ ] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
+- [x] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
   - **Lock:** Infra  • **Doc:** —  • **Depends:** —
   - **Touches:**
     - new `40k/tests/scenarios/visual/_schema.md`
@@ -110,13 +125,62 @@ Locks in use:
     - `test_results/design_guidelines/T02/diff_report.json` is produced and parses
       as JSON.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] `_schema.md` enumerates every required scenario step type with example.
-    - [ ] `_template.json` runs end-to-end as a copy-paste starting point.
-    - [ ] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
+    - [x] `_schema.md` enumerates every required scenario step type with example.
+      *(Every required step now has a JSON example: `screenshot` before/after,
+      `expect_state`, `dispatch_action` + `expect_action_result`, `expect_phase`,
+      `expect_node_property`, `expect_baseline_unchanged`. `execute_script`
+      (single-line and `multiline`) and `pixel_diff` keep theirs. Before this
+      pass the required steps were prose only.)*
+    - [x] `_template.json` runs end-to-end as a copy-paste starting point.
+      *(It used to FATAL at fixture load on its `<fixture_name_or_omit>`
+      placeholder, exit 2. It now ships runnable values and keeps the guidance in
+      its description: 14/14 in place, and a verbatim copy run as
+      `visual/T00_template.json` passes and fills `design_guidelines/T00/`.
+      T00_after shows "Unit: Blade Champion", "Move: 6.0"" and the move buttons
+      lit; selected_unit_panel diff 11.0%, game_log 0.0%.)*
+    - [x] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
+      *(The "Design-guidelines visual tasks (T01–T45)" section was already there.
+      This pass added diff_report.json, the full-suite-only exit 3 and the CLI.)*
+  - **Note (2026-10-30 audit):** the schema, template, baseline, `pixel_diff.gd`
+    (+ unit test), the run_scenarios.sh post-processing and the methodology
+    section had already shipped. Tier A, all checked on this pass:
+    `_baseline.json` has 41 ids and count 41. The T02 scenario exits 0 (21/21).
+    Identical PNGs give exactly 0.0, and 100% black vs 100% white gives 100.0
+    (in the unit test, in the new CLI, and live in the scenario).
+    `test_results/design_guidelines/T02/diff_report.json` parses. Exit 3 was
+    proved on a shrunken `--visual` suite: 2 scenarios against a temporary
+    baseline of 2 exit 0, renaming one exits 3, and the committed 41 against 2
+    exits 3. visual/ was then restored byte-for-byte. Fixed on this pass:
+    (1) the template could not run (see Tier B). (2) The T02 scenario never
+    showed that pixel_diff can see a difference: it had only `expect_max`
+    bounds, which a diff stuck at 0% passes. It now diffs a frame against
+    itself (== 0.0) and a full-frame black probe against the same probe in
+    white (> 95%; a mutation keeping both black fails it). Its `full_viewport`
+    region was 1280x720 on a 1920x1080 frame. (3) The artifact copy used a
+    `<id>_*.png` glob. That swept in stale labels, old FAIL shots and any
+    scenario whose id starts with this one. After a FATAL exit (no results) it
+    also re-reported the previous run's results JSON and passing diffs as this
+    run's. It now copies exactly what this run wrote (the paths in the results
+    JSON plus failed-step captures, mtime at or after launch), and a run with
+    no results gets a diff_report.json with "error" and all_passed=false.
+    (4) Change 3's "emits JSON to stdout" was missing. Added
+    `tests/tools/pixel_diff_cli.gd`. (5) The pixel_diff unit test ran nowhere.
+    It is now in run_pretrigger_tests.sh. Deviations from the wording above:
+    (a) diff_report.json is built from the scenario's own `pixel_diff` steps
+    (the runner holds the labels and regions) rather than by the shell
+    re-running pixel_diff. The CLI covers ad-hoc diffs. (b) The schema accepts
+    any falsifiable assertion (`execute_script` with a bound, `expect_phase`,
+    `expect_node_property`, ...), not only `expect_state`/`expect_action_result`,
+    because nearly every T## scenario asserts through `execute_script`.
+    (c) Exit 3 fires only on a full-suite `--visual` run. A run of named files
+    skips the baseline check by design. (d) `_baseline.json` was not
+    re-snapshotted, because refreshing it is T45's job. The screenshot-only
+    ban is documented, not enforced by the runner, and no current visual
+    scenario breaks it.
 
 ## Top-10 quick wins (parallelizable after T02 if locks are disjoint)
 
-- [ ] **T03 — Drag-ruler with budget coloring during movement**
+- [x] **T03 — Drag-ruler with budget coloring during movement**
   - **Lock:** Movement  • **Doc:** §5 quick-win #1  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/MovementController.gd`, `40k/scripts/MovementRangeVisual.gd`
   - **Change:** While dragging a model, paint the path from start → cursor as colored
@@ -142,13 +206,60 @@ Locks in use:
       with no drag: `regions["drag_path"].diff_pct > 2.0` (path is drawn).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Green segments visible from origin to Move boundary.
-    - [ ] Yellow segment between Move and Move+Advance boundaries.
-    - [ ] Red segment beyond Move+Advance.
-    - [ ] Inches label updates as cursor moves.
-    - [ ] ESC removes the drag overlay cleanly.
+    - [x] Green segments visible from origin to Move boundary.
+      *(T03_a/b/c: green from the pickup dot to the 6" Move boundary, which sits
+      under the clamped ghost in b and c. Run 0 is CONFIRMED_GREEN 6.0".)*
+    - [x] Yellow segment between Move and Move+Advance boundaries.
+      *(T03_b: yellow from 6" to the 9" cursor. T03_c: yellow from 6" to 12",
+      with a tick where it turns red.)*
+    - [x] Red segment beyond Move+Advance.
+      *(T03_c: red from 12" to 14", ending in a red dot on the cursor.)*
+    - [x] Inches label updates as cursor moves.
+      *(Beside the cursor: 4.0" in green, then 9.0" Advance in yellow, then
+      14.0" out of reach in red. The scenario asserts each text.)*
+    - [x] ESC removes the drag overlay cleanly.
+      *(T03_after_esc looks the same as T03_before: no ghost, ruler, label or
+      reach circle, and no Settings menu. drag_path diff against the static
+      before is 0.52%. At HEAD, ESC opened Settings and left the drag live.)*
+  - **Note (2026-10-30 audit):** what had shipped was `current_drag_segments` and a
+    `compute_drag_segments()` what-if helper: one straight line, the controller's own
+    copy of M, and `T03_ADVANCE_INCHES = 6`. The live drag never called it, and the
+    scenario only tested that helper. A real 14" drag at HEAD left the segments empty
+    and drew the old white line to the clamped ghost. There were no waypoints, ENTER
+    did nothing, and there was no `BEGIN_MODEL_DRAG`. Changed on this pass:
+    (1) Every drag update now runs `_refresh_drag_ruler()`. It splits pickup →
+    waypoints → cursor into budget runs (`_split_path_by_budget`). Each band edge is
+    found with the over-range clamp's own ray search, so terrain is costed the way
+    the drop is validated. `MovementRangeVisual.DragRuler` paints the runs, just
+    under the ghost, with band ticks, waypoint rings and the label. For single-model
+    drags it replaces the old yellow path line and white ruler. (2) The budget comes
+    from the new `RulesEngine.movement_drag_budget(move_data)`, fed the phase's active
+    move. Normal: M plus the D6 maximum. Advance: M plus the rolled value. Fall Back,
+    Surge and reactive moves: no Advance. (3) The drag claims SHIFT, ENTER and ESC in
+    `MovementController._input`, so Main's ESC pause menu and a focused button's
+    ENTER no longer fire underneath it. ENTER stages the path leg by leg, and
+    MovementPhase sums re-staged legs (T-082): 3" + 3" records 6.0", not the 4.24"
+    straight line. (4) New `BEGIN_MODEL_DRAG` phase action: validated, changes no
+    state, and its `model_drag_requested` signal calls `begin_model_drag`. Tier A:
+    scenario 71/71. drag_path diffs: (a) vs (c) 38.7% (bound > 5), before vs (a)
+    18.7% (bound > 2). Visual suite: 41 passing, equal to the baseline. New gated
+    test `tests/test_drag_ruler_budget.gd` (49 checks) fails at HEAD. Deviations:
+    (a) The work also touched MovementPhase.gd, because the Tier A dispatch needs a
+    real phase action, and RulesEngine.gd, which had no movement API. M itself still
+    comes from MovementPhase (`get_unit_movement` / the active move's cap, which carry
+    every codex modifier). RulesEngine combines it with the mode and the roll into
+    M + Advance. (b) Before an Advance is rolled, the yellow band is the D6 maximum
+    (6"). (c) The scenario fixture moved from co_pretrigger to
+    audit_baseline_postdeploy. WARBOSS_B is not the active player's unit, so it
+    cannot be dragged. The Blade Champion has a terrain-free lane. (d) A SHIFT
+    waypoint lands on the ghost (the cursor held to the budget), not the raw cursor,
+    so every corner is a spot the model can stand on. (e) Multi-model group drags
+    keep their reach circles and get no ruler, matching the task's "while dragging a
+    model". (f) Known gap, not new: after a waypoint commit, the staged-path preview
+    draws only the last leg, because MovementPhase keeps one staged entry per model
+    (true of any re-staged model). The recorded distance is right.
 
-- [ ] **T04 — Six-phase top-center bar with active highlight**
+- [x] **T04 — Six-phase top-center bar with active highlight**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T01, T02
   - **Touches:** `40k/scenes/Main.tscn` (add `PhaseBar` PanelContainer), new
     `40k/scripts/PhaseBar.gd`, `40k/autoloads/PhaseManager.gd` (signal hook)
@@ -172,12 +283,69 @@ Locks in use:
       `regions["phase_bar"].diff_pct > 3.0` (highlight actually moved on-screen).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Six pills readable, labels not truncated.
-    - [ ] Active pill is visually the brightest.
-    - [ ] Completed pills are distinguishable from future pills.
-    - [ ] No layout shift in the rest of the HUD when phase advances.
+    - [x] Six pills readable, labels not truncated.
+      *(T04_command_before, _movement, _shooting_after, _p2_command, _p2_movement: all
+      six words read in full in every state, 16 px Rajdhani Bold in 94 px pills. The
+      scenario checks each label is at least as wide as its rendered word.)*
+    - [x] Active pill is visually the brightest.
+      *(A solid chip in the slot colour, with a glow. Rendered CIE L* sampled inside
+      each pill: TEAL 65.8 and MAGENTA 54.5, against 43.2 for a completed pill and 5.6
+      inside a future one. Five scenario steps assert it with `"equals": "ok"`: in every
+      captured frame the lit pill must be more than 8 above every other pill, P2 Movement
+      included.)*
+    - [x] Completed pills are distinguishable from future pills.
+      *(Completed: a solid grey chip with dark text. Future: a hollow outline with faded
+      text. L* 43.2 against 5.6. The same steps assert completed pills are more than 20
+      from each future pill.)*
+    - [x] No layout shift in the rest of the HUD when phase advances.
+      *(The strip, the bar, every pill and arrow, GameLogPanel, HUD_Right and HUD_Bottom
+      keep their Command-phase rects in Movement, Shooting and P2 Movement. Every pill is
+      one size in every state. The old strip drew the active word at 19 px and the rest
+      at 17 px, so its row re-centred on every phase change.)*
+  - **Note (2026-10-30 audit):** no pills existed. `Main._setup_phase_strip()` built the
+    bottom PhaseStrip from six unnamed Labels: the active word gold and larger, completed
+    words barely visible, no modulate states and no player colour. Changed on this pass:
+    (1) New `40k/scripts/PhaseBar.gd` builds six pills named `PhasePill_<Phase key>` and
+    sets each pill's `modulate`: active = `UIConstants.player_slot_color(active player)`,
+    completed = `Color(0.5, 0.5, 0.5, 1.0)`, future = alpha 0.4. Each state also has its
+    own pill style (solid glowing chip, solid grey chip, hollow outline). The bar connects
+    to `PhaseManager.phase_changed` when it enters the tree and disconnects when it leaves.
+    (2) Main hosts the bar inside the PhaseStrip and now only decides whether the strip
+    shows. The strip's margins keep the 21 px pill row above the 6 px PlayerTurnBorder,
+    which paints over the strip's bottom edge. (3) The strip now shows as soon as Main
+    builds it. Main._ready restores a loaded save's phase before the strip exists, so
+    after loading a mid-battle save the strip stayed hidden for a whole phase. Probe:
+    `PhaseStrip.visible` read false after loading audit_baseline_postdeploy on the old
+    Main.gd and true now. The T04 scenario now starts on that load path. Tier A: scenario
+    71/71, reaching Movement and Shooting by real clicks on the End Phase button, its
+    confirm, and Decline on P2's War Cry offer. phase_bar diffs: Command to Movement
+    14.2%, Movement to Shooting 14.6%. Visual suite: 42 passing (baseline 41: the same 41
+    plus T04), with T23, T27 and T39 failing as before and T45 XFAIL. New gated
+    test `tests/test_phase_bar.gd` (35 checks) fails at HEAD. Deviations: (a) Placement:
+    the pills live in the existing bottom PhaseStrip, not a new top-center bar. The strip
+    was moved to the bottom on purpose, and `visual/T_phase_strip_bottom.json` (still
+    passing) pins it there. Pill paths are `/root/Main/PhaseStrip/PhaseBar/PhasePill_<NAME>`,
+    not `/root/Main/PhaseBar/...`. (b) Phase list: the sixth pill is Score
+    (`PhasePill_SCORING`), the game's real sixth phase. Morale is not a phase here: MORALE
+    is a deprecated enum slot that PhaseManager remaps to COMMAND (ISS-034). (c) Touches:
+    Main.tscn is unchanged because the strip is built in code. PhaseManager.gd is
+    unchanged because `phase_changed` already existed. (d) The P2 colour is checked by
+    setup privilege (`set_active_player(2)` plus a transition), since reaching P2's turn by
+    clicks means playing out all of P1's turn. (e) The diff bound is 11%, not the task's
+    3%. A change to one pill alone (the P1-to-P2 recolour) measures 8.3% of the pill rows,
+    about 7% of the 30-row phase_bar region, so 11% also fails a bar where only one pill
+    changed.
+  - **Audit fix (2026-10-30):** the five rendered-L* steps (17, 33, 49, 59, 69) had no
+    expectation key, so ScenarioRunner passed them whatever they returned: the L* margins
+    above were measured but never asserted. Each step now returns exactly "ok" and carries
+    `"equals": "ok"`. The values go to the debug log, and a failure returns its verdict
+    with every pill's L*. The margins are strict: the lit pill more than 8 above every
+    other, completed pills more than 20 from future ones. A scratch probe on the same
+    fixture (not committed) passes the real frame and fails both sabotages: lit pill forced
+    hollow gives "active not brightest"; a future pill forced grey gives "completed vs
+    future too close". Scenario 71/71.
 
-- [ ] **T05 — Hover-forecast tooltip for shooting**
+- [x] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/ShootingController.gd`, new `40k/scripts/HoverForecast.gd`,
     `40k/autoloads/RulesEngine.gd` (add `preview_attack(shooter, target, weapon)`
@@ -205,12 +373,71 @@ Locks in use:
       `regions["tooltip_area"].diff_pct > 4.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tooltip readable, not clipped by viewport edges.
-    - [ ] Numbers update when hover moves between targets.
-    - [ ] Cover icon / cover delta surfaced in the tooltip.
-    - [ ] Tooltip disappears on hover-off.
+    - [x] Tooltip readable, not clipped by viewport edges.
+      *(T05_after, _hover_battlewagon, _hover_boyz, _no_cover, _cover: a dark card with a
+      gold border, 15-18 px text, every row legible. It sits above-right of the cursor. On
+      the Battlewagon, Main's stats card opened under the cursor, so the forecast flipped
+      above-left with no overlap. The scenario asserts the card is on screen after every
+      hover and when anchored at each of the four viewport corners.)*
+    - [x] Numbers update when hover moves between targets.
+      *(Caladius: Boyz E T5 shows "Twin iliastus accelerator cannon, A 8, ≈ 13.0 damage
+      (≈ 4.3 models)". The Battlewagon shows T12, the blaze cannon and ≈ 9.2 damage. Back on
+      Boyz E it shows the Boyz numbers again. Contemptor with one gun: Boyz E reads BS 2+,
+      0.8 hits; Kommandos H reads BS 3+, 0.7 hits.)*
+    - [x] Cover icon / cover delta surfaced in the tooltip.
+      *(T05_after / _cover: a yellow shield row "Benefit of cover: BS 2+ → 3+", and BS 3+
+      in yellow on the profile row. T05_no_cover (target in the open) has neither.)*
+    - [x] Tooltip disappears on hover-off.
+      *(T05_hover_off: no card, no LoS line, no stats card. current_hover_forecast is null,
+      and the card's rect differs 0.0% from the no-hover T05_before. Moving onto the
+      right-hand HUD panel also clears it.)*
+  - **Note (2026-10-31 audit):** what had shipped was `current_hover_forecast` and a
+    `compute_hover_forecast()` what-if helper with its own naive maths. It used the first
+    datasheet weapon, even a melee one. It treated cover as +1 to the save (the 10e rule;
+    11e 13.08 worsens BS) and applied no modifiers. Nothing called it on hover. There was
+    no tooltip, no `HoverForecast.gd`, no `preview_attack` and no `test_hover_target_id`.
+    The scenario only called the helper. Changed on this pass: (1) New
+    `RulesEngine.preview_attack(shooter, target, weapon, board, opts)`. It holds the maths
+    of the P3-114 forecast (`ShootingController._calc_weapon_expected_damage`, now a
+    one-line wrapper), so the hover card, the Forecast panel, the Quick Assign buttons, the
+    resolution dock and T40's panel all read one forecast. Fixes that came with the move:
+    die probabilities come from the live evaluators (`AttackSequence.evaluate_hit_roll` /
+    `evaluate_wound_roll`, every face and re-roll face enumerated); +1/-1 cancel as in the
+    live roll; the 11e ModifierStack adds [HEAVY] (24.16), plunging fire and the
+    close-quarters penalties; cover worsens BS per firing model, sampling at most 4 per
+    weapon; [TORRENT] never crits; Sustained Hits Dx uses its average; the hit display
+    includes cover; "kills" drop damage beyond a model's Wounds. (2) Hovering an eligible
+    enemy (shooter selected, cursor not over the HUD) fills `current_hover_forecast` and
+    shows the new `HoverForecast` card. The card describes the selected weapon row, or
+    else the weapon that takes the most wounds off the target. The hover clears on
+    hover-off, deselect, shooter change, resolution start and phase end. (3) The
+    `test_hover_target_id` seam (task name) calls `t05_set_hover_target`, which runs the
+    production hover path anchored at the unit's centre. (4) Cost: about 5-9 ms per weapon
+    forecast against 4.5 ms for the old maths, using a per-frame cover cache and memoised
+    probability tables. A first cut without sampling ran 15-19 ms per call for a 20-model
+    mob. Tier A: scenario 82/82. It covers SELECT_SHOOTER, the seam, bs == 3 (BS 2+ in
+    cover, also recomputed from the weapon profile), expected_wounds > 0, the card visible
+    with its cover row, a tooltip_area diff of 99.96% (bound 4%), real mouse hovers, the
+    HUD and empty-board hover-off (0.0% diff back to the before frame, bound 2%), and one
+    gun against an open target and a target in cover. Visual suite: 42 passing (baseline
+    41); T23, T27 and T39 fail as before, and T45 is XFAIL. New gated test
+    `tests/test_hover_forecast.gd` (67 checks) fails at HEAD. Gate: 178/178 (known XFAIL
+    only). The 12 sp scenarios that read the forecast or hover in Shooting pass.
+    Deviations: (a) Oath of Moment does not exist in this 11e build: Codex: Space Marines
+    replaced it (FactionAbilityManager.gd). The preview counts what the engine does apply:
+    the re-roll and +1 effect flags that army rules and stratagems set, [HEAVY] and cover.
+    (b) 11e cover is one rule, the benefit of cover. It worsens BS by 1 against any target
+    that has it: INFANTRY/BEASTS/SWARM in a terrain area, any unit not fully visible to
+    the firing model, STEALTH, or the stratagem. There is no light/heavy cover. The
+    expected value is BS 2+ guns worsened to 3+, read off the weapon profile and confirmed
+    by `TerrainManager.unit_has_cover_11e`. (c) `expected_wounds` means successful wound
+    rolls, as "wounds" does on the P3-114 card and in the dock. The hook also carries
+    `expected_damage` and `expected_models_killed`. (d) The tooltip node is
+    `/root/Main/ShootingController/HoverForecast`, so it goes away with the phase. (e) The
+    scenario fixture is `audit_383_battleshock_shoot`, not co_pretrigger: no P2 unit has
+    an eligible target in co_pretrigger.
 
-- [ ] **T06 — Convert Weapon Order modal to side-anchored panel**
+- [x] **T06 — Convert Weapon Order modal to side-anchored panel**
   - **Lock:** HUD-Right  • **Doc:** §3  • **Depends:** T01, T02
   - **Touches:** wherever the Weapon Order modal instantiates today
     (likely `ShootingController.gd` + a dialog scene)
@@ -233,12 +460,68 @@ Locks in use:
     - All existing weapon-order regression scenarios still pass.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tokens at original positions visible while panel is open.
-    - [ ] Panel has all controls the old modal had.
-    - [ ] ESC dismisses without committing.
-    - [ ] No layout overlap with the existing right-side phase controls.
+    - [x] Tokens at original positions visible while panel is open.
+      *(T06_after next to T06_before: every token is where it was and the camera has not
+      moved (view_zoom / view_offset asserted). Only the [A] target chip and the fire line
+      differ, 0.36% of the left 60%. Pointing at the Witchseekers still draws the LoS line,
+      with no Control under the cursor.)*
+    - [x] Panel has all controls the old modal had.
+      *(T06_after: one row per gun naming its target, each with ▲▼; Roll to Hit ▶ is
+      Start Sequence (same RESOLVE_WEAPON_SEQUENCE, fast_roll false); Fast Roll All ⏩;
+      plus ◀ Back to Targets (Esc), which the modal never had. The modal's "Dmg | Atks |
+      Total Potential" line is the dock's expected-damage figure (B5), and its log is the
+      Dice Log tab (B2).)*
+    - [x] ESC dismisses without committing.
+      *(T06_esc matches T06_before: right panel 0.0% different, the same three assignments,
+      nothing rolled, shooter still active. T06_locked: after the defender's SMOKESCREEN the
+      button is greyed out and Esc only explains why.)*
+    - [x] No layout overlap with the existing right-side phase controls.
+      *(T06_after / T06_locked / T06_rolling: the dock sits inside HUD_Right under SHOOTING
+      CONTROLS and clear of the End Shooting Phase button, the top bar and the phase strip,
+      all asserted by rect.)*
+  - **Note (2026-10-31 audit):** what had shipped was `WeaponOrderPanel.gd`, a panel at
+    `/root/Main/WeaponOrderPanel` that nothing opened. Its Start Sequence emitted a signal
+    nobody heard, its rows were bare labels, and it was pinned over the HUD_Right column
+    (x 1560), where the shooting controls live. The scenario only called `open_for()`. By
+    then B2 (audit 2026-07) had already moved single-player weapon ordering out of the
+    centred WeaponOrderDialog and into the right HUD, as the shooting resolution dock's
+    "queued" state, with the board visible. What was missing was Esc and any way back. Esc
+    and pad B deselected the shooter while the dock kept the phase waiting on an order (a
+    half-state), and a board click could re-aim guns or pick another shooter behind the
+    dock. Changed on this pass: (1) New `CANCEL_WEAPON_ORDER` action. ShootingPhase keeps
+    the declaration from CONFIRM_TARGETS and hands it back unchanged: nothing rolled, the
+    shooter still selected. It is refused once the targets are locked in: a stratagem used
+    since the declaration (new `StratagemManager.usage_count`), or an Unpredictable Genius
+    roll. (2) The dock's ordering step has "◀ Back to Targets (Esc)", greyed out with the
+    reason when locked. Esc and pad B send the same action, never deselect while the dock is
+    up, and do nothing once dice roll. A board click while ordering no longer re-aims or
+    switches shooter; the panel tells the player to press Esc. After Back, the declaration
+    panel looks as it did before Confirm, including the COMBINED FORECAST card.
+    (3) `SceneRefs.board_screen_rect()`, moved out of ReservesTray, backs the
+    no-intersection check. (4) The dead stub is gone, and T45's existence check now points
+    at the dock's Back button. Tier A: scenario 104/104. It covers: the Confirm click
+    reaching awaiting_weapon_order; dock left edge / viewport width 0.79; HUD_Right anchors
+    1/1; no intersection with the board rect; pixel_diff board_left 0.36% (< 1), board rect
+    0.56% (< 1), right_panel 53.6% (> 10); a dispatched CONFIRM_TARGETS returning success
+    and weapon_order_required. New gated test `tests/test_weapon_order_cancel.gd` (47
+    checks) fails at HEAD. Gate: 179/179 (known XFAIL only). Visual suite: 42 passing
+    (baseline 41); T23, T27 and T39 fail as before, and T45 is XFAIL. Of the 23 sp scenarios
+    that reach the dock, Esc, pad B or the reserves tray, 18 pass; the other 5 are the
+    T4-tutorial XFAILs, which fail before the dock opens.
+    Deviations: (a) The panel is the B2 dock (`.../ShootingPanel/ResolutionDock`), not a
+    node renamed `WeaponOrderPanel`. Renaming it would break the 30 scenarios that address
+    the dock, and the dock is the whole resolution surface; a second panel would duplicate
+    it. (b) There is no BEGIN_WEAPON_ORDER action. CONFIRM_TARGETS with two or more weapon
+    types is what begins the weapon order. (c) "anchor_left >= 0.6" is read as the dock's
+    left edge over the viewport width. The dock sits in containers; its HUD_Right column
+    carries the right anchors. (d) Networked play still uses the WeaponOrderDialog, popped
+    at the bottom centre, and its Esc only hides it. Moving MP onto the dock is the B2
+    follow-up that needs the save broadcast/ack sync
+    (docs/SHOOTING_MULTI_TARGET_UX_AUDIT_2026-07.md) and cannot be checked by a
+    single-player scenario. (e) The lock case gives the Witchseekers SMOKE as a setup step
+    (as iss15_smokescreen_reactive_11e does), so the defender is offered SMOKESCREEN.
 
-- [ ] **T07 — Per-tile cover icons on terrain**
+- [x] **T07 — Per-tile cover icons on terrain**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/BoardVisual.gd` or new
     `40k/scripts/TerrainCoverOverlay.gd`, `40k/deployment_zones/` data files (read
@@ -259,11 +542,69 @@ Locks in use:
       `total_diff_pct > 1.0` AND `regions["board"].diff_pct > 1.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Every terrain piece has a visible cover icon.
-    - [ ] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
-    - [ ] Icons don't overlap tokens at default deployment positions.
+    - [x] Every terrain piece has a visible cover icon.
+      *(T07_overlay_on, fitted view: 36 shields for the fixture's 44 pieces. The other 8
+      are area boundaries whose single feature has the identical footprint
+      (area-short-line-23/catwalk-25, area-long-line-27/gantry-29, area-medium-35/
+      generator-37, area-short-line-39/pipe-41 and their mirrors): each pair stacks two
+      identical shields on one centroid and reads as one. The scenario asserts every icon
+      is_visible_in_tree with modulate.a >= 0.8.)*
+    - [x] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
+      *(T07_zoom_1_0 / T07_zoom_0_5: the shield is 30x34 px on screen with 17 px LB / +2
+      text at both zooms, upright. The scenario asserts on-screen scale 1.0 at the fitted
+      view, zoom 1.0, zoom 0.5 and with the board rotated 90 degrees. At the zoom-0.3 view
+      the fixture opens at, the three +2 shields of the top-left corner ruins (2" apart)
+      touch each other but stay legible.)*
+    - [x] Icons don't overlap tokens at default deployment positions.
+      *(T07_overlay_on and the zoom-0.3 opening view: the nearest shield is ~10 px below
+      the Caladius base on the top edge, and the bottom-edge Ork tokens are clear. The
+      scenario tests every icon footprint against every token base (BaseShape overlap) at
+      the fitted view: none. Icons now also draw below the tokens (z 2 vs 10).)*
+  - **Note (2026-10-31 audit):** what had shipped was `TerrainCoverOverlay.gd`, one
+    `TerrainCoverIcon_<id>` per piece, made opt-in by a later decision (Settings > Visual >
+    Terrain Cover Labels, OFF by default). Gaps: (1) icons were 28 board px, so ~8 px at
+    the zoom-0.3 view the fixture opens at; the overlay on/off diff was 0.05% (Tier A
+    wants > 1%), the scenario's bound was 0.015% and its "board" region the whole frame.
+    (2) The scenario checked child(0) only, against `position`, not every terrain_id by
+    name against its polygon centroid. (3) No terrain carries a `cover_type`; the overlay
+    derived one from height (obscuring or tall -> LB, medium -> +2, else +1), labelled
+    "10e rules". The game is 11e only, where cover follows the category: a light tall ruin
+    read LB and a light medium one +2 under identical rules. (4) z_index 50 drew the icons
+    over the tokens (10), contrary to its own comment. (5) The fallback centroid was the
+    vertex average (up to 47 px off on the trapezoids). (6) A terrain reload queue_free'd
+    the old icons, so all 44 new ones came back as `@Node2D@N` and no
+    `TerrainCoverIcon_<id>` lookup worked (probed at HEAD). Changed on this pass:
+    (1) `TerrainManager.cover_type_of(piece)`: the 11e category on the doc's
+    light/heavy/blocking ladder (exposed +1, light +2, dense LB; height ignored), which
+    the overlay labels from. (2) Icons keep a constant 30x34 px upright size on screen
+    (counter-scaled and counter-rotated against BoardRoot's zoom and rotation), with a
+    pale rim and outlined 17 px text, at z_index 2: above the terrain art, below the
+    movement/threat/engagement overlays and the tokens. (3) `centroid_of()` is the
+    polygon area centroid. (4) Rebuilds free the old icons at once. (5) A legend under the
+    Settings checkbox explains +1 / +2 / LB. Tier A: scenario 66/66. Per terrain_id: the
+    node, <= 8 px from its polygon centroid (computed in the step), modulate.a >= 0.8,
+    label == cover_type_of == the legend for its category. The chips are switched on and
+    off through the real Settings menu (Escape, Visual, checkbox, Escape). pixel_diff
+    total 1.58% (> 1.0) and board region [574,100,772,950] 4.47% (> 1.0). On-screen scale
+    1 at every tested zoom, no icon/token overlap, icons below the tokens, and the same
+    checks after `TerrainManager.DEFAULT_LAYOUT` is loaded. New gated test
+    `tests/test_terrain_cover_overlay.gd` (34 checks; 3 of 4 fail at HEAD). Gate 180/180
+    (known XFAIL only). 17 reachable sp/visual scenarios pass; terrain_11e_layouts is a
+    listed XFAIL; terrain_11e_menu_matchup fails identically at HEAD without this change
+    (main-menu matchup dropdown and objective positions, unrelated).
+    Deviations: (a) The opt-in decision stands, so the icons are not on by default; the
+    scenario turns them on through Settings. (b) `cover_type` is derived
+    (`TerrainManager.cover_type_of`), not stored on the terrain, and follows the 11e
+    categories, so "+2" means light terrain (cover, and its area blocks sight lines), not
+    a +2 modifier: 11e cover always worsens BS by 1. The Settings legend says what each
+    glyph means. (c) co_pretrigger plays on legacy_fallback_mirror_1 (its layout_2 was
+    deleted), the frozen copy of the default take_and_hold_mirror_1, so the scenario also
+    loads `TerrainManager.DEFAULT_LAYOUT` and re-asserts nodes, centroids and labels.
+    (d) The diff is taken at the fitted whole-board view, after closing P2's
+    drawn-secondaries review, which otherwise covers the board. (e) The 8 coincident
+    area/feature pairs keep both nodes (Tier A wants one per id) but render as one shield.
 
-- [ ] **T08 — Two-ring token (faction inner + player-slot outer)**
+- [x] **T08 — Two-ring token (faction inner + player-slot outer)**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/TokenVisual.gd`
   - **Change:** Replace single-color base ring with two concentric rings: inner =
@@ -284,12 +625,76 @@ Locks in use:
       same fixture in the **token region**: `regions["token_swatch"].diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Two rings visually distinct (different hue and thickness).
-    - [ ] Faction inner ring matches the army's chosen color.
-    - [ ] Player-slot outer ring is the same color across all units of that player.
-    - [ ] Rings do not occlude the central glyph/letter.
+    - [x] Two rings visually distinct (different hue and thickness).
+      *(T08_after, engagement zoom x3: a thin teal (P1) / magenta (P2) ring on the rim, a
+      thicker crimson or gold band inside it, slate between them. Widths at zoom 1: 40mm
+      base 3.5 vs 5.7 px, 32mm 2.8 vs 4.5 px; on an oval base (T08_oval_closeup) both rings
+      follow the outline.)*
+    - [x] Faction inner ring matches the army's chosen color.
+      *(T08_army_panel: each unit's inner ring is the colour of its swatch in the Army
+      Overview (U), the army-data colour from the faction palette; the scenario checks all 36
+      tokens against their swatch. T08_change_color: after Pale gold is picked for the
+      Custodian Guard in that panel, their four inner rings repaint pale gold. One colour per
+      squad, not one per army — deviation (a).)*
+    - [x] Player-slot outer ring is the same color across all units of that player.
+      *(T08_p1_row / T08_p2_row: every P1 token — infantry, both dreadnoughts, the oval
+      Caladius, both Witchseekers squads — wears the teal ring and every P2 token the magenta
+      one; the scenario asserts SlotRing == the owner's slot colour on all 36 tokens.)*
+    - [x] Rings do not occlude the central glyph/letter.
+      *(T08_after: both rings sit in the outer quarter of the base and are painted beneath
+      the art, so the Custodian sprite and the Witchseekers' WI* letter are untouched;
+      glyph_p1 / glyph_p2 pixel_diff against the pre-T08 token: 0.0%.)*
+  - **Note (2026-10-31 audit):** what had shipped were `FactionRing` / `SlotRing` as empty
+    Node2D markers: they painted nothing (the only ring on screen was the letter style's
+    single unit-colour ring), rested at alpha 0.35 / 0.7, and SlotRing was scaled 1.2, i.e.
+    outside the base. The scenario (co_pretrigger, Custodes vs Orks) checked only that
+    child(0) had both nodes, alpha > 0 and the scale order, so it passed with no ring drawn.
+    T19's pulse tweened the invisible SlotRing, and MA-20's model-type ring sat on the rim
+    where the outer ring belongs. Changed on this pass: the letter style (the default)
+    paints both rings beneath the art (Layer 2c, replacing `_draw_unit_color_ring`), read
+    from the ring nodes at paint time: modulate = colour, scale.x = mid-line radius / base
+    radius (FactionRing 0.74, SlotRing 0.94), visible = painted. Widths max(3.5, 0.18r) and
+    max(2.5, 0.11r), the outer edge held on the rim, both at alpha 1.0. FactionRing = the
+    unit's stored army-data colour, SlotRing = `UIConstants.player_slot_color(owner)`; both
+    re-read on every repaint, so Change Color and an owner change show. In the other unit
+    styles and in debug mode the rings are not painted and the nodes report visible=false.
+    `stop_pulse()` returns SlotRing to the resting alpha and the letter style repaints
+    while it pulses (T19). The MA-20 ring moved just inside the slot ring. Tier A: scenario
+    41/41 on mirror_custodes_postdeploy. All 36 tokens: SlotRing == the owner's slot
+    colour, FactionRing == the unit's army-data colour (in the owner's faction palette),
+    SlotRing.scale > FactionRing.scale, both alpha >= 0.9, both painted. A P1 Custodes
+    token has FactionRing d9b333 (the Custodes gold, FactionPalettes primary) with SlotRing
+    == FRIENDLY_PLAYER_TEAL. All 8 P2 Witchseekers have SlotRing == ENEMY_PLAYER_MAGENTA
+    and FactionRing == their own army colour. Sampling the live frame on each ring's
+    mid-line shows the node colours painted (slot 29-32/32 hits, faction 24-31/32; art and
+    labels cover the rest). pixel_diff token_swatch 26.1% (> 8.0) against the pre-T08 token.
+    The HEAD build and six scratch sabotage probes (constant slot colour, nothing painted,
+    slot ring painted in the faction colour, inner band over the centre, no repaint sync,
+    one colour per army) each turned a different set of checks red. New gated test
+    `tests/test_two_ring_token.gd` (81 checks; 21 fail at HEAD). Gate 181/181 (known XFAIL
+    only). Visual suite: 42 pass (baseline 41), failures only T23 / T27 / T39 (known) and
+    T45 (XFAIL). 22 token sp scenarios: 19 pass, 3 listed XFAILs with their recorded counts.
+    Deviations: (a) The inner ring is the unit's colour from the army data (a faction
+    palette colour, auto-assigned per squad and changed with Right-click > Change Color or
+    the army panel swatch), not one colour per army. The later Ring Only decision
+    (v0.41.0 / v0.42.1) uses that ring to tell squads apart, and the roster cards show the
+    same per-unit colour; one army colour would have erased both. The first squad of an army
+    gets the palette primary (Custodes gold d9b333). A token with no unit falls back to
+    `UIConstants.faction_color_for_player` (T41). (b) The only fixture with P1 Custodes +
+    P2 Witchseekers is mirror_custodes_postdeploy: Witchseekers are an Anathema Psykana unit
+    of the Custodes army (keyword ADEPTUS CUSTODES), so P2's colours come from the Custodes
+    palette too and no "Witchseekers blue" exists in army data. The scenario asserts their
+    own army colour plus MAGENTA instead, and that the mirror's shared inner colours are told
+    apart by the slot ring. Setup privilege moves the P2 Witchseekers beside the P1
+    Custodian Guard for one engagement-zoom frame. (c) Painted by the letter style only (the
+    default, and the only style that had the single unit-colour ring); classic / enhanced /
+    style_a / style_b keep their own rims. (d) The pre-T08 baseline is rebuilt in the run (no
+    slot ring, one unit-colour band at the old ring's geometry); it matches the old build's
+    render of the same frame at 0.0% in token_swatch, and old build vs new also diffs 26.1%.
+    (e) T19's scenario now expects `stop_pulse()` to return the ring to `T08_RING_ALPHA`
+    (1.0), not 0.7.
 
-- [ ] **T09 — Exhaustion grayscale for acted units**
+- [x] **T09 — Exhaustion grayscale for acted units**
   - **Lock:** TokenLayer + HUD-Left  • **Doc:** §8  • **Depends:** T01, T02, T08
   - **Touches:** `40k/scripts/TokenVisual.gd`, `40k/scripts/ArmyPanel.gd`,
     `40k/phases/MovementPhase.gd` (and shooting/charge equivalents) — emit
@@ -313,12 +718,76 @@ Locks in use:
       `regions["acted_token"].diff_pct > 15.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Acted unit is clearly dimmer than un-acted.
-    - [ ] Roster card mirrors the dim state.
-    - [ ] Phase end resets both.
-    - [ ] Color rings (T08) still distinguishable on dimmed token.
+    - [x] Acted unit is clearly dimmer than un-acted.
+      *(T09_exhausted: the Shield-Captain and the Blade Champion, both ended this phase, are
+      uniformly darker - base, art, rings, name plaque, wound bar - beside the full-brightness
+      Custodian Guard row; their regions diff 80% against the same tokens lit in T09_after.)*
+    - [x] Roster card mirrors the dim state.
+      *(T09_exhausted: in the Roster strip (Roster button / B), "Blade Champion (1)" and
+      "Shield-Captain (1)" are grey on a darker band and every other card is white; both card
+      rows diff 100% against T09_before and T09_after, the Custodian Guard card 0.0%.)*
+    - [x] Phase end resets both.
+      *(T09_after, Shooting phase after End Movement Phase + its confirm prompt: both tokens and
+      both cards are back to full brightness; all 25 tokens (1, 1, 1, 1), no card dim.)*
+    - [x] Color rings (T08) still distinguishable on dimmed token.
+      *(T09_exhausted: the dimmed tokens keep the teal rim and a gold (Shield-Captain) / crimson
+      (Blade Champion) band. Sampled on the frame, the rings read 0.6 x their colours (slot
+      28-32/32, faction 24/32 hits) and the two stay 0.54-0.61 apart in RGB.)*
+  - **Note (2026-10-31 audit):** what had shipped was `TokenVisual.is_exhausted_this_phase`,
+    `set_exhausted_this_phase()` and a reset on `phase_changed`, but nothing ever called the
+    setter. No `unit_acted_in_phase` signal existed, so a confirmed move left the token at
+    ffffffff (probed live at HEAD). Tokens Main rebuilds would have lost the state anyway, the
+    roster strip had no dim state, and T38's Can Act filter read `flags.acted_this_phase`, which
+    nothing set. The scenario called the setter by hand and emitted `phase_changed` itself: no
+    END_UNIT_MOVE, screenshot, pixel_diff or roster check. Changed on this pass: `BasePhase`
+    declares `unit_acted_in_phase(unit_id)` and `has_unit_acted_this_phase(unit_id)` (default
+    false), and `execute_action()` emits the signal once per flip to true, before
+    `action_taken` (not from an instance the action already swapped out). Each phase answers
+    from synced flags. Movement: `flags.moved` of the active player's units (End This Unit's
+    Move, Remain Stationary, ingress; a unit mid-move is not dim). Shooting: `flags.has_shot`
+    of the active player's units. Charge: `units_that_charged` / `completed_charges` or
+    `flags.charged_this_turn`. Fight: `units_that_fought` or `flags.has_fought`, either player.
+    The new `UnitExhaustionTracker` (/root/Main/UnitExhaustionTracker, installed with the
+    design-guidelines overlays) binds to the current phase's signal. It re-syncs every token and
+    roster card on that signal, on `phase_action_taken`, on `GameManager.result_applied` (the
+    network client path) and on `phase_changed`. `TokenVisual.refresh_exhaustion()` also runs
+    in `_ready`, so rebuilt tokens start dim. It puts the dim back when another controller
+    resets the modulate (the fight overlap feedback writes white when a consolidation drag
+    ends). `LeftRosterStrip`: a dim card gets a darker StyleBoxFlat (0.05 grey, against the
+    default 0.1) plus the 0.6 modulate (`is_card_exhausted()`). Can Act lists exactly the cards
+    that are not dim. `refresh()` now detaches old cards before freeing them; a rebuild used to
+    auto-rename the new `UnitCard_<id>`, and the name kept resolving to the dead card. Tier A:
+    scenario 70/70 on audit_baseline_postdeploy. `expect_action_result` success for
+    CONFIRM_UNIT_MOVE. The acted token is (0.6, 0.6, 0.6, 1) within 0.02 and exhausted, the other
+    24 tokens (1, 1, 1, 1) and not. After End Movement Phase every token is (1, 1, 1, 1).
+    pixel_diff acted_token 80.5% (> 15; 80.0% without the 2.6% of the region the Shooting
+    phase's range line covers), the un-acted control token 0.0% (< 1). It also drives a second
+    unit through the real End This Unit's Move button, the roster cards, the rebuild, and the
+    rings on the dimmed frame. New gated test `tests/test_unit_exhaustion.gd` (62 checks: all four
+    phases, the opponent's left-over flags, the attached character, the client path, the
+    rebuild, Can Act, the reset). The scenario and the test each went red under scratch sabotage
+    probes: no emit, no tracker, no owner check, no card dim, the wrong flag in Shooting, a 0.8
+    dim, no `_ready` refresh, no `result_applied`, no rebind on phase change, no `remove_child`.
+    Gate 182/182 (known XFAIL only). Visual suite: 42 pass (baseline 41), failures only T23 /
+    T27 / T39 (known) and T45 (XFAIL). 20 related sp scenarios: 19 pass, and tut_t3_get_movin
+    (a listed known failure) fails at its geometry step 101 (XFAIL). Deviations: (a) There is
+    no END_UNIT_MOVE action. The action behind the End This Unit's Move button is
+    CONFIRM_UNIT_MOVE, which the scenario
+    dispatches (Tier A `expect_action_result`) and also reaches with a real click on that button
+    for a second unit. (b) The roster card is the T37 LeftRoster strip card (the strip in doc §8,
+    HUD-Left lock), not `ArmyPanel.gd`: that is the U modal colour and label editor, and its
+    swatches must keep the true unit colours. The strip is hidden by default, so the scenario
+    opens it with the Roster button. (c) The signal is declared once on `BasePhase` and emitted by
+    its `execute_action()` from each phase's own answer (Movement, Shooting, Charge, Fight), not
+    by hand in each phase file. Every path that ends a unit's step is covered: the button, AI,
+    END_MOVEMENT's remain-stationary sweep. (d) "Grayscale" is the task's 0.6 modulate, a dim,
+    not a desaturation. (e) Known gaps: on a network client a failed or skipped charge does not
+    dim, since `units_that_charged` is host-only (a successful charge does, via
+    `charged_this_turn`). An opponent's reactive move in your Movement phase does not dim either,
+    because its `flags.moved` is left over from its own turn. The client path is verified
+    headless only (`GameManager.apply_result`), not in a two-instance game.
 
-- [ ] **T10 — Held-key threat overlay (Tab)**
+- [x] **T10 — Held-key threat overlay (Tab)**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/Main.gd` (input handling), new
     `40k/scripts/ThreatOverlay.gd`
@@ -344,13 +813,70 @@ Locks in use:
       removed).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Yellow rings visible around every enemy unit.
-    - [ ] Red rings (charge threat) larger than yellow (shooting range may be
+    - [x] Yellow rings visible around every enemy unit.
+      *(T10_held: a solid yellow ring round every Custodes unit that has a ranged weapon: the
+      Custodian Guard's 24" (one outline round all four models), the Jetbike Shield-Captain's 24",
+      the Contemptor's 18", and the 12" rings of the Shield-Captain and both Witchseeker squads,
+      which show yellow between the red dashes of the charge ring on top of them. Two units have
+      no yellow ring on the board, by design: the Blade Champion carries only melee weapons, and
+      the Telemon's 72" ring lies past every board edge, so its 15% wash tints the whole board.)*
+    - [x] Red rings (charge threat) larger than yellow (shooting range may be
           larger or smaller depending on weapon, but each ring distinct).
-    - [ ] Released → board returns to pre-Tab state exactly.
-    - [ ] No flicker during repeated Tab press/release.
+      *(T10_held: eight dashed red 12" rings, one per enemy unit, each distinct from the solid
+      yellow rings. They sit inside the 18-72" yellow rings and on top of the 12" ones. The red
+      wash inside them reads redder than the yellow wash outside.)*
+    - [x] Released → board returns to pre-Tab state exactly.
+      *(T10_after against T10_before: no ring, no tint, pixel_diff 0.0% full frame.)*
+    - [x] No flicker during repeated Tab press/release.
+      *(Four press/hold/release cycles turn the view on and off exactly once each, with the same
+      three layer nodes. T10_held_again after them is pixel-identical to T10_held (0.0%). A
+      key-repeat Tab while held changes nothing and no longer hops the HUD focus.)*
+  - **Note (2026-10-31 audit):** what had shipped drew one filled Polygon2D disc per enemy unit
+    at its first model's centre, radius = range only. Eight overlapping 15% discs stacked to a
+    near-opaque yellow-orange wash that ran past the board under the HUD. No ring had an
+    outline, so none could be told apart. A melee-only unit got a made-up 24" shooting circle,
+    and "enemy" meant the opponent of the active player, which is wrong on the AI's turn and in
+    network play. `active` was a plain var, so the task's `active = true` route did nothing.
+    Holding Tab never worked in the Shooting phase: `shoot_cycle_eligible_unit` is also Tab, and
+    ShootingController._input runs before Main's, so the press only cycled the shooter. The old
+    scenario hid this by calling `set_active(true)` in that very phase. Key repeat leaked to the
+    GUI as focus navigation, and releasing Tab with Shift down left the view stuck on. Changed on
+    this pass: `ThreatOverlay` builds three persistent layers (`ShootFill` / `ChargeFill`
+    CanvasGroups at 0.15 / 0.10 alpha so overlaps composite once, plus `Outlines`), so toggling
+    only flips `visible`. Each enemy unit gets one outline: the exact union of its alive
+    models' circles, radius = range x 40 px + base extent (edge to edge, as the engine measures).
+    An attached leader folds into its bodyguard's entry with its own gun range. The yellow ring
+    is solid and the red one dashed (as T30), 2 screen px wide at any zoom, everything clipped
+    to the board. Melee-only units have no shooting threat (`radius_px` 0). The viewer is the
+    local seat online, the human seat against the AI, the active player in hot-seat. Rings
+    rebuild on `phase_action_taken` / `phase_changed` while held. `handle_key_event()` (called
+    from Main._input) consumes key repeat and honours the release whatever the modifiers. If the
+    key-up is lost (focus change, a dialog), `_process` sees the key up and stands down, and a
+    focus-out notification does the same. In the Shooting phase ShootingController hands a
+    shared-key press to `begin_tap_or_hold()`: released within 0.2 s it cycles the shooter on
+    the key-up, held longer it shows the view and does not cycle. `simulate_key` gained
+    `state: press | release` so a scenario can hold a key across steps. Tier A: scenario 74/74,
+    on co_pretrigger in the Shooting phase, through the real Tab key. Baseline is off and empty.
+    Held: active, 16 rings == 2 x 8 enemy units counted from GameState independently, every
+    shoot entry MARGINAL_YELLOW and every charge entry INVALID_RED. Released: off and empty.
+    pixel_diff before -> held 45.8% (> 2.0); board region 96.1%, right HUD and off-board margin
+    0.0%. Before -> after 0.0% (< 0.5). New gated test `tests/test_threat_overlay.gd` (81
+    checks). Both went red under scratch sabotage probes: the old Shooting-phase swallow, a
+    modifier-strict release, leaked key repeat, the 24" fallback, a plain `active` var, no board
+    clip, no tie-break for identical circles. Gate 183/183 (known XFAIL only). Visual suite: 42
+    pass, the only failure T39 at its known step 33 (T23 / T27 / T45 known, not re-run). Six
+    keyboard sp scenarios: five pass, split_fire_spinbox_commit XFAIL (listed). Deviations:
+    (a) Outlines at 0.9 alpha were added; the 15% / 10% alpha apply to the fills, since a
+    15%-alpha ring line cannot be seen on the board. (b) Melee-only units keep a `shoot` entry
+    with `radius_px` 0.0, so the 2 x enemy count holds, but draw no yellow. (c) A
+    multi-model unit's ring is the union outline of its models' circles (doc §5), not one circle.
+    (d) `rendered_rings` entries also carry `range_inches`, and the overlay exposes
+    `viewer_player_id`, `activation_count` and `last_change_reason` for scenarios.
+    (e) Shooting phase: a hold must pass 0.2 s before the view shows, and a tap still cycles,
+    on the key-up rather than the key-down. (f) The vs-AI viewer and the focus-loss release are
+    verified headless only.
 
-- [ ] **T11 — LOS line tool**
+- [x] **T11 — LOS line tool**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
   - **Touches:** `40k/scripts/ShootingController.gd`, new `40k/scripts/LOSLineVisual.gd`,
     reuse existing LOS math
@@ -373,11 +899,47 @@ Locks in use:
     - `pixel_diff` between (b) and (c): `regions["los_line"].diff_pct > 5.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Three distinct colors in three screenshots.
-    - [ ] Line endpoints anchored to base centers.
-    - [ ] Line disappears on hover-off.
+    - [x] Three distinct colors in three screenshots.
+      *(T11_a_clear green, T11_b_obscured yellow, T11_c_blocked red. The scenario also reads
+      the captured pixel a quarter of the way along the line back to CONFIRMED_GREEN /
+      MARGINAL_YELLOW / INVALID_RED.)*
+    - [x] Line endpoints anchored to base centers.
+      *(Enlarged crops of all three captures: the end dots sit on the centres of the Kaptin
+      Badrukk and Contemptor tokens. The scenario checks both ends within 1px of the live
+      token centres on screen, and within 0.5px of the model positions.)*
+    - [x] Line disappears on hover-off.
+      *(T11_hover_off and T11_after show no line and no range label. The los_line band differs
+      by 18.75% between (a) and hover-off, and by 0.0% between before and after.)*
+  - **Note (2026-10-31 audit):** LOSLineVisual and its BoardRoot install had shipped, but
+    nothing drew it. Hovering still drew ShootingController's plain red line, only for eligible
+    targets. The verdict came from LineOfSightManager.check_los (10e point rules) plus "any
+    non-tall terrain on the centre line = obscured", so an 11e barricade between the units read
+    yellow for a target the rules cannot see. The old scenario called compute_line directly and
+    accepted any of the three states. Now ShootingController._handle_board_hover draws the line
+    for every enemy under the cursor, eligible or not. It clears the line and its range label on
+    hover-off, over the HUD, and when the shooter changes. The verdict is
+    RulesEngine.unit_sight_line (the eligibility predicate) for sight, plus
+    TerrainManager.unit_has_cover_11e (13.08, or a stratagem cover flag) for the firing model the
+    line starts from. The line runs between that pair's base centres, 3px on screen at any zoom,
+    above the tokens, with end dots. Also fixed: RulesEngine's sight-line memo was never
+    invalidated, because snapshots nest terrain under board.board and its epoch guard read null.
+    TerrainManager now clears it on terrain_loaded. Without that, the target list and the line
+    kept the old terrain's verdicts. Evidence: the scenario passes 67/67, and fails 18 steps on
+    the old code. pixel_diff on the los_line band: (a)/(b) 18.75%, (b)/(c) 18.75%. New gated
+    test `tests/test_los_line_visual.gd` (54 checks); 7 scratch sabotage probes each turn it red.
+    Visual suite: 42 pass (baseline 41), with T23, T27 and T39 failing at their known steps and
+    T45 XFAIL. 15 of the 16 sp scenarios this change can reach pass; terrain_11e_menu_matchup
+    fails the same way on the HEAD code (menu disposition defaults, unrelated). Deviations:
+    (a) the scenario installs the curated terrain through TerrainManager.load_terrain_from_save
+    on co_pretrigger, not from a separate .w40ksave.
+    (b) "Obscured" means the target has the benefit of cover (doc §6 "cover saves"), judged for
+    the model the line starts from. A squad whose other models see the target differently can
+    still show "Cover from N% of models" on the T05 card. (c) Blocked lines are drawn for
+    ineligible enemies too, since red could never show otherwise. (d) The old red
+    ShootingLoSVisual line is gone, and T06's hover check now reads LOSLineVisual.
+    (e) current_line also carries shooter_id and target_id.
 
-- [ ] **T12 — Refactor existing visual scripts to consume UIConstants**
+- [x] **T12 — Refactor existing visual scripts to consume UIConstants**
   - **Lock:** UIConstants + all visual scripts (serial — blocks other visual streams)
   - **Doc:** §9  • **Depends:** T01
   - **Touches:** `40k/scripts/MovementRangeVisual.gd`, `EngagementRangeVisual.gd`,
@@ -404,12 +966,64 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
     - [ ] All visible overlays look perceptually identical to pre-refactor.
-    - [ ] No new color appearing where one didn't exist.
-    - [ ] Commit body lists every substitution.
+      *(Not ticked. Side by side, pre- vs post-T12 (T12_engagement / _reserves / _full_board /
+      _effects_*), every overlay matches except the movement trails, which change hue on
+      purpose: P1 paths blue to FRIENDLY_PLAYER_TEAL, P2 AI trails red to ENEMY_PLAYER_MAGENTA
+      (doc §9 "P1 paths", the Change's "corresponding slot"). Smaller shifts: the hit flash is a
+      touch pinker (#FF260D to INVALID_RED) and the AI result summary text is pale white, not
+      cream.)*
+    - [x] No new color appearing where one didn't exist.
+      *(No overlay gains a colour where it had none. The trails' teal and magenta are the slot
+      colours already on every token's outer ring (T08), next to the trails in the captures.)*
+    - [x] Commit body lists every substitution.
+      *(All 101 literal lines of the eleven files: each colour literal as file:line
+      old=#hex new=SLOT, each Color(c.r, c.g, c.b, a) alpha rebuild as file:line with_alpha.)*
+  - **Note (2026-10-31 audit):** nothing had been refactored. MovementRangeVisual read the
+    slots at runtime but kept literal fallbacks. The other scripts painted ad-hoc literals: 101
+    lines with `Color(` or a named `Color.X` across the eleven files (see (a)). The old scenario only
+    checked `UIConstants.all_slots()`. Changed on this pass: (1) UIConstants gains two neutral
+    chrome backdrops outside the slot table, OVERLAY_LABEL_BG (#1A140D, the old label chip) and
+    OVERLAY_SHADOW (#000000), with chrome_name() / all_chrome(), plus the static
+    with_alpha(color, alpha). The seven slots and the doc §9 table are unchanged; §9 gains a
+    paragraph on the chrome. (2) The eleven scripts preload UIConstants and name a slot or
+    chrome constant for every colour. Alphas are named constants applied with with_alpha() at
+    draw time. Shades are a slot darkened: kill numbers and the death ring are INVALID_RED
+    darkened 0.2; debris is an INVALID_RED..WARNING_ORANGE blend darkened at most 0.35, still
+    three randf() per particle. Mapping: charge declared and charge flash WARNING_ORANGE,
+    success CONFIRMED_GREEN, failure INVALID_RED; min roll easy / average / hard in green /
+    yellow / red; coherency in / out green / red; deep-strike and infiltrator exclusions
+    INVALID_RED; P1 / P2 trails TEAL / MAGENTA; hit flash INVALID_RED with a WARNING_ORANGE core;
+    summary text NEUTRAL_UI_PALE_WHITE; label chips and backdrops chrome. (3) New scenario and
+    new gated test `tests/test_visual_color_slots.gd` (230 checks). Evidence: T12_color_audit
+    passes 50/50 twice, with a run-to-run diff of 0.0% on every frame. Its 6 refactor steps fail
+    on the pre-T12 code (101 source hits, arrowheads #FF3333 / #FF9900, off-slot constants, no
+    chrome classifier). The new test does not parse on the pre-T12 tree, and fails 23 checks
+    with one pre-T12 script (ChargeArrowVisual) swapped back in. Pre- vs post-T12 diff of the
+    same frames (pixel_diff_cli on captures from both builds): engagement 0.38%, reserves 1.01%,
+    full board 0.13% (bound 2%). The frozen effects frames read 3.52% (1.86% of it the hit-flash
+    disc at its peak) and 1.21%. Visual suite on this tree: 42 pass (baseline 41); T23, T27 and
+    T39 fail at their known steps; T45 is XFAIL. The 9 sp scenarios that reach these scripts
+    pass. Deviations: (a) Scope is the nine Touches files plus HumanMovementPathVisual and
+    InfiltratorExclusionVisual. They held the exact literals of AIMovementPathVisual and
+    DeepStrikeExclusionVisual, so converting one of each pair alone would split matched visuals.
+    The task's `grep -rn "Color(" 40k/scripts/*Visual.gd` also covers 19 other *Visual.gd files
+    outside Touches (TokenVisual 72, TerrainVisual 34, ObjectiveVisual 32, GhostVisual 25, the
+    Dice* visuals, ...: 290 lines). They hold art colours with no slot and are left for T41's
+    codebase-wide pass. For the eleven files the grep returns 0. (b) Colours that callers pass
+    in stay theirs (T41 scope): Main.gd's zone borders and fills, PersistentEngagementOverlay's
+    amber ring, and ChargeController's and FightController's ring colours.
+    EngagementRangeVisual's literals were only defaults that no caller uses. (c) The neutral
+    chrome is not a slot, so the class walk accepts a slot or chrome. (d) The 2% bound holds for
+    the three fixture frames. The transient effects, frozen at their peak in their own frames,
+    exceed it through the hit flash, because the old #FF260D has no slot nearer than
+    INVALID_RED. (e) The "engagement-zoom" and "full-board" fixtures are two framings of
+    co_pretrigger: x2 on the engaged Custodian Guard and Warboss, and the load framing at zoom
+    0.3. A third framing covers the reserves overlays. ChargeTrajectoryPreview is in Touches
+    but is not a *Visual.gd file.
 
 ## §1 Camera
 
-- [ ] **T13 — Fit-board keybind (F)**
+- [x] **T13 — Fit-board keybind (F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02
   - **Touches:** `40k/scripts/Main.gd` (input)
   - **Change:** `F` keybind: animate Camera2D so the playable board fills the
@@ -425,11 +1039,63 @@ Locks in use:
     - `pixel_diff` between pre-F and post-F screenshots: `total_diff_pct > 10.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Whole board visible.
-    - [ ] Margin uniform on all four sides.
-    - [ ] Animation smooth (no jump).
+    - [x] Whole board visible.
+      *(T13_after: the whole board, both deployment edges and their tokens, sits between the
+      top bar and the phase strip and between the game log and the right panel, with the
+      reserve rails in the gutters beside it. The scenario checks that the drawn board rect
+      touches none of those four panels or the two rails. T13_after_log_hidden: the same with
+      the log hidden, re-centred in the wider area.)*
+    - [x] Margin uniform on all four sides.
+      *(32px top and bottom, 265px left and right, measured on the drawn board by the
+      scenario to within 1px. See deviation (e).)*
+    - [x] Animation smooth (no jump).
+      *(T13_before, T13_mid, T13_mid2 and T13_after show the board travelling up-left and
+      growing step by step. The per-frame zoom samples follow a slow-fast-slow curve; no frame
+      covers more than 22% of the change and none moves backwards.)*
+  - **Note (2026-10-31 audit):** fit_view_to_board() and the F binding had shipped, but a real
+    F press never showed the board. focus_p2_zone was also bound to plain F, and Main._process
+    polls it every frame, so holding F snapped the view onto Player 2's deployment zone at 0.8x.
+    Measured: view_zoom 0.8 after a real F tap, while the Camera2D mirror said "fitted". The old
+    scenario called _input directly through t13_synthesize_f_press and read Camera2D, which
+    renders nothing (Main is a CanvasLayer; setting Camera2D alone changed 0.01% of the frame),
+    so it passed. The fit also cut instead of animating, and used the whole window, so the
+    board's top and bottom edges sat under the 100px top bar and the phase strip. Its 32px pad
+    was in world pixels (about 14 on screen). Now focus_p2_zone has no default key, and
+    KeybindingManager.load_bindings clears a saved plain-F binding while fit_view_board is
+    still on F. fit_view_to_board(animate) fits the board into the board view rect: the
+    viewport minus the visible HUD_Bottom (top bar), PhaseStrip, GameLogPanel, HUD_Right and
+    LeftRoster (new scripts/BoardFit.gd). The fit leaves 32 screen px on the tight axis,
+    centres the other, and swaps the extents for a quarter-turned view. F glides there on the
+    existing clamped-delta eased camera glide, in a new anchored mode: the view rect's centre
+    stays still and the zoom is interpolated in log space. The Camera2D mirror follows every
+    frame and ends on the board centre. Scripted calls (fit_view_to_board()) still cut. New
+    is_camera_glide_active(). Evidence: the scenario passes 80/80 with the real F key held
+    through the glide. Zoom samples: 0.300, 0.301, 0.308, 0.316, 0.328, 0.343, 0.355, 0.362,
+    0.367, 0.369; the largest frame is 22% of the change. Camera2D ends 0.0px from the board
+    centre, zoom 0.36917 = (950 - 64) / 2400, margins 32/32 and 265/265. pixel_diff: before ->
+    after 38.5%, before -> mid 18.0%, mid -> mid2 35.9%, mid2 -> after 25.0%. Four scratch
+    sabotage probes fail 17, 5, 8 and 1 steps: focus_p2_zone back on F, an instant cut, the
+    whole-window rect, and the mirror at the viewport centre. New gated test
+    `tests/test_fit_board_camera.gd` (47 checks); six scratch sabotage probes each turn it red.
+    Visual suite: 42 pass (baseline 41); T23, T27 and T39 fail at their known steps and T45 is
+    XFAIL. Of the 13 sp scenarios that reach the fit, the bindings or the glide, 11 pass.
+    movement_embarked_select_pans_to_transport and tut_t1_basics are listed known failures
+    with their listed step counts; the first fails the same two steps on the HEAD code.
+    Deviations: (a) "Viewport" means the board view rect, the part of the window not under
+    the HUD. Fitting the raw window put the board's top and bottom edges under the top bar
+    and phase strip. Tier A's fit zoom is computed from that rect: 0.3692 at 1920x1080, where
+    the raw-window formula gives 0.4383. (b) The 32px margin is in screen pixels. (c) The
+    Camera2D does not render. It is a mirror whose position is the framed world point (the
+    board centre for this fit); what animates on screen is view_offset / view_zoom. (d) The
+    scenario runs in the Shooting phase, not Command: the Command phase's secondary-mission
+    dialog takes the keyboard, so a real F cannot reach Main there. (e) "Uniform" is read as
+    centred, with 32px on the tight axis: a portrait board in a landscape area cannot have the
+    same margin on all four sides. (f) T31_ruler_tool now declines the Movement-phase
+    stratagem modal first. Its ruler is drawn from the board centre, which the new framing
+    puts 35px lower, under that modal. (g) focus_p2_zone gets no new default key: no free
+    letter is left, and players can bind one in Settings > Controls.
 
-- [ ] **T14 — Fit-selection keybind (Shift+F)**
+- [x] **T14 — Fit-selection keybind (Shift+F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02
   - **Touches:** `40k/scripts/Main.gd`
   - **Change:** `Shift+F`: zoom + center on selected unit (bounding box for
@@ -443,12 +1109,77 @@ Locks in use:
     - `pixel_diff` between pre and post: `total_diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Selected unit centered.
-    - [ ] Other units in frame if they fit; never crops the selection.
+    - [x] Selected unit centered.
+      *(T14_after: the Gretchin mob (22 models on 25mm bases, along the top edge) sits in the
+      middle of the free area, between the game log and the right panel and between the top bar
+      and the phase strip. The scenario measures its bounding-box centre 0.0001px from that area's
+      centre (930, 575). T14_wide_after and T14_alive_after show the same for the mob stretched
+      into one line and for its 17 living models.)*
+    - [x] Other units in frame if they fit; never crops the selection.
+      *(T14_after: Mek Gunz, Mek Beta, the Beastboss, the Beast Snagga Boyz, the Deffkilla
+      Wartrike, Warbikers Beta and the Tankbustas are in frame. All 13 models within 5" of the mob
+      and all 22 Gretchin bases are drawn inside the free area. T14_wide_after: the line across the
+      board is too wide for 1.2x, so the camera zooms out to 0.568 and draws it whole, with 5" of
+      table beyond each end, clear of the log and the right panel.)*
+  - **Note (2026-10-31 audit):** fit_view_to_selection() and the Shift+F binding had shipped, and
+    a real Shift+F did reach Main and frame the selection (probe: zoom 1.2, mirror on the box
+    centre). But the fit centred the unit on the whole window (960, 540), 46px off the middle of
+    the free area (930, 575). It sized the zoom from the whole window too, so a wide unit ran
+    under the log and the right panel (a 1100px line drew at screen x 270..1650). It boxed model
+    centres only, counted dead models, and cut where F glides. The old scenario never selected a
+    unit or pressed a key. It called fit_view_to_selection() directly in the Fight phase,
+    "panned" only the Camera2D (which renders nothing), took models[0] as the centroid, and its
+    description named a seam that no step called. Changed on this pass: (1) BoardFit gains
+    footprint() (models as circles of Measurement.base_extent_px), fit_box(), rotate/
+    unrotate_about_board() and point_glide_sample(). (2) Main.fit_view_to_selection(unit_id,
+    animate) frames the bounding box of the unit's alive, placed models, bases included, in
+    get_board_view_rect() (the area the F fit uses). The box is centred, with 5" (200px) of
+    table on the tighter axis and the zoom capped at 1.2x. New compute_selection_fit(unit_id).
+    (3) Shift+F glides there (animate = true) on a new point glide: the unit's centre slides
+    on a straight screen line into the middle while the zoom changes at an even rate. T13's
+    anchored glide would first carry it outwards on a big zoom-in. Scripted calls still cut. (4)
+    The Camera2D mirror follows every frame, ends on the box centre and is now right on a
+    quarter-turned board (_sync_camera_node_to_view turns the point back). (5) DebugLogger lines
+    for each fit and each settled glide. The pad's LB/RB cycle from the overview and the embark
+    pan call the same function, so they get the same framing and glide. Evidence: the scenario
+    passes 139/139 on shooting_phase. A real click selects the mob, the view is panned to the
+    bottom edge at 0.3x with the mob off screen, and the real Shift and F keys are held through
+    the glide. Tier A: the action is "selection", Camera2D sits 0.00003px from the box centroid,
+    and pixel_diff is 49.0%. The zoom is 1.2, as computed from the HUD panels' rects. Glide: 9
+    of 12 sampled frames fall between the start and end zoom. The zoom never moves away from
+    the fit, the mob stays on the line in (within 0.0001px) and only gets closer, and the mirror
+    animates. pixel_diff is 41.8% before to mid and 52.7% mid to after. Shift+F again moves
+    nothing. The scripted call cuts to the same framing, and the embarked Kommandos frame their
+    Battlewagon. After a real Esc deselect, Shift+F moves nothing and claims no fit. With five
+    models dead it frames the 17 living ones (0.0px from their centre, 195px from the whole
+    line's). Five scratch sabotage probes each turn the scenario red. Whole-window rect: 6 steps
+    (46px off, 6/22 bases cropped). A cut: 3. T13's anchored glide: 1 (the swing). Centres-only
+    box: 4. Dead models counted: 4. New gated test `tests/test_fit_selection_camera.gd` (54
+    checks). Visual suite on this tree: 42 pass (baseline 41); T23, T27 and T39 fail at their
+    known steps and T45 is XFAIL. Of the 53 sp scenarios that reach the fit, the glide or the pad
+    cycle, the 37 unlisted ones pass. The 15 listed known failures fail the same steps on HEAD or
+    match their listed counts. tut_t4_dakka_reassign_pad (62/8) and tut_full_course_chain_pad
+    (23/7) differ from their listed counts on HEAD too.
+    Deviations: (a) Tier A's "centroid" is read as the centre of the selection's bounding box,
+    bases included, because the Change frames the bounding box. For this left-heavy mob the mean
+    of the model positions sits 43px left of it. Centring on that would leave the mob lopsided
+    and need a lower zoom. (b) "Viewport" means the board view rect, the part of the window
+    not under the HUD, as in T13. (c) Shift+F glides like F; the Change did not ask for
+    animation. (d) The scenario runs in the Shooting phase on shooting_phase, which has a
+    multi-model unit of the active player at the far edge. The phase auto-arms its first
+    targetable shooter, so the click switches the selection from Battlewagon Alpha to the mob,
+    and "nothing selected" is reached with a real Esc. (e) "Other units in frame if they fit"
+    is read as: every model within 5" of the selection's bases is in frame, and the 1.2x cap
+    shows more. (f) T46 now declines the Movement-phase stratagem modal, because the new framing
+    put its squad under the modal's top edge. movement_embarked_select_pans_to_transport waited
+    for tweens, not the camera glide, so it read the camera mid-glide. With the wait fixed it
+    passes 22/22, on HEAD too, and is delisted from _known_failures.txt. (g) fit_view_to_decision
+    (T22) keeps its whole-window math. That is left for T22, which can frame the union of the
+    units' footprints with BoardFit.fit_box().
 
 ## §2 Tokens (continued)
 
-- [ ] **T15 — Unit-type silhouette glyphs**
+- [x] **T15 — Unit-type silhouette glyphs**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T08
   - **Touches:** `40k/scripts/TokenVisual.gd`, new
     `40k/assets/icons/unit_silhouettes/{infantry,tank,walker,beast,character,aircraft,mounted}.svg`
@@ -467,9 +1198,50 @@ Locks in use:
       (silhouette) on the same token: `regions["token_center"].diff_pct > 25.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Silhouettes recognizable at zoom 1.0.
-    - [ ] Silhouettes still recognizable at zoom 0.5 (32px).
-    - [ ] Letter labels visible under the base.
+    - [x] Silhouettes recognizable at zoom 1.0.
+      *(T15_zoom1_infantry_characters / _vehicles / _aircraft_beast: crowned, caped figure with a
+      sword on the Warbosses, Shield-Captain, Painboss and Weirdboy; armoured trooper with a gun on
+      the Boyz, Kommandos, Meganobz and Witchseekers; mech on both dreadnoughts; bike and rider on
+      the jetbike Shield-Captain; jet on the Wazbom Blastajet; quadruped beast on Ghazghkull and
+      his second model. T15_tank_glyph_fallback: tank on the Caladius. White on a black keyline,
+      inside the rings; T15_before/T15_after show the "WAR" counter replaced on the same token.)*
+    - [x] Silhouettes still recognizable at zoom 0.5 (32px).
+      *(T15_zoom05, T15_zoom05_right, T15_zoom05_tank_glyph_fallback, read at native pixels: the
+      32mm infantry glyph is ~16px and still a figure, the hero's cape and sword, the mechs, jet,
+      beast and tank are clear; the jetbike's bike is the smallest (its oval is 42mm across) but
+      reads. Drawn mipmapped: an A/B against plain linear filtering showed jagged, uneven 16px
+      glyphs without it. The scenario's template match agrees >= 80% on 77 glyphs.)*
+    - [x] Letter labels visible under the base.
+      *(T15_zoom1_*: "BO*", "KO*", "ME*", "LO*", "WI*", "Cu" and "Ghazg" in bold white outlined type
+      just under each model's base; the scenario finds text pixels in 7 named labels. The model
+      carrying the unit's name plate shows the plate there instead - see the note.)*
+  - **Note (2026-11-01 audit):** what existed: a placeholder - TokenVisual added a hidden Sprite2D
+    "Silhouette" with a 32px procedural blob and a silhouette_category that read the unit by the
+    node's name (never the unit id), so every token was "infantry" (FLY also mapped to aircraft,
+    which would have made a Caladius an aircraft); no SVGs; the centred letter was untouched; the
+    Label child was a T16 stub showing the model number at (-6, 12) inside the base. The old
+    scenario only checked token 0's hidden node. Changed: (1) seven 64x64 SVG glyphs in
+    40k/assets/icons/unit_silhouettes/ (white on a black keyline, imported 4x with mipmaps).
+    (2) silhouette_category_for_keywords(): body type first (AIRCRAFT, WALKER, MOUNTED, VEHICLE,
+    MONSTER/BEAST(S)/SWARM), then CHARACTER, else infantry, from the unit_id meta. (3) The glyph is
+    painted at Layer 3 of the letter style, where the letter was, under every badge and overlay,
+    tinted with the base's contrast colour (black on a light full-colour base). (4) The Label is
+    the letter counter, centred under the base (below a rotated oval, clear of the status tick),
+    13px Rajdhani Bold with an outline, z -1 so it never covers a neighbouring token.
+    Deviations: (a) "Silhouette" is a spec node (Node2D subclass with `texture`, modulate = tint,
+    visible = painted) painted by the token, like the T08 rings, not a self-drawing Sprite2D: a
+    child sprite would sit above the fought/engaged/action badges drawn inside the base.
+    `get_node("Silhouette").texture != null` holds for every token. (b) Later deliberate art
+    decisions are kept (0.34-0.35: dedicated top-down unit art; generic Kenney tank sprite for
+    vehicles without art): art tokens keep their art and a "tank" keeps the tank sprite (its glyph
+    is the fallback, reviewed via T15_tank_glyph_fallback). Walkers, aircraft and mounted vehicles
+    used to borrow that tank sprite and now get their own glyph. (c) The model carrying the unit's
+    name plate leaves its Label empty (single-model units show only the plate under the base):
+    letter + plate under one base pushed plates into the next rank and broke T08's ring sampling.
+    (d) Label font is Rajdhani Bold, not the faction face (Caslon Antique goes thin at 13px).
+    (e) Fixture fullauto_pretrigger has no beast, so the scenario gives Ghazghkull his MONSTER
+    keywords from the mirror_orks army data (setup privilege). Follow-up: GhostVisual (move/deploy
+    drag ghosts) still draws the old letter counter.
 
 - [ ] **T16 — Auto-hide token labels below zoom threshold**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T15

@@ -15,6 +15,10 @@ const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
 const AISuggestionBreakdownPanelScript = preload("res://scripts/AISuggestionBreakdownPanel.gd")
 const AISuggestionTestCasesScript = preload("res://scripts/AISuggestionTestCases.gd")
 const AISuggestionBoardOverlayScript = preload("res://scripts/AISuggestionBoardOverlay.gd")
+# T04: the six named phase pills hosted inside the bottom PhaseStrip.
+const PhaseBarScript = preload("res://scripts/PhaseBar.gd")
+# T13: fit-board camera math (free board area, fit zoom, glide samples).
+const _BoardFit = preload("res://scripts/BoardFit.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -122,6 +126,8 @@ var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 # T13/T14: track which camera-fit action ran most recently so scenarios can
 # assert the keybind produced the expected behavior. "" = none, "board" = F,
 # "selection" = Shift+F, "decision" = auto-zoom on side panel open.
+# Set when the fit starts, so with F's glide it reads "board" while the camera
+# is still travelling (is_camera_glide_active() says when it has arrived).
 var last_camera_fit_action: String = ""
 
 # Which camera gestures the player has actually used, keyed by screen-space id:
@@ -338,10 +344,9 @@ var _round_indicator_label: Label = null
 var _round_player_label: Label = null
 var _round_indicator_panel: PanelContainer = null
 
-# Phase progress strip
-var _phase_strip_container: HBoxContainer = null
-var _phase_strip_labels: Dictionary = {}
+# Phase progress strip (bottom edge) and the T04 PhaseBar of pills inside it
 var _phase_strip_panel: PanelContainer = null
+var _phase_bar: HBoxContainer = null
 
 # P3-111: Settings menu instance
 var _settings_menu: SettingsMenu = null
@@ -4085,54 +4090,33 @@ func _setup_phase_strip() -> void:
 	strip_style.set_content_margin_all(0)
 	strip_style.content_margin_left = 4
 	strip_style.content_margin_right = 4
+	# T04: keep the pill row inside the band a player can actually see. The
+	# steady PlayerTurnBorder paints over the strip's bottom 6 px, so the row
+	# sits 1 px above it and 2 px under the gold top rule:
+	# 30 px strip = 2 + 21 px pill row + 7.
+	strip_style.content_margin_top = 2
+	strip_style.content_margin_bottom = PlayerTurnBorder.BORDER_THICKNESS + 1
 	_phase_strip_panel.add_theme_stylebox_override("panel", strip_style)
 	add_child(_phase_strip_panel)
 
-	_phase_strip_container = HBoxContainer.new()
-	_phase_strip_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	_phase_strip_container.add_theme_constant_override("separation", 0)
-	_phase_strip_panel.add_child(_phase_strip_container)
+	# T04: six named pills (PhasePill_COMMAND ... PhasePill_SCORING) showing the
+	# active phase in the active player's slot colour, completed phases grey and
+	# future phases faded. The bar listens on PhaseManager.phase_changed itself.
+	_phase_bar = PhaseBarScript.new()
+	_phase_strip_panel.add_child(_phase_bar)
 
-	var phases = [
-		[GameStateData.Phase.COMMAND, "Command"],
-		[GameStateData.Phase.MOVEMENT, "Movement"],
-		[GameStateData.Phase.SHOOTING, "Shooting"],
-		[GameStateData.Phase.CHARGE, "Charge"],
-		[GameStateData.Phase.FIGHT, "Fight"],
-		[GameStateData.Phase.SCORING, "Score"],
-	]
-
-	for i in range(phases.size()):
-		var phase_id = phases[i][0]
-		var phase_name = phases[i][1]
-
-		if i > 0:
-			var arrow = Label.new()
-			arrow.text = "  ▸  "
-			arrow.add_theme_font_size_override("font_size", 16)
-			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.25))
-			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			_phase_strip_container.add_child(arrow)
-
-		var lbl = Label.new()
-		lbl.text = phase_name
-		lbl.add_theme_font_size_override("font_size", 17)
-		lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.5))
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.custom_minimum_size = Vector2(60, 0)
-		if FactionPalettes:
-			lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-		_phase_strip_container.add_child(lbl)
-		_phase_strip_labels[phase_id] = lbl
-
-	_phase_strip_panel.visible = false
-	print("Main: Phase progress strip created")
+	# Show the strip for the phase the game is ALREADY in. Loading a save
+	# restores its phase before this runs (Main._ready), so leaving the strip
+	# hidden until the next phase_changed hid it for a whole phase after a load.
+	_update_phase_strip()
+	print("Main: Phase progress strip created (T04 PhaseBar, visible=%s)" % str(_phase_strip_panel.visible))
 
 func _update_phase_strip() -> void:
 	if not _phase_strip_panel:
 		return
 
+	# Main only decides whether the strip shows. The PhaseBar inside it lights
+	# its own pills from PhaseManager.phase_changed (T04).
 	var current_game_phase = GameState.get_current_phase()
 	var is_battle_phase = current_game_phase in [
 		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
@@ -4140,30 +4124,6 @@ func _update_phase_strip() -> void:
 		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
 	]
 	_phase_strip_panel.visible = is_battle_phase
-
-	if not is_battle_phase:
-		return
-
-	var battle_phases_order = [
-		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
-		GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE,
-		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
-	]
-	var current_idx = battle_phases_order.find(current_game_phase)
-
-	for phase_id in _phase_strip_labels:
-		var lbl: Label = _phase_strip_labels[phase_id]
-		var idx = battle_phases_order.find(phase_id)
-
-		if phase_id == current_game_phase:
-			lbl.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-			lbl.add_theme_font_size_override("font_size", 19)
-		elif idx < current_idx:
-			lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.4))
-			lbl.add_theme_font_size_override("font_size", 17)
-		else:
-			lbl.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
-			lbl.add_theme_font_size_override("font_size", 17)
 
 # P3-109: Update the round indicator text and player faction display
 func _update_round_indicator() -> void:
@@ -7098,17 +7058,28 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F)
+	# T13: fit-to-board camera keybind (rebindable: fit_view_board, default F).
+	# Glides (animate = true) rather than cutting, so the player keeps track of
+	# where they were looking. F used to be shared with focus_p2_zone, which is
+	# polled every frame in _process and snapped the view onto Player 2's zone
+	# for as long as F was down — so a real F press never showed the board.
+	# focus_p2_zone is unbound by default now (KeybindingManager).
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_board"):
-		fit_view_to_board()
+		fit_view_to_board(true)
 		get_viewport().set_input_as_handled()
 		return
 
-	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection, default Shift+F)
+	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection,
+	# default Shift+F). Frames the selected unit (the current phase's controller
+	# selection, see _selected_unit_id_or_empty) in the board view rect and
+	# glides there like F does, so the player sees where the camera went.
+	# With nothing selected the camera stays put.
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_selection"):
 		var sel_id := _selected_unit_id_or_empty()
 		if sel_id != "":
-			fit_view_to_selection(sel_id)
+			fit_view_to_selection(sel_id, true)
+		else:
+			DebugLogger.info("T14 Shift+F: no unit selected, camera unchanged", {"phase": current_phase})
 		get_viewport().set_input_as_handled()
 		return
 
@@ -7132,11 +7103,15 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	# T10: threat overlay held key (rebindable: threat_overlay, default Tab). Press -> on, release -> off.
-	if event is InputEventKey and not event.echo and KeybindingManager.matches_action(event, "threat_overlay"):
+	# T10: threat overlay held key (rebindable: threat_overlay, default Tab).
+	# Press -> on, release -> off. ThreatOverlay.handle_key_event() owns the
+	# rules: key repeat is consumed (held Tab must not also walk GUI focus),
+	# the release counts whatever modifiers are down by then, and a
+	# Shooting-phase tap that ShootingController handed over (Tab is "cycle
+	# shooter" there too) resolves on this key-up.
+	if event is InputEventKey:
 		var to = get_node_or_null("BoardRoot/ThreatOverlay")
-		if to != null:
-			to.set_active(event.pressed)
+		if to != null and to.handle_key_event(event):
 			get_viewport().set_input_as_handled()
 			return
 
@@ -7718,9 +7693,12 @@ func synthesize_x_cursor_los(pressed: bool) -> bool:
 	return mgr != null and mgr.is_calculating
 
 
-# T13: synthesize the F key press and route through _input. Used by the
-# T13 scenario to verify the keybind wiring without depending on the
-# host input pipeline (which can be flaky in headless+xvfb runs).
+# T13 test seam: synthesize the F key press and route it through _input,
+# bypassing the host input pipeline. It also bypasses Input's held-key state,
+# which is exactly how it hid the focus_p2_zone hijack (that poll reads
+# Input.is_key_pressed in _process), so the T13 scenario now presses the real
+# key with simulate_key instead. Kept as the documented example in
+# tests/scenarios/visual/_schema.md.
 func t13_synthesize_f_press() -> String:
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_F
@@ -7729,7 +7707,9 @@ func t13_synthesize_f_press() -> String:
 	return last_camera_fit_action
 
 
-# T14: synthesize Shift+F. Same pattern as t13_synthesize_f_press.
+# T14 test seam: synthesize Shift+F through _input. Same pattern and the same
+# caveat as t13_synthesize_f_press: it bypasses the OS input pipeline, so the
+# T14 scenario presses the real Shift and F keys with simulate_key instead.
 func t14_synthesize_shift_f_press() -> String:
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_F
@@ -7805,68 +7785,104 @@ func _resolve_board_presence_unit(unit: Dictionary) -> Dictionary:
 		return transport
 	return unit
 
-# T14: zoom + center the camera on a unit's bounding box (all its models).
-# Returns true on success, false if the unit can't be resolved or has no
-# models. Sets last_camera_fit_action = "selection" on success.
+# T14: zoom + centre the camera on a unit — the bounding box of all its alive
+# models, bases included — inside the part of the window the board can be seen
+# in (get_board_view_rect: the viewport minus the HUD, the same area the F fit
+# uses). The box's centre lands on the middle of that area, with 5" of the
+# surrounding table kept in view on the tighter axis and the zoom capped at
+# 1.2x (BoardFit.fit_box), so nearby units stay in frame and the selection
+# itself is never cropped by the HUD. Returns true on success, false if the
+# unit can't be resolved or has no models on the table. Sets
+# last_camera_fit_action = "selection" on success.
+#
+# animate = false (the default, for scripted callers that frame and then click
+# or project the same frame, e.g. the roster strip) cuts straight there.
+# animate = true (Shift+F, the pad's LB/RB cycle from the overview, the embark
+# pan) glides there on the clamped-delta camera glide, the unit sliding
+# straight for the middle while the zoom changes at an even rate
+# (BoardFit.point_glide_sample). The Camera2D mirror follows every frame and
+# ends on the box centre.
 # CAMERA-PAN-TRANSPORT: when the selected unit is embarked, the framing target
 # is redirected to its transport (see _resolve_board_presence_unit) so the
 # camera pans to where the unit actually sits on the table.
 func fit_view_to_selection(unit_id: String, animate: bool = false) -> bool:
-	if unit_id == "":
+	var fit: Dictionary = compute_selection_fit(unit_id)
+	if fit.is_empty():
+		DebugLogger.info("T14 fit_view_to_selection: nothing to frame", {"unit_id": unit_id})
 		return false
+	var z: float = float(fit["zoom"])
+	var anchor: Vector2 = fit["anchor"]
+	last_camera_fit_action = "selection"
+	DebugLogger.info("T14 fit_view_to_selection", {
+		"unit_id": unit_id,
+		"framed_unit_id": str(fit["unit_id"]),
+		"animate": animate,
+		"box": str(fit["box"]),
+		"center": str(fit["center"]),
+		"zoom": z,
+		"view_rect": str(fit["view_rect"]),
+		"from_zoom": view_zoom,
+		"from_offset": str(view_offset),
+	})
+	if animate:
+		if _start_point_camera_glide(fit["focus"], z, anchor):
+			return true
+		# Already framed — nothing to glide; just keep the mirror in step.
+		_sync_camera_node_to_view(anchor)
+		return true
+	_cam_glide_active = false
+	view_zoom = z
+	view_offset = fit["view_offset"]
+	update_view_transform()
+	_sync_camera_node_to_view(anchor)
+	return true
+
+
+# T14: the framing fit_view_to_selection(unit_id) would produce right now (see
+# BoardFit.fit_box for the keys: zoom, center, focus, anchor, view_rect,
+# view_offset, box), plus "unit_id": the unit actually framed (the transport
+# for an embarked passenger). Empty when there is nothing on the table to frame.
+func compute_selection_fit(unit_id: String) -> Dictionary:
+	if unit_id == "":
+		return {}
 	var unit = GameState.get_unit(unit_id)
 	if typeof(unit) != TYPE_DICTIONARY or not unit.has("models"):
-		return false
+		return {}
 	# Embarked passenger -> frame its transport instead of its hidden models.
 	unit = _resolve_board_presence_unit(unit)
-	var models = unit.get("models", [])
-	if typeof(models) != TYPE_ARRAY or models.is_empty():
-		return false
-	var min_pt := Vector2(INF, INF)
-	var max_pt := Vector2(-INF, -INF)
-	var any: bool = false
-	for m in models:
-		if typeof(m) != TYPE_DICTIONARY:
+	var placed: Array = _selection_models(unit)
+	if (placed[0] as Array).is_empty():
+		return {}
+	# World-space bounding box of those models with their bases.
+	var box: Rect2 = _BoardFit.footprint(placed[0], placed[1])
+	var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+	var fit: Dictionary = _BoardFit.fit_box(get_board_view_rect(), box, board_size, view_rotation)
+	fit["unit_id"] = str(unit.get("id", unit_id))
+	return fit
+
+
+# T14: [centres, radii] of a unit's alive, placed models: each model counts as
+# a circle of Measurement.base_extent_px (the circumscribed radius, so an oval
+# or rectangular base is inside it however it is turned). Dead models and
+# models without a position (in reserves, embarked) do not count; both arrays
+# are empty when nothing is on the table.
+func _selection_models(unit: Dictionary) -> Array:
+	var centres: Array = []
+	var radii: Array = []
+	for m in unit.get("models", []):
+		if typeof(m) != TYPE_DICTIONARY or not m.get("alive", true):
 			continue
 		var pos = m.get("position", null)
-		var p: Vector2 = Vector2.ZERO
+		var p: Vector2
 		if typeof(pos) == TYPE_VECTOR2:
 			p = pos
-		elif typeof(pos) == TYPE_DICTIONARY and pos.has("x") and pos.has("y"):
+		elif typeof(pos) == TYPE_DICTIONARY and pos.get("x") != null and pos.get("y") != null:
 			p = Vector2(float(pos.x), float(pos.y))
 		else:
 			continue
-		min_pt = Vector2(min(min_pt.x, p.x), min(min_pt.y, p.y))
-		max_pt = Vector2(max(max_pt.x, p.x), max(max_pt.y, p.y))
-		any = true
-	if not any:
-		return false
-	var box_w: float = max(max_pt.x - min_pt.x, 1.0)
-	var box_h: float = max(max_pt.y - min_pt.y, 1.0)
-	# Pad the box so the unit isn't tight against viewport edges, and cap zoom
-	# so a single model doesn't fill the screen.
-	const PAD_PX := 200.0
-	const MAX_ZOOM := 1.2
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	var zx: float = vp_size.x / (box_w + PAD_PX * 2.0)
-	var zy: float = vp_size.y / (box_h + PAD_PX * 2.0)
-	var z: float = min(min(zx, zy), MAX_ZOOM)
-	var center := (min_pt + max_pt) * 0.5
-	last_camera_fit_action = "selection"
-	var target_offset: Vector2 = center - vp_size / (2.0 * z)
-	if animate:
-		# Controller LB/RB reframing from a zoomed-out overview: glide to the
-		# unit's bounding box instead of hard-cutting (the "it jumps the camera
-		# between the units" report). _sync_camera_node_to_view restores the
-		# camera.position/zoom the instant path sets once the glide settles.
-		_start_cycle_camera_glide(target_offset, z)
-		return true
-	camera.position = center
-	camera.zoom = Vector2(z, z)
-	view_zoom = z
-	view_offset = target_offset
-	update_view_transform()
-	return true
+		centres.append(p)
+		radii.append(Measurement.base_extent_px(m))
+	return [centres, radii]
 
 
 func _selected_unit_id_or_empty() -> String:
@@ -7922,24 +7938,71 @@ func _hovered_unit_id_or_empty() -> String:
 	return _token_hover_pending_unit_id
 
 
-# T13: fit the whole board into the viewport with 32px margin per edge. Sets
-# both Camera2D (rendering source of truth) and view_offset/view_zoom (used by
-# the WASD/+ pan-zoom helpers) so subsequent input is consistent.
-func fit_view_to_board() -> void:
-	var board_w: float = float(SettingsService.get_board_width_px())
-	var board_h: float = float(SettingsService.get_board_height_px())
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	const MARGIN_PX := 32.0
-	var zoom_x: float = vp_size.x / (board_w + MARGIN_PX * 2.0)
-	var zoom_y: float = vp_size.y / (board_h + MARGIN_PX * 2.0)
-	var z: float = min(zoom_x, zoom_y)
-	var board_center := Vector2(board_w * 0.5, board_h * 0.5)
-	camera.position = board_center
-	camera.zoom = Vector2(z, z)
-	view_zoom = z
-	view_offset = board_center - vp_size / (2.0 * z)
+# T13: fit the whole board into the part of the window it can be seen in — the
+# viewport minus the HUD drawn over it (get_board_view_rect) — 32 screen pixels
+# in from that area's edges on the tighter axis and centred on the other.
+#
+# What is drawn is view_offset / view_zoom: update_view_transform() writes them
+# into BoardRoot's transform. The Camera2D under BoardRoot does not render
+# anything (Main is a CanvasLayer, which a Camera2D does not move); it is kept
+# as a mirror of the framing for code and scenarios that read camera.position /
+# camera.zoom, and for a fit its position is the board centre — the world point
+# the camera frames, which sits in the middle of the board view rect.
+#
+# animate = false (the default, for scripted callers that need the framing
+# this frame) cuts straight there. animate = true (the F key) glides there with
+# the same clamped-delta, eased camera glide the LB/RB unit switch uses, holding
+# the board view rect's centre still while the board centre travels onto it and
+# the zoom changes at an even rate; the Camera2D mirror follows every frame.
+func fit_view_to_board(animate: bool = false) -> void:
+	var fit: Dictionary = compute_board_fit()
+	var z: float = float(fit["zoom"])
+	var center: Vector2 = fit["center"]
+	var anchor: Vector2 = fit["anchor"]
 	last_camera_fit_action = "board"
+	DebugLogger.info("T13 fit_view_to_board", {
+		"animate": animate,
+		"zoom": z,
+		"view_rect": str(fit["view_rect"]),
+		"from_zoom": view_zoom,
+		"from_offset": str(view_offset),
+	})
+	if animate:
+		if _start_anchored_camera_glide(center, z, anchor):
+			return
+		# Already framed — nothing to glide; just keep the mirror in step.
+		_sync_camera_node_to_view(anchor)
+		return
+	_cam_glide_active = false
+	view_zoom = z
+	view_offset = fit["view_offset"]
 	update_view_transform()
+	_sync_camera_node_to_view(anchor)
+
+
+# T13: the board fit F would produce right now (see BoardFit.fit for the keys:
+# zoom, center, anchor, view_rect, view_offset).
+func compute_board_fit() -> Dictionary:
+	var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+	return _BoardFit.fit(get_board_view_rect(), board_size, view_rotation, _BoardFit.MARGIN_PX)
+
+
+# T13: the screen area the board can be seen in: the viewport minus the HUD
+# panels laid over it — the top bar (HUD_Bottom, anchored to the top), the
+# phase strip along the bottom, the game log on the left, the right-hand panel,
+# and the left roster strip while it is open. Hidden panels do not count, so
+# hiding the log gives the board that space. The reserve rails are not on the
+# list: ReservesTray lays them out in the gutters beside wherever the board is,
+# and folds them away rather than cover it.
+const BOARD_VIEW_HUD_PANELS := ["HUD_Bottom", "PhaseStrip", "GameLogPanel", "HUD_Right", "LeftRoster"]
+
+func get_board_view_rect() -> Rect2:
+	var panel_rects: Array = []
+	for panel_name in BOARD_VIEW_HUD_PANELS:
+		var panel = get_node_or_null(panel_name)
+		if panel is Control and (panel as Control).is_visible_in_tree():
+			panel_rects.append((panel as Control).get_global_rect())
+	return _BoardFit.free_rect(get_viewport().get_visible_rect(), panel_rects)
 
 func rotate_board_view(angle: float) -> void:
 	view_rotation = fmod(view_rotation + angle, TAU)
@@ -8163,6 +8226,22 @@ var _cam_glide_to_offset: Vector2 = Vector2.ZERO
 var _cam_glide_from_zoom: float = 1.0
 var _cam_glide_to_zoom: float = 1.0
 var _cam_glide_elapsed: float = 0.0
+# T13: an ANCHORED glide (the F fit-board glide) holds one screen point still —
+# the centre of the board view rect — and moves the world point under it in a
+# straight line while the zoom changes at an even rate (BoardFit.glide_sample).
+# The plain glide above lerps view_offset, which is fine at a near-constant zoom
+# (LB/RB unit switching) but swings the frame sideways on a big zoom change.
+var _cam_glide_anchored: bool = false
+var _cam_glide_anchor: Vector2 = Vector2.ZERO
+var _cam_glide_from_focus: Vector2 = Vector2.ZERO
+var _cam_glide_to_focus: Vector2 = Vector2.ZERO
+# T14: a POINT glide (the Shift+F fit-selection glide) is an anchored glide
+# (the mirror follows the anchor each frame) that moves differently: the
+# framed unit's centre slides across the SCREEN in a straight line from
+# _cam_glide_from_screen to the anchor (BoardFit.point_glide_sample), so on a
+# zoom-in the unit heads straight for the middle instead of swinging out.
+var _cam_glide_point: bool = false
+var _cam_glide_from_screen: Vector2 = Vector2.ZERO
 
 # Glide duration. Long enough to read as a deliberate slow-fast-slow move,
 # short enough to stay responsive when cycling quickly.
@@ -8175,6 +8254,11 @@ const CYCLE_CAMERA_MAX_STEP := 1.0 / 30.0
 
 # Test/coverage seam: true while a unit-switch glide is animating.
 func is_cycle_glide_active() -> bool:
+	return _cam_glide_active
+
+# True while any camera glide (LB/RB unit switch or the F fit-board glide) is
+# still travelling; false once it has settled or the player took the camera.
+func is_camera_glide_active() -> bool:
 	return _cam_glide_active
 
 # Smoothly pan (keeping the current zoom) so world_pos sits at viewport centre.
@@ -8204,8 +8288,58 @@ func _start_cycle_camera_glide(target_offset: Vector2, target_zoom: float) -> vo
 	_cam_glide_to_offset = target_offset
 	_cam_glide_from_zoom = view_zoom
 	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchored = false
+	_cam_glide_point = false
 	_cam_glide_elapsed = 0.0
 	_cam_glide_active = true
+
+# T13: begin (or retarget) an anchored glide that ends with world point
+# `target_focus` on screen point `anchor` at `target_zoom`. Starts from wherever
+# the camera is right now, so a second F press mid-glide carries on smoothly.
+# Returns false (and starts nothing) when the camera is already there.
+func _start_anchored_camera_glide(target_focus: Vector2, target_zoom: float, anchor: Vector2) -> bool:
+	var target_offset: Vector2 = target_focus - anchor / target_zoom
+	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		_cam_glide_active = false
+		return false
+	_cam_glide_from_offset = view_offset
+	_cam_glide_to_offset = target_offset
+	_cam_glide_from_zoom = view_zoom
+	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchor = anchor
+	_cam_glide_from_focus = view_offset + anchor / view_zoom
+	_cam_glide_to_focus = target_focus
+	_cam_glide_anchored = true
+	_cam_glide_point = false
+	_cam_glide_elapsed = 0.0
+	_cam_glide_active = true
+	return true
+
+# T14: begin (or retarget) a point glide that ends with world point
+# `target_focus` (rotated space) on screen point `anchor` at `target_zoom`,
+# starting from wherever the camera is right now: the target's current screen
+# position slides in a straight line to the anchor while the zoom changes at an
+# even rate. A second Shift+F mid-glide carries on from the current frame.
+# Returns false (and starts nothing) when the camera is already there.
+func _start_point_camera_glide(target_focus: Vector2, target_zoom: float, anchor: Vector2) -> bool:
+	var target_offset: Vector2 = target_focus - anchor / target_zoom
+	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		_cam_glide_active = false
+		return false
+	_cam_glide_from_offset = view_offset
+	_cam_glide_to_offset = target_offset
+	_cam_glide_from_zoom = view_zoom
+	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchor = anchor
+	_cam_glide_from_focus = view_offset + anchor / view_zoom
+	_cam_glide_to_focus = target_focus
+	# screen = zoom * (rotated-space point - view_offset)
+	_cam_glide_from_screen = (target_focus - view_offset) * view_zoom
+	_cam_glide_anchored = true
+	_cam_glide_point = true
+	_cam_glide_elapsed = 0.0
+	_cam_glide_active = true
+	return true
 
 # Advance the unit-switch glide one frame. Called every frame from _process
 # with the frame delta, CLAMPED so a heavy frame can't fast-forward the motion.
@@ -8215,12 +8349,34 @@ func _update_cycle_camera_glide(delta: float) -> void:
 	_cam_glide_elapsed += min(delta, CYCLE_CAMERA_MAX_STEP)
 	var t: float = clampf(_cam_glide_elapsed / CYCLE_CAMERA_PAN_TIME, 0.0, 1.0)
 	var e: float = _ease_in_out_cubic(t)
-	view_offset = _cam_glide_from_offset.lerp(_cam_glide_to_offset, e)
-	view_zoom = lerpf(_cam_glide_from_zoom, _cam_glide_to_zoom, e)
+	if _cam_glide_anchored:
+		var s: Dictionary
+		if _cam_glide_point:
+			s = _BoardFit.point_glide_sample(_cam_glide_to_focus, _cam_glide_from_screen,
+					_cam_glide_anchor, _cam_glide_from_zoom, _cam_glide_to_zoom, e)
+		else:
+			s = _BoardFit.glide_sample(_cam_glide_from_focus, _cam_glide_to_focus,
+					_cam_glide_from_zoom, _cam_glide_to_zoom, _cam_glide_anchor, e)
+		view_zoom = float(s["zoom"])
+		view_offset = s["view_offset"]
+		if t >= 1.0:
+			# Land exactly on the fit, not on the last float sample of it.
+			view_zoom = _cam_glide_to_zoom
+			view_offset = _cam_glide_to_offset
+	else:
+		view_offset = _cam_glide_from_offset.lerp(_cam_glide_to_offset, e)
+		view_zoom = lerpf(_cam_glide_from_zoom, _cam_glide_to_zoom, e)
 	update_view_transform()
+	if _cam_glide_anchored:
+		# The fit animates the Camera2D mirror too, frame by frame.
+		_sync_camera_node_to_view(_cam_glide_anchor)
 	if t >= 1.0:
 		_cam_glide_active = false
-		_sync_camera_node_to_view()
+		if _cam_glide_anchored:
+			DebugLogger.info("T14 selection glide settled" if _cam_glide_point else "T13 fit glide settled",
+					{"zoom": view_zoom, "camera": str(camera.position)})
+		else:
+			_sync_camera_node_to_view()
 
 # Cubic ease-in-out (slow → fast → slow): the standard camera-glide feel.
 func _ease_in_out_cubic(t: float) -> float:
@@ -8232,9 +8388,24 @@ func _ease_in_out_cubic(t: float) -> float:
 # Keep the Camera2D node's position/zoom in step with the view_offset/view_zoom
 # rendering source of truth after a glide settles (the fit path and the direct
 # pans set camera.* themselves; a tweened pan only touches view_*).
-func _sync_camera_node_to_view() -> void:
+# camera.position is the world point the camera frames: by default the one at
+# the viewport centre; pass `anchor` (a screen point) when the framing is
+# centred somewhere else — the board fit centres on the board view rect, which
+# the HUD makes lopsided, so there it is the board centre (the selection fit:
+# the selection's centre). view_offset + screen / zoom is that point in the
+# view's rotated space; turning it back by view_rotation (about the board
+# centre, as update_view_transform turns the board) gives the world point, so
+# the mirror stays right on a quarter-turned board too. Unrotated, the two are
+# the same.
+func _sync_camera_node_to_view(anchor = null) -> void:
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	camera.position = view_offset + vp_size / (2.0 * view_zoom)
+	var screen_point: Vector2 = vp_size / 2.0 if anchor == null else anchor
+	var rotated_point: Vector2 = view_offset + screen_point / view_zoom
+	if is_zero_approx(view_rotation):
+		camera.position = rotated_point
+	else:
+		var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+		camera.position = _BoardFit.unrotate_about_board(rotated_point, board_size, view_rotation)
 	camera.zoom = Vector2(view_zoom, view_zoom)
 
 # P2-40: Briefly pan camera to a world position, then return after a delay
@@ -17543,8 +17714,11 @@ func _install_design_guidelines_overlays() -> void:
 	# Direct children of Main (CanvasLayer-anchored HUD elements).
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())      # T25
 	add_child(preload("res://scripts/LeftRosterStrip.gd").new())           # T37
+	add_child(preload("res://scripts/UnitExhaustionTracker.gd").new())     # T09
 	add_child(preload("res://scripts/DatasheetModal.gd").new())            # T39
-	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())          # T06
+	# T06's weapon-order panel is not installed here: it is the shooting
+	# phase's resolution dock in the right HUD column (ShootingResolutionDock,
+	# its ordering step), so no second, board-covering copy exists.
 	add_child(preload("res://scripts/EpicChallengePanel.gd").new())        # T20
 	add_child(preload("res://scripts/WoundAllocationPanel.gd").new())      # T21
 

@@ -12,10 +12,14 @@ class_name HumanMovementPathVisual
 const HOLD_DURATION := 1.5  # How long to hold the trail visible after confirm
 const FADE_DURATION := 0.8  # Fade out time
 
-# Visual settings - matches AIMovementPathVisual colors
-const P1_TRAIL_COLOR := Color(0.3, 0.5, 0.9, 0.7)  # Blue for player 1
-const P2_TRAIL_COLOR := Color(0.9, 0.3, 0.2, 0.7)  # Red for player 2
+# Visual settings - matches AIMovementPathVisual colors: the owner's
+# player-slot colour (T12, doc §9 "P1 paths"), alphas applied at draw time
+const UIC := preload("res://autoloads/UIConstants.gd")
+const P1_TRAIL_COLOR := UIC.FRIENDLY_PLAYER_TEAL  # Player 1 slot
+const P2_TRAIL_COLOR := UIC.ENEMY_PLAYER_MAGENTA  # Player 2 slot
+const TRAIL_ALPHA := 0.7  # Dashed core line and arrowhead
 const TRAIL_GLOW_COLOR_ALPHA := 0.2  # Glow layer alpha multiplier
+const OVER_CAP_COLOR := UIC.INVALID_RED  # Distance label past the move cap
 const LINE_WIDTH := 2.5
 const GLOW_WIDTH := 7.0
 const DASH_LENGTH := 8.0
@@ -30,7 +34,8 @@ const ORIGIN_MARKER_RADIUS := 4.0
 
 # Distance label settings
 const LABEL_FONT_SIZE := 13
-const LABEL_BG_COLOR := Color(0.1, 0.08, 0.05, 0.85)
+const LABEL_BG_COLOR := UIC.OVERLAY_LABEL_BG
+const LABEL_BG_ALPHA := 0.85
 const LABEL_BG_PADDING := Vector2(4, 2)
 
 # Marching ants animation (planning mode)
@@ -91,11 +96,11 @@ func _draw() -> void:
 		var dir_norm = direction.normalized()
 
 		# Glow line (solid, wide, low alpha)
-		var glow_color = Color(base_color.r, base_color.g, base_color.b, alpha * TRAIL_GLOW_COLOR_ALPHA)
+		var glow_color = UIC.with_alpha(base_color, alpha * TRAIL_GLOW_COLOR_ALPHA)
 		draw_line(from_pos, to_pos, glow_color, GLOW_WIDTH)
 
 		# Dashed core line (animated in planning mode)
-		var trail_color = Color(base_color.r, base_color.g, base_color.b, alpha * base_color.a)
+		var trail_color = UIC.with_alpha(base_color, alpha * TRAIL_ALPHA)
 		if _phase == "planning":
 			_draw_dashed_line_animated(from_pos, to_pos, trail_color, LINE_WIDTH)
 		else:
@@ -105,7 +110,7 @@ func _draw() -> void:
 		_draw_arrowhead(to_pos, dir_norm, trail_color)
 
 		# Small circle at origin
-		var origin_color = Color(base_color.r, base_color.g, base_color.b, alpha * 0.5)
+		var origin_color = UIC.with_alpha(base_color, alpha * 0.5)
 		draw_circle(from_pos, ORIGIN_MARKER_RADIUS, origin_color)
 
 		# Distance label (planning mode only)
@@ -182,20 +187,17 @@ func _draw_distance_label(from: Vector2, to: Vector2, distance_inches: float, ba
 		label_pos - LABEL_BG_PADDING,
 		text_size + LABEL_BG_PADDING * 2
 	)
-	draw_rect(bg_rect, Color(LABEL_BG_COLOR.r, LABEL_BG_COLOR.g, LABEL_BG_COLOR.b, LABEL_BG_COLOR.a * alpha), true)
+	draw_rect(bg_rect, UIC.with_alpha(LABEL_BG_COLOR, LABEL_BG_ALPHA * alpha), true)
 
 	# Border and text color based on distance vs cap
 	var text_color: Color
 	if _move_cap_inches > 0 and distance_inches > _move_cap_inches:
-		# T12: reference UIConstants.INVALID_RED for the over-cap warning
-		# instead of the ad-hoc red-orange literal.
-		var uic = Engine.get_main_loop().root.get_node_or_null("UIConstants") if Engine.get_main_loop() else null
-		var base_red: Color = uic.INVALID_RED if uic != null else Color(0.9, 0.2, 0.2, 1.0)
-		text_color = Color(base_red.r, base_red.g, base_red.b, alpha)
+		# T12: UIConstants.INVALID_RED for the over-cap warning.
+		text_color = UIC.with_alpha(OVER_CAP_COLOR, alpha)
 	else:
-		text_color = Color(base_color.r, base_color.g, base_color.b, alpha)
+		text_color = UIC.with_alpha(base_color, alpha)
 
-	var border_color = Color(text_color.r, text_color.g, text_color.b, 0.6 * alpha)
+	var border_color = UIC.with_alpha(text_color, 0.6 * alpha)
 	draw_rect(bg_rect, border_color, false, 1.0)
 
 	draw_string(

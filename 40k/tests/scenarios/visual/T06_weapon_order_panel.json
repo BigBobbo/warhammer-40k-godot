@@ -1,51 +1,592 @@
 {
   "id": "T06_weapon_order_panel",
-  "covers": ["design_guidelines.T06", "hud.weapon_order_panel"],
-  "fixture": "co_pretrigger",
+  "covers": [
+    "design_guidelines.T06",
+    "hud.weapon_order_panel",
+    "scripts.ShootingResolutionDock.weapon_order_cancel",
+    "scripts.ShootingController.cancel_weapon_order",
+    "phases.ShootingPhase.cancel_weapon_order",
+    "autoloads.SceneRefs.board_screen_rect"
+  ],
+  "fixture": "shooting_phase",
+  "edition": 11,
+  "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Side-anchored Weapon Order panel. Lives in the right 40% of the viewport (anchor_left ratio >= 0.6); does NOT intersect the board's left 60% region. open_for() shows the panel with a labeled row per weapon assignment. Cancel button closes.",
-
+  "disable_ai": true,
+  "description": "T06 (design guidelines §3): the Weapon Order step is a side-anchored panel - the B2 shooting resolution dock's ordering step in the right HUD column (it replaced the centred WeaponOrderDialog in single-player) - with Esc to cancel. Fixture shooting_phase, P1 Orks. The Battlewagon Alpha quick-assigns its three guns to the Witchseekers and the player clicks Confirm Targets: the phase waits in awaiting_weapon_order and the dock shows the order (rows with ▲▼, Roll to Hit = Start Sequence, Fast Roll All, Back to Targets (Esc)). Tier A: dock left edge >= 60% of the viewport, its column anchored right, no intersection with the board's on-screen rect, no overlap with the right-side phase controls; pixel_diff of the before/after frames: board_left (left 60%) and the board rect < 1%, right_panel > 10%. The board still answers the mouse (hover forecast over the Witchseekers, no Control hovered). Esc and the Back button return to targeting with the same three assignments and nothing rolled; CONFIRM_TARGETS dispatched succeeds with weapon_order_required. With SMOKE on the Witchseekers (setup privilege), a declined SMOKESCREEN window keeps Back available, a used one locks the targets in (Back greyed, Esc refused with the reason). Roll to Hit then starts the staged sequence with all three weapons, Back goes away, and a mid-roll Esc changes nothing.",
+  "regions": {
+    "board_left": [
+      0,
+      0,
+      1152,
+      1080
+    ],
+    "board_rect": [
+      696,
+      180,
+      528,
+      720
+    ],
+    "right_panel": [
+      1520,
+      100,
+      400,
+      980
+    ]
+  },
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
-      "equals": false },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").open_for([{\"weapon_id\": \"shoota\"}, {\"weapon_id\": \"kannon\"}], {\"shoota\": {\"name\": \"Shoota\"}, \"kannon\": {\"name\": \"Kannon\"}})" },
-    { "act": "wait_frames", "frames": 4 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").t06_anchor_left_ratio()",
-      "expect_min": 0.6 },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList\").get_child_count()",
-      "equals": 2 },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList/Row_shoota\").text",
-      "equals": "Shoota" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/Buttons/StartSequence\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").t06_panel_rect().position.x",
-      "expect_min": 1100 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").close()" },
-    { "act": "wait_frames", "frames": 2 },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
-      "equals": false },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BATTLEWAGON_A"
+      },
+      "comment": "Setup: pick the shooter (not the feature under test)."
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_WITCHSEEKERS_C",
+      "comment": "Player path: Quick Assign 'All -> Witchseekers' aims all three guns (big shoota, lobba, zzap gun) - three weapon types, so Confirm leads to the weapon-order step."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar got: Array = []\nvar ids := {}\nfor a in ph.pending_assignments:\n\tgot.append(\"%s>%s>%s\" % [a.weapon_id, a.target_unit_id, \",\".join(a.get(\"model_ids\", []))])\n\tids[a.weapon_id] = true\ntree.root.set_meta(\"t06_declared\", got)\nreturn ids.size()",
+      "equals": 3,
+      "comment": "Three weapon types declared; the exact declaration is kept for the after-Esc comparison."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar main = tree.root.get_node(\"Main\")\ntree.root.set_meta(\"t06_cam\", [main.view_zoom, main.view_offset])\nif d.is_active() or d.visible:\n\treturn \"dock already up\"\nif tree.root.get_node_or_null(\"WeaponOrderDialog\") != null:\n\treturn \"a WeaponOrderDialog window exists\"\nif main.get_node_or_null(\"WeaponOrderPanel\") != null:\n\treturn \"the old disconnected /root/Main/WeaponOrderPanel stub is still installed\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Before: no weapon-order surface yet; the camera is recorded so we can prove it does not move."
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T06_before"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "comment": "Player path: Confirm Targets opens the weapon-order step."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"phase not in the weapon-order step: %s\" % str(ph.resolution_state.get(\"phase\", \"\"))\nif not (d.is_active() and d.is_ordering() and d.visible):\n\treturn \"dock not in its ordering step (state %s)\" % d.state\nif sc.declaration_box.visible:\n\treturn \"declaration widgets still showing\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Tier A (BEGIN_WEAPON_ORDER equivalent): the click put the phase in awaiting_weapon_order and the right-HUD dock in its ordering step."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar rows = d.queue_box.get_children()\nif rows.size() != 3:\n\treturn \"queue rows: %d\" % rows.size()\nfor i in range(3):\n\tvar r = d.queue_box.get_node_or_null(\"QueueRow%d\" % i)\n\tif r == null or r.get_node_or_null(\"Up%d\" % i) == null or r.get_node_or_null(\"Down%d\" % i) == null:\n\t\treturn \"row %d has no reorder arrows\" % i\n\tif not str(r.get_node(\"RowText\").text).contains(\"Witchseekers\"):\n\t\treturn \"row %d does not name its target: %s\" % [i, r.get_node(\"RowText\").text]\nif not (d.queue_box.get_node(\"QueueRow0/Up0\").disabled and not d.queue_box.get_node(\"QueueRow0/Down0\").disabled):\n\treturn \"first row arrows wrong\"\nif d.primary_button.text != \"Roll to Hit ▶\" or not d.primary_button.visible or d.primary_button.disabled:\n\treturn \"Start Sequence (Roll to Hit) missing: %s\" % d.primary_button.text\nif not d.fast_button.visible or not str(d.fast_button.text).begins_with(\"Fast Roll All\"):\n\treturn \"Fast Roll All missing: %s\" % d.fast_button.text\nvar c = d.get_node_or_null(\"DockCancelButton\")\nif c == null or not c.is_visible_in_tree() or c.disabled or c.text != \"◀ Back to Targets (Esc)\":\n\treturn \"Back to Targets (Esc) missing or disabled\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Tier B 'all controls the old modal had': one row per weapon naming its target, each with ▲▼ reorder; Start Sequence (Roll to Hit ▶); Fast Roll All; plus the new Back to Targets (Esc) the modal lacked."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar vp: Rect2 = d.get_viewport_rect()\nreturn d.get_global_rect().position.x / vp.size.x",
+      "expect_min": 0.6,
+      "comment": "Tier A: the panel lives in the right 40% of the screen (left edge / viewport width >= 0.6)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hr = tree.root.get_node(\"Main/HUD_Right\")\nreturn hr.anchor_left == 1.0 and hr.anchor_right == 1.0 and hr.offset_left < 0.0",
+      "equals": true,
+      "comment": "Tier A 'anchor right set': the column the panel lives in is anchored to the right edge (anchor_left = anchor_right = 1)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar board: Rect2 = SceneRefs.board_screen_rect()\nif not board.has_area():\n\treturn \"no board rect\"\nreturn d.get_global_rect().intersects(board)",
+      "equals": false,
+      "comment": "Tier A: the panel's rect does NOT intersect the board's on-screen used rect (SceneRefs.board_screen_rect, the BoardRoot extent through the camera)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar main = tree.root.get_node(\"Main\")\nvar r: Rect2 = d.get_global_rect()\nvar hr: Rect2 = main.get_node(\"HUD_Right\").get_global_rect()\nif not hr.encloses(r):\n\treturn \"panel spills out of the right HUD column: %s vs %s\" % [str(r), str(hr)]\nfor p in [\"PhaseActionButton\", \"HUD_Bottom\", \"PhaseStrip\", \"GameLogPanel\"]:\n\tvar n = main.get_node_or_null(p)\n\tif n != null and n is Control and n.is_visible_in_tree() and n.get_global_rect().intersects(r):\n\t\treturn \"panel overlaps %s\" % p\nfor s in d.get_parent().get_children():\n\tif s != d and s is Control and s.is_visible_in_tree() and s.get_global_rect().intersects(r):\n\t\treturn \"panel overlaps sibling %s\" % s.name\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Tier B 'no layout overlap with the right-side phase controls': the panel sits inside HUD_Right and overlaps neither the End Phase button, the top bar, the phase strip, the log, nor any other visible widget of the shooting panel."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for w in tree.root.get_children():\n\tif w is Window and w.visible and str(w.name).contains(\"WeaponOrder\"):\n\t\treturn \"modal window %s\" % w.name\nreturn tree.root.get_node_or_null(\"WeaponOrderDialog\") == null",
+      "equals": true,
+      "comment": "No centred WeaponOrderDialog window is opened in single-player."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nvar cam: Array = tree.root.get_meta(\"t06_cam\", [])\nreturn cam.size() == 2 and is_equal_approx(main.view_zoom, cam[0]) and main.view_offset.is_equal_approx(cam[1])",
+      "equals": true,
+      "comment": "Tier B 'tokens at original positions': the camera did not move when the panel opened."
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_WITCHSEEKERS_C"
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T06_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_before",
+      "after": "T06_after",
+      "region": "board_left",
+      "expect_max_pct": 1.0,
+      "comment": "Tier A: board region (left 60%) unchanged while the panel is open."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_before",
+      "after": "T06_after",
+      "region": "board_rect",
+      "expect_max_pct": 1.0,
+      "comment": "The battlefield itself (its on-screen rect) unchanged."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_before",
+      "after": "T06_after",
+      "region": "right_panel",
+      "expect_min_pct": 10.0,
+      "comment": "Tier A: the right panel region changed (the weapon-order panel replaced the declaration widgets)."
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "comment": "mouse_filter does not cover the board: the board still answers the mouse while the panel is open."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hov = tree.root.get_viewport().gui_get_hovered_control()\nif hov != null:\n\treturn \"a Control swallows the mouse over the board: %s\" % hov.get_path()\nvar lv = tree.root.get_node_or_null(\"Main/BoardRoot/LOSLineVisual\")\nif lv == null or lv.current_line == null or str(lv.current_line.target_id) != \"U_WITCHSEEKERS_C\" or not lv.get_node(\"Line\").visible:\n\treturn \"the board did not react to the hover (no shooter-to-target LoS line)\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Over the Witchseekers no Control is hovered, and the board's own hover handling draws the shooter-to-target LoS line (T11: BoardRoot/LOSLineVisual, which replaced the controller's plain red ShootingLoSVisual line)."
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "comment": "A board click on an enemy while ordering must not re-aim guns behind the panel (the old modal swallowed it)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif not ph.pending_assignments.is_empty() or ph.confirmed_assignments.size() != 3:\n\treturn \"the click changed the declaration (%d pending, %d confirmed)\" % [ph.pending_assignments.size(), ph.confirmed_assignments.size()]\nif not d.is_ordering() or str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"the click left the weapon-order step\"\nif not str(d.status_label.text).contains(\"Esc (Back to Targets)\"):\n\treturn \"no hint in the panel: %s\" % d.status_label.text\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Nothing re-aimed; the panel tells the player Esc goes back to targets."
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_BATTLEWAGON_B",
+      "comment": "... and a click on another friendly unit does not switch shooters mid-activation."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\" or ph.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter switched (%s / %s)\" % [sc.active_shooter_id, ph.active_shooter_id]\nif tree.root.get_node_or_null(\"UnitSwitchConfirmDialog\") != null:\n\treturn \"a unit-switch dialog opened\"\nreturn \"ok\" if d.is_ordering() else \"dock left its ordering step\"",
+      "equals": "ok"
+    },
+    {
+      "act": "hover_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hov = tree.root.get_viewport().gui_get_hovered_control()\nreturn str(hov.name) if hov != null else \"null\"",
+      "equals": "DockPrimaryButton",
+      "comment": "Control: over the panel the panel does take the mouse (the null above is not vacuous)."
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Tier B: Esc dismisses the panel without committing."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nvar want: Array = tree.root.get_meta(\"t06_declared\", [])\nvar got: Array = []\nfor a in ph.pending_assignments:\n\tgot.append(\"%s>%s>%s\" % [a.weapon_id, a.target_unit_id, \",\".join(a.get(\"model_ids\", []))])\nif d.is_active() or d.visible:\n\treturn \"dock still up (state %s)\" % d.state\nif not sc.declaration_box.visible:\n\treturn \"declaration widgets not back\"\nif got != want:\n\treturn \"declaration changed: %s vs %s\" % [str(got), str(want)]\nif not ph.confirmed_assignments.is_empty() or not ph.resolution_state.is_empty():\n\treturn \"phase still holds a confirmed shot: %s\" % str(ph.resolution_state)\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\" or ph.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter deselected (%s / %s)\" % [sc.active_shooter_id, ph.active_shooter_id]\nif \"U_BATTLEWAGON_A\" in ph.units_that_shot or GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false):\n\treturn \"the unit was marked as having shot\"\nif sc.weapon_assignments.size() != 3 or sc.target_basket.item_count != 3 or sc.confirm_button.disabled:\n\treturn \"panel not rebuilt: %d assignments, %d target rows, confirm disabled=%s\" % [sc.weapon_assignments.size(), sc.target_basket.item_count, sc.confirm_button.disabled]\nvar ws = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nfor m in ws.get(\"models\", []):\n\tif not m.get(\"alive\", true) or int(m.get(\"current_wounds\", m.get(\"wounds\", 1))) < int(m.get(\"wounds\", 1)):\n\t\treturn \"a Witchseeker took damage — something was rolled\"\nif tree.root.get_node(\"Main\")._settings_menu != null:\n\treturn \"Esc opened the settings menu instead\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Back to targeting with nothing committed: dock retired, declaration widgets back with the SAME three assignments (weapon > target > bearer), no confirmed shot or resolution state, shooter still selected, unit not shot, no Witchseeker wounded, no settings menu."
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T06_esc"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_before",
+      "after": "T06_esc",
+      "region": "right_panel",
+      "expect_max_pct": 1.0,
+      "comment": "After Esc the right panel is the pre-Confirm declaration again."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_after",
+      "after": "T06_esc",
+      "region": "right_panel",
+      "expect_min_pct": 10.0,
+      "comment": "... and the weapon-order panel is really gone."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T06_before",
+      "after": "T06_esc",
+      "region": "board_left",
+      "expect_max_pct": 1.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"phase not in the weapon-order step: %s\" % str(ph.resolution_state.get(\"phase\", \"\"))\nif not (d.is_active() and d.is_ordering() and d.visible):\n\treturn \"dock not in its ordering step (state %s)\" % d.state\nif sc.declaration_box.visible:\n\treturn \"declaration widgets still showing\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Confirm again: the weapon-order step reopens."
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockCancelButton",
+      "comment": "The visible Back to Targets (Esc) button does what Esc does."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nvar want: Array = tree.root.get_meta(\"t06_declared\", [])\nvar got: Array = []\nfor a in ph.pending_assignments:\n\tgot.append(\"%s>%s>%s\" % [a.weapon_id, a.target_unit_id, \",\".join(a.get(\"model_ids\", []))])\nif d.is_active() or d.visible:\n\treturn \"dock still up (state %s)\" % d.state\nif not sc.declaration_box.visible:\n\treturn \"declaration widgets not back\"\nif got != want:\n\treturn \"declaration changed: %s vs %s\" % [str(got), str(want)]\nif not ph.confirmed_assignments.is_empty() or not ph.resolution_state.is_empty():\n\treturn \"phase still holds a confirmed shot: %s\" % str(ph.resolution_state)\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\" or ph.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter deselected (%s / %s)\" % [sc.active_shooter_id, ph.active_shooter_id]\nif \"U_BATTLEWAGON_A\" in ph.units_that_shot or GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false):\n\treturn \"the unit was marked as having shot\"\nif sc.weapon_assignments.size() != 3 or sc.target_basket.item_count != 3 or sc.confirm_button.disabled:\n\treturn \"panel not rebuilt: %d assignments, %d target rows, confirm disabled=%s\" % [sc.weapon_assignments.size(), sc.target_basket.item_count, sc.confirm_button.disabled]\nvar ws = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nfor m in ws.get(\"models\", []):\n\tif not m.get(\"alive\", true) or int(m.get(\"current_wounds\", m.get(\"wounds\", 1))) < int(m.get(\"wounds\", 1)):\n\t\treturn \"a Witchseeker took damage — something was rolled\"\nif tree.root.get_node(\"Main\")._settings_menu != null:\n\treturn \"Esc opened the settings menu instead\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Back to targeting with nothing committed: dock retired, declaration widgets back with the SAME three assignments (weapon > target > bearer), no confirmed shot or resolution state, shooter still selected, unit not shot, no Witchseeker wounded, no settings menu."
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      },
+      "comment": "Tier A: the action that begins the weapon order (CONFIRM_TARGETS with 2+ weapon types; the task's BEGIN_WEAPON_ORDER) succeeds and asks for the order."
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_action_result",
+      "path": "weapon_order_required",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"phase not in the weapon-order step: %s\" % str(ph.resolution_state.get(\"phase\", \"\"))\nif not (d.is_active() and d.is_ordering() and d.visible):\n\treturn \"dock not in its ordering step (state %s)\" % d.state\nif sc.declaration_box.visible:\n\treturn \"declaration widgets still showing\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "The dispatched confirm opens the same panel."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nvar want: Array = tree.root.get_meta(\"t06_declared\", [])\nvar got: Array = []\nfor a in ph.pending_assignments:\n\tgot.append(\"%s>%s>%s\" % [a.weapon_id, a.target_unit_id, \",\".join(a.get(\"model_ids\", []))])\nif d.is_active() or d.visible:\n\treturn \"dock still up (state %s)\" % d.state\nif not sc.declaration_box.visible:\n\treturn \"declaration widgets not back\"\nif got != want:\n\treturn \"declaration changed: %s vs %s\" % [str(got), str(want)]\nif not ph.confirmed_assignments.is_empty() or not ph.resolution_state.is_empty():\n\treturn \"phase still holds a confirmed shot: %s\" % str(ph.resolution_state)\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\" or ph.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter deselected (%s / %s)\" % [sc.active_shooter_id, ph.active_shooter_id]\nif \"U_BATTLEWAGON_A\" in ph.units_that_shot or GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false):\n\treturn \"the unit was marked as having shot\"\nif sc.weapon_assignments.size() != 3 or sc.target_basket.item_count != 3 or sc.confirm_button.disabled:\n\treturn \"panel not rebuilt: %d assignments, %d target rows, confirm disabled=%s\" % [sc.weapon_assignments.size(), sc.target_basket.item_count, sc.confirm_button.disabled]\nvar ws = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nfor m in ws.get(\"models\", []):\n\tif not m.get(\"alive\", true) or int(m.get(\"current_wounds\", m.get(\"wounds\", 1))) < int(m.get(\"wounds\", 1)):\n\t\treturn \"a Witchseeker took damage — something was rolled\"\nif tree.root.get_node(\"Main\")._settings_menu != null:\n\treturn \"Esc opened the settings menu instead\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Back to targeting with nothing committed: dock retired, declaration widgets back with the SAME three assignments (weapon > target > bearer), no confirmed shot or resolution state, shooter still selected, unit not shot, no Witchseeker wounded, no settings menu."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nu[\"meta\"][\"keywords\"].append(\"SMOKE\")\nreturn \"SMOKE\" in u[\"meta\"][\"keywords\"]",
+      "equals": true,
+      "comment": "Setup privilege (precedent iss15_smokescreen_reactive_11e): the Witchseekers get SMOKE so targeting them offers the defender the 11e core SMOKESCREEN."
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "The defender declines - no reaction."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"phase not in the weapon-order step: %s\" % str(ph.resolution_state.get(\"phase\", \"\"))\nif not (d.is_active() and d.is_ordering() and d.visible):\n\treturn \"dock not in its ordering step (state %s)\" % d.state\nif sc.declaration_box.visible:\n\treturn \"declaration widgets still showing\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Declined: the weapon-order step opens."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nreturn d.cancel_button.is_visible_in_tree() and not d.cancel_button.disabled",
+      "equals": true,
+      "comment": "A declined window is not a reaction: Back is still available."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nvar want: Array = tree.root.get_meta(\"t06_declared\", [])\nvar got: Array = []\nfor a in ph.pending_assignments:\n\tgot.append(\"%s>%s>%s\" % [a.weapon_id, a.target_unit_id, \",\".join(a.get(\"model_ids\", []))])\nif d.is_active() or d.visible:\n\treturn \"dock still up (state %s)\" % d.state\nif not sc.declaration_box.visible:\n\treturn \"declaration widgets not back\"\nif got != want:\n\treturn \"declaration changed: %s vs %s\" % [str(got), str(want)]\nif not ph.confirmed_assignments.is_empty() or not ph.resolution_state.is_empty():\n\treturn \"phase still holds a confirmed shot: %s\" % str(ph.resolution_state)\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\" or ph.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter deselected (%s / %s)\" % [sc.active_shooter_id, ph.active_shooter_id]\nif \"U_BATTLEWAGON_A\" in ph.units_that_shot or GameState.get_unit(\"U_BATTLEWAGON_A\").get(\"flags\", {}).get(\"has_shot\", false):\n\treturn \"the unit was marked as having shot\"\nif sc.weapon_assignments.size() != 3 or sc.target_basket.item_count != 3 or sc.confirm_button.disabled:\n\treturn \"panel not rebuilt: %d assignments, %d target rows, confirm disabled=%s\" % [sc.weapon_assignments.size(), sc.target_basket.item_count, sc.confirm_button.disabled]\nvar ws = GameState.get_unit(\"U_WITCHSEEKERS_C\")\nfor m in ws.get(\"models\", []):\n\tif not m.get(\"alive\", true) or int(m.get(\"current_wounds\", m.get(\"wounds\", 1))) < int(m.get(\"wounds\", 1)):\n\t\treturn \"a Witchseeker took damage — something was rolled\"\nif tree.root.get_node(\"Main\")._settings_menu != null:\n\treturn \"Esc opened the settings menu instead\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Back to targeting with nothing committed: dock retired, declaration widgets back with the SAME three assignments (weapon > target > bearer), no confirmed shot or resolution state, shooter still selected, unit not shot, no Witchseeker wounded, no settings menu."
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "equals": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_smokescreen_11e/Buttons/Use_smokescreen_11e_U_WITCHSEEKERS_C",
+      "comment": "This time the defender reacts: SMOKESCREEN on the Witchseekers (1 CP)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"phase not in the weapon-order step: %s\" % str(ph.resolution_state.get(\"phase\", \"\"))\nif not (d.is_active() and d.is_ordering() and d.visible):\n\treturn \"dock not in its ordering step (state %s)\" % d.state\nif sc.declaration_box.visible:\n\treturn \"declaration widgets still showing\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "After the reaction the weapon-order step opens."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar c = d.cancel_button\nif not c.is_visible_in_tree() or not c.disabled:\n\treturn \"Back should be shown greyed out (visible=%s disabled=%s)\" % [c.is_visible_in_tree(), c.disabled]\nif not str(c.tooltip_text).contains(\"locked in\") or not str(c.tooltip_text).contains(\"opponent\"):\n\treturn \"tooltip does not say why: %s\" % c.tooltip_text\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Locked in: the opponent reacted to these targets, so Back is greyed out and its tooltip says why."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif not d.is_ordering() or str(ph.resolution_state.get(\"phase\", \"\")) != \"awaiting_weapon_order\":\n\treturn \"Esc cancelled a locked declaration\"\nif ph.confirmed_assignments.size() != 3 or not ph.pending_assignments.is_empty():\n\treturn \"declaration changed\"\nif not str(d.status_label.text).begins_with(\"Targets are locked in\"):\n\treturn \"no explanation in the panel: %s\" % d.status_label.text\nif sc.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"shooter deselected\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Esc on a locked declaration changes nothing and the panel says why."
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T06_locked"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "comment": "Start Sequence: Roll to Hit sends RESOLVE_WEAPON_SEQUENCE with the panel's order, as the old modal's button did."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nvar ph = PhaseManager.get_current_phase_instance()\nif str(ph.resolution_state.get(\"mode\", \"\")) != \"sequential_staged\":\n\treturn \"sequence not started: %s\" % str(ph.resolution_state.get(\"mode\", \"\"))\nif (ph.resolution_state.get(\"weapon_order\", []) as Array).size() != 3:\n\treturn \"weapon order not handed over\"\nif d.state != \"staged_hits\":\n\treturn \"dock not at the hit pause: %s\" % d.state\nif d.cancel_button.visible:\n\treturn \"Back still offered after the dice rolled\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "The sequence runs (staged, all three weapons in order) and the panel's Back is gone once dice roll."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main/ShootingController\")\nvar d = sc.resolution_dock\nif d.state != \"staged_hits\" or sc.active_shooter_id != \"U_BATTLEWAGON_A\":\n\treturn \"Esc mid-roll changed the activation (state %s, shooter %s)\" % [d.state, sc.active_shooter_id]\nif tree.root.get_node(\"Main\")._settings_menu != null:\n\treturn \"settings menu opened\"\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "Mid-roll Esc is a no-op: no deselect (the old half-state), no menu."
+    },
+    {
+      "act": "hover_board_at",
+      "x": -300.0,
+      "y": 2600.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T06_rolling"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

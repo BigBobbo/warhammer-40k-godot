@@ -30,6 +30,11 @@ signal saves_required(save_data_list: Array)
 # assault disembark move with `unit_id` from `transport_id` (MovementController
 # shows the disembark dialog / placement; SKIP_ASSAULT_DISEMBARK declines it).
 signal ork11e_assault_disembark_requested(player: int, transport_id: String, unit_id: String)
+# T03: BEGIN_MODEL_DRAG passed validation — MovementController picks the model up
+# (ghost + budget-coloured drag ruler) exactly as a mouse press on it would.
+# source_unit_id is the unit that owns the model (an attached CHARACTER's own
+# unit, otherwise unit_id).
+signal model_drag_requested(unit_id: String, model_id: String, source_unit_id: String)
 
 # Codex: Orks (11e) movement-group stratagem handlers (consumer helpers) + dispatcher.
 const Ork11eMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
@@ -435,6 +440,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_set_model_dest(action)
 		"STAGE_MODEL_MOVE":
 			return _validate_stage_model_move(action)
+		"BEGIN_MODEL_DRAG":
+			return _validate_begin_model_drag(action)
 		"UNDO_LAST_MODEL_MOVE":
 			return _validate_undo_last_model_move(action)
 		"RESET_UNIT_MOVE":
@@ -523,6 +530,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_set_model_dest(action)
 		"STAGE_MODEL_MOVE":
 			return _process_stage_model_move(action)
+		"BEGIN_MODEL_DRAG":
+			return _process_begin_model_drag(action)
 		"UNDO_LAST_MODEL_MOVE":
 			return _process_undo_last_model_move(action)
 		"RESET_UNIT_MOVE":
@@ -924,6 +933,45 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model cannot be placed beyond the board edge"]}
 
 	return {"valid": true, "errors": []}
+
+## T03 BEGIN_MODEL_DRAG — pick a model of a moving unit up: what a mouse press on
+## it does, as an action (scenarios, the MCP bridge, tooling). Legal while the
+## unit has an unfinished move it can still drag in, for a live model of the
+## unit or of a CHARACTER attached to it. The real mouse drag never sends it, so
+## a player's drag costs no action round trip.
+## payload: {model_id, model_source_unit_id?}
+func _validate_begin_model_drag(action: Dictionary) -> Dictionary:
+	var unit_id: String = str(action.get("actor_unit_id", ""))
+	var payload: Dictionary = action.get("payload", {})
+	var model_id: String = str(payload.get("model_id", ""))
+	if unit_id == "" or model_id == "":
+		return {"valid": false, "errors": ["Missing required fields (actor_unit_id, payload.model_id)"]}
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["No active move for unit %s — begin its move first" % unit_id]}
+	var move_data: Dictionary = active_moves[unit_id]
+	if move_data.get("completed", false) or str(move_data.get("mode", "")) == "REMAIN_STATIONARY":
+		return {"valid": false, "errors": ["Unit %s has no move left to drag" % unit_id]}
+	var owner_unit_id := _begin_model_drag_owner(unit_id, model_id, str(payload.get("model_source_unit_id", "")))
+	if owner_unit_id == "":
+		return {"valid": false, "errors": ["Model %s is not a model of %s or a character attached to it" % [model_id, unit_id]]}
+	if not _get_model_in_unit(owner_unit_id, model_id).get("alive", true):
+		return {"valid": false, "errors": ["Model %s is destroyed" % model_id]}
+	return {"valid": true, "errors": []}
+
+## The unit that owns model_id for a BEGIN_MODEL_DRAG on unit_id: the named
+## source unit when it is unit_id or a CHARACTER attached to it, else unit_id,
+## else the first attached CHARACTER holding that model id. "" when none does.
+func _begin_model_drag_owner(unit_id: String, model_id: String, source_unit_id: String) -> String:
+	var attached: Array = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
+	if source_unit_id != "" and (source_unit_id == unit_id or source_unit_id in attached):
+		if not _get_model_in_unit(source_unit_id, model_id).is_empty():
+			return source_unit_id
+	if not _get_model_in_unit(unit_id, model_id).is_empty():
+		return unit_id
+	for char_id in attached:
+		if not _get_model_in_unit(str(char_id), model_id).is_empty():
+			return str(char_id)
+	return ""
 
 func _validate_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -3098,6 +3146,17 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 		"pivot_value": move_data.get("pivot_value", 0.0)
 	})
 
+## T03 BEGIN_MODEL_DRAG (validated above): no game state changes — picking a
+## model up moves nothing. The controller does the pick-up on the signal.
+func _process_begin_model_drag(action: Dictionary) -> Dictionary:
+	var unit_id: String = str(action.get("actor_unit_id", ""))
+	var payload: Dictionary = action.get("payload", {})
+	var model_id: String = str(payload.get("model_id", ""))
+	var owner_unit_id := _begin_model_drag_owner(unit_id, model_id, str(payload.get("model_source_unit_id", "")))
+	log_phase_message("BEGIN_MODEL_DRAG: %s picks up %s (%s)" % [unit_id, model_id, owner_unit_id])
+	emit_signal("model_drag_requested", unit_id, model_id, owner_unit_id)
+	return create_result(true, [], "", {"model_id": model_id, "model_source_unit_id": owner_unit_id})
+
 func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
@@ -3952,6 +4011,16 @@ func _remain_stationary_changes(unit_id: String, unit: Dictionary) -> Array:
 		})
 		DebugLogger.info(str("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id))
 	return changes
+
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the
+## Movement phase once its move is over — a Normal / Advance / Fall Back move
+## ended with End This Unit's Move (CONFIRM_UNIT_MOVE), it Remained Stationary,
+## or it arrived from reserves (ingress); each sets flags.moved. Only the
+## active player's units count: an opponent's flags.moved is left over from
+## its own turn (cleared when that player's next turn starts). A unit still
+## moving (movement_active, not confirmed) has not acted yet.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	return _t09_is_active_players(unit_id) and _t09_unit_flag(unit_id, "moved")
 
 ## 09.02 MOVE UNITS: "When the Move Units step ends, the active player must
 ## have selected all of their units to make a move with ... every unit in

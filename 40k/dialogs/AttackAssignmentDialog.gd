@@ -46,7 +46,7 @@ var assignments_display: RichTextLabel = null
 # RulesEngine.resolve_melee_attacks loops the same array — but until now the
 # player had no way to SET it: the order fell out of the loadout-section build
 # order in _rebuild_assignments(). These rows are that lever (the melee twin of
-# the shooting phase's WeaponOrderPanel).
+# the shooting phase's weapon-order panel — the resolution dock's ▲▼ queue).
 var _order_scroll: ScrollContainer = null
 var _order_box: VBoxContainer = null
 var _order_keys: Array = []             # "attacker|weapon|target" in the player's chosen order

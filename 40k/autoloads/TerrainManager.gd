@@ -65,8 +65,17 @@ const DIFFICULT_GROUND_PENALTY_INCHES: float = 2.0
 
 func _ready() -> void:
 	print("[TerrainManager] Initializing terrain system")
+	# T11: sight lines are memoized by model geometry only (RulesEngine._los_memo).
+	# Its terrain-epoch guard reads board.terrain_features, but the GameState
+	# snapshots the rules are judged on nest terrain under board.board, so the
+	# guard never fired and a new layout kept the old layout's verdicts (target
+	# lists, the LoS line). Every terrain change is announced here, so drop it.
+	terrain_loaded.connect(_on_terrain_loaded_clear_los_memo)
 	_preload_layout_metadata()
 	load_terrain_layout(current_layout)
+
+func _on_terrain_loaded_clear_los_memo(_features: Array) -> void:
+	RulesEngine.clear_los_memo()
 
 func _preload_layout_metadata() -> void:
 	# The converted official 11e layouts (index_11e.json) are the only
@@ -791,6 +800,30 @@ static func category_of(piece: Dictionary) -> String:
 			return CATEGORY_LIGHT
 		_:
 			return CATEGORY_EXPOSED
+
+## T07 (design doc §6): the cover glyph a terrain piece shows on the board
+## (TerrainCoverOverlay) — its 11e category on the doc's light / heavy /
+## blocking ladder:
+##   exposed -> "+1"  only the 13.08 benefit of cover for INFANTRY / BEASTS /
+##                    SWARM models within its area; sight lines pass through.
+##   light   -> "+2"  cover too, and its area is Obscuring (13.10): no sight
+##                    line can be drawn across it.
+##   dense   -> "LB"  as light, plus Solid features (13.11) that block line of
+##                    sight through them at ground level.
+## Height is deliberately ignored: in 11e it changes movement and plunging
+## fire, not what cover a piece gives.
+const COVER_TYPE_EXPOSED := "+1"
+const COVER_TYPE_LIGHT := "+2"
+const COVER_TYPE_DENSE := "LB"
+
+static func cover_type_of(piece: Dictionary) -> String:
+	match category_of(piece):
+		CATEGORY_DENSE:
+			return COVER_TYPE_DENSE
+		CATEGORY_LIGHT:
+			return COVER_TYPE_LIGHT
+		_:
+			return COVER_TYPE_EXPOSED
 
 ## Numeric feature height in inches. Explicit "height_inches" wins;
 ## otherwise derived from the legacy height_category labels

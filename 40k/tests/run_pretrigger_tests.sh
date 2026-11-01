@@ -62,6 +62,58 @@
 #   - 14.02 per-model Objective Control (every model in range adds its OC;
 #     attached-unit battle-shock zeroes the group; 14.03 secured tie/break)
 #   - 11e charge targets within 12" AND within the roll (11.04 / 15.11)
+#   - T01 UIConstants color slots: typed opaque slot constants, slot_name()
+#     round trips, striped_pattern() diagonal hatch, autoload registration
+#     conflicts, and the design-guidelines doc §9 Constant/Hex table matching
+#     the autoload 1:1
+#   - T02 visual-harness pixel diff (tests/tools/pixel_diff.gd, the math behind
+#     every scenario `pixel_diff` step): identical PNGs = 0%, black vs white
+#     > 95%, region clipping, size-mismatch / missing-file errors
+#   - T03 movement drag ruler: RulesEngine.movement_drag_budget (M + Advance per
+#     move mode), the green / yellow / red path split (spent movement, SHIFT
+#     waypoint corners), the BEGIN_MODEL_DRAG action contract and the
+#     MovementRangeVisual.DragRuler label / clear
+#   - T05 shooting hover forecast: RulesEngine.preview_attack (11e cover = BS
+#     worsened by 1, [IGNORES COVER] / [TORRENT], [HEAVY], plunging fire, +1/-1
+#     cancelling, re-roll crits, overkill, 10e rules at edition 10), the
+#     P3-114 card wrapper, the hover hook + test_hover_target_id seam, and the
+#     HoverForecast card rows
+#   - T06 weapon-order panel Esc: CANCEL_WEAPON_ORDER backs the weapon-order
+#     step out to targeting with the declaration intact (nothing rolled, shooter
+#     kept, re-confirm + Start Sequence still work), rejected outside the step
+#     and once the targets are locked in (a defender SMOKESCREEN used against
+#     them, or an Unpredictable Genius roll)
+#   - T07 terrain cover icons: TerrainManager.cover_type_of (11e category ->
+#     +1 / +2 / LB, height ignored), TerrainCoverOverlay.centroid_of (polygon
+#     area centroid, not the vertex average), one TerrainCoverIcon_<id> per
+#     piece of the default layout (label, centroid, alpha, below tokens), names
+#     kept across a terrain reload, constant upright on-screen size
+#   - T08 two-ring token: FactionRing (the unit's army-data colour from the
+#     owner's faction palette, distinct per same-name squad, follows Change
+#     Color) inside SlotRing (UIConstants player-slot colour: TEAL P1, MAGENTA
+#     P2); SlotRing.scale > FactionRing.scale, both alpha >= 0.9, painted only
+#     by the letter style, geometry inside the base / clear of the centre, the
+#     MA-20 type ring just inside the slot ring, stop_pulse back to rest alpha
+#   - T10 held-key threat overlay: melee-only units get no shooting ring,
+#     reserves / embarked / destroyed units no rings, one union outline per
+#     unit (attached leader folded in), radius = range + base extent, slots
+#     MARGINAL_YELLOW / INVALID_RED on 0.15 / 0.10 CanvasGroup fills clipped to
+#     the board; Tab press / echo / release-with-Shift, the Shooting-phase
+#     tap (cycle shooter) vs hold (overlay) hand-off, stuck-key + focus-loss
+#     release, the viewer's seat against the AI
+#   - T12 overlay colours from UIConstants: no Color( / named Color.X in the
+#     eleven board-overlay scripts, every Color constant / script variable a
+#     slot or neutral chrome and in the slot its meaning calls for (42
+#     walked), chrome kept out of the slot table, with_alpha(); the colours
+#     the scripts hand out (damage / kill numbers, kill notification, result
+#     summary, OVERLAY_SHADOW backdrops, coherency in/out, engagement
+#     defaults, drag-ruler outline) and the death debris (slot blend, three
+#     randf() per particle as before)
+#   - T13 fit-board camera (F): F bound to Fit View to Board only
+#     (focus_p2_zone unbound; a pre-T13 saved F migrated by load_bindings),
+#     the free board area left by the HUD panels, the fit (whole board, 32px
+#     on the tight axis, centred, quarter-turn swap, tiny-rect fallback) and
+#     the anchored log-zoom glide samples
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -303,6 +355,21 @@ TESTS=(
     "tests/test_loadout_resolution.gd"
     "tests/test_transport_audit_2026_07.gd"
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
+    "tests/test_ui_constants_slots.gd"
+    "tests/tools/pixel_diff_unit_test.gd"
+    "tests/test_drag_ruler_budget.gd"
+    "tests/test_phase_bar.gd"
+    "tests/test_hover_forecast.gd"
+    "tests/test_weapon_order_cancel.gd"
+    "tests/test_terrain_cover_overlay.gd"
+    "tests/test_two_ring_token.gd"
+    "tests/test_unit_exhaustion.gd"
+    "tests/test_threat_overlay.gd"
+    "tests/test_los_line_visual.gd"
+    "tests/test_visual_color_slots.gd"
+    "tests/test_fit_board_camera.gd"
+    "tests/test_fit_selection_camera.gd"
+    "tests/test_unit_silhouettes.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

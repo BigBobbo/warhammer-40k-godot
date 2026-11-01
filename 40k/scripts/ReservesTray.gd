@@ -477,19 +477,7 @@ func _content_height(player: int) -> float:
 	return total + 16.0
 
 
-# Where the battlefield currently sits on screen. BoardRoot holds the Camera2D,
-# so its canvas transform already carries pan and zoom.
+# Where the battlefield currently sits on screen (shared with the T06 side-panel
+# check — SceneRefs.board_screen_rect).
 func _board_screen_rect(main: Node) -> Rect2:
-	var board_root = main.get_node_or_null("BoardRoot")
-	if board_root == null or not (board_root is Node2D):
-		return Rect2()
-	var w := 1760.0
-	var h := 2400.0
-	var settings = get_node_or_null("/root/SettingsService")
-	if settings != null:
-		w = settings.get_board_width_px()
-		h = settings.get_board_height_px()
-	var xf: Transform2D = (board_root as Node2D).get_global_transform_with_canvas()
-	var top_left: Vector2 = xf * Vector2.ZERO
-	var bottom_right: Vector2 = xf * Vector2(w, h)
-	return Rect2(top_left, bottom_right - top_left).abs()
+	return SceneRefs.board_screen_rect(main)

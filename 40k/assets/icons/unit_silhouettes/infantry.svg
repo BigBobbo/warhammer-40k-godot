@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- T15 unit-type silhouette: infantry. White glyph on a black keyline, drawn by
+     TokenVisual in place of the centred letter and tinted with the base's
+     contrast colour (white on dark bases, black on light ones). -->
+<g fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+    <circle cx="32" cy="12.5" r="7"/>
+    <rect x="23" y="18" width="18" height="24" rx="3"/>
+    <circle cx="19.5" cy="23" r="7.5"/>
+    <circle cx="44.5" cy="23" r="7.5"/>
+    <polygon points="23,40 31,40 30,58 21.5,58"/>
+    <polygon points="33,40 41,40 42.5,58 34,58"/>
+    <polygon points="7,43 53,30.5 55,36.5 9,49"/>
+    <polygon points="26,40 32,38.5 34.5,46.5 28.5,48"/>
+</g>
+<g fill="#fff">
+    <circle cx="32" cy="12.5" r="7"/>
+    <rect x="23" y="18" width="18" height="24" rx="3"/>
+    <circle cx="19.5" cy="23" r="7.5"/>
+    <circle cx="44.5" cy="23" r="7.5"/>
+    <polygon points="23,40 31,40 30,58 21.5,58"/>
+    <polygon points="33,40 41,40 42.5,58 34,58"/>
+</g>
+<g fill="#000" stroke="#000" stroke-width="2.2" stroke-linejoin="round">
+    <polygon points="7,43 53,30.5 55,36.5 9,49"/>
+    <polygon points="26,40 32,38.5 34.5,46.5 28.5,48"/>
+</g>
+<g fill="#fff">
+    <polygon points="7,43 53,30.5 55,36.5 9,49"/>
+    <polygon points="26,40 32,38.5 34.5,46.5 28.5,48"/>
+</g>
+</svg>

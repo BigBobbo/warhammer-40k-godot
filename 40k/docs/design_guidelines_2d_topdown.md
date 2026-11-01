@@ -387,20 +387,32 @@ simultaneously.
 
 Adopt a **strict color slot allocation**:
 
-| Slot | Color | Use |
-| --- | --- | --- |
-| Friendly active player | Teal | P1 zones, P1 selection rings, P1 paths |
-| Enemy player | Magenta | P2 zones, P2 selection rings (when shown), enemy threat overlays |
-| Faction (per army) | Player-chosen | Token inner ring, unit cards. Independent of P1/P2 slot. |
-| Warning / friendly-fire | Orange | AoE templates that can hit own units, overwatch armed, charge possible |
-| Confirmed / valid | Green | Movement within M, valid charge target, clear LOS |
-| Marginal / partial | Yellow | Within Advance, cover-obscured LOS, threat range |
-| Invalid / blocked | Red | Path exceeds budget, blocked LOS, enemy current threat |
-| Neutral UI | Pale white | Distance labels, rulers, measurements |
+| Slot | Color | Constant | Hex | Use |
+| --- | --- | --- | --- | --- |
+| Friendly active player | Teal | `FRIENDLY_PLAYER_TEAL` | `#00B3B3` | P1 zones, P1 selection rings, P1 paths |
+| Enemy player | Magenta | `ENEMY_PLAYER_MAGENTA` | `#E633B3` | P2 zones, P2 selection rings (when shown), enemy threat overlays |
+| Faction (per army) | Player-chosen | — (army data, via `FactionPalettes`) | per army | Token inner ring, unit cards. Independent of P1/P2 slot. |
+| Warning / friendly-fire | Orange | `WARNING_ORANGE` | `#FF8C00` | AoE templates that can hit own units, overwatch armed, charge possible |
+| Confirmed / valid | Green | `CONFIRMED_GREEN` | `#33D94D` | Movement within M, valid charge target, clear LOS |
+| Marginal / partial | Yellow | `MARGINAL_YELLOW` | `#F2D926` | Within Advance, cover-obscured LOS, threat range |
+| Invalid / blocked | Red | `INVALID_RED` | `#E63333` | Path exceeds budget, blocked LOS, enemy current threat |
+| Neutral UI | Pale white | `NEUTRAL_UI_PALE_WHITE` | `#F2F2F2` | Distance labels, rulers, measurements |
 
-Lock these mappings repo-wide. Document in
-`40k/scripts/UIConstants.gd` (or equivalent) so future visual scripts
-import the slot rather than picking ad-hoc hex codes.
+Lock these mappings repo-wide. They live in the `UIConstants` autoload
+(`40k/autoloads/UIConstants.gd`), so visual scripts import the slot
+rather than picking ad-hoc hex codes. Every slot is fully opaque
+(alpha 1.0), and `UIConstants.slot_name(color)` maps a color back to its
+slot name for assertions. The Constant and Hex columns are the spec:
+`40k/tests/test_ui_constants_slots.gd` fails if this table and the
+autoload drift apart.
+
+Two neutral chrome colours sit beside the slots but outside the table:
+`OVERLAY_LABEL_BG` (`#1A140D`, the dark chip behind overlay labels) and
+`OVERLAY_SHADOW` (`#000000`, under-strokes and text backdrops). They carry
+no meaning, so `slot_name()` returns "" for them (`chrome_name()` names
+them). Overlay scripts reference a slot or chrome constant and set the
+alpha at draw time with `UIConstants.with_alpha()`, so no overlay script
+writes its own `Color(...)` literal (T12; `40k/tests/test_visual_color_slots.gd`).
 
 **Motion budget:**
 - Resolution dice animations: ≤ 1.5s, SPACE to skip.
@@ -413,6 +425,8 @@ import the slot rather than picking ad-hoc hex codes.
   Fists (yellow), our "yellow = warning" overlay collides. **Resolution:**
   semantic yellow renders as a striped/hatched pattern, not solid fill, so
   the texture distinguishes it from faction yellow.
+  `UIConstants.striped_pattern(color)` returns the tileable diagonal-hatch
+  texture for this.
 - Bright-orange "this is clickable" rings on every active UI button.
   Reserve one accent color for the *single* primary call-to-action per
   screen.

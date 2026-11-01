@@ -295,8 +295,10 @@ T02 enforce this.
    regression check (passing-count vs baseline.count) lives in
    `run_scenarios.sh` because it needs cross-scenario visibility.
 
-See `tests/scenarios/visual/_schema.md` for the full reference and
-`tests/scenarios/visual/_template.json` for the copy-paste starting point.
+See `tests/scenarios/visual/_schema.md` for the full reference (every
+required step, with an example) and `tests/scenarios/visual/_template.json`
+for the copy-paste starting point. The template passes as shipped: copy it,
+run the copy once unchanged, then edit it into your task's scenario.
 
 ### Running
 
@@ -312,15 +314,22 @@ Exit codes for visual runs:
 - 0: all pass
 - 1: assertion failure
 - 2: infra error
-- **3: regression — passing count fell below `_baseline.json.count`**
+- **3: regression — passing count fell below `_baseline.json.count`.** Only a
+  full-suite `--visual` run checks this. A run of named scenario files executes
+  fewer scenarios than the baseline by construction, so it skips the check.
 
-When any `visual/T##_*.json` ran in the batch, screenshots and the per-scenario
-result JSON are copied to `40k/test_results/design_guidelines/T##/` for stable
-review locations.
+When any `visual/T##_*.json` ran in the batch, the screenshots and result JSON
+that run captured are copied to `40k/test_results/design_guidelines/T##/` for
+stable review locations. Beside them, `diff_report.json` lists the run's
+`pixel_diff` steps (each with its `{total_diff_pct, regions}` result) and the
+files copied. A scenario that exits before writing results (FATAL, crash,
+timeout) gets a report with `"error"` and `all_passed: false`, not the previous
+run's numbers.
 
-### Unit-testing the pixel-diff helper
+### The pixel-diff helper
 
-The math in `tests/tools/pixel_diff.gd` has its own headless self-test:
+The math in `tests/tools/pixel_diff.gd` has its own headless self-test, which
+is part of the validation gate (`run_pretrigger_tests.sh`):
 
 ```bash
 godot --headless --path 40k --script tests/tools/pixel_diff_unit_test.gd
@@ -328,6 +337,15 @@ godot --headless --path 40k --script tests/tools/pixel_diff_unit_test.gd
 
 Exercises identical-images = 0%, black-vs-white > 95%, region clipping, and
 error paths. Run before changing the diff implementation.
+
+To diff two PNGs outside a scenario (the same frame from two runs or two
+branches, or a region you are measuring before you pick a bound),
+`tests/tools/pixel_diff_cli.gd` prints the same result as one line of JSON:
+
+```bash
+godot --headless --path 40k -s tests/tools/pixel_diff_cli.gd -- \
+    --before=a.png --after=b.png [--region=name:x,y,w,h ...] | grep -m1 '^{'
+```
 
 ### Banned anti-patterns (per the playbook)
 

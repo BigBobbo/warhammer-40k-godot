@@ -12,6 +12,12 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
 
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "Player 2's 'Movement phase starts' stratagem offer is a modal over the middle of the screen, where the ruler below is drawn (from the board centre, which T13's fit now centres in the board area under the top bar: y 575, inside the modal). Decline it as a player would; not under test." },
+    { "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true, "timeout_s": 5.0, "poll_s": 0.2 },
+
     { "act": "execute_script",
       "script": "main.fit_view_to_board()" },
     { "act": "wait_frames", "frames": 3 },

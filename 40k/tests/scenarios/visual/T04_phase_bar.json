@@ -1,0 +1,409 @@
+{
+  "id": "T04_phase_bar",
+  "covers": [
+    "design_guidelines.T04",
+    "PhaseBar.pills",
+    "Main._setup_phase_strip"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "T04 six-phase bar with active highlight (doc §4). The pills live in the bottom PhaseStrip (between the game log and the right-hand panel; the strip's placement is pinned by T_phase_strip_bottom), so each pill is /root/Main/PhaseStrip/PhaseBar/PhasePill_<PHASE>. The sixth pill is the game's real sixth phase, Score (PhasePill_SCORING): MORALE is a deprecated slot PhaseManager remaps to COMMAND. Fixture audit_baseline_postdeploy (battle round 1, P1 Custodes active), loaded straight into its saved Command phase with no runner transition: the player's load path, where the strip used to stay hidden until the next phase change. (1) Command: six pills exist with their words, untruncated, in a 21 px row inside the 30 px strip and above the 6 px PlayerTurnBorder; Command's modulate is UIConstants.player_slot_color(1) (TEAL 00b3b3ff), the other five have modulate.a == 0.4. (2) A real click on the End Command Phase button, the confirm dialog's End Command Phase, and Decline on Player 2's War Cry offer reach Movement: Command now modulates to Color(0.5, 0.5, 0.5, 1) within 0.05 per channel, Movement is TEAL, Shooting onward future. (3) Same clicks for End Movement Phase reach Shooting: Command + Movement grey, Shooting TEAL, Charge onward future. In every phase the pill/strip/neighbour panel rects equal the Command ones (no layout shift), the rendered frame's CIE L* puts the lit pill more than 8 above every other pill and completed pills more than 20 apart from future ones, and the phase_bar diff between phases is above 11% (both changed pills ~14%; a single pill ~7%; the task's floor is 3%). (4) Setup privilege, not the player path: GameState.set_active_player(2) + transition to Command, then Movement: the lit pill turns MAGENTA (e633b3ff), proving it follows the active player's slot, every pill is re-derived on the way back, and MAGENTA (L* 54) still out-lights a completed grey pill (L* 43).",
+  "regions": {
+    "phase_bar": [
+      340,
+      1050,
+      1180,
+      30
+    ],
+    "phase_pills": [
+      340,
+      1050,
+      1180,
+      24
+    ]
+  },
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"COMMAND\", \"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif tree.root.get_node_or_null(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n) != null:\n\t\tk += 1\nreturn k",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var words = []\nfor n in [\"COMMAND\", \"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\twords.append(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n + \"/Label\").text)\nreturn \" > \".join(words)",
+      "equals": "Command > Movement > Shooting > Charge > Fight > Score"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").visible",
+      "equals": true,
+      "comment": "up straight after the load, before any phase change (hidden until the next phase_changed before T04)"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").size.y",
+      "equals": 30.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar strip = bar.get_parent()\nvar floor_y = tree.root.get_visible_rect().size.y - PlayerTurnBorder.BORDER_THICKNESS\nvar bad = []\nfor c in bar.get_children():\n\tif String(c.name).begins_with(\"PhasePill_\"):\n\t\tvar r = c.get_global_rect()\n\t\tif r.position.y <= strip.global_position.y or r.end.y > floor_y:\n\t\t\tbad.append(String(c.name) + str(r))\nreturn bad.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar s = bar.get_script()\nvar bad = []\nfor c in bar.get_children():\n\tif String(c.name).begins_with(\"PhasePill_\"):\n\t\tvar l = c.get_node(\"Label\")\n\t\tvar tw = s.PILL_FONT.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, s.FONT_SIZE).x\n\t\tif l.size.x < tw or l.clip_text or l.text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING:\n\t\t\tbad.append(l.text)\nreturn bad.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_COMMAND\").modulate == UIConstants.player_slot_color(GameState.get_active_player())",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_COMMAND\").modulate.to_html(true)",
+      "equals": "00b3b3ff"
+    },
+    {
+      "act": "execute_script",
+      "script": "is_equal_approx(get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_MOVEMENT\").modulate.a, 0.4)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif is_equal_approx(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate.a, 0.4):\n\t\tk += 1\nreturn k",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var strip = tree.root.get_node(\"/root/Main/PhaseStrip\")\nvar bar = strip.get_node(\"PhaseBar\")\nvar sig = \"strip\" + str(strip.get_global_rect()) + \"|bar\" + str(bar.get_global_rect())\nfor c in bar.get_children():\n\tsig += \"|\" + String(c.name) + str(c.get_global_rect())\nfor p in [\"/root/Main/GameLogPanel\", \"/root/Main/HUD_Right\", \"/root/Main/HUD_Bottom\"]:\n\tvar n = tree.root.get_node_or_null(p)\n\tsig += \"|\" + p + (str(n.get_global_rect()) if n != null else \"<none>\")\nbar.set_meta(\"t04_layout_command\", sig)\nreturn sig.length() > 0",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_command_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T04_phase_bar_T04_command_before.png\"))\nif img == null:\n\treturn \"no screenshot\"\nvar bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar lstar = func(c: Color) -> float:\n\tvar l = c.srgb_to_linear()\n\tvar y = 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b\n\treturn 116.0 * pow(y, 1.0 / 3.0) - 16.0 if y > 0.008856 else 903.3 * y\nvar L = {}\nfor c in bar.get_children():\n\tif not String(c.name).begins_with(\"PhasePill_\"):\n\t\tcontinue\n\tvar r = c.get_global_rect()\n\tvar cy = int(r.position.y + r.size.y / 2.0)\n\tvar sum = 0.0\n\tfor x in [int(r.position.x) + 5, int(r.end.x) - 6]:\n\t\tfor dy in [-2, 0, 2]:\n\t\t\tsum += lstar.call(img.get_pixel(x, cy + dy))\n\tL[String(c.name).trim_prefix(\"PhasePill_\")] = snappedf(sum / 6.0, 0.1)\nvar a = L[\"COMMAND\"]\nfor n in L:\n\tif n != \"COMMAND\" and L[n] + 8.0 >= a:\n\t\treturn \"active not brightest: \" + str(L)\nfor c in []:\n\tfor f in [\"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\t\tif absf(L[c] - L[f]) <= 20.0:\n\t\t\treturn \"completed vs future too close: \" + str(L)\nDebugLogger.info(\"[T04_phase_bar] rendered pill L* (P1 Command): \" + str(L))\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "rendered pixels (CIE L*, sampled inside each pill): the lit COMMAND pill is more than 8 above every other pill. Only an exact \"ok\" passes; the values go to the debug log, and a failure returns its verdict with every pill's L*"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.current_scene.get_node_or_null(\"PhaseEndConfirmDialog\")\nreturn d != null and d.visible",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Command Phase"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/StratagemDialog/Content/DeclineButton\")\nreturn GameState.get_current_phase() == 7 or (d != null and d.is_visible_in_tree())",
+      "equals": true,
+      "timeout_s": 10.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "Player 2's War Cry offer at the phase change (not under test)"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 7",
+      "equals": true,
+      "timeout_s": 10.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var worst = 0.0\nfor n in [\"COMMAND\"]:\n\tvar m = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate\n\tworst = maxf(worst, maxf(maxf(absf(m.r - 0.5), absf(m.g - 0.5)), maxf(absf(m.b - 0.5), absf(m.a - 1.0))))\nreturn worst",
+      "expect_max": 0.05
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_MOVEMENT\").modulate == UIConstants.player_slot_color(GameState.get_active_player())",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_MOVEMENT\").modulate.to_html(true)",
+      "equals": "00b3b3ff"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif is_equal_approx(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate.a, 0.4):\n\t\tk += 1\nreturn k",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var strip = tree.root.get_node(\"/root/Main/PhaseStrip\")\nvar bar = strip.get_node(\"PhaseBar\")\nvar sig = \"strip\" + str(strip.get_global_rect()) + \"|bar\" + str(bar.get_global_rect())\nfor c in bar.get_children():\n\tsig += \"|\" + String(c.name) + str(c.get_global_rect())\nfor p in [\"/root/Main/GameLogPanel\", \"/root/Main/HUD_Right\", \"/root/Main/HUD_Bottom\"]:\n\tvar n = tree.root.get_node_or_null(p)\n\tsig += \"|\" + p + (str(n.get_global_rect()) if n != null else \"<none>\")\nvar was = String(bar.get_meta(\"t04_layout_command\", \"\"))\nreturn \"same\" if sig == was else \"CHANGED: \" + was + \"  =>  \" + sig",
+      "equals": "same"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_movement"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T04_phase_bar_T04_movement.png\"))\nif img == null:\n\treturn \"no screenshot\"\nvar bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar lstar = func(c: Color) -> float:\n\tvar l = c.srgb_to_linear()\n\tvar y = 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b\n\treturn 116.0 * pow(y, 1.0 / 3.0) - 16.0 if y > 0.008856 else 903.3 * y\nvar L = {}\nfor c in bar.get_children():\n\tif not String(c.name).begins_with(\"PhasePill_\"):\n\t\tcontinue\n\tvar r = c.get_global_rect()\n\tvar cy = int(r.position.y + r.size.y / 2.0)\n\tvar sum = 0.0\n\tfor x in [int(r.position.x) + 5, int(r.end.x) - 6]:\n\t\tfor dy in [-2, 0, 2]:\n\t\t\tsum += lstar.call(img.get_pixel(x, cy + dy))\n\tL[String(c.name).trim_prefix(\"PhasePill_\")] = snappedf(sum / 6.0, 0.1)\nvar a = L[\"MOVEMENT\"]\nfor n in L:\n\tif n != \"MOVEMENT\" and L[n] + 8.0 >= a:\n\t\treturn \"active not brightest: \" + str(L)\nfor c in [\"COMMAND\"]:\n\tfor f in [\"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\t\tif absf(L[c] - L[f]) <= 20.0:\n\t\t\treturn \"completed vs future too close: \" + str(L)\nDebugLogger.info(\"[T04_phase_bar] rendered pill L* (P1 Movement): \" + str(L))\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "rendered CIE L*: the lit MOVEMENT pill is more than 8 above every other pill, and the completed COMMAND pill is more than 20 from each future pill"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T04_command_before",
+      "after": "T04_movement",
+      "region": "phase_bar",
+      "expect_min_pct": 11.0,
+      "comment": "task floor is 3.0; both changed pills measure ~14%, a single pill ~7%, so 11 also fails if only one pill moved"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.current_scene.get_node_or_null(\"PhaseEndConfirmDialog\")\nreturn d != null and d.visible",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "click_node",
+      "button_text": "End Movement Phase"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase() == 8",
+      "equals": true,
+      "timeout_s": 10.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var worst = 0.0\nfor n in [\"COMMAND\", \"MOVEMENT\"]:\n\tvar m = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate\n\tworst = maxf(worst, maxf(maxf(absf(m.r - 0.5), absf(m.g - 0.5)), maxf(absf(m.b - 0.5), absf(m.a - 1.0))))\nreturn worst",
+      "expect_max": 0.05
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_SHOOTING\").modulate == UIConstants.player_slot_color(GameState.get_active_player())",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_SHOOTING\").modulate.to_html(true)",
+      "equals": "00b3b3ff"
+    },
+    {
+      "act": "execute_script",
+      "script": "is_equal_approx(get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_CHARGE\").modulate.a, 0.4)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif is_equal_approx(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate.a, 0.4):\n\t\tk += 1\nreturn k",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var strip = tree.root.get_node(\"/root/Main/PhaseStrip\")\nvar bar = strip.get_node(\"PhaseBar\")\nvar sig = \"strip\" + str(strip.get_global_rect()) + \"|bar\" + str(bar.get_global_rect())\nfor c in bar.get_children():\n\tsig += \"|\" + String(c.name) + str(c.get_global_rect())\nfor p in [\"/root/Main/GameLogPanel\", \"/root/Main/HUD_Right\", \"/root/Main/HUD_Bottom\"]:\n\tvar n = tree.root.get_node_or_null(p)\n\tsig += \"|\" + p + (str(n.get_global_rect()) if n != null else \"<none>\")\nvar was = String(bar.get_meta(\"t04_layout_command\", \"\"))\nreturn \"same\" if sig == was else \"CHANGED: \" + was + \"  =>  \" + sig",
+      "equals": "same"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_shooting_after"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T04_phase_bar_T04_shooting_after.png\"))\nif img == null:\n\treturn \"no screenshot\"\nvar bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar lstar = func(c: Color) -> float:\n\tvar l = c.srgb_to_linear()\n\tvar y = 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b\n\treturn 116.0 * pow(y, 1.0 / 3.0) - 16.0 if y > 0.008856 else 903.3 * y\nvar L = {}\nfor c in bar.get_children():\n\tif not String(c.name).begins_with(\"PhasePill_\"):\n\t\tcontinue\n\tvar r = c.get_global_rect()\n\tvar cy = int(r.position.y + r.size.y / 2.0)\n\tvar sum = 0.0\n\tfor x in [int(r.position.x) + 5, int(r.end.x) - 6]:\n\t\tfor dy in [-2, 0, 2]:\n\t\t\tsum += lstar.call(img.get_pixel(x, cy + dy))\n\tL[String(c.name).trim_prefix(\"PhasePill_\")] = snappedf(sum / 6.0, 0.1)\nvar a = L[\"SHOOTING\"]\nfor n in L:\n\tif n != \"SHOOTING\" and L[n] + 8.0 >= a:\n\t\treturn \"active not brightest: \" + str(L)\nfor c in [\"COMMAND\", \"MOVEMENT\"]:\n\tfor f in [\"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\t\tif absf(L[c] - L[f]) <= 20.0:\n\t\t\treturn \"completed vs future too close: \" + str(L)\nDebugLogger.info(\"[T04_phase_bar] rendered pill L* (P1 Shooting): \" + str(L))\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "rendered CIE L*: the lit SHOOTING pill is more than 8 above every other pill, and the completed COMMAND and MOVEMENT pills are more than 20 from each future pill"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T04_movement",
+      "after": "T04_shooting_after",
+      "region": "phase_bar",
+      "expect_min_pct": 11.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_active_player(2)\nPhaseManager.transition_to_phase(6)\nreturn GameState.get_active_player()",
+      "equals": 2,
+      "comment": "setup privilege: give P2 the turn"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_COMMAND\").modulate.to_html(true)",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_COMMAND\").modulate == UIConstants.player_slot_color(2)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif is_equal_approx(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate.a, 0.4):\n\t\tk += 1\nreturn k",
+      "equals": 5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_p2_command"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T04_phase_bar_T04_p2_command.png\"))\nif img == null:\n\treturn \"no screenshot\"\nvar bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar lstar = func(c: Color) -> float:\n\tvar l = c.srgb_to_linear()\n\tvar y = 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b\n\treturn 116.0 * pow(y, 1.0 / 3.0) - 16.0 if y > 0.008856 else 903.3 * y\nvar L = {}\nfor c in bar.get_children():\n\tif not String(c.name).begins_with(\"PhasePill_\"):\n\t\tcontinue\n\tvar r = c.get_global_rect()\n\tvar cy = int(r.position.y + r.size.y / 2.0)\n\tvar sum = 0.0\n\tfor x in [int(r.position.x) + 5, int(r.end.x) - 6]:\n\t\tfor dy in [-2, 0, 2]:\n\t\t\tsum += lstar.call(img.get_pixel(x, cy + dy))\n\tL[String(c.name).trim_prefix(\"PhasePill_\")] = snappedf(sum / 6.0, 0.1)\nvar a = L[\"COMMAND\"]\nfor n in L:\n\tif n != \"COMMAND\" and L[n] + 8.0 >= a:\n\t\treturn \"active not brightest: \" + str(L)\nfor c in []:\n\tfor f in [\"MOVEMENT\", \"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\t\tif absf(L[c] - L[f]) <= 20.0:\n\t\t\treturn \"completed vs future too close: \" + str(L)\nDebugLogger.info(\"[T04_phase_bar] rendered pill L* (P2 Command): \" + str(L))\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "rendered CIE L*: Player 2's lit MAGENTA COMMAND pill is more than 8 above every other pill"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T04_command_before",
+      "after": "T04_p2_command",
+      "region": "phase_pills",
+      "expect_min_pct": 4.0,
+      "comment": "only the lit pill changes colour (TEAL -> MAGENTA): measured ~8% of the pill rows"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(7)\nreturn GameState.get_current_phase()",
+      "equals": 7,
+      "comment": "setup privilege: P2 Movement"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_MOVEMENT\").modulate.to_html(true)",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var worst = 0.0\nfor n in [\"COMMAND\"]:\n\tvar m = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate\n\tworst = maxf(worst, maxf(maxf(absf(m.r - 0.5), absf(m.g - 0.5)), maxf(absf(m.b - 0.5), absf(m.a - 1.0))))\nreturn worst",
+      "expect_max": 0.05
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var k = 0\nfor n in [\"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\tif is_equal_approx(tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar/PhasePill_\" + n).modulate.a, 0.4):\n\t\tk += 1\nreturn k",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var strip = tree.root.get_node(\"/root/Main/PhaseStrip\")\nvar bar = strip.get_node(\"PhaseBar\")\nvar sig = \"strip\" + str(strip.get_global_rect()) + \"|bar\" + str(bar.get_global_rect())\nfor c in bar.get_children():\n\tsig += \"|\" + String(c.name) + str(c.get_global_rect())\nfor p in [\"/root/Main/GameLogPanel\", \"/root/Main/HUD_Right\", \"/root/Main/HUD_Bottom\"]:\n\tvar n = tree.root.get_node_or_null(p)\n\tsig += \"|\" + p + (str(n.get_global_rect()) if n != null else \"<none>\")\nvar was = String(bar.get_meta(\"t04_layout_command\", \"\"))\nreturn \"same\" if sig == was else \"CHANGED: \" + was + \"  =>  \" + sig",
+      "equals": "same"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_p2_movement"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var img = Image.load_from_file(ProjectSettings.globalize_path(\"user://test_results/scenarios/T04_phase_bar_T04_p2_movement.png\"))\nif img == null:\n\treturn \"no screenshot\"\nvar bar = tree.root.get_node(\"/root/Main/PhaseStrip/PhaseBar\")\nvar lstar = func(c: Color) -> float:\n\tvar l = c.srgb_to_linear()\n\tvar y = 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b\n\treturn 116.0 * pow(y, 1.0 / 3.0) - 16.0 if y > 0.008856 else 903.3 * y\nvar L = {}\nfor c in bar.get_children():\n\tif not String(c.name).begins_with(\"PhasePill_\"):\n\t\tcontinue\n\tvar r = c.get_global_rect()\n\tvar cy = int(r.position.y + r.size.y / 2.0)\n\tvar sum = 0.0\n\tfor x in [int(r.position.x) + 5, int(r.end.x) - 6]:\n\t\tfor dy in [-2, 0, 2]:\n\t\t\tsum += lstar.call(img.get_pixel(x, cy + dy))\n\tL[String(c.name).trim_prefix(\"PhasePill_\")] = snappedf(sum / 6.0, 0.1)\nvar a = L[\"MOVEMENT\"]\nfor n in L:\n\tif n != \"MOVEMENT\" and L[n] + 8.0 >= a:\n\t\treturn \"active not brightest: \" + str(L)\nfor c in [\"COMMAND\"]:\n\tfor f in [\"SHOOTING\", \"CHARGE\", \"FIGHT\", \"SCORING\"]:\n\t\tif absf(L[c] - L[f]) <= 20.0:\n\t\t\treturn \"completed vs future too close: \" + str(L)\nDebugLogger.info(\"[T04_phase_bar] rendered pill L* (P2 Movement): \" + str(L))\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "rendered CIE L*: Player 2's lit MAGENTA MOVEMENT pill is more than 8 above every other pill, the completed grey COMMAND pill included, and COMMAND is more than 20 from each future pill"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T04_p2_command",
+      "after": "T04_p2_movement",
+      "region": "phase_pills",
+      "expect_min_pct": 11.0
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
+  ]
+}

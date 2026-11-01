@@ -215,9 +215,17 @@ Each step is a dict with an `act` field plus act-specific keys.
   Optional `hold_s` keeps the key down for that long before releasing — needed
   for POLLED consumers (camera pan/zoom read `is_action_pressed()` from
   `_process`), which a press/release straddling one frame may miss.
+  Optional `state` splits the keystroke: `"tap"` (default) presses and
+  releases, `"press"` only puts the key down so it stays HELD across the
+  steps that follow (screenshot or assert a held-key view such as the T10 Tab
+  threat overlay), and `"release"` lets go of an earlier `"press"`. The
+  modifier flags (`ctrl` / `shift` / `alt` / `meta`) apply to whichever half
+  is sent, so a release can carry a modifier the press did not.
   ```json
   { "act": "simulate_key", "keycode": "Escape" }
   { "act": "simulate_key", "keycode": "W", "hold_s": 0.25 }
+  { "act": "simulate_key", "keycode": "Tab", "state": "press" }
+  { "act": "simulate_key", "keycode": "Tab", "state": "release", "shift": true }
   ```
 
 - `simulate_joy_button`: dispatch a joypad button press+release through the

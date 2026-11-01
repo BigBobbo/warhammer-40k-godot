@@ -18,6 +18,7 @@ signal shooting_resolved(unit_id: String, target_unit_id: String, result: Dictio
 signal dice_rolled(dice_data: Dictionary)
 signal saves_required(save_data_list: Array)  # For interactive save resolution
 signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ weapon types
+signal weapon_order_cancelled(shooter_id: String)  # T06: CANCEL_WEAPON_ORDER handed the declaration back for editing
 signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
 signal shooting_stage_paused(stage: String, info: Dictionary)  # Staged sequential: "hits" or "wounds" pause reached (drives WeaponOrderDialog buttons + Command Re-roll)
 signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
@@ -36,6 +37,16 @@ var active_shooting_type: String = ""
 var pending_assignments: Array = []  # Weapon assignments before confirmation
 var confirmed_assignments: Array = []  # Assignments ready to resolve
 var resolution_state: Dictionary = {}  # State for step-by-step resolution
+# T06 (design guidelines §3): the weapon-order step (resolution_state.phase
+# "awaiting_weapon_order") can be backed out of with CANCEL_WEAPON_ORDER — the
+# panel's Esc. These hold the declaration exactly as the player made it at
+# CONFIRM_TARGETS (before the merge and the Extra Attacks injection), the
+# per-player stratagem-use counts at that moment, and the reason it got locked
+# in since (a die rolled for it), so nothing the opponent reacted to can be
+# taken back. See weapon_order_cancel_block_reason().
+var _wo_declared_assignments: Array = []
+var _wo_usage_mark: Array = []
+var _wo_lock_reason: String = ""
 var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
 var phase_shooting_log: Array = []  # T5-UX9: Per-weapon shot summaries persisted across all units in this phase
@@ -511,7 +522,7 @@ func _initialize_shooting() -> void:
 const _SAVE_LOCKED_ACTIONS := [
 	"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS",
 	"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "SKIP_UNIT",
-	"SHOOT", "CONTINUE_SEQUENCE", "COMPLETE_SHOOTING_FOR_UNIT",
+	"SHOOT", "CONTINUE_SEQUENCE", "COMPLETE_SHOOTING_FOR_UNIT", "CANCEL_WEAPON_ORDER",
 ]
 
 func validate_action(action: Dictionary) -> Dictionary:
@@ -548,6 +559,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_resolve_shooting(action)
 		"RESOLVE_WEAPON_SEQUENCE":  # Sequential weapon resolution
 			return _validate_resolve_weapon_sequence(action)
+		"CANCEL_WEAPON_ORDER":  # T06: back out of the weapon-order step to targeting
+			return _validate_cancel_weapon_order(action)
 		"SKIP_UNIT":
 			return _validate_skip_unit(action)
 		"END_SHOOTING":
@@ -683,6 +696,9 @@ func _process_action_dispatch(action: Dictionary) -> Dictionary:
 		"RESOLVE_WEAPON_SEQUENCE":  # Sequential weapon resolution
 			DebugLogger.info("ShootingPhase: Matched RESOLVE_WEAPON_SEQUENCE")
 			return _process_resolve_weapon_sequence(action)
+		"CANCEL_WEAPON_ORDER":  # T06: back out of the weapon-order step to targeting
+			DebugLogger.info("ShootingPhase: Matched CANCEL_WEAPON_ORDER")
+			return _process_cancel_weapon_order(action)
 		"SKIP_UNIT":
 			DebugLogger.info("ShootingPhase: Matched SKIP_UNIT")
 			return _process_skip_unit(action)
@@ -1142,6 +1158,63 @@ func _validate_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 
 	return {"valid": true, "errors": []}
 
+## T06: CANCEL_WEAPON_ORDER is only legal in the weapon-order step (targets
+## confirmed, no die rolled for the attacks yet) and only while the declaration
+## is still the player's to take back — see weapon_order_cancel_block_reason().
+func _validate_cancel_weapon_order(_action: Dictionary) -> Dictionary:
+	if active_shooter_id == "":
+		return {"valid": false, "errors": ["No active shooter"]}
+	if str(resolution_state.get("phase", "")) != "awaiting_weapon_order":
+		return {"valid": false, "errors": ["There is no weapon order waiting to be cancelled"]}
+	var reason := weapon_order_cancel_block_reason()
+	if reason != "":
+		return {"valid": false, "errors": ["Targets are locked in: " + reason]}
+	return {"valid": true, "errors": []}
+
+## T06: why the weapon-order step can no longer go back to targeting, or ""
+## when it can. Once the opponent has reacted to the declared targets (any
+## stratagem used since CONFIRM_TARGETS — SMOKESCREEN, a codex reactive — or
+## one used by the shooter's side) or a die was rolled against them, the
+## targets stand: taking them back would let the attacker re-aim after seeing
+## the reaction. The panel greys its Back button out with this text.
+func weapon_order_cancel_block_reason() -> String:
+	if _wo_lock_reason != "":
+		return _wo_lock_reason
+	if _wo_declared_assignments.is_empty() or _wo_usage_mark.size() != 2:
+		# e.g. the step was restored from a save: the declaration was not kept.
+		return "the declared targets were not recorded for this step"
+	var now := _wo_stratagem_usage_mark()
+	var defender := 2 if get_current_player() == 1 else 1
+	if int(now[defender - 1]) != int(_wo_usage_mark[defender - 1]):
+		return "the opponent has already used a stratagem against these targets"
+	if now != _wo_usage_mark:
+		return "a stratagem has been used since the targets were declared"
+	return ""
+
+## Stratagems used so far by player 1 and player 2 (StratagemManager history).
+func _wo_stratagem_usage_mark() -> Array:
+	return [StratagemManager.usage_count(1), StratagemManager.usage_count(2)]
+
+## T06: hand the declaration back. Nothing is rolled and no game state changes:
+## the confirmed (merged, Extra-Attacks-injected) list is dropped and the
+## player's own pending assignments return, so the shooting panel can show them
+## again for editing — re-confirming runs CONFIRM_TARGETS (and its reactive
+## stratagem offer) afresh.
+func _process_cancel_weapon_order(_action: Dictionary) -> Dictionary:
+	var shooter := active_shooter_id
+	pending_assignments = _wo_declared_assignments.duplicate(true)
+	confirmed_assignments = []
+	resolution_state = {}
+	_wo_declared_assignments = []
+	_wo_usage_mark = []
+	_wo_lock_reason = ""
+	log_phase_message("Weapon order cancelled — back to target selection with %d assignment(s); nothing was rolled" % pending_assignments.size())
+	emit_signal("weapon_order_cancelled", shooter)
+	return create_result(true, [], "", {
+		"weapon_order_cancelled": true,
+		"pending_assignments": pending_assignments.duplicate(true)
+	})
+
 # Processing Methods
 
 func _process_select_shooter(action: Dictionary) -> Dictionary:
@@ -1525,6 +1598,12 @@ func _process_clear_all_assignments(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_confirm_targets(action: Dictionary) -> Dictionary:
+	# T06: keep the declaration as the player made it, so the weapon-order
+	# step's Esc (CANCEL_WEAPON_ORDER) can hand it back unchanged.
+	_wo_declared_assignments = pending_assignments.duplicate(true)
+	_wo_usage_mark = _wo_stratagem_usage_mark()
+	_wo_lock_reason = ""
+
 	# CRITICAL FIX: Merge assignments with the same weapon_id to ensure all models
 	# with the same weapon type are batched together
 	var merged_assignments = {}
@@ -1576,6 +1655,9 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	# that every target is known; a Hop Splat with several candidates pauses
 	# for the player's pick (resume: _ork11e_resume_after_hop_splat).
 	var ork11e_ug: Dictionary = Ork11eDetachments.ug_on_targets_confirmed(active_shooter_id, confirmed_assignments, int(action.get("payload", {}).get("rng_seed", -1)))
+	if ork11e_ug.get("applied", false):
+		# T06: a die was rolled against these targets — they are locked in.
+		_wo_lock_reason = "Unpredictable Genius has already been rolled against these targets"
 	if not ork11e_ug.get("hop_splat_options", []).is_empty():
 		var hs_entry: Dictionary = Ork11eDetachments.hop_splat_window_entry(active_shooter_id, str(ork11e_ug.target), ork11e_ug.hop_splat_options)
 		if open_stratagem_windows([hs_entry], "_ork11e_resume_after_hop_splat", hs_entry.ctx):
@@ -6000,6 +6082,16 @@ func _hidden_shot_stamp(unit_id: String) -> Dictionary:
 	# this turn or the previous turn" condition. Monotonic across player turns.
 	var idx := GameState.get_battle_round() * 2 + (0 if get_current_player() == 1 else 1)
 	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
+
+## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the
+## Shooting phase once flags.has_shot is set — its attacks resolved, it was
+## skipped, or it started an action / burned an objective instead (each sets
+## the flag; an attached character shares its bodyguard's). Only the active
+## player's units count: Fire Overwatch earlier in the turn sets has_shot on
+## the opponent's units, and _clear_phase_flags only sweeps it at this phase's
+## end.
+func has_unit_acted_this_phase(unit_id: String) -> bool:
+	return _t09_is_active_players(unit_id) and _t09_unit_flag(unit_id, "has_shot")
 
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})

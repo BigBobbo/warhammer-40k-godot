@@ -17725,6 +17725,705 @@ static func average_dice_notation(s: String) -> float:
 	# Average of one die of size x is (x+1)/2.
 	return float(n) * (float(x) + 1.0) / 2.0 + bonus
 
+# ==========================================
+# T05: ATTACK PREVIEW (expected values, no dice rolled)
+# ==========================================
+
+## Expected-value forecast for ONE ranged weapon of `shooter_unit_id` against
+## `target_unit_id`: attacks -> hits -> wounds -> unsaved -> damage. Rolls
+## nothing and changes nothing, so the UI can call it on every hover.
+##
+## It is the single forecast every pre-roll shooting surface reads: the board
+## hover tooltip (HoverForecast, T05), the P3-114 weapon forecast card, the
+## quick-assign buttons and the B5 resolution-dock rows
+## (ShootingController._calc_weapon_expected_damage is a thin wrapper), and
+## UnitStatsPanel's prospective stats (T40). The maths moved here from
+## ShootingController._calc_weapon_expected_damage (P3-114), with these
+## changes so the preview matches what the live roll does:
+##   * per-die probabilities come from the live evaluators
+##     (AttackSequence.evaluate_hit_roll / evaluate_wound_roll), with every die
+##     face and re-roll face enumerated. Thresholds, the +/-1 dice-roll cap,
+##     re-roll rules, critical thresholds and unmodified-fail bands are
+##     therefore the real ones, and re-rolls raise the critical-hit chance too.
+##   * hit and wound modifiers are flags, as in the live roll: any +1 and any
+##     -1 cancel, however many sources each side has.
+##   * 11e hit-side modifiers come from the ModifierStack the live roll uses:
+##     [HEAVY] +1 to hit (24.16: unengaged, not set up this turn, no model moved
+##     more than 3"), plunging fire BS -1 (22.05) and the close-quarters
+##     penalties (10.06 / 17.03). The 10e "remained stationary" Heavy check
+##     and the flat -1 for [STEALTH] / [INDIRECT FIRE] now apply at 10e only.
+##   * benefit of cover (11e 13.08) worsens BS by 1, judged from EACH firing
+##     model's view of the target, as the live roll does per attack (a unit
+##     of more than PREVIEW_COVER_SAMPLE_MAX firing models is sampled). It is
+##     skipped for [TORRENT], [IGNORES COVER], [PSYCHIC] and the abilities that
+##     ignore BS worsening (Salvus, Inevitable Annihilation, Might of the
+##     Machine Spirit).
+##   * an [INDIRECT FIRE] weapon aimed at a target no firing model can see
+##     uses the 11e fail band (unmodified 1-5 fail, or 1-3; 10.07), cannot
+##     re-roll hits, and gives the target the benefit of cover.
+##   * [TORRENT] attacks never score critical hits, and Sustained Hits Dx
+##     adds the die's average, not its top face.
+##   * models killed counts at most one model per unsaved wound (damage beyond
+##     a model's Wounds is lost), instead of expected damage / Wounds.
+##
+## opts:
+##   model_count_override: int — forecast this many bearers (a split-fire
+##       slice, B5) instead of every alive model carrying the weapon.
+##   cover_cache: Dictionary — pass the same dict to several calls for one
+##       target (e.g. every weapon of the hovered unit) so each firing
+##       model's cover is looked up once. Keys are "<target>|<bearer id>".
+##
+## Returns {} when the shooter, the target or the weapon is unknown. Keys:
+##   weapon_id, weapon_name, shooter_id, target_id, target_name, target_owner,
+##   model_count, total_attacks (float, expected attacks),
+##   base_bs (the weapon's BS), bs (effective BS after cover / plunging fire,
+##   the value most of the attacks use, before +/-1 dice-roll modifiers),
+##   bs_no_cover (the same before the benefit of cover),
+##   hit_modifier (net +/-1 to the hit roll), hit_display ("3+" / "Auto":
+##   the hit roll most attacks need), is_torrent,
+##   in_cover, cover_fraction (0..1, share of firing models whose view gives
+##   the target cover), cover_bs_delta (1 when cover worsens any attack's BS),
+##   strength, toughness, wound_threshold, wound_modifier, wound_display,
+##   ap (negative convention, -2 = AP2), save_stat, modified_save (armour
+##   after AP), invuln, best_save, fnp, damage_raw, damage_avg,
+##   expected_hits, expected_wounds (successful wound rolls, incl. Lethal
+##   Hits auto-wounds), expected_unsaved, expected_damage (after saves and
+##   Feel No Pain), expected_effective_damage (the wounds that actually come
+##   off: at most one model's Wounds per unsaved wound), expected_models_killed,
+##   active_tags (modifier labels).
+## At most this many firing models are terrain-checked for cover per preview.
+const PREVIEW_COVER_SAMPLE_MAX := 4
+## The per-die probability tables only depend on their arguments (and the
+## live evaluators, which never change at runtime): computed once each.
+static var _preview_prob_memo: Dictionary = {}
+
+static func preview_attack(shooter_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary = {}, opts: Dictionary = {}) -> Dictionary:
+	if board.is_empty():
+		board = GameState.state
+	var units: Dictionary = board.get("units", {})
+	var attacker_unit: Dictionary = units.get(shooter_unit_id, {})
+	var target_unit: Dictionary = units.get(target_unit_id, {})
+	if weapon_id == "" or attacker_unit.is_empty() or target_unit.is_empty():
+		return {}
+	var weapon_profile: Dictionary = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		return {}
+
+	var target_meta: Dictionary = target_unit.get("meta", {})
+	var target_name = target_meta.get("display_name", target_meta.get("name", target_unit_id))
+	var target_stats: Dictionary = target_meta.get("stats", {})
+	# 11e 19.02: the highest Toughness among the bodyguard models (what the live roll uses).
+	var toughness: int = _get_attached_unit_toughness(target_unit, board)
+	var save_stat: int = int(target_stats.get("save", 4))
+	var weapon_name = weapon_profile.get("name", weapon_id)
+	var attacker_flags: Dictionary = attacker_unit.get("flags", {})
+	var active_tags: Array = []  # modifier labels for display
+
+	# Bearers: every alive model carrying this weapon (attached CHARACTERS as
+	# "<unit>:<model>", Firing Deck loans as "<hull>@fd<i>").
+	var bearers: Array = []
+	var unit_weapons: Dictionary = get_unit_weapons(shooter_unit_id, board)
+	for bearer_id in unit_weapons:
+		if weapon_id in unit_weapons[bearer_id]:
+			bearers.append(bearer_id)
+	var model_count: int = bearers.size()
+	var model_count_override: int = int(opts.get("model_count_override", -1))
+	if model_count_override > 0:
+		model_count = model_count_override
+
+	# === ATTACKS ===
+	var attacks_raw: String = str(weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1))))
+	var total_attacks: float = average_dice_notation(attacks_raw) * model_count
+
+	# Blast: +1 attack per 5 models in the target unit
+	if is_blast_weapon(weapon_id, board):
+		var blast_bonus: int = calculate_blast_bonus(weapon_id, target_unit, board)
+		total_attacks += blast_bonus * model_count
+		if blast_bonus > 0:
+			active_tags.append("Blast+%d" % blast_bonus)
+
+	# Rapid Fire: +X attacks for each bearer within half range of THIS target
+	# (r1:WH-9 — never assume every bearer is in half range).
+	var rapid_fire_val: int = get_rapid_fire_value(weapon_id, board)
+	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1] / +1 to an existing RAPID FIRE
+	var crd_rf: int = ork11e_rapid_fire_bonus(attacker_unit, weapon_profile)
+	if crd_rf > 0:
+		rapid_fire_val += crd_rf
+		active_tags.append("Close-Range Dakka")
+	if rapid_fire_val > 0:
+		var rf_in_half: int = count_models_in_half_range(attacker_unit, target_unit, weapon_id, bearers, board, true)  # (WP-M2b: RAPID FIRE — Codex Fire-patterns reads the full range)
+		var rf_models: int = mini(rf_in_half, model_count)
+		total_attacks += rapid_fire_val * rf_models
+		if rf_models >= model_count:
+			active_tags.append("Rapid Fire %d" % rapid_fire_val)
+		elif rf_models > 0:
+			active_tags.append("Rapid Fire %d (%d/%d in half range)" % [rapid_fire_val, rf_models, model_count])
+		else:
+			active_tags.append("Rapid Fire %d (out of half range)" % rapid_fire_val)
+
+	# === HIT ===
+	var base_bs: int = int(weapon_profile.get("bs", 4))
+	var is_torrent: bool = is_torrent_weapon(weapon_id, board)
+	var hit_plus := false   # any +1 to the hit roll
+	var hit_minus := false  # any -1 to the hit roll
+	var hit_rr_bits := 0    # HitModifier re-roll bits
+	if is_torrent:
+		active_tags.append("Torrent")
+
+	# Effect flags on the attacker: +1 / -1 to hit
+	if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
+		hit_plus = true
+	if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
+		hit_minus = true
+
+	# Re-roll hits: legacy booleans, then the EffectPrimitives scope string
+	# ("ones" / "failed" / "all" / non-crit fishing) that abilities set.
+	if attacker_flags.get("reroll_hit_ones", false):
+		hit_rr_bits |= HitModifier.REROLL_ONES
+	if attacker_flags.get("reroll_hits", false):
+		hit_rr_bits |= HitModifier.REROLL_FAILED
+	var hit_rr_scope: String = str(attacker_flags.get(EffectPrimitivesData.FLAG_REROLL_HITS, ""))
+	if hit_rr_scope == "ones":
+		hit_rr_bits |= HitModifier.REROLL_ONES
+	elif hit_rr_scope == "failed" or hit_rr_scope == "all":
+		hit_rr_bits |= HitModifier.REROLL_FAILED
+	elif hit_rr_scope == REROLL_HITS_SCOPE_NON_CRIT:
+		hit_rr_bits |= _non_crit_hit_reroll_bits(attacker_unit, weapon_id, board, false)
+
+	# [HEAVY] at 10e: +1 to hit if the unit remained stationary (11e: ModifierStack below).
+	if GameConstants.edition < 11 and is_heavy_weapon(weapon_id, board):
+		if attacker_flags.get("remained_stationary", false):
+			hit_plus = true
+			active_tags.append("Heavy")
+
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit when this weapon is one
+	# selected for the Firing Deck ability (every bearer a Firing Deck loan).
+	if ork11e_drive_by_bustin_active(attacker_unit):
+		var fd_bearers := 0
+		for bearer_id in bearers:
+			if ork11e_is_firing_deck_bearer(bearer_id):
+				fd_bearers += 1
+		if not bearers.is_empty() and fd_bearers == bearers.size():
+			hit_plus = true
+			active_tags.append("Drive-by Bustin'")
+
+	# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): re-roll hit rolls vs a FLY target
+	if ork11e_long_uncontrolled_bursts_reroll(attacker_unit, target_unit):
+		hit_rr_bits |= HitModifier.REROLL_FAILED
+		active_tags.append("Uncontrolled Bursts")
+
+	# Damaged profile: -1 to hit
+	if is_damaged_profile_active(attacker_unit):
+		hit_minus = true
+		active_tags.append("Damaged")
+
+	# STEALTH is -1 to hit at 10e. At 11e it grants the benefit of cover
+	# (24.33), which the cover block below folds into the BS.
+	if GameConstants.edition < 11:
+		if has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
+			hit_minus = true
+			active_tags.append("Stealth")
+
+	# [INDIRECT FIRE]: -1 to hit at 10e. At 11e (10.07) shooting an UNSEEN
+	# target indirectly fails on an unmodified 1-5 (1-3 if the unit remained
+	# stationary and a friendly unit sees the target), cannot re-roll hits, and
+	# gives the target the benefit of cover. A visible target is shot normally.
+	var hit_fail_band := 1
+	var indirect_unseen := false
+	if has_indirect_fire(weapon_id, board) and not is_torrent:
+		if GameConstants.edition < 11:
+			hit_minus = true
+			active_tags.append("Indirect")
+		elif not _has_los_to_target_unit(shooter_unit_id, target_unit_id, board):
+			indirect_unseen = true
+			hit_fail_band = _indirect_hit_fail_band_11e(shooter_unit_id, target_unit_id, board)
+			hit_rr_bits = 0
+			active_tags.append("Indirect (fails on 1-%d)" % hit_fail_band)
+
+	# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified 1-3 fail against the target.
+	var ork_band: int = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
+	if ork_band > hit_fail_band:
+		hit_fail_band = ork_band
+		active_tags.append("Speediest Freeks")
+
+	# Firing models, with the per-model BS the live roll uses (MA-10 stats_override).
+	var firing: Array = []  # [{bearer: String, model: Dictionary, bs: int, cover_weight: float}]
+	for bearer_id in bearers:
+		var bm: Dictionary = resolve_bearer_model(attacker_unit, bearer_id, board)
+		if bm.is_empty() or not bm.get("alive", true):
+			continue
+		firing.append({
+			"bearer": str(bearer_id),
+			"model": bm,
+			"bs": _get_model_effective_bs(bm, resolve_bearer_unit(attacker_unit, bearer_id, board), weapon_profile),
+			"cover_weight": 0.0,  # share of this model's attacks that have the benefit of cover
+		})
+
+	# 11e hit-side ModifierStack: plunging fire (BS), [HEAVY] and the
+	# close-quarters penalties (hit roll). Cover is applied per firing model below.
+	var is_psychic: bool = is_psychic_weapon(weapon_id, board)
+	var bs_delta := 0
+	if GameConstants.edition >= 11 and not is_torrent:
+		var stack_models: Array = []
+		for f in firing:
+			stack_models.append(f.model)
+		var ms = ModifierStack.collect_hit_context_11e(attacker_unit, target_unit, weapon_profile, board, {"attacker_models": stack_models, "per_attack_cover": true})
+		# Salvus / Inevitable Annihilation / Might of the Machine Spirit drop the harmful entries.
+		_cus11e_katah().salvus_filter_stack(attacker_unit, ms)
+		_cus11e_codex().filter_hit_stack(attacker_unit, ms, false)
+		_sm11e_codex().filter_hit_stack(attacker_unit, ms, false)
+		var ms_bs: int = ms.net("bs")
+		var ms_hit: int = ms.net("hit_roll")
+		if is_psychic:
+			# 24.29: [PSYCHIC] attacks ignore the harmful BS / hit-roll modifiers.
+			ms_bs = mini(ms_bs, 0)
+			ms_hit = maxi(ms_hit, 0)
+		bs_delta = ms_bs
+		if "plunging_fire" in ms.sources("bs") and ms_bs < 0:
+			active_tags.append("Plunging Fire")
+		if ms_hit > 0:
+			hit_plus = true
+			if "heavy" in ms.sources("hit_roll"):
+				active_tags.append("Heavy")
+		elif ms_hit < 0:
+			hit_minus = true
+			active_tags.append("Engaged -1")
+
+	# 11e 13.08: benefit of cover worsens the attack's BS by 1, judged per
+	# firing model (terrain area / not fully visible / STEALTH / stratagem).
+	# A terrain check costs ~1.5-3.5 ms per firing model, so a big unit is
+	# sampled: at most PREVIEW_COVER_SAMPLE_MAX evenly spread firing models are
+	# checked, and the rest are counted at the sampled share (exact for units
+	# that small, which is most of them).
+	var cover_fraction: float = 0.0
+	if GameConstants.edition >= 11 and not is_torrent \
+			and not ModifierStack.attack_ignores_cover(attacker_unit, weapon_profile, {}) \
+			and not is_psychic \
+			and not _cus11e_katah().salvus_active(attacker_unit) \
+			and not _cus11e_codex().ignores_bs_worsening(attacker_unit, false) \
+			and not _sm11e_codex().ignores_bs_worsening(attacker_unit, false):
+		var strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+		if strat_cover or indirect_unseen:
+			# Unit-level grants: every attack has the benefit of cover.
+			cover_fraction = 1.0
+			for f in firing:
+				f["cover_weight"] = 1.0
+		elif not firing.is_empty():
+			var terrain: Node = null
+			var ml = Engine.get_main_loop()
+			if ml != null and ml.root != null:
+				terrain = ml.root.get_node_or_null("TerrainManager")
+			var cover_cache: Dictionary = opts.get("cover_cache", {})
+			var stealthy: bool = has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit)
+			var n_sample: int = mini(firing.size(), PREVIEW_COVER_SAMPLE_MAX)
+			var step: float = float(firing.size()) / float(n_sample)
+			var sampled := {}
+			var covered_sampled := 0
+			for i in range(n_sample):
+				var idx: int = int(floor(float(i) * step))
+				var f: Dictionary = firing[idx]
+				var covered: bool = stealthy  # no TerrainManager in this context — STEALTH still grants cover
+				if terrain != null and terrain.has_method("unit_has_cover_11e"):
+					var key := "%s|%s" % [target_unit_id, f.bearer]
+					if not cover_cache.has(key):
+						cover_cache[key] = bool(terrain.unit_has_cover_11e(target_unit, f.model))
+					covered = cover_cache[key]
+				sampled[idx] = true
+				f["cover_weight"] = 1.0 if covered else 0.0
+				if covered:
+					covered_sampled += 1
+			cover_fraction = float(covered_sampled) / float(n_sample)
+			for idx in range(firing.size()):
+				if not sampled.has(idx):
+					firing[idx]["cover_weight"] = cover_fraction
+	var in_cover: bool = cover_fraction > 0.0
+	if in_cover:
+		active_tags.append("Cover")
+		if cover_fraction < 1.0:
+			active_tags.append("Cover from %d%% of models" % int(round(cover_fraction * 100.0)))
+	var cover_bs_delta: int = 1 if in_cover else 0
+
+	# Re-roll tags (no hit roll for TORRENT, no hit re-rolls when shooting indirect)
+	if not is_torrent:
+		if hit_rr_bits & HitModifier.REROLL_FAILED:
+			active_tags.append("RR Hits")
+		elif hit_rr_bits & HitModifier.REROLL_ONES:
+			active_tags.append("RR 1s Hit")
+
+	# Critical hits (Lethal / Sustained Hits): CONVERSION and effect-granted thresholds
+	var crit_hit_threshold := 6
+	var conversion: int = get_conversion_threshold(weapon_id, board)
+	if conversion > 0:
+		crit_hit_threshold = mini(crit_hit_threshold, conversion)
+		active_tags.append("Conv %d+" % conversion)
+	var effect_crit: int = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
+	if effect_crit > 0:
+		crit_hit_threshold = mini(crit_hit_threshold, effect_crit)
+
+	# Per-die hit / critical-hit probability, weighted over the firing models'
+	# effective BS (model BS + plunging fire + that model's cover).
+	var hit_bits: int = hit_rr_bits
+	if hit_plus:
+		hit_bits |= HitModifier.PLUS_ONE
+	if hit_minus:
+		hit_bits |= HitModifier.MINUS_ONE
+	var hit_net: int = int(hit_plus) - int(hit_minus)
+	var p_hit := 1.0
+	var p_crit := 0.0
+	var effective_bs: int = base_bs + bs_delta + cover_bs_delta
+	var bs_no_cover: int = base_bs + bs_delta  # the same, before the benefit of cover
+	if not is_torrent:
+		var bs_weights: Dictionary = {}     # effective BS -> share of the attacks using it
+		var plain_weights: Dictionary = {}  # BS before cover -> share of the attacks
+		for f in firing:
+			var plain: int = int(f.bs) + bs_delta
+			var cw: float = float(f.cover_weight)
+			if cw < 1.0:
+				bs_weights[plain] = float(bs_weights.get(plain, 0.0)) + (1.0 - cw)
+			if cw > 0.0:
+				bs_weights[plain + 1] = float(bs_weights.get(plain + 1, 0.0)) + cw
+			plain_weights[plain] = float(plain_weights.get(plain, 0.0)) + 1.0
+		if bs_weights.is_empty():
+			bs_weights[effective_bs] = 1.0
+		# The displayed BS is the one most attacks use.
+		effective_bs = _preview_majority_key(bs_weights, effective_bs)
+		bs_no_cover = _preview_majority_key(plain_weights, bs_no_cover)
+		var total_weight := 0.0
+		for eff in bs_weights:
+			total_weight += float(bs_weights[eff])
+		p_hit = 0.0
+		for eff in bs_weights:
+			var w: float = float(bs_weights[eff]) / total_weight
+			var probs: Dictionary = _preview_hit_probs(int(eff), hit_bits, crit_hit_threshold, hit_fail_band)
+			p_hit += w * float(probs.hit)
+			p_crit += w * float(probs.crit)
+
+	# Sustained Hits: bonus hits on critical hits
+	var sustained_avg: float = 0.0
+	var sh_data: Dictionary = get_sustained_hits_value(weapon_id, board, target_unit)
+	# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e): ranged SH1
+	if int(sh_data.get("value", 0)) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit) \
+			or ork11e_ranged_sustained_hits(attacker_unit) > 0:
+		var sh_value: int = int(sh_data.get("value", 1))
+		if sh_value == 0:
+			sh_value = 1  # effect-granted defaults to 1
+		if bool(sh_data.get("is_dice", false)):
+			sustained_avg = (float(sh_value) + 1.0) / 2.0  # Dx averages (x+1)/2
+			active_tags.append("SH D%d" % sh_value)
+		else:
+			sustained_avg = float(sh_value)
+			active_tags.append("SH %d" % sh_value)
+
+	# Lethal Hits: critical hits auto-wound
+	var has_lethal: bool = has_lethal_hits(weapon_id, board, target_unit) or EffectPrimitivesData.has_effect_lethal_hits(attacker_unit)
+	# Ranged-only LETHAL HITS grant (VINDICTIVE ARTILLERISTS, BLITZA FIRE)
+	if attacker_flags.get("effect_lethal_hits_ranged", false):
+		has_lethal = true
+
+	var expected_normal_hits: float = total_attacks * maxf(0.0, p_hit - p_crit)
+	var expected_crit_hits: float = total_attacks * p_crit
+	var expected_sustained_bonus: float = expected_crit_hits * sustained_avg
+	var expected_hits: float = expected_normal_hits + expected_crit_hits + expected_sustained_bonus
+
+	# === WOUND ===
+	var strength: int = int(weapon_profile.get("strength", 4))
+	var wound_threshold: int = _calculate_wound_threshold(strength, toughness)
+	var wound_plus := false
+	var wound_minus := false
+	var wound_rr_bits := 0
+
+	# Twin-linked: re-roll the wound roll
+	var twin_linked: bool = has_twin_linked(weapon_id, board, target_unit)
+	if twin_linked:
+		wound_rr_bits |= WoundModifier.REROLL_FAILED
+		active_tags.append("Twin-Linked")
+
+	# Effect flags on the attacker: +1 / -1 to wound
+	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
+		wound_plus = true
+	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
+		wound_minus = true
+
+	# Re-roll wounds: legacy booleans, then the EffectPrimitives scope string
+	# (e.g. Custodes Stand Vigil) — the key the live wound roll reads.
+	if attacker_flags.get("reroll_wound_ones", false):
+		wound_rr_bits |= WoundModifier.REROLL_ONES
+	if attacker_flags.get("reroll_wounds", false):
+		wound_rr_bits |= WoundModifier.REROLL_FAILED
+	var wound_rr_scope: String = str(attacker_flags.get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, ""))
+	if wound_rr_scope == "ones":
+		wound_rr_bits |= WoundModifier.REROLL_ONES
+	elif wound_rr_scope == "failed" or wound_rr_scope == "all":
+		wound_rr_bits |= WoundModifier.REROLL_FAILED
+
+	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a non-MONSTER/VEHICLE target
+	if ork11e_kustom_dakka_wound_bonus(attacker_unit, target_unit) > 0:
+		wound_plus = true
+		active_tags.append("Kustom Dakka")
+
+	# Lance: +1 to wound if the unit charged this turn
+	if is_lance_weapon(weapon_id, board) and attacker_flags.get("charged_this_turn", false):
+		wound_plus = true
+		active_tags.append("Lance")
+
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound vs the target (S > T, or all).
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		wound_minus = true
+		active_tags.append("Hulking Brutes")
+
+	if wound_rr_bits & WoundModifier.REROLL_FAILED:
+		if not twin_linked:
+			active_tags.append("RR Wnds")
+	elif wound_rr_bits & WoundModifier.REROLL_ONES:
+		active_tags.append("RR 1s Wnd")
+
+	# Anti-[KEYWORD] X+: critical wounds on X+
+	var crit_wound_threshold: int = get_critical_wound_threshold(weapon_id, target_unit, board)
+	if crit_wound_threshold < 6:
+		active_tags.append("Anti %d+" % crit_wound_threshold)
+
+	var wound_bits: int = wound_rr_bits
+	if wound_plus:
+		wound_bits |= WoundModifier.PLUS_ONE
+	if wound_minus:
+		wound_bits |= WoundModifier.MINUS_ONE
+	var wound_net: int = int(wound_plus) - int(wound_minus)
+	var wound_probs: Dictionary = _preview_wound_probs(wound_bits, wound_threshold, crit_wound_threshold)
+	var wound_prob: float = float(wound_probs.wound)
+	var crit_wound_prob: float = float(wound_probs.crit)
+
+	# Devastating Wounds: critical wounds bypass saves
+	var has_dw: bool = has_devastating_wounds(weapon_id, board, target_unit) or EffectPrimitivesData.has_effect_devastating_wounds(attacker_unit)
+
+	# Hits that roll to wound = every hit except Lethal Hits auto-wounds
+	# (the Sustained bonus hits of a lethal crit still roll).
+	var hits_needing_wound_roll: float = expected_hits
+	var lethal_auto_wounds := 0.0
+	if has_lethal:
+		lethal_auto_wounds = expected_crit_hits
+		hits_needing_wound_roll = expected_normal_hits + expected_sustained_bonus
+		active_tags.append("Lethal")
+	var expected_crit_wounds: float = hits_needing_wound_roll * crit_wound_prob
+	var expected_regular_wounds: float = maxf(0.0, hits_needing_wound_roll * wound_prob - expected_crit_wounds)
+	var expected_wounds: float = expected_regular_wounds + expected_crit_wounds + lethal_auto_wounds
+
+	# [HAZARDOUS] — native, or granted (VINDICTIVE ARTILLERISTS' overcharged option, r3:F8)
+	if weapon_is_hazardous_for(shooter_unit_id, weapon_id, board):
+		active_tags.append("Hazardous")
+
+	# === SAVE ===
+	var ap: int = int(weapon_profile.get("ap", 0))
+	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
+	var glowin_ap: int = ork11e_glowin_dakka_ap_bonus(attacker_unit, target_unit, board)
+	if glowin_ap > 0:
+		ap = ork11e_improve_ap(ap, glowin_ap)
+		active_tags.append("Glowin' Dakka")
+	# Target defensive: worsen AP (e.g. Ramshackle)
+	var worsen_ap: int = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if worsen_ap > 0:
+		var ap_mag: int = maxi(0, absi(ap) - worsen_ap)
+		ap = -ap_mag if ap_mag > 0 else 0  # keep the negative convention
+		active_tags.append("Worsen AP")
+
+	# Invulnerable save: the first alive model's, or an effect-granted better one
+	var invuln := 0
+	for m in target_unit.get("models", []):
+		if m.get("alive", true):
+			invuln = int(m.get("invuln", 0))
+			break
+	var effect_invuln: int = EffectPrimitivesData.get_effect_invuln(target_unit)
+	if effect_invuln > 0 and (invuln == 0 or effect_invuln < invuln):
+		invuln = effect_invuln
+
+	# 11e 13.08: cover worsens BS (above) and never improves the save.
+	var modified_save: int = save_stat + absi(ap)
+	var best_save: int = modified_save
+	if invuln > 0 and invuln < best_save:
+		best_save = invuln
+	var save_prob := 0.0
+	if best_save <= 6:
+		save_prob = maxf(0.0, (7.0 - float(best_save)) / 6.0)
+	var unsaved_prob: float = 1.0 - save_prob
+
+	var dw_wounds := 0.0
+	var regular_save_wounds: float = expected_wounds
+	if has_dw:
+		dw_wounds = expected_crit_wounds
+		regular_save_wounds = expected_regular_wounds + lethal_auto_wounds
+		active_tags.append("Dev Wounds")
+	var expected_unsaved: float = regular_save_wounds * unsaved_prob + dw_wounds
+
+	# === DAMAGE ===
+	var damage_raw: String = str(weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1))))
+	var avg_damage: float = average_dice_notation(damage_raw)
+	# Melta: +X damage (the preview assumes melta range)
+	var melta_val: int = get_melta_value(weapon_id, board)
+	if melta_val > 0:
+		avg_damage += melta_val
+		active_tags.append("Melta +%d" % melta_val)
+	if get_unit_half_damage(target_unit):
+		avg_damage = ceil(avg_damage / 2.0)
+		active_tags.append("Half Dmg")
+	var minus_dmg: int = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+	if minus_dmg > 0:
+		avg_damage = maxf(1.0, avg_damage - minus_dmg)
+		active_tags.append("-%d Dmg" % minus_dmg)
+	var expected_damage: float = expected_unsaved * avg_damage
+
+	# Feel No Pain
+	var fnp: int = get_unit_fnp(target_unit)
+	if fnp > 0:
+		expected_damage *= 1.0 - (7.0 - float(fnp)) / 6.0
+		active_tags.append("FNP %d+" % fnp)
+
+	# Models killed: an unsaved wound takes at most one model's Wounds — the
+	# excess damage on that model is lost — so D3 into 1-wound models kills one
+	# model per unsaved wound, not three.
+	var wounds_per_model: float = float(target_stats.get("wounds", 1))
+	var alive_models: int = count_alive_models(target_unit)
+	var expected_models_killed := 0.0
+	var expected_effective_damage: float = expected_damage
+	if wounds_per_model > 0.0:
+		var fnp_keep: float = 1.0 if fnp <= 0 else 1.0 - (7.0 - float(fnp)) / 6.0
+		# Wounds actually removed: each unsaved wound at most one model's Wounds.
+		expected_effective_damage = expected_unsaved * minf(avg_damage, wounds_per_model) * fnp_keep
+		expected_models_killed = minf(expected_effective_damage / wounds_per_model, float(alive_models))
+
+	var hit_display: String = "Auto" if is_torrent else "%d+" % clampi(effective_bs - hit_net, 2, 6)
+	var wound_display: String = "%d+" % clampi(wound_threshold - wound_net, 2, 6)
+
+	return {
+		"weapon_id": weapon_id,
+		"weapon_name": weapon_name,
+		"shooter_id": shooter_unit_id,
+		"target_id": target_unit_id,
+		"target_name": target_name,
+		"target_owner": int(target_unit.get("owner", 0)),
+		"model_count": model_count,
+		"total_attacks": total_attacks,
+		"base_bs": base_bs,
+		"bs": effective_bs,
+		"bs_no_cover": bs_no_cover,
+		"hit_modifier": hit_net,
+		"hit_display": hit_display,
+		"is_torrent": is_torrent,
+		"in_cover": in_cover,
+		"cover_fraction": cover_fraction,
+		"cover_bs_delta": cover_bs_delta,
+		"strength": strength,
+		"toughness": toughness,
+		"wound_threshold": wound_threshold,
+		"wound_modifier": wound_net,
+		"wound_display": wound_display,
+		"ap": ap,
+		"save_stat": save_stat,
+		"modified_save": modified_save,
+		"invuln": invuln,
+		"best_save": best_save,
+		"fnp": fnp,
+		"damage_raw": damage_raw,
+		"damage_avg": avg_damage,
+		"expected_hits": expected_hits,
+		"expected_wounds": expected_wounds,
+		"expected_unsaved": expected_unsaved,
+		"expected_damage": expected_damage,
+		"expected_effective_damage": expected_effective_damage,
+		"expected_models_killed": expected_models_killed,
+		"active_tags": active_tags,
+	}
+
+## The key with the largest weight in {value: weight} (a tie goes to the
+## larger value — for a BS, the worse one); `fallback` when there are none.
+static func _preview_majority_key(weights: Dictionary, fallback: int) -> int:
+	var best: int = fallback
+	var most := -1.0
+	for k in weights:
+		var wgt: float = float(weights[k])
+		if wgt > most + 0.000001 or (absf(wgt - most) <= 0.000001 and int(k) > best):
+			most = wgt
+			best = int(k)
+	return best
+
+## A d6 that always lands on `face` — lets preview_attack drive the live hit /
+## wound evaluators through one chosen re-roll face (no randomness involved).
+class _PreviewDie extends RNGService:
+	var face: int = 1
+
+	func roll_d6(count: int) -> Array:
+		var rolls: Array = []
+		for _i in count:
+			rolls.append(face)
+		return rolls
+
+## P(hit) and P(critical hit) for one attack needing `bs`+ with the hit-modifier
+## bits `bits`, evaluated by AttackSequence.evaluate_hit_roll over every first
+## face and every re-roll face (36 equally likely pairs).
+static func _preview_hit_probs(bs: int, bits: int, crit_threshold: int, fail_band: int = 1) -> Dictionary:
+	var memo_key := "h%d|%d|%d|%d" % [bs, bits, crit_threshold, fail_band]
+	if _preview_prob_memo.has(memo_key):
+		return _preview_prob_memo[memo_key]
+	var die := _PreviewDie.new(0)
+	var p_hit := 0.0
+	var p_crit := 0.0
+	for first in range(1, 7):
+		for reroll in range(1, 7):
+			die.face = reroll
+			var ev: Dictionary = AttackSequence.evaluate_hit_roll(first, bs, bits, crit_threshold, die, fail_band)
+			if ev.is_hit:
+				p_hit += 1.0 / 36.0
+				if ev.is_crit:
+					p_crit += 1.0 / 36.0
+	_preview_prob_memo[memo_key] = {"hit": p_hit, "crit": p_crit}
+	return _preview_prob_memo[memo_key]
+
+## P(wound) and P(critical wound) for one wound roll, same enumeration through
+## AttackSequence.evaluate_wound_roll.
+static func _preview_wound_probs(bits: int, wound_threshold: int, crit_threshold: int) -> Dictionary:
+	var memo_key := "w%d|%d|%d" % [bits, wound_threshold, crit_threshold]
+	if _preview_prob_memo.has(memo_key):
+		return _preview_prob_memo[memo_key]
+	var die := _PreviewDie.new(0)
+	var p_wound := 0.0
+	var p_crit := 0.0
+	for first in range(1, 7):
+		for reroll in range(1, 7):
+			die.face = reroll
+			var ev: Dictionary = AttackSequence.evaluate_wound_roll(first, bits, wound_threshold, crit_threshold, die)
+			if ev.is_wound:
+				p_wound += 1.0 / 36.0
+				if ev.is_crit:
+					p_crit += 1.0 / 36.0
+	_preview_prob_memo[memo_key] = {"wound": p_wound, "crit": p_crit}
+	return _preview_prob_memo[memo_key]
+
+## An Advance adds D6" to the unit's Move. Until that die is rolled, the most it
+## can add is the D6's top face.
+const ADVANCE_DIE_MAX_INCHES: float = 6.0
+
+## T03 drag-ruler budget (design doc §5): the two distances a Movement-phase
+## drag is coloured against, from the moving unit's active move as
+## MovementPhase records it (`mode`, `move_cap_inches`, `advance_roll`,
+## `is_reactive_move`). A unit that has not begun moving passes
+## {"mode": "NORMAL", "move_cap_inches": <its Move>}.
+##   move    — the unit's Move for this move. The path is green while within it.
+##   advance — what an Advance adds on top. Yellow up to move + advance, red beyond.
+## ADVANCE: the cap already holds the rolled (and modified) Advance, so
+## move = cap - roll and advance = roll. NORMAL (not a reactive move): nothing
+## has been rolled yet, so advance is the most an Advance could add
+## (ADVANCE_DIE_MAX_INCHES). Every other move (Fall Back, Surge, a reactive
+## move, Remain Stationary) has no Advance on top: advance = 0.
+static func movement_drag_budget(move_data: Dictionary) -> Dictionary:
+	var cap: float = maxf(0.0, float(move_data.get("move_cap_inches", 0.0)))
+	var mode: String = str(move_data.get("mode", ""))
+	var move_in: float = cap
+	var advance_in: float = 0.0
+	if mode == "ADVANCE":
+		advance_in = clampf(float(move_data.get("advance_roll", 0)), 0.0, cap)
+		move_in = cap - advance_in
+	elif mode == "NORMAL" and not bool(move_data.get("is_reactive_move", false)):
+		advance_in = ADVANCE_DIE_MAX_INCHES
+	return {"move": move_in, "advance": advance_in, "total": move_in + advance_in}
+
 ## MA-LOADOUT: force per-model loadout resolution (ranged + melee) on a unit so
 ## UI/read paths can then read model.ranged_loadout / model.melee_loadout.
 ## Idempotent — a no-op once the unit has been resolved.

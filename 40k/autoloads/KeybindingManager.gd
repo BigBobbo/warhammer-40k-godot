@@ -38,7 +38,12 @@ func _register_defaults() -> void:
 	_register("zoom_in", "Zoom In", CATEGORY_CAMERA, KEY_EQUAL)
 	_register("zoom_out", "Zoom Out", CATEGORY_CAMERA, KEY_MINUS)
 	_register("rotate_board", "Rotate Board View", CATEGORY_CAMERA, KEY_V)
-	_register("focus_p2_zone", "Focus P2 Zone", CATEGORY_CAMERA, KEY_F)
+	# UNBOUND by default (T13). It used to default to F as well, and Main._process
+	# polls it every frame: holding F snapped the view onto Player 2's zone at
+	# 0.8x, overriding the fit-board F press underneath it, so F never showed the
+	# whole board. Players who want it can bind a key in Settings › Controls;
+	# load_bindings() migrates a stale saved F binding (see below).
+	_register("focus_p2_zone", "Focus P2 Zone", CATEGORY_CAMERA, KEY_NONE)
 	_register("fit_view_board", "Fit View to Board", CATEGORY_CAMERA, KEY_F)
 	_register("fit_view_selection", "Fit View to Selection", CATEGORY_CAMERA, KEY_F, {"shift": true})
 
@@ -394,9 +399,11 @@ func save_bindings() -> void:
 	else:
 		print("[KeybindingManager] Saved keybindings to %s" % SAVE_PATH)
 
-func load_bindings() -> void:
+## `path` defaults to the player's config; the headless test passes its own file
+## to drive the real load + migration code.
+func load_bindings(path: String = SAVE_PATH) -> void:
 	var cfg = ConfigFile.new()
-	var err = cfg.load(SAVE_PATH)
+	var err = cfg.load(path)
 	if err != OK:
 		print("[KeybindingManager] No saved keybindings found, using defaults")
 		return
@@ -420,7 +427,31 @@ func load_bindings() -> void:
 			_wrp.key = _wrp.default_key
 			_wrp.alt_key = _wrp.default_alt_key
 			print("[KeybindingManager] Migrated stale weapon_range_panel=W binding to unbound (new default)")
-	print("[KeybindingManager] Loaded keybindings from %s" % SAVE_PATH)
+	# Migration (2026-10-31, T13): focus_p2_zone used to default to plain F, the
+	# fit-board key. save_bindings() writes every action, defaults included, so
+	# any config saved before this keeps F on both, and the per-frame
+	# focus_p2_zone poll keeps hijacking the F press. Clear it while the collision
+	# is live (fit_view_board still on plain F); if the player has moved
+	# fit_view_board elsewhere, F on focus_p2_zone no longer collides and stays.
+	if bindings.has("focus_p2_zone") and bindings.has("fit_view_board"):
+		var _fpz = bindings["focus_p2_zone"]
+		var _fvb = bindings["fit_view_board"]
+		var _fpz_plain_f: bool = _fpz.key == KEY_F and not _fpz.shift and not _fpz.ctrl and not _fpz.alt and not _fpz.get("meta", false)
+		var _fvb_plain_f: bool = _fvb.key == KEY_F and not _fvb.shift and not _fvb.ctrl and not _fvb.alt and not _fvb.get("meta", false)
+		if _fpz_plain_f and _fvb_plain_f:
+			_fpz.key = _fpz.default_key
+			_fpz.alt_key = _fpz.default_alt_key
+			var _msg := "[KeybindingManager] Migrated stale focus_p2_zone=F binding to unbound (F is Fit View to Board)"
+			print(_msg)
+			# DebugLogger is looked up through the tree, not named: tests that
+			# load this script with .new() from a SceneTree's _init() compile it
+			# before any autoload is registered, and a bare DebugLogger
+			# identifier then fails to compile (test_weapon_range_panel_unbound).
+			var _main_loop = Engine.get_main_loop()
+			var _logger = (_main_loop as SceneTree).root.get_node_or_null("DebugLogger") if _main_loop is SceneTree else null
+			if _logger != null and _logger.has_method("info"):
+				_logger.info(_msg, {"config": path})
+	print("[KeybindingManager] Loaded keybindings from %s" % path)
 
 # ============================================================================
 # Focus-change input hygiene

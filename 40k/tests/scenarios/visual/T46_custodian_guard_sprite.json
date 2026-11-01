@@ -9,6 +9,12 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
 
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "The 'Movement phase starts' stratagem offer is a modal over the lower middle of the screen, where T14's selection fit now centres the squad (the middle of the board area under the top bar, y 575). Decline it as a player would; not under test." },
+    { "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true, "timeout_s": 5.0, "poll_s": 0.2 },
+
     { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
 
     { "act": "execute_script",

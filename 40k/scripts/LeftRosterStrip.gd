@@ -12,14 +12,29 @@ class_name LeftRosterStrip
 #   active_filter : String  (T38 — "all", "can_act", "engaged", "below_half")
 #   visible_unit_ids : Array  (T38 — filtered set)
 #   refresh()
+#   refresh_exhaustion() / is_card_exhausted(unit_id)  (T09)
+#
+# T09 (doc §8, exhaustion shading): a card whose unit has acted this phase
+# (BasePhase.has_unit_acted_this_phase — moved, shot, charged, fought) swaps
+# to a dimmer stylebox and dims like the unit's board tokens, until the phase
+# ends. UnitExhaustionTracker calls refresh_exhaustion() after every action
+# and phase change; "Can Act" (T38) lists exactly the cards that are not dim.
 #
 # Self-installs as /root/Main/LeftRoster.
 
 const PANEL_WIDTH := 220.0
 
+# T09: the dimmed card. The modulate matches the board token's
+# (TokenVisual.T09_EXHAUSTION_MODULATE); the stylebox is darker than the
+# default card panel (Godot's PanelContainer flat box, 0.1 grey at 0.6 alpha).
+const T09_CARD_MODULATE_EXHAUSTED := Color(0.6, 0.6, 0.6, 1.0)
+const T09_CARD_MODULATE_NORMAL := Color(1.0, 1.0, 1.0, 1.0)
+const T09_CARD_BG_EXHAUSTED := Color(0.05, 0.05, 0.05, 0.6)
+
 var active_filter: String = "all"
 var visible_unit_ids: Array = []
 var _vbox: VBoxContainer = null
+var _t09_style_exhausted: StyleBoxFlat = null
 
 
 func _ready() -> void:
@@ -86,6 +101,10 @@ func set_active_filter(f: String) -> void:
 
 func refresh() -> void:
 	for c in _vbox.get_children():
+		# Detach before freeing: a rebuilt card added while its predecessor
+		# still waits for queue_free would be auto-renamed (UnitCard_<id>2...),
+		# and UnitCard_<id> would keep resolving to the dead card.
+		_vbox.remove_child(c)
 		c.queue_free()
 	visible_unit_ids = []
 	var gs = get_node_or_null("/root/GameState")
@@ -96,19 +115,20 @@ func refresh() -> void:
 		var u = units[uid]
 		if typeof(u) != TYPE_DICTIONARY:
 			continue
-		if not _passes_filter(u):
+		if not _passes_filter(str(uid), u):
 			continue
 		visible_unit_ids.append(uid)
 		var card := _make_card(uid, u)
 		_vbox.add_child(card)
 
 
-func _passes_filter(unit: Dictionary) -> bool:
+func _passes_filter(unit_id: String, unit: Dictionary) -> bool:
 	match active_filter:
 		"all":
 			return true
 		"can_act":
-			return not bool(unit.get("flags", {}).get("acted_this_phase", false))
+			# The cards that are not dim (T09): same "has acted this phase".
+			return not _t09_unit_has_acted(unit_id)
 		"engaged":
 			return _unit_is_engaged(unit)
 		"below_half":
@@ -172,6 +192,7 @@ func _pos_of(m) -> Vector2:
 func _make_card(unit_id: String, unit: Dictionary) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = "UnitCard_%s" % unit_id
+	card.set_meta("unit_id", unit_id)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.gui_input.connect(_on_card_gui_input.bind(unit_id))
 	var lbl := Label.new()
@@ -180,7 +201,58 @@ func _make_card(unit_id: String, unit: Dictionary) -> PanelContainer:
 	lbl.text = "%s (%d)" % [unit_name, unit.get("models", []).size()]
 	lbl.add_theme_font_size_override("font_size", 16)
 	card.add_child(lbl)
+	_t09_apply_card_style(card, _t09_unit_has_acted(unit_id))
 	return card
+
+
+# T09: re-apply the dim state to every card (UnitExhaustionTracker calls this
+# after each action and phase change). Under the "Can Act" filter the card
+# set itself changes, so the strip is rebuilt.
+func refresh_exhaustion() -> void:
+	if _vbox == null:
+		return
+	if active_filter == "can_act":
+		refresh()
+		return
+	for card in _vbox.get_children():
+		if not card.has_meta("unit_id"):
+			continue
+		var exhausted := _t09_unit_has_acted(str(card.get_meta("unit_id")))
+		if exhausted != bool(card.get_meta("t09_exhausted", false)):
+			_t09_apply_card_style(card, exhausted)
+
+
+# T09: whether unit_id's card currently shows the dimmed (acted) state.
+func is_card_exhausted(unit_id: String) -> bool:
+	if _vbox == null:
+		return false
+	var card = _vbox.get_node_or_null("UnitCard_%s" % unit_id)
+	return card != null and bool(card.get_meta("t09_exhausted", false))
+
+
+func _t09_unit_has_acted(unit_id: String) -> bool:
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm == null:
+		return false
+	var phase = pm.get("current_phase_instance")
+	if phase == null or not is_instance_valid(phase) or not phase.has_method("has_unit_acted_this_phase"):
+		return false
+	return bool(phase.has_unit_acted_this_phase(unit_id))
+
+
+# Exhausted: the darker panel + the token's dim modulate. Not exhausted: the
+# card's default look (no override), exactly as T37 draws it.
+func _t09_apply_card_style(card: PanelContainer, exhausted: bool) -> void:
+	if exhausted:
+		if _t09_style_exhausted == null:
+			_t09_style_exhausted = StyleBoxFlat.new()
+			_t09_style_exhausted.bg_color = T09_CARD_BG_EXHAUSTED
+		card.add_theme_stylebox_override("panel", _t09_style_exhausted)
+		card.modulate = T09_CARD_MODULATE_EXHAUSTED
+	else:
+		card.remove_theme_stylebox_override("panel")
+		card.modulate = T09_CARD_MODULATE_NORMAL
+	card.set_meta("t09_exhausted", exhausted)
 
 
 func _on_card_gui_input(event: InputEvent, unit_id: String) -> void:

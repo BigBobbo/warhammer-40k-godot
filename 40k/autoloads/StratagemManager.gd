@@ -191,6 +191,13 @@ var _usage_history: Dictionary = {
 	"2": []
 }
 
+## How many stratagems `player` has used so far this game (every recorded use).
+## ShootingPhase compares two readings to tell whether anyone reacted to a
+## declaration in between (T06: the weapon-order step's Esc).
+func usage_count(player: int) -> int:
+	var history = _usage_history.get(str(player), [])
+	return history.size() if history is Array else 0
+
 # Active effects currently applied (cleared at appropriate times)
 # Each entry: { "stratagem_id": String, "player": int, "target_unit_id": String,
 #               "effects": Array, "expires": String, "applied_turn": int, "applied_phase": int }

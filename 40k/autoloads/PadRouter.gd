@@ -1507,6 +1507,13 @@ func _handle_back() -> bool:
 	if did_reset:
 		return true
 	var sc = _shooting_controller_in_shooting_phase()
+	if sc != null and sc.resolution_dock != null and sc.resolution_dock.is_active():
+		# T06: B is the pad's Esc. With the weapon-order panel (resolution dock)
+		# up it backs out to targeting from the ordering step — the shooter is
+		# mid-activation, so it is never deselected (and there is no "aimed
+		# guns" warning to give: the aim is handed back intact).
+		sc.cancel_weapon_order()
+		return true
 	if sc != null and str(sc.active_shooter_id) != "":
 		# Deselecting an armed shooter DISCARDS its staged weapon assignments
 		# (_keyboard_deselect_shooter clears them first) — and a board-context B

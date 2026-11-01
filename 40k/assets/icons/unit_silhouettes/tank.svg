@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- T15 unit-type silhouette: tank. White glyph on a black keyline, drawn by
+     TokenVisual in place of the centred letter and tinted with the base's
+     contrast colour (white on dark bases, black on light ones). -->
+<g fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+    <rect x="5" y="38" width="54" height="16" rx="8"/>
+    <polygon points="9,39 14,28 50,28 56,39"/>
+    <rect x="21" y="17" width="21" height="12" rx="3"/>
+    <rect x="40" y="19.5" width="20" height="5.5" rx="1.5"/>
+</g>
+<g fill="#fff">
+    <rect x="5" y="38" width="54" height="16" rx="8"/>
+    <polygon points="9,39 14,28 50,28 56,39"/>
+    <rect x="21" y="17" width="21" height="12" rx="3"/>
+    <rect x="40" y="19.5" width="20" height="5.5" rx="1.5"/>
+</g>
+<g fill="#000">
+    <circle cx="14" cy="46" r="3.6"/>
+    <circle cx="25" cy="46" r="3.6"/>
+    <circle cx="36" cy="46" r="3.6"/>
+    <circle cx="47" cy="46" r="3.6"/>
+</g>
+</svg>

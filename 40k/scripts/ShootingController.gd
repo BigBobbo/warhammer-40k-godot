@@ -4,6 +4,7 @@ class_name ShootingController
 const BasePhase = preload("res://phases/BasePhase.gd")
 const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T7-53
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+const HoverForecastScript = preload("res://scripts/HoverForecast.gd")  # T05
 
 
 # ShootingController - Handles UI interactions for the Shooting Phase
@@ -19,11 +20,54 @@ var active_shooter_id: String = ""
 var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var selected_target_id: String = ""
 
-# T05: hover-forecast for the (shooter, weapon, target) currently under the
-# mouse. null when nothing eligible is hovered. Schema:
-#   {weapon_id, weapon_name, target_id, attacks, bs, s, t, ap, d,
-#    expected_wounds: float}
+# T05: hover forecast. While a shooter is selected and the cursor rests on an
+# ELIGIBLE enemy unit, this holds what one of the shooter's weapons is expected
+# to do to that unit (the selected weapon row if it can reach, otherwise the
+# weapon that takes the most wounds off it), and the HoverForecast tooltip shows
+# it beside the cursor. null whenever no such hover is live (cursor on empty
+# board / a friendly / an ineligible enemy / the HUD, shooter deselected,
+# resolution under way). Built from RulesEngine.preview_attack, so cover,
+# [HEAVY], plunging fire and the re-roll / +1 effects are already applied.
+# Keys:
+#   weapon_id, weapon_name, target_id, target_name, target_owner, shooter_id,
+#   attacks (float, expected attacks), bs (int: effective BS after cover /
+#   plunging fire, e.g. 3 for a BS 2+ gun vs a target in cover), base_bs,
+#   bs_no_cover (the BS before the benefit of cover),
+#   hit_modifier, hit_display, in_cover, cover_fraction, cover_bs_delta,
+#   s, t, wound_display, ap (negative convention), save, modified_save, invuln,
+#   best_save, d (float, average Damage), damage_raw, expected_hits,
+#   expected_wounds (successful wound rolls — the meaning the P3-114 card and
+#   the resolution dock give "wounds"), expected_unsaved, expected_damage (wounds
+#   dealt after saves / Feel No Pain), expected_effective_damage (the wounds
+#   that actually come off — damage beyond a model's Wounds is lost),
+#   expected_models_killed, active_tags, weapon_choice ("selected" / "best":
+#   the most expected_effective_damage), weapons_in_range,
+#   all_weapons_damage (expected damage if every weapon in range fires at it).
 var current_hover_forecast = null
+# The HoverForecast tooltip (scripts/HoverForecast.gd), a child of this
+# controller: /root/Main/ShootingController/HoverForecast. Built on first use.
+var hover_forecast_panel: Control = null
+var _hover_target_id: String = ""        # unit the card on screen describes
+var _hover_forecast_key: String = ""     # shooter|target|selected weapon the card was built for
+var _hover_anchor_screen: Vector2 = Vector2.ZERO  # where the cursor (or the seam's unit) is
+# Per-firing-model cover lookups (RulesEngine.preview_attack's cover_cache),
+# shared by every forecast built in the same frame — the hover card's weapons,
+# the quick-assign buttons — and dropped on the next frame, so a lookup never
+# outlives the board it was taken from.
+var _forecast_cover_cache: Dictionary = {}
+var _forecast_cover_cache_frame: int = -1
+var _forecast_cover_cache_units = null  # the GameState units dict the lookups were taken on
+# Board px from a model's centre that still counts as "on" it for the hover
+# (the old LoS-hover reach); bigger bases use their own radius + 10 px.
+const HOVER_PICK_MIN_PX: float = 50.0
+# T05 test seam (the hook the task names): setting this drives the hover path
+# as if the cursor rested on that unit's models; "" ends the hover. It runs the
+# same code as a real mouse hover (t05_set_hover_target -> _set_hover_target),
+# anchored at the unit's on-screen centre. Scenario-only — never set from game code.
+var test_hover_target_id: String = "":
+	set(value):
+		test_hover_target_id = value
+		t05_set_hover_target(value)
 
 # T36: target-commit gate. Targets are added to pending_targets on click
 # but the actual roll is not started until ENTER (or commit_targets()).
@@ -95,7 +139,10 @@ var _shown_save_broadcast_ids: Array = []  # Recent broadcast ids the defender h
 const SHOWN_SBID_HISTORY_CAP: int = 32  # Trim to last N to keep memory bounded
 
 # UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
-var los_visual: Line2D
+# T11: the line current_line of BoardRoot/LOSLineVisual this controller last
+# drew on hover (null when none) — lets _process drop it for a stale shooter
+# without a node lookup every frame, and skips redrawing an unchanged line.
+var _last_drawn_los_line = null
 var range_visual: Node2D
 var target_highlights: Node2D
 var los_debug_visual: Node2D  # New LoS debug visualization
@@ -182,8 +229,6 @@ var _no_targets_reported_unit: String = ""
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
 const HIGHLIGHT_COLOR_SELECTED = Color.YELLOW
-const LOS_LINE_COLOR = Color.RED
-const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
 
@@ -235,106 +280,269 @@ func commit_targets() -> bool:
 	return true
 
 
-# T05: compute the predicted-damage forecast for shooter -> target with the
-# given weapon. Returns a Dictionary or null. Reads cover via
-# EnhancedLineOfSight when available; falls back to no-cover math.
-# expected_wounds = attacks * P(hit) * P(wound) * (1 - P(save)) * damage.
-# Stored on current_hover_forecast.
-#
-# This is a static helper for hover preview; the real combat math lives in
-# RulesEngine. Approximations are fine here — the tooltip is informational.
+# T05: what-if forecast for shooter -> target that leaves the hover state alone
+# (UnitStatsPanel's prospective stats, T40, read it). weapon_id "" picks the
+# selected weapon row if it is one of the candidates, otherwise the weapon that
+# takes the most wounds off the target — the same choice the hover card makes. The
+# candidates are the weapons in range when this is the active shooter and the
+# target is eligible, otherwise every ranged weapon the shooter carries.
+# Returns a current_hover_forecast-shaped Dictionary, or null when a unit is
+# unknown or the shooter has no ranged weapon.
 func compute_hover_forecast(shooter_id: String, target_id: String, weapon_id: String = "") -> Variant:
-	current_hover_forecast = null
-	var gs = get_node_or_null("/root/GameState")
-	if gs == null:
+	if shooter_id == "" or target_id == "":
 		return null
-	var shooter = gs.get_unit(shooter_id)
-	var target = gs.get_unit(target_id)
-	if typeof(shooter) != TYPE_DICTIONARY or shooter.is_empty():
+	var units: Dictionary = GameState.state.get("units", {})
+	if not units.has(shooter_id) or not units.has(target_id):
 		return null
-	if typeof(target) != TYPE_DICTIONARY or target.is_empty():
-		return null
-
-	var weapons: Array = shooter.get("meta", {}).get("weapons", [])
-	var weapon = null
-	for w in weapons:
-		if typeof(w) != TYPE_DICTIONARY:
-			continue
-		if weapon_id == "" or str(w.get("id", w.get("name", ""))) == weapon_id:
-			weapon = w
-			break
-	if weapon == null:
-		return null
-
-	var attacks: int = _t05_to_int(weapon.get("attacks", 1), 1)
-	var bs: int = _t05_to_int(weapon.get("ballistic_skill", weapon.get("bs", 4)), 4)
-	var s: int = _t05_to_int(weapon.get("strength", 4), 4)
-	var ap: int = _t05_to_int(weapon.get("ap", 0), 0)
-	var d: int = _t05_to_int(weapon.get("damage", 1), 1)
-	var t: int = _t05_to_int(target.get("meta", {}).get("stats", {}).get("toughness", 4), 4)
-	var sv: int = _t05_to_int(target.get("meta", {}).get("stats", {}).get("save", 5), 5)
-
-	# Cover detection: best-effort via EnhancedLineOfSight if present.
-	var in_cover: bool = false
-	var elos = get_node_or_null("/root/EnhancedLineOfSight")
-	if elos != null and elos.has_method("has_cover_between_units"):
-		in_cover = bool(elos.has_cover_between_units(shooter_id, target_id))
-	var modified_sv: int = max(2, sv - ap)
-	if in_cover:
-		modified_sv = max(2, modified_sv - 1)
-
-	var p_hit: float = (7.0 - float(bs)) / 6.0
-	var p_wound: float = _t05_wound_prob(s, t)
-	var p_save: float = (7.0 - float(modified_sv)) / 6.0
-	var expected_wounds: float = float(attacks) * p_hit * p_wound * (1.0 - p_save) * float(d)
-
-	current_hover_forecast = {
-		"weapon_id": str(weapon.get("id", weapon.get("name", ""))),
-		"weapon_name": str(weapon.get("name", "?")),
-		"target_id": target_id,
-		"attacks": attacks,
-		"bs": bs,
-		"s": s,
-		"t": t,
-		"ap": ap,
-		"d": d,
-		"in_cover": in_cover,
-		"modified_save": modified_sv,
-		"expected_wounds": expected_wounds,
-	}
-	return current_hover_forecast
-
-
-func _t05_to_int(v, fallback: int) -> int:
-	if typeof(v) == TYPE_INT:
-		return int(v)
-	if typeof(v) == TYPE_FLOAT:
-		return int(v)
-	if typeof(v) == TYPE_STRING:
-		var s = String(v).strip_edges()
-		s = s.replace("+", "")
-		if s.is_valid_int():
-			return int(s)
-		if s.is_valid_float():
-			return int(float(s))
-	return fallback
-
-
-func _t05_wound_prob(s: int, t: int) -> float:
-	# 10e wound table: double-T 5+, >T 4+, =T 5+ technically, =T 4+ in 10e simplification.
-	# Use the common simplification: need on roll = depends on s vs t.
-	var needed: int = 4
-	if s >= t * 2:
-		needed = 2
-	elif s > t:
-		needed = 3
-	elif s == t:
-		needed = 4
-	elif s * 2 <= t:
-		needed = 6
+	var weapons: Array = []
+	if weapon_id != "":
+		weapons = [weapon_id]
+	elif shooter_id == active_shooter_id and eligible_targets.has(target_id):
+		weapons = eligible_targets[target_id].get("weapons_in_range", [])
 	else:
-		needed = 5
-	return (7.0 - float(needed)) / 6.0
+		var carried: Dictionary = RulesEngine.get_unit_weapons(shooter_id, GameState.state)
+		for bearer_id in carried:
+			for wid in carried[bearer_id]:
+				if not weapons.has(wid):
+					weapons.append(wid)
+	return _forecast_for(shooter_id, target_id, weapons, _frame_cover_cache())
+
+
+# T05: RulesEngine.preview_attack for every weapon in `weapon_ids` against the
+# target (one cover cache shared by all of them), then describe the selected
+# weapon row when it is one of them, otherwise the weapon that takes the most
+# wounds off the target (expected_effective_damage: overkill on a model does
+# not count, so a many-shot gun beats a big-damage one against a horde).
+func _forecast_for(shooter_id: String, target_id: String, weapon_ids: Array, cover_cache: Dictionary) -> Variant:
+	var previews: Dictionary = {}
+	var all_damage := 0.0
+	var best_id := ""
+	var best_score := -1.0
+	for wid in weapon_ids:
+		var pv: Dictionary = RulesEngine.preview_attack(shooter_id, target_id, str(wid), GameState.state, {"cover_cache": cover_cache})
+		if pv.is_empty():
+			continue
+		previews[str(wid)] = pv
+		all_damage += float(pv.get("expected_damage", 0.0))
+		var score := float(pv.get("expected_effective_damage", pv.get("expected_damage", 0.0)))
+		if score > best_score:
+			best_score = score
+			best_id = str(wid)
+	if previews.is_empty():
+		return null
+	var chosen := best_id
+	var choice := "best"
+	if selected_weapon_id != "" and previews.has(selected_weapon_id):
+		chosen = selected_weapon_id
+		choice = "selected"
+	var cp: Dictionary = previews[chosen]
+	return {
+		"weapon_id": chosen,
+		"weapon_name": str(cp.get("weapon_name", chosen)),
+		"target_id": target_id,
+		"target_name": str(cp.get("target_name", target_id)),
+		"target_owner": int(cp.get("target_owner", 0)),
+		"shooter_id": shooter_id,
+		"attacks": float(cp.get("total_attacks", 0.0)),
+		"bs": int(cp.get("bs", 0)),
+		"base_bs": int(cp.get("base_bs", 0)),
+		"bs_no_cover": int(cp.get("bs_no_cover", 0)),
+		"hit_modifier": int(cp.get("hit_modifier", 0)),
+		"hit_display": str(cp.get("hit_display", "")),
+		"is_torrent": bool(cp.get("is_torrent", false)),
+		"in_cover": bool(cp.get("in_cover", false)),
+		"cover_fraction": float(cp.get("cover_fraction", 0.0)),
+		"cover_bs_delta": int(cp.get("cover_bs_delta", 0)),
+		"s": int(cp.get("strength", 0)),
+		"t": int(cp.get("toughness", 0)),
+		"wound_display": str(cp.get("wound_display", "")),
+		"ap": int(cp.get("ap", 0)),
+		"save": int(cp.get("save_stat", 0)),
+		"modified_save": int(cp.get("modified_save", 0)),
+		"invuln": int(cp.get("invuln", 0)),
+		"best_save": int(cp.get("best_save", 7)),
+		"d": float(cp.get("damage_avg", 0.0)),
+		"damage_raw": str(cp.get("damage_raw", "")),
+		"expected_hits": float(cp.get("expected_hits", 0.0)),
+		"expected_wounds": float(cp.get("expected_wounds", 0.0)),
+		"expected_unsaved": float(cp.get("expected_unsaved", 0.0)),
+		"expected_damage": float(cp.get("expected_damage", 0.0)),
+		"expected_effective_damage": float(cp.get("expected_effective_damage", 0.0)),
+		"expected_models_killed": float(cp.get("expected_models_killed", 0.0)),
+		"active_tags": (cp.get("active_tags", []) as Array).duplicate(),
+		"weapon_choice": choice,
+		"weapons_in_range": previews.size(),
+		"all_weapons_damage": all_damage,
+	}
+
+
+# T05: hover the eligible enemy unit `target_id`, with the card beside
+# `anchor_screen` (the cursor). Rebuilds the forecast only when the shooter, the
+# unit or the selected weapon row changed; otherwise just keeps the card glued
+# to the cursor.
+func _set_hover_target(target_id: String, anchor_screen: Vector2) -> void:
+	_hover_anchor_screen = anchor_screen
+	if _hover_forecast_blocked():
+		_clear_hover_forecast()
+		return
+	var key := _hover_key(target_id)
+	if current_hover_forecast != null and key == _hover_forecast_key:
+		if hover_forecast_panel and is_instance_valid(hover_forecast_panel):
+			hover_forecast_panel.move_to_anchor(anchor_screen)
+		return
+	var fc = _build_hover_forecast(target_id)
+	if fc == null:
+		_clear_hover_forecast()
+		return
+	current_hover_forecast = fc
+	_hover_target_id = target_id
+	_hover_forecast_key = key
+	_ensure_hover_forecast_panel()
+	hover_forecast_panel.show_forecast(fc, anchor_screen)
+	print("ShootingController: T05 hover forecast %s -> %s with %s (%s weapon of %d): A %.1f, BS %d+ (base %d+, cover %s), S%d vs T%d (%s), AP%d (save %d+), D %s => %.2f hits, %.2f wounds, %.2f unsaved, %.2f dmg [%s]" % [
+		active_shooter_id, target_id, str(fc.weapon_id), str(fc.weapon_choice), int(fc.weapons_in_range),
+		float(fc.attacks), int(fc.bs), int(fc.base_bs), str(fc.in_cover), int(fc.s), int(fc.t),
+		str(fc.wound_display), int(fc.ap), int(fc.best_save), str(fc.damage_raw),
+		float(fc.expected_hits), float(fc.expected_wounds), float(fc.expected_unsaved),
+		float(fc.expected_damage), ", ".join(fc.active_tags)])
+
+
+func _hover_key(target_id: String) -> String:
+	return "%s|%s|%s" % [active_shooter_id, target_id, selected_weapon_id]
+
+
+func _build_hover_forecast(target_id: String) -> Variant:
+	if active_shooter_id == "" or not eligible_targets.has(target_id):
+		return null
+	var weapons: Array = eligible_targets[target_id].get("weapons_in_range", [])
+	return _forecast_for(active_shooter_id, target_id, weapons, _frame_cover_cache())
+
+
+# T05: no card while a save dialog is up or the declared shots are resolving
+# (targets are locked then — a forecast for another unit would mislead).
+func _hover_forecast_blocked() -> bool:
+	if save_dialog_showing:
+		return true
+	if resolution_dock and is_instance_valid(resolution_dock) and resolution_dock.is_active():
+		return true
+	return false
+
+
+# T05: is the card on screen still about something the player can act on?
+func _hover_forecast_still_valid() -> bool:
+	if current_hover_forecast == null or _hover_forecast_blocked():
+		return false
+	if not current_phase or not current_phase is ShootingPhase:
+		return false
+	if active_shooter_id == "" or str(current_hover_forecast.get("shooter_id", "")) != active_shooter_id:
+		return false
+	return eligible_targets.has(_hover_target_id)
+
+
+func _clear_hover_forecast() -> void:
+	var was_showing: bool = current_hover_forecast != null
+	current_hover_forecast = null
+	_hover_target_id = ""
+	_hover_forecast_key = ""
+	if hover_forecast_panel and is_instance_valid(hover_forecast_panel):
+		hover_forecast_panel.hide_forecast()
+	if was_showing:
+		print("ShootingController: T05 hover forecast cleared")
+
+
+func _ensure_hover_forecast_panel() -> void:
+	if hover_forecast_panel and is_instance_valid(hover_forecast_panel):
+		return
+	hover_forecast_panel = HoverForecastScript.new()
+	hover_forecast_panel.name = "HoverForecast"
+	add_child(hover_forecast_panel)
+
+
+# T05: the enemy unit whose model is under `board_pos` (an attached CHARACTER
+# resolves to the bodyguard unit it is shot through, 19.03), or "".
+func _enemy_unit_at_board_position(board_pos: Vector2) -> String:
+	if active_shooter_id == "":
+		return ""
+	var units: Dictionary = GameState.state.get("units", {})
+	var shooter_owner = units.get(active_shooter_id, {}).get("owner", 0)
+	var best_id := ""
+	var best_dist := INF
+	for uid in units:
+		var unit: Dictionary = units[uid]
+		if unit.get("owner", 0) == shooter_owner:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue  # inside a TRANSPORT — not on the battlefield
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var dist: float = _get_model_position(model).distance_to(board_pos)
+			var reach: float = maxf(HOVER_PICK_MIN_PX, Measurement.base_extent_px(model) + 10.0)
+			if dist <= reach and dist < best_dist:
+				best_dist = dist
+				best_id = str(uid)
+	if best_id == "":
+		return ""
+	return RulesEngine.attached_unit_target_id(best_id, GameState.state)
+
+
+# T05: the board under a HUD panel is not what the player is pointing at (the
+# same panels Main's TokenHoverTooltip hides over).
+func _screen_pos_over_hud(screen_pos: Vector2) -> bool:
+	var main = SceneRefs.main()
+	if main == null:
+		return false
+	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
+		var hud = main.get_node_or_null(hud_name)
+		if hud is Control and hud.visible and hud.get_global_rect().has_point(screen_pos):
+			return true
+	return false
+
+
+# T05 test seam: hover `target_id` as if the cursor rested on the centre of its
+# models (test_hover_target_id's setter calls this); "" ends the hover. Only the
+# cursor is bypassed — the forecast, the card and its placement run the
+# production path (_set_hover_target). Returns true when a card is showing.
+func t05_set_hover_target(target_id: String) -> bool:
+	if target_id == "":
+		_clear_hover_forecast()
+		return true
+	_set_hover_target(target_id, _unit_screen_anchor(target_id))
+	return current_hover_forecast != null
+
+
+# Screen position of the centre of a unit's alive, on-board models.
+func _unit_screen_anchor(unit_id: String) -> Vector2:
+	var unit: Dictionary = GameState.get_unit(unit_id)
+	var sum := Vector2.ZERO
+	var n := 0
+	for m in unit.get("models", []):
+		if m.get("alive", true) and m.get("position") != null:
+			sum += _get_model_position(m)
+			n += 1
+	var world: Vector2 = sum / float(n) if n > 0 else Vector2.ZERO
+	var main = SceneRefs.main()
+	if main != null and main.has_method("world_to_screen_position"):
+		return main.world_to_screen_position(world)
+	return world
+
+
+func _process(_delta: float) -> void:
+	# T11: the hover LoS line belongs to the shooter that drew it — drop it the
+	# moment that shooter is deselected or replaced.
+	if _last_drawn_los_line != null and (active_shooter_id == "" \
+			or str(_last_drawn_los_line.get("shooter_id", "")) != active_shooter_id):
+		_clear_los_line()
+	# T05: drop the hover card the moment it stops being actionable (shooter
+	# deselected or switched, target no longer eligible, resolution started)...
+	if current_hover_forecast == null:
+		return
+	if not _hover_forecast_still_valid():
+		_clear_hover_forecast()
+	elif _hover_key(_hover_target_id) != _hover_forecast_key:
+		# ...and re-describe it when the selected weapon row changes under a
+		# resting cursor.
+		_set_hover_target(_hover_target_id, _hover_anchor_screen)
 
 
 func _ready() -> void:
@@ -351,8 +559,9 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	# Clean up visual elements (existing)
-	if los_visual and is_instance_valid(los_visual):
-		los_visual.queue_free()
+	# T11: the LOS line node is Main's persistent BoardRoot layer — clear the
+	# line, never free the node (the next shooting phase draws through it).
+	_clear_los_line()
 	if range_visual and is_instance_valid(range_visual):
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
@@ -413,15 +622,10 @@ func _create_shooting_visuals() -> void:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
 	
-	# Create LoS visualization line
-	los_visual = Line2D.new()
-	los_visual.name = "ShootingLoSVisual"
-	los_visual.width = LOS_LINE_WIDTH
-	los_visual.default_color = LOS_LINE_COLOR
-	los_visual.add_point(Vector2.ZERO)
-	los_visual.clear_points()
-	board_root.add_child(los_visual)
-	
+	# T11: the hover LoS line is drawn by Main's persistent
+	# BoardRoot/LOSLineVisual (see _draw_los_line), which replaced the plain
+	# red ShootingLoSVisual line this controller used to create here.
+
 	# LoS debug visualization — reuse the persistent BoardRoot node Main
 	# creates (2026-07-12) so the L overlay works outside the shooting phase
 	# too; only create one here if it is somehow missing.
@@ -924,6 +1128,7 @@ func phase_signal_map() -> Dictionary:
 		"dice_rolled": _on_dice_rolled,
 		"saves_required": _on_saves_required,
 		"weapon_order_required": _on_weapon_order_required,
+		"weapon_order_cancelled": _on_weapon_order_cancelled,  # T06: Esc / Back to Targets
 		"shooting_begun": _on_shooting_begun,  # T5-MP3 remote visual feedback
 		"next_weapon_confirmation_required": _on_next_weapon_confirmation_required,
 		"reactive_stratagem_opportunity": _on_reactive_stratagem_opportunity,
@@ -1688,48 +1893,56 @@ func _get_closest_range_inches(from_unit_id: String, to_unit_id: String) -> floa
 		return -1.0
 	return Measurement.px_to_inches(min_dist)
 
+# T11 (design doc §6): the LOS line tool. One line from a shooter model's base
+# centre to a target model's base centre, coloured by the rules engine's own
+# verdict (BoardRoot/LOSLineVisual: green clear / yellow obscured — the target
+# has the benefit of cover / red blocked), with the closest edge-to-edge range
+# at its midpoint. It replaced a plain red line between the closest models
+# that said nothing about what the shooter could see.
 func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
-	if not los_visual or not current_phase:
+	var lv = _los_line_visual()
+	if lv == null or not current_phase:
 		return
-	
-	los_visual.clear_points()
-	
-	var from_unit = current_phase.get_unit(from_unit_id)
-	var to_unit = current_phase.get_unit(to_unit_id)
-	
-	if from_unit.is_empty() or to_unit.is_empty():
+	var line = lv.show_line(from_unit_id, to_unit_id)
+	if line == null:
+		_clear_los_line()
 		return
-	
-	# Find closest models between units
-	var min_distance = INF
-	var from_pos = Vector2.ZERO
-	var to_pos = Vector2.ZERO
-	
-	for from_model in from_unit.get("models", []):
-		if not from_model.get("alive", true):
-			continue
-		var f_pos = _get_model_position(from_model)
+	if is_same(line, _last_drawn_los_line):
+		return  # same verdict, same line: nothing to redraw
+	_last_drawn_los_line = line
+	DebugLogger.info("ShootingController: T11 LOS line %s -> %s: %s (%s)" % [
+		from_unit_id, to_unit_id, str(line.los_state), str(line.color_slot)])
+	var range_inches := _get_closest_range_inches(from_unit_id, to_unit_id)
+	if range_inches >= 0.0:
+		_show_range_label((line.from + line.to) / 2.0, "%.1f\"" % range_inches)
 
-		for to_model in to_unit.get("models", []):
-			if not to_model.get("alive", true):
-				continue
-			var t_pos = _get_model_position(to_model)
 
-			# Use shape-aware edge-to-edge distance
-			var dist = Measurement.model_to_model_distance_px(from_model, to_model)
-			if dist < min_distance:
-				min_distance = dist
-				from_pos = f_pos
-				to_pos = t_pos
+# T11: hide the hover LoS line and the range label that goes with it.
+func _clear_los_line() -> void:
+	if _last_drawn_los_line != null:
+		DebugLogger.info("ShootingController: T11 LOS line cleared")
+	_last_drawn_los_line = null
+	var lv = _los_line_visual()
+	if lv != null and lv.current_line != null:
+		lv.clear_line()
+	_clear_range_label()
 
-	if from_pos != Vector2.ZERO and to_pos != Vector2.ZERO:
-		los_visual.add_point(from_pos)
-		los_visual.add_point(to_pos)
 
-		# Add range indicator using edge-to-edge distance
-		var range_inches = Measurement.px_to_inches(min_distance)
-		var mid_point = (from_pos + to_pos) / 2
-		_show_range_label(mid_point, "%.1f\"" % range_inches)
+# T11: Main installs LOSLineVisual on BoardRoot for the whole game; this
+# controller only tells it which pair to draw.
+func _los_line_visual() -> Node:
+	var board_root = SceneRefs.board_root()
+	if board_root == null:
+		return null
+	return board_root.get_node_or_null("LOSLineVisual")
+
+
+func _clear_range_label() -> void:
+	if not range_visual or not is_instance_valid(range_visual):
+		return
+	for child in range_visual.get_children():
+		if child.has_meta("is_range_label"):
+			child.queue_free()
 
 func _show_range_label(position: Vector2, text: String) -> void:
 	if not range_visual:
@@ -1870,9 +2083,11 @@ func _clear_visuals() -> void:
 	# B1: clear target chips
 	_clear_target_chips()
 
-	# Clear LoS line
-	if los_visual and is_instance_valid(los_visual):
-		los_visual.clear_points()
+	# T05: the hover forecast card goes with the board visuals
+	_clear_hover_forecast()
+
+	# T11: clear the hover LoS line
+	_clear_los_line()
 
 	# Clear range indicators (this clears children of range_visual)
 	_clear_range_indicators()
@@ -2382,6 +2597,8 @@ func _cleanup_existing_ui() -> void:
 func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	print("ShootingController: Unit selected for shooting: ", unit_id)
 	var shooter_changed = (unit_id != active_shooter_id)
+	# T05: a card built for the previous shooter (or its old targets) is stale.
+	_clear_hover_forecast()
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
 	assignment_history.clear()  # T5-UX4: Clear undo history for new shooter
@@ -3199,6 +3416,8 @@ func _activate_resolution_dock(assignments: Array) -> void:
 func _dock_auto_start_single_weapon(order: Array) -> void:
 	if resolution_dock == null or not resolution_dock.is_active():
 		return
+	# T06: no order to choose for one weapon type — the ordering step ends here.
+	resolution_dock.mark_order_started()
 	emit_signal("shoot_action_requested", {
 		"type": "RESOLVE_WEAPON_SEQUENCE",
 		"payload": {"weapon_order": order, "fast_roll": false}
@@ -3212,6 +3431,47 @@ func _deactivate_resolution_dock() -> void:
 
 func _on_dock_action_requested(action: Dictionary) -> void:
 	emit_signal("shoot_action_requested", action)
+
+## T06 (design guidelines §3): Esc on the weapon-order panel. While the dock is
+## in its "queued" state (targets confirmed, nothing rolled yet) this backs out
+## to target selection with every assignment kept — the dock's "Back to
+## Targets" button sends the same action. Returns true when the cancel was
+## requested. Past the ordering step (dice are rolling) there is nothing to
+## cancel; when the targets are locked in (the opponent already reacted) the
+## dock says why instead. Either way the shooter is never deselected while the
+## dock is up: that used to leave the dock waiting on a weapon order with the
+## controller's shooter wiped (ESC / pad B half-state).
+func cancel_weapon_order() -> bool:
+	if resolution_dock == null or not resolution_dock.is_active():
+		return false
+	if not resolution_dock.is_ordering():
+		print("ShootingController: T06 cancel ignored — the dock is past the weapon-order step (%s)" % resolution_dock.state)
+		return false
+	var reason := ""
+	if current_phase and current_phase.has_method("weapon_order_cancel_block_reason"):
+		reason = current_phase.weapon_order_cancel_block_reason()
+	if reason != "":
+		print("ShootingController: T06 cancel refused — %s" % reason)
+		resolution_dock.show_cancel_refusal(reason)
+		return false
+	print("ShootingController: T06 cancelling the weapon order for %s" % active_shooter_id)
+	emit_signal("shoot_action_requested", {"type": "CANCEL_WEAPON_ORDER", "actor_unit_id": active_shooter_id})
+	return true
+
+## T06: the phase handed the declaration back — retire the dock and rebuild the
+## declaration panel from the phase (resync_from_phase retires the dock once
+## resolution_state is empty and mirrors the restored pending assignments into
+## the weapon tree / target list / chips). The fire lines CONFIRM_TARGETS drew
+## go too: nothing was fired.
+func _on_weapon_order_cancelled(shooter_id: String) -> void:
+	print("ShootingController: T06 weapon order cancelled for %s — back to targeting" % shooter_id)
+	_clear_shooting_line_visuals()
+	resync_from_phase()
+	_refresh_target_chips()
+	# The COMBINED FORECAST card the declaration showed before Confirm.
+	_update_aggregate_damage_preview()
+	if dice_log_display:
+		DiceLogFormatter.info(dice_log_display, "Weapon order cancelled — targets kept, nothing rolled")
 
 func _connect_staged_dialog_signals(dialog) -> void:
 	# Wire the staged hit/wound pause controls (non-networked sequential mode).
@@ -4953,6 +5213,21 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# T06: while the weapon-order panel (the resolution dock's ordering step) is
+	# up, the targets are confirmed and the phase waits on the order. The board
+	# stays visible and keeps answering the mouse (hover still draws the LoS
+	# line), but a board click must not pick another shooter or re-aim guns
+	# behind the panel: the old modal swallowed these clicks, and the
+	# "WeaponOrderDialog" guard in _try_click_select_shooter never sees the dock.
+	# The panel says how to change targets instead (Esc). Not consumed, so
+	# Main's own board handling still runs.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+			and resolution_dock and resolution_dock.is_active() and resolution_dock.is_ordering() \
+			and get_viewport().gui_get_hovered_control() == null:
+		print("ShootingController: T06 board click ignored — the weapon-order panel is up")
+		resolution_dock.show_board_click_hint()
+		return
+
 	# Click-to-select shooter: a left-click on a friendly unit's model selects
 	# it as the active shooter (same as clicking its row in the unit list),
 	# asking first when the current shooter already has staged assignments.
@@ -4989,16 +5264,16 @@ func _input(event: InputEvent) -> void:
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_click(mouse_pos)
 
-	# Handle hovering for LoS preview
+	# Handle hovering for LoS preview (+ the T05 hover forecast card)
 	elif event is InputEventMouseMotion:
 		# Get the board root which contains the units
 		var board_root = SceneRefs.board_root()
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
-			_handle_board_hover(mouse_pos)
+			_handle_board_hover(mouse_pos, event.position)
 		else:
 			var mouse_pos = get_global_mouse_position()
-			_handle_board_hover(mouse_pos)
+			_handle_board_hover(mouse_pos, event.position)
 
 # True while the read-only datasheet card (DatasheetModal, the I / pad-Y
 # overlay) is on screen. Phase shortcuts stand down while it is up.
@@ -5038,6 +5313,13 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 			return true
 
 	if _shoot_action_matches(kbm, event, "shoot_cancel_target", [KEY_ESCAPE]):
+		# T06: the weapon-order panel (the resolution dock) owns Esc while it
+		# is up — back to targeting from the ordering step, a no-op once dice
+		# are rolling. Never a deselect mid-activation.
+		if resolution_dock and resolution_dock.is_active():
+			print("T06: Keyboard shortcut — Esc on the weapon-order panel (dock state %s)" % resolution_dock.state)
+			cancel_weapon_order()
+			return true
 		# Deselect current shooter / cancel assignments
 		if active_shooter_id != "":
 			print("T5-UX12: Keyboard shortcut — Deselect Shooter (shoot_cancel_target)")
@@ -5045,6 +5327,16 @@ func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
 			return true
 
 	if _shoot_action_matches(kbm, event, "shoot_cycle_eligible_unit", [KEY_TAB]):
+		# T10: the held threat overlay shares this key by default (Tab). Cycling
+		# on the press meant holding Tab to read enemy ranges swapped the
+		# shooter and never showed the overlay (this _input runs before Main's).
+		# Hand the press over instead: a TAP cycles on the key-up, a HOLD shows
+		# the threat view and does not cycle.
+		var threat_overlay := _threat_overlay_sharing_key(kbm, event)
+		if threat_overlay != null:
+			DebugLogger.info("T10: Tab pressed in the Shooting phase — tap cycles the shooter, hold shows the threat overlay")
+			threat_overlay.begin_tap_or_hold(Callable(self, "_keyboard_cycle_units").bind(event.shift_pressed))
+			return true
 		# Cycle through eligible units that haven't shot yet
 		print("T5-UX12: Keyboard shortcut — Cycle Units (shoot_cycle_eligible_unit)")
 		_keyboard_cycle_units(event.shift_pressed)
@@ -5089,8 +5381,27 @@ func _shoot_action_matches(kbm: Node, event: InputEventKey, action_id: String, f
 			return true
 	return false
 
+# T10: the battle scene's ThreatOverlay when this key event is ALSO its held
+# key (same key and modifiers) — i.e. "cycle shooter" and "threat overlay" are
+# bound together, as they are by default (Tab). Null otherwise, and in the
+# unit-test stub, which has no Main scene.
+func _threat_overlay_sharing_key(kbm: Node, event: InputEventKey) -> Node:
+	if kbm == null or not kbm.has_method("matches_action") or not kbm.matches_action(event, "threat_overlay"):
+		return null
+	var overlay = SceneRefs.main_path("BoardRoot/ThreatOverlay")
+	if overlay == null or not overlay.has_method("begin_tap_or_hold"):
+		return null
+	return overlay
+
 # T5-UX12: Deselect the current shooter and clear assignments
 func _keyboard_deselect_shooter() -> void:
+	# T06: while the resolution dock is up the shooter is mid-activation, so
+	# Esc / pad B mean "back out of the weapon order", never "deselect" (that
+	# wiped the shooter here while the dock kept the phase waiting).
+	if resolution_dock and resolution_dock.is_active():
+		cancel_weapon_order()
+		return
+
 	# Clear assignments first
 	if not weapon_assignments.is_empty():
 		_on_clear_pressed()
@@ -5473,21 +5784,31 @@ func _handle_board_click(position: Vector2) -> void:
 		elif dice_log_display:
 			dice_log_display.append_text("[color=red]Click missed - please click directly on an enemy model[/color]\n")
 
-func _handle_board_hover(position: Vector2) -> void:
-	# Show LoS line to hovered target
-	for target_id in eligible_targets:
-		var unit = current_phase.get_unit(target_id)
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var model_pos = _get_model_position(model)
-			if model_pos.distance_to(position) < 50:  # Hover threshold
-				_draw_los_line(active_shooter_id, target_id)
-				return
-	
-	# Clear LoS if not hovering a target
-	if los_visual:
-		los_visual.clear_points()
+func _handle_board_hover(position: Vector2, screen_pos: Vector2 = Vector2.INF) -> void:
+	# `position` is in board space (hit test); `screen_pos` is the cursor on
+	# screen (where the T05 forecast card goes).
+	if screen_pos == Vector2.INF:
+		screen_pos = get_viewport().get_mouse_position()
+	# T05: over a HUD panel the board underneath is not what the player points at.
+	if _screen_pos_over_hud(screen_pos):
+		_clear_los_line()
+		_clear_hover_forecast()
+		return
+	var hovered_id := _enemy_unit_at_board_position(position)
+	if hovered_id == "":
+		# Not over an enemy: the LoS line (and the forecast card) go away.
+		_clear_los_line()
+		_clear_hover_forecast()
+		return
+	# T11: the LoS line answers "can my unit see that one?" for EVERY enemy
+	# under the cursor — a blocked one included, which is never in
+	# eligible_targets — so it is drawn before the eligibility gate. The T05
+	# forecast card only describes a shot the player can actually take.
+	_draw_los_line(active_shooter_id, hovered_id)
+	if eligible_targets.has(hovered_id):
+		_set_hover_target(hovered_id, screen_pos)
+	else:
+		_clear_hover_forecast()
 
 # Explain in the dice log + a toast why the active shooter has no eligible
 # targets at all (out of range / no line of sight / engagement / Lone
@@ -7241,470 +7562,24 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	"""P3-114: Calculate expected damage for a single weapon vs target, accounting for all modifiers.
 	Returns a dictionary with all computed values, or empty dict on failure.
 	B5 (audit 2026-07): model_count_override > 0 forecasts a specific bearer
-	slice (split-fire assignment) instead of every bearer in the unit."""
-	# Get weapon profile
-	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
-	if weapon_profile.is_empty():
-		return {}
+	slice (split-fire assignment) instead of every bearer in the unit.
+	T05: the maths lives in RulesEngine.preview_attack, the single forecast the
+	hover tooltip, this card, the quick-assign buttons and the resolution dock
+	all read (same keys as before: expected_wounds = successful wound rolls)."""
+	return RulesEngine.preview_attack(active_shooter_id, target_id, weapon_id, GameState.state,
+		{"model_count_override": model_count_override, "cover_cache": _frame_cover_cache()})
 
-	# Get target unit data
-	var target_unit = GameState.get_unit(target_id)
-	if target_unit.is_empty():
-		return {}
 
-	# Get attacker unit data
-	var attacker_unit = GameState.get_unit(active_shooter_id)
-	if attacker_unit.is_empty():
-		return {}
-
-	var _forecast_meta = target_unit.get("meta", {})
-	var target_name = _forecast_meta.get("display_name", _forecast_meta.get("name", target_id))
-	var target_stats = _forecast_meta.get("stats", {})
-	var toughness = target_stats.get("toughness", 4)
-	var save_stat = target_stats.get("save", 4)
-	var weapon_name = weapon_profile.get("name", weapon_id)
-	var active_tags: Array = []  # Track active modifiers for display
-
-	# Get number of models with this weapon (or the forecasted slice size)
-	var model_count = 0
-	if model_count_override > 0:
-		model_count = model_count_override
-	else:
-		var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-		for model_id in unit_weapons:
-			if weapon_id in unit_weapons[model_id]:
-				model_count += 1
-
-	# === ATTACKS ===
-	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
-	var attacks_per_model = _calc_expected_variable_value(attacks_raw)
-	var total_attacks: float = attacks_per_model * model_count
-
-	# Blast: +1 attack per 5 models in target
-	if RulesEngine.is_blast_weapon(weapon_id):
-		var blast_bonus = RulesEngine.calculate_blast_bonus(weapon_id, target_unit)
-		total_attacks += blast_bonus * model_count
-		if blast_bonus > 0:
-			active_tags.append("Blast+%d" % blast_bonus)
-
-	# Rapid Fire: +X attacks for each bearer within half range of THIS target
-	# (r1:WH-9 — the forecast used to assume every bearer was in half range).
-	var rapid_fire_val = RulesEngine.get_rapid_fire_value(weapon_id)
-	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1] / +1 to an existing RAPID FIRE
-	var fc_crd_rf = RulesEngine.ork11e_rapid_fire_bonus(attacker_unit, weapon_profile)
-	if fc_crd_rf > 0:
-		rapid_fire_val += fc_crd_rf
-		active_tags.append("Close-Range Dakka")
-	if rapid_fire_val > 0:
-		var rf_bearers: Array = []
-		var rf_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-		for rf_mid in rf_unit_weapons:
-			if weapon_id in rf_unit_weapons[rf_mid]:
-				rf_bearers.append(rf_mid)
-		var rf_in_half: int = RulesEngine.count_models_in_half_range(attacker_unit, target_unit, weapon_id, rf_bearers, GameState.state, true)  # (WP-M2b: RAPID FIRE — Codex Fire-patterns reads the full range)
-		var rf_models: int = mini(rf_in_half, model_count)
-		total_attacks += rapid_fire_val * rf_models
-		if rf_models >= model_count:
-			active_tags.append("Rapid Fire %d" % rapid_fire_val)
-		elif rf_models > 0:
-			active_tags.append("Rapid Fire %d (%d/%d in half range)" % [rapid_fire_val, rf_models, model_count])
-		else:
-			active_tags.append("Rapid Fire %d (out of half range)" % rapid_fire_val)
-
-	# === HIT PROBABILITY ===
-	var bs = weapon_profile.get("bs", 4)
-	var is_torrent = RulesEngine.is_torrent_weapon(weapon_id)
-	var hit_modifier: int = 0  # Net modifier (capped ±1 per 10e)
-	var hit_reroll_type: int = 0  # 0=none, 1=ones, 2=failed
-
-	if is_torrent:
-		active_tags.append("Torrent")
-
-	# Effect flags on attacker: +1/-1 to hit
-	if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
-		hit_modifier += 1
-	if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
-		hit_modifier -= 1
-
-	# Effect flags on attacker: reroll hits
-	var attacker_flags = attacker_unit.get("flags", {})
-	if attacker_flags.get("reroll_hit_ones", false):
-		hit_reroll_type = max(hit_reroll_type, 1)
-	if attacker_flags.get("reroll_hits", false):
-		hit_reroll_type = max(hit_reroll_type, 2)
-	# EffectPrimitives flag (scope string "ones"/"failed"/"all") — the key
-	# abilities/stratagems actually set (the booleans above are legacy).
-	var fc_hit_rr_scope: String = str(attacker_flags.get("effect_reroll_hits", ""))
-	if fc_hit_rr_scope == "ones":
-		hit_reroll_type = max(hit_reroll_type, 1)
-	elif fc_hit_rr_scope == "failed" or fc_hit_rr_scope == "all":
-		hit_reroll_type = max(hit_reroll_type, 2)
-
-	# Heavy weapon: +1 to hit if remained stationary
-	if RulesEngine.is_heavy_weapon(weapon_id):
-		var remained_stationary = attacker_unit.get("flags", {}).get("remained_stationary", false)
-		if remained_stationary:
-			hit_modifier += 1
-			active_tags.append("Heavy")
-
-	# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit when this weapon is one
-	# selected for the Firing Deck ability (every bearer a Firing Deck loan).
-	if RulesEngine.ork11e_drive_by_bustin_active(attacker_unit):
-		var fc_fd_bearers := 0
-		var fc_all_bearers := 0
-		var fc_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-		for fc_mid in fc_unit_weapons:
-			if weapon_id in fc_unit_weapons[fc_mid]:
-				fc_all_bearers += 1
-				if RulesEngine.ork11e_is_firing_deck_bearer(fc_mid):
-					fc_fd_bearers += 1
-		if fc_all_bearers > 0 and fc_fd_bearers == fc_all_bearers:
-			hit_modifier += 1
-			active_tags.append("Drive-by Bustin'")
-
-	# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): re-roll hit rolls vs a FLY target
-	if RulesEngine.ork11e_long_uncontrolled_bursts_reroll(attacker_unit, target_unit):
-		hit_reroll_type = max(hit_reroll_type, 2)
-		active_tags.append("Uncontrolled Bursts")
-
-	# Damaged profile: -1 to hit
-	if RulesEngine.is_damaged_profile_active(attacker_unit):
-		hit_modifier -= 1
-		active_tags.append("Damaged")
-
-	# Target: Stealth = -1 to hit (10e). At 11e STEALTH instead grants the
-	# benefit of cover (24.33), which the cover block below folds into the
-	# BS — skip the flat -1 there so it isn't counted twice.
-	if GameConstants.edition < 11:
-		if RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
-			hit_modifier -= 1
-			active_tags.append("Stealth")
-
-	# Indirect Fire: -1 to hit
-	if RulesEngine.has_indirect_fire(weapon_id):
-		hit_modifier -= 1
-		active_tags.append("Indirect")
-
-	# Cap modifier to ±1 per 10e rules
-	hit_modifier = clampi(hit_modifier, -1, 1)
-
-	# 11e (13.08): the benefit of cover — terrain area / not-fully-visible /
-	# STEALTH / stratagem-granted — worsens the attack's BS by 1. That is a
-	# characteristic modifier, NOT part of the ±1 dice-roll cap above, so it
-	# stacks with e.g. Heavy. Mirrors the live per-attack resolution block in
-	# RulesEngine; the forecast approximates with the first alive firing
-	# model's view of the target.
-	var cover_bs_worsen := 0
-	if GameConstants.edition >= 11 and not is_torrent \
-			and not ModifierStack.attack_ignores_cover(attacker_unit, weapon_profile, {}):
-		var fc_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
-		if not fc_cover:
-			var fc_terrain = get_node_or_null("/root/TerrainManager")
-			if fc_terrain != null and fc_terrain.has_method("unit_has_cover_11e"):
-				var fc_attacker_model: Dictionary = {}
-				for fm in attacker_unit.get("models", []):
-					if fm is Dictionary and fm.get("alive", true):
-						fc_attacker_model = fm
-						break
-				fc_cover = fc_terrain.unit_has_cover_11e(target_unit, fc_attacker_model)
-			elif RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
-				# No TerrainManager in this context — STEALTH still grants cover.
-				fc_cover = true
-		if fc_cover:
-			cover_bs_worsen = 1
-			active_tags.append("Cover")
-
-	# Calculate hit probability with modifier and rerolls
-	var hit_prob = 0.0
-	if is_torrent:
-		hit_prob = 1.0
-	else:
-		var effective_bs = bs + cover_bs_worsen - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
-		effective_bs = clampi(effective_bs, 2, 6)  # 1 always misses (natural 1), 2+ is best possible
-		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified 1-3 fail against the target.
-		var fc_band: int = RulesEngine.ork11e_ranged_hit_fail_band(target_unit, 1)
-		if fc_band >= 3:
-			effective_bs = maxi(effective_bs, fc_band + 1)
-			active_tags.append("Speediest Freeks")
-		hit_prob = max(0.0, (7.0 - effective_bs) / 6.0)
-
-		# Apply rerolls
-		if hit_reroll_type == 2:  # Reroll all failed
-			var miss_prob = 1.0 - hit_prob
-			hit_prob = hit_prob + miss_prob * hit_prob  # P(hit) + P(miss)*P(hit on reroll)
-			active_tags.append("RR Hits")
-		elif hit_reroll_type == 1:  # Reroll ones
-			# Ones are 1/6 of all rolls; rerolling gives another hit_prob chance
-			hit_prob = hit_prob + (1.0 / 6.0) * hit_prob
-			active_tags.append("RR 1s Hit")
-
-	# === CRITICAL HITS (for Lethal Hits and Sustained Hits) ===
-	var crit_hit_threshold = 6
-	# Conversion keyword lowers crit threshold
-	var conversion = RulesEngine.get_conversion_threshold(weapon_id)
-	if conversion > 0:
-		crit_hit_threshold = min(crit_hit_threshold, conversion)
-		active_tags.append("Conv %d+" % conversion)
-	# Effect-granted crit threshold
-	var effect_crit = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
-	if effect_crit > 0:
-		crit_hit_threshold = min(crit_hit_threshold, effect_crit)
-
-	var crit_hit_prob = max(0.0, (7.0 - crit_hit_threshold) / 6.0)
-	var non_crit_hit_prob = hit_prob - crit_hit_prob
-	if non_crit_hit_prob < 0:
-		non_crit_hit_prob = 0.0
-
-	# Sustained Hits: generate bonus hits on crits
-	var sustained_value = 0
-	var has_sustained = false
-	var sh_data = RulesEngine.get_sustained_hits_value(weapon_id)
-	# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e): ranged SH1
-	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit) \
-			or RulesEngine.ork11e_ranged_sustained_hits(attacker_unit) > 0:
-		has_sustained = true
-		sustained_value = sh_data.get("value", 1)
-		if sustained_value == 0:
-			sustained_value = 1  # Effect-granted defaults to 1
-
-	# Lethal Hits: crits auto-wound (skip wound roll)
-	var has_lethal = RulesEngine.has_lethal_hits(weapon_id) or EffectPrimitivesData.has_effect_lethal_hits(attacker_unit)
-	# Ranged-only LETHAL HITS grant (VINDICTIVE ARTILLERISTS, BLITZA FIRE)
-	if attacker_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
-		has_lethal = true
-
-	# Calculate expected hits including sustained bonus
-	var expected_normal_hits = total_attacks * non_crit_hit_prob
-	var expected_crit_hits = total_attacks * crit_hit_prob
-	var expected_sustained_bonus = 0.0
-	if has_sustained:
-		expected_sustained_bonus = expected_crit_hits * sustained_value
-		active_tags.append("SH %d" % sustained_value)
-
-	var expected_hits = expected_normal_hits + expected_crit_hits + expected_sustained_bonus
-
-	# === WOUND PROBABILITY ===
-	var strength = weapon_profile.get("strength", 4)
-	var wound_threshold = _calc_wound_threshold(strength, toughness)
-	var wound_modifier: int = 0
-	var wound_reroll_type: int = 0  # 0=none, 1=ones, 2=failed
-
-	# Twin-Linked: reroll all failed wounds
-	if RulesEngine.has_twin_linked(weapon_id):
-		wound_reroll_type = max(wound_reroll_type, 2)
-		active_tags.append("Twin-Linked")
-
-	# Effect flags on attacker: +1/-1 wound
-	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
-		wound_modifier += 1
-	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
-		wound_modifier -= 1
-
-	# Effect flags on attacker: reroll wounds
-	if attacker_flags.get("reroll_wound_ones", false):
-		wound_reroll_type = max(wound_reroll_type, 1)
-	if attacker_flags.get("reroll_wounds", false):
-		wound_reroll_type = max(wound_reroll_type, 2)
-	# EffectPrimitives flag (scope string) — what abilities actually set;
-	# e.g. Custodes Stand Vigil grants effect_reroll_wounds="ones". This is
-	# the key the live wound roll reads, so the forecast must match it.
-	var fc_wound_rr_scope: String = str(attacker_flags.get("effect_reroll_wounds", ""))
-	if fc_wound_rr_scope == "ones":
-		wound_reroll_type = max(wound_reroll_type, 1)
-	elif fc_wound_rr_scope == "failed" or fc_wound_rr_scope == "all":
-		wound_reroll_type = max(wound_reroll_type, 2)
-
-	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a non-MONSTER/VEHICLE target
-	if RulesEngine.ork11e_kustom_dakka_wound_bonus(attacker_unit, target_unit) > 0:
-		wound_modifier += 1
-		active_tags.append("Kustom Dakka")
-
-	# Lance: +1 to wound if charged this turn
-	if RulesEngine.is_lance_weapon(weapon_id):
-		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
-		if unit_charged:
-			wound_modifier += 1
-			active_tags.append("Lance")
-
-	# HULKING BRUTES (Codex: Orks 11e): -1 to wound vs the target (S > T, or all).
-	if RulesEngine.ork11e_ranged_wound_penalty(target_unit, int(strength), int(toughness)):
-		wound_modifier -= 1
-		active_tags.append("Hulking Brutes")
-
-	# Cap modifier to ±1
-	wound_modifier = clampi(wound_modifier, -1, 1)
-
-	# Calculate wound probability with modifier
-	var effective_wound_threshold = wound_threshold - wound_modifier
-	effective_wound_threshold = clampi(effective_wound_threshold, 2, 6)
-	var wound_prob = max(0.0, (7.0 - effective_wound_threshold) / 6.0)
-
-	# Apply wound rerolls
-	if wound_reroll_type == 2:
-		var miss_prob = 1.0 - wound_prob
-		wound_prob = wound_prob + miss_prob * wound_prob
-		if not active_tags.has("Twin-Linked"):
-			active_tags.append("RR Wnds")
-	elif wound_reroll_type == 1:
-		wound_prob = wound_prob + (1.0 / 6.0) * wound_prob
-		active_tags.append("RR 1s Wnd")
-
-	# Anti-keyword: lowers critical wound threshold
-	var crit_wound_threshold = RulesEngine.get_critical_wound_threshold(weapon_id, target_unit)
-	var has_anti = crit_wound_threshold < 6
-	if has_anti:
-		active_tags.append("Anti %d+" % crit_wound_threshold)
-
-	var crit_wound_prob = max(0.0, (7.0 - crit_wound_threshold) / 6.0)
-
-	# Devastating Wounds: critical wounds bypass saves (mortal wounds)
-	var has_dw = RulesEngine.has_devastating_wounds(weapon_id) or EffectPrimitivesData.has_effect_devastating_wounds(attacker_unit)
-
-	# Calculate expected wounds
-	# Hits that need to roll to wound = all hits except lethal auto-wounds
-	var hits_needing_wound_roll: float
-	var lethal_auto_wounds: float = 0.0
-	if has_lethal:
-		lethal_auto_wounds = expected_crit_hits  # Crit hits auto-wound
-		# Sustained bonus hits from lethal crits still roll to wound
-		hits_needing_wound_roll = expected_normal_hits + expected_sustained_bonus
-		active_tags.append("Lethal")
-	else:
-		hits_needing_wound_roll = expected_hits
-
-	var expected_normal_wounds = hits_needing_wound_roll * wound_prob
-	var expected_crit_wounds = hits_needing_wound_roll * crit_wound_prob
-	# Non-crit wounds = total - crits (crits are a subset of successful wounds)
-	var expected_regular_wounds = expected_normal_wounds - expected_crit_wounds
-	if expected_regular_wounds < 0:
-		expected_regular_wounds = 0
-
-	var expected_wounds = expected_regular_wounds + expected_crit_wounds + lethal_auto_wounds
-
-	# [HAZARDOUS] — native, or granted (VINDICTIVE ARTILLERISTS' overcharged
-	# option, r3:F8): show the self-damage risk in the forecast.
-	if RulesEngine.weapon_is_hazardous_for(active_shooter_id, weapon_id, GameState.state):
-		active_tags.append("Hazardous")
-
-	# === SAVE PROBABILITY ===
-	var ap = weapon_profile.get("ap", 0)
-
-	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
-	var fc_glowin_ap = RulesEngine.ork11e_glowin_dakka_ap_bonus(attacker_unit, target_unit, GameState.state)
-	if fc_glowin_ap > 0:
-		ap = RulesEngine.ork11e_improve_ap(int(ap), fc_glowin_ap)
-		active_tags.append("Glowin' Dakka")
-
-	# Target defensive: Worsen AP (e.g. Ramshackle)
-	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if worsen_ap > 0:
-		ap = max(0, abs(ap) - worsen_ap)
-		if ap > 0:
-			ap = -ap  # Maintain negative convention
-		else:
-			ap = 0
-		active_tags.append("Worsen AP")
-
-	# Check for invulnerable save on target models
-	var invuln = 0
-	var target_models = target_unit.get("models", [])
-	for model in target_models:
-		if model.get("alive", true):
-			invuln = model.get("invuln", 0)
-			break
-	# Also check effect-granted invuln
-	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
-	if effect_invuln > 0 and (invuln == 0 or effect_invuln < invuln):
-		invuln = effect_invuln
-
-	# Calculate save threshold
-	var modified_save = save_stat + abs(ap)
-	var best_save = modified_save
-	if invuln > 0 and invuln < best_save:
-		best_save = invuln
-
-	var save_prob = 0.0
-	if best_save <= 6:
-		save_prob = max(0.0, (7.0 - best_save) / 6.0)
-	var unsaved_prob = 1.0 - save_prob
-
-	# Devastating Wounds bypass saves entirely
-	var dw_wounds: float = 0.0
-	var regular_save_wounds: float = 0.0
-	if has_dw:
-		dw_wounds = expected_crit_wounds
-		regular_save_wounds = expected_regular_wounds + lethal_auto_wounds
-		active_tags.append("Dev Wounds")
-	else:
-		regular_save_wounds = expected_wounds
-
-	var expected_unsaved = regular_save_wounds * unsaved_prob + dw_wounds
-
-	# === DAMAGE PER WOUND ===
-	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-	var avg_damage = _calc_expected_variable_value(damage_raw)
-
-	# Melta: +X damage (assume in melta range for preview)
-	var melta_val = RulesEngine.get_melta_value(weapon_id)
-	if melta_val > 0:
-		avg_damage += melta_val
-		active_tags.append("Melta +%d" % melta_val)
-
-	# Target: Half Damage
-	if RulesEngine.get_unit_half_damage(target_unit):
-		avg_damage = ceil(avg_damage / 2.0)
-		active_tags.append("Half Dmg")
-
-	# Target: Minus Damage (e.g. Guardian Eternal)
-	var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
-	if minus_dmg > 0:
-		avg_damage = max(1.0, avg_damage - minus_dmg)
-		active_tags.append("-%d Dmg" % minus_dmg)
-
-	var expected_damage = expected_unsaved * avg_damage
-
-	# === FEEL NO PAIN ===
-	var fnp = RulesEngine.get_unit_fnp(target_unit)
-	if fnp > 0:
-		var fnp_pass_prob = (7.0 - fnp) / 6.0
-		expected_damage *= (1.0 - fnp_pass_prob)
-		active_tags.append("FNP %d+" % fnp)
-
-	# === MODELS KILLED ===
-	var wounds_per_model = target_stats.get("wounds", 1)
-	var alive_models = RulesEngine.count_alive_models(target_unit)
-	var expected_models_killed = 0.0
-	if wounds_per_model > 0:
-		expected_models_killed = min(expected_damage / wounds_per_model, alive_models)
-
-	# === BUILD HIT/WOUND DISPLAY STRINGS ===
-	var hit_display = "Auto" if is_torrent else "%d+" % (bs - hit_modifier if not is_torrent else 0)
-	if is_torrent:
-		hit_display = "Auto"
-	else:
-		var eff_bs = clampi(bs - hit_modifier, 2, 6)
-		hit_display = "%d+" % eff_bs
-
-	var wound_display = "%d+" % effective_wound_threshold
-
-	return {
-		"weapon_name": weapon_name,
-		"target_name": target_name,
-		"toughness": toughness,
-		"save_stat": save_stat,
-		"invuln": invuln,
-		"fnp": fnp,
-		"total_attacks": total_attacks,
-		"expected_hits": expected_hits,
-		"expected_wounds": expected_wounds,
-		"expected_unsaved": expected_unsaved,
-		"expected_damage": expected_damage,
-		"expected_models_killed": expected_models_killed,
-		"hit_display": hit_display,
-		"wound_display": wound_display,
-		"best_save": best_save,
-		"active_tags": active_tags,
-	}
+# T05: the cover cache for forecasts built this frame (see _forecast_cover_cache).
+func _frame_cover_cache() -> Dictionary:
+	var frame: int = Engine.get_process_frames()
+	var units = GameState.state.get("units", {})
+	# A new frame, or a different units dict (a load replaced the board), starts afresh.
+	if frame != _forecast_cover_cache_frame or not is_same(units, _forecast_cover_cache_units):
+		_forecast_cover_cache = {}
+		_forecast_cover_cache_frame = frame
+		_forecast_cover_cache_units = units
+	return _forecast_cover_cache
 
 func _update_aggregate_damage_preview() -> void:
 	"""P3-114: Show aggregate expected damage across all weapon assignments, grouped by target.
@@ -7824,65 +7699,3 @@ func _hide_aggregate_preview() -> void:
 	"""P3-114: Hide the aggregate damage preview panel"""
 	if aggregate_preview_panel:
 		aggregate_preview_panel.visible = false
-
-func _calc_wound_threshold(strength: int, toughness: int) -> int:
-	"""Calculate wound threshold based on Strength vs Toughness (10e rules).
-	Returns the required roll (2-6)."""
-	if strength >= toughness * 2:
-		return 2
-	elif strength > toughness:
-		return 3
-	elif strength == toughness:
-		return 4
-	elif strength * 2 <= toughness:
-		return 6
-	else:
-		return 5
-
-func _calc_wound_probability(strength: int, toughness: int) -> float:
-	"""Calculate wound probability based on Strength vs Toughness (10e rules)"""
-	return max(0.0, (7.0 - _calc_wound_threshold(strength, toughness)) / 6.0)
-
-func _wound_threshold_display(strength: int, toughness: int) -> String:
-	"""Return the wound threshold as a display string (e.g., '3+')"""
-	return "%d+" % _calc_wound_threshold(strength, toughness)
-
-func _calc_expected_variable_value(raw_str: String) -> float:
-	"""P3-114: Calculate the expected (average) value of a variable characteristic string.
-	Handles: plain integers, D3, D6, 2D6, D6+N, D3+N patterns."""
-	if raw_str == null or raw_str.is_empty():
-		return 1.0
-
-	if raw_str.is_valid_int():
-		return float(raw_str.to_int())
-
-	var upper = raw_str.to_upper().strip_edges()
-
-	if upper == "D3":
-		return 2.0  # Average of 1,2,3
-	if upper == "D6":
-		return 3.5  # Average of 1-6
-	if upper == "2D6":
-		return 7.0  # Average of 2D6
-
-	# D6+N or D3+N
-	if "+" in upper:
-		var parts = upper.split("+")
-		var dice_part = parts[0].strip_edges()
-		var bonus = 0.0
-		if parts.size() > 1 and parts[1].strip_edges().is_valid_int():
-			bonus = float(parts[1].strip_edges().to_int())
-
-		if dice_part == "D6":
-			return 3.5 + bonus
-		elif dice_part == "D3":
-			return 2.0 + bonus
-		elif dice_part == "2D6":
-			return 7.0 + bonus
-
-	# Fallback
-	var fallback = raw_str.to_int()
-	if fallback > 0:
-		return float(fallback)
-
-	return 1.0

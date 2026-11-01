@@ -2,6 +2,158 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.68.0",
+      "date": "2026-11-01",
+      "summary": "Every model without its own artwork now shows a white silhouette of what it is - a trooper, a hero, a tank, a walker, a beast, an aircraft or a rider - in the middle of its base, and its letters move under the base.",
+      "changes": [
+        "The middle of the base shows the unit type as a bold white shape with a black edge, so you can tell infantry from heroes, walkers, bikes, beasts and aircraft at a glance. It is picked from the unit's keywords: a Dreadnought is a walker, a jetbike Captain a rider, a Wazbom Blastajet an aircraft, a Warboss a hero.",
+        "The short letters that used to fill the base (e.g. 'BO*', 'Cu') now sit just under it in a small bold outlined font. The model that carries the unit's name plate keeps just the plate there, so there is only one line of text under any model. A custom label you give a unit shows there too.",
+        "Walkers, aircraft and bikes that count as vehicles used to borrow the generic tank picture. They now show their own shape. Tanks keep the tank picture, and units with their own artwork keep it.",
+        "On a light base colour (the 'Full' colour display) the silhouette is drawn black instead of white, so it always stands out.",
+        "The shapes stay readable when you zoom out to half size."
+      ]
+    },
+    {
+      "version": "1.67.0",
+      "date": "2026-10-31",
+      "summary": "Press Shift+F to jump the camera to the unit you have selected: it glides there and frames the whole unit in the middle of the part of the board you can see.",
+      "changes": [
+        "Shift+F now centres the selected unit between the game log, the right-hand panel, the top bar and the phase strip. Before, it centred on the middle of the window, a little to the right of and above the space you can actually see.",
+        "The whole unit always fits, bases included. A long or spread-out unit used to run under the side panels; now the camera zooms out until every model is in view.",
+        "At least 5\" of the table around the unit stays in view, so nearby units are in the frame too. A small unit is not blown up past 1.2x zoom.",
+        "The camera glides to the unit instead of jumping, the unit sliding straight into the middle as it grows, so you can follow where you were looking.",
+        "Dead models no longer count, so the camera frames the models still on the table.",
+        "The same framing is used when you click a unit on the roster strip, cycle units with the controller bumpers from the zoomed-out view, or select a unit inside a transport."
+      ]
+    },
+    {
+      "version": "1.66.0",
+      "date": "2026-10-31",
+      "summary": "Press F to see the whole battlefield: the camera glides until the full board fits between the top bar, the side panels and the phase strip, with a small even border.",
+      "changes": [
+        "F now shows the whole board. Before, holding F also triggered 'Focus P2 Zone', which jumped the camera onto Player 2's deployment zone, so you never actually saw the full table.",
+        "The camera glides to the new view instead of jumping, so you can follow where you were looking.",
+        "The board is fitted into the space you can actually see. Its top and bottom edges no longer hide under the top bar and the phase strip, and it sits centred between the game log and the right-hand panel with a 32-pixel border.",
+        "Hide the game log first and F uses the extra room.",
+        "'Focus P2 Zone' no longer has a key. You can give it one in Settings > Controls. If you saved your controls before this update, its old F key is removed automatically."
+      ]
+    },
+    {
+      "version": "1.65.1",
+      "date": "2026-10-31",
+      "summary": "Movement trails now show in the player colours from the token rings (teal for player 1, magenta for player 2), and every board marker uses the game's one colour palette.",
+      "changes": [
+        "The trails left by an AI move, and the dashed paths you plan while dragging a unit, are now teal for player 1 and magenta for player 2, the same colours as the outer ring on each token. Before, they were blue and red.",
+        "Deep Strike and Infiltrator no-go zones are drawn in the same red as every other 'not allowed' marker.",
+        "Charge arrows, charge previews, coherency circles, hit flashes, damage numbers and kill messages now use the game's standard green, yellow, orange and red. They look the same as before apart from small shade changes.",
+        "The AI's hit summary over a target ('2 hits, 1 wound') is now pale white instead of cream."
+      ]
+    },
+    {
+      "version": "1.65.0",
+      "date": "2026-10-31",
+      "summary": "In the Shooting phase, point at an enemy unit with a shooter selected and a line runs from your model to theirs: green if you can see it, yellow if it has cover, red if terrain blocks the shot.",
+      "changes": [
+        "With a unit selected to shoot, rest the cursor on any enemy unit to see one line from the centre of your model's base to the centre of theirs. Move the cursor off the unit and the line disappears.",
+        "Green: your unit can see it and it has no cover. Yellow: you can see it, but it has the benefit of cover, so your shots hit on a worse roll. Red: no model in your unit can see any model in theirs, so you cannot shoot it.",
+        "Red lines also show on enemies you cannot target, so you can see why they are missing from the target list. The distance still shows in the middle of the line.",
+        "The colours follow the same line-of-sight and cover rules the dice use. A barricade between the two units now shows red, because light terrain blocks sight lines in 11th edition; before, it showed as only cover. The line starts from the model that can actually see the target.",
+        "The line keeps the same thickness at every zoom and is drawn over the models, so both ends sit on the base centres. It replaces the plain red line that used to show only for legal targets.",
+        "Fixed: after the terrain changed, for example when a different layout was loaded, line of sight and the target list could keep giving answers for the old terrain."
+      ]
+    },
+    {
+      "version": "1.64.0",
+      "date": "2026-10-31",
+      "summary": "Hold Tab to see where the enemy can shoot and charge you: each enemy unit's shooting range is shaded yellow and its 12\" charge range red, one clear ring per unit, until you let go.",
+      "changes": [
+        "Hold Tab to show the enemy's threat ranges and let go to hide them. It is off the rest of the time.",
+        "Yellow shows everywhere one of the unit's guns can reach and red (with a dashed ring) its 12\" charge range, both measured from the edge of its models' bases as the rules measure. A unit with only melee weapons shows only the red ring.",
+        "Each enemy unit gets one ring, even a mob of twenty models: the outline goes round the whole unit. Overlapping shading no longer piles up into a solid blob, and the rings stop at the edge of the battlefield.",
+        "Works in the Shooting phase too: a quick tap of Tab still cycles to the next unit that can shoot, and holding it shows the threat view instead. Before, holding Tab there only changed the shooter.",
+        "Against the AI the view always shows the AI's units, even during the AI's turn.",
+        "Holding Tab no longer makes the keyboard focus jump between buttons, and letting go always hides the view, even if you pressed Shift or switched windows while holding it."
+      ]
+    },
+    {
+      "version": "1.63.0",
+      "date": "2026-10-31",
+      "summary": "Units that have already acted this phase now go dim, on the battlefield and in the Roster strip, so you can see at a glance who still has something to do.",
+      "changes": [
+        "When a unit finishes its turn in a phase it dims to grey until the phase ends: in the Movement phase once you press End This Unit's Move (or it remains stationary, or arrives from reserves), in the Shooting phase once it has shot or been skipped, in the Charge phase once its charge is done or skipped, and in the Fight phase once it has fought.",
+        "Units that have not acted yet stay at full brightness, so the ones still waiting stand out.",
+        "The unit's card in the Roster strip (the Roster button or B) dims to match.",
+        "Everything returns to full brightness when the next phase starts.",
+        "The two coloured rings on a dimmed model are still easy to tell apart."
+      ]
+    },
+    {
+      "version": "1.62.0",
+      "date": "2026-10-31",
+      "summary": "Every model now shows two rings on its base: its unit's colour inside and a thin teal (Player 1) or magenta (Player 2) ring on the edge, so you can always tell whose model it is - even when both armies are the same faction.",
+      "changes": [
+        "The single coloured ring on each base is now two rings. The inner, thicker ring is still the unit's own colour from your army (the colour Right-click > Change Color or the army panel swatch picks, so two squads of the same unit still look different).",
+        "The thin outer ring on the edge of the base is always teal for Player 1 and magenta for Player 2, on every model, whatever army each player brought. In a mirror match - Custodes against Custodes - the two sides' models were the same colours before; the outer ring now tells them apart.",
+        "Both rings sit under the model art, so they never cover the figure or the letter on the base.",
+        "The small coloured ring that marks a squad leader or special model (for example a Boss Nob) now sits just inside the outer ring instead of on top of it."
+      ]
+    },
+    {
+      "version": "1.61.0",
+      "date": "2026-10-31",
+      "summary": "The terrain cover labels (Settings > Visual > Terrain Cover Labels) are now readable at any zoom and show each piece's 11th-edition terrain category, with a legend under the setting.",
+      "changes": [
+        "With Terrain Cover Labels turned on, every terrain piece shows a small shield at its centre: +1 for exposed terrain, +2 for light terrain and LB for dense terrain. The legend under the setting says what each one means.",
+        "The shields stay the same size on screen whether you zoom in or out, and stay upright when you rotate the board. Before, they shrank with the board until they were unreadable at the whole-board view.",
+        "Labels now follow the terrain's 11th-edition category only. Before, height also counted, so a tall ruin of light terrain was wrongly marked LB.",
+        "The shields are drawn under the models and under the movement, threat and engagement overlays, so they never hide a model or a range ring. Before, they were drawn on top of the models."
+      ]
+    },
+    {
+      "version": "1.60.0",
+      "date": "2026-10-31",
+      "summary": "Choosing the firing order for a unit's guns now has a way back: press Esc, or the new 'Back to Targets' button, to return to aiming with every gun still assigned and nothing rolled.",
+      "changes": [
+        "After you confirm targets for a unit with two or more kinds of gun, the firing-order list in the right-hand panel has a '◀ Back to Targets (Esc)' button under Fast Roll All. It, or the Esc key, takes you back to choosing targets with all your assignments kept, so you can change them and confirm again. Nothing has been rolled at that point.",
+        "Once your opponent has used a stratagem against the targets you declared (Smokescreen, for example), the targets are locked in: the button is greyed out, its tooltip says why, and Esc shows the reason in the panel instead.",
+        "Esc (or B on a controller) while the firing-order list or the dice are up no longer deselects the shooter. Before, it cleared the shooter and left the list on screen with nothing behind it.",
+        "Clicking the battlefield while the firing-order list is up no longer re-aims guns or picks another unit in the background. The panel tells you to press Esc to change targets. The battlefield stays visible and still shows the line of sight when you point at an enemy."
+      ]
+    },
+    {
+      "version": "1.59.0",
+      "date": "2026-10-31",
+      "summary": "In the Shooting phase, resting the cursor on an enemy your shooter can hit now shows a forecast card beside the cursor: the weapon against that target, the dice it needs, and the expected hits, wounds and damage, with cover already counted.",
+      "changes": [
+        "Select a shooter, then rest the cursor on an enemy unit it can shoot. A card next to the cursor names the weapon and the target and shows the weapon's Attacks, BS, Strength against the target's Toughness, AP and Damage, the rolls needed to hit, wound and save, and the expected hits, wounds, unsaved wounds, damage and models slain.",
+        "When the target has the benefit of cover, the card's BS turns yellow and a shield line says what it did (for example 'Benefit of cover: BS 2+ → 3+'). Heavy, plunging fire, re-rolls and the other modifiers in play are listed on the card and already counted in its numbers.",
+        "With a weapon picked in the Weapon Assignments list, the card describes that weapon. Otherwise it describes the weapon that takes the most wounds off that target, and adds what all your weapons in range would do together.",
+        "Move the cursor to another enemy and the card updates; move it onto empty board or the side panels and the card goes away. It keeps clear of the unit stats card that opens under the cursor.",
+        "The Forecast panel, the Quick Assign buttons and the shot list use the same numbers, so they now also count cover against your BS, the 11th-edition Heavy rule (no model moved more than 3\") and plunging fire, and 'kills' no longer counts extra damage on a one-wound model as extra kills."
+      ]
+    },
+    {
+      "version": "1.58.0",
+      "date": "2026-10-30",
+      "summary": "The phase strip at the bottom of the screen now shows each phase as a pill: the current phase lit in the active player's colour, finished phases grey, phases still to come faded.",
+      "changes": [
+        "The six battle phases along the bottom of the screen (Command, Movement, Shooting, Charge, Fight, Score) are now pills. The current phase glows in the active player's colour (teal for Player 1, magenta for Player 2), phases already done this turn are solid grey, and phases still to come are faded outlines.",
+        "Every pill keeps its size and place when the phase changes, so nothing else on screen moves.",
+        "After you load a saved game in the middle of a battle round, the phase strip shows straight away. Before, it stayed hidden until the next phase began."
+      ]
+    },
+    {
+      "version": "1.57.0",
+      "date": "2026-10-30",
+      "summary": "Dragging a model now paints a colour-coded tape measure: green within its Move, yellow within an Advance, red beyond.",
+      "changes": [
+        "While you drag a model in the Movement phase, the path from where it started to your cursor is coloured by how far it can go: green within its Move, yellow for the extra an Advance gives (the distance you rolled once you have Advanced, up to 6\" before you roll), red beyond that. A small tick marks each colour change.",
+        "The total distance follows your cursor. Past your Move it also says 'Advance' or 'out of reach', so you can read it without telling the colours apart.",
+        "While dragging, press SHIFT to drop a waypoint: the path bends there, and the model moves around the corner with the whole route measured. ENTER puts the model down where you are pointing. ESC puts it back where it started (ESC used to open the Settings menu with the model still held).",
+        "Distance the model has already moved this phase and terrain costs count too, so the green part ends exactly where the model can still reach."
+      ]
+    },
+    {
       "version": "1.56.9",
       "date": "2026-10-31",
       "summary": "Terrain objectives now count as 'in range' everywhere, and the AI takes the shortest route onto them.",

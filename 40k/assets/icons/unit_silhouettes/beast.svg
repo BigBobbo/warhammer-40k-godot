@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- T15 unit-type silhouette: beast. White glyph on a black keyline, drawn by
+     TokenVisual in place of the centred letter and tinted with the base's
+     contrast colour (white on dark bases, black on light ones). -->
+<g fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+    <polygon points="27,24 30,15 34,23"/>
+    <polygon points="35,23 39,16 42,24"/>
+    <path d="M50 30 Q58 26 57 16 Q61 24 55 33 Z"/>
+    <ellipse cx="35" cy="33" rx="17" ry="10.5"/>
+    <polygon points="19,38 25,38 25,54 17,54"/>
+    <polygon points="27,38 32,38 31,54 26,54"/>
+    <polygon points="40,38 46,38 47,54 41,54"/>
+    <polygon points="47,36 52,34 53,54 48,54"/>
+    <circle cx="16" cy="27" r="8"/>
+    <polygon points="12,19 14,11 19,20"/>
+    <polygon points="4,22 14,21 16,27 5,27"/>
+    <polygon points="6,31 16,30 15,36 8,35"/>
+</g>
+<g fill="#fff">
+    <polygon points="27,24 30,15 34,23"/>
+    <polygon points="35,23 39,16 42,24"/>
+    <path d="M50 30 Q58 26 57 16 Q61 24 55 33 Z"/>
+    <ellipse cx="35" cy="33" rx="17" ry="10.5"/>
+    <polygon points="19,38 25,38 25,54 17,54"/>
+    <polygon points="27,38 32,38 31,54 26,54"/>
+    <polygon points="40,38 46,38 47,54 41,54"/>
+    <polygon points="47,36 52,34 53,54 48,54"/>
+    <circle cx="16" cy="27" r="8"/>
+    <polygon points="12,19 14,11 19,20"/>
+    <polygon points="4,22 14,21 16,27 5,27"/>
+    <polygon points="6,31 16,30 15,36 8,35"/>
+</g>
+<g fill="#000">
+    <circle cx="15" cy="24.5" r="1.8"/>
+</g>
+</svg>

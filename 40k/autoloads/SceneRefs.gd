@@ -45,3 +45,25 @@ func hud_bottom() -> Node:
 
 func hud_top() -> Node:
 	return main_path("HUD_Top")
+
+## Where the battlefield currently sits on screen (viewport coordinates) — the
+## board's "used rect". BoardRoot carries the camera transform (pan, zoom), so
+## its canvas transform maps the board's pixel extent straight to the screen.
+## Rect2() when the battle scene isn't loaded. Pass `main_node` when the caller
+## already holds it (the reserves tray rails); otherwise /root/Main is used.
+## Also the T06 check that a side panel never covers the board it asks about.
+func board_screen_rect(main_node: Node = null) -> Rect2:
+	var m: Node = main_node if main_node != null else main()
+	var root = m.get_node_or_null("BoardRoot") if m != null else null
+	if root == null or not (root is Node2D):
+		return Rect2()
+	var w := 1760.0
+	var h := 2400.0
+	var settings = get_node_or_null("/root/SettingsService")
+	if settings != null:
+		w = settings.get_board_width_px()
+		h = settings.get_board_height_px()
+	var xf: Transform2D = (root as Node2D).get_global_transform_with_canvas()
+	var top_left: Vector2 = xf * Vector2.ZERO
+	var bottom_right: Vector2 = xf * Vector2(w, h)
+	return Rect2(top_left, bottom_right - top_left).abs()

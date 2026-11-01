@@ -1,17 +1,55 @@
 {
   "id": "T02_harness_self_check",
   "covers": ["design_guidelines.T02", "infra.visual_harness"],
-  "description": "Self-test for the visual-scenario harness. Captures two identical frames and asserts pixel_diff returns near-zero. Exercises execute_script with bounds. Asserts the baseline file is well-formed. This scenario is the gate that proves T02's three new step types work before any T## task relies on them.",
+  "description": "Self-test for the visual-scenario harness, the gate that proves T02's step types work before any T## task relies on them. (1) A frame diffed against itself reads exactly 0.0%. (2) Falsifiability: a full-frame black probe (CanvasLayer 1024, above every UI layer) vs the same probe turned white reads > 95% on the whole frame and on the full_viewport region, so a pixel_diff that stopped seeing differences fails here instead of passing every expect_max bound silently. (3) The probe is freed and the frame returns to its pre-probe state (T02_before vs T02_after <= 5%). Also exercises execute_script bounds and asserts the baseline file is well-formed.",
 
   "regions": {
-    "full_viewport": [0, 0, 1280, 720]
+    "full_viewport": [0, 0, 1920, 1080]
   },
 
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
 
     { "act": "screenshot", "label": "T02_before" },
+
+    { "act": "pixel_diff",
+      "before": "T02_before",
+      "after":  "T02_before",
+      "expect_max_pct": 0.0 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var probe := CanvasLayer.new()\nprobe.name = \"T02DiffProbe\"\nprobe.layer = 1024\nvar fill := ColorRect.new()\nfill.name = \"Fill\"\nfill.color = Color(0, 0, 0, 1)\nfill.mouse_filter = Control.MOUSE_FILTER_IGNORE\nfill.set_anchors_preset(Control.PRESET_FULL_RECT)\nprobe.add_child(fill)\ntree.root.add_child(probe)\nreturn fill.color.to_html(true)",
+      "equals": "000000ff" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "T02_probe_black" },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var fill = tree.root.get_node(\"T02DiffProbe/Fill\")\nfill.color = Color(1, 1, 1, 1)\nreturn fill.color.to_html(true)",
+      "equals": "ffffffff" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "T02_probe_white" },
+
+    { "act": "pixel_diff",
+      "before": "T02_probe_black",
+      "after":  "T02_probe_white",
+      "expect_min_pct": 95.0 },
+    { "act": "pixel_diff",
+      "before": "T02_probe_black",
+      "after":  "T02_probe_white",
+      "region": "full_viewport",
+      "expect_min_pct": 95.0 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "tree.root.get_node(\"T02DiffProbe\").queue_free()\nreturn true",
+      "equals": true },
     { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/T02DiffProbe\") == null",
+      "equals": true },
+
     { "act": "screenshot", "label": "T02_after" },
 
     { "act": "execute_script",

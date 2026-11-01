@@ -1,38 +1,248 @@
 {
   "id": "T08_two_ring_token",
-  "covers": ["design_guidelines.T08", "tokens.two_ring"],
-  "fixture": "co_pretrigger",
-  "transition_to_phase": 10,
-  "description": "Every TokenVisual gains FactionRing (inner) and SlotRing (outer) child nodes. FactionRing modulate is the per-player gold/bone stand-in (faction color hook); SlotRing modulate matches UIConstants for the owning player (TEAL for P1, MAGENTA for P2). Both rings have alpha < 1 so they don't dominate existing token chrome. Outer ring is scaled larger than inner.",
-
+  "covers": [
+    "design_guidelines.T08",
+    "tokens.two_ring",
+    "tokens.color_ring_display"
+  ],
+  "fixture": "mirror_custodes_postdeploy",
+  "transition_to_phase": 7,
+  "regions": {
+    "token_swatch": [
+      535,
+      330,
+      190,
+      412
+    ],
+    "glyph_p1": [
+      588,
+      383,
+      84,
+      84
+    ],
+    "glyph_p2": [
+      596,
+      631,
+      68,
+      68
+    ]
+  },
+  "description": "T08 (design guidelines §2): every token shows two concentric rings - an inner band in the unit's army colour (FactionRing) and a thin outer ring in the owner's player-slot colour (SlotRing: UIConstants.FRIENDLY_PLAYER_TEAL for P1, ENEMY_PLAYER_MAGENTA for P2) - painted beneath the model art, replacing the old single unit-colour ring. Fixture mirror_custodes_postdeploy: P1 Adeptus Custodes vs P2 Adeptus Custodes, the only fixture with P1 Custodes + P2 Witchseekers (Witchseekers are an Anathema Psykana unit of the Custodes army, so P2's colours come from the Custodes palette too - no 'Witchseekers blue' exists in army data). Setup privilege moves the P2 Witchseekers beside the P1 Custodian Guard; engagement zoom x3 frames both rows. T08_before rebuilds the pre-T08 token from the ring specs (no slot ring, one unit-colour band at the old ring's place) - measured pixel-identical (0.0%) in token_swatch to the old build's render of this frame. Tier A: token_swatch diff > 8% (measured 26.1%); glyph_p1 / glyph_p2 (token centres: art, WI* letter) < 1% (measured 0.0%); on the live frame each ring's mid-line is painted in its node's colour; on all 36 tokens SlotRing == the owner's slot colour, FactionRing == the unit's army-data colour from the owner's faction palette, SlotRing.scale > FactionRing.scale, both alpha >= 0.9, both painted; some P1 Custodes token has FactionRing == Custodes gold d9b333 with SlotRing == TEAL; all 8 P2 Witchseekers have SlotRing == MAGENTA and FactionRing == their army colour; the mirror shares inner colours across players, each told apart by the slot ring. Player path: U opens the Army Overview, whose per-unit swatch equals each unit's inner ring on all 36 tokens; picking Pale gold for the Custodian Guard there (swatch -> faction-palette picker) repaints their four inner rings pale gold on screen while the outer rings stay teal; U closes the panel. T08_p1_row / T08_oval_closeup / T08_p2_row frame each army (and an oval base) for the Tier B review.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
-    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
-
-    { "act": "execute_script",
-      "script": "main.get_node_or_null(\"BoardRoot/TokenLayer\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"FactionRing\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"SlotRing\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").scale.x > main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"FactionRing\").scale.x",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"FactionRing\").modulate.a > 0.0",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a > 0.0",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_CUSTODIAN_GUARD_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "MIR_U_WITCHSEEKERS_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Setup privilege: bring the P2 Witchseekers up beside the P1 Custodian Guard so\n# one engagement-zoom frame holds both players' tokens.\nvar m = tree.root.get_node(\"Main\")\nvar u = GameState.state[\"units\"][\"MIR_U_WITCHSEEKERS_C\"]\nvar xs = [140.0, 200.0, 260.0, 320.0]\nfor i in range(u[\"models\"].size()):\n\tu[\"models\"][i][\"position\"] = {\"x\": xs[i], \"y\": 180.0}\nvar moved = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\") and str(t.get_meta(\"unit_id\")) == \"MIR_U_WITCHSEEKERS_C\":\n\t\tfor md in u[\"models\"]:\n\t\t\tif str(md[\"id\"]) == str(t.get_meta(\"model_id\")):\n\t\t\t\tt.position = Vector2(md[\"position\"][\"x\"], md[\"position\"][\"y\"])\n\t\t\t\tmoved += 1\nreturn moved",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 3.0\nm.view_offset = Vector2(300, 145) - Vector2(930, 560) / 3.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 3.0,
+      "comment": "Engagement zoom (x3): P1 Custodian Guard row above the P2 Witchseekers row."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The pre-T08 token, rebuilt from the ring specs: no slot ring, and one band in\n# the unit colour at the old single ring's place (width max(3.5, 0.18r), outer\n# edge 1px inside the rim). Measured pixel-identical to the old build's\n# render of this frame in token_swatch (0.0% diff).\nvar n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tvar f = t.get_node_or_null(\"FactionRing\")\n\tvar s = t.get_node_or_null(\"SlotRing\")\n\tif f == null or s == null:\n\t\tcontinue\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar w = max(3.5, r * 0.18)\n\tf.scale = Vector2.ONE * ((r - w * 0.5 - 1.0) / r)\n\ts.visible = false\n\tt.queue_redraw()\n\tn += 1\nreturn n",
+      "equals": 36
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tvar f = t.get_node_or_null(\"FactionRing\")\n\tvar s = t.get_node_or_null(\"SlotRing\")\n\tif f == null or s == null:\n\t\tcontinue\n\tf.scale = Vector2.ONE * t.T08_FACTION_RING_SCALE\n\ts.visible = true\n\tt.queue_redraw()\n\tn += 1\nreturn n",
+      "equals": 36
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T08_before",
+      "after": "T08_after",
+      "region": "token_swatch",
+      "expect_min_pct": 8.0,
+      "comment": "Tier A: regions.token_swatch.diff_pct > 8.0 against the pre-T08 token (measured 26.1%; the old build's own render of this frame diffs the same 26.1%)."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T08_before",
+      "after": "T08_after",
+      "region": "glyph_p1",
+      "expect_max_pct": 1.0,
+      "comment": "Tier B support: the centre of a P1 token (art, number) is untouched by the rings."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T08_before",
+      "after": "T08_after",
+      "region": "glyph_p2",
+      "expect_max_pct": 1.0,
+      "comment": "Tier B support: the P2 Witchseekers' WI* letter counter is untouched by the rings."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The rings are PAINTED in the ring nodes' colours: sample the live frame on\n# each ring's mid-line (32 angles) for the 8 framed tokens and require >= 24/32\n# slot-colour and >= 18/32 faction-colour hits (measured: Witchseekers 30-32 /\n# 30-31, Custodian Guard 29 / 24-25 - their art and number label sit on top of\n# a few samples). The old build scores 0 slot hits (no slot ring).\nvar m = tree.root.get_node(\"Main\")\nvar img = tree.root.get_texture().get_image()\nvar zoom = m.view_zoom\nvar sampled = 0\nvar bad = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tif uid != \"U_CUSTODIAN_GUARD_B\" and uid != \"MIR_U_WITCHSEEKERS_C\":\n\t\tcontinue\n\tvar g = t.t08_ring_geometry()\n\tvar c0 = t.get_global_transform_with_canvas().origin\n\tvar fcol = t.get_node(\"FactionRing\").modulate\n\tvar scol = t.get_node(\"SlotRing\").modulate\n\tvar hs = 0\n\tvar hf = 0\n\tfor k in range(32):\n\t\tvar a = TAU * float(k) / 32.0\n\t\tvar d = Vector2(cos(a), sin(a))\n\t\tvar ps = c0 + d * float(g[\"slot_mid\"]) * zoom\n\t\tvar pf = c0 + d * float(g[\"faction_mid\"]) * zoom\n\t\tvar cs = img.get_pixel(int(round(ps.x)), int(round(ps.y)))\n\t\tvar cf = img.get_pixel(int(round(pf.x)), int(round(pf.y)))\n\t\tif absf(cs.r - scol.r) < 0.05 and absf(cs.g - scol.g) < 0.05 and absf(cs.b - scol.b) < 0.05:\n\t\t\ths += 1\n\t\tif absf(cf.r - fcol.r) < 0.05 and absf(cf.g - fcol.g) < 0.05 and absf(cf.b - fcol.b) < 0.05:\n\t\t\thf += 1\n\tsampled += 1\n\tif hs < 24 or hf < 18:\n\t\tbad.append(\"%s/%s slot %d/32 faction %d/32\" % [uid, str(t.get_meta(\"model_id\")), hs, hf])\nif sampled != 8:\n\treturn \"sampled %d framed tokens, want 8\" % sampled\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A on EVERY token: both ring nodes; SlotRing = the owner's UIConstants\n# slot colour; FactionRing = the unit's colour in the army data, from the\n# owner's faction palette; SlotRing.scale > FactionRing.scale; both alpha\n# >= 0.9; both painted.\nvar fp = load(\"res://scripts/FactionPalettes.gd\")\nvar n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar u = GameState.get_unit(uid)\n\tvar f = t.get_node_or_null(\"FactionRing\")\n\tvar s = t.get_node_or_null(\"SlotRing\")\n\tif f == null or s == null:\n\t\treturn \"%s: no FactionRing/SlotRing\" % uid\n\tvar owner = int(u.get(\"owner\", 0))\n\tif s.modulate != UIConstants.player_slot_color(owner):\n\t\treturn \"%s: SlotRing %s is not P%d's slot colour\" % [uid, s.modulate.to_html(), owner]\n\tif f.modulate != GameState.get_unit_color(uid):\n\t\treturn \"%s: FactionRing %s != army-data colour %s\" % [uid, f.modulate.to_html(), GameState.get_unit_color(uid).to_html()]\n\tvar pal = []\n\tfor c in fp.get_palette(GameState.get_faction_name(owner)):\n\t\tpal.append(c.to_html(false))\n\tif not f.modulate.to_html(false) in pal:\n\t\treturn \"%s: FactionRing %s is not in the %s palette\" % [uid, f.modulate.to_html(false), GameState.get_faction_name(owner)]\n\tif not (s.scale.x > f.scale.x and s.scale.y > f.scale.y):\n\t\treturn \"%s: SlotRing.scale %s not > FactionRing.scale %s\" % [uid, str(s.scale), str(f.scale)]\n\tif f.modulate.a < 0.9 or s.modulate.a < 0.9:\n\t\treturn \"%s: ring alpha %.2f / %.2f < 0.9\" % [uid, f.modulate.a, s.modulate.a]\n\tif not (f.visible and s.visible):\n\t\treturn \"%s: a ring is not painted\" % uid\n\tn += 1\nreturn \"ok %d\" % n",
+      "equals": "ok 36"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A, named tokens. P1 Custodes: some token's FactionRing is the Custodes\n# gold of the army data (FactionPalettes primary for P1's faction = d9b333)\n# with SlotRing == FRIENDLY_PLAYER_TEAL. P2 Witchseekers (all 8 models):\n# SlotRing == ENEMY_PLAYER_MAGENTA and FactionRing == their own army-data\n# colour (P2 is also Adeptus Custodes here, so it is a Custodes palette\n# colour, not blue), distinct from the slot ring.\nvar fp = load(\"res://scripts/FactionPalettes.gd\")\nvar gold = fp.get_primary_color(GameState.get_faction_name(1)).to_html(false)\nif gold != \"d9b333\":\n\treturn \"P1 army-data primary is %s, not Custodes gold d9b333\" % gold\nvar p1_gold_teal = 0\nvar p2_witch = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar u = GameState.get_unit(uid)\n\tvar f = t.get_node(\"FactionRing\")\n\tvar s = t.get_node(\"SlotRing\")\n\tvar kw = u.get(\"meta\", {}).get(\"keywords\", [])\n\tif int(u.get(\"owner\", 0)) == 1 and \"ADEPTUS CUSTODES\" in kw and f.modulate.to_html(false) == gold and s.modulate == UIConstants.FRIENDLY_PLAYER_TEAL:\n\t\tp1_gold_teal += 1\n\tif int(u.get(\"owner\", 0)) == 2 and str(u.get(\"meta\", {}).get(\"name\", \"\")) == \"Witchseekers\":\n\t\tif s.modulate != UIConstants.ENEMY_PLAYER_MAGENTA:\n\t\t\treturn \"%s SlotRing %s is not ENEMY_PLAYER_MAGENTA\" % [uid, s.modulate.to_html()]\n\t\tif f.modulate != GameState.get_unit_color(uid) or f.modulate == s.modulate:\n\t\t\treturn \"%s FactionRing %s is not its army colour\" % [uid, f.modulate.to_html()]\n\t\tp2_witch += 1\nreturn \"p1_gold_teal=%s p2_witchseekers=%d\" % [str(p1_gold_teal > 0), p2_witch]",
+      "equals": "p1_gold_teal=true p2_witchseekers=8"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Mirror match: both armies draw inner colours from the same Custodes palette,\n# so an inner colour is shared across the two players - and every shared one\n# is told apart by the outer slot ring.\nvar p1 = {}\nvar p2 = {}\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar owner = int(GameState.get_unit(str(t.get_meta(\"unit_id\"))).get(\"owner\", 0))\n\tvar hex = t.get_node(\"FactionRing\").modulate.to_html(false)\n\tvar slot = t.get_node(\"SlotRing\").modulate\n\tif owner == 1:\n\t\tp1[hex] = slot\n\telse:\n\t\tp2[hex] = slot\nvar shared = 0\nfor hex in p1:\n\tif p2.has(hex):\n\t\tif p1[hex] == p2[hex]:\n\t\t\treturn \"inner colour %s shared with the same outer ring\" % hex\n\t\tshared += 1\nreturn shared > 0",
+      "equals": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "U",
+      "comment": "Player path: U opens the army panel (unit colour swatches)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The army panel (U) lists every unit with its colour swatch - the colour the\n# player picks. Each unit's swatch must equal the inner ring of every one of\n# its board tokens.\nvar panel = tree.root.get_node_or_null(\"Main/ArmyPanel\")\nif panel == null or not panel.is_visible_in_tree():\n\treturn \"army panel not open\"\nvar layer = tree.root.get_node(\"Main/BoardRoot/TokenLayer\")\nvar checked = 0\nfor uid in panel._label_edits:\n\tvar swatch = panel._label_edits[uid].get_parent().get_child(0)\n\tvar want = swatch.get_theme_stylebox(\"normal\").bg_color.to_html(false)\n\tfor t in layer.get_children():\n\t\tif t.has_meta(\"unit_id\") and str(t.get_meta(\"unit_id\")) == uid:\n\t\t\tvar got = t.get_node(\"FactionRing\").modulate.to_html(false)\n\t\t\tif got != want:\n\t\t\t\treturn \"%s: inner ring %s, army panel swatch %s\" % [uid, got, want]\n\t\t\tchecked += 1\nreturn \"ok %d\" % checked",
+      "equals": "ok 36"
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_army_panel"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Change Color through the army panel: press the Custodian Guard swatch (opens\n# the faction-palette picker) and pick Pale gold (Custodes palette entry 6).\n# Buttons are pressed via their signal - the same handler chain a click runs:\n# picker -> GameState.set_unit_color -> panel unit_visual_changed -> Main\n# refreshes the unit's tokens.\nvar panel = tree.root.get_node(\"Main/ArmyPanel\")\nvar uid = \"U_CUSTODIAN_GUARD_B\"\npanel._label_edits[uid].get_parent().get_child(0).pressed.emit()\nvar picker = panel.get_node_or_null(\"UnitColorPickerPopup\")\nif picker == null:\n\treturn \"no colour picker opened\"\nvar grid = picker.get_child(0).get_child(1)\nvar fp = load(\"res://scripts/FactionPalettes.gd\")\nvar want = fp.get_palette(GameState.get_faction_name(1))[6].to_html(false)\ngrid.get_child(6).pressed.emit()\nvar got = GameState.get_unit_color(uid).to_html(false)\nreturn \"ok\" if got == want else \"stored %s, picked %s\" % [got, want]",
+      "equals": "ok"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The panel swatch and every Custodian Guard token's inner ring show the new\n# colour; the outer ring stays the P1 slot colour.\nvar fp = load(\"res://scripts/FactionPalettes.gd\")\nvar want = fp.get_palette(GameState.get_faction_name(1))[6].to_html(false)\nvar panel = tree.root.get_node(\"Main/ArmyPanel\")\nvar sw = panel._label_edits[\"U_CUSTODIAN_GUARD_B\"].get_parent().get_child(0).get_theme_stylebox(\"normal\").bg_color.to_html(false)\nif sw != want:\n\treturn \"army panel swatch %s, want %s\" % [sw, want]\nvar n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\") and str(t.get_meta(\"unit_id\")) == \"U_CUSTODIAN_GUARD_B\":\n\t\tif t.get_node(\"FactionRing\").modulate.to_html(false) != want:\n\t\t\treturn \"%s inner ring %s, want %s\" % [str(t.get_meta(\"model_id\")), t.get_node(\"FactionRing\").modulate.to_html(false), want]\n\t\tif t.get_node(\"SlotRing\").modulate != UIConstants.FRIENDLY_PLAYER_TEAL:\n\t\t\treturn \"%s outer ring changed\" % str(t.get_meta(\"model_id\"))\n\t\tn += 1\nreturn \"ok %d\" % n",
+      "equals": "ok 4"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "U",
+      "comment": "U again closes the army panel."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 3.0\nm.view_offset = Vector2(300, 145) - Vector2(930, 560) / 3.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 3.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_change_color"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ...and the board paints it: sample each Custodian Guard token's ring\n# mid-lines on the live frame (same thresholds as the first sample).\nvar m = tree.root.get_node(\"Main\")\nif m.get_node_or_null(\"ArmyPanel\") != null:\n\treturn \"army panel still open\"\nvar img = tree.root.get_texture().get_image()\nvar fp = load(\"res://scripts/FactionPalettes.gd\")\nvar fcol = Color.from_string(fp.get_palette(GameState.get_faction_name(1))[6].to_html(false), Color.BLACK)\nvar scol = UIConstants.FRIENDLY_PLAYER_TEAL\nvar bad = []\nvar sampled = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\") or str(t.get_meta(\"unit_id\")) != \"U_CUSTODIAN_GUARD_B\":\n\t\tcontinue\n\tvar g = t.t08_ring_geometry()\n\tvar c0 = t.get_global_transform_with_canvas().origin\n\tvar hs = 0\n\tvar hf = 0\n\tfor k in range(32):\n\t\tvar a = TAU * float(k) / 32.0\n\t\tvar dv = Vector2(cos(a), sin(a))\n\t\tvar ps = c0 + dv * float(g[\"slot_mid\"]) * m.view_zoom\n\t\tvar pf = c0 + dv * float(g[\"faction_mid\"]) * m.view_zoom\n\t\tvar cs = img.get_pixel(int(round(ps.x)), int(round(ps.y)))\n\t\tvar cf = img.get_pixel(int(round(pf.x)), int(round(pf.y)))\n\t\tif absf(cs.r - scol.r) < 0.05 and absf(cs.g - scol.g) < 0.05 and absf(cs.b - scol.b) < 0.05:\n\t\t\ths += 1\n\t\tif absf(cf.r - fcol.r) < 0.05 and absf(cf.g - fcol.g) < 0.05 and absf(cf.b - fcol.b) < 0.05:\n\t\t\thf += 1\n\tsampled += 1\n\tif hs < 24 or hf < 18:\n\t\tbad.append(\"%s slot %d/32 faction %d/32\" % [str(t.get_meta(\"model_id\")), hs, hf])\nif sampled != 4:\n\treturn \"sampled %d Custodian Guard tokens, want 4\" % sampled\nreturn \"ok\" if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(700, 200) - Vector2(930, 420) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0,
+      "comment": "Whole P1 deployment row (plus the moved P2 Witchseekers) for the Tier B review."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_p1_row"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.5\nm.view_offset = Vector2(858, 216) - Vector2(930, 560) / 2.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.5,
+      "comment": "Oval base close-up (P1 Caladius Grav-tank): both rings follow the oval outline."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_oval_closeup"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(1100, 2250) - Vector2(930, 650) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0,
+      "comment": "P2 deployment row for the Tier B review."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T08_p2_row"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

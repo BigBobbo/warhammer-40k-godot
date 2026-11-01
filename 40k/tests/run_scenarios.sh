@@ -259,6 +259,10 @@ trap builder_e2e_stop EXIT
 PASSED=0
 FAILED=0
 FAILED_IDS=()
+# Launch second of each scenario, index-aligned with SCENARIOS (bash 3.2 has
+# no associative arrays). The visual post-processing below copies only files
+# written at or after this second, i.e. by THIS run of the scenario.
+RUN_STARTS=()
 
 for s in "${SCENARIOS[@]}"; do
     SCENARIO_ID=$(grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]*"' "$s" | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
@@ -283,6 +287,7 @@ for s in "${SCENARIOS[@]}"; do
     if [ -n "$BUILDER_E2E" ] && ! builder_e2e_start "$BUILDER_E2E" "$SCENARIO_ID"; then
         E2E_SETUP_OK=0
     fi
+    RUN_STARTS+=("$(date +%s)")
     if [ $E2E_SETUP_OK -eq 0 ]; then
         EXIT_CODE=1
     elif timeout "${SCENARIO_TIMEOUT:-600}" godot --path . --scenario-file="$s" 2>&1 | tee /tmp/scenario_run_${SCENARIO_ID}.log | grep -E "^\[ScenarioRunner\]|PASS|FAIL|=== "; then
@@ -345,9 +350,19 @@ echo "================================================"
 # Visual-scenario post-processing (T02)
 #
 # If any tests/scenarios/visual/T##_*.json was in this batch:
-#   1) Copy captured screenshots from the user:// results dir into
-#      40k/test_results/design_guidelines/T##/ for stable review locations.
-#   2) Compare PASSED against _baseline.json.count and exit 3 if it dropped.
+#   1) Copy the screenshots + results JSON THIS run captured from the user://
+#      results dir into 40k/test_results/design_guidelines/T##/ for stable
+#      review locations, and write diff_report.json there: the run's
+#      pixel_diff steps, each with its {total_diff_pct, regions} result.
+#      "This run" is exact: the paths its results JSON records, plus the
+#      auto-capture of each failed step, written at or after the scenario's
+#      launch second. A `<id>_*.png` glob also swept up stale labels, old
+#      FAIL shots and any scenario whose id merely starts with this one, and
+#      after a FATAL exit (no results written) it re-reported the PREVIOUS
+#      run's results JSON + passing diffs as this run's. A run that wrote no
+#      results now gets a diff_report.json with "error" and all_passed=false.
+#   2) Compare PASSED against _baseline.json.count and exit 3 if it dropped
+#      (full-suite --visual runs only; see below).
 # ----------------------------------------------------------------------------
 
 VISUAL_RAN=0
@@ -368,46 +383,82 @@ if [ $VISUAL_RAN -eq 1 ]; then
     DEST_BASE="test_results/design_guidelines"
     mkdir -p "$DEST_BASE"
 
-    for s in "${SCENARIOS[@]}"; do
+    for idx in "${!SCENARIOS[@]}"; do
+        s="${SCENARIOS[$idx]}"
         if [[ "$s" != *"tests/scenarios/visual/T"*"_"*".json" ]]; then
             continue
         fi
         SCENARIO_ID=$(grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]*"' "$s" | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
-        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+')
+        # `|| true`: grep exits 1 on an un-numbered id (T_phase_strip_bottom),
+        # which under `set -e` killed the script with exit 1 after every
+        # scenario had passed, skipping the artifact copy and the exit-3
+        # baseline check below.
+        TASK_ID=$(echo "$SCENARIO_ID" | grep -oE '^T[0-9]+' || true)
         if [ -z "$TASK_ID" ]; then
             continue
         fi
         TASK_DIR="$DEST_BASE/$TASK_ID"
         mkdir -p "$TASK_DIR"
         if [ -d "$USER_RESULTS_DIR" ]; then
-            # Copy this scenario's PNGs + results JSON
-            for f in "$USER_RESULTS_DIR/${SCENARIO_ID}"_*.png "$USER_RESULTS_DIR/${SCENARIO_ID}.json"; do
-                if [ -f "$f" ]; then
-                    cp "$f" "$TASK_DIR/" 2>/dev/null || true
-                fi
-            done
+            if command -v python3 >/dev/null 2>&1; then
+                # Copy this run's PNGs + results JSON, then write
+                # diff_report.json for reviewers who want the numbers without
+                # the full step transcript (see the header of this block).
+                python3 - "$USER_RESULTS_DIR" "$SCENARIO_ID" "$TASK_DIR" "${RUN_STARTS[$idx]:-0}" <<'PY' || echo "[run_scenarios] WARNING: artifact copy / diff_report.json failed for $SCENARIO_ID"
+import glob, json, os, shutil, sys
+src_dir, sid, task_dir, run_start = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
 
-            # Extract pixel_diff entries to a dedicated diff_report.json for
-            # reviewers who want the numbers without the full step transcript.
-            RESULT_JSON="$USER_RESULTS_DIR/${SCENARIO_ID}.json"
-            if [ -f "$RESULT_JSON" ] && command -v python3 >/dev/null 2>&1; then
-                python3 - "$RESULT_JSON" "$TASK_DIR/diff_report.json" <<'PY' 2>/dev/null || true
-import json, sys
-src, dst = sys.argv[1], sys.argv[2]
-with open(src) as f:
-    data = json.load(f)
-diffs = [s for s in data.get("steps", []) if s.get("act") == "pixel_diff"]
-report = {
-    "scenario_id": data.get("scenario_id"),
-    "pixel_diff_steps": diffs,
-    "summary": {
+def from_this_run(path):
+    # run_start is the launch second (floored), so anything this run wrote
+    # has mtime >= run_start; leftovers from an earlier run do not.
+    return os.path.isfile(path) and os.path.getmtime(path) >= run_start
+
+results = os.path.join(src_dir, sid + ".json")
+report = {"scenario_id": sid}
+if from_this_run(results):
+    with open(results) as f:
+        steps = json.load(f).get("steps", [])
+    wanted = [results]
+    for s in steps:
+        for key in ("path", "per_step_screenshot"):
+            p = s.get(key)
+            if isinstance(p, str) and p.endswith(".png"):
+                wanted.append(os.path.join(src_dir, os.path.basename(p)))
+        if not s.get("pass", False):
+            wanted.append(os.path.join(src_dir, "%s_FAIL_step_%s.png" % (sid, s.get("step"))))
+    diffs = [s for s in steps if s.get("act") == "pixel_diff"]
+    report["pixel_diff_steps"] = diffs
+    report["summary"] = {
         "step_count": len(diffs),
         "all_passed": all(s.get("pass", False) for s in diffs),
     }
-}
-with open(dst, "w") as f:
+else:
+    # Exited before writing results (FATAL setup error, crash, timeout):
+    # keep whatever it captured, never an earlier run's numbers.
+    wanted = sorted(glob.glob(os.path.join(src_dir, glob.escape(sid) + "_*.png")))
+    report["error"] = "no results JSON from this run (the scenario exited before writing results)"
+    report["pixel_diff_steps"] = []
+    report["summary"] = {"step_count": 0, "all_passed": False}
+
+copied = []
+for p in wanted:
+    name = os.path.basename(p)
+    if name not in copied and from_this_run(p):
+        shutil.copy2(p, os.path.join(task_dir, name))
+        copied.append(name)
+report["copied"] = copied
+with open(os.path.join(task_dir, "diff_report.json"), "w") as f:
     json.dump(report, f, indent=2)
 PY
+            else
+                # No python3: copy by id glob (may include stale files) and
+                # skip diff_report.json.
+                for f in "$USER_RESULTS_DIR/${SCENARIO_ID}"_*.png "$USER_RESULTS_DIR/${SCENARIO_ID}.json"; do
+                    if [ -f "$f" ]; then
+                        cp "$f" "$TASK_DIR/" 2>/dev/null || true
+                    fi
+                done
+                echo "[run_scenarios] WARNING: python3 not found; copied by id glob (may include stale files), no diff_report.json"
             fi
 
             echo "[run_scenarios] copied artifacts to $TASK_DIR/"
