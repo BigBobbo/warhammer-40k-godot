@@ -27,7 +27,8 @@
       "script": "var ul = tree.current_scene.movement_controller.unit_list\nul.get_v_scroll_bar().value = ul.get_item_rect(7).position.y\nreturn ul.get_v_scroll_bar().value >= 0.0" },
     { "act": "wait_frames", "frames": 2 },
     { "act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 7 },
-    { "act": "wait_for_tweens", "timeout_s": 3.0 },
+    { "act": "wait_for_script", "script": "return not tree.current_scene.is_camera_glide_active()", "equals": true, "timeout_s": 3.0, "poll_s": 0.1,
+      "comment": "The embark pan is Main's per-frame camera glide (fit_view_to_selection animate), not a Tween, so wait_for_tweens returned at once and the checks below read the camera 3 frames into the glide. Wait for the glide to settle." },
     { "act": "wait_frames", "frames": 3 },
 
     { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_KOMMANDOS_A" },

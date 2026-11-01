@@ -1095,7 +1095,7 @@ Locks in use:
     puts 35px lower, under that modal. (g) focus_p2_zone gets no new default key: no free
     letter is left, and players can bind one in Settings > Controls.
 
-- [ ] **T14 — Fit-selection keybind (Shift+F)**
+- [x] **T14 — Fit-selection keybind (Shift+F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02
   - **Touches:** `40k/scripts/Main.gd`
   - **Change:** `Shift+F`: zoom + center on selected unit (bounding box for
@@ -1109,8 +1109,73 @@ Locks in use:
     - `pixel_diff` between pre and post: `total_diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Selected unit centered.
-    - [ ] Other units in frame if they fit; never crops the selection.
+    - [x] Selected unit centered.
+      *(T14_after: the Gretchin mob (22 models on 25mm bases, along the top edge) sits in the
+      middle of the free area, between the game log and the right panel and between the top bar
+      and the phase strip. The scenario measures its bounding-box centre 0.0001px from that area's
+      centre (930, 575). T14_wide_after and T14_alive_after show the same for the mob stretched
+      into one line and for its 17 living models.)*
+    - [x] Other units in frame if they fit; never crops the selection.
+      *(T14_after: Mek Gunz, Mek Beta, the Beastboss, the Beast Snagga Boyz, the Deffkilla
+      Wartrike, Warbikers Beta and the Tankbustas are in frame. All 13 models within 5" of the mob
+      and all 22 Gretchin bases are drawn inside the free area. T14_wide_after: the line across the
+      board is too wide for 1.2x, so the camera zooms out to 0.568 and draws it whole, with 5" of
+      table beyond each end, clear of the log and the right panel.)*
+  - **Note (2026-10-31 audit):** fit_view_to_selection() and the Shift+F binding had shipped, and
+    a real Shift+F did reach Main and frame the selection (probe: zoom 1.2, mirror on the box
+    centre). But the fit centred the unit on the whole window (960, 540), 46px off the middle of
+    the free area (930, 575). It sized the zoom from the whole window too, so a wide unit ran
+    under the log and the right panel (a 1100px line drew at screen x 270..1650). It boxed model
+    centres only, counted dead models, and cut where F glides. The old scenario never selected a
+    unit or pressed a key. It called fit_view_to_selection() directly in the Fight phase,
+    "panned" only the Camera2D (which renders nothing), took models[0] as the centroid, and its
+    description named a seam that no step called. Changed on this pass: (1) BoardFit gains
+    footprint() (models as circles of Measurement.base_extent_px), fit_box(), rotate/
+    unrotate_about_board() and point_glide_sample(). (2) Main.fit_view_to_selection(unit_id,
+    animate) frames the bounding box of the unit's alive, placed models, bases included, in
+    get_board_view_rect() (the area the F fit uses). The box is centred, with 5" (200px) of
+    table on the tighter axis and the zoom capped at 1.2x. New compute_selection_fit(unit_id).
+    (3) Shift+F glides there (animate = true) on a new point glide: the unit's centre slides
+    on a straight screen line into the middle while the zoom changes at an even rate. T13's
+    anchored glide would first carry it outwards on a big zoom-in. Scripted calls still cut. (4)
+    The Camera2D mirror follows every frame, ends on the box centre and is now right on a
+    quarter-turned board (_sync_camera_node_to_view turns the point back). (5) DebugLogger lines
+    for each fit and each settled glide. The pad's LB/RB cycle from the overview and the embark
+    pan call the same function, so they get the same framing and glide. Evidence: the scenario
+    passes 139/139 on shooting_phase. A real click selects the mob, the view is panned to the
+    bottom edge at 0.3x with the mob off screen, and the real Shift and F keys are held through
+    the glide. Tier A: the action is "selection", Camera2D sits 0.00003px from the box centroid,
+    and pixel_diff is 49.0%. The zoom is 1.2, as computed from the HUD panels' rects. Glide: 9
+    of 12 sampled frames fall between the start and end zoom. The zoom never moves away from
+    the fit, the mob stays on the line in (within 0.0001px) and only gets closer, and the mirror
+    animates. pixel_diff is 41.8% before to mid and 52.7% mid to after. Shift+F again moves
+    nothing. The scripted call cuts to the same framing, and the embarked Kommandos frame their
+    Battlewagon. After a real Esc deselect, Shift+F moves nothing and claims no fit. With five
+    models dead it frames the 17 living ones (0.0px from their centre, 195px from the whole
+    line's). Five scratch sabotage probes each turn the scenario red. Whole-window rect: 6 steps
+    (46px off, 6/22 bases cropped). A cut: 3. T13's anchored glide: 1 (the swing). Centres-only
+    box: 4. Dead models counted: 4. New gated test `tests/test_fit_selection_camera.gd` (54
+    checks). Visual suite on this tree: 42 pass (baseline 41); T23, T27 and T39 fail at their
+    known steps and T45 is XFAIL. Of the 53 sp scenarios that reach the fit, the glide or the pad
+    cycle, the 37 unlisted ones pass. The 15 listed known failures fail the same steps on HEAD or
+    match their listed counts. tut_t4_dakka_reassign_pad (62/8) and tut_full_course_chain_pad
+    (23/7) differ from their listed counts on HEAD too.
+    Deviations: (a) Tier A's "centroid" is read as the centre of the selection's bounding box,
+    bases included, because the Change frames the bounding box. For this left-heavy mob the mean
+    of the model positions sits 43px left of it. Centring on that would leave the mob lopsided
+    and need a lower zoom. (b) "Viewport" means the board view rect, the part of the window
+    not under the HUD, as in T13. (c) Shift+F glides like F; the Change did not ask for
+    animation. (d) The scenario runs in the Shooting phase on shooting_phase, which has a
+    multi-model unit of the active player at the far edge. The phase auto-arms its first
+    targetable shooter, so the click switches the selection from Battlewagon Alpha to the mob,
+    and "nothing selected" is reached with a real Esc. (e) "Other units in frame if they fit"
+    is read as: every model within 5" of the selection's bases is in frame, and the 1.2x cap
+    shows more. (f) T46 now declines the Movement-phase stratagem modal, because the new framing
+    put its squad under the modal's top edge. movement_embarked_select_pans_to_transport waited
+    for tweens, not the camera glide, so it read the camera mid-glide. With the wait fixed it
+    passes 22/22, on HEAD too, and is delisted from _known_failures.txt. (g) fit_view_to_decision
+    (T22) keeps its whole-window math. That is left for T22, which can frame the union of the
+    units' footprints with BoardFit.fit_box().
 
 ## §2 Tokens (continued)
 

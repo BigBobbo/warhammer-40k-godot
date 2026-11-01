@@ -1,56 +1,810 @@
 {
   "id": "T14_fit_selection",
-  "covers": ["design_guidelines.T14", "camera.fit_selection"],
-  "fixture": "co_pretrigger",
-  "transition_to_phase": 10,
-  "description": "Shift+F zooms + centers the camera on the selected unit's bounding box (all its models). Asserts last_camera_fit_action transitions to 'selection', camera position within 10px of the unit centroid, zoom isotropic, and pixel_diff confirms the frame changed. Tests both the direct fit_view_to_selection(unit_id) call and the Shift+F keybind path via t14_synthesize_shift_f_press.",
-
+  "covers": [
+    "design_guidelines.T14",
+    "camera.fit_selection",
+    "scripts.Main.fit_view_to_selection",
+    "scripts.BoardFit",
+    "autoloads.KeybindingManager.fit_view_selection"
+  ],
+  "fixture": "shooting_phase",
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "T14 fit-selection keybind (design doc §1). Shift+F zooms and centres the camera on the selected unit: the bounding box of all its alive models with their bases, centred in the part of the window the board can be seen in (the viewport minus the top bar HUD_Bottom, the PhaseStrip, the GameLogPanel and HUD_Right, the same area the F fit uses), with 5\" (200 px) of table kept in view around it on the tighter axis and the zoom capped at 1.2x, so nearby units stay in frame and the selection is never cropped. Shift+F glides there like F: the unit's centre slides on a straight screen line into the middle while the zoom changes at an even rate. What is drawn is Main.view_offset / view_zoom (BoardRoot's transform); the Camera2D renders nothing (Main is a CanvasLayer) and is a mirror whose position ends on the box centre. Player path on shooting_phase (Shooting phase, Player 1's Orks): a real click on the Gretchin mob (22 models on 25mm bases, hugging the top edge) selects it as the shooter; the camera is panned to the opposite (bottom) edge at 0.3x (view and mirror), so the mob is off screen; then the real Shift and F keys go through the OS-event pipeline, held while the glide is sampled every frame. Tier A: last_camera_fit_action 'selection'; Camera2D.position within 10px of the unit's centroid, read as the centre of its bounding box computed here from the unit data (the Change frames the bounding box; the mean of the model positions sits 43px left of it for this left-heavy mob); pixel_diff before -> after > 8%. Tier B in numbers: the box centre drawn within 2px of the free area's middle (free area read from the HUD panels' own rects); every base drawn inside it; every other model within 5\" of the mob drawn inside it (at least 10 of them), while the far side of the board is out of view. The glide passes at least 3 intermediate zooms, never moves away from the fit, keeps the mob on the straight line in and always closer, and the mirror follows. Shift+F again once framed moves nothing; the scripted fit_view_to_selection() lands on the same framing with no glide; an embarked unit (Kommandos) frames its Battlewagon. After a real Esc deselects the shooter, Shift+F moves nothing and claims no fit. Last, the mob is stretched into one line across the board (setup only) and clicked again: Shift+F zooms out to the free width / (line + 400 px), well under the cap, every base inside the free area and the line's ends exactly 5\" clear of the log and the right panel. With its five right-hand models dead (setup only), Shift+F frames the 17 living ones.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
-      "script": "main.camera.set(\"position\", Vector2(0, 0))" },
-    { "act": "execute_script",
-      "script": "main.camera.set(\"zoom\", Vector2(0.1, 0.1))" },
-    { "act": "wait_frames", "frames": 2 },
-    { "act": "screenshot", "label": "T14_before" },
-
-    { "act": "execute_script",
-      "script": "main.fit_view_to_selection(\"U_WARBOSS_B\")",
-      "equals": true },
-    { "act": "wait_frames", "frames": 4 },
-    { "act": "screenshot", "label": "T14_after" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true,
+      "comment": "A drawn-secondaries review (not under test) would hold the keyboard; close it if it is up."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false,
+      "comment": "The hot-seat handoff screen eats input; acknowledge it the way the player's [Enter] does."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var open = []\nfor w in tree.root.get_children():\n\tif w is Window and w.visible:\n\t\topen.append(str(w.name))\nreturn open.size()",
+      "equals": 0,
+      "comment": "No modal window owns the keyboard, so real key presses reach Main._input."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = KeybindingManager.get_binding(\"fit_view_selection\")\nreturn int(b.get(\"key\", -1)) == KEY_F and b.get(\"shift\", false) and not b.get(\"ctrl\", true) and not b.get(\"alt\", true) and not b.get(\"meta\", false)",
+      "equals": true,
+      "comment": "Shift+F is bound to Fit View to Selection."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return KeybindingManager.find_conflict(\"fit_view_selection\", KEY_F, true, false, false, false)",
+      "equals": "",
+      "comment": "No other action shares Shift+F."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.fit_view_to_board()\nreturn m.last_camera_fit_action",
+      "equals": "board",
+      "comment": "Frame the whole board (scripted cut) so the mob is on screen to click."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var s = tree.current_scene._selected_unit_id_or_empty()\nreturn s != \"U_GRETCHIN_A\"",
+      "equals": true,
+      "comment": "Before the click the mob is not the selection (the phase auto-arms its first targetable shooter, Battlewagon Alpha)."
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_A",
+      "comment": "Player path: click the Gretchin mob's token to select it as the shooter."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DontOfferAgainButton",
+      "emit_pressed": true,
+      "comment": "If a 'selected to shoot' stratagem window opens, decline it (not under test)."
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn \"%s|%s\" % [m.shooting_controller.active_shooter_id, m._selected_unit_id_or_empty()]",
+      "equals": "U_GRETCHIN_A|U_GRETCHIN_A",
+      "comment": "The click selected the mob: ShootingController's shooter is what Shift+F frames."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var open = []\nfor w in tree.root.get_children():\n\tif w is Window and w.visible:\n\t\topen.append(str(w.name))\nreturn open.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar u = GameState.get_unit(\"U_GRETCHIN_A\")\nvar lo = Vector2(INF, INF)\nvar hi = Vector2(-INF, -INF)\nvar sum = Vector2.ZERO\nvar n = 0\nfor md in u.models:\n\tif not md.get(\"alive\", true):\n\t\tcontinue\n\tvar bt = md.get(\"base_type\", null)\n\tif bt != null and str(bt) != \"circular\":\n\t\treturn -1.0\n\tvar p = Vector2(float(md.position.x), float(md.position.y))\n\tvar r = float(md.base_mm) / 25.4 * 40.0 / 2.0\n\tlo = Vector2(min(lo.x, p.x - r), min(lo.y, p.y - r))\n\thi = Vector2(max(hi.x, p.x + r), max(hi.y, p.y + r))\n\tsum += p\n\tn += 1\nm.set_meta(\"t14_box\", Rect2(lo, hi - lo))\nm.set_meta(\"t14_box_mean\", sum / max(n, 1))\nm.set_meta(\"t14_box_n\", n)\nreturn n",
+      "equals": 22,
+      "comment": "The mob: 22 models, every one on a round base. Footprint (bases included) computed here from the unit data."
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"t14_box\").position.y",
+      "expect_max": 40.0,
+      "comment": "A unit near the far edge: its bases reach to within 1\" (40 px) of the board's top edge."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The free area computed HERE from the HUD panels' own rects (not from\n# Main.get_board_view_rect): below the top bar, above the phase strip,\n# right of the game log (and the roster strip if open), left of HUD_Right.\nvar m = tree.current_scene\nfor n in [\"HUD_Bottom\", \"PhaseStrip\", \"GameLogPanel\", \"HUD_Right\"]:\n\tif not m.get_node(n).is_visible_in_tree():\n\t\treturn \"%s hidden\" % n\nvar top = m.get_node(\"HUD_Bottom\").get_global_rect().end.y\nvar bottom = m.get_node(\"PhaseStrip\").get_global_rect().position.y\nvar left = m.get_node(\"GameLogPanel\").get_global_rect().end.x\nvar lr = m.get_node_or_null(\"LeftRoster\")\nif lr != null and lr.is_visible_in_tree():\n\tleft = max(left, lr.get_global_rect().end.x)\nvar right = m.get_node(\"HUD_Right\").get_global_rect().position.x\nvar free = Rect2(left, top, right - left, bottom - top)\nm.set_meta(\"t14_free\", free)\nreturn str(free)",
+      "equals": "[P: (340.0, 100.0), S: (1180.0, 950.0)]",
+      "comment": "The free area at 1920x1080: x 340..1520 (log to right panel), y 100..1050 (top bar to phase strip)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 'Pan the camera to the opposite edge': the view looks at the middle of\n# the bottom edge at 0.3x. Sets what is drawn (view_offset / view_zoom,\n# BoardRoot's transform) AND the Camera2D mirror.\nvar m = tree.current_scene\nvar vp = m.get_viewport().get_visible_rect().size\nvar z0 = 0.3\nm.view_zoom = z0\nm.view_offset = Vector2(880, 2250) - vp / (2.0 * z0)\nm.update_view_transform()\nm.camera.position = Vector2(880, 2250)\nm.camera.zoom = Vector2(z0, z0)\nm.set_meta(\"t14_z0\", z0)\nm.last_camera_fit_action = \"\"\nreturn m.last_camera_fit_action",
+      "equals": ""
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_box\")\nvar a = m.world_to_screen_position(box.position)\nvar b = m.world_to_screen_position(box.end)\nreturn Rect2(a, b - a).abs().intersects(m.get_viewport().get_visible_rect())",
+      "equals": false,
+      "comment": "The pan is really drawn: the whole mob is off screen (BoardRoot's transform)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.world_to_screen_position(Vector2(880, 2400)).y < (m.get_meta(\"t14_free\") as Rect2).end.y",
+      "equals": true,
+      "comment": "...and the opposite (bottom) board edge is in view."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.camera.position.distance_to((m.get_meta(\"t14_box\") as Rect2).get_center())",
+      "expect_min": 1500.0,
+      "comment": "The Camera2D mirror starts far from the mob, so the Tier A distance check cannot pass by accident."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.set_meta(\"t14_start_screen\", m.world_to_screen_position((m.get_meta(\"t14_box\") as Rect2).get_center()))\nreturn (m.get_meta(\"t14_start_screen\") as Vector2).y",
+      "expect_max": 0.0,
+      "comment": "Where the mob's centre is on screen before Shift+F: above the window."
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_before"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "press",
+      "comment": "Player path: hold Shift..."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "state": "press",
+      "shift": true,
+      "comment": "...and press F through the OS-event pipeline, keeping both down while the camera glides."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 2
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_mid"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 6
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 7
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 8
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 9
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 10
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 11
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar c = (m.get_meta(\"t14_box\") as Rect2).get_center()\ns.append({\"vz\": m.view_zoom, \"cz\": m.camera.zoom.x, \"sc\": m.world_to_screen_position(c), \"f\": Input.is_key_pressed(KEY_F), \"sh\": Input.is_key_pressed(KEY_SHIFT), \"glide\": m.is_camera_glide_active()})\nm.set_meta(\"t14_samples\", s)\nreturn s.size()",
+      "expect_min": 12
+    },
+    {
+      "act": "wait_frames",
+      "frames": 1
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "state": "release",
+      "shift": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "release"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return not tree.current_scene.is_camera_glide_active()",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_after"
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "selection" },
-
-    { "act": "execute_script",
-      "script": "main.camera.position.distance_to(Vector2(GameState.state.units.U_WARBOSS_B.models[0].position.x, GameState.state.units.U_WARBOSS_B.models[0].position.y))",
-      "expect_max": 10.0 },
-
-    { "act": "execute_script",
-      "script": "is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "main.camera.zoom.x > 0.0",
-      "equals": true },
-
-    { "act": "pixel_diff",
+      "equals": "selection",
+      "comment": "Tier A."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.camera.position.distance_to((m.get_meta(\"t14_box\") as Rect2).get_center())",
+      "expect_max": 10.0,
+      "comment": "Tier A: Camera2D.position within 10px of the selected unit's centroid: the centre of its bounding box (all 22 models with their bases), computed here from the unit data. The Change frames the bounding box; the mean of the model positions sits 43px left of it for this left-heavy mob."
+    },
+    {
+      "act": "pixel_diff",
       "before": "T14_before",
-      "after":  "T14_after",
-      "expect_min_pct": 8.0 },
-
-    { "act": "execute_script",
-      "script": "main.set(\"last_camera_fit_action\", \"\")" },
-    { "act": "execute_script",
-      "script": "main.fit_view_to_selection(\"\")",
-      "equals": false },
-    { "act": "execute_script",
+      "after": "T14_after",
+      "expect_min_pct": 8.0,
+      "comment": "Tier A."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The fit zoom computed HERE: the box plus 5\" (200 px) of table on each\n# side must fit the free area, and the zoom stops at 1.2x.\nvar m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_box\")\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar z = min(min(free.size.x / (box.size.x + 400.0), free.size.y / (box.size.y + 400.0)), 1.2)\nm.set_meta(\"t14_expected_zoom\", z)\nreturn abs(m.view_zoom - z)",
+      "expect_max": 0.0005,
+      "comment": "The rendered zoom is the fit zoom computed here (1.2: the cap binds for this mob)."
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"t14_expected_zoom\")",
+      "expect_min": 1.1999,
+      "comment": "...which for this mob is the 1.2x cap."
+    },
+    {
+      "act": "execute_script",
+      "script": "is_equal_approx(main.camera.zoom.x, main.view_zoom) and is_equal_approx(main.camera.zoom.y, main.view_zoom)",
+      "equals": true,
+      "comment": "The mirror's zoom matches what is drawn."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_box\")\nreturn m.world_to_screen_position(box.get_center()).distance_to((m.get_meta(\"t14_free\") as Rect2).get_center())",
+      "expect_max": 2.0,
+      "comment": "Tier B 'Selected unit centered': the mob's bounding-box centre is drawn within 2px of the middle of the free area."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every alive base of the mob, drawn through BoardRoot's transform, inside\n# the free area (so clear of every HUD panel).\nvar m = tree.current_scene\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar z = m.view_zoom\nvar bad = []\nvar n = 0\nfor md in GameState.get_unit(\"U_GRETCHIN_A\").models:\n\tif not md.get(\"alive\", true):\n\t\tcontinue\n\tn += 1\n\tvar r = float(md.base_mm) / 25.4 * 40.0 / 2.0 * z\n\tvar sp = m.world_to_screen_position(Vector2(float(md.position.x), float(md.position.y)))\n\tif not free.encloses(Rect2(sp - Vector2(r, r), Vector2(2.0 * r, 2.0 * r))):\n\t\tbad.append(str(md.get(\"id\", \"?\")))\nreturn \"%d/%d\" % [bad.size(), n]",
+      "equals": "0/22",
+      "comment": "Tier B 'never crops the selection': all 22 bases are drawn inside the free area, clear of every HUD panel."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier B 'Other units in frame if they fit': every model of another unit\n# whose whole base lies within 5\" (200 px) of the mob's footprint is drawn\n# inside the free area.\nvar m = tree.current_scene\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar ring: Rect2 = (m.get_meta(\"t14_box\") as Rect2).grow(200.0)\nvar z = m.view_zoom\nvar near = 0\nvar bad = []\nfor uid in GameState.state.units:\n\tif uid == \"U_GRETCHIN_A\":\n\t\tcontinue\n\tfor md in GameState.state.units[uid].get(\"models\", []):\n\t\tif not md.get(\"alive\", true):\n\t\t\tcontinue\n\t\tvar pos = md.get(\"position\", null)\n\t\tif typeof(pos) != TYPE_DICTIONARY or pos.get(\"x\") == null:\n\t\t\tcontinue\n\t\tvar p = Vector2(float(pos.x), float(pos.y))\n\t\tvar r = Measurement.base_extent_px(md)\n\t\tif not ring.encloses(Rect2(p - Vector2(r, r), Vector2(2.0 * r, 2.0 * r))):\n\t\t\tcontinue\n\t\tnear += 1\n\t\tvar rs = r * z\n\t\tvar sp = m.world_to_screen_position(p)\n\t\tif not free.encloses(Rect2(sp - Vector2(rs, rs), Vector2(2.0 * rs, 2.0 * rs))):\n\t\t\tbad.append(\"%s/%s\" % [uid, str(md.get(\"id\", \"?\"))])\nm.set_meta(\"t14_near\", near)\nreturn bad.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"t14_near\")",
+      "expect_min": 10,
+      "comment": "...and that set is not empty: the Beastboss, Mek Gunz, the Wartrike and the Beast Snagga Boyz sit within 5\"."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.world_to_screen_position(Vector2(892, 1877)).y > (m.get_meta(\"t14_free\") as Rect2).end.y",
+      "equals": true,
+      "comment": "The fit zoomed in on the mob rather than out to everything: Battlewagon Alpha (far side) is out of view."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar z0 = float(m.get_meta(\"t14_z0\"))\nvar z1 = m.view_zoom\nvar n = 0\nfor e in s:\n\tvar z = float(e[\"vz\"])\n\tif abs(z - z0) > 0.001 and abs(z - z1) > 0.001:\n\t\tn += 1\nreturn n",
+      "expect_min": 3,
+      "comment": "Glides: at least 3 sampled frames strictly between the start zoom (0.3) and the fit."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar z0 = float(m.get_meta(\"t14_z0\"))\nvar z1 = m.view_zoom\nvar prev = z0\nvar away = 0\nfor e in s:\n\tvar z = float(e[\"vz\"])\n\tif (z - prev) * (z1 - z0) < -0.000001:\n\t\taway += 1\n\tprev = z\nreturn away",
+      "equals": 0,
+      "comment": "The zoom never moves away from the fit."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The mob's centre heads straight for the middle: each sampled frame is on the\n# line from where it started to the free area's centre, and never further from\n# the centre than the frame before.\nvar m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar a: Vector2 = m.get_meta(\"t14_start_screen\")\nvar b: Vector2 = (m.get_meta(\"t14_free\") as Rect2).get_center()\nvar prev = a.distance_to(b)\nvar worst = 0.0\nfor e in s:\n\tvar p: Vector2 = e[\"sc\"]\n\tworst = max(worst, Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p))\n\tvar d = p.distance_to(b)\n\tif d > prev + 0.5:\n\t\treturn 1000.0 + d - prev\n\tprev = d\nreturn worst",
+      "expect_max": 1.5,
+      "comment": "No swing: on this 4x zoom-in the unit slides in on a straight line and only ever gets closer to the middle (a fixed-anchor glide would first carry it about 6% further out)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar s = m.get_meta(\"t14_samples\", [])\nvar z0 = float(m.get_meta(\"t14_z0\"))\nvar z1 = m.view_zoom\nvar n = 0\nfor e in s:\n\tvar c = float(e[\"cz\"])\n\tif abs(c - z0) > 0.001 and abs(c - z1) > 0.001:\n\t\tn += 1\nreturn n",
+      "expect_min": 3,
+      "comment": "The Camera2D mirror animates too."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var s = tree.current_scene.get_meta(\"t14_samples\", [])\nvar n = 0\nfor e in s:\n\tif e[\"f\"] and e[\"sh\"]:\n\t\tn += 1\nreturn n",
+      "expect_min": 10,
+      "comment": "Shift and F really were held down (Input) while those frames ran."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T14_before",
+      "after": "T14_mid",
+      "expect_min_pct": 5.0,
+      "comment": "Start -> mid..."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T14_mid",
+      "after": "T14_after",
+      "expect_min_pct": 5.0,
+      "comment": "...mid -> end: in-between frames were drawn, not one cut."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.set_meta(\"t14_fit_zoom\", m.view_zoom)\nm.set_meta(\"t14_fit_offset\", m.view_offset)\nreturn m.view_zoom",
+      "expect_min": 0.1
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "press"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "shift": true,
+      "comment": "Shift+F again once framed: nothing may move."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "release"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn abs(m.view_zoom - m.get_meta(\"t14_fit_zoom\")) + m.view_offset.distance_to(m.get_meta(\"t14_fit_offset\"))",
+      "expect_max": 0.001
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A scripted call (the roster strip, other scenarios' setup) lands on the same\n# framing at once, with no glide.\nvar m = tree.current_scene\nm.view_zoom = 1.5\nm.view_offset = Vector2(900, 1700)\nm.update_view_transform()\nm.last_camera_fit_action = \"\"\nif not m.fit_view_to_selection(\"U_GRETCHIN_A\"):\n\treturn 999.0\nif m.is_camera_glide_active():\n\treturn 998.0\nif m.last_camera_fit_action != \"selection\":\n\treturn 997.0\nreturn abs(m.view_zoom - m.get_meta(\"t14_fit_zoom\")) + m.view_offset.distance_to(m.get_meta(\"t14_fit_offset\"))",
+      "expect_max": 0.001
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# An embarked unit frames the transport it rides in (Kommandos in\n# Battlewagon Alpha in this fixture).\nvar m = tree.current_scene\nif str(m.compute_selection_fit(\"U_KOMMANDOS_A\").get(\"unit_id\", \"\")) != \"U_BATTLEWAGON_A\":\n\treturn 999.0\nif not m.fit_view_to_selection(\"U_KOMMANDOS_A\"):\n\treturn 998.0\nvar p = GameState.get_unit(\"U_BATTLEWAGON_A\").models[0].position\nreturn m.camera.position.distance_to(Vector2(float(p.x), float(p.y)))",
+      "expect_max": 10.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.last_camera_fit_action = \"\"\nvar r = [m.fit_view_to_selection(\"\"), m.fit_view_to_selection(\"NOPE\"), m.last_camera_fit_action]\nreturn str(r)",
+      "equals": "[false, false, \"\"]",
+      "comment": "Nothing to frame: false, and no fit claimed."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Escape",
+      "comment": "Player path: Esc deselects the shooter (ShootingController's shoot_cancel_target)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn \"%s|%s\" % [m.shooting_controller.active_shooter_id, m._selected_unit_id_or_empty()]",
+      "equals": "|",
+      "comment": "Nothing is selected now."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var open = []\nfor w in tree.root.get_children():\n\tif w is Window and w.visible:\n\t\topen.append(str(w.name))\nreturn open.size()",
+      "equals": 0,
+      "comment": "Esc deselected; it opened no menu."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.set_meta(\"t14_pre\", [m.view_zoom, m.view_offset])\nm.last_camera_fit_action = \"board\"\nreturn m.view_zoom",
+      "expect_min": 0.1
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "press"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "shift": true,
+      "comment": "Shift+F with nothing selected..."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "release"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar pre = m.get_meta(\"t14_pre\")\nreturn abs(m.view_zoom - pre[0]) + m.view_offset.distance_to(pre[1])",
+      "expect_max": 0.001,
+      "comment": "...leaves the camera where it was..."
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "" },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": "board",
+      "comment": "...and claims no selection fit."
+    },
+    {
+      "act": "execute_script",
+      "script": "main.is_camera_glide_active()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Setup (not under test): stretch the mob into one firing line across the\n# board, 22 models from x 60 to 1698, so the box plus 5\" of table cannot fit at\n# 1.2x and the context, not the cap, sets the zoom. Tokens redrawn.\nvar u = GameState.state.units[\"U_GRETCHIN_A\"]\nvar i = 0\nfor md in u.models:\n\tmd[\"position\"] = {\"x\": 60.0 + i * 78.0, \"y\": 700.0}\n\ti += 1\ntree.current_scene._recreate_unit_visuals()\ntree.current_scene.fit_view_to_board()\nreturn tree.current_scene._selected_unit_id_or_empty()",
+      "equals": "",
+      "comment": "Board framed so the stretched line can be clicked; still nothing selected."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_A",
+      "comment": "Player path: click the stretched mob to select it again."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DontOfferAgainButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.2
+    },
+    {
+      "act": "execute_script",
+      "script": "main._selected_unit_id_or_empty()",
+      "equals": "U_GRETCHIN_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar u = GameState.get_unit(\"U_GRETCHIN_A\")\nvar lo = Vector2(INF, INF)\nvar hi = Vector2(-INF, -INF)\nvar sum = Vector2.ZERO\nvar n = 0\nfor md in u.models:\n\tif not md.get(\"alive\", true):\n\t\tcontinue\n\tvar bt = md.get(\"base_type\", null)\n\tif bt != null and str(bt) != \"circular\":\n\t\treturn -1.0\n\tvar p = Vector2(float(md.position.x), float(md.position.y))\n\tvar r = float(md.base_mm) / 25.4 * 40.0 / 2.0\n\tlo = Vector2(min(lo.x, p.x - r), min(lo.y, p.y - r))\n\thi = Vector2(max(hi.x, p.x + r), max(hi.y, p.y + r))\n\tsum += p\n\tn += 1\nm.set_meta(\"t14_wide_box\", Rect2(lo, hi - lo))\nm.set_meta(\"t14_wide_box_mean\", sum / max(n, 1))\nm.set_meta(\"t14_wide_box_n\", n)\nreturn n",
+      "equals": 22
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 'Pan the camera to the opposite edge': the view looks at the middle of\n# the bottom edge at 0.6x. Sets what is drawn (view_offset / view_zoom,\n# BoardRoot's transform) AND the Camera2D mirror.\nvar m = tree.current_scene\nvar vp = m.get_viewport().get_visible_rect().size\nvar z0 = 0.6\nm.view_zoom = z0\nm.view_offset = Vector2(880, 2250) - vp / (2.0 * z0)\nm.update_view_transform()\nm.camera.position = Vector2(880, 2250)\nm.camera.zoom = Vector2(z0, z0)\nm.set_meta(\"t14_z0\", z0)\nm.last_camera_fit_action = \"\"\nreturn m.last_camera_fit_action",
+      "equals": ""
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_wide_box\")\nvar a = m.world_to_screen_position(box.position)\nvar b = m.world_to_screen_position(box.end)\nreturn Rect2(a, b - a).abs().intersects(m.get_viewport().get_visible_rect())",
+      "equals": false,
+      "comment": "Off screen again before Shift+F."
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_wide_before"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "press"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "shift": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "release"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return not tree.current_scene.is_camera_glide_active()",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_wide_after"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.last_camera_fit_action",
+      "equals": "selection"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The fit zoom computed HERE: the box plus 5\" (200 px) of table on each\n# side must fit the free area, and the zoom stops at 1.2x.\nvar m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_wide_box\")\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar z = min(min(free.size.x / (box.size.x + 400.0), free.size.y / (box.size.y + 400.0)), 1.2)\nm.set_meta(\"t14_wide_zoom\", z)\nreturn abs(m.view_zoom - z)",
+      "expect_max": 0.0005,
+      "comment": "Zoom = the free width / (line width + 400): the context sets it..."
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"t14_wide_zoom\")",
+      "expect_max": 0.7,
+      "comment": "...well under the 1.2x cap."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every alive base of the mob, drawn through BoardRoot's transform, inside\n# the free area (so clear of every HUD panel).\nvar m = tree.current_scene\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar z = m.view_zoom\nvar bad = []\nvar n = 0\nfor md in GameState.get_unit(\"U_GRETCHIN_A\").models:\n\tif not md.get(\"alive\", true):\n\t\tcontinue\n\tn += 1\n\tvar r = float(md.base_mm) / 25.4 * 40.0 / 2.0 * z\n\tvar sp = m.world_to_screen_position(Vector2(float(md.position.x), float(md.position.y)))\n\tif not free.encloses(Rect2(sp - Vector2(r, r), Vector2(2.0 * r, 2.0 * r))):\n\t\tbad.append(str(md.get(\"id\", \"?\")))\nreturn \"%d/%d\" % [bad.size(), n]",
+      "equals": "0/22",
+      "comment": "Never crops the selection: all 22 bases of the stretched line are drawn inside the free area."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The line's two ends sit exactly 5\" of table (200 px * zoom) in from the\n# game log and from the right panel.\nvar m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_wide_box\")\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar want = 200.0 * m.view_zoom\nvar left = m.world_to_screen_position(box.position).x - free.position.x\nvar right = free.end.x - m.world_to_screen_position(box.end).x\nreturn max(abs(left - want), abs(right - want))",
+      "expect_max": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_wide_box\")\nreturn m.world_to_screen_position(box.get_center()).distance_to((m.get_meta(\"t14_free\") as Rect2).get_center())",
+      "expect_max": 2.0,
+      "comment": "Centred in the free area."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.camera.position.distance_to((m.get_meta(\"t14_wide_box\") as Rect2).get_center())",
+      "expect_max": 10.0,
+      "comment": "Camera2D.position on the stretched line's bounding-box centre."
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T14_wide_before",
+      "after": "T14_wide_after",
+      "expect_min_pct": 8.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Setup (not under test): the five right-hand models of the line die\n# (m18-m22, x 1386..1698). Tokens redrawn.\nvar u = GameState.state.units[\"U_GRETCHIN_A\"]\nfor i in range(17, u.models.size()):\n\tu.models[i][\"alive\"] = false\ntree.current_scene._recreate_unit_visuals()\nreturn tree.current_scene._selected_unit_id_or_empty()",
+      "equals": "U_GRETCHIN_A",
+      "comment": "Still the selected shooter."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar u = GameState.get_unit(\"U_GRETCHIN_A\")\nvar lo = Vector2(INF, INF)\nvar hi = Vector2(-INF, -INF)\nvar sum = Vector2.ZERO\nvar n = 0\nfor md in u.models:\n\tif not md.get(\"alive\", true):\n\t\tcontinue\n\tvar bt = md.get(\"base_type\", null)\n\tif bt != null and str(bt) != \"circular\":\n\t\treturn -1.0\n\tvar p = Vector2(float(md.position.x), float(md.position.y))\n\tvar r = float(md.base_mm) / 25.4 * 40.0 / 2.0\n\tlo = Vector2(min(lo.x, p.x - r), min(lo.y, p.y - r))\n\thi = Vector2(max(hi.x, p.x + r), max(hi.y, p.y + r))\n\tsum += p\n\tn += 1\nm.set_meta(\"t14_alive_box\", Rect2(lo, hi - lo))\nm.set_meta(\"t14_alive_box_mean\", sum / max(n, 1))\nm.set_meta(\"t14_alive_box_n\", n)\nreturn n",
+      "equals": 17,
+      "comment": "17 models still alive; the footprint is computed over them only."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn (m.get_meta(\"t14_wide_box\") as Rect2).get_center().x - (m.get_meta(\"t14_alive_box\") as Rect2).get_center().x",
+      "expect_min": 150.0,
+      "comment": "The living models' box centre is 195 px left of the whole line's, so framing the dead would miss the 10px check below."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 'Pan the camera to the opposite edge': the view looks at the middle of\n# the bottom edge at 0.6x. Sets what is drawn (view_offset / view_zoom,\n# BoardRoot's transform) AND the Camera2D mirror.\nvar m = tree.current_scene\nvar vp = m.get_viewport().get_visible_rect().size\nvar z0 = 0.6\nm.view_zoom = z0\nm.view_offset = Vector2(880, 2250) - vp / (2.0 * z0)\nm.update_view_transform()\nm.camera.position = Vector2(880, 2250)\nm.camera.zoom = Vector2(z0, z0)\nm.set_meta(\"t14_z0\", z0)\nm.last_camera_fit_action = \"\"\nreturn m.last_camera_fit_action",
+      "equals": ""
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "press"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F",
+      "shift": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "Shift",
+      "state": "release"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return not tree.current_scene.is_camera_glide_active()",
+      "equals": true,
+      "timeout_s": 5.0,
+      "poll_s": 0.1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_alive_after"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn m.camera.position.distance_to((m.get_meta(\"t14_alive_box\") as Rect2).get_center())",
+      "expect_max": 10.0,
+      "comment": "Shift+F frames the 17 living models, not where the dead ones fell."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The fit zoom computed HERE: the box plus 5\" (200 px) of table on each\n# side must fit the free area, and the zoom stops at 1.2x.\nvar m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_alive_box\")\nvar free: Rect2 = m.get_meta(\"t14_free\")\nvar z = min(min(free.size.x / (box.size.x + 400.0), free.size.y / (box.size.y + 400.0)), 1.2)\nm.set_meta(\"t14_alive_zoom\", z)\nreturn abs(m.view_zoom - z)",
+      "expect_max": 0.0005,
+      "comment": "Zoom from the living models' box."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar box: Rect2 = m.get_meta(\"t14_alive_box\")\nreturn m.world_to_screen_position(box.get_center()).distance_to((m.get_meta(\"t14_free\") as Rect2).get_center())",
+      "expect_max": 2.0
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

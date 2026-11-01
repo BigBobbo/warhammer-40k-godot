@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.67.0",
+      "date": "2026-10-31",
+      "summary": "Press Shift+F to jump the camera to the unit you have selected: it glides there and frames the whole unit in the middle of the part of the board you can see.",
+      "changes": [
+        "Shift+F now centres the selected unit between the game log, the right-hand panel, the top bar and the phase strip. Before, it centred on the middle of the window, a little to the right of and above the space you can actually see.",
+        "The whole unit always fits, bases included. A long or spread-out unit used to run under the side panels; now the camera zooms out until every model is in view.",
+        "At least 5\" of the table around the unit stays in view, so nearby units are in the frame too. A small unit is not blown up past 1.2x zoom.",
+        "The camera glides to the unit instead of jumping, the unit sliding straight into the middle as it grows, so you can follow where you were looking.",
+        "Dead models no longer count, so the camera frames the models still on the table.",
+        "The same framing is used when you click a unit on the roster strip, cycle units with the controller bumpers from the zoomed-out view, or select a unit inside a transport."
+      ]
+    },
+    {
       "version": "1.66.0",
       "date": "2026-10-31",
       "summary": "Press F to see the whole battlefield: the camera glides until the full board fits between the top bar, the side panels and the phase strip, with a small even border.",

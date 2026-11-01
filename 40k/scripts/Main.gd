@@ -7069,11 +7069,17 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection, default Shift+F)
+	# T14: fit-to-selection camera keybind (rebindable: fit_view_selection,
+	# default Shift+F). Frames the selected unit (the current phase's controller
+	# selection, see _selected_unit_id_or_empty) in the board view rect and
+	# glides there like F does, so the player sees where the camera went.
+	# With nothing selected the camera stays put.
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "fit_view_selection"):
 		var sel_id := _selected_unit_id_or_empty()
 		if sel_id != "":
-			fit_view_to_selection(sel_id)
+			fit_view_to_selection(sel_id, true)
+		else:
+			DebugLogger.info("T14 Shift+F: no unit selected, camera unchanged", {"phase": current_phase})
 		get_viewport().set_input_as_handled()
 		return
 
@@ -7701,7 +7707,9 @@ func t13_synthesize_f_press() -> String:
 	return last_camera_fit_action
 
 
-# T14: synthesize Shift+F. Same pattern as t13_synthesize_f_press.
+# T14 test seam: synthesize Shift+F through _input. Same pattern and the same
+# caveat as t13_synthesize_f_press: it bypasses the OS input pipeline, so the
+# T14 scenario presses the real Shift and F keys with simulate_key instead.
 func t14_synthesize_shift_f_press() -> String:
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_F
@@ -7777,68 +7785,104 @@ func _resolve_board_presence_unit(unit: Dictionary) -> Dictionary:
 		return transport
 	return unit
 
-# T14: zoom + center the camera on a unit's bounding box (all its models).
-# Returns true on success, false if the unit can't be resolved or has no
-# models. Sets last_camera_fit_action = "selection" on success.
+# T14: zoom + centre the camera on a unit — the bounding box of all its alive
+# models, bases included — inside the part of the window the board can be seen
+# in (get_board_view_rect: the viewport minus the HUD, the same area the F fit
+# uses). The box's centre lands on the middle of that area, with 5" of the
+# surrounding table kept in view on the tighter axis and the zoom capped at
+# 1.2x (BoardFit.fit_box), so nearby units stay in frame and the selection
+# itself is never cropped by the HUD. Returns true on success, false if the
+# unit can't be resolved or has no models on the table. Sets
+# last_camera_fit_action = "selection" on success.
+#
+# animate = false (the default, for scripted callers that frame and then click
+# or project the same frame, e.g. the roster strip) cuts straight there.
+# animate = true (Shift+F, the pad's LB/RB cycle from the overview, the embark
+# pan) glides there on the clamped-delta camera glide, the unit sliding
+# straight for the middle while the zoom changes at an even rate
+# (BoardFit.point_glide_sample). The Camera2D mirror follows every frame and
+# ends on the box centre.
 # CAMERA-PAN-TRANSPORT: when the selected unit is embarked, the framing target
 # is redirected to its transport (see _resolve_board_presence_unit) so the
 # camera pans to where the unit actually sits on the table.
 func fit_view_to_selection(unit_id: String, animate: bool = false) -> bool:
-	if unit_id == "":
+	var fit: Dictionary = compute_selection_fit(unit_id)
+	if fit.is_empty():
+		DebugLogger.info("T14 fit_view_to_selection: nothing to frame", {"unit_id": unit_id})
 		return false
+	var z: float = float(fit["zoom"])
+	var anchor: Vector2 = fit["anchor"]
+	last_camera_fit_action = "selection"
+	DebugLogger.info("T14 fit_view_to_selection", {
+		"unit_id": unit_id,
+		"framed_unit_id": str(fit["unit_id"]),
+		"animate": animate,
+		"box": str(fit["box"]),
+		"center": str(fit["center"]),
+		"zoom": z,
+		"view_rect": str(fit["view_rect"]),
+		"from_zoom": view_zoom,
+		"from_offset": str(view_offset),
+	})
+	if animate:
+		if _start_point_camera_glide(fit["focus"], z, anchor):
+			return true
+		# Already framed — nothing to glide; just keep the mirror in step.
+		_sync_camera_node_to_view(anchor)
+		return true
+	_cam_glide_active = false
+	view_zoom = z
+	view_offset = fit["view_offset"]
+	update_view_transform()
+	_sync_camera_node_to_view(anchor)
+	return true
+
+
+# T14: the framing fit_view_to_selection(unit_id) would produce right now (see
+# BoardFit.fit_box for the keys: zoom, center, focus, anchor, view_rect,
+# view_offset, box), plus "unit_id": the unit actually framed (the transport
+# for an embarked passenger). Empty when there is nothing on the table to frame.
+func compute_selection_fit(unit_id: String) -> Dictionary:
+	if unit_id == "":
+		return {}
 	var unit = GameState.get_unit(unit_id)
 	if typeof(unit) != TYPE_DICTIONARY or not unit.has("models"):
-		return false
+		return {}
 	# Embarked passenger -> frame its transport instead of its hidden models.
 	unit = _resolve_board_presence_unit(unit)
-	var models = unit.get("models", [])
-	if typeof(models) != TYPE_ARRAY or models.is_empty():
-		return false
-	var min_pt := Vector2(INF, INF)
-	var max_pt := Vector2(-INF, -INF)
-	var any: bool = false
-	for m in models:
-		if typeof(m) != TYPE_DICTIONARY:
+	var placed: Array = _selection_models(unit)
+	if (placed[0] as Array).is_empty():
+		return {}
+	# World-space bounding box of those models with their bases.
+	var box: Rect2 = _BoardFit.footprint(placed[0], placed[1])
+	var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+	var fit: Dictionary = _BoardFit.fit_box(get_board_view_rect(), box, board_size, view_rotation)
+	fit["unit_id"] = str(unit.get("id", unit_id))
+	return fit
+
+
+# T14: [centres, radii] of a unit's alive, placed models: each model counts as
+# a circle of Measurement.base_extent_px (the circumscribed radius, so an oval
+# or rectangular base is inside it however it is turned). Dead models and
+# models without a position (in reserves, embarked) do not count; both arrays
+# are empty when nothing is on the table.
+func _selection_models(unit: Dictionary) -> Array:
+	var centres: Array = []
+	var radii: Array = []
+	for m in unit.get("models", []):
+		if typeof(m) != TYPE_DICTIONARY or not m.get("alive", true):
 			continue
 		var pos = m.get("position", null)
-		var p: Vector2 = Vector2.ZERO
+		var p: Vector2
 		if typeof(pos) == TYPE_VECTOR2:
 			p = pos
-		elif typeof(pos) == TYPE_DICTIONARY and pos.has("x") and pos.has("y"):
+		elif typeof(pos) == TYPE_DICTIONARY and pos.get("x") != null and pos.get("y") != null:
 			p = Vector2(float(pos.x), float(pos.y))
 		else:
 			continue
-		min_pt = Vector2(min(min_pt.x, p.x), min(min_pt.y, p.y))
-		max_pt = Vector2(max(max_pt.x, p.x), max(max_pt.y, p.y))
-		any = true
-	if not any:
-		return false
-	var box_w: float = max(max_pt.x - min_pt.x, 1.0)
-	var box_h: float = max(max_pt.y - min_pt.y, 1.0)
-	# Pad the box so the unit isn't tight against viewport edges, and cap zoom
-	# so a single model doesn't fill the screen.
-	const PAD_PX := 200.0
-	const MAX_ZOOM := 1.2
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	var zx: float = vp_size.x / (box_w + PAD_PX * 2.0)
-	var zy: float = vp_size.y / (box_h + PAD_PX * 2.0)
-	var z: float = min(min(zx, zy), MAX_ZOOM)
-	var center := (min_pt + max_pt) * 0.5
-	last_camera_fit_action = "selection"
-	var target_offset: Vector2 = center - vp_size / (2.0 * z)
-	if animate:
-		# Controller LB/RB reframing from a zoomed-out overview: glide to the
-		# unit's bounding box instead of hard-cutting (the "it jumps the camera
-		# between the units" report). _sync_camera_node_to_view restores the
-		# camera.position/zoom the instant path sets once the glide settles.
-		_start_cycle_camera_glide(target_offset, z)
-		return true
-	camera.position = center
-	camera.zoom = Vector2(z, z)
-	view_zoom = z
-	view_offset = target_offset
-	update_view_transform()
-	return true
+		centres.append(p)
+		radii.append(Measurement.base_extent_px(m))
+	return [centres, radii]
 
 
 func _selected_unit_id_or_empty() -> String:
@@ -8191,6 +8235,13 @@ var _cam_glide_anchored: bool = false
 var _cam_glide_anchor: Vector2 = Vector2.ZERO
 var _cam_glide_from_focus: Vector2 = Vector2.ZERO
 var _cam_glide_to_focus: Vector2 = Vector2.ZERO
+# T14: a POINT glide (the Shift+F fit-selection glide) is an anchored glide
+# (the mirror follows the anchor each frame) that moves differently: the
+# framed unit's centre slides across the SCREEN in a straight line from
+# _cam_glide_from_screen to the anchor (BoardFit.point_glide_sample), so on a
+# zoom-in the unit heads straight for the middle instead of swinging out.
+var _cam_glide_point: bool = false
+var _cam_glide_from_screen: Vector2 = Vector2.ZERO
 
 # Glide duration. Long enough to read as a deliberate slow-fast-slow move,
 # short enough to stay responsive when cycling quickly.
@@ -8238,6 +8289,7 @@ func _start_cycle_camera_glide(target_offset: Vector2, target_zoom: float) -> vo
 	_cam_glide_from_zoom = view_zoom
 	_cam_glide_to_zoom = target_zoom
 	_cam_glide_anchored = false
+	_cam_glide_point = false
 	_cam_glide_elapsed = 0.0
 	_cam_glide_active = true
 
@@ -8258,6 +8310,33 @@ func _start_anchored_camera_glide(target_focus: Vector2, target_zoom: float, anc
 	_cam_glide_from_focus = view_offset + anchor / view_zoom
 	_cam_glide_to_focus = target_focus
 	_cam_glide_anchored = true
+	_cam_glide_point = false
+	_cam_glide_elapsed = 0.0
+	_cam_glide_active = true
+	return true
+
+# T14: begin (or retarget) a point glide that ends with world point
+# `target_focus` (rotated space) on screen point `anchor` at `target_zoom`,
+# starting from wherever the camera is right now: the target's current screen
+# position slides in a straight line to the anchor while the zoom changes at an
+# even rate. A second Shift+F mid-glide carries on from the current frame.
+# Returns false (and starts nothing) when the camera is already there.
+func _start_point_camera_glide(target_focus: Vector2, target_zoom: float, anchor: Vector2) -> bool:
+	var target_offset: Vector2 = target_focus - anchor / target_zoom
+	if view_offset.is_equal_approx(target_offset) and is_equal_approx(view_zoom, target_zoom):
+		_cam_glide_active = false
+		return false
+	_cam_glide_from_offset = view_offset
+	_cam_glide_to_offset = target_offset
+	_cam_glide_from_zoom = view_zoom
+	_cam_glide_to_zoom = target_zoom
+	_cam_glide_anchor = anchor
+	_cam_glide_from_focus = view_offset + anchor / view_zoom
+	_cam_glide_to_focus = target_focus
+	# screen = zoom * (rotated-space point - view_offset)
+	_cam_glide_from_screen = (target_focus - view_offset) * view_zoom
+	_cam_glide_anchored = true
+	_cam_glide_point = true
 	_cam_glide_elapsed = 0.0
 	_cam_glide_active = true
 	return true
@@ -8271,8 +8350,13 @@ func _update_cycle_camera_glide(delta: float) -> void:
 	var t: float = clampf(_cam_glide_elapsed / CYCLE_CAMERA_PAN_TIME, 0.0, 1.0)
 	var e: float = _ease_in_out_cubic(t)
 	if _cam_glide_anchored:
-		var s: Dictionary = _BoardFit.glide_sample(_cam_glide_from_focus, _cam_glide_to_focus,
-				_cam_glide_from_zoom, _cam_glide_to_zoom, _cam_glide_anchor, e)
+		var s: Dictionary
+		if _cam_glide_point:
+			s = _BoardFit.point_glide_sample(_cam_glide_to_focus, _cam_glide_from_screen,
+					_cam_glide_anchor, _cam_glide_from_zoom, _cam_glide_to_zoom, e)
+		else:
+			s = _BoardFit.glide_sample(_cam_glide_from_focus, _cam_glide_to_focus,
+					_cam_glide_from_zoom, _cam_glide_to_zoom, _cam_glide_anchor, e)
 		view_zoom = float(s["zoom"])
 		view_offset = s["view_offset"]
 		if t >= 1.0:
@@ -8289,7 +8373,8 @@ func _update_cycle_camera_glide(delta: float) -> void:
 	if t >= 1.0:
 		_cam_glide_active = false
 		if _cam_glide_anchored:
-			DebugLogger.info("T13 fit glide settled", {"zoom": view_zoom, "camera": str(camera.position)})
+			DebugLogger.info("T14 selection glide settled" if _cam_glide_point else "T13 fit glide settled",
+					{"zoom": view_zoom, "camera": str(camera.position)})
 		else:
 			_sync_camera_node_to_view()
 
@@ -8306,11 +8391,21 @@ func _ease_in_out_cubic(t: float) -> float:
 # camera.position is the world point the camera frames: by default the one at
 # the viewport centre; pass `anchor` (a screen point) when the framing is
 # centred somewhere else — the board fit centres on the board view rect, which
-# the HUD makes lopsided, so there it is the board centre.
+# the HUD makes lopsided, so there it is the board centre (the selection fit:
+# the selection's centre). view_offset + screen / zoom is that point in the
+# view's rotated space; turning it back by view_rotation (about the board
+# centre, as update_view_transform turns the board) gives the world point, so
+# the mirror stays right on a quarter-turned board too. Unrotated, the two are
+# the same.
 func _sync_camera_node_to_view(anchor = null) -> void:
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
 	var screen_point: Vector2 = vp_size / 2.0 if anchor == null else anchor
-	camera.position = view_offset + screen_point / view_zoom
+	var rotated_point: Vector2 = view_offset + screen_point / view_zoom
+	if is_zero_approx(view_rotation):
+		camera.position = rotated_point
+	else:
+		var board_size := Vector2(float(SettingsService.get_board_width_px()), float(SettingsService.get_board_height_px()))
+		camera.position = _BoardFit.unrotate_about_board(rotated_point, board_size, view_rotation)
 	camera.zoom = Vector2(view_zoom, view_zoom)
 
 # P2-40: Briefly pan camera to a world position, then return after a delay

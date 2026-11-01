@@ -368,6 +368,7 @@ TESTS=(
     "tests/test_los_line_visual.gd"
     "tests/test_visual_color_slots.gd"
     "tests/test_fit_board_camera.gd"
+    "tests/test_fit_selection_camera.gd"
 )
 
 if [ "${1:-}" = "--all" ]; then

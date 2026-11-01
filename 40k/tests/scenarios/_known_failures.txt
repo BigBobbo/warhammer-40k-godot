@@ -44,7 +44,6 @@ iss074_aircraft_reserve_cycle_11e  # fails at 10e and 11e (11e 26/2, 10e 26/2 st
 iss15_hidden_shot_stamp_11e  # fails at 10e and 11e (11e 26/9, 10e 26/9 steps passed/failed)
 iss15_indirect_band_11e  # fails at 10e and 11e (11e 30/2, 10e 30/2 steps passed/failed)
 movement_auto_confirm  # fails at 10e and 11e (11e 20/2, 10e 20/2 steps passed/failed)
-movement_embarked_select_pans_to_transport  # fails at 10e and 11e (11e 20/2, 10e 20/2 steps passed/failed)
 pad_fight_attack_reticle  # fails at 10e and 11e (11e 35/4, 10e 35/4 steps passed/failed)
 pad_m0_menu_nav  # fails at 10e and 11e (11e 15/8, 10e 15/8 steps passed/failed)
 pad_m2_shooting_native  # fails at 10e and 11e (11e 42/2, 10e 43/1 steps passed/failed)
