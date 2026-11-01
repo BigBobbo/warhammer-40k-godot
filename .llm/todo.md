@@ -1179,7 +1179,7 @@ Locks in use:
 
 ## §2 Tokens (continued)
 
-- [ ] **T15 — Unit-type silhouette glyphs**
+- [x] **T15 — Unit-type silhouette glyphs**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T08
   - **Touches:** `40k/scripts/TokenVisual.gd`, new
     `40k/assets/icons/unit_silhouettes/{infantry,tank,walker,beast,character,aircraft,mounted}.svg`
@@ -1198,9 +1198,50 @@ Locks in use:
       (silhouette) on the same token: `regions["token_center"].diff_pct > 25.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Silhouettes recognizable at zoom 1.0.
-    - [ ] Silhouettes still recognizable at zoom 0.5 (32px).
-    - [ ] Letter labels visible under the base.
+    - [x] Silhouettes recognizable at zoom 1.0.
+      *(T15_zoom1_infantry_characters / _vehicles / _aircraft_beast: crowned, caped figure with a
+      sword on the Warbosses, Shield-Captain, Painboss and Weirdboy; armoured trooper with a gun on
+      the Boyz, Kommandos, Meganobz and Witchseekers; mech on both dreadnoughts; bike and rider on
+      the jetbike Shield-Captain; jet on the Wazbom Blastajet; quadruped beast on Ghazghkull and
+      his second model. T15_tank_glyph_fallback: tank on the Caladius. White on a black keyline,
+      inside the rings; T15_before/T15_after show the "WAR" counter replaced on the same token.)*
+    - [x] Silhouettes still recognizable at zoom 0.5 (32px).
+      *(T15_zoom05, T15_zoom05_right, T15_zoom05_tank_glyph_fallback, read at native pixels: the
+      32mm infantry glyph is ~16px and still a figure, the hero's cape and sword, the mechs, jet,
+      beast and tank are clear; the jetbike's bike is the smallest (its oval is 42mm across) but
+      reads. Drawn mipmapped: an A/B against plain linear filtering showed jagged, uneven 16px
+      glyphs without it. The scenario's template match agrees >= 80% on 77 glyphs.)*
+    - [x] Letter labels visible under the base.
+      *(T15_zoom1_*: "BO*", "KO*", "ME*", "LO*", "WI*", "Cu" and "Ghazg" in bold white outlined type
+      just under each model's base; the scenario finds text pixels in 7 named labels. The model
+      carrying the unit's name plate shows the plate there instead - see the note.)*
+  - **Note (2026-11-01 audit):** what existed: a placeholder - TokenVisual added a hidden Sprite2D
+    "Silhouette" with a 32px procedural blob and a silhouette_category that read the unit by the
+    node's name (never the unit id), so every token was "infantry" (FLY also mapped to aircraft,
+    which would have made a Caladius an aircraft); no SVGs; the centred letter was untouched; the
+    Label child was a T16 stub showing the model number at (-6, 12) inside the base. The old
+    scenario only checked token 0's hidden node. Changed: (1) seven 64x64 SVG glyphs in
+    40k/assets/icons/unit_silhouettes/ (white on a black keyline, imported 4x with mipmaps).
+    (2) silhouette_category_for_keywords(): body type first (AIRCRAFT, WALKER, MOUNTED, VEHICLE,
+    MONSTER/BEAST(S)/SWARM), then CHARACTER, else infantry, from the unit_id meta. (3) The glyph is
+    painted at Layer 3 of the letter style, where the letter was, under every badge and overlay,
+    tinted with the base's contrast colour (black on a light full-colour base). (4) The Label is
+    the letter counter, centred under the base (below a rotated oval, clear of the status tick),
+    13px Rajdhani Bold with an outline, z -1 so it never covers a neighbouring token.
+    Deviations: (a) "Silhouette" is a spec node (Node2D subclass with `texture`, modulate = tint,
+    visible = painted) painted by the token, like the T08 rings, not a self-drawing Sprite2D: a
+    child sprite would sit above the fought/engaged/action badges drawn inside the base.
+    `get_node("Silhouette").texture != null` holds for every token. (b) Later deliberate art
+    decisions are kept (0.34-0.35: dedicated top-down unit art; generic Kenney tank sprite for
+    vehicles without art): art tokens keep their art and a "tank" keeps the tank sprite (its glyph
+    is the fallback, reviewed via T15_tank_glyph_fallback). Walkers, aircraft and mounted vehicles
+    used to borrow that tank sprite and now get their own glyph. (c) The model carrying the unit's
+    name plate leaves its Label empty (single-model units show only the plate under the base):
+    letter + plate under one base pushed plates into the next rank and broke T08's ring sampling.
+    (d) Label font is Rajdhani Bold, not the faction face (Caslon Antique goes thin at 13px).
+    (e) Fixture fullauto_pretrigger has no beast, so the scenario gives Ghazghkull his MONSTER
+    keywords from the mirror_orks army data (setup privilege). Follow-up: GhostVisual (move/deploy
+    drag ghosts) still draws the old letter counter.
 
 - [ ] **T16 — Auto-hide token labels below zoom threshold**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T15

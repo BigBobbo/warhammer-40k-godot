@@ -1,32 +1,329 @@
 {
   "id": "T15_silhouettes",
-  "covers": ["design_guidelines.T15", "tokens.silhouettes"],
-  "fixture": "co_pretrigger",
-  "transition_to_phase": 10,
-  "description": "Every TokenVisual gains a Silhouette child Sprite2D with a procedural ImageTexture and a silhouette_category string derived from the unit's keywords (infantry/tank/walker/beast/character/aircraft/mounted). Default is 'infantry' for keyword sets that don't match any category.",
-
+  "covers": [
+    "design_guidelines.T15",
+    "tokens.silhouettes",
+    "tokens.letter_label"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 15,
+  "regions": {
+    "token_center": [
+      1205,
+      510,
+      100,
+      100
+    ]
+  },
+  "description": "T15 (design guidelines \u00a72, 'faction = hue, type = silhouette'): a token without dedicated top-down art shows a high-contrast silhouette glyph for its unit's category in the middle of the base, where its letter counter was - res://assets/icons/unit_silhouettes/{infantry,tank,walker,beast,character,aircraft,mounted}.svg, white on a black keyline, tinted with the base's contrast colour - and the letter counter moved to the token's Label child, centred under the base in small bold outlined type and drawn beneath the tokens; the model that carries the unit's name plate shows the plate there instead (one text row under every base). TokenVisual.silhouette_category is the category, from the unit's keywords (body type first: AIRCRAFT, WALKER, MOUNTED, VEHICLE, MONSTER/BEAST(S)/SWARM; then CHARACTER; else infantry). The Silhouette child is the glyph's spec, painted at Layer 3 under every badge: texture, modulate = tint, scale.x = half-size / base radius, visible = painted. Dedicated unit art is kept and a tank keeps the generic tank sprite (its glyph is the fallback); walkers, aircraft and mounted vehicles get their glyph instead of that tank sprite. Fixture fullauto_pretrigger (Orks vs Custodes, 104 tokens); setup privilege: Ghazghkull gets his MONSTER keywords (as in the mirror_orks army data) and his second model steps off his base, so the board holds all seven categories. Tier A: every token's silhouette_category matches this scenario's own keyword table (104 tokens, all 7 categories); named units (Boyz / Witchseekers infantry, Caladius tank, dreadnoughts walker, Wazbom aircraft, jetbike Shield-Captain mounted, Warboss / Shield-Captain character, Ghazghkull beast); every token has a Silhouette whose texture is its category's 256 px SVG, painted exactly when the token has no art and is not a tank with the tank sprite (86 painted, 18 keep art); every Label is the unit's letter, under the base, centred, 13 px Rajdhani Bold outlined, z -1 (80 letters), or empty on the 24 name-plate models; the named letter labels have text pixels on screen. T15_before rebuilds the pre-T15 token from the specs (glyph not painted, Label back to the old model-number stub) - measured pixel-identical (0.0%) over the whole board area to the old build's render of this frame; token_center (Warboss Beta) diffs > 25% (measured 59.5%). Template match: every painted glyph fully in view agrees with its own SVG at >= 90% of the sample points at zoom 1.0 (66 glyphs over three frames, plus the Caladius' tank glyph on its fallback path) and >= 80% at zoom 0.5 (77 glyphs over two frames, plus the tank glyph); the same check fails on the pre-T15 letter counters. T15_zoom1_*, T15_tank_glyph_fallback, T15_zoom05, T15_zoom05_right and T15_zoom05_tank_glyph_fallback frame the board for the Tier B review.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).silhouette_category.length()",
-      "expect_min": 5 },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"Silhouette\") != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Silhouette\").texture != null",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Silhouette\").texture.get_width()",
-      "equals": 32 },
-
-    { "act": "execute_script",
-      "script": "[\"infantry\", \"tank\", \"walker\", \"beast\", \"character\", \"aircraft\", \"mounted\"].has(main.get_node(\"BoardRoot/TokenLayer\").get_child(0).silhouette_category)",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "Decline the movement-phase-start stratagem window so no dialog covers the board."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_WARBOSS_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Setup privilege: this fixture lists Ghazghkull Thraka as INFANTRY; give him\n# his MONSTER datasheet keywords (as in the mirror_orks_postdeploy army data) so\n# one board holds all seven categories, then rebuild the tokens as a load does.\nvar u = GameState.state[\"units\"][\"U_GHAZGHKULL_THRAKA_A\"]\nu[\"meta\"][\"keywords\"] = [\"ORKS\", \"MONSTER\", \"CHARACTER\", \"EPIC HERO\", \"WARBOSS\", \"GHAZGHKULL THRAKA\"]\n# ...and stand his second model (Makari, 25 mm) beside his 80 mm base instead\n# of on its rim, so his glyph is not half covered.\nu[\"models\"][1][\"position\"] = {\"x\": 3790.0, \"y\": 800.0}\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn u[\"meta\"][\"keywords\"].has(\"MONSTER\")",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_GHAZGHKULL_THRAKA_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_CALADIUS_GRAV-TANK_E",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A: every token's silhouette_category is the category its unit's keywords\n# call for, by this scenario's own table (body type first - AIRCRAFT, WALKER,\n# MOUNTED, VEHICLE, MONSTER/BEAST(S)/SWARM - then CHARACTER, else infantry).\nvar n = 0\nvar seen = {}\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar uid = str(t.get_meta(\"unit_id\"))\n\tvar k = {}\n\tfor x in GameState.get_unit(uid).get(\"meta\", {}).get(\"keywords\", []):\n\t\tk[str(x).to_upper()] = true\n\tvar want = \"infantry\"\n\tif k.has(\"AIRCRAFT\"):\n\t\twant = \"aircraft\"\n\telif k.has(\"WALKER\"):\n\t\twant = \"walker\"\n\telif k.has(\"MOUNTED\"):\n\t\twant = \"mounted\"\n\telif k.has(\"VEHICLE\"):\n\t\twant = \"tank\"\n\telif k.has(\"MONSTER\") or k.has(\"BEAST\") or k.has(\"BEASTS\") or k.has(\"SWARM\"):\n\t\twant = \"beast\"\n\telif k.has(\"CHARACTER\"):\n\t\twant = \"character\"\n\tif str(t.silhouette_category) != want:\n\t\treturn \"%s/%s: silhouette_category '%s', keywords call for '%s'\" % [uid, str(t.get_meta(\"model_id\")), str(t.silhouette_category), want]\n\tseen[want] = true\n\tn += 1\nvar cats = seen.keys()\ncats.sort()\nreturn \"ok %d tokens: %s\" % [n, \",\".join(cats)]",
+      "equals": "ok 104 tokens: aircraft,beast,character,infantry,mounted,tank,walker"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A, named units: INFANTRY Boyz / Witchseekers -> infantry, the VEHICLE\n# (FLY) Caladius -> tank, dreadnoughts -> walker, the Wazbom -> aircraft, the\n# jetbike Shield-Captain -> mounted, Warboss / Shield-Captain -> character, the\n# MONSTER Ghazghkull -> beast.\nvar want = [\"U_BATTLEWAGON_G\", \"U_BOYZ_E\", \"U_CALADIUS_GRAV-TANK_E\", \"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", \"U_GHAZGHKULL_THRAKA_A\", \"U_SHIELD_CAPTAIN_A\", \"U_SHIELD_CAPTAIN_JETBIKE_A\", \"U_TELEMON_HEAVY_DREADNOUGHT_I\", \"U_WARBOSS_B\", \"U_WAZBOM_BLASTAJET\", \"U_WITCHSEEKERS_C\"]\nvar got = {}\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\") and str(t.get_meta(\"model_id\")) == \"m1\":\n\t\tgot[str(t.get_meta(\"unit_id\"))] = str(t.silhouette_category)\nvar out = []\nfor uid in want:\n\tout.append(\"%s=%s\" % [uid.trim_prefix(\"U_\"), got.get(uid, \"missing\")])\nreturn \", \".join(out)",
+      "equals": "BATTLEWAGON_G=tank, BOYZ_E=infantry, CALADIUS_GRAV-TANK_E=tank, CONTEMPTOR-ACHILLUS_DREADNOUGHT_H=walker, GHAZGHKULL_THRAKA_A=beast, SHIELD_CAPTAIN_A=character, SHIELD_CAPTAIN_JETBIKE_A=mounted, TELEMON_HEAVY_DREADNOUGHT_I=walker, WARBOSS_B=character, WAZBOM_BLASTAJET=aircraft, WITCHSEEKERS_C=infantry"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A on every token: a Silhouette node whose texture is the category's SVG\n# (res://assets/icons/unit_silhouettes/<cat>.svg, imported 256 px). It is\n# painted (visible) exactly when the token has no dedicated art and is not a\n# tank keeping the generic tank sprite; a painted glyph is opaque, at the\n# T15_GLYPH_SCALE size, tinted the base's contrast colour (ring mode: the light\n# 0.95 grey on the dark slate base).\nvar painted = 0\nvar kept = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tvar s = t.get_node_or_null(\"Silhouette\")\n\tif s == null:\n\t\treturn key + \": no Silhouette node\"\n\tif s.texture == null:\n\t\treturn key + \": Silhouette.texture is null\"\n\tif s.texture.resource_path != \"res://assets/icons/unit_silhouettes/%s.svg\" % t.silhouette_category:\n\t\treturn \"%s: texture %s is not the %s glyph\" % [key, s.texture.resource_path, t.silhouette_category]\n\tif s.texture.get_width() != 256 or s.texture.get_height() != 256:\n\t\treturn \"%s: texture %s\" % [key, str(s.texture.get_size())]\n\tvar keeps_art = t._get_unit_sprite_texture() != null or (t.silhouette_category == \"tank\" and t._get_tank_body_texture() != null)\n\tif s.visible == keeps_art:\n\t\treturn \"%s: painted=%s but keeps_art=%s\" % [key, str(s.visible), str(keeps_art)]\n\tif s.visible:\n\t\tif s.modulate != Color(0.95, 0.95, 0.95) or absf(s.scale.x - 0.66) > 0.001:\n\t\t\treturn \"%s: glyph modulate %s scale %s\" % [key, s.modulate.to_html(), str(s.scale)]\n\t\tpainted += 1\n\telse:\n\t\tkept += 1\nreturn \"ok painted=%d kept_art=%d\" % [painted, kept]",
+      "equals": "ok painted=86 kept_art=18"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Tier A: every token's letter counter is its Label child, laid out under the\n# base: text = the unit's letter (custom label or auto letter), top below the\n# base's lowest point, centred, visible, 13 px bold with an outline, drawn beneath\n# the tokens (z_index -1). The model carrying the unit's name plate leaves it\n# empty - its plate names the unit under that base.\nvar letters = 0\nvar plates = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tvar l = t.get_node_or_null(\"Label\")\n\tif l == null:\n\t\treturn key + \": no Label\"\n\tif l.z_index != -1 or not l.visible:\n\t\treturn \"%s: Label z_index %d visible %s\" % [key, l.z_index, str(l.visible)]\n\tif t._t15_name_plate_shown():\n\t\tif l.text != \"\":\n\t\t\treturn \"%s: carries the name plate but its Label reads '%s'\" % [key, l.text]\n\t\tplates += 1\n\t\tcontinue\n\tif l.text != t._get_letter_label() or l.text == \"\":\n\t\treturn \"%s: Label '%s' != letter '%s'\" % [key, l.text, t._get_letter_label()]\n\tvar lowest = -INF\n\tfor p in t._get_shape_polygon(t.model_data.get(\"rotation\", 0.0)):\n\t\tlowest = max(lowest, p.y)\n\tif l.position.y < lowest:\n\t\treturn \"%s: Label top %.1f is above the base bottom %.1f\" % [key, l.position.y, lowest]\n\tif absf(l.position.x + l.size.x / 2.0) > 1.0:\n\t\treturn \"%s: Label not centred (x %.1f w %.1f)\" % [key, l.position.x, l.size.x]\n\tif l.get_theme_font_size(\"font_size\") != 13 or l.get_theme_constant(\"outline_size\") < 2 or not l.get_theme_font(\"font\").resource_path.ends_with(\"Rajdhani-Bold.ttf\"):\n\t\treturn \"%s: Label size=%d outline=%d font=%s\" % [key, l.get_theme_font_size(\"font_size\"), l.get_theme_constant(\"outline_size\"), l.get_theme_font(\"font\").resource_path]\n\tletters += 1\nreturn \"ok letters=%d name_plates=%d\" % [letters, plates]",
+      "equals": "ok letters=80 name_plates=24"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Close view x2.5: Warboss Alpha (left) and Warboss Beta (right, token_center).",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 2.5\nm.view_offset = Vector2(430, 800) - Vector2(930, 560) / 2.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 2.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The pre-T15 token, rebuilt from the specs: glyph not painted (the token falls\n# back to its centred letter counter / tank sprite) and the Label back to the\n# old model-number stub (default font, 16 px, no outline, z 0, at (-6, 12)\n# inside the base). Measured pixel-identical to the old build's render of this frame.\nvar n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tt.get_node(\"Silhouette\").visible = false\n\tvar l = t.get_node(\"Label\")\n\tl.remove_theme_font_override(\"font\")\n\tl.remove_theme_color_override(\"font_outline_color\")\n\tl.remove_theme_constant_override(\"outline_size\")\n\tl.add_theme_font_size_override(\"font_size\", 16)\n\tl.add_theme_color_override(\"font_color\", Color(0.95, 0.95, 0.95, 1.0))\n\tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT\n\tl.z_index = 0\n\tl.text = str(t.model_number)\n\tl.size = Vector2.ZERO\n\tl.position = Vector2(-6, 12)\n\tt.queue_redraw()\n\tn += 1\nreturn n",
+      "equals": 104
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_before"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = [\"U_WARBOSS_B/m1\", \"U_WARBOSS_C/m1\"]\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nif checked != only.size():\n\treturn \"checked %d of %d: %s\" % [checked, only.size(), \", \".join(bad)]\nif bad.is_empty():\n\treturn \"all match\"\nif bad.size() == checked:\n\treturn \"none match\" if best < 0.6 else \"none match, best %.2f\" % best\nreturn \"mixed: %s\" % \", \".join(bad)",
+      "equals": "none match",
+      "comment": "Falsifiability: on the pre-T15 frame the template match FAILS (the letter counter is not the glyph)."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Back to the live T15 token: the glyph spec and the letter label are rebuilt\n# by the token's own update path.\nvar n = 0\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tt._t15_update_silhouette()\n\tt._t15_sync_letter_label(true)\n\tt.queue_redraw()\n\tn += 1\nreturn n",
+      "equals": 104
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_after"
+    },
+    {
+      "act": "pixel_diff",
+      "before": "T15_before",
+      "after": "T15_after",
+      "region": "token_center",
+      "expect_min_pct": 25.0,
+      "comment": "Tier A: token_center (Warboss Beta, letter -> character glyph) diff_pct > 25."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = [\"U_WARBOSS_B/m1\", \"U_WARBOSS_C/m1\"]\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nif checked != only.size():\n\treturn \"checked %d of %d: %s\" % [checked, only.size(), \", \".join(bad)]\nif bad.is_empty():\n\treturn \"all match\"\nif bad.size() == checked:\n\treturn \"none match\" if best < 0.6 else \"none match, best %.2f\" % best\nreturn \"mixed: %s\" % \", \".join(bad)",
+      "equals": "all match"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Zoom 1.0: Warbosses, Boyz, Shield-Captain, Blade Champion, Custodian Guard, Witchseekers.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(870, 1050) - Vector2(930, 560) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom1_infantry_characters"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = []\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 38 glyphs: character,infantry"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The letter labels are drawn: inside each named token's Label rect the frame\n# has light text pixels (lum > 0.8) - the board below them is darker.\nvar want = [\"U_BOYZ_E/m20\", \"U_WITCHSEEKERS_C/m4\", \"U_CUSTODIAN_GUARD_B/m4\"]\nvar out = []\nvar shot = tree.root.get_texture().get_image()\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif not want.has(key):\n\t\tcontinue\n\tvar l = t.get_node(\"Label\")\n\tvar xf = l.get_global_transform_with_canvas()\n\tvar a = xf * Vector2.ZERO\n\tvar b = xf * l.size\n\tvar light = 0\n\tfor y in range(int(a.y), int(b.y)):\n\t\tfor x in range(int(a.x), int(b.x)):\n\t\t\tvar c = shot.get_pixel(x, y)\n\t\t\tif 0.299 * c.r + 0.587 * c.g + 0.114 * c.b > 0.8:\n\t\t\t\tlight += 1\n\tout.append(\"%s:%s\" % [key.trim_prefix(\"U_\"), \"text\" if light >= 8 else \"blank(%d)\" % light])\nout.sort()\nreturn \", \".join(out)",
+      "equals": "BOYZ_E/m20:text, CUSTODIAN_GUARD_B/m4:text, WITCHSEEKERS_C/m4:text"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Zoom 1.0: vehicles row - Caladius (tank sprite), Contemptor + Telemon (walker), jetbike (mounted).",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(2000, 1050) - Vector2(930, 560) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom1_vehicles"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = []\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 23 glyphs: character,infantry,mounted,walker"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The letter labels are drawn: inside each named token's Label rect the frame\n# has light text pixels (lum > 0.8) - the board below them is darker.\nvar want = [\"U_KOMMANDOS_H/m10\", \"U_KOMMANDOS_H/m7\"]\nvar out = []\nvar shot = tree.root.get_texture().get_image()\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif not want.has(key):\n\t\tcontinue\n\tvar l = t.get_node(\"Label\")\n\tvar xf = l.get_global_transform_with_canvas()\n\tvar a = xf * Vector2.ZERO\n\tvar b = xf * l.size\n\tvar light = 0\n\tfor y in range(int(a.y), int(b.y)):\n\t\tfor x in range(int(a.x), int(b.x)):\n\t\t\tvar c = shot.get_pixel(x, y)\n\t\t\tif 0.299 * c.r + 0.587 * c.g + 0.114 * c.b > 0.8:\n\t\t\t\tlight += 1\n\tout.append(\"%s:%s\" % [key.trim_prefix(\"U_\"), \"text\" if light >= 8 else \"blank(%d)\" % light])\nout.sort()\nreturn \", \".join(out)",
+      "equals": "KOMMANDOS_H/m10:text, KOMMANDOS_H/m7:text"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The tank glyph's own path: a tank keeps the generic tank sprite, and shows its\n# glyph when that sprite is missing - simulated on the Caladius by dropping the\n# resolved sprite (setup privilege), so the tank glyph is reviewed on the board.\nvar t = null\nfor c in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tt = c\nt._tank_resolved = true\nt._tank_body_tex = null\nt._tank_barrel_tex = null\nt._t15_update_silhouette()\nt.queue_redraw()\nreturn \"%s painted=%s\" % [t.silhouette_category, str(t.get_node(\"Silhouette\").visible)]",
+      "equals": "tank painted=true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_tank_glyph_fallback"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = [\"U_CALADIUS_GRAV-TANK_E/m1\"]\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 1 glyphs: tank"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = null\nfor c in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tt = c\nt._tank_resolved = false\nt._t15_update_silhouette()\nt.queue_redraw()\nreturn \"%s painted=%s\" % [t.silhouette_category, str(t.get_node(\"Silhouette\").visible)]",
+      "equals": "tank painted=false"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Zoom 1.0: Meganobz (infantry), Wazbom Blastajet (aircraft), Ghazghkull (beast).",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 1.0\nm.view_offset = Vector2(3330, 1050) - Vector2(930, 560) / 1.0\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom1_aircraft_beast"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = []\nvar white_min = 0.75\nvar ratio_min = 0.9\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 5 glyphs: aircraft,beast,infantry"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The letter labels are drawn: inside each named token's Label rect the frame\n# has light text pixels (lum > 0.8) - the board below them is darker.\nvar want = [\"U_MEGANOBZ_L/m3\", \"U_GHAZGHKULL_THRAKA_A/m2\"]\nvar out = []\nvar shot = tree.root.get_texture().get_image()\nfor t in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif not t.has_meta(\"unit_id\"):\n\t\tcontinue\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif not want.has(key):\n\t\tcontinue\n\tvar l = t.get_node(\"Label\")\n\tvar xf = l.get_global_transform_with_canvas()\n\tvar a = xf * Vector2.ZERO\n\tvar b = xf * l.size\n\tvar light = 0\n\tfor y in range(int(a.y), int(b.y)):\n\t\tfor x in range(int(a.x), int(b.x)):\n\t\t\tvar c = shot.get_pixel(x, y)\n\t\t\tif 0.299 * c.r + 0.587 * c.g + 0.114 * c.b > 0.8:\n\t\t\t\tlight += 1\n\tout.append(\"%s:%s\" % [key.trim_prefix(\"U_\"), \"text\" if light >= 8 else \"blank(%d)\" % light])\nout.sort()\nreturn \", \".join(out)",
+      "equals": "GHAZGHKULL_THRAKA_A/m2:text, MEGANOBZ_L/m3:text"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Zoom 0.5: most of the army; glyphs at half size.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.5\nm.view_offset = Vector2(1500, 1050) - Vector2(930, 560) / 0.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom05"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = []\nvar white_min = 0.55\nvar ratio_min = 0.8\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 63 glyphs: character,infantry,mounted,walker"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The tank glyph's own path: a tank keeps the generic tank sprite, and shows its\n# glyph when that sprite is missing - simulated on the Caladius by dropping the\n# resolved sprite (setup privilege), so the tank glyph is reviewed on the board.\nvar t = null\nfor c in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tt = c\nt._tank_resolved = true\nt._tank_body_tex = null\nt._tank_barrel_tex = null\nt._t15_update_silhouette()\nt.queue_redraw()\nreturn \"%s painted=%s\" % [t.silhouette_category, str(t.get_node(\"Silhouette\").visible)]",
+      "equals": "tank painted=true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom05_tank_glyph_fallback"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = [\"U_CALADIUS_GRAV-TANK_E/m1\"]\nvar white_min = 0.55\nvar ratio_min = 0.8\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 1 glyphs: tank"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = null\nfor c in tree.root.get_node(\"Main/BoardRoot/TokenLayer\").get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tt = c\nt._tank_resolved = false\nt._t15_update_silhouette()\nt.queue_redraw()\nreturn \"%s painted=%s\" % [t.silhouette_category, str(t.get_node(\"Silhouette\").visible)]",
+      "equals": "tank painted=false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Zoom 0.5, right half: characters, Meganobz, Wazbom (aircraft), Ghazghkull (beast), dreadnought, jetbike.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.5\nm.view_offset = Vector2(3300, 1050) - Vector2(930, 560) / 0.5\nm.update_view_transform()\nreturn m.view_zoom",
+      "equals": 0.5
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "screenshot",
+      "label": "T15_zoom05_right"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Template match: the glyph on screen is the token's own SVG glyph. Over a\n# 16x16 grid on the glyph rect, points where the texture is solid white fill\n# (5 texels agree) must be light on screen, solid black (keyline / holes) dark,\n# and clear points inside 0.6 r (base interior) not light. A letter counter, an\n# empty base or another category's glyph fails it.\nvar only = []\nvar white_min = 0.55\nvar ratio_min = 0.8\nvar m = tree.root.get_node(\"Main\")\nvar shot = tree.root.get_texture().get_image()\nvar cache = {}\nvar cats = {}\nvar bad = []\nvar worst = 1.0\nvar best = 0.0\nvar checked = 0\n# Screen footprint of every token drawn after another (its base circle, and\n# below the base its letter label / name plate) - a glyph under one is skipped.\nvar toks = []\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif t.has_meta(\"unit_id\"):\n\t\ttoks.append(t)\nvar foot = []\nfor o in toks:\n\tvar oxf = o.get_global_transform_with_canvas()\n\tvar ob = o.base_shape.get_bounds()\n\tvar orad = max(ob.size.x, ob.size.y) / 2.0 * oxf.get_scale().x\n\tvar oc = oxf.origin\n\tfoot.append([oc, orad, Rect2(oc.x - 100.0 * oxf.get_scale().x, oc.y + orad, 200.0 * oxf.get_scale().x, 50.0 * oxf.get_scale().x)])\nfor i in range(toks.size()):\n\tvar t = toks[i]\n\tvar key = \"%s/%s\" % [str(t.get_meta(\"unit_id\")), str(t.get_meta(\"model_id\"))]\n\tif only.size() > 0 and not only.has(key):\n\t\tcontinue\n\tvar rect = t.t15_silhouette_rect()\n\tif rect.is_empty() or (only.size() == 0 and not rect[\"painted\"]):\n\t\tcontinue\n\tvar xf = t.get_global_transform_with_canvas()\n\tvar p0 = xf * rect[\"position\"]\n\tvar p1 = xf * (rect[\"position\"] + rect[\"size\"])\n\tif p0.x < 345 or p0.y < 105 or p1.x > 1515 or p1.y > 1045:\n\t\tcontinue\n\tvar grect = Rect2(p0, p1 - p0)\n\tvar hidden = false\n\t# (a named token list vouches for its own tokens being in clear view)\n\tfor j in range(i + 1, toks.size() if only.is_empty() else 0):\n\t\tvar f = foot[j]\n\t\tvar gc = grect.get_center()\n\t\tvar near = Vector2(clampf(f[0].x, grect.position.x, grect.end.x), clampf(f[0].y, grect.position.y, grect.end.y))\n\t\tif near.distance_to(f[0]) < f[1] or grect.intersects(f[2]):\n\t\t\thidden = true\n\t\t\tbreak\n\tif hidden:\n\t\tcontinue\n\tvar tex = t.get_node(\"Silhouette\").texture\n\tif not cache.has(tex.resource_path):\n\t\tcache[tex.resource_path] = tex.get_image()\n\tvar img = cache[tex.resource_path]\n\tvar w = img.get_width()\n\tvar b = t.base_shape.get_bounds()\n\tvar r = min(b.size.x, b.size.y) / 2.0\n\tvar agree = 0\n\tvar total = 0\n\tfor gy in range(16):\n\t\tfor gx in range(16):\n\t\t\tvar uv = Vector2((gx + 0.5) / 16.0, (gy + 0.5) / 16.0)\n\t\t\tvar tx = int(uv.x * w)\n\t\t\tvar ty = int(uv.y * w)\n\t\t\tvar cls = \"\"\n\t\t\tvar ok_cls = true\n\t\t\tfor d in [Vector2i(0, 0), Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:\n\t\t\t\tvar c = img.get_pixel(clampi(tx + d.x, 0, w - 1), clampi(ty + d.y, 0, w - 1))\n\t\t\t\tvar k = \"clear\" if c.a < 0.02 else (\"white\" if c.a > 0.98 and c.r > 0.9 else (\"black\" if c.a > 0.98 and c.r < 0.1 else \"mixed\"))\n\t\t\t\tif cls == \"\":\n\t\t\t\t\tcls = k\n\t\t\t\telif k != cls:\n\t\t\t\t\tok_cls = false\n\t\t\tif not ok_cls or cls == \"mixed\":\n\t\t\t\tcontinue\n\t\t\tvar local = rect[\"position\"] + uv * rect[\"size\"]\n\t\t\tif cls == \"clear\" and local.length() > 0.6 * r:\n\t\t\t\tcontinue\n\t\t\tvar sp = xf * local\n\t\t\tvar px = shot.get_pixel(int(sp.x), int(sp.y))\n\t\t\tvar lum = 0.299 * px.r + 0.587 * px.g + 0.114 * px.b\n\t\t\ttotal += 1\n\t\t\tif (cls == \"white\" and lum >= white_min) or (cls == \"black\" and lum <= 0.3) or (cls == \"clear\" and lum < 0.5):\n\t\t\t\tagree += 1\n\tif total < 40:\n\t\tbad.append(\"%s: only %d sample points\" % [key, total])\n\t\tcontinue\n\tvar ratio = float(agree) / float(total)\n\tworst = min(worst, ratio)\n\tbest = max(best, ratio)\n\tchecked += 1\n\tif ratio < ratio_min:\n\t\tbad.append(\"%s %s %.2f\" % [key, t.silhouette_category, ratio])\n\telse:\n\t\tcats[t.silhouette_category] = true\nvar names = cats.keys()\nnames.sort()\nif not bad.is_empty():\n\treturn \"below %.2f: %s\" % [ratio_min, \", \".join(bad)]\nreturn \"ok %d glyphs: %s\" % [checked, \",\".join(names)]",
+      "equals": "ok 14 glyphs: aircraft,beast,character,infantry,mounted"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

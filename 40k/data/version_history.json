@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.68.0",
+      "date": "2026-11-01",
+      "summary": "Every model without its own artwork now shows a white silhouette of what it is - a trooper, a hero, a tank, a walker, a beast, an aircraft or a rider - in the middle of its base, and its letters move under the base.",
+      "changes": [
+        "The middle of the base shows the unit type as a bold white shape with a black edge, so you can tell infantry from heroes, walkers, bikes, beasts and aircraft at a glance. It is picked from the unit's keywords: a Dreadnought is a walker, a jetbike Captain a rider, a Wazbom Blastajet an aircraft, a Warboss a hero.",
+        "The short letters that used to fill the base (e.g. 'BO*', 'Cu') now sit just under it in a small bold outlined font. The model that carries the unit's name plate keeps just the plate there, so there is only one line of text under any model. A custom label you give a unit shows there too.",
+        "Walkers, aircraft and bikes that count as vehicles used to borrow the generic tank picture. They now show their own shape. Tanks keep the tank picture, and units with their own artwork keep it.",
+        "On a light base colour (the 'Full' colour display) the silhouette is drawn black instead of white, so it always stands out.",
+        "The shapes stay readable when you zoom out to half size."
+      ]
+    },
+    {
       "version": "1.67.0",
       "date": "2026-10-31",
       "summary": "Press Shift+F to jump the camera to the unit you have selected: it glides there and frames the whole unit in the middle of the part of the board you can see.",

@@ -77,19 +77,21 @@ const ANIM_DEATH := "death"
 
 func _ready() -> void:
 	z_index = 10
-	# T16: add a child Label that shows the model identifier and is hidden
-	# by t16_apply_zoom() when zoom falls below the threshold.
+	# T15 + T16: the Label child is the token's letter label (the unit's letter
+	# counter, e.g. "BO*" / "Cu"), centred just under the base. T15 moved the
+	# letter out of the middle of the base, which now shows the unit-type
+	# silhouette; the model carrying the unit's name plate shows the plate there
+	# instead. t16_apply_zoom() hides the label when zoomed out.
 	var lbl := Label.new()
 	lbl.name = "Label"
-	lbl.text = str(model_number)
-	lbl.position = Vector2(-6, 12)  # under the base
-	lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
-	lbl.add_theme_font_size_override("font_size", 16)
 	add_child(lbl)
-	# T15: silhouette child (procedural). Drawn first so rings render on top.
-	var silhouette := _t15_make_silhouette()
-	if silhouette != null:
-		add_child(silhouette)
+	# T15: the silhouette glyph's spec node, painted by _draw_letter_mode().
+	var silhouette := SilhouetteGlyph.new()
+	silhouette.name = "Silhouette"
+	silhouette.scale = Vector2.ONE * T15_GLYPH_SCALE
+	add_child(silhouette)
+	_t15_update_silhouette()
+	_t15_sync_letter_label(true)
 	# T09: reset exhaustion on phase boundary.
 	var pm = get_node_or_null("/root/PhaseManager")
 	if pm != null and pm.has_signal("phase_changed"):
@@ -152,6 +154,7 @@ func _t09_unit_has_acted() -> bool:
 
 func _on_unit_style_changed(_new_style: String) -> void:
 	_t08_update_ring_visibility()
+	_t15_update_silhouette()
 	queue_redraw()
 
 
@@ -425,116 +428,252 @@ func _t08_model_type_ring_radius(radius: float) -> float:
 	return geo["slot_mid"] - geo["slot_width"] * 0.5 - 1.0
 
 
-# T15: procedural silhouette node. silhouette_category is one of
-# {"infantry", "tank", "walker", "beast", "character", "aircraft", "mounted"}
-# derived from the unit's keywords. The Sprite2D gets a small procedurally-
-# generated ImageTexture so scenarios can assert texture != null without
-# needing art assets to land first.
+# T15: unit-type silhouette glyph (design doc §2: "faction = hue, type =
+# silhouette"). A token without dedicated top-down art shows a high-contrast
+# monochrome glyph for its unit's category in the middle of the base, where the
+# letter counter used to be; the letter moved to the Label child under the base
+# (on the model that carries the unit's name plate, the plate takes its place).
+#
+# silhouette_category is one of T15_CATEGORIES, read from the unit's keywords by
+# silhouette_category_for_keywords(): body type first (AIRCRAFT, WALKER,
+# MOUNTED, VEHICLE, MONSTER/BEAST/SWARM), then CHARACTER, else "infantry" - so
+# a MOUNTED CHARACTER is "mounted" and a FLY grav-tank is still a "tank". The
+# glyphs are res://assets/icons/unit_silhouettes/<category>.svg: white on a
+# black keyline, imported at 4x with mipmaps so they stay crisp zoomed in and
+# clean zoomed out (painted through a mipmapped CanvasTexture).
+#
+# The "Silhouette" child is the glyph's spec, painted by _draw_letter_mode() at
+# Layer 3 - beneath the rings' inner edge and under every badge and overlay -
+# the way the T08 ring nodes are: texture = the glyph, modulate = its tint (the
+# base's contrast colour: white on the dark ring-mode base, black on a light
+# full-colour base), scale.x = its half-size as a fraction of the base radius,
+# visible = whether it is painted. It is painted in the letter style for every
+# token without dedicated unit art, except a "tank" that has the generic tank
+# sprite (already a tank silhouette). Walkers, aircraft and mounted vehicles
+# used to borrow that tank sprite; they now get their own glyph. A token whose
+# glyph is not painted keeps the pre-T15 look (letter counter / tank sprite).
+const T15_CATEGORIES := ["infantry", "tank", "walker", "beast", "character", "aircraft", "mounted"]
+const T15_SILHOUETTE_DIR := "res://assets/icons/unit_silhouettes/"
+# Half-size of the glyph as a fraction of the base radius. The glyph's body sits
+# within 30/32 of its half-size (~0.62 r), inside the T08 faction band's inner
+# edge (~0.65 r); its outermost corners (cape hem, wheels, feet, tracks) reach
+# at most 1.1x its half-size (~0.72 r), short of the band's mid-line (0.74 r).
+const T15_GLYPH_SCALE := 0.66
+const T15_LABEL_FONT_SIZE := 13
+const T15_LABEL_OUTLINE_SIZE := 4
+const T15_LABEL_COLOR := Color(0.95, 0.95, 0.95, 1.0)
+const T15_LABEL_OUTLINE_COLOR := Color(0.0, 0.0, 0.0, 0.9)
+
+static var _t15_textures: Dictionary = {}         # category -> Texture2D (or null)
+static var _t15_canvas_textures: Dictionary = {}  # texture instance id -> CanvasTexture
+
 var silhouette_category: String = ""
+var _t15_unit_id: String = ""      # the unit_id the glyph was last resolved for
+var _t15_letter_text: String = ""  # the letter the Label was last given
 
 
-func _t15_make_silhouette() -> Sprite2D:
-	silhouette_category = _t15_category_from_keywords()
-	if silhouette_category == "":
-		return null
-	var s := Sprite2D.new()
-	s.name = "Silhouette"
-	s.texture = _t15_make_silhouette_texture(silhouette_category)
-	s.modulate = Color(1, 1, 1, 0.85)
-	s.position = Vector2(0, 0)
-	s.z_index = 1
-	# The procedural silhouette is a placeholder that renders as a white shape
-	# (a disc for infantry, etc.) at the model center. It exists purely so the
-	# T15 scenario can assert the node/texture/category are wired up; it was
-	# never meant to be a visible gameplay element. Keep the node (with its
-	# texture + silhouette_category) for those assertions but don't render it,
-	# so it no longer shows a white circle in the middle of every model.
-	s.visible = false
-	return s
+# The glyph's spec node (see above). A Node2D that draws nothing itself.
+class SilhouetteGlyph extends Node2D:
+	var texture: Texture2D = null
 
 
-func _t15_category_from_keywords() -> String:
-	var keywords: Array = []
-	if "model_data" in self and typeof(model_data) == TYPE_DICTIONARY:
-		var raw = model_data.get("keywords", [])
-		if typeof(raw) == TYPE_ARRAY:
-			keywords = raw
-	if keywords.is_empty():
-		var gs = get_node_or_null("/root/GameState")
-		if gs != null:
-			# Walk all units to find one whose model contains this TokenVisual's
-			# unit_id via meta lookup; cheap because TokenVisual.name is the unit_id.
-			var uid: String = name
-			var u = gs.get_unit(uid)
-			if typeof(u) == TYPE_DICTIONARY:
-				var k2 = u.get("meta", {}).get("keywords", [])
-				if typeof(k2) == TYPE_ARRAY:
-					keywords = k2
-	var upper: Array = []
+# Category for a unit's keywords (case-insensitive). Pure: the scenario and the
+# headless test check it against their own table.
+static func silhouette_category_for_keywords(keywords: Array) -> String:
+	var kw := {}
 	for k in keywords:
-		upper.append(str(k).to_upper())
-	if upper.has("AIRCRAFT") or upper.has("FLY"):
+		kw[str(k).strip_edges().to_upper()] = true
+	if kw.has("AIRCRAFT"):
 		return "aircraft"
-	if upper.has("VEHICLE"):
-		return "tank"
-	if upper.has("WALKER"):
+	if kw.has("WALKER"):
 		return "walker"
-	if upper.has("MOUNTED") or upper.has("CAVALRY"):
+	if kw.has("MOUNTED") or kw.has("CAVALRY"):
 		return "mounted"
-	if upper.has("BEAST") or upper.has("MONSTER"):
+	if kw.has("VEHICLE"):
+		return "tank"
+	if kw.has("MONSTER") or kw.has("BEAST") or kw.has("BEASTS") or kw.has("SWARM"):
 		return "beast"
-	if upper.has("CHARACTER"):
+	if kw.has("CHARACTER"):
 		return "character"
-	if upper.has("INFANTRY"):
-		return "infantry"
-	return "infantry"  # default; non-empty so Silhouette is added
+	return "infantry"
 
 
-func _t15_make_silhouette_texture(category: String) -> ImageTexture:
-	# 32x32 white-on-transparent shape; modulate handles color tinting.
-	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	match category:
-		"infantry":
-			_t15_fill_disc(img, Vector2i(16, 16), 8)
-		"character":
-			_t15_fill_disc(img, Vector2i(16, 12), 5)
-			_t15_fill_rect(img, Rect2i(11, 16, 10, 12))
-		"tank":
-			_t15_fill_rect(img, Rect2i(6, 10, 20, 12))
-		"walker":
-			# Triangle pointing up
-			for y in range(8, 28):
-				var width: int = (y - 8)
-				_t15_fill_rect(img, Rect2i(16 - width / 2, y, max(1, width), 1))
-		"beast":
-			_t15_fill_disc(img, Vector2i(16, 18), 10)
-		"aircraft":
-			_t15_fill_rect(img, Rect2i(4, 14, 24, 4))
-			_t15_fill_rect(img, Rect2i(14, 6, 4, 20))
-		"mounted":
-			_t15_fill_disc(img, Vector2i(12, 18), 6)
-			_t15_fill_disc(img, Vector2i(22, 14), 5)
-		_:
-			_t15_fill_disc(img, Vector2i(16, 16), 8)
-	return ImageTexture.create_from_image(img)
+# The imported glyph texture for a category (cached; null if it is missing).
+static func silhouette_texture_for(category: String) -> Texture2D:
+	if not _t15_textures.has(category):
+		var tex: Texture2D = null
+		var path := T15_SILHOUETTE_DIR + category + ".svg"
+		if category in T15_CATEGORIES and ResourceLoader.exists(path, "Texture2D"):
+			tex = load(path) as Texture2D
+		_t15_textures[category] = tex
+	return _t15_textures[category]
 
 
-func _t15_fill_disc(img: Image, center: Vector2i, radius: int) -> void:
-	var sz: Vector2i = img.get_size()
-	for y in range(max(0, center.y - radius), min(sz.y, center.y + radius + 1)):
-		for x in range(max(0, center.x - radius), min(sz.x, center.x + radius + 1)):
-			var dx: int = x - center.x
-			var dy: int = y - center.y
-			if dx * dx + dy * dy <= radius * radius:
-				img.set_pixel(x, y, Color(1, 1, 1, 1))
+static func _t15_canvas_texture(tex: Texture2D) -> Texture2D:
+	var key := tex.get_instance_id()
+	if not _t15_canvas_textures.has(key):
+		var ct := CanvasTexture.new()
+		ct.diffuse_texture = tex
+		ct.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_t15_canvas_textures[key] = ct
+	return _t15_canvas_textures[key]
 
 
-func _t15_fill_rect(img: Image, rect: Rect2i) -> void:
-	var sz: Vector2i = img.get_size()
-	for y in range(max(0, rect.position.y), min(sz.y, rect.position.y + rect.size.y)):
-		for x in range(max(0, rect.position.x), min(sz.x, rect.position.x + rect.size.x)):
-			img.set_pixel(x, y, Color(1, 1, 1, 1))
+func _t15_unit_keywords() -> Array:
+	if has_meta("unit_id"):
+		var u = GameState.get_unit(str(get_meta("unit_id")))
+		if typeof(u) == TYPE_DICTIONARY and not u.is_empty():
+			var kw = u.get("meta", {}).get("keywords", [])
+			if typeof(kw) == TYPE_ARRAY:
+				return kw
+	var raw = model_data.get("keywords", [])
+	return raw if typeof(raw) == TYPE_ARRAY else []
+
+
+# A "tank" with the generic Kenney tank sprite keeps that sprite.
+func _t15_uses_tank_sprite() -> bool:
+	return silhouette_category == "tank" and has_meta("unit_id") and _get_tank_body_texture() != null
+
+
+# Re-resolve the category, the glyph and whether it is painted. Runs on _ready,
+# on a unit-style change and when the token's unit_id changes - not on every
+# repaint, so the spec node's visible flag is the painter's input.
+func _t15_update_silhouette() -> void:
+	var sil = get_node_or_null("Silhouette")
+	if sil == null:
+		return
+	_t15_unit_id = str(get_meta("unit_id")) if has_meta("unit_id") else ""
+	silhouette_category = silhouette_category_for_keywords(_t15_unit_keywords())
+	sil.texture = silhouette_texture_for(silhouette_category)
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	var painted: bool = style == "letter" and not debug_mode and sil.texture != null
+	# The art lookups cache their answer, so only ask once the unit is known.
+	if painted and _t15_unit_id != "":
+		painted = _get_unit_sprite_texture() == null and not _t15_uses_tank_sprite()
+	if sil.visible != painted:
+		sil.visible = painted
+	if sil.texture == null:
+		DebugLogger.warn("[TokenVisual] T15: no silhouette glyph for category '%s' (unit %s); keeping the letter counter" % [silhouette_category, _t15_unit_id])
+
+
+# The spec node when its glyph is to be painted this frame, else null. Keeps the
+# tint on the contrast colour of the base fill (assigned only on change).
+func _t15_silhouette_for_paint(base_fill: Color):
+	var sil = get_node_or_null("Silhouette")
+	if sil == null:
+		return null
+	var uid := str(get_meta("unit_id")) if has_meta("unit_id") else ""
+	if uid != _t15_unit_id:
+		_t15_update_silhouette()
+	if not sil.visible or sil.texture == null:
+		return null
+	var tint: Color = FactionPalettes.get_contrast_text_color(base_fill)
+	if sil.modulate != tint:
+		sil.modulate = tint
+	return sil
+
+
+func _t15_draw_silhouette(sil, radius: float) -> void:
+	var half: float = radius * sil.scale.x
+	var rect := Rect2(sil.position - Vector2(half, half), Vector2(half, half) * 2.0)
+	draw_texture_rect(_t15_canvas_texture(sil.texture), rect, false, sil.modulate)
+
+
+# T15 test seam: the glyph's rect in token-local px plus whether it is painted
+# ({position, size, painted}; {} when the token has no glyph texture), so a
+# scenario can sample the screen inside it - also where a hidden glyph would
+# sit. Reads the same spec the painter uses and changes nothing.
+func t15_silhouette_rect() -> Dictionary:
+	var sil = get_node_or_null("Silhouette")
+	if sil == null or sil.texture == null:
+		return {}
+	var radius := 20.0  # _draw()'s fallback CircularBase(20.0)
+	if base_shape != null:
+		var b = base_shape.get_bounds()
+		radius = min(b.size.x, b.size.y) / 2.0
+	var half: float = radius * sil.scale.x
+	return {"position": sil.position - Vector2(half, half), "size": Vector2(half, half) * 2.0,
+		"painted": sil.visible}
+
+
+# Give the Label the token's current letter (custom label or the auto letter
+# counter) and lay it out under the base. The model that carries the unit's
+# name plate (_draw_unit_name_label) leaves it empty: the plate already names
+# the unit right under that base, and one text row keeps tight formations
+# readable. Only touches the Label when its text changed since it was last
+# given (or when forced), so it follows a renamed unit or a migrating name plate
+# on its next repaint without fighting anything else that set it.
+func _t15_sync_letter_label(force: bool = false) -> void:
+	var lbl = get_node_or_null("Label")
+	if lbl == null:
+		return
+	var want: String = "" if _t15_name_plate_shown() else _get_letter_label()
+	if not force and want == _t15_letter_text:
+		return
+	_t15_letter_text = want
+	lbl.text = want
+	_t15_style_letter_label()
+	_t15_layout_letter_label()
+
+
+# True when this token draws its unit's name plate under the base (the same
+# conditions _draw_unit_name_label() checks: labels on, unit known and named,
+# this model the unit's first alive one).
+func _t15_name_plate_shown() -> bool:
+	if SettingsService and not SettingsService.show_unit_labels:
+		return false
+	if not has_meta("unit_id"):
+		return false
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	if unit.is_empty():
+		return false
+	var meta = unit.get("meta", {})
+	if str(meta.get("display_name", meta.get("name", ""))) == "":
+		return false
+	return _is_unit_label_anchor(unit)
+
+
+# The Label's look: small bold UI type (a faction display face such as Caslon
+# Antique goes thin and grey at this size), light text on a dark outline so it
+# reads on any terrain, drawn beneath every token's base (z 9 under the tokens'
+# 10) so in a tight formation a neighbour's letter never covers this model's
+# rings or glyph.
+func _t15_style_letter_label() -> void:
+	var lbl = get_node_or_null("Label")
+	if lbl == null:
+		return
+	lbl.z_index = -1
+	lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	lbl.add_theme_font_size_override("font_size", T15_LABEL_FONT_SIZE)
+	lbl.add_theme_color_override("font_color", T15_LABEL_COLOR)
+	lbl.add_theme_color_override("font_outline_color", T15_LABEL_OUTLINE_COLOR)
+	lbl.add_theme_constant_override("outline_size", T15_LABEL_OUTLINE_SIZE)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+
+# Centre the Label just under the base - below its lowest point (oval/rect
+# bases follow the model's rotation) and clear of the action status tick that
+# TokenDrawUtils.draw_status_tick paints just under the rim.
+func _t15_layout_letter_label() -> void:
+	var lbl = get_node_or_null("Label")
+	if lbl == null:
+		return
+	lbl.size = Vector2.ZERO  # shrink to the text
+	lbl.size = lbl.get_minimum_size()
+	lbl.position = Vector2(-lbl.size.x / 2.0, _t15_letter_label_top())
+
+
+func _t15_letter_label_top() -> float:
+	var radius := 20.0
+	var bottom := 20.0
+	if base_shape != null:
+		var b = base_shape.get_bounds()
+		radius = min(b.size.x, b.size.y) / 2.0
+		bottom = radius
+		for p in _get_shape_polygon(model_data.get("rotation", 0.0)):
+			bottom = max(bottom, p.y)
+	var tick_bottom: float = radius + 3.0 + max(3.0, radius * 0.08)
+	return max(bottom, tick_bottom) + 1.0
 
 
 func _t08_make_ring(node_name: String, scale_factor: float, ring_color: Color) -> Node2D:
@@ -638,6 +777,9 @@ func _draw() -> void:
 	if not base_shape:
 		# Fallback to circular if no shape defined
 		base_shape = CircularBase.new(20.0)
+
+	# T15: the letter label under the base follows a renamed unit (custom label).
+	_t15_sync_letter_label()
 
 	var fill_color: Color
 	var border_color: Color
@@ -989,13 +1131,20 @@ func _draw_letter_mode() -> void:
 	# the inner band blends into it and the slot ring frames it.
 	_t08_draw_rings(radius, shape_type, rot)
 
-	# --- Layer 3: Top-down unit art, vehicle tank sprite, or letter label ---
+	# --- Layer 3: Top-down unit art, tank sprite, T15 silhouette, or letter ---
 	# Units with dedicated top-down art (bundled or user drop-in, resolved by
-	# SpriteResolver) render that; VEHICLE tokens without dedicated art fall
-	# back to the generic tank sprite (faction colorway); everything else
-	# keeps the Vassal-style letter counter.
+	# SpriteResolver) render that; a "tank" without dedicated art falls back to
+	# the generic tank sprite (faction colorway); everything else shows its
+	# T15 unit-type silhouette glyph (its letter counter is the Label under the
+	# base). Without a painted glyph, a vehicle keeps the tank sprite and the
+	# rest the Vassal-style letter counter, as before T15.
+	var silhouette = _t15_silhouette_for_paint(base_fill)
 	if _get_unit_sprite_texture() != null:
 		_draw_unit_sprite(rot)
+	elif _t15_uses_tank_sprite():
+		_draw_tank_sprite(rot)
+	elif silhouette != null:
+		_t15_draw_silhouette(silhouette, radius)
 	elif _get_tank_body_texture() != null:
 		_draw_tank_sprite(rot)
 	else:
@@ -2021,6 +2170,7 @@ func set_preview(preview: bool) -> void:
 func set_debug_mode(active: bool) -> void:
 	debug_mode = active
 	_t08_update_ring_visibility()
+	_t15_update_silhouette()
 	queue_redraw()
 
 func set_model_data(data: Dictionary) -> void:
@@ -2028,6 +2178,9 @@ func set_model_data(data: Dictionary) -> void:
 	base_shape = Measurement.create_base_shape(data)
 	_faction_font = null  # Reset font cache on model change
 	_special_checked = false  # Task B: recompute special-weapon flag on data change
+	# T15: the letter label follows the base's new footprint / rotation.
+	if is_inside_tree():
+		_t15_layout_letter_label()
 	queue_redraw()
 
 	# Set model number if available

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- T15 unit-type silhouette: aircraft. White glyph on a black keyline, drawn by
+     TokenVisual in place of the centred letter and tinted with the base's
+     contrast colour (white on dark bases, black on light ones). -->
+<g fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+    <polygon points="32,3 36,13 37,50 32,57 27,50 28,13"/>
+    <polygon points="36,22 58,40 58,45 37,39"/>
+    <polygon points="27,39 6,45 6,40 28,22"/>
+    <polygon points="36,47 46,55 46,58.5 35,54"/>
+    <polygon points="29,54 18,58.5 18,55 28,47"/>
+</g>
+<g fill="#fff">
+    <polygon points="32,3 36,13 37,50 32,57 27,50 28,13"/>
+    <polygon points="36,22 58,40 58,45 37,39"/>
+    <polygon points="27,39 6,45 6,40 28,22"/>
+    <polygon points="36,47 46,55 46,58.5 35,54"/>
+    <polygon points="29,54 18,58.5 18,55 28,47"/>
+</g>
+<g fill="#000">
+    <polygon points="32,9 34,15 32,22 30,15"/>
+</g>
+</svg>

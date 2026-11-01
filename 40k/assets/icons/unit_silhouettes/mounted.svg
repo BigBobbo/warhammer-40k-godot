@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- T15 unit-type silhouette: mounted. White glyph on a black keyline, drawn by
+     TokenVisual in place of the centred letter and tinted with the base's
+     contrast colour (white on dark bases, black on light ones). -->
+<g fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+    <circle cx="15" cy="46" r="10"/>
+    <circle cx="49" cy="46" r="10"/>
+    <polygon points="11,41 20,31 45,29 56,37 50,44 19,46"/>
+    <polygon points="45,30 50,19.5 55,20.5 51,33"/>
+    <circle cx="30" cy="11" r="6.5"/>
+    <polygon points="21,31 23,17 35,14.5 47,22 44.5,27 34,22.5 32,32"/>
+</g>
+<g fill="#fff">
+    <circle cx="15" cy="46" r="10"/>
+    <circle cx="49" cy="46" r="10"/>
+</g>
+<g fill="#000" stroke="#000" stroke-width="2.2" stroke-linejoin="round">
+    <polygon points="11,41 20,31 45,29 56,37 50,44 19,46"/>
+    <polygon points="45,30 50,19.5 55,20.5 51,33"/>
+</g>
+<g fill="#fff">
+    <polygon points="11,41 20,31 45,29 56,37 50,44 19,46"/>
+    <polygon points="45,30 50,19.5 55,20.5 51,33"/>
+</g>
+<g fill="#000" stroke="#000" stroke-width="2.2" stroke-linejoin="round">
+    <circle cx="30" cy="11" r="6.5"/>
+    <polygon points="21,31 23,17 35,14.5 47,22 44.5,27 34,22.5 32,32"/>
+</g>
+<g fill="#fff">
+    <circle cx="30" cy="11" r="6.5"/>
+    <polygon points="21,31 23,17 35,14.5 47,22 44.5,27 34,22.5 32,32"/>
+</g>
+<g fill="#000">
+    <circle cx="15" cy="46" r="3.6"/>
+    <circle cx="49" cy="46" r="3.6"/>
+</g>
+</svg>
