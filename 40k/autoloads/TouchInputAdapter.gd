@@ -39,7 +39,17 @@ const DRAG_SLOP_PX := 14.0
 const DOUBLE_TAP_SEC := 0.35
 const DOUBLE_TAP_PX := 40.0
 
-enum State { IDLE, PENDING, LEFT_DOWN, RIGHT_DOWN, SCROLLING, GESTURE }
+enum State { IDLE, PENDING, LEFT_DOWN, RIGHT_DOWN, SCROLLING, GESTURE, HOVER_PLACE }
+
+## Toolbar label shown for a KeybindingManager action — the tutorial renders
+## {key:<action>} tokens with these on touch so "press [Ctrl+A]" becomes
+## "tap [All]". Actions missing here keep their key name.
+const TOUCH_LABELS := {
+	"zoom_in": "+", "zoom_out": "−", "fit_view_board": "Fit",
+	"rotate_board": "Board", "measuring_tape": "Tape",
+	"rotate_left": "⟲", "rotate_right": "⟳", "select_all": "All",
+	"undo_deployment": "Undo", "datasheet_modal": "Info", "hotkey_help": "?",
+}
 
 var enabled := false
 var state: int = State.IDLE
@@ -61,13 +71,34 @@ var _gesture_centroid := Vector2.ZERO
 var _gesture_distance := 0.0
 var _gesture_over_ui := false
 var _wheel_accum := 0.0
+# A second finger tapping a toolbar button while the first holds a model
+# (desktop parity: hold the hull + press Q/E). -1 = none.
+var _toolbar_touch_index := -1
+var _toolbar_touch_button: Button = null
 
 # Counters for live validation (read via the MCP bridge).
-var stats := {"taps": 0, "drags": 0, "long_presses": 0, "pans": 0, "zooms": 0, "scrolls": 0, "back": 0}
+var stats := {"taps": 0, "drags": 0, "long_presses": 0, "pans": 0, "zooms": 0, "scrolls": 0, "back": 0, "hover_places": 0, "pickups": 0, "toolbar_second_finger": 0}
 
-var _toolbar_layer: CanvasLayer = null
 var _toolbar: PanelContainer = null
 var _rclick_button: Button = null
+var _help_layer: CanvasLayer = null
+var _multi_button: Button = null
+var _collapse_button: Button = null
+## Sticky Ctrl ("Multi" toolbar toggle): taps add to a selection — charge
+## several targets, Ctrl+click extra models — the phone's Ctrl+click.
+var multi_mode := false
+## Pointer parking: a touch leaves the (invisible) pointer where the finger
+## lifted, so tooltips and hover cards would pop up and stay over the board.
+## Shortly after the last finger lifts the pointer is moved off-screen.
+const PARK_DELAY_SEC := 0.35
+const PARK_POS := Vector2(-4000, -4000)
+var _park_at := 0.0
+var parked := false
+var _placement_centered_for := ""
+# Motion emitted in the same frame as a button event is held back one frame
+# (see _emit_motion).
+var _last_button_frame := -1
+var _pending_motion: Array = []  # [pos, rel, mask]
 
 
 func _ready() -> void:
@@ -93,10 +124,8 @@ func set_enabled(on: bool) -> void:
 	# arrive twice (once as an instant left press from the engine).
 	Input.emulate_mouse_from_touch = not on
 	_reset_state()
-	if on:
-		_ensure_toolbar()
-	if _toolbar_layer:
-		_toolbar_layer.visible = on and _in_battle_scene()
+	if is_instance_valid(_toolbar):
+		_toolbar.visible = on
 	print("[TouchInputAdapter] touch mode %s (engine mouse emulation %s)"
 		% ["ENABLED" if on else "disabled", "off" if on else "on"])
 	touch_mode_changed.emit(on)
@@ -107,6 +136,8 @@ func _reset_state() -> void:
 	_primary_index = -1
 	state = State.IDLE
 	_scroll_target = null
+	_toolbar_touch_index = -1
+	_toolbar_touch_button = null
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +174,8 @@ func _on_touch(ev: InputEventScreenTouch) -> void:
 		_touches[ev.index] = ev.position
 		if _touches.size() == 1 and state == State.IDLE:
 			_primary_index = ev.index
+			_park_at = 0.0
+			parked = false
 			_start_pos = ev.position
 			_last_pos = ev.position
 			_start_time = _now()
@@ -157,15 +190,34 @@ func _on_touch(ev: InputEventScreenTouch) -> void:
 				state = State.RIGHT_DOWN
 				stats.long_presses += 1
 		elif _touches.size() == 2:
+			var tb := _toolbar_button_at(ev.position)
+			if tb != null and state != State.GESTURE:
+				# Keep the first finger's hold alive; this finger is a button tap.
+				_toolbar_touch_index = ev.index
+				_toolbar_touch_button = tb
+				return
 			_begin_gesture()
 		return
 
 	# Released.
 	_touches.erase(ev.index)
+	if ev.index == _toolbar_touch_index:
+		var tb := _toolbar_touch_button
+		_toolbar_touch_index = -1
+		_toolbar_touch_button = null
+		if is_instance_valid(tb) and tb.get_global_rect().has_point(ev.position):
+			stats.toolbar_second_finger += 1
+			print("[TouchInputAdapter] second-finger toolbar tap: %s" % tb.name)
+			if tb.toggle_mode:
+				tb.button_pressed = not tb.button_pressed
+			else:
+				tb.pressed.emit()
+		return
 	if state == State.GESTURE:
 		if _touches.is_empty():
 			print("[TouchInputAdapter] gesture end")
 			state = State.IDLE
+			_park_at = _now() + PARK_DELAY_SEC
 		return
 	if ev.index != _primary_index:
 		return
@@ -187,7 +239,14 @@ func _on_touch(ev: InputEventScreenTouch) -> void:
 			print("[TouchInputAdapter] right release at %s" % str(ev.position))
 		State.SCROLLING:
 			print("[TouchInputAdapter] scroll end")
+		State.HOVER_PLACE:
+			# The ghost followed the finger; the drop happens HERE, on lift.
+			_emit_button(MOUSE_BUTTON_LEFT, true, ev.position)
+			_emit_button(MOUSE_BUTTON_LEFT, false, ev.position)
+			stats.hover_places += 1
+			print("[TouchInputAdapter] placement drop on lift at %s" % str(ev.position))
 	_reset_state()
+	_park_at = _now() + PARK_DELAY_SEC
 
 
 func _on_drag(ev: InputEventScreenDrag) -> void:
@@ -198,7 +257,7 @@ func _on_drag(ev: InputEventScreenDrag) -> void:
 		_update_gesture()
 		return
 	if ev.index != _primary_index:
-		return
+		return  # includes a second finger resting on a toolbar button
 	var rel := ev.position - _last_pos
 	_last_pos = ev.position
 	match state:
@@ -215,6 +274,24 @@ func _on_drag(ev: InputEventScreenDrag) -> void:
 				_scroll_target.scroll_vertical -= int(moved.y)
 				print("[TouchInputAdapter] scrolling %s" % _scroll_target.name)
 				return
+			# Ghost placement (deployment / disembark / reserves arrival): the
+			# held finger only AIMS — no button goes out until it lifts, so a
+			# model is never dropped mid-drag. Dragging a model of this unit
+			# that is already down picks it up again (desktop: Shift+click).
+			var pm := _placement_mode_at(_start_pos)
+			if pm != "":
+				state = State.HOVER_PLACE
+				if pm == "pickup":
+					stats.pickups += 1
+					_tap_key_down(KEY_SHIFT, true)
+					_emit_button(MOUSE_BUTTON_LEFT, true, _start_pos)
+					_emit_button(MOUSE_BUTTON_LEFT, false, _start_pos)
+					_tap_key_down(KEY_SHIFT, false)
+					print("[TouchInputAdapter] placement: picked up placed model at %s" % str(_start_pos))
+				else:
+					print("[TouchInputAdapter] placement: aiming (drop on lift)")
+				_emit_motion(ev.position, moved, 0)
+				return
 			# Press where the finger first landed so the drag picks up the
 			# model under it, then catch up to the finger.
 			state = State.LEFT_DOWN
@@ -229,18 +306,27 @@ func _on_drag(ev: InputEventScreenDrag) -> void:
 		State.SCROLLING:
 			if is_instance_valid(_scroll_target):
 				_scroll_target.scroll_vertical -= int(rel.y)
+		State.HOVER_PLACE:
+			_emit_motion(ev.position, rel, 0)
 
 
 func _process(_delta: float) -> void:
 	if not enabled:
 		return
-	if _toolbar_layer:
-		var want := _in_battle_scene()
-		if _toolbar_layer.visible != want:
-			_toolbar_layer.visible = want
+	_flush_pending_motion()
+	if state == State.IDLE and _touches.is_empty():
+		_tick_parking()
+	# The toolbar lives INSIDE the battle scene (built per scene, see
+	# _build_toolbar) so it is rebuilt whenever a new battle scene loads.
+	var bm := _battle_main()
+	if bm != null and (not is_instance_valid(_toolbar) or _toolbar.get_parent() != bm):
+		_build_toolbar(bm)
 	if state == State.PENDING and _touches.size() == 1 \
 			and _now() - _start_time >= LONG_PRESS_SEC \
-			and _last_pos.distance_to(_start_pos) < DRAG_SLOP_PX:
+			and _last_pos.distance_to(_start_pos) < DRAG_SLOP_PX \
+			and _placement_mode_at(_start_pos) == "":
+		# (No long-press while aiming a placement ghost: players rest a finger
+		# on the board while they line a model up.)
 		state = State.RIGHT_DOWN
 		stats.long_presses += 1
 		Input.vibrate_handheld(25)
@@ -248,11 +334,65 @@ func _process(_delta: float) -> void:
 		print("[TouchInputAdapter] long-press -> right press at %s" % str(_start_pos))
 
 
+func _tick_parking() -> void:
+	var main := _battle_main()
+	# A placement ghost follows the pointer: when a unit is picked from the
+	# list the pointer is over the panel (or parked), so the ghost would sit
+	# hidden under the HUD. Bring it to the middle of the screen once per unit
+	# so the player sees it and can turn it before aiming with a finger.
+	var placing_uid := _placement_session_unit(main)
+	if placing_uid == "":
+		_placement_centered_for = ""
+	elif placing_uid != _placement_centered_for:
+		_placement_centered_for = placing_uid
+		_park_at = 0.0
+		if parked or get_viewport().gui_get_hovered_control() != null:
+			parked = false
+			var c := get_viewport().get_visible_rect().size * 0.5
+			_emit_motion(c, Vector2.ZERO, 0)
+			print("[TouchInputAdapter] placement ghost brought to screen centre %s" % str(c))
+		return
+	if _park_at <= 0.0 or _now() < _park_at:
+		return
+	_park_at = 0.0
+	if placing_uid != "" or _tape_active():
+		return  # the ghost / tape preview follows the pointer: leave it be
+	parked = true
+	_emit_motion(PARK_POS, Vector2.ZERO, 0)
+
+
+## Unit id of an active placement session (deployment / reserves / disembark)
+## — "" when none. Unlike _placement_mode_at this ignores what is under the
+## finger: it is "is a ghost following the pointer at all".
+func _placement_session_unit(main: Node) -> String:
+	if main == null:
+		return ""
+	var dc = main.get("deployment_controller")
+	if dc != null and dc.has_method("is_placing") and dc.is_placing():
+		return "deploy:" + str(dc.get("unit_id"))
+	var br: Node = main.get_node_or_null("BoardRoot")
+	if br != null:
+		for c in br.get_children():
+			var scr = c.get_script()
+			if scr != null and "DisembarkController" in str(scr.resource_path) \
+					and c.is_processing_unhandled_input():
+				return "disembark:" + str(c.get_instance_id())
+	return ""
+
+
+func _tape_active() -> bool:
+	var mtm = get_node_or_null("/root/MeasuringTapeManager")
+	return mtm != null and bool(mtm.get("measure_mode_active"))
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and enabled:
 		# Android back: behave like Esc (close dialog / open pause menu) rather
 		# than killing the app mid-battle (quit_on_go_back is off in project.godot).
 		stats.back += 1
+		if is_touch_help_visible():
+			toggle_touch_help()
+			return
 		print("[TouchInputAdapter] back button -> Esc")
 		_tap_key(KEY_ESCAPE)
 
@@ -273,7 +413,10 @@ func _begin_gesture() -> void:
 	var pts := _two_points()
 	_gesture_centroid = (pts[0] + pts[1]) * 0.5
 	_gesture_distance = maxf(pts[0].distance_to(pts[1]), 1.0)
-	_gesture_over_ui = get_viewport().gui_get_hovered_control() != null
+	# Two fingers only scroll when they are over something SCROLLABLE; over
+	# anything else (board, a static panel, a transient overlay) they pan /
+	# zoom the camera.
+	_gesture_over_ui = _scrollable_under_pointer()
 	_wheel_accum = 0.0
 	print("[TouchInputAdapter] gesture start centroid=%s dist=%.0f over_ui=%s"
 		% [str(_gesture_centroid), _gesture_distance, str(_gesture_over_ui)])
@@ -328,6 +471,30 @@ func _sync_cursor(window_pos: Vector2) -> void:
 
 
 func _emit_motion(pos: Vector2, rel: Vector2, mask: int) -> void:
+	# parse_input_event is BUFFERED but warp_mouse is immediate: a press and
+	# a burst of drags in one frame would leave the OS cursor at the END of
+	# the burst before the press is handled, and handlers that poll
+	# get_mouse_position() (deployment pick-up, placement) would look in the
+	# wrong place. So motion queued in the same frame as a button event waits
+	# for the next frame (coalesced). One frame of lag is invisible.
+	if Engine.get_process_frames() == _last_button_frame:
+		if _pending_motion.is_empty():
+			_pending_motion = [pos, rel, mask]
+		else:
+			_pending_motion = [pos, _pending_motion[1] + rel, mask]
+		return
+	_emit_motion_now(pos, rel, mask)
+
+
+func _flush_pending_motion() -> void:
+	if _pending_motion.is_empty() or Engine.get_process_frames() == _last_button_frame:
+		return
+	var pm := _pending_motion
+	_pending_motion = []
+	_emit_motion_now(pm[0], pm[1], pm[2])
+
+
+func _emit_motion_now(pos: Vector2, rel: Vector2, mask: int) -> void:
 	var st := get_viewport().get_screen_transform()
 	_sync_cursor(st * pos)
 	var m := InputEventMouseMotion.new()
@@ -335,10 +502,14 @@ func _emit_motion(pos: Vector2, rel: Vector2, mask: int) -> void:
 	m.global_position = st * pos
 	m.relative = st.basis_xform(rel)
 	m.button_mask = mask
+	m.ctrl_pressed = multi_mode
 	Input.parse_input_event(m)
 
 
 func _emit_button(button: MouseButton, pressed: bool, pos: Vector2, double := false) -> void:
+	if not pressed:
+		_pending_motion = []  # the release carries its own (final) position
+	_last_button_frame = Engine.get_process_frames()
 	var st := get_viewport().get_screen_transform()
 	_sync_cursor(st * pos)
 	var b := InputEventMouseButton.new()
@@ -351,6 +522,7 @@ func _emit_button(button: MouseButton, pressed: bool, pos: Vector2, double := fa
 	if pressed:
 		mask = MOUSE_BUTTON_MASK_LEFT if button == MOUSE_BUTTON_LEFT else MOUSE_BUTTON_MASK_RIGHT
 	b.button_mask = mask
+	b.ctrl_pressed = multi_mode
 	Input.parse_input_event(b)
 
 
@@ -364,6 +536,16 @@ func _emit_wheel(pos: Vector2, up: bool) -> void:
 		b.pressed = pressed
 		b.factor = 1.0
 		Input.parse_input_event(b)
+
+
+func _tap_key_down(keycode: Key, pressed: bool) -> void:
+	var k := InputEventKey.new()
+	k.keycode = keycode
+	k.physical_keycode = keycode
+	k.pressed = pressed
+	k.shift_pressed = pressed and keycode == KEY_SHIFT
+	k.ctrl_pressed = pressed and keycode == KEY_CTRL
+	Input.parse_input_event(k)
 
 
 func _tap_key(keycode: Key, shift := false, ctrl := false) -> void:
@@ -401,9 +583,67 @@ func inject_tap(canvas_pos: Vector2) -> void:
 	inject_touch(0, canvas_pos, false)
 
 
+## Tap the centre of a Control by node path (handles embedded dialog Windows).
+func inject_tap_node(node_path: String) -> bool:
+	var c := get_tree().root.get_node_or_null(NodePath(node_path)) as Control
+	if c == null or not c.is_visible_in_tree():
+		push_warning("[TouchInputAdapter] inject_tap_node: %s missing/hidden" % node_path)
+		return false
+	var r := c.get_global_rect()
+	var p := r.position + r.size * 0.5
+	var w := c.get_viewport()
+	if w is Window and w != get_tree().root:
+		p += Vector2((w as Window).position)
+	inject_tap(p)
+	return true
+
+
+## One finger from `a` to `b` in `steps` drag events; lift at `b` if `lift`.
+func inject_swipe(a: Vector2, b: Vector2, steps: int = 10, lift: bool = true, index: int = 0) -> void:
+	inject_touch(index, a, true)
+	for k in range(1, steps + 1):
+		inject_drag(index, a.lerp(b, float(k) / steps))
+	if lift:
+		inject_touch(index, b, false)
+
+
+## Tap the first visible, enabled button whose text matches (exact, or
+## contains when exact=false) — game UI and dialog Windows, not the toolbar.
+func inject_tap_text(text: String, exact: bool = true) -> bool:
+	for b in get_tree().root.find_children("*", "BaseButton", true, false):
+		var bb := b as BaseButton
+		if not bb.is_visible_in_tree() or bb.disabled or not ("text" in bb):
+			continue
+		if is_instance_valid(_toolbar) and _toolbar.is_ancestor_of(bb):
+			continue
+		var t := str(bb.get("text"))
+		if (exact and t == text) or (not exact and text in t):
+			var r := bb.get_global_rect()
+			var p := r.position + r.size * 0.5
+			var w := bb.get_viewport()
+			if w is Window and w != get_tree().root:
+				p += Vector2((w as Window).position)
+			inject_tap(p)
+			return true
+	push_warning("[TouchInputAdapter] inject_tap_text: no button '%s'" % text)
+	return false
+
+
+## Two fingers from c0/c1 moving by d0/d1 over `steps` drags, then lifted.
+func inject_two_finger(c0: Vector2, c1: Vector2, d0: Vector2, d1: Vector2, steps: int = 8) -> void:
+	inject_touch(0, c0, true)
+	inject_touch(1, c1, true)
+	for k in range(1, steps + 1):
+		var f := float(k) / steps
+		inject_drag(0, c0 + d0 * f)
+		inject_drag(1, c1 + d1 * f)
+	inject_touch(0, c0 + d0, false)
+	inject_touch(1, c1 + d1, false)
+
+
 ## Canvas position of a toolbar button's centre (scenario helper).
 func toolbar_button_center(button_name: String) -> Vector2:
-	if _toolbar == null:
+	if not is_instance_valid(_toolbar):
 		return Vector2(-1, -1)
 	var b := _toolbar.find_child(button_name, true, false) as Control
 	if b == null:
@@ -420,7 +660,12 @@ func trigger_action(action_id: String) -> bool:
 		push_warning("[TouchInputAdapter] action '%s' has no key binding" % action_id)
 		return false
 	print("[TouchInputAdapter] toolbar -> action %s" % action_id)
+	# A held sticky Ctrl would turn e.g. F into Ctrl+F and miss the binding.
+	if multi_mode:
+		_tap_key_down(KEY_CTRL, false)
 	_tap_key(int(b.key) as Key, bool(b.get("shift", false)), bool(b.get("ctrl", false)))
+	if multi_mode:
+		_tap_key_down(KEY_CTRL, true)
 	return true
 
 
@@ -443,6 +688,49 @@ func _in_battle_scene() -> bool:
 	return _battle_main() != null
 
 
+## "" (normal input), "hover" (a placement ghost is following the pointer:
+## aim with the finger, drop on lift) or "pickup" (deployment: the finger
+## landed on a model of the unit being placed that is already down).
+## Never a placement when the finger started on a panel/button.
+func _placement_mode_at(canvas_pos: Vector2) -> String:
+	var main := _battle_main()
+	if main == null:
+		return ""
+	if get_viewport().gui_get_hovered_control() != null:
+		return ""
+	var dc = main.get("deployment_controller")
+	if dc != null and dc.has_method("is_placing") and dc.is_placing():
+		if not bool(dc.get("repositioning_model")) and dc.has_method("_get_deployed_model_at_position"):
+			var br: Node2D = main.get_node_or_null("BoardRoot")
+			if br != null:
+				var world := br.get_global_transform_with_canvas().affine_inverse() * canvas_pos
+				if not dc._get_deployed_model_at_position(world).is_empty():
+					return "pickup"
+		return "hover"
+	var br2: Node = main.get_node_or_null("BoardRoot")
+	if br2 != null:
+		for c in br2.get_children():
+			var scr = c.get_script()
+			if scr != null and "DisembarkController" in str(scr.resource_path) \
+					and c.is_processing_unhandled_input():
+				return "hover"
+	return ""
+
+
+func _toolbar_button_at(canvas_pos: Vector2) -> Button:
+	if not is_instance_valid(_toolbar) or not _toolbar.is_visible_in_tree():
+		return null
+	for b in _toolbar.find_children("*", "Button", true, false):
+		if (b as Control).is_visible_in_tree() and (b as Control).get_global_rect().has_point(canvas_pos):
+			return b as Button
+	return null
+
+
+## Tutorial helper: the toolbar label for an action, or "" if none.
+func touch_label_for(action_id: String) -> String:
+	return str(TOUCH_LABELS.get(action_id, ""))
+
+
 func _find_scroll_container_at(pos: Vector2) -> ScrollContainer:
 	var c := get_viewport().gui_get_hovered_control()
 	while c:
@@ -450,6 +738,17 @@ func _find_scroll_container_at(pos: Vector2) -> ScrollContainer:
 			return c as ScrollContainer
 		c = c.get_parent() as Control
 	return null
+
+
+func _scrollable_under_pointer() -> bool:
+	var c := get_viewport().gui_get_hovered_control()
+	while c:
+		if c is ScrollContainer or c is ItemList or c is Tree or c is TextEdit:
+			return true
+		if c is RichTextLabel and (c as RichTextLabel).scroll_active:
+			return true
+		c = c.get_parent() as Control
+	return false
 
 
 func _can_scroll_v(sc: ScrollContainer) -> bool:
@@ -467,14 +766,15 @@ func _set_right_click_mode(on: bool) -> void:
 # On-screen toolbar (battle scene only)
 # ---------------------------------------------------------------------------
 
-func _ensure_toolbar() -> void:
-	if _toolbar_layer:
-		return
-	_toolbar_layer = CanvasLayer.new()
-	_toolbar_layer.name = "TouchToolbarLayer"
-	_toolbar_layer.layer = 90
-	add_child(_toolbar_layer)
-
+## Built as a child of the battle scene (Main is canvas layer 1, which holds
+## the board, the HUD and every in-game overlay), placed right after BoardRoot
+## so it draws ABOVE the board but BELOW the panels and pop-ups added after it:
+## any game card that overlaps the strip (save allocation, dialogs) is drawn
+## on top and gets the tap. On its own high CanvasLayer it covered the
+## allocation card's "Confirm Order & Roll Saves" button.
+func _build_toolbar(main: Node) -> void:
+	if is_instance_valid(_toolbar):
+		_toolbar.queue_free()
 	_toolbar = PanelContainer.new()
 	_toolbar.name = "TouchToolbar"
 	var sb := StyleBoxFlat.new()
@@ -491,40 +791,77 @@ func _ensure_toolbar() -> void:
 	_toolbar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_toolbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_toolbar.offset_bottom = -40
-	_toolbar_layer.add_child(_toolbar)
+	_toolbar.mouse_filter = Control.MOUSE_FILTER_PASS
+	main.add_child(_toolbar)
+	var br := main.get_node_or_null("BoardRoot")
+	if br != null:
+		main.move_child(_toolbar, br.get_index() + 1)
 
 	var col := HBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
 	_toolbar.add_child(col)
 
+	_collapse_button = _add_tool(col, "▾", "Hide the touch toolbar (tap again to bring it back)", func(): set_toolbar_collapsed(not toolbar_collapsed))
+	_collapse_button.name = "Touch_Collapse"
 	_add_tool(col, "+", "Zoom in", func(): _zoom_step(true))
 	_add_tool(col, "−", "Zoom out", func(): _zoom_step(false))
 	_add_tool(col, "Fit", "Fit the whole board on screen", func(): trigger_action("fit_view_board"))
+	_add_tool(col, "Board", "Rotate the board view 90°", func(): _rotate_board())
 	_add_tool(col, "Tape", "Measuring tape (tap again to close)", func(): trigger_action("measuring_tape"))
-	_add_tool(col, "⟲", "Rotate model left (Q)", func(): trigger_action("rotate_left"))
-	_add_tool(col, "⟳", "Rotate model right (E)", func(): trigger_action("rotate_right"))
+	_add_tool(col, "⟲", "Rotate model left 15° (hold the model, or have it selected)", func(): _rotate_model("rotate_left"))
+	_add_tool(col, "⟳", "Rotate model right 15° (hold the model, or have it selected)", func(): _rotate_model("rotate_right"))
+	_add_tool(col, "All", "Select every model in the active unit (Ctrl+A)", func(): trigger_action("select_all"))
+	_multi_button = _add_tool(col, "Multi", "Sticky Ctrl: while on, each tap ADDS to the selection — charge several targets, pick extra models (Ctrl+click)", Callable())
+	_multi_button.toggle_mode = true
+	_multi_button.toggled.connect(func(on: bool): set_multi_mode(on))
 	_add_tool(col, "Undo", "Undo last deployed model (Ctrl+Z)", func(): trigger_action("undo_deployment"))
+	_add_tool(col, "Info", "Open the selected unit's datasheet", func(): trigger_action("datasheet_modal"))
 	_rclick_button = _add_tool(col, "R-tap", "Right-click mode: your next touch is a right-click / right-drag (same as long-press)", Callable())
 	_rclick_button.toggle_mode = true
 	_rclick_button.toggled.connect(func(on: bool):
 		right_click_mode = on
 		print("[TouchInputAdapter] right-click mode %s" % ("ON" if on else "off")))
+	_add_tool(col, "?", "Touch controls cheat sheet", func(): toggle_touch_help())
 	_add_tool(col, "Esc", "Back / close dialog", func(): _tap_key(KEY_ESCAPE))
-	_toolbar_layer.visible = enabled and _in_battle_scene()
+	_toolbar.visible = enabled
+	if toolbar_collapsed:
+		set_toolbar_collapsed(true)
+	if multi_mode and _multi_button:
+		_multi_button.set_pressed_no_signal(true)
+	print("[TouchInputAdapter] toolbar built in %s at index %d" % [main.name, _toolbar.get_index()])
 
 
 func _add_tool(parent: Control, text: String, tip: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.tooltip_text = tip
-	b.custom_minimum_size = Vector2(62, 54)
+	b.custom_minimum_size = Vector2(54, 54)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 22)
-	b.name = "Touch_" + text.replace(" ", "_")
+	b.name = "Touch_" + {"?": "Help", "+": "ZoomIn", "−": "ZoomOut", "⟲": "RotL", "⟳": "RotR"}.get(text, text.replace(" ", "_").replace("-", "_"))
 	if cb.is_valid():
 		b.pressed.connect(cb)
 	parent.add_child(b)
 	return b
+
+
+## The Board button calls the camera directly: its V key is ALSO bound to
+## toggle_vp_timeline, which Main._input checks first, so a synthesized V
+## opens the VP timeline instead of turning the board.
+func _rotate_board() -> void:
+	var main := _battle_main()
+	if main and main.has_method("rotate_board_view"):
+		main.rotate_board_view(PI / 2.0)
+
+
+## Rotate keys go out as Q/E so every controller (deploy, move, charge, fight)
+## handles them as usual — except in the Shooting phase, where E is also
+## "End Shooting Phase" and nothing can be turned anyway.
+func _rotate_model(action_id: String) -> void:
+	if int(GameState.get_current_phase()) == GameStateData.Phase.SHOOTING:
+		print("[TouchInputAdapter] %s ignored in the Shooting phase (E = End Shooting Phase)" % action_id)
+		return
+	trigger_action(action_id)
 
 
 func _zoom_step(zoom_in: bool) -> void:
@@ -532,3 +869,120 @@ func _zoom_step(zoom_in: bool) -> void:
 	if main:
 		var center := get_viewport().get_visible_rect().size * 0.5
 		main.zoom_camera_notch(zoom_in, center)
+
+
+# ---------------------------------------------------------------------------
+# Touch cheat sheet ("?" button) — the phone's answer to the hotkey overlay.
+# ---------------------------------------------------------------------------
+
+const TOUCH_HELP_TEXT := """[b]TOUCH CONTROLS[/b]
+
+[b]Tap[/b] — click a unit, button or spot
+[b]Drag a model[/b] — move it (select its unit first)
+[b]Hold + drag while placing[/b] — the model follows your finger and drops when you lift
+[b]Drag a model you already placed[/b] — pick it up again
+[b]Long-press[/b] — right-click: unit menu, cancel the tape
+[b]Turn a vehicle[/b] — hold it (touch + slide a little), then tap ⟲ ⟳ with another finger
+[b]Two fingers[/b] — drag to pan, pinch to zoom (drag over a list to scroll it)
+[b]Back button[/b] — Esc
+
+[b]Toolbar[/b]
+[b]+ / −[/b] zoom   [b]Fit[/b] whole board   [b]Board[/b] rotate view 90°
+[b]Tape[/b] measure   [b]⟲ ⟳[/b] turn a model 15° (works with a second finger while you hold it)
+[b]All[/b] select the whole unit   [b]Undo[/b] last placed model   [b]Info[/b] datasheet
+[b]Multi[/b] (sticky Ctrl) taps add to a selection — charge several targets, Ctrl+click
+[b]R-tap[/b] next touch is a right-click   [b]Esc[/b] back / close   [b]▾[/b] hide the toolbar"""
+
+
+func is_touch_help_visible() -> bool:
+	return _help_layer != null and _help_layer.visible
+
+
+func toggle_touch_help() -> void:
+	if _help_layer == null:
+		_help_layer = CanvasLayer.new()
+		_help_layer.name = "TouchHelpLayer"
+		_help_layer.layer = 95
+		add_child(_help_layer)
+		var panel := PanelContainer.new()
+		panel.name = "TouchHelpPanel"
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.07, 0.07, 0.09, 0.96)
+		sb.border_color = Color(0.85, 0.6, 0.25)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(10)
+		sb.set_content_margin_all(18)
+		panel.add_theme_stylebox_override("panel", sb)
+		panel.set_anchors_preset(Control.PRESET_CENTER)
+		panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+		_help_layer.add_child(panel)
+		var vb := VBoxContainer.new()
+		vb.name = "VBox"
+		vb.add_theme_constant_override("separation", 12)
+		panel.add_child(vb)
+		var rt := RichTextLabel.new()
+		rt.bbcode_enabled = true
+		rt.fit_content = true
+		rt.custom_minimum_size = Vector2(760, 0)
+		rt.add_theme_font_size_override("normal_font_size", 20)
+		rt.add_theme_font_size_override("bold_font_size", 20)
+		rt.text = TOUCH_HELP_TEXT
+		vb.add_child(rt)
+		var close := Button.new()
+		close.name = "TouchHelpClose"
+		close.text = "Close"
+		close.custom_minimum_size = Vector2(160, 54)
+		close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		close.add_theme_font_size_override("font_size", 22)
+		close.focus_mode = Control.FOCUS_NONE
+		close.pressed.connect(func(): toggle_touch_help())
+		vb.add_child(close)
+		_help_layer.visible = false
+	_help_layer.visible = not _help_layer.visible
+	var hp := _help_layer.get_node_or_null("TouchHelpPanel") as Control
+	if hp:
+		hp.visible = _help_layer.visible  # so is_visible_in_tree() tracks it
+	print("[TouchInputAdapter] touch help %s" % ("shown" if _help_layer.visible else "hidden"))
+
+
+# ---------------------------------------------------------------------------
+# Multi (sticky Ctrl) and toolbar collapse
+# ---------------------------------------------------------------------------
+
+func set_multi_mode(on: bool) -> void:
+	if on == multi_mode:
+		return
+	multi_mode = on
+	_tap_key_down(KEY_CTRL, on)
+	if _multi_button and _multi_button.button_pressed != on:
+		_multi_button.set_pressed_no_signal(on)
+	print("[TouchInputAdapter] multi (sticky Ctrl) %s" % ("ON" if on else "off"))
+
+
+var toolbar_collapsed := false
+
+
+## Collapse the toolbar to its handle so it never hides bottom-centre game UI
+## (save-allocation card, dialogs). The handle stays; tap it to expand.
+func set_toolbar_collapsed(on: bool) -> void:
+	toolbar_collapsed = on
+	if not is_instance_valid(_toolbar):
+		return
+	for b in _toolbar.find_children("*", "Button", true, false):
+		if b != _collapse_button:
+			(b as Control).visible = not on
+	if _collapse_button:
+		_collapse_button.text = "▴ Tools" if on else "▾"
+		_collapse_button.custom_minimum_size = Vector2(110 if on else 54, 54)
+	_toolbar.reset_size()
+	_recentre_toolbar.call_deferred()
+	print("[TouchInputAdapter] toolbar %s" % ("collapsed" if on else "expanded"))
+
+
+func _recentre_toolbar() -> void:
+	if not is_instance_valid(_toolbar):
+		return
+	var w := _toolbar.get_combined_minimum_size().x
+	_toolbar.offset_left = -w * 0.5
+	_toolbar.offset_right = w * 0.5

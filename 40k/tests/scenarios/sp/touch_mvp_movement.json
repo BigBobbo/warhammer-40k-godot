@@ -16,7 +16,7 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
     { "act": "execute_script", "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled", "multiline": true, "equals": true },
     { "act": "wait_frames", "frames": 5 },
-    { "act": "expect_node_visible", "node": "/root/TouchInputAdapter/TouchToolbarLayer/TouchToolbar", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/TouchToolbar", "timeout_s": 2.0 },
     { "act": "execute_script", "script": "TouchInputAdapter.trigger_action('fit_view_board')", "equals": true },
     { "act": "wait_seconds", "seconds": 0.8 },
 

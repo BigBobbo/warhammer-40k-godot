@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.70.0",
+      "date": "2026-11-02",
+      "summary": "Android: every tutorial lesson now works with touch, models drop where you lift your finger, and new Board / All / Multi buttons.",
+      "changes": [
+        "Deploying on a phone: hold your finger down and the model follows it — nothing is placed until you lift. Drag a model you already placed to pick it up again.",
+        "New touch toolbar buttons: Board (rotate the view 90°), All (select the whole unit, like Ctrl+A), Multi (sticky Ctrl for charging several targets or adding models), Info (datasheet) and ? (touch cheat sheet).",
+        "Turn a held vehicle by tapping ⟲ / ⟳ with a second finger while the first keeps hold of it.",
+        "The toolbar can be hidden with ▾, and it now sits underneath game pop-ups so it never covers their buttons (e.g. Confirm Order & Roll Saves).",
+        "Tooltips and hover cards no longer get stuck on screen after a tap.",
+        "The tutorial speaks touch on Android: 'tap' instead of 'click', toolbar buttons instead of keys, and touch-specific steps for the camera, datasheet, cheat sheet, select-all, placing, nudging and turning models.",
+        "Fixed: the Board button never rotated the board because its V key also opens the VP timeline."
+      ]
+    },
+    {
       "version": "1.69.0",
       "date": "2026-11-02",
       "summary": "Android build (preview): the game now runs on phones and tablets with touch controls.",

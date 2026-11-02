@@ -28,6 +28,22 @@
       "Da big red button ends da phase. Da small one ends a unit's move.",
       "Forgot a control? Da pause menu (Escape, or View on a pad) lists every key under Controls an' every button under Controller.",
       "Next lesson: Musterin' da Boyz — deployment, transports an' leaders."
+    ],
+    "bullets_touch": [
+      "Camera: pan and zoom anywhere on the table.",
+      "Units: pick them from the list or the board, datasheet for the full stats.",
+      "The left panel logs everything — Game Log for the story, Dice Log for every roll once they start.",
+      "The big red button ends the phase. The small one ends a unit's move.",
+      "Forgot a control? Tap [b][?][/b] on the toolbar for every touch gesture and button.",
+      "Next lesson: Mustering the Boyz — deployment, transports and leaders."
+    ],
+    "bullets_touch_orky": [
+      "Camera: pan an' zoom anywhere on da table.",
+      "Units: pick 'em from da list or da board, datasheet for da full stats.",
+      "Da left panel logs everyfing — Game Log for da story, Dice Log for every roll once dey start.",
+      "Da big red button ends da phase. Da small one ends a unit's move.",
+      "Forgot a control? Tap [b][?][/b] on da toolbar for every touch gesture an' button.",
+      "Next lesson: Musterin' da Boyz — deployment, transports an' leaders."
     ]
   },
   "steps": [
@@ -55,7 +71,9 @@
         "kbm": "Look over the whole table: pan with the arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), and zoom in and out with the mouse wheel. Try them all.",
         "kbm_orky": "Look over da whole table: pan wiv da arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), an' zoom in an' out wiv da mouse wheel. Try 'em all.",
         "pad": "Look over the whole table: push {rs} every way to pan, then zoom in with {rt} and out with {lt}. Try them all.",
-        "pad_orky": "Look over da whole table: shove {rs} every way to pan, den zoom in wiv {rt} an' out wiv {lt}. Try 'em all."
+        "pad_orky": "Look over da whole table: shove {rs} every way to pan, den zoom in wiv {rt} an' out wiv {lt}. Try 'em all.",
+        "touch": "Look over the whole table: drag with [b]two fingers[/b] to pan — up, down, left and right — and [b]pinch[/b] to zoom in and out. Try them all.",
+        "touch_orky": "Look over da whole table: drag wiv [b]two fingers[/b] to pan — up, down, left an' right — an' [b]pinch[/b] to zoom in an' out. Try 'em all."
       },
       "spotlight": "none",
       "allow": [],
@@ -110,7 +128,9 @@
         "kbm": "Tick every box: pan all four ways with the arrow keys, then roll the wheel forward and back. Stuck on one? [i]Skip Step[/i] up here moves on.",
         "kbm_orky": "Tick every box: pan all four ways wiv da arrow keys, den roll da wheel forward an' back. Stuck on one? [i]Skip Step[/i] up 'ere moves on.",
         "pad": "Tick every box: push {rs} all four ways, then squeeze {rt} and {lt}. Stuck on one? [i]Skip Step[/i] up here moves on.",
-        "pad_orky": "Tick every box: push {rs} all four ways, den squeeze {rt} an' {lt}. Stuck on one? [i]Skip Step[/i] up 'ere moves on."
+        "pad_orky": "Tick every box: push {rs} all four ways, den squeeze {rt} an' {lt}. Stuck on one? [i]Skip Step[/i] up 'ere moves on.",
+        "touch": "Tick every box: two-finger drag all four ways, then spread your fingers apart to zoom in and pinch them together to zoom out. Stuck on one? [i]Skip Step[/i] up here moves on.",
+        "touch_orky": "Tick every box: two-finger drag all four ways, den spread yer fingers to zoom in an' pinch 'em togevva to zoom out. Stuck on one? [i]Skip Step[/i] up 'ere moves on."
       }
     },
     {
@@ -146,7 +166,9 @@
         "kbm": "Press {key:datasheet_modal} to open the unit's full datasheet.",
         "kbm_orky": "Press {key:datasheet_modal} to open da unit's full datasheet.",
         "pad": "Press {y} to open the unit's full datasheet.",
-        "pad_orky": "Press {y} to open da unit's full datasheet."
+        "pad_orky": "Press {y} to open da unit's full datasheet.",
+        "touch": "Tap [b][Info][/b] on the toolbar along the bottom to open the unit's full datasheet.",
+        "touch_orky": "Tap [b][Info][/b] on da toolbar along da bottom to open da unit's full datasheet."
       },
       "spotlight": "none",
       "allow": [],
@@ -159,7 +181,9 @@
       "prompt": {
         "bark": "SEEN ENOUGH!",
         "kbm": "Close it — press [b][Escape][/b].",
-        "pad": "Close it — press {y} again."
+        "pad": "Close it — press {y} again.",
+        "touch": "Close it — tap [b][Esc][/b] on the toolbar, or your phone's Back button.",
+        "touch_orky": "Shut it — tap [b][Esc][/b] on da toolbar, or yer phone's Back button."
       },
       "spotlight": "none",
       "allow": [],
@@ -219,7 +243,9 @@
         "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in the game.",
         "kbm_orky": "Press {key:hotkey_help} to see every keyboard shortcut in da game.",
         "pad": "Press {view} for the pause menu. The [b]Controller[/b] tab lists every button you have — and lets you remap them.",
-        "pad_orky": "Press {view} for da pause menu. Da [b]Controller[/b] tab lists every button ya got — an' lets ya swap 'em about."
+        "pad_orky": "Press {view} for da pause menu. Da [b]Controller[/b] tab lists every button ya got — an' lets ya swap 'em about.",
+        "touch": "Tap [b][?][/b] on the toolbar to see every touch control in the game.",
+        "touch_orky": "Tap [b][?][/b] on da toolbar to see every touch control in da game."
       },
       "spotlight": "none",
       "allow": [],
@@ -230,6 +256,9 @@
           },
           {
             "node_visible": "/root/Main/SettingsMenu"
+          },
+          {
+            "node_visible": "/root/TouchInputAdapter/TouchHelpLayer/TouchHelpPanel"
           }
         ]
       },
@@ -237,7 +266,9 @@
         "kbm": "No keyboard handy (Steam Deck and such)? Grab the pad: {view} opens the pause menu, and the [b]Controller[/b] tab lists every button.",
         "kbm_orky": "No keyboard handy (Steam Deck an' such)? Grab da pad: {view} opens da pause menu, an' da [b]Controller[/b] tab lists every button.",
         "pad": "{view} is the ⧉ View/Select button — that opens the pause menu. The tab row is along the top: land on [b]Controller[/b] and press {a}.",
-        "pad_orky": "{view} is da ⧉ View/Select button — dat opens da pause menu. Da tab row is along da top: land on [b]Controller[/b] an' press {a}."
+        "pad_orky": "{view} is da ⧉ View/Select button — dat opens da pause menu. Da tab row is along da top: land on [b]Controller[/b] an' press {a}.",
+        "touch": "The [b][?][/b] button sits near the right-hand end of the toolbar along the bottom of the screen.",
+        "touch_orky": "Da [b][?][/b] button sits near da right end of da toolbar along da bottom of da screen."
       }
     },
     {
@@ -247,7 +278,9 @@
         "kbm": "Press {key:hotkey_help} again to put the cheat sheet away.",
         "kbm_orky": "Press {key:hotkey_help} again to put da cheat sheet away.",
         "pad": "Have a look at the [b]Controller[/b] tab, then press {b} (or {view}) to close the menu.",
-        "pad_orky": "Give da [b]Controller[/b] tab a butcher's, den press {b} (or {view}) to shut da menu."
+        "pad_orky": "Give da [b]Controller[/b] tab a butcher's, den press {b} (or {view}) to shut da menu.",
+        "touch": "Tap [b]Close[/b] (or [b][?][/b] again) to put the cheat sheet away.",
+        "touch_orky": "Tap [b]Close[/b] (or [b][?][/b] again) to put da cheat sheet away."
       },
       "spotlight": "none",
       "allow": [],
@@ -258,6 +291,9 @@
           },
           {
             "node_hidden": "/root/Main/SettingsMenu"
+          },
+          {
+            "node_hidden": "/root/TouchInputAdapter/TouchHelpLayer/TouchHelpPanel"
           }
         ]
       }
@@ -287,7 +323,9 @@
         "kbm": "Click [b]Gretchin[/b] in the unit list. There are a lot of them, so press {key:select_all} — that grabs [b]every[/b] grot at once. Now drag any one of them forward and the whole squad shifts together. Much faster.",
         "kbm_orky": "Click [b]Gretchin[/b] in da unit list. Loads of 'em, so press {key:select_all} — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevver. Much faster.",
         "pad": "Tap {rb} until the [b]Gretchin[/b] are selected and start the move with {a}. There are a lot of them, so press {dpad} ▲ — that lifts [b]every[/b] grot at once. Glide {ls} forward and {a} drops the lot. Much faster.",
-        "pad_orky": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster."
+        "pad_orky": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster.",
+        "touch": "Tap [b]Gretchin[/b] in the unit list. There are a lot of them, so tap [b][All][/b] on the toolbar — that grabs [b]every[/b] grot at once. Now drag any one of them forward and the whole squad shifts together. Much faster.",
+        "touch_orky": "Tap [b]Gretchin[/b] in da unit list. Dere's loads of 'em, so tap [b][All][/b] on da toolbar — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevva. Much quicker."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"

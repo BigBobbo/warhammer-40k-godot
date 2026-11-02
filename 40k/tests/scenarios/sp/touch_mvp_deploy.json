@@ -17,7 +17,7 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 1 },
     { "act": "execute_script", "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled and not Input.emulate_mouse_from_touch", "multiline": true, "equals": true },
     { "act": "wait_frames", "frames": 5 },
-    { "act": "expect_node_visible", "node": "/root/TouchInputAdapter/TouchToolbarLayer/TouchToolbar", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/TouchToolbar", "timeout_s": 2.0 },
     { "act": "screenshot", "label": "01_touch_toolbar_visible" },
 
     { "act": "execute_script", "multiline": true, "equals": true, "script": "for il in tree.current_scene.find_children('*', 'ItemList', true, false):\n\tif not il.is_visible_in_tree():\n\t\tcontinue\n\tfor i in il.item_count:\n\t\tif il.get_item_text(i).begins_with('Painboss'):\n\t\t\tvar r = il.get_item_rect(i)\n\t\t\tvar p = il.get_global_transform_with_canvas() * (r.position + r.size * 0.5)\n\t\t\tTouchInputAdapter.inject_tap(p)\n\t\t\treturn true\nreturn false" },
