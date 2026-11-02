@@ -1,0 +1,49 @@
+{
+  "id": "touch_mvp_deploy",
+  "covers": [
+    "touch.tap_ui_list",
+    "touch.tap_board_place",
+    "touch.pinch_zoom",
+    "touch.two_finger_pan",
+    "touch.toolbar_fit",
+    "touch.android_back"
+  ],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Android MVP touch controls in the deployment phase. Real InputEventScreenTouch/ScreenDrag events (TouchInputAdapter.inject_*) travel the DisplayServer -> root window_input path a finger uses: tap a unit row in the deploy list, tap the board to place it (lands under the finger), pinch to zoom, two-finger pan, tap the on-screen Fit button, Android back -> Esc.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "execute_script", "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled and not Input.emulate_mouse_from_touch", "multiline": true, "equals": true },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "expect_node_visible", "node": "/root/TouchInputAdapter/TouchToolbarLayer/TouchToolbar", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_touch_toolbar_visible" },
+
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "for il in tree.current_scene.find_children('*', 'ItemList', true, false):\n\tif not il.is_visible_in_tree():\n\t\tcontinue\n\tfor i in il.item_count:\n\t\tif il.get_item_text(i).begins_with('Painboss'):\n\t\t\tvar r = il.get_item_rect(i)\n\t\t\tvar p = il.get_global_transform_with_canvas() * (r.position + r.size * 0.5)\n\t\t\tTouchInputAdapter.inject_tap(p)\n\t\t\treturn true\nreturn false" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "tree.current_scene.deployment_controller.is_placing()", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var br = tree.current_scene.get_node('BoardRoot')\nvar p = br.get_global_transform_with_canvas() * Vector2(1066.0, 2213.0)\nTouchInputAdapter.inject_tap(p)\nreturn true" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var tp = tree.current_scene.deployment_controller.temp_positions\nreturn tp.size() == 1 and tp[0] != null and tp[0].distance_to(Vector2(1066.0, 2213.0)) < 3.0" },
+    { "act": "screenshot", "label": "02_painboss_placed_under_finger" },
+
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var m = tree.current_scene\nTouchInputAdapter.set_meta('z0', m.view_zoom)\nvar c = Vector2(930, 560)\nTouchInputAdapter.inject_touch(0, c + Vector2(-60, 0), true)\nTouchInputAdapter.inject_touch(1, c + Vector2(60, 0), true)\nfor k in range(1, 11):\n\tTouchInputAdapter.inject_drag(0, c + Vector2(-60 - 8 * k, 0))\n\tTouchInputAdapter.inject_drag(1, c + Vector2(60 + 8 * k, 0))\nreturn true" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "tree.current_scene.view_zoom > TouchInputAdapter.get_meta('z0') * 1.5", "equals": true },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var m = tree.current_scene\nTouchInputAdapter.set_meta('o0', m.view_offset)\nfor k in range(1, 11):\n\tTouchInputAdapter.inject_drag(0, Vector2(850 + 6 * k, 560 + 4 * k))\n\tTouchInputAdapter.inject_drag(1, Vector2(1010 + 6 * k, 560 + 4 * k))\nTouchInputAdapter.inject_touch(0, Vector2(910, 600), false)\nTouchInputAdapter.inject_touch(1, Vector2(1070, 600), false)\nreturn true" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var d = tree.current_scene.view_offset - TouchInputAdapter.get_meta('o0')\nreturn d.length() > 20.0 and TouchInputAdapter.state == 0" },
+    { "act": "screenshot", "label": "03_after_pinch_zoom_and_pan" },
+
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "TouchInputAdapter.set_meta('z1', tree.current_scene.view_zoom)\nTouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_Fit'))\nreturn true" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "tree.current_scene.view_zoom < TouchInputAdapter.get_meta('z1')", "equals": true },
+    { "act": "screenshot", "label": "04_fit_button_tapped" },
+
+    { "act": "execute_script", "multiline": true, "equals": 1, "script": "tree.root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)\nreturn TouchInputAdapter.stats.back" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "str(tree.current_scene.name)", "equals": "Main" }
+  ]
+}

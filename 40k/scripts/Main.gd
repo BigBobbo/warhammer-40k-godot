@@ -7493,6 +7493,25 @@ func nearest_pad_snap_screen_pos(from_screen: Vector2, radius: float) -> Vector2
 # zoom).
 const WHEEL_ZOOM_FACTOR := 1.15
 
+## Touch (TouchInputAdapter): two-finger drag pans the board. `screen_delta`
+## is the finger centroid's movement in viewport coordinates — the board
+## follows the fingers, same math as the board-examine drag-pan.
+func touch_pan(screen_delta: Vector2) -> void:
+	view_offset -= screen_delta.rotated(-view_rotation) / view_zoom
+	note_camera_pan_gesture(-screen_delta)
+	update_view_transform()
+
+
+## Touch (TouchInputAdapter): pinch zoom. `factor` is the finger-distance
+## ratio since the last update (>1 spreads = zoom in), anchored on the pinch
+## centre so the point between the fingers stays put.
+func touch_zoom(factor: float, screen_anchor: Vector2) -> bool:
+	note_camera_gesture("zoom_in" if factor > 1.0 else "zoom_out")
+	if _zoom_about(view_zoom * factor, screen_anchor):
+		update_view_transform()
+		return true
+	return false
+
 func _unhandled_input(event: InputEvent) -> void:
 	# Mouse-wheel zoom, anchored on the cursor (same math as the +/- keys via
 	# _zoom_about). Handled in _unhandled_input so scrollable Controls get the

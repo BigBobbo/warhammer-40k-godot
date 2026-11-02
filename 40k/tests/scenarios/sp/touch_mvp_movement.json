@@ -1,0 +1,57 @@
+{
+  "id": "touch_mvp_movement",
+  "covers": [
+    "touch.toolbar_tape",
+    "touch.tap_board",
+    "touch.long_press_right_click",
+    "touch.long_press_popup_release",
+    "touch.drag_model"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Android MVP touch controls in the movement phase, driven by real screen-touch events: tap the on-screen Tape button, tap two board points to measure, long-press = right-click cancels the tape, long-press on a token opens its context menu and the finger-lift still registers (popup windows used to swallow it), then tap-select + one-finger drag a model.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script", "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled", "multiline": true, "equals": true },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "expect_node_visible", "node": "/root/TouchInputAdapter/TouchToolbarLayer/TouchToolbar", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "TouchInputAdapter.trigger_action('fit_view_board')", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_Tape'))\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "MeasuringTapeManager.measure_mode_active", "equals": true },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_tap(Vector2(800, 500))\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_tap(Vector2(1000, 650))\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "01_tape_measured_by_touch" },
+
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_touch(0, Vector2(900, 700), true)\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_touch(0, Vector2(900, 700), false)\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "not MeasuringTapeManager.measure_mode_active and TouchInputAdapter.stats.long_presses == 1", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var br = tree.current_scene.get_node('BoardRoot')\nvar mp = GameState.state.units['U_BLADE_CHAMPION_A'].models[0].position\nvar p = br.get_global_transform_with_canvas() * Vector2(mp.x, mp.y)\nTouchInputAdapter.set_meta('tok', p)\nTouchInputAdapter.inject_touch(0, p, true)\nreturn true" },
+    { "act": "wait_seconds", "seconds": 0.7 },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('tok'), false)\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var w = tree.current_scene.get_node_or_null('UnitContextMenu')\nreturn w != null and w.visible and TouchInputAdapter.state == 0" },
+    { "act": "screenshot", "label": "02_long_press_context_menu" },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_tap(Vector2(1200, 900))\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.get_meta('tok'))\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var p = TouchInputAdapter.get_meta('tok')\nTouchInputAdapter.inject_touch(0, p, true)\nfor k in range(1, 16):\n\tTouchInputAdapter.inject_drag(0, p + Vector2(4 * k, 2 * k))\nreturn true" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "03_dragging_model_by_touch" },
+    { "act": "execute_script", "script": "TouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('tok') + Vector2(60, 30), false)\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "equals": true, "script": "var mv = PhaseManager.get_current_phase_instance().active_moves.get('U_BLADE_CHAMPION_A', {})\nvar staged = mv.get('staged_moves', [])\nif staged.is_empty():\n\treturn false\nvar d = staged[-1].dest\nreturn Vector2(d.x, d.y).distance_to(Vector2(120, 100)) > 50.0" },
+    { "act": "screenshot", "label": "04_model_moved_by_touch" }
+  ]
+}

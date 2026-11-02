@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.69.0",
+      "date": "2026-11-02",
+      "summary": "Android build (preview): the game now runs on phones and tablets with touch controls.",
+      "changes": [
+        "New Android APK build (arm64) - landscape, full screen, back button closes dialogs instead of quitting.",
+        "Touch controls: tap to click, drag a model to move it, long-press for right-click (rotate a vehicle, open a unit's menu, cancel the tape).",
+        "Pinch to zoom and drag with two fingers to pan the board; one-finger drag scrolls menus and lists.",
+        "On-screen touch toolbar in battle: zoom, fit board, measuring tape, rotate model, undo, right-click mode and Esc.",
+        "Phones start with a larger UI scale (1.25x) so text is readable - adjust it in Settings."
+      ]
+    },
+    {
       "version": "1.68.0",
       "date": "2026-11-01",
       "summary": "Every model without its own artwork now shows a white silhouette of what it is - a trooper, a hero, a tank, a walker, a beast, an aircraft or a rider - in the middle of its base, and its letters move under the base.",
