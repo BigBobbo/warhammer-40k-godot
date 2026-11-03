@@ -61,7 +61,7 @@ func _run() -> void:
 	seed(4242)
 	var snapshot_auto = gs.create_snapshot()
 	var actions_auto := _deployment_actions(gs)
-	var choice_auto = AIDM.decide(1, snapshot_auto, actions_auto, 1, 1)
+	var choice_auto = AIDM.decide(1, snapshot_auto, actions_auto, 1)
 
 	# --- A: no plan at all, auto-match suppressed --------------------------
 	AIDM.clear_all_profiles()
@@ -69,7 +69,7 @@ func _run() -> void:
 	seed(4242)
 	var snapshot_a = gs.create_snapshot()
 	var actions_a := _deployment_actions(gs)
-	var choice_a = AIDM.decide(1, snapshot_a, actions_a, 1, 1)
+	var choice_a = AIDM.decide(1, snapshot_a, actions_a, 1)
 
 	# --- B: plan LOADED, gate OFF -----------------------------------------
 	AIDM.clear_all_profiles()
@@ -81,7 +81,7 @@ func _run() -> void:
 	seed(4242)
 	var snapshot_b = gs.create_snapshot()
 	var actions_b := _deployment_actions(gs)
-	var choice_b = AIDM.decide(1, snapshot_b, actions_b, 1, 1)
+	var choice_b = AIDM.decide(1, snapshot_b, actions_b, 1)
 
 	# --- C: plan loaded, gate ON (must DIFFER, or the test proves nothing) --
 	AIDM.clear_all_profiles()
@@ -90,7 +90,7 @@ func _run() -> void:
 	seed(4242)
 	var snapshot_c = gs.create_snapshot()
 	var actions_c := _deployment_actions(gs)
-	var choice_c = AIDM.decide(1, snapshot_c, actions_c, 1, 1)
+	var choice_c = AIDM.decide(1, snapshot_c, actions_c, 1)
 
 	var auto_desc := _describe(choice_auto)
 	var a_desc := _describe(choice_a)

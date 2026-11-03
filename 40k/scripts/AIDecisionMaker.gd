@@ -20,7 +20,6 @@ static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
 
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
-const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 # Codex: Orks (11e) stratagem dispatcher (AI hints for window offers) — loaded
 # on first use (_ork_codex()): a const preload pulled the dispatcher, and
 # through OrkCodexCommon GameState.gd, into every `godot -s` compile of this
@@ -2276,7 +2275,7 @@ const MOVE_ENEMIES_NEAR_OBJ_BONUS: float = 1.0    # no firing solution, but enem
 # M2 — seeded AI-layer RNG
 # =============================================================================
 # RulesEngine seeds dice and the secondary deck, but the AI layer itself called
-# the GLOBAL unseeded RNG: difficulty score noise, Easy-mode action picks,
+# the GLOBAL unseeded RNG: score noise, random action picks,
 # deployment scatter and reinforcement scatter. Score noise is applied inside a
 # movement-ordering SORT COMPARATOR, so unit activation order was stochastic
 # per run — which is why two same-seed games diverged at the fifth movement
@@ -2415,7 +2414,6 @@ static func _add_decision_record(decision_type: String, unit_id: String, unit_na
 		"candidates": candidates,
 		"chosen_index": chosen_index,
 		"parameters_used": resolved,
-		"difficulty": AIDifficultyConfigData.difficulty_name(_current_difficulty),
 		"context": context,
 	}
 	_decision_records.append(record)
@@ -2822,17 +2820,10 @@ static func take_thinking_steps() -> Array:
 	_thinking_steps.clear()
 	return steps
 
-static func _apply_difficulty_noise(score: float) -> float:
-	"""Add random noise to a score based on current difficulty level.
-	Higher noise makes the AI less optimal (more humanlike / random)."""
-	var noise = AIDifficultyConfigData.get_score_noise(_current_difficulty)
-	if noise <= 0.0:
-		return score
-	return score + (ai_randf() - 0.5) * noise * 2.0
-
-static func _get_difficulty_charge_threshold_modifier() -> float:
-	"""Get charge threshold modifier for current difficulty."""
-	return AIDifficultyConfigData.get_charge_threshold_modifier(_current_difficulty)
+# Charge-threshold scale. The AI used to have selectable difficulty tiers;
+# only the strongest (formerly "Competitive") remains, and this is its
+# charge-threshold multiplier — charge whenever the expected value is positive.
+const CHARGE_THRESHOLD_SCALE := 0.7
 
 # =============================================================================
 # FACTION AGGRESSION HELPERS
@@ -3206,10 +3197,6 @@ static func _find_flank_around_terrain(from_pos: Vector2, target_pos: Vector2, u
 
 static var _current_player: int = 0  # Active AI player for profile lookups
 
-# T7-40: Current difficulty level for the active AI player
-# Set by AIPlayer before each decide() call, used by sub-methods
-static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.COMPETITIVE
-
 static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:
 	"""Get VP differential (positive = ahead, negative = behind).
 
@@ -3277,8 +3264,7 @@ static func _waaagh_effects_summary() -> String:
 		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
 	return "advance and charge, +1 S/A melee, 5+ invuln"
 
-static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
-	_current_difficulty = difficulty
+static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	_current_player = player
 	# Evaluate profile rules if player has a profile
 	if _player_profiles.has(player):
@@ -3345,20 +3331,15 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	_move_waypoint_log = {}  # TWO-LEG waypoints planned during this decision
 	_param_reads.clear()  # A3: parameter reads are attributed per decision
 	_thinking_context = {}  # Reset board-link context for this decision
-	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
 	# T7-43: Log round strategy mode
 	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var strategy = _get_round_strategy_modifiers(current_round)
 	# T7-41: Detect army archetype (cached after first detection)
 	var army_strategy = _get_army_strategy_modifiers(snapshot, player)
-	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s, round=%d, strategy=%s, archetype=%s)" % [
-		phase, player, available_actions.size(), diff_name, current_round, strategy.label, army_strategy.label])
+	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (round=%d, strategy=%s, archetype=%s)" % [
+		phase, player, available_actions.size(), current_round, strategy.label, army_strategy.label])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
-
-	# T7-40: Easy difficulty — pick random valid actions instead of scoring
-	if AIDifficultyConfigData.use_random_actions(difficulty):
-		return _decide_random(phase, snapshot, available_actions, player)
 
 	# Reset focus fire plan cache and grenade flag when not in shooting phase
 	if phase != GameStateData.Phase.SHOOTING:
@@ -3420,10 +3401,6 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		if _primary_awareness_round_p2 != current_round:
 			_primary_awareness_p2.clear()
 
-	# T7-40: Normal and below skip multi-phase planning
-	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
-		_phase_plan_built[player] = true  # Prevent building phase plans for this player
-
 	var result: Dictionary = {}
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -3483,17 +3460,17 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 # WITHOUT mutating the persistent planning caches the live AI opponent relies on.
 # decide() writes several static caches (multi-phase plan, focus-fire plan,
 # charge/fight coordination, secondary/primary awareness, bodyguard pairing,
-# current player & difficulty). Those are round-keyed, so a human asking for a
+# current player). Those are round-keyed, so a human asking for a
 # hint on their own turn — the same battle round as the AI's upcoming turn —
 # could otherwise leave a stale plan behind that the AI then reuses. We snapshot
 # the caches, run the decision, and restore them, so a suggestion is truly
 # side-effect-free. Returns the same dict decide() returns, including the
 # _ai_thinking_steps / _ai_decision_records / _ai_thinking_context reasoning.
-static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL, focus_unit_id: String = "") -> Dictionary:
+static func suggest_action(phase: int, snapshot: Dictionary, available_actions: Array, player: int, focus_unit_id: String = "") -> Dictionary:
 	# focus_unit_id (movement phase): preview what the plan has THAT unit do,
 	# rather than the unit the AI would move next.
 	var saved := _snapshot_planning_state()
-	# Same position → same answer: the preview draws its difficulty noise from
+	# Same position → same answer: the preview draws its random tie-breaks from
 	# a generator seeded by the board (not the live AI's stream, which a seeded
 	# game must not see consumed), so re-asking — or cycling the card to
 	# another unit — never reshuffles the order by chance.
@@ -3514,9 +3491,9 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 	_last_unit_order = {}
 	var decision := {}
 	if phase == GameStateData.Phase.MOVEMENT:
-		decision = _suggest_in_progress_move(snapshot, available_actions, player, difficulty)
+		decision = _suggest_in_progress_move(snapshot, available_actions, player)
 	if decision.is_empty():
-		decision = decide(phase, snapshot, available_actions, player, difficulty)
+		decision = decide(phase, snapshot, available_actions, player)
 	_suggest_focus_unit_id = ""
 	_ai_rng = live_rng
 	_ai_rng_seeded = live_seeded
@@ -3545,7 +3522,7 @@ static func suggest_action(phase: int, snapshot: Dictionary, available_actions: 
 # to learn from. Plan THAT unit instead, as if its move were just starting
 # (positions are only committed on confirm, so the snapshot still holds where
 # it began), and say where the AI would take it.
-static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: Array, player: int, difficulty: int) -> Dictionary:
+static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	var uid := ""
 	for a in available_actions:
 		if str(a.get("type", "")) == "CONFIRM_UNIT_MOVE":
@@ -3570,7 +3547,7 @@ static func _suggest_in_progress_move(snapshot: Dictionary, available_actions: A
 	var offered: Array = []
 	for t in offer_types:
 		offered.append({"type": t, "actor_unit_id": uid})
-	var plan := decide(GameStateData.Phase.MOVEMENT, snapshot, offered, player, difficulty)
+	var plan := decide(GameStateData.Phase.MOVEMENT, snapshot, offered, player)
 	if not (str(plan.get("type", "")) in offer_types) or str(plan.get("actor_unit_id", "")) != uid:
 		print("AIDecisionMaker: suggestion for in-progress move of %s found no plan (got %s) — suggesting confirm" % [uid, str(plan.get("type", ""))])
 		return {}
@@ -3646,7 +3623,7 @@ static func _describe_available_action(a: Dictionary, snapshot: Dictionary) -> S
 		return "%s — %s" % [t.capitalize(), _dn(snapshot.get("units", {}).get(uid, {}), uid)]
 	return t.capitalize()
 
-static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
+static func suggest_pending_window(phase) -> Dictionary:
 	"""K during a pending stratagem window / shooting reactive window: answer
 	THAT decision for the player who owes it, with its reasoning attached, as
 	a pure preview. Returns {decider, decision} or {} when nothing is pending.
@@ -3656,8 +3633,6 @@ static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
 	var decider := 0
 	var result := {}
 	var saved := _snapshot_planning_state()
-	var prev_difficulty := _current_difficulty
-	_current_difficulty = difficulty
 	_thinking_steps.clear()
 	_decision_records.clear()
 	_thinking_context = {}
@@ -3692,7 +3667,6 @@ static func suggest_pending_window(phase, difficulty: int) -> Dictionary:
 			result["_ai_thinking_steps"] = _thinking_steps.duplicate()
 		if not _decision_records.is_empty():
 			result["_ai_decision_records"] = _decision_records.duplicate(true)
-	_current_difficulty = prev_difficulty
 	_restore_planning_state(saved)
 	if result.is_empty():
 		return {}
@@ -3736,7 +3710,6 @@ static func _snapshot_planning_state() -> Dictionary:
 		"primary_awareness_round_p2": _primary_awareness_round_p2,
 		"active_rule_overrides": _active_rule_overrides.duplicate(true),
 		"current_player": _current_player,
-		"current_difficulty": _current_difficulty,
 		# PM-2a: _resolve_plan_for() can auto-match and CACHE a plan during a
 		# decide(), so the human-hint preview would otherwise install a plan on
 		# the live AI as a side effect of showing a suggestion.
@@ -3780,298 +3753,10 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_primary_awareness_round_p2 = s["primary_awareness_round_p2"]
 	_active_rule_overrides = s["active_rule_overrides"]
 	_current_player = s["current_player"]
-	_current_difficulty = s["current_difficulty"]
 	_player_plans = s["player_plans"]
 	_plan_auto_match_attempted = s["plan_auto_match_attempted"]
 	_plan_logged_once = s["plan_logged_once"]
 	_plan_released_earmarks = s["plan_released_earmarks"]
-
-# =============================================================================
-# T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
-# =============================================================================
-
-static func _decide_random(phase: int, snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	"""Easy difficulty: pick random valid actions. Still handles required
-	sequencing (CONFIRM, APPLY_SAVES, etc.) but makes random tactical choices."""
-	if available_actions.is_empty():
-		return {}
-
-	# Build action type map
-	var action_types = {}
-	for a in available_actions:
-		var t = a.get("type", "")
-		if not action_types.has(t):
-			action_types[t] = []
-		action_types[t].append(a)
-
-	# --- Required sequencing: always handle these deterministically ---
-	# These are mechanical steps that must be completed regardless of difficulty
-
-	# Saves, dice rolls, confirmations
-	if action_types.has("APPLY_SAVES"):
-		return {"type": "APPLY_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying saves (Easy)"}
-	if action_types.has("ROLL_DICE"):
-		return {"type": "ROLL_DICE", "_ai_description": "Roll dice (Easy)"}
-	if action_types.has("CONFIRM_AND_RESOLVE_ATTACKS"):
-		return {"type": "CONFIRM_AND_RESOLVE_ATTACKS", "_ai_description": "Confirm attacks (Easy)"}
-	if action_types.has("CONTINUE_SEQUENCE"):
-		return {"type": "CONTINUE_SEQUENCE", "_ai_description": "Continue sequence (Easy)"}
-	if action_types.has("RESOLVE_SHOOTING"):
-		return {"type": "RESOLVE_SHOOTING", "_ai_description": "Resolve shooting (Easy)"}
-	if action_types.has("CONFIRM_TARGETS"):
-		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets (Easy)"}
-	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
-		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
-		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
-	if action_types.has("CONFIRM_UNIT_MOVE"):
-		var a = action_types["CONFIRM_UNIT_MOVE"][0]
-		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
-
-	# Scoring phase — always process scoring deterministically
-	if phase == GameStateData.Phase.SCORING:
-		return _decide_scoring(snapshot, available_actions, player)
-
-	# Formations phase — leader attachment still uses normal logic (not tactical)
-	if phase == GameStateData.Phase.FORMATIONS:
-		return _decide_formations(snapshot, available_actions, player)
-
-	# Deployment — use normal deployment logic (random positions would be chaotic)
-	if phase == GameStateData.Phase.DEPLOYMENT:
-		return _decide_deployment(snapshot, available_actions, player)
-
-	# Redeployment — use normal logic (skip units, not tactical)
-	if phase == GameStateData.Phase.REDEPLOYMENT:
-		return _decide_redeployment(snapshot, available_actions, player)
-
-	# Scout moves — use normal logic
-	if phase == GameStateData.Phase.SCOUT:
-		return _decide_scout(snapshot, available_actions, player)
-
-	# Roll-off — use normal logic (not tactical)
-	if phase == GameStateData.Phase.ROLL_OFF:
-		return _decide_roll_off(snapshot, available_actions, player)
-
-	# First-turn roll-off — use normal logic
-	if phase == GameStateData.Phase.FIRST_TURN_ROLLOFF:
-		return _decide_first_turn_roll_off(snapshot, available_actions, player)
-
-	# Command phase — use normal logic (just CP/Battle-shock, not tactical)
-	if phase == GameStateData.Phase.COMMAND:
-		return _decide_command(snapshot, available_actions, player)
-
-	# --- Tactical decisions: randomize these ---
-
-	# Always decline stratagems and reactive abilities on Easy
-	for decline_type in ["DECLINE_COMMAND_REROLL", "DECLINE_FIRE_OVERWATCH",
-			"DECLINE_REACTIVE_STRATAGEM", "DECLINE_COUNTER_OFFENSIVE",
-			"DECLINE_HEROIC_INTERVENTION", "DECLINE_TANK_SHOCK",
-			"DECLINE_SWIFT_AS_THE_EAGLE"]:
-		if action_types.has(decline_type):
-			var a = action_types[decline_type][0]
-			var result = {"type": decline_type, "_ai_description": "Decline (Easy)"}
-			if a.has("actor_unit_id"):
-				result["actor_unit_id"] = a.actor_unit_id
-			return result
-
-	# For USE_ reactive actions, also decline (prefer the decline variant)
-	for use_type in ["USE_COMMAND_REROLL", "USE_FIRE_OVERWATCH", "USE_REACTIVE_STRATAGEM",
-			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK",
-			"USE_GRENADE_STRATAGEM"]:
-		var decline_variant = use_type.replace("USE_", "DECLINE_")
-		if action_types.has(use_type) and action_types.has(decline_variant):
-			var a = action_types[decline_variant][0]
-			var result = {"type": decline_variant, "_ai_description": "Decline (Easy)"}
-			if a.has("actor_unit_id"):
-				result["actor_unit_id"] = a.actor_unit_id
-			return result
-
-	# Movement: randomly choose between moving and staying
-	if phase == GameStateData.Phase.MOVEMENT:
-		return _decide_random_movement(snapshot, available_actions, player, action_types)
-
-	# Shooting: pick a random shooter and random target
-	if phase == GameStateData.Phase.SHOOTING:
-		return _decide_random_shooting(snapshot, available_actions, player, action_types)
-
-	# Charge: randomly decide whether to charge
-	if phase == GameStateData.Phase.CHARGE:
-		return _decide_random_charge(snapshot, available_actions, player, action_types)
-
-	# Fight: use normal fight logic (sequencing is complex)
-	if phase == GameStateData.Phase.FIGHT:
-		return _decide_fight(snapshot, available_actions, player)
-
-	# Fallback: pick END action or random action
-	for action in available_actions:
-		var t = action.get("type", "")
-		if t.begins_with("END_"):
-			return {"type": t, "_ai_description": "End phase (Easy)"}
-
-	# Last resort: pick a random action
-	var random_action = available_actions[ai_randi() % available_actions.size()]
-	var result = random_action.duplicate()
-	result["_ai_description"] = "Random action: %s (Easy)" % result.get("type", "?")
-	return result
-
-static func _decide_random_movement(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
-	"""Easy mode movement: randomly stay or move with minimal optimization."""
-	# Handle reinforcements normally (placing is needed)
-	if action_types.has("PLACE_REINFORCEMENT"):
-		var reinforcement_decision = _decide_reserves_arrival(snapshot, action_types["PLACE_REINFORCEMENT"], player)
-		if not reinforcement_decision.is_empty():
-			return reinforcement_decision
-
-	# Collect movable units
-	var movable_units = {}
-	for a in available_actions:
-		var t = a.get("type", "")
-		if t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]:
-			var uid = a.get("actor_unit_id", a.get("unit_id", ""))
-			if uid != "":
-				if not movable_units.has(uid):
-					movable_units[uid] = []
-				movable_units[uid].append(t)
-
-	if movable_units.is_empty():
-		return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase (Easy)"}
-
-	# Pick a random unit
-	var unit_ids = movable_units.keys()
-	var uid = unit_ids[ai_randi() % unit_ids.size()]
-	var move_types = movable_units[uid]
-	var unit = snapshot.get("units", {}).get(uid, {})
-	var unit_name = _dn(unit, uid)
-
-	# 50% chance to remain stationary, 50% chance to move
-	if "REMAIN_STATIONARY" in move_types and ai_randf() < 0.5:
-		return {
-			"type": "REMAIN_STATIONARY",
-			"actor_unit_id": uid,
-			"_ai_description": "%s remains stationary (Easy)" % unit_name
-		}
-
-	# Move normally with a random destination offset
-	if "BEGIN_NORMAL_MOVE" in move_types:
-		var models = unit.get("models", [])
-		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
-		var move_px = move_inches * PIXELS_PER_INCH
-		var destinations = {}
-		for model in models:
-			var mid = model.get("id", "")
-			var pos = model.get("position", {})
-			var cx = float(pos.get("x", 0))
-			var cy = float(pos.get("y", 0))
-			# Random direction, random distance up to max move
-			var angle = ai_randf() * TAU
-			var dist = ai_randf() * move_px
-			var dest_x = clamp(cx + cos(angle) * dist, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-			var dest_y = clamp(cy + sin(angle) * dist, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-			destinations[mid] = [dest_x, dest_y]
-
-		return {
-			"type": "BEGIN_NORMAL_MOVE",
-			"actor_unit_id": uid,
-			"_ai_model_destinations": destinations,
-			"_ai_description": "%s moves randomly (Easy)" % unit_name
-		}
-
-	# Fallback: remain stationary
-	if "REMAIN_STATIONARY" in move_types:
-		return {
-			"type": "REMAIN_STATIONARY",
-			"actor_unit_id": uid,
-			"_ai_description": "%s remains stationary (Easy fallback)" % unit_name
-		}
-
-	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase (Easy)"}
-
-static func _decide_random_shooting(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
-	"""Easy mode shooting: pick a random shooter and random target."""
-	# If SHOOT actions available, pick randomly
-	if action_types.has("SHOOT"):
-		var shoot_actions = action_types["SHOOT"]
-		var chosen = shoot_actions[ai_randi() % shoot_actions.size()]
-		var result = chosen.duplicate()
-		var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
-		result["_ai_description"] = "%s shoots randomly (Easy)" % unit_name
-		return result
-
-	# If SELECT_SHOOTER available, shoot with a random shooter at a random
-	# eligible target. get_available_actions() never exposes a compound
-	# "SHOOT" action, so returning bare SELECT_SHOOTER here made Easy AI
-	# re-select the same unit forever (each successful select reset the
-	# SOAK-1 safety counter, so the loop never tripped MAX_ACTIONS_PER_PHASE).
-	# Build the full select+assign+confirm SHOOT action instead, mirroring
-	# _decide_shooting()'s Step 5 but with the target chosen at random.
-	if action_types.has("SELECT_SHOOTER"):
-		var shooters = action_types["SELECT_SHOOTER"]
-		var chosen = shooters[ai_randi() % shooters.size()]
-		var shooter_id = chosen.get("actor_unit_id", chosen.get("unit_id", ""))
-		var shooter = snapshot.get("units", {}).get(shooter_id, {})
-		var shooter_name = _dn(shooter, shooter_id)
-		var ranged_weapons = []
-		for w in shooter.get("meta", {}).get("weapons", []):
-			if w.get("type", "").to_lower() == "ranged":
-				ranged_weapons.append(w)
-		if not ranged_weapons.is_empty():
-			var enemies = _get_shootable_enemy_units(snapshot, player)
-			var enemy_ids = enemies.keys()
-			ai_shuffle(enemy_ids)
-			for tid in enemy_ids:
-				var single_target = {}
-				single_target[tid] = enemies[tid]
-				var assignments = _sanitize_shoot_assignments(shooter_id,
-					_build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id), snapshot)
-				if not assignments.is_empty():
-					var tname = _dn(enemies[tid], tid)
-					return {
-						"type": "SHOOT",
-						"actor_unit_id": shooter_id,
-						"payload": {"assignments": assignments},
-						"_ai_description": "%s shoots at %s (Easy)" % [shooter_name, tname]
-					}
-		# No ranged weapons or no target yields a valid assignment — skip the
-		# unit so the phase always makes progress.
-		return {
-			"type": "SKIP_UNIT",
-			"actor_unit_id": shooter_id,
-			"_ai_description": "Skipped %s — no valid shot (Easy)" % shooter_name
-		}
-
-	# End shooting
-	if action_types.has("END_SHOOTING"):
-		return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (Easy)"}
-
-	# Skip unit if available
-	if action_types.has("SKIP_UNIT"):
-		var a = action_types["SKIP_UNIT"][ai_randi() % action_types["SKIP_UNIT"].size()]
-		return {"type": "SKIP_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Skip unit (Easy)"}
-
-	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (Easy fallback)"}
-
-static func _decide_random_charge(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
-	"""Easy mode charge: rarely charges (20% chance), mostly skips."""
-	if action_types.has("DECLARE_CHARGE"):
-		# 20% chance to charge
-		if ai_randf() < 0.2:
-			var charges = action_types["DECLARE_CHARGE"]
-			var chosen = charges[ai_randi() % charges.size()]
-			var result = chosen.duplicate()
-			var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
-			result["_ai_description"] = "%s charges randomly (Easy)" % unit_name
-			return result
-
-	# Skip charging or end phase
-	if action_types.has("SKIP_UNIT_CHARGE"):
-		var skips = action_types["SKIP_UNIT_CHARGE"]
-		var chosen = skips[ai_randi() % skips.size()]
-		return {"type": "SKIP_UNIT_CHARGE", "actor_unit_id": chosen.get("actor_unit_id", ""), "_ai_description": "Skip charge (Easy)"}
-
-	if action_types.has("END_CHARGE"):
-		return {"type": "END_CHARGE", "_ai_description": "End Charge Phase (Easy)"}
-
-	# Fallback to normal charge logic for complex sequencing
-	return _decide_charge(snapshot, available_actions, player)
 
 # =============================================================================
 # T7-23: MULTI-PHASE PLANNING
@@ -5516,10 +5201,9 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	baseline_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
 
 	# T7-44: Counter-deployment — adjust baseline based on opponent's deployed units
-	if AIDifficultyConfigData.use_counter_deployment(_current_difficulty):
-		baseline_pos = _apply_counter_deployment(
-			baseline_pos, unit_role, unit, snapshot, player, zone_bounds, is_top_zone, objectives
-		)
+	baseline_pos = _apply_counter_deployment(
+		baseline_pos, unit_role, unit, snapshot, player, zone_bounds, is_top_zone, objectives
+	)
 
 	# T7-18: Terrain-aware position adjustment
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
@@ -6659,15 +6343,14 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 
 	# INSANE BRAVERY (11e 15.04): consider auto-passing a critical battle-shock
 	# test BEFORE rolling it. CommandPhase surfaces the option as USE_STRATAGEM.
-	if AIDifficultyConfigData.use_stratagems(_current_difficulty):
-		var ib_actions = []
-		for action in available_actions:
-			if action.get("type") == "USE_STRATAGEM" and str(action.get("stratagem_id", "")).begins_with("insane_bravery"):
-				ib_actions.append(action)
-		if not ib_actions.is_empty():
-			var ib_decision = _evaluate_insane_bravery(snapshot, ib_actions, player)
-			if not ib_decision.is_empty():
-				return ib_decision
+	var ib_actions = []
+	for action in available_actions:
+		if action.get("type") == "USE_STRATAGEM" and str(action.get("stratagem_id", "")).begins_with("insane_bravery"):
+			ib_actions.append(action)
+	if not ib_actions.is_empty():
+		var ib_decision = _evaluate_insane_bravery(snapshot, ib_actions, player)
+		if not ib_decision.is_empty():
+			return ib_decision
 
 	# Take any pending battle-shock tests
 	for action in available_actions:
@@ -7244,11 +6927,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
-	# T7-40: Only Normal+ difficulty uses threat awareness for positioning
 	# =========================================================================
-	var threat_data = []
-	if AIDifficultyConfigData.use_threat_awareness(_current_difficulty):
-		threat_data = _calculate_enemy_threat_data(enemies)
+	var threat_data = _calculate_enemy_threat_data(enemies)
 	if not threat_data.is_empty():
 		print("AIDecisionMaker: Calculated threat data for %d enemy units" % threat_data.size())
 		for td in threat_data:
@@ -7461,9 +7141,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			else:
 				if abs(centroid_a.y - centroid_b.y) > 80.0:
 					return centroid_a.y > centroid_b.y
-		var score_a = _apply_difficulty_noise(assignments.get(a, {}).get("score", 0.0))
-		var score_b = _apply_difficulty_noise(assignments.get(b, {}).get("score", 0.0))
-		return score_a > score_b
+		return float(assignments.get(a, {}).get("score", 0.0)) > float(assignments.get(b, {}).get("score", 0.0))
 	)
 
 	_last_unit_order = _build_move_order(snapshot, engaged_units, assigned_units, assignments, player)
@@ -8040,10 +7718,8 @@ static func _move_order_reason(a: Dictionary, b: Dictionary, snapshot: Dictionar
 	if ca != Vector2.INF and cb != Vector2.INF and absf(ca.y - cb.y) > 80.0:
 		return "it is the front-most unit — the AI moves front to back, and it is %.1f\" further forward than %s" % [
 			absf(ca.y - cb.y) / PIXELS_PER_INCH, b.name]
-	if float(a.score) >= float(b.score):
-		return "it is level with %s (within 2\"), so the plan's priority breaks the tie (%.1f vs %.1f)" % [
-			b.name, float(a.score), float(b.score)]
-	return "it is level with %s (within 2\") and the tie-break between them is partly random at this difficulty" % b.name
+	return "it is level with %s (within 2\"), so the plan's priority breaks the tie (%.1f vs %.1f)" % [
+		b.name, float(a.score), float(b.score)]
 
 # =============================================================================
 # RESERVES ARRIVAL (T7-16 / MOV-8)
@@ -11760,11 +11436,6 @@ static func _assign_units_to_objectives(
 		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
 
 	# PASS 3: Assign remaining units — screening / deep strike denial / support
-	# Difficulty gate (use_screening, Hard+): the deep-strike denial,
-	# screen-protect and corridor-block passes below only run when the gate
-	# passes. The support fallback at the end of this pass runs at every
-	# scoring tier regardless.
-	var screening_enabled = AIDifficultyConfigData.use_screening(_current_difficulty)
 	# (AI-TACTIC-3, MOV-4) Check for enemy reserves to determine screening urgency
 	var enemy_reserves = _get_enemy_reserves(snapshot, player)
 	var has_enemy_reserves = enemy_reserves.size() > 0
@@ -11782,9 +11453,9 @@ static func _assign_units_to_objectives(
 		if ac != Vector2.INF:
 			screener_positions.append(ac)
 
-	# Calculate denial positions if enemy has reserves (Hard+ only)
+	# Calculate denial positions if enemy has reserves
 	var denial_positions = []
-	if has_enemy_reserves and screening_enabled:
+	if has_enemy_reserves:
 		denial_positions = _calculate_denial_positions(
 			snapshot, objectives, obj_evaluations, friendly_units, player, screener_positions
 		)
@@ -11794,12 +11465,9 @@ static func _assign_units_to_objectives(
 				print("  pos=(%.0f,%.0f) priority=%.1f reason=%s" % [dp.position.x, dp.position.y, dp.priority, dp.reason])
 
 	# T7-42: Calculate corridor blocking positions to impede enemy approach to objectives
-	# (Hard+ only — empty list means the corridor-block assignment below never fires)
-	var corridor_blocking_positions = []
-	if screening_enabled:
-		corridor_blocking_positions = _calculate_corridor_blocking_positions(
-			snapshot, objectives, obj_evaluations, enemies, friendly_units, player, screener_positions
-		)
+	var corridor_blocking_positions = _calculate_corridor_blocking_positions(
+		snapshot, objectives, obj_evaluations, enemies, friendly_units, player, screener_positions
+	)
 	if not corridor_blocking_positions.is_empty():
 		print("AIDecisionMaker: [BLOCK] Calculated %d corridor blocking positions:" % corridor_blocking_positions.size())
 		for bp in corridor_blocking_positions:
@@ -11910,7 +11578,7 @@ static func _assign_units_to_objectives(
 
 		# --- SCREENING FALLBACK: Use _compute_screen_position for non-denial screening ---
 		# Even without enemy reserves, cheap unassigned units can screen valuable friendlies
-		if screening_enabled and is_screen_candidate and not enemies.is_empty():
+		if is_screen_candidate and not enemies.is_empty():
 			var screen_pos = _compute_screen_position(unit, unit_id, friendly_units, enemies, snapshot)
 			if screen_pos != Vector2.INF:
 				# Check spacing
@@ -12299,23 +11967,7 @@ static func _decide_engaged_unit(
 		return {}
 
 	# --- T7-27: Assess survival before making hold/fall-back decision ---
-	# Difficulty gate (use_survival_assessment, Normal+): with the gate off,
-	# survival is treated as safe — the pre-T7-27 behavior. (Behavior-neutral
-	# today: Easy exits via use_random_actions before this path — wired so the
-	# config gate is actually enforced.)
-	var survival: Dictionary
-	if AIDifficultyConfigData.use_survival_assessment(_current_difficulty):
-		survival = _assess_engaged_unit_survival(unit, unit_id, unit_name, enemies)
-	else:
-		survival = {
-			"expected_damage": 0.0,
-			"remaining_wounds": 0.0,
-			"damage_ratio": 0.0,
-			"is_lethal": false,
-			"is_severe": false,
-			"engaging_enemy_ids": [],
-			"recommendation": "neutral"
-		}
+	var survival: Dictionary = _assess_engaged_unit_survival(unit, unit_id, unit_name, enemies)
 
 	# Check if this unit is on an objective
 	var on_objective = false
@@ -16796,21 +16448,19 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets"}
 
 	# Step 4.5: Consider GRENADE stratagem before regular shooting
-	# T7-40: Only Hard+ difficulty uses stratagems proactively
 	# Evaluate once per shooting phase — if worthwhile, use it before regular shooting
 	if action_types.has("SELECT_SHOOTER") and not _grenade_evaluated:
 		_grenade_evaluated = true
-		if AIDifficultyConfigData.use_stratagems(_current_difficulty):
-			var grenade_eval = evaluate_grenade_usage(snapshot, player)
-			if grenade_eval.get("should_use", false):
-				print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
-				return {
-					"type": "USE_GRENADE_STRATAGEM",
-					"grenade_unit_id": grenade_eval.grenade_unit_id,
-					"target_unit_id": grenade_eval.target_unit_id,
-					"player": player,
-					"_ai_description": grenade_eval.description
-				}
+		var grenade_eval = evaluate_grenade_usage(snapshot, player)
+		if grenade_eval.get("should_use", false):
+			print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
+			return {
+				"type": "USE_GRENADE_STRATAGEM",
+				"grenade_unit_id": grenade_eval.grenade_unit_id,
+				"target_unit_id": grenade_eval.target_unit_id,
+				"player": player,
+				"_ai_description": grenade_eval.description
+			}
 
 	# Step 4.6: Shooting-phase faction stratagems (ARCHEOTECH MUNITIONS lethal
 	# hits on the best shooter before it fires, …). Once-per gates in the engine.
@@ -16882,14 +16532,6 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		# Build focus fire plan if not already built for this shooting phase.
 		# The plan coordinates weapon assignments across ALL shooting units to
 		# concentrate fire on kill thresholds rather than spreading damage.
-		# Difficulty gate (use_focus_fire, Normal+): with the gate off, the plan
-		# stays empty and every shooter uses the per-unit fallback scorer below.
-		# (Behavior-neutral today: Easy exits via use_random_actions before this
-		# path — wired so the config gate is actually enforced.)
-		if not _focus_fire_plan_built and not AIDifficultyConfigData.use_focus_fire(_current_difficulty):
-			_focus_fire_plan_built = true
-			_focus_fire_plan.clear()
-			print("AIDecisionMaker: Focus fire disabled at %s difficulty — per-unit fallback scoring" % AIDifficultyConfigData.difficulty_name(_current_difficulty))
 		if not _focus_fire_plan_built:
 			var shooter_unit_ids = []
 			for sa in action_types["SELECT_SHOOTER"]:
@@ -17734,10 +17376,6 @@ static func _get_trade_efficiency(attacker: Dictionary, target: Dictionary) -> f
 	"""T7-24: Calculate trade efficiency. Returns >1.0 for favorable trades, <1.0 for unfavorable.
 	A favorable trade is when we spend fewer points-per-wound to remove more expensive-per-wound models.
 	Example: 65pt Intercessors (6.5 ppw) shooting at 200pt Leman Russ (15.4 ppw) = favorable trade."""
-	# Difficulty gate (use_trade_analysis, Competitive): below Competitive the
-	# multiplier is neutral, so charge and fight scoring ignore point-trade math.
-	if not AIDifficultyConfigData.use_trade_analysis(_current_difficulty):
-		return 1.0
 	var attacker_ppw = _get_points_per_wound(attacker)
 	var target_ppw = _get_points_per_wound(target)
 	if attacker_ppw <= 0.0 or target_ppw <= 0.0:
@@ -18998,10 +18636,6 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				print("AIDecisionMaker: [T7-11] %s has Deadly Demise D%d and is doomed — charge bonus x%.2f" % [
 					unit_name, dd_val, dd_bonus])
 
-			# T7-40: Apply difficulty noise to charge scoring
-			var ch_noisy = _apply_difficulty_noise(score)
-			_t_add(ch_terms, "difficulty_noise", ch_noisy - score)
-			score = ch_noisy
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
 				unit_name, target_name, dist, charge_prob * 100.0, target_score, ow_risk.expected_damage, ow_risk.risk_level, score])
 
@@ -19054,8 +18688,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		charge_threshold = maxf(1.0 - (charge_tempo - 1.0) * get_param("TEMPO_CHARGE_THRESHOLD_REDUCTION", TEMPO_CHARGE_THRESHOLD_REDUCTION), 0.3)
 		print("AIDecisionMaker: [TEMPO] Charge threshold lowered to %.2f (tempo=%.2f)" % [charge_threshold, charge_tempo])
 
-	# T7-40: Apply difficulty modifier to charge threshold
-	charge_threshold *= _get_difficulty_charge_threshold_modifier()
+	# Charge-threshold scale (see CHARGE_THRESHOLD_SCALE)
+	charge_threshold *= CHARGE_THRESHOLD_SCALE
 
 	# T7-43: Apply round strategy modifier to charge threshold
 	# Early game: lower threshold (more willing), Late game: higher (less willing unless on objective)
@@ -21371,9 +21005,6 @@ static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
 		var unit = all_units[unit_id]
 		var prio_terms := {}
 		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives, prio_terms)
-		var noisy = _apply_difficulty_noise(score)
-		_t_add(prio_terms, "difficulty_noise", noisy - score)
-		score = noisy
 		scored_fighters.append({"unit_id": unit_id, "score": score})
 		# Kept for the SELECT_FIGHTER decision record (what the pick beat)
 		_fight_order_scores[unit_id] = {"score": score, "terms": prio_terms}
@@ -26000,12 +25631,6 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 	Considers weapon role vs target type, damage waste on low-wound models,
 	and anti-keyword special rules.
 	"""
-	# Difficulty gate (use_weapon_efficiency, Normal+): with the gate off,
-	# weapon-target role matching is neutral. (Behavior-neutral today: Easy
-	# exits via use_random_actions before any scoring path calls this — wired
-	# so the config gate is actually enforced.)
-	if not AIDifficultyConfigData.use_weapon_efficiency(_current_difficulty):
-		return EFFICIENCY_NEUTRAL
 	var weapon_role = _classify_weapon_role(weapon)
 	var target_type = _classify_target_type(target_unit)
 	var multiplier = EFFICIENCY_NEUTRAL
@@ -26636,8 +26261,6 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	stratagem and an effects-based fallback. Returns a USE_STRATAGEM action or {}.
 	The engine's can_use_stratagem gate (CP, once-per, one-per-unit-per-phase,
 	turn+phase timing) is the authority — the AI only ranks the legal options."""
-	if not AIDifficultyConfigData.use_stratagems(_current_difficulty):
-		return {}
 	var strats = _implemented_faction_stratagems(player)
 	if strats.is_empty():
 		return {}
@@ -27250,7 +26873,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	var decline := {"use": false}
 	# Codex: Adeptus Custodes ka'tah abilities ride in the same windows
 	# (CustodesKatah.gd): free (they cost the unit's readied state), so the AI
-	# picks one first at every difficulty; the window stays open afterwards and
+	# picks one first; the window stays open afterwards and
 	# BasePhase asks again. Then only the stratagems are weighed.
 	var katah_pick: Dictionary = _custodes_katah().ai_pick(player, window_id, offers, ctx)
 	if katah_pick.get("use", false):
@@ -27262,8 +26885,8 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	if sm == null or offers.is_empty():
 		return decline
 	# Codex: Orks (11e) free rule choices (WP-O34: Try Dat Button!, Hop Splat,
-	# Roar of Mork, Visions of Violence, War Cry) are answered first, at every
-	# difficulty — the window is re-offered afterwards for its stratagems.
+	# Roar of Mork, Visions of Violence, War Cry) are answered first —
+	# the window is re-offered afterwards for its stratagems.
 	var ork11e_det = load("res://scripts/codex/orks/OrkDetachments11e.gd")
 	var rule_pick: Dictionary = ork11e_det.ai_decide(player, window_id, offers, ctx)
 	if not rule_pick.is_empty():
@@ -27301,16 +26924,6 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	if offers.is_empty():
 		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)
 		return decline
-	var difficulty := _current_difficulty
-	var ai_node = null
-	var main = Engine.get_main_loop()
-	if main is SceneTree and main.root:
-		ai_node = main.root.get_node_or_null("AIPlayer")
-	if ai_node and ai_node.has_method("get_difficulty"):
-		difficulty = int(ai_node.get_difficulty(player))
-	if not AIDifficultyConfigData.use_stratagems(difficulty):
-		_add_thinking_step("Stratagem window %s: declining (difficulty does not use stratagems)" % window_id)
-		return decline
 	var cp := int(sm.get_player_cp(player))
 	var gs = _game_state()
 	var units: Dictionary = gs.state.get("units", {}) if gs else {}
@@ -27325,7 +26938,7 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		if sid == "fire_overwatch_11e":
 			# 11e FIRE OVERWATCH (15.08) in movement_phase_end: score each
 			# (shooter, snap target) pair by its expected damage on 6s.
-			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
+			var fo := _decide_fire_overwatch_window_11e(offer, cp)
 			considered.append_array(fo.considered)
 			var fo_units: Dictionary = units if not units.is_empty() else ((_game_state().state.get("units", {})) if _game_state() else {})
 			var fo_shooter := str(fo.get("target_unit_id", ""))
@@ -27600,12 +27213,9 @@ static func _snap_expected_damage_11e(shooter_id: String, target_id: String, boa
 ## the best (shooter, snap target) pair by expected damage, used only when the
 ## AI keeps a CP in hand (CP >= 2, like evaluate_fire_overwatch), the shot is
 ## worth >= FO_11E_MIN_EXPECTED_DAMAGE and the target >= FO_11E_MIN_TARGET_VALUE.
-static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int, difficulty: int) -> Dictionary:
+static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int) -> Dictionary:
 	var out := {"use": false, "score": 0.0, "target_unit_id": "", "secondary_id": "", "considered": []}
 	var fo_name := str(offer.get("name", "FIRE OVERWATCH"))
-	if not AIDifficultyConfigData.use_overwatch(difficulty):
-		out.considered.append("%s: skip (difficulty does not use overwatch)" % fo_name)
-		return out
 	if cp < 2:
 		out.considered.append("%s: skip (CP %d < 2 — snap shots hit only on unmodified 6s; keeping the CP)" % [fo_name, cp])
 		return out

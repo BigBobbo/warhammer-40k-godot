@@ -19,8 +19,8 @@
 #        imports the project, which takes a few minutes).
 #
 # Each case runs as a windowed scenario (tests/run_scenarios.sh): the case's
-# save is staged as a fixture, the AI is asked for a suggestion at the case's
-# difficulty, and the signature is compared. Nothing is executed.
+# save is staged as a fixture, the AI is asked for a suggestion, and the
+# signature is compared. Nothing is executed.
 #
 # Exit codes: 0 all pass (compare: on this tree), 1 at least one failed,
 # 2 no cases found / setup error.

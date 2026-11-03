@@ -346,8 +346,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 	# Player header
 	var header = Label.new()
 	var faction = data.get("faction", "Player %d" % player)
-	var difficulty = data.get("difficulty", "Normal")
-	header.text = "Player %d — %s (AI: %s)" % [player, faction, difficulty]
+	header.text = "Player %d — %s (AI)" % [player, faction]
 	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", player_color)
 	parent.add_child(header)

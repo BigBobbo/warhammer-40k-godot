@@ -78,7 +78,7 @@ func _run_tests():
 	_setup_state(game_state)
 	if sm.has_method("reset_for_new_battle"):
 		sm.reset_for_new_battle()
-	ai.configure({1: "AI", 2: "HUMAN"}, {1: 0, 2: 0})
+	ai.configure({1: "AI", 2: "HUMAN"})
 	_check("AI owns player 1, human owns player 2",
 		ai.is_ai_player(1) and not ai.is_ai_player(2))
 

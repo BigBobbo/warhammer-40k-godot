@@ -56,7 +56,6 @@ const PX_PER_INCH := 40.0
 # is never used: it declares at random. The seed is belt and braces — the
 # Formations decisions draw no random numbers today (measured 2026-10-31 on the
 # bench armies: the same reserves for seeds 1, 7 and 999 at difficulty 2 and 3).
-const RESERVES_AI_DIFFICULTY := 2   # AIDifficultyConfig.Difficulty.HARD
 const RESERVES_AI_SEED := 1
 const RESERVES_AI_MAX_STEPS := 200  # declarations per seat before the run counts as stuck
 
@@ -797,7 +796,7 @@ func _ai_reserve_choice() -> Dictionary:
 				return not (a.get("type", "") == "DECLARE_TRANSPORT_EMBARKATION"
 					and str(a.get("transport_id", "")) in tried_transports))
 			var decision: Dictionary = AIDM.decide(GSD.Phase.FORMATIONS,
-				GS.create_snapshot(false), available, player, RESERVES_AI_DIFFICULTY)
+				GS.create_snapshot(false), available, player)
 			if decision.is_empty():
 				break
 			decision["player"] = player

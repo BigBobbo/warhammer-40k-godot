@@ -18,7 +18,6 @@ extends SceneTree
 # Usage: godot --headless --path . -s tests/test_ai_reactive_window_guard.gd
 
 const FIXTURE := "hi_pretrigger"
-const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 
 var passed := 0
 var failed := 0
@@ -94,8 +93,7 @@ func _run_tests():
 		{"type": "DECLINE_HEROIC_INTERVENTION", "player": 1, "description": "Decline Heroic Intervention"},
 	]
 	var decision = AIDecisionMaker.decide(
-		GameStateData.Phase.CHARGE, snapshot, hijack_actions, 2,
-		AIDifficultyConfigData.Difficulty.NORMAL)
+		GameStateData.Phase.CHARGE, snapshot, hijack_actions, 2)
 	_check("decide() as P2 refuses P1's HI window (empty decision)",
 		decision.is_empty(), "got %s" % str(decision))
 
@@ -103,8 +101,7 @@ func _run_tests():
 		{"type": "DECLINE_FIRE_OVERWATCH", "player": 1, "description": "Decline Fire Overwatch"},
 	]
 	var ow_decision = AIDecisionMaker.decide(
-		GameStateData.Phase.CHARGE, snapshot, ow_actions, 2,
-		AIDifficultyConfigData.Difficulty.NORMAL)
+		GameStateData.Phase.CHARGE, snapshot, ow_actions, 2)
 	_check("decide() as P2 refuses P1's Overwatch window (empty decision)",
 		ow_decision.is_empty(), "got %s" % str(ow_decision))
 

@@ -16,16 +16,11 @@ const PlanManagerData = preload("res://scripts/PlanManager.gd")
 @onready var player1_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown
 @onready var player2_type_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player2TypeContainer/Player2TypeDropdown
 @onready var player2_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown
-# T7-40: AI difficulty dropdowns (created dynamically, shown only when player type is AI)
-var player1_difficulty_container: HBoxContainer = null
-var player1_difficulty_dropdown: OptionButton = null
-var player2_difficulty_container: HBoxContainer = null
-var player2_difficulty_dropdown: OptionButton = null
 # T7-36: AI speed dropdown (shown when any player is AI)
 var ai_speed_container: HBoxContainer = null
 var ai_speed_dropdown: OptionButton = null
-# PM-7a: per-AI-seat plan pickers. Same shape as the difficulty dropdowns —
-# created dynamically, shown only while that seat is an AI — but their CONTENTS
+# PM-7a: per-AI-seat plan pickers. Created dynamically,
+# shown only while that seat is an AI — but their CONTENTS
 # depend on the army and the deployment zone, so they are repopulated whenever
 # either changes.
 var player1_plan_container: HBoxContainer = null
@@ -538,7 +533,7 @@ func _update_input_mode_status() -> void:
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
-	for dropdown in [player1_difficulty_dropdown, player2_difficulty_dropdown, ai_speed_dropdown,
+	for dropdown in [ai_speed_dropdown,
 			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown,
 			plan_editor_zone_dropdown, plan_editor_army_dropdown,
 			player1_plan_dropdown, player2_plan_dropdown]:
@@ -550,7 +545,7 @@ func _apply_theme_to_dynamic_elements() -> void:
 			WhiteDwarfThemeData.apply_to_button(btn)
 
 	# Style dynamically created labels
-	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container,
+	for container in [ai_speed_container,
 			army_sort_container, plan_editor_zone_container, plan_editor_army_container,
 			player1_plan_container, player2_plan_container]:
 		if container:
@@ -595,8 +590,7 @@ func _setup_dropdowns() -> void:
 	_p1_name_edit = _create_seat_name_edit(player1_type_dropdown.get_parent(), "Player 1")
 	_p2_name_edit = _create_seat_name_edit(player2_type_dropdown.get_parent(), "Player 2")
 
-	# T7-40: Create AI difficulty dropdowns
-	_create_difficulty_dropdowns()
+	_connect_player_type_changes()
 	_create_plan_dropdowns()
 
 	# T7-36: Create AI speed dropdown
@@ -624,69 +618,12 @@ func _setup_dropdowns() -> void:
 
 	print("MainMenu: Dropdowns populated with ", army_options.size(), " armies")
 
-func _create_difficulty_dropdowns() -> void:
-	"""T7-40: Create AI difficulty dropdown containers and insert them after the player type rows."""
-	var army_section = $ScrollContainer/MenuContainer/ArmySection
-
-	# --- Player 1 Difficulty ---
-	player1_difficulty_container = HBoxContainer.new()
-	player1_difficulty_container.name = "Player1DifficultyContainer"
-
-	var p1_label = Label.new()
-	p1_label.text = "P1 AI Difficulty:"
-	p1_label.custom_minimum_size = Vector2(150, 0)
-	player1_difficulty_container.add_child(p1_label)
-
-	player1_difficulty_dropdown = OptionButton.new()
-	player1_difficulty_dropdown.name = "Player1DifficultyDropdown"
-	player1_difficulty_dropdown.custom_minimum_size = Vector2(300, 0)
-	player1_difficulty_dropdown.add_item("Easy")
-	player1_difficulty_dropdown.add_item("Normal")
-	player1_difficulty_dropdown.add_item("Hard")
-	player1_difficulty_dropdown.add_item("Competitive")
-	player1_difficulty_dropdown.selected = 3  # Default: Competitive (strongest measured)
-	player1_difficulty_container.add_child(player1_difficulty_dropdown)
-
-	# Insert after Player1TypeContainer
-	var p1_type_idx = _get_child_index(army_section, "Player1TypeContainer")
-	army_section.add_child(player1_difficulty_container)
-	if p1_type_idx >= 0:
-		army_section.move_child(player1_difficulty_container, p1_type_idx + 1)
-
-	# --- Player 2 Difficulty ---
-	player2_difficulty_container = HBoxContainer.new()
-	player2_difficulty_container.name = "Player2DifficultyContainer"
-
-	var p2_label = Label.new()
-	p2_label.text = "P2 AI Difficulty:"
-	p2_label.custom_minimum_size = Vector2(150, 0)
-	player2_difficulty_container.add_child(p2_label)
-
-	player2_difficulty_dropdown = OptionButton.new()
-	player2_difficulty_dropdown.name = "Player2DifficultyDropdown"
-	player2_difficulty_dropdown.custom_minimum_size = Vector2(300, 0)
-	player2_difficulty_dropdown.add_item("Easy")
-	player2_difficulty_dropdown.add_item("Normal")
-	player2_difficulty_dropdown.add_item("Hard")
-	player2_difficulty_dropdown.add_item("Competitive")
-	player2_difficulty_dropdown.selected = 3  # Default: Competitive (strongest measured)
-	player2_difficulty_container.add_child(player2_difficulty_dropdown)
-
-	# Insert after Player2TypeContainer
-	var p2_type_idx = _get_child_index(army_section, "Player2TypeContainer")
-	army_section.add_child(player2_difficulty_container)
-	if p2_type_idx >= 0:
-		army_section.move_child(player2_difficulty_container, p2_type_idx + 1)
-
-	# Set initial visibility based on player type
-	player1_difficulty_container.visible = (player1_type_dropdown.selected == 1)
-	player2_difficulty_container.visible = (player2_type_dropdown.selected == 1)
-
-	# Connect player type changes to toggle difficulty visibility
+func _connect_player_type_changes() -> void:
+	"""Toggle the per-seat AI-only rows (plan picker, AI speed) when a seat
+	switches between Human and AI. There is a single AI strength — no
+	difficulty picker."""
 	player1_type_dropdown.item_selected.connect(_on_player1_type_changed)
 	player2_type_dropdown.item_selected.connect(_on_player2_type_changed)
-
-	print("MainMenu: AI difficulty dropdowns created")
 
 func _create_plan_dropdowns() -> void:
 	"""PM-7a: an optional 'AI Plan' picker per AI seat.
@@ -809,21 +746,15 @@ func _get_child_index(parent: Node, child_name: String) -> int:
 	return -1
 
 func _on_player1_type_changed(index: int) -> void:
-	"""T7-40: Show/hide P1 difficulty dropdown based on player type."""
-	if player1_difficulty_container:
-		player1_difficulty_container.visible = (index == 1)  # 1 = AI
-		print("MainMenu: Player 1 type changed to %s, difficulty visible: %s" % [
-			"AI" if index == 1 else "Human", player1_difficulty_container.visible])
+	"""Show/hide P1's AI-only rows based on player type."""
+	print("MainMenu: Player 1 type changed to %s" % ("AI" if index == 1 else "Human"))
 	if player1_plan_container:
 		player1_plan_container.visible = (index == 1)
 	_update_ai_speed_visibility()
 
 func _on_player2_type_changed(index: int) -> void:
-	"""T7-40: Show/hide P2 difficulty dropdown based on player type."""
-	if player2_difficulty_container:
-		player2_difficulty_container.visible = (index == 1)  # 1 = AI
-		print("MainMenu: Player 2 type changed to %s, difficulty visible: %s" % [
-			"AI" if index == 1 else "Human", player2_difficulty_container.visible])
+	"""Show/hide P2's AI-only rows based on player type."""
+	print("MainMenu: Player 2 type changed to %s" % ("AI" if index == 1 else "Human"))
 	if player2_plan_container:
 		player2_plan_container.visible = (index == 1)
 	_update_ai_speed_visibility()
@@ -1635,9 +1566,6 @@ func _on_start_button_pressed() -> void:
 	# Store configuration in GameState
 	var p1_type = "AI" if player1_type_dropdown.selected == 1 else "HUMAN"
 	var p2_type = "AI" if player2_type_dropdown.selected == 1 else "HUMAN"
-	# T7-40: Get difficulty settings (dropdown index matches AIDifficultyConfig.Difficulty enum)
-	var p1_difficulty = player1_difficulty_dropdown.selected if player1_difficulty_dropdown else 3
-	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 3
 	# T7-36: Get AI speed setting (dropdown index matches AIPlayer.AISpeedPreset enum)
 	var ai_speed = ai_speed_dropdown.selected if ai_speed_dropdown else 1
 	# P2-85: Get secondary mission mode
@@ -1662,8 +1590,6 @@ func _on_start_button_pressed() -> void:
 		"player2_army": army_options[player2_dropdown.selected].id,
 		"player1_type": p1_type,
 		"player2_type": p2_type,
-		"player1_difficulty": p1_difficulty,
-		"player2_difficulty": p2_difficulty,
 		"ai_speed": ai_speed,
 		"player1_secondary_mode": p1_secondary_mode,
 		"player2_secondary_mode": p2_secondary_mode,
@@ -1977,8 +1903,6 @@ func _on_plan_editor_button_pressed() -> void:
 		"player2_army": army_id,
 		"player1_type": "HUMAN",
 		"player2_type": "HUMAN",
-		"player1_difficulty": 1,
-		"player2_difficulty": 1,
 		"ai_speed": ai_speed_dropdown.selected if ai_speed_dropdown else 1,
 		"player1_secondary_mode": "tactical",
 		"player2_secondary_mode": "tactical",

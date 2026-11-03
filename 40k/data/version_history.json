@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.72.0",
+      "date": "2026-11-03",
+      "summary": "The AI no longer has difficulty levels: every AI opponent now plays at full strength (what used to be 'Competitive').",
+      "changes": [
+        "The 'P1 AI Difficulty' / 'P2 AI Difficulty' pickers are gone from the main menu. Setting a player to AI is all you need to do.",
+        "Every AI uses all of its tactics: stratagems, Overwatch, Command Re-rolls, focus fire, multi-phase planning, screening against Deep Strike and point-trade analysis, with no random noise in its choices.",
+        "Old saves that were set to Easy, Normal or Hard load with the full-strength AI.",
+        "Save files, the game-over AI summary and the K suggestion card no longer show a difficulty label.",
+        "The tutorial opponent and the AI that takes over for a disconnected multiplayer opponent also play at full strength now."
+      ]
+    },
+    {
       "version": "1.71.0",
       "date": "2026-11-03",
       "summary": "Android: turn vehicles with one finger — long-press the model, then slide left or right.",

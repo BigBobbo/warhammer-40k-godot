@@ -45,7 +45,6 @@ const ARMY := "A_C_test"
 const DEPLOYMENT := "crucible_of_battle"
 const TERRAIN := "take_and_hold_mirror_1"
 const MISSION := "take_and_hold"
-const DIFFICULTY := 1  # Normal — the shipped default
 
 # Three games, seeded [S, S+1, S]. Game 3 repeats game 1's seed: if in-session
 # reset is clean enough for the simulator, games 1 and 3 must produce identical
@@ -139,8 +138,6 @@ func _config() -> Dictionary:
 		"player2_army": ARMY,
 		"player1_type": "AI",
 		"player2_type": "AI",
-		"player1_difficulty": DIFFICULTY,
-		"player2_difficulty": DIFFICULTY,
 		"ai_speed": 0,
 		"player1_secondary_mode": "tactical",
 		"player2_secondary_mode": "tactical",
@@ -552,7 +549,6 @@ func _write_result() -> void:
 		"deployment": DEPLOYMENT,
 		"terrain": TERRAIN,
 		"mission": MISSION,
-		"difficulty": DIFFICULTY,
 		"games": _games,
 		"probes": _probes,
 		"notes": _notes,

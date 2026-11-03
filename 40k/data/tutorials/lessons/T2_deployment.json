@@ -14,8 +14,6 @@
       "player2_army": "tutorial_custodes",
       "player1_type": "HUMAN",
       "player2_type": "AI",
-      "player1_difficulty": 1,
-      "player2_difficulty": 0,
       "ai_speed": 0,
       "player1_secondary_mode": "fixed",
       "player2_secondary_mode": "fixed",
