@@ -24,7 +24,6 @@ extends SceneTree
 # Run with: godot --headless --path . -s tests/unit/test_ai_fix_hi_charge_odds.gd
 
 const AI_PATH := "res://scripts/AIDecisionMaker.gd"
-const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
 const FIXTURE := "res://tests/saves/asym_2000_postdeploy.w40ksave"
 const PX := 40.0  # pixels per inch
 const CG := "U_CUSTODIAN_GUARD_A"   # P1 (defender)
@@ -62,7 +61,6 @@ func _run_tests():
 	var saved_state: Dictionary = _gs().state.duplicate(true)
 	GameConstants.edition = 11
 	AIDM = load(AI_PATH)
-	AIDM._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
 	_fx_units = _load_fixture_units(FIXTURE)
 	_assert(_fx_units.has(CG) and _fx_units.has(BIKES) and _fx_units.has(STORMBOYZ),
 		"setup: the asym fixture has %s, %s and %s" % [CG, BIKES, STORMBOYZ])

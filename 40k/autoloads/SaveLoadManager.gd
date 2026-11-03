@@ -1207,9 +1207,6 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			"game_id": GameState.state.get("meta", {}).get("game_id", ""),
 			"player1_type": p1_type,
 			"player2_type": p2_type,
-			# SAVE-13: Include AI difficulty in metadata for save file display
-			"player1_difficulty": game_config.get("player1_difficulty", -1) if p1_type == "AI" else -1,
-			"player2_difficulty": game_config.get("player2_difficulty", -1) if p2_type == "AI" else -1,
 			# SAVE-15: Mark whether this save came from a multiplayer session
 			"is_multiplayer": is_mp
 		},

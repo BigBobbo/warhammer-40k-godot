@@ -13,7 +13,7 @@ extends Node
 #     --bench-seed=42 \
 #     --bench-out=test_results/bench/run_1.json \
 #     [--bench-p1-profile=path.json] [--bench-p2-profile=path.json] \
-#     [--bench-difficulty=1] [--bench-max-seconds=600] [--bench-time-scale=3] \
+#     [--bench-max-seconds=600] [--bench-time-scale=3] \
 #     [--bench-git-sha=abc1234] [--bench-arm=candidate] [--bench-record-out=path.json]
 #
 # Profiles are AIDecisionMaker parameter-override files (the ai_config.json /
@@ -46,7 +46,6 @@ var _p2_profile_path: String = ""
 var _p1_plan_path: String = ""
 var _p2_plan_path: String = ""
 var _plan_inline: Dictionary = {1: {}, 2: {}}
-var _difficulty: int = 1  # Normal — the default players face
 var _max_seconds: float = 600.0
 var _time_scale: float = 3.0
 
@@ -164,7 +163,9 @@ func _ready() -> void:
 		elif a.begins_with("--bench-dispositions="):
 			_dispositions = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
-			_difficulty = int(a.split("=", true, 1)[1])
+			# Legacy flag: the AI has a single strength now. Accepted and
+			# ignored so older lab scripts keep running.
+			print("[AIBench] NOTE: %s ignored — the AI has no difficulty levels" % a)
 		elif a.begins_with("--bench-max-seconds="):
 			_max_seconds = float(a.split("=", true, 1)[1])
 		elif a.begins_with("--bench-time-scale="):
@@ -187,8 +188,8 @@ func _ready() -> void:
 	if _exam_spec_path != "":
 		if not _load_exam_spec():
 			return
-	print("[AIBench] Activating: fixture=%s seed=%d difficulty=%d time_scale=%.1f%s" % [
-		_fixture, _seed, _difficulty, _time_scale,
+	print("[AIBench] Activating: fixture=%s seed=%d time_scale=%.1f%s" % [
+		_fixture, _seed, _time_scale,
 		("  exam=%s" % _exam.get("id", "?")) if _exam_spec_path != "" else ""])
 	call_deferred("_kick_off")
 
@@ -209,7 +210,6 @@ func _load_exam_spec() -> bool:
 	_exam = parsed
 	_fixture = str(_exam.get("fixture", _fixture))
 	_seed = int(_exam.get("seed", 4242))
-	_difficulty = int(_exam.get("difficulty", 2))
 	_exam_phase = int(_exam.get("phase", -1))
 	_max_seconds = float(_exam.get("max_seconds", 120.0))
 	_time_scale = float(_exam.get("time_scale", 6.0))
@@ -275,7 +275,7 @@ func _exam_evaluate() -> void:
 		"passed": passed, "failed": failed,
 		"rationale": _exam.get("rationale", ""),
 		"phase": _exam_phase, "player": _exam.get("player", 1),
-		"seed": _seed, "difficulty": _difficulty,
+		"seed": _seed,
 		"decision_batches": records.size(),
 		"assertions": _exam_results,
 	}
@@ -399,12 +399,12 @@ func _kick_off() -> void:
 	for i in range(8):
 		await get_tree().process_frame
 
-	# 4) Both players AI at the requested difficulty, fastest pacing
+	# 4) Both players AI, fastest pacing
 	var ai = get_node_or_null("/root/AIPlayer")
 	if ai == null:
 		_finish_with_error("AIPlayer autoload missing")
 		return
-	ai.configure({1: "AI", 2: "AI"}, {1: _difficulty, 2: _difficulty})
+	ai.configure({1: "AI", 2: "AI"})
 	ai.set_ai_speed_preset(0)  # FAST
 	# M1: keep every decision batch (see BENCH_RECORD_BATCH_CAP). configure()
 	# clears the accumulator, so this must come AFTER it.
@@ -471,9 +471,9 @@ func _kick_off() -> void:
 			_exam_phase = start_phase
 		pm.transition_to_phase(start_phase)
 		_start_ticks = Time.get_ticks_msec()
-		print("[AIExam] %s: running phase %d, round %d, player %s at difficulty %d" % [
+		print("[AIExam] %s: running phase %d, round %d, player %s" % [
 			_exam.get("id", "?"), start_phase, GameState.get_battle_round(),
-			str(_exam.get("player", 1)), _difficulty])
+			str(_exam.get("player", 1))])
 		_exam_watch_loop()
 		return
 
@@ -610,7 +610,6 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"dispositions": _dispositions,
 		"fixture": _fixture,
 		"seed": _seed,
-		"difficulty": _difficulty,
 		"p1_profile": _p1_profile_path,
 		"p2_profile": _p2_profile_path,
 		"p1_plan": _p1_plan_path,
@@ -806,7 +805,7 @@ func _build_provenance() -> Dictionary:
 		_git_sha, Engine.get_version_info().get("string", ""), _fixture,
 		fixture_path, _sha256_of(fixture_path),
 		_profile_provenance(1), _profile_provenance(2),
-		_difficulty, _seed, _time_scale, _arm)
+		_seed, _time_scale, _arm)
 
 
 func _write_game_record(result: Dictionary) -> void:

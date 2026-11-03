@@ -103,8 +103,7 @@ static func save_case(decision: Dictionary, meta: Dictionary, verdict: String, n
 		"game_version": _game_version(),
 		"verdict": verdict, "note": note,
 		"player": meta.get("player", 0), "phase_name": meta.get("phase_name", ""),
-		"round": meta.get("round", 0), "difficulty": meta.get("difficulty", ""),
-		"difficulty_level": int(meta.get("difficulty_level", -1)),
+		"round": meta.get("round", 0),
 		# Saved while cycling the card to another unit: re-ask about that unit.
 		"focus_unit_id": str(meta.get("focus_unit_id", "")),
 		"suggestion": str(decision.get("_ai_description", decision.get("type", ""))),
@@ -124,6 +123,14 @@ static func save_case(decision: Dictionary, meta: Dictionary, verdict: String, n
 		"save_path": ProjectSettings.globalize_path(save_path)}
 
 
+static func _first_arg_name(obj: Object, method: String) -> String:
+	for m in obj.get_method_list():
+		if str(m.get("name", "")) == method:
+			var args: Array = m.get("args", [])
+			return str(args[0].get("name", "")) if not args.is_empty() else ""
+	return ""
+
+
 static func check_case(json_path: String) -> Dictionary:
 	"""Re-ask the AI in the CURRENT game state (the case's save must already be
 	loaded) and judge it against the case. Returns {pass, verdict, detail, ...}."""
@@ -137,11 +144,19 @@ static func check_case(json_path: String) -> Dictionary:
 	var ai = Engine.get_main_loop().root.get_node_or_null("/root/AIPlayer")
 	var decision: Dictionary = {}
 	if ai:
-		# Older AI versions (compare mode runs this checker against another
-		# git ref) may not take a difficulty override.
-		if ai.get_method_argument_count("request_suggestion") >= 2:
-			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)), str(case.get("focus_unit_id", "")))
-		elif ai.get_method_argument_count("request_suggestion") >= 1:
+		# Compare mode runs this checker against other git refs, whose
+		# request_suggestion() signature differs:
+		#   current:  (focus_unit_id)                 — single AI strength
+		#   older:    (difficulty_override, focus_unit_id)
+		#   oldest:   (difficulty_override) or ()
+		var argc: int = ai.get_method_argument_count("request_suggestion")
+		var first_arg := _first_arg_name(ai, "request_suggestion")
+		var focus := str(case.get("focus_unit_id", ""))
+		if argc >= 2:
+			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)), focus)
+		elif argc == 1 and first_arg == "focus_unit_id":
+			decision = ai.request_suggestion(focus)
+		elif argc == 1:
 			decision = ai.request_suggestion(int(case.get("difficulty_level", -1)))
 		else:
 			decision = ai.request_suggestion()

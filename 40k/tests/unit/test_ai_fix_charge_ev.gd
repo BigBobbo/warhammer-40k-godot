@@ -23,16 +23,12 @@ extends SceneTree
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
-const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
 
 var _pass_count: int = 0
 var _fail_count: int = 0
 
 func _init():
 	print("\n=== FIX_CHARGE_EV: gang-up counts only help that arrived ===\n")
-	# Competitive: no score noise (the -s harness would otherwise default the
-	# difficulty static, see test_ai_charge_decisions.gd).
-	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.COMPETITIVE
 	AIDecisionMaker._config_overrides["FIX_CHARGE_EV"] = 1.0  # the fix may be off by default; the checks switch it on
 	_test_failed_charger_pays_no_gang_up()
 	_test_lone_killer_gets_no_gang_up_from_failed_charger()

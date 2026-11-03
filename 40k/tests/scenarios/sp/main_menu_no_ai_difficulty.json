@@ -1,0 +1,83 @@
+{
+  "id": "main_menu_no_ai_difficulty",
+  "covers": [
+    "mainmenu.defaults",
+    "ui.main_menu.ai_seat_rows",
+    "config.ai_single_strength"
+  ],
+  "disable_ai": false,
+  "description": "The AI has a single strength (formerly 'Competitive') \u2014 there is no difficulty to choose. Boots the real main menu and asserts no difficulty picker/label exists anywhere in it, that the default P2=AI seat still shows its AI-only plan row, and that toggling P1 Human->AI->Human shows/hides P1's AI-only row (the type-change signal wiring that used to live in the difficulty-dropdown builder). Presses Start and asserts the game_config carries no *_difficulty keys and AIPlayer has P2 as AI with no per-seat difficulty API.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar found = []\nfor n in m.find_children(\"*\", \"\", true, false):\n\tif str(n.name).to_lower().contains(\"difficulty\"):\n\t\tfound.append(str(n.name))\n\telif n is Label and n.text.ends_with(\"AI Difficulty:\"):\n\t\tfound.append(\"label:\" + n.text)\n\telif n is OptionButton:\n\t\tfor i in range(n.item_count):\n\t\t\tif n.get_item_text(i) in [\"Easy\", \"Competitive\"]:\n\t\t\t\tfound.append(\"option:%s/%s\" % [n.name, n.get_item_text(i)])\nreturn \",\".join(found)",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nreturn \"p2_type=%d p2_plan_visible=%s\" % [m.player2_type_dropdown.selected, str(m.player2_plan_container.visible)]",
+      "equals": "p2_type=1 p2_plan_visible=true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.player1_type_dropdown.select(1)\nm.player1_type_dropdown.emit_signal(\"item_selected\", 1)\nreturn \"p1_plan_visible=%s\" % str(m.player1_plan_container.visible)",
+      "equals": "p1_plan_visible=true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.player1_type_dropdown.select(0)\nm.player1_type_dropdown.emit_signal(\"item_selected\", 0)\nreturn \"p1_plan_visible=%s\" % str(m.player1_plan_container.visible)",
+      "equals": "p1_plan_visible=false"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_menu_no_difficulty_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "str(tree.current_scene.name)",
+      "equals": "Main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cfg = GameState.state.meta.get(\"game_config\", {})\nvar keys = []\nfor k in cfg.keys():\n\tif str(k).contains(\"difficulty\"):\n\t\tkeys.append(str(k))\nreturn \",\".join(keys)",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return \"p1_ai=%s p2_ai=%s has_get_difficulty=%s\" % [str(AIPlayer.is_ai_player(1)), str(AIPlayer.is_ai_player(2)), str(AIPlayer.has_method(\"get_difficulty\"))]",
+      "equals": "p1_ai=false p2_ai=true has_get_difficulty=false"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_game_started_vs_ai"
+    }
+  ]
+}

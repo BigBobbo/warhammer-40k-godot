@@ -21,21 +21,12 @@ func _init():
 			var config = data.get("meta", {}).get("game_config", {})
 			var p1_type = config.get("player1_type", "")
 			var p2_type = config.get("player2_type", "")
-			var p1_diff = config.get("player1_difficulty", -1)
-			var p2_diff = config.get("player2_difficulty", -1)
 
 			if p1_type != "" and p2_type != "":
 				print("  PASS: player1_type=%s, player2_type=%s" % [p1_type, p2_type])
 				passed += 1
 			else:
 				print("  FAIL: Missing player type in game_config")
-				failed += 1
-
-			if p1_diff >= 0 and p2_diff >= 0:
-				print("  PASS: player1_difficulty=%d, player2_difficulty=%d" % [p1_diff, p2_diff])
-				passed += 1
-			else:
-				print("  FAIL: Missing difficulty in game_config")
 				failed += 1
 		else:
 			print("  SKIP: Could not parse save file JSON")

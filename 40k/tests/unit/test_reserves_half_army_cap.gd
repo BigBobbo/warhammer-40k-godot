@@ -305,7 +305,7 @@ func test_ai_never_exceeds_the_caps() -> void:
 			var available: Array = phase.get_available_actions()
 			if available.is_empty():
 				break
-			var decision: Dictionary = AIDM.decide(GSD.Phase.FORMATIONS, GS.create_snapshot(false), available, 2, 2)
+			var decision: Dictionary = AIDM.decide(GSD.Phase.FORMATIONS, GS.create_snapshot(false), available, 2)
 			if decision.is_empty():
 				break
 			decision["player"] = 2

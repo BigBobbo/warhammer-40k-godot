@@ -1,6 +1,5 @@
 extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
-const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const AIMovementPathVisualScript = preload("res://scripts/AIMovementPathVisual.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
 const ProfileManager = preload("res://scripts/ProfileManager.gd")
@@ -15,7 +14,6 @@ const ProfileManager = preload("res://scripts/ProfileManager.gd")
 
 # Configuration
 var ai_players: Dictionary = {}  # player_id (int) -> true/false (is AI)
-var ai_difficulty: Dictionary = {}  # player_id (int) -> AIDifficultyConfigData.Difficulty value
 var ai_profiles: Dictionary = {}  # {player_id: profile_name} — per-player AI profile names
 var enabled: bool = false
 var _processing_turn: bool = false  # Guard against re-entrant calls
@@ -253,14 +251,13 @@ func _end_ai_thinking() -> void:
 		_store_turn_history(active_player, turn_actions)
 		print("AIPlayer: AI thinking ended for player %d" % active_player)
 
-func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> void:
+func configure(player_types: Dictionary) -> void:
 	"""
 	Called from Main.gd during initialization.
 	player_types: {1: "HUMAN" or "AI", 2: "HUMAN" or "AI"}
-	difficulty_levels: {1: AIDifficultyConfigData.Difficulty value, 2: ...} (optional)
+	There is a single AI strength (no difficulty levels) — always the strongest.
 	"""
 	ai_players.clear()
-	ai_difficulty.clear()
 	_action_log.clear()
 	_turn_history.clear()  # T7-56: Reset turn history on reconfigure
 	_all_decision_records.clear()  # MEM-4: was never cleared — leaked across games
@@ -292,11 +289,6 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	for player_id in player_types:
 		var pid = int(player_id)
 		ai_players[pid] = (player_types[player_id] == "AI")
-		# Default is the strongest measured configuration, not Normal: the AI
-		# should always play as well as it can unless a caller asks otherwise.
-		# Measured 2026-08-27 (bench_baselines/2026-08-27_difficulty_strength.md):
-		# Competitive beats Normal by ~24 VP/game seat-cancelled, 8-4 in games.
-		ai_difficulty[pid] = difficulty_levels.get(pid, difficulty_levels.get(player_id, AIDifficultyConfigData.Difficulty.COMPETITIVE))
 	enabled = ai_players.values().has(true)
 
 	# T7-55: Detect spectator mode (both players are AI)
@@ -320,11 +312,9 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 				"key_moments": [],  # [{round, text}]
 			}
 
-	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.COMPETITIVE))
-	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.COMPETITIVE))
-	print("AIPlayer: Configured - P1=%s (%s), P2=%s (%s), enabled=%s, spectator=%s" % [
-		player_types.get(1, player_types.get("1", "HUMAN")), p1_diff,
-		player_types.get(2, player_types.get("2", "HUMAN")), p2_diff,
+	print("AIPlayer: Configured - P1=%s, P2=%s, enabled=%s, spectator=%s" % [
+		player_types.get(1, player_types.get("1", "HUMAN")),
+		player_types.get(2, player_types.get("2", "HUMAN")),
 		enabled, _spectator_mode])
 
 	# Clear any existing per-player profiles
@@ -637,13 +627,9 @@ func _save_data_defender(save_data_list: Array) -> int:
 			return int(t.get("owner", 0))
 	return 0
 
-func get_difficulty(player: int) -> int:
-	"""T7-40: Get the difficulty level for a given player."""
-	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.COMPETITIVE)
-
 func reset_runtime_state() -> void:
 	"""P2-92: Reset transient AI runtime state (called on game load).
-	Does NOT reset ai_players/ai_difficulty/enabled — those are set by configure()."""
+	Does NOT reset ai_players/enabled — those are set by configure()."""
 	print("AIPlayer: Resetting runtime state after load")
 	_action_log.clear()
 	_turn_history.clear()
@@ -706,18 +692,14 @@ func reconfigure_ai_after_load(game_config: Dictionary) -> void:
 	# Reset all runtime state
 	reset_runtime_state()
 
-	# Reconfigure player types and difficulty from loaded game config
+	# Reconfigure player types from loaded game config. Any legacy
+	# player*_difficulty keys in old saves are ignored — there is one AI strength.
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
-	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.COMPETITIVE))
-	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.COMPETITIVE))
 
 	ai_players.clear()
-	ai_difficulty.clear()
 	ai_players[1] = (p1_type == "AI")
 	ai_players[2] = (p2_type == "AI")
-	ai_difficulty[1] = p1_difficulty
-	ai_difficulty[2] = p2_difficulty
 	enabled = ai_players.values().has(true)
 
 	# Detect spectator mode
@@ -739,10 +721,8 @@ func reconfigure_ai_after_load(game_config: Dictionary) -> void:
 	var ai_speed = int(game_config.get("ai_speed", 1))
 	set_ai_speed_preset(ai_speed)
 
-	print("AIPlayer: Reconfigured after load — P1=%s (diff=%s), P2=%s (diff=%s), enabled=%s, spectator=%s" % [
-		p1_type, AIDifficultyConfigData.difficulty_name(p1_difficulty),
-		p2_type, AIDifficultyConfigData.difficulty_name(p2_difficulty),
-		enabled, _spectator_mode])
+	print("AIPlayer: Reconfigured after load — P1=%s, P2=%s, enabled=%s, spectator=%s" % [
+		p1_type, p2_type, enabled, _spectator_mode])
 	# NOTE: Evaluation is NOT triggered here — caller must call _request_evaluation()
 	# after phase controllers and visuals are fully set up.
 
@@ -836,7 +816,7 @@ func _unique_action_types(actions: Array) -> Array:
 		seen[str(a.get("type", ""))] = true
 	return seen.keys()
 
-func request_suggestion(difficulty_override: int = -1, focus_unit_id: String = "") -> Dictionary:
+func request_suggestion(focus_unit_id: String = "") -> Dictionary:
 	"""Compute what the AI would do for the CURRENT active player and surface its
 	reasoning in the game log — WITHOUT executing anything. Built for a human
 	playing against the AI who wants a hint, or for debugging the AI's reasoning
@@ -905,20 +885,10 @@ func request_suggestion(difficulty_override: int = -1, focus_unit_id: String = "
 		emit_signal("ai_suggestion_ready", player, {}, "No actions available")
 		return {}
 
-	# Suggestions always reason at the strongest AI (Competitive), regardless of
-	# the opponent's or the active player's configured difficulty, so the hint is
-	# the best move the AI knows.
-	var difficulty = AIDifficultyConfigData.Difficulty.COMPETITIVE
-	# Saved AI test cases re-ask at the difficulty they were recorded at
-	if difficulty_override >= 0:
-		difficulty = difficulty_override
-
 	last_suggestion_meta = {
 		"player": player,
 		"phase_name": PHASE_DISPLAY_NAMES.get(phase, "Unknown"),
 		"round": GameState.get_battle_round(),
-		"difficulty": AIDifficultyConfigData.difficulty_name(difficulty),
-		"difficulty_level": difficulty,
 		# What the AI could have done — lets the card tell "nothing to choose"
 		# apart from "a choice the AI does not record".
 		"available_count": available.size(),
@@ -927,14 +897,14 @@ func request_suggestion(difficulty_override: int = -1, focus_unit_id: String = "
 	}
 	var decision: Dictionary = {}
 	if window_owner > 0:
-		var win: Dictionary = AIDecisionMaker.suggest_pending_window(phase_inst, difficulty)
+		var win: Dictionary = AIDecisionMaker.suggest_pending_window(phase_inst)
 		if not win.is_empty():
 			decision = win.decision
 			last_suggestion_meta["window"] = true
 			last_suggestion_meta["available_count"] = -1  # a window, not the phase's action list
 			last_suggestion_meta["available_types"] = []
 	if decision.is_empty():
-		decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, difficulty, focus_unit_id)
+		decision = AIDecisionMaker.suggest_action(phase, snapshot, available, player, focus_unit_id)
 	if decision.is_empty():
 		last_suggestion_meta["empty_reason"] = "The AI could not find a recommended action here."
 		_log_ai_thinking(player, "The AI could not find a recommended action here.")
@@ -1170,19 +1140,8 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	if not is_ai_player(defending_player):
 		return  # Not our AI — let human handle it
 
-	var difficulty = get_difficulty(defending_player)
-	print("AIPlayer: Reactive stratagem opportunity for AI player %d (stratagems: %d, targets: %d, difficulty: %s)" % [
-		defending_player, available_stratagems.size(), target_unit_ids.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
-
-	# T7-40: Easy/Normal AI skips reactive stratagems
-	if not AIDifficultyConfigData.use_stratagems(difficulty):
-		var decline = {
-			"type": "DECLINE_REACTIVE_STRATAGEM",
-			"player": defending_player,
-			"_ai_description": "AI declines reactive stratagems (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
-		}
-		_submit_reactive_action(defending_player, decline)
-		return
+	print("AIPlayer: Reactive stratagem opportunity for AI player %d (stratagems: %d, targets: %d)" % [
+		defending_player, available_stratagems.size(), target_unit_ids.size()])
 
 	var snapshot = GameState.create_snapshot(false)
 	var decision = _dm(defending_player).evaluate_reactive_stratagem(
@@ -1211,19 +1170,8 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 	if not is_ai_player(defending_player):
 		return
 
-	var difficulty = get_difficulty(defending_player)
-	print("AIPlayer: Fire Overwatch opportunity for AI player %d (%d eligible units) against %s (difficulty: %s)" % [
-		defending_player, eligible_units.size(), enemy_unit_id, AIDifficultyConfigData.difficulty_name(difficulty)])
-
-	# T7-40: Easy AI never uses overwatch; Normal+ evaluates
-	if not AIDifficultyConfigData.use_overwatch(difficulty):
-		var decline = {
-			"type": "DECLINE_FIRE_OVERWATCH",
-			"player": defending_player,
-			"_ai_description": "AI declines Fire Overwatch (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
-		}
-		_submit_reactive_action(defending_player, decline)
-		return
+	print("AIPlayer: Fire Overwatch opportunity for AI player %d (%d eligible units) against %s" % [
+		defending_player, eligible_units.size(), enemy_unit_id])
 
 	var snapshot = GameState.create_snapshot(false)
 	var decision = _dm(defending_player).evaluate_fire_overwatch(
@@ -1245,19 +1193,8 @@ func _on_movement_rapid_ingress_opportunity(defending_player: int, eligible_unit
 	if not is_ai_player(defending_player):
 		return  # Not our AI — let human handle it
 
-	var difficulty = get_difficulty(defending_player)
-	print("AIPlayer: Rapid Ingress opportunity for AI player %d (%d eligible units, difficulty: %s)" % [
-		defending_player, eligible_units.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
-
-	# T7-40: Only Hard+ AI uses stratagems
-	if not AIDifficultyConfigData.use_stratagems(difficulty):
-		var decline = {
-			"type": "DECLINE_RAPID_INGRESS",
-			"player": defending_player,
-			"_ai_description": "AI declines Rapid Ingress (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
-		}
-		_submit_reactive_action(defending_player, decline)
-		return
+	print("AIPlayer: Rapid Ingress opportunity for AI player %d (%d eligible units)" % [
+		defending_player, eligible_units.size()])
 
 	var snapshot = GameState.create_snapshot(false)
 	var decision = _dm(defending_player).evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
@@ -1441,19 +1378,8 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	if not is_ai_player(player):
 		return
 
-	var difficulty = get_difficulty(player)
-	print("AIPlayer: Counter-Offensive opportunity for AI player %d — %d eligible units (difficulty: %s)" % [
-		player, eligible_units.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
-
-	# T7-40: Only Hard+ AI uses Counter-Offensive
-	if not AIDifficultyConfigData.use_counter_offensive(difficulty):
-		var decline = {
-			"type": "DECLINE_COUNTER_OFFENSIVE",
-			"player": player,
-			"_ai_description": "AI declines Counter-Offensive (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
-		}
-		_submit_reactive_action(player, decline)
-		return
+	print("AIPlayer: Counter-Offensive opportunity for AI player %d — %d eligible units" % [
+		player, eligible_units.size()])
 
 	var snapshot = GameState.create_snapshot(false)
 	var decision = _dm(player).evaluate_counter_offensive(player, eligible_units, snapshot)
@@ -1541,9 +1467,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	if not is_ai_player(player):
 		return
 
-	var difficulty = get_difficulty(player)
-	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s, difficulty: %s)" % [
-		player, unit_id, roll_context.get("roll_type", "unknown"), AIDifficultyConfigData.difficulty_name(difficulty)])
+	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s)" % [
+		player, unit_id, roll_context.get("roll_type", "unknown")])
 
 	# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34): no CP — re-roll a 1-3.
 	if str(roll_context.get("free_ability_name", "")) != "":
@@ -1553,17 +1478,6 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			"actor_unit_id": unit_id, "player": player,
 			"_ai_description": "AI %s the free %s advance re-roll (rolled %d)" % [
 				"takes" if take_free else "declines", str(roll_context.get("free_ability_name", "")), int(roll_context.get("total", 0))]})
-		return
-
-	# T7-40: Easy AI never uses Command Re-roll
-	if not AIDifficultyConfigData.use_command_reroll(difficulty):
-		var decline = {
-			"type": "DECLINE_COMMAND_REROLL",
-			"actor_unit_id": unit_id,
-			"player": player,
-			"_ai_description": "AI declines Command Re-roll (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
-		}
-		_submit_reactive_action(player, decline)
 		return
 
 	var snapshot = GameState.create_snapshot(false)
@@ -1891,7 +1805,7 @@ func _answer_ai_owned_pending_window() -> bool:
 		print("AIPlayer: AI-01 answering Player %d's pending reactive stratagem window (seat is now AI, attempt %d)" % [defender, r_attempt + 1])
 		var r_action: Dictionary = {"type": "DECLINE_REACTIVE_STRATAGEM", "player": defender,
 			"_ai_description": "AI (took over Player %d) declines reactive stratagems" % defender}
-		if r_attempt == 0 and opp.get("has_opportunities", false) and AIDifficultyConfigData.use_stratagems(get_difficulty(defender)):
+		if r_attempt == 0 and opp.get("has_opportunities", false):
 			var decision = _dm(defender).evaluate_reactive_stratagem(defender, opp.get("available_stratagems", []),
 				opp.get("target_unit_ids", []), GameState.create_snapshot(false))
 			if not decision.is_empty():
@@ -2222,10 +2136,9 @@ func _execute_next_action(player: int) -> void:
 		_end_ai_thinking()
 		return
 
-	var difficulty = get_difficulty(player)
 	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	print("AIPlayer: Player %d deciding in phase %d with %d available actions (difficulty: %s)" % [
-		player, phase, available.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
+	print("AIPlayer: Player %d deciding in phase %d with %d available actions" % [
+		player, phase, available.size()])
 
 	# Log a phase-level "AI is thinking about..." message (once per phase per round)
 	if phase != _last_thinking_phase or battle_round != _last_thinking_round:
@@ -2249,7 +2162,7 @@ func _execute_next_action(player: int) -> void:
 
 	# Ask decision maker what to do
 	var _t_decide := Time.get_ticks_usec()
-	var decision = _dm(player).decide(phase, snapshot, available, player, difficulty)
+	var decision = _dm(player).decide(phase, snapshot, available, player)
 	var _decide_key = "decide_p%d_%s" % [player, PHASE_DISPLAY_NAMES.get(phase, str(phase))]
 	_perf_last_type = str(decision.get("type", "empty"))
 	_perf_usec[_decide_key] = int(_perf_usec.get(_decide_key, 0)) + Time.get_ticks_usec() - _t_decide
@@ -3647,7 +3560,7 @@ func record_ai_key_moment(player: int, text: String) -> void:
 func get_performance_summary() -> Dictionary:
 	"""T7-57: Build a complete post-game performance summary for all AI players.
 	Returns {player_id -> {vp_total, vp_primary, vp_secondary, cp_spent, cp_remaining,
-	units_lost, units_killed, objectives_per_round, key_moments, difficulty}}."""
+	units_lost, units_killed, objectives_per_round, key_moments}}."""
 	var summary = {}
 
 	for player in _game_performance:
@@ -3679,16 +3592,11 @@ func get_performance_summary() -> Dictionary:
 				units_remaining += 1
 			total_models_remaining += alive_count
 
-		# Difficulty name
-		var diff = ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
-		var diff_name = AIDifficultyConfigData.difficulty_name(diff)
-
 		# Faction name
 		var faction_name = GameState.get_faction_name(player)
 
 		summary[player] = {
 			"faction": faction_name,
-			"difficulty": diff_name,
 			"vp_total": vp_total,
 			"vp_primary": vp_primary,
 			"vp_secondary": vp_secondary,
@@ -4133,11 +4041,7 @@ func export_decision_log(archive: bool = true) -> void:
 	var metadata = {
 		"mission": "Unknown",
 		"exported_at": Time.get_datetime_string_from_system(),
-		"difficulty": {},
 	}
-	for player_id in ai_players:
-		if ai_players[player_id]:
-			metadata["difficulty"][str(player_id)] = AIDifficultyConfigData.difficulty_name(get_difficulty(player_id))
 
 	# Build army info from game state
 	var armies = []

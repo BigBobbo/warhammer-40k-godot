@@ -102,7 +102,7 @@ func _run_tests():
 	_test_t079_no_fixed_timer_waits()
 	_test_t084_secondary_missions_framework()
 	_test_t088_mathhammer_keyword_autodetect()
-	_test_t089_ai_difficulty_speed()
+	_test_t089_ai_speed()
 	_test_t090_ai_thinking_summary()
 	_test_t097_missions_registry()
 	_test_t098_titanic_skip()
@@ -873,11 +873,10 @@ func _test_t088_mathhammer_keyword_autodetect() -> void:
 		"_parse_ability_rules" in src)
 
 
-func _test_t089_ai_difficulty_speed() -> void:
-	print("\n-- T-089: AI difficulty + speed presets --")
+func _test_t089_ai_speed() -> void:
+	# AI difficulty levels were removed (single AI strength); speed presets remain.
+	print("\n-- T-089: AI speed presets --")
 	var src = _read("res://autoloads/AIPlayer.gd")
-	_check("ai_difficulty per-player dictionary",
-		"var ai_difficulty: Dictionary" in src)
 	_check("AISpeedPreset presets defined", "_ai_speed_preset" in src
 		and "AISpeedPreset" in src)
 	_check("ai_speed_changed signal", "signal ai_speed_changed" in src)

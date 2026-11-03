@@ -7,7 +7,6 @@ const PlanRecorderData = preload("res://scripts/PlanRecorder.gd")
 # PM-7a: installing the menu's per-seat plan choice on the AI.
 const PlanManagerData = preload("res://scripts/PlanManager.gd")
 const AIDecisionMakerData = preload("res://scripts/AIDecisionMaker.gd")
-const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
@@ -718,14 +717,9 @@ func _initialize_ai_player() -> void:
 	var game_config = GameState.state.get("meta", {}).get("game_config", {})
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
-	# T7-40: Get difficulty levels from config (default Normal for backwards compatibility)
-	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
-	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
 
-	print("Main: Configuring AI Player - P1=%s (%s), P2=%s (%s)" % [
-		p1_type, AIDifficultyConfigData.difficulty_name(p1_difficulty),
-		p2_type, AIDifficultyConfigData.difficulty_name(p2_difficulty)])
-	ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
+	print("Main: Configuring AI Player - P1=%s, P2=%s" % [p1_type, p2_type])
+	ai_player.configure({1: p1_type, 2: p2_type})
 
 	# Load per-player AI profiles if configured
 	var p1_profile = game_config.get("player1_ai_profile", "")
@@ -827,9 +821,7 @@ func _reinitialize_ai_after_load() -> void:
 		print("Main: WARNING — reconfigure_ai_after_load() not found, falling back to configure()")
 		var p1_type = game_config.get("player1_type", "HUMAN")
 		var p2_type = game_config.get("player2_type", "HUMAN")
-		var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
-		var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
-		ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
+		ai_player.configure({1: p1_type, 2: p2_type})
 
 	# SAVE-7: Restore AI turn history from snapshot (after reconfigure clears it)
 	var saved_ai_history = GameState.state.get("ai_turn_history", [])
@@ -2709,7 +2701,7 @@ func _on_ai_suggestion_unit_focus(unit_id: String) -> void:
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if not ai_player:
 		return
-	var decision: Dictionary = ai_player.request_suggestion(-1, unit_id)
+	var decision: Dictionary = ai_player.request_suggestion(unit_id)
 	_show_ai_suggestion_breakdown(decision, ai_player.last_suggestion_meta)
 
 # UNIT-ORDER auto-refresh. The open K card follows the board: after any game
@@ -2783,7 +2775,7 @@ func _refresh_ai_suggestion_after_action(unit_id: String) -> void:
 	var focus := str(_ai_suggestion_panel._meta.get("focus_unit_id", ""))
 	if not (focus in bs.ids):
 		focus = ""  # the viewed unit has acted (or left the phase) — show the AI's next pick
-	var decision: Dictionary = ai_player.request_suggestion(-1, focus)
+	var decision: Dictionary = ai_player.request_suggestion(focus)
 	var meta: Dictionary = ai_player.last_suggestion_meta.duplicate()
 	var u = GameState.get_unit(unit_id) if unit_id != "" else {}
 	var uname := str(u.get("meta", {}).get("name", unit_id)) if u is Dictionary else unit_id
@@ -12559,9 +12551,8 @@ func _on_disconnect_continue_single_player(disconnected_player: int) -> void:
 		var other_player = 3 - disconnected_player
 		AIPlayer.ai_players[disconnected_player] = true
 		AIPlayer.ai_players[other_player] = false
-		AIPlayer.ai_difficulty[disconnected_player] = AIDifficultyConfigData.Difficulty.NORMAL
 		AIPlayer.enabled = true
-		print("Main: AI enabled for Player %d (Normal difficulty)" % disconnected_player)
+		print("Main: AI enabled for Player %d" % disconnected_player)
 		# AI-01: the departed player may owe a pending stratagem window /
 		# reactive decision / follow-up move — let the AI answer it now (the
 		# watchdog alone only runs while an AI is the active player).

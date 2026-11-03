@@ -97,7 +97,7 @@ const TERMS := {
 	"fight_target_on_objective": {"label": "Target on an objective", "fmt": "pts", "help": "Bonus when the target stands on an objective."},
 	"fight_low_toughness": {"label": "Low Toughness target", "fmt": "pts", "help": "Bonus when the target's Toughness is 3 or less."},
 	"fight_target_defences": {"label": "Target's defensive abilities", "fmt": "pts", "help": "Reduction because the target has defensive abilities (Feel No Pain, -1 to wound, etc.): the score so far is divided by their strength."},
-	"fight_points_trade": {"label": "Points trade", "fmt": "pts", "help": "Scaling for the points trade: up when the target's points-per-wound is higher than the attacker's, down when lower (Competitive difficulty only)."},
+	"fight_points_trade": {"label": "Points trade", "fmt": "pts", "help": "Scaling for the points trade: up when the target's points-per-wound is higher than the attacker's, down when lower."},
 	"fight_finish_off": {"label": "Finishes what others started", "fmt": "pts", "help": "Bonus when units that already fought this phase damaged the target and this unit can finish or nearly finish it (bigger for 10+ model hordes)."},
 	"fight_already_overkilled": {"label": "Already dead to earlier attacks", "fmt": "pts", "help": "Penalty when earlier fighters this phase already dealt enough damage to kill it."},
 	"fight_gang_up": {"label": "Starts a gang-up", "fmt": "pts", "help": "Horde units only: bonus when other friendly units are also engaged with this target, so attacks concentrate on it."},
@@ -115,9 +115,8 @@ const TERMS := {
 	"order_cant_hurt": {"label": "Can barely hurt anything", "fmt": "pts", "help": "Expected damage under 0.1: the priority is a flat 0.5."},
 	"order_melee_buffs": {"label": "Melee buffs", "fmt": "pts", "help": "Scaling from abilities that boost its melee attacks (leaders, auras)."},
 	"order_round_aggression": {"label": "Round / army aggression", "fmt": "pts", "help": "Scaling by how aggressive the AI plays this battle round with this army."},
-	"difficulty_noise": {"label": "Difficulty randomness", "fmt": "pts", "help": "Random noise added at lower difficulties to make the AI less exact."},
 	# Charge — 'no charge' option
-	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP, by faction aggression and by difficulty)."},
+	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP and by faction aggression)."},
 	# Stratagem windows / reactive stratagems
 	"stratagem_value": {"label": "Stratagem value", "fmt": "pts", "help": "How much this stratagem would achieve on this unit right now, from its codex handler (offensive: extra damage; defensive: damage prevented × the unit's worth)."},
 	"paid_cp_penalty": {"label": "Costs CP", "fmt": "pts", "help": "Paid stratagems rank 1 lower than a free ability with a similar effect."},
@@ -168,7 +167,7 @@ const TERMS := {
 	"ch_low_toughness": {"label": "Low Toughness target", "fmt": "pts", "help": "Bonus when the target's Toughness is 3 or less."},
 	"ch_melee_buffs": {"label": "Melee buffs", "fmt": "pts", "help": "Scaling from abilities boosting the charger's melee."},
 	"ch_target_defences": {"label": "Target's defensive abilities", "fmt": "pts", "help": "Reduction for the target's Feel No Pain, invulnerable saves, etc."},
-	"ch_points_trade": {"label": "Points trade", "fmt": "pts", "help": "Scaling for the points-per-wound trade (Competitive difficulty only)."},
+	"ch_points_trade": {"label": "Points trade", "fmt": "pts", "help": "Scaling for the points-per-wound trade."},
 	"ch_gang_up": {"label": "Gang up", "fmt": "pts", "help": "Bonus for concentrating charges: a friendly unit is already fighting it, other units can charge it too, or combined damage can kill it."},
 	"ch_can_halve": {"label": "Can take it below half", "fmt": "pts", "help": "Bonus when expected damage is half its remaining wounds or more."},
 	"ch_can_wipe": {"label": "Can wipe it out", "fmt": "pts", "help": "Extra bonus when expected damage is enough to destroy it."},

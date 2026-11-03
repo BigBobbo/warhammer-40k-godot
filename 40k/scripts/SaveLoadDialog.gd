@@ -759,24 +759,21 @@ func _format_save_display_name(save_info: Dictionary) -> String:
 		# (e.g. games saved in the itch.io browser build) — loading downloads them.
 		prefix = "[Cloud] "
 
-	# SAVE-13: Append AI difficulty info to display name
-	var ai_info = _get_ai_difficulty_label(metadata)
+	# SAVE-13: Append AI seat info to display name
+	var ai_info = _get_ai_seat_label(metadata)
 	if not ai_info.is_empty():
 		return "%s%s - %s  [%s]" % [prefix, description, timestamp_text, ai_info]
 
 	return "%s%s - %s" % [prefix, description, timestamp_text]
 
-# SAVE-13: Get AI difficulty label for save file display
-func _get_ai_difficulty_label(metadata: Dictionary) -> String:
+# SAVE-13: Label which seats were AI-controlled, for save file display
+func _get_ai_seat_label(metadata: Dictionary) -> String:
 	var game_state = metadata.get("game_state", {})
 	var parts = []
 	for player_id in ["1", "2"]:
 		var type_key = "player%s_type" % player_id
-		var diff_key = "player%s_difficulty" % player_id
 		if game_state.get(type_key, "HUMAN") == "AI":
-			var diff_val = int(game_state.get(diff_key, -1))
-			var diff_name = AIDifficultyConfig.difficulty_name(diff_val) if diff_val >= 0 else "Normal"
-			parts.append("P%s AI: %s" % [player_id, diff_name])
+			parts.append("P%s AI" % player_id)
 	return ", ".join(parts)
 
 func _create_save_tooltip(save_info: Dictionary) -> String:
@@ -1285,15 +1282,12 @@ func _render_preview(metadata: Dictionary, preview: Dictionary) -> void:
 		var alive_models = p.get("alive_models", 0)
 		var total_models = p.get("total_models", 0)
 
-		# Player header — SAVE-13: show AI difficulty if applicable
+		# Player header — SAVE-13: mark AI-controlled seats
 		var player_type_key = "player%s_type" % player_id
-		var player_diff_key = "player%s_difficulty" % player_id
 		var player_type = game_state.get(player_type_key, "HUMAN")
 		var player_label = "Player %s" % player_id
 		if player_type == "AI":
-			var diff_val = int(game_state.get(player_diff_key, -1))
-			var diff_name = AIDifficultyConfig.difficulty_name(diff_val) if diff_val >= 0 else "Normal"
-			player_label = "Player %s [AI: %s]" % [player_id, diff_name]
+			player_label = "Player %s [AI]" % player_id
 		bbcode += "\n[color=#c9a84c][b]%s[/b][/color]\n" % player_label
 		bbcode += "[color=#d4c4a0]%s[/color]" % faction
 		if not detachment.is_empty():

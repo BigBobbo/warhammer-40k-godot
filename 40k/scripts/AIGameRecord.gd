@@ -67,7 +67,7 @@ static func build(game_id: String, provenance: Dictionary, outcome: Dictionary,
 ## required key set is defined in one place and can be asserted by tests.
 static func build_provenance(git_sha: String, engine: String, fixture: String,
 		fixture_path: String, fixture_sha256: String, p1_profile: Dictionary,
-		p2_profile: Dictionary, difficulty: int, seed_value: int,
+		p2_profile: Dictionary, seed_value: int,
 		time_scale: float, arm: String) -> Dictionary:
 	return {
 		"git_sha": git_sha,
@@ -77,7 +77,6 @@ static func build_provenance(git_sha: String, engine: String, fixture: String,
 		"fixture_sha256": fixture_sha256,
 		"p1_profile": p1_profile,
 		"p2_profile": p2_profile,
-		"difficulty": {"1": difficulty, "2": difficulty},
 		"seed": seed_value,
 		"time_scale": time_scale,
 		"arm": arm,
@@ -89,7 +88,7 @@ static func build_provenance(git_sha: String, engine: String, fixture: String,
 ## with any other game. build_index.py reads all of these.
 static func required_provenance_keys() -> Array:
 	return ["git_sha", "engine", "fixture", "fixture_sha256",
-		"p1_profile", "p2_profile", "difficulty", "seed", "time_scale"]
+		"p1_profile", "p2_profile", "seed", "time_scale"]
 
 
 ## Structural validation, so a malformed record is caught at write time rather

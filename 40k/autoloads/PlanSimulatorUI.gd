@@ -14,7 +14,7 @@ extends CanvasLayer
 #
 # Stable node names for windowed scenarios:
 #   SimRoot / SimConfigPanel / SimResultsPanel
-#   SimArmy1 SimArmy2 SimPlan1 SimPlan2 SimZone SimLayout SimGames SimDifficulty
+#   SimArmy1 SimArmy2 SimPlan1 SimPlan2 SimZone SimLayout SimGames
 #   SimRunButton SimCancelButton SimCloseButton SimExportButton
 #   SimProgressLabel SimEtaLabel SimSummaryLabel SimResultsTree SimReplayLabel
 
@@ -35,7 +35,6 @@ var plan2_picker: OptionButton = null
 var zone_picker: OptionButton = null
 var layout_picker: OptionButton = null
 var games_spin: SpinBox = null
-var difficulty_picker: OptionButton = null
 
 var run_button: Button = null
 var cancel_button: Button = null
@@ -187,10 +186,6 @@ func _build_config(parent: Node) -> void:
 	plan2_picker = _add_picker(grid, "Player 2 plan", "SimPlan2")
 	zone_picker = _add_picker(grid, "Deployment", "SimZone")
 	layout_picker = _add_picker(grid, "Terrain", "SimLayout")
-	difficulty_picker = _add_picker(grid, "AI difficulty", "SimDifficulty")
-	for name in ["Easy", "Normal", "Hard", "Competitive"]:
-		difficulty_picker.add_item(name)
-	difficulty_picker.selected = 1
 
 	var games_label := Label.new()
 	games_label.text = "Games"
@@ -418,7 +413,6 @@ func build_run_options() -> Dictionary:
 		"plan2": _selected_plan(2),
 		"games": int(games_spin.value),
 		"seed_base": 1000,
-		"difficulty": difficulty_picker.selected,
 	}
 
 
@@ -462,7 +456,7 @@ func _set_running_ui(running: bool) -> void:
 	run_button.disabled = running
 	cancel_button.disabled = not running
 	for control in [army1_picker, army2_picker, plan1_picker, plan2_picker,
-			zone_picker, layout_picker, difficulty_picker]:
+			zone_picker, layout_picker]:
 		control.disabled = running
 	games_spin.editable = not running
 
