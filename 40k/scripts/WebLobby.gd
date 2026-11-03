@@ -150,7 +150,8 @@ func _ready() -> void:
 
 func _setup_army_selection() -> void:
 	army_options = []
-	var available_armies = ArmyListManager.get_available_armies()
+	# Allowlist-filtered (data/army_allowlist.json) — hides test lists.
+	var available_armies = ArmyListManager.get_selectable_armies()
 
 	for army_name in available_armies:
 		army_options.append({
@@ -449,7 +450,7 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 
 	var added_count = 0
 	for cloud_name in cloud_armies:
-		if cloud_name not in local_ids:
+		if cloud_name not in local_ids and ArmyListManager.is_army_selectable(cloud_name):
 			var display_name = _format_army_name(cloud_name) + " (Cloud)"
 			army_options.append({"id": cloud_name, "name": display_name, "source": "cloud"})
 			player1_dropdown.add_item(display_name)

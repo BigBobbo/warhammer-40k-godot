@@ -1,0 +1,41 @@
+{
+  "id": "army_dropdown_allowlist",
+  "covers": ["ui.main_menu.army_dropdown_allowlist", "army_list_manager.get_selectable_armies"],
+  "description": "The army-select dropdowns only list the bundled armies on data/army_allowlist.json. No fixture: runs on the boot MainMenu. Asserts the allowlist loaded, every Player 1/Player 2/Plan Editor dropdown entry is an allowlisted (or user-imported) army, none of the test lists (A_C_test, *_codex_test, custodes_web_built_repro) or tutorial_* lists appear, yet those hidden lists are still on disk and loadable by id (get_available_armies). Real-clicks the Player 1 dropdown to open its popup and screenshots the cleaned-up list, then proves the ArmyListManager.show_all_armies dev override brings the hidden lists back.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "execute_script", "script": "ArmyListManager.army_allowlist.size() > 0", "equals": true },
+    { "act": "execute_script", "script": "ArmyListManager.get_available_armies().has(\"A_C_test\") and ArmyListManager.get_available_armies().has(\"ork11e_codex_test\")", "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "comment": "every dropdown option is selectable; no hidden list leaked in",
+      "script": "var m = tree.current_scene\nvar bad = []\nfor o in m.army_options:\n\tvar id = str(o.id)\n\tif not ArmyListManager.is_army_selectable(id) or id.ends_with(\"_test\") or id.contains(\"repro\") or id.begins_with(\"tutorial_\"):\n\t\tbad.append(id)\nreturn \",\".join(bad)",
+      "equals": "" },
+    { "act": "execute_script", "multiline": true,
+      "comment": "every allowlisted bundled army is offered",
+      "script": "var m = tree.current_scene\nvar ids = []\nfor o in m.army_options:\n\tids.append(str(o.id))\nvar missing = []\nfor a in ArmyListManager.army_allowlist:\n\tif a in ArmyListManager.bundled_armies and not a in ids:\n\t\tmissing.append(a)\nreturn \",\".join(missing)",
+      "equals": "" },
+    { "act": "execute_script", "script": "main.player1_dropdown.item_count == main.army_options.size() and main.player2_dropdown.item_count == main.army_options.size()", "equals": true },
+    { "act": "execute_script", "script": "main.plan_editor_army_dropdown == null or main.plan_editor_army_dropdown.item_count == main.army_options.size()", "equals": true },
+    { "act": "execute_script", "script": "str(main.army_options[main.player1_dropdown.selected].id) + \"|\" + str(main.army_options[main.player2_dropdown.selected].id)", "equals": "recon_stomps|custodes_lions" },
+
+    { "act": "execute_script", "multiline": true, "comment": "fresh user:// shows the first-run tutorial prompt over the menu; press its 'Not now' if present",
+      "script": "var stack = [tree.root]\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tif n is Button and n.text == \"Not now\" and n.is_visible_in_tree():\n\t\tn.pressed.emit()\n\t\treturn \"dismissed\"\n\tstack.append_array(n.get_children())\nreturn \"none\"" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").ensure_control_visible(main.player1_dropdown)" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.player1_dropdown.get_popup().visible", "equals": true },
+    { "act": "screenshot", "label": "01_player1_dropdown_open_allowlisted_only" },
+    { "act": "execute_script", "script": "main.player1_dropdown.get_popup().hide()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script", "multiline": true,
+      "comment": "dev override shows the hidden test lists again, then restore",
+      "script": "var m = tree.current_scene\nvar before = m.army_options.size()\nArmyListManager.show_all_armies = true\nm._load_available_armies()\nm._populate_army_dropdowns()\nvar ids = []\nfor o in m.army_options:\n\tids.append(str(o.id))\nvar ok = m.army_options.size() > before and ids.has(\"A_C_test\") and not ids.has(\"tutorial_orks\")\nArmyListManager.show_all_armies = false\nm._load_available_armies()\nm._populate_army_dropdowns()\nm._set_default_army_selections()\nreturn ok and m.army_options.size() == before",
+      "equals": true }
+  ]
+}

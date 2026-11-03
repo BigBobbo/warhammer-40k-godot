@@ -13,6 +13,14 @@ signal cloud_army_fetch_failed(army_name: String, error: String)
 
 var current_army_data: Dictionary = {}
 var available_armies: Array = []
+## Bundled armies (res://armies/*.json) — subset of available_armies.
+var bundled_armies: Array = []
+## Bundled army ids players may pick (data/army_allowlist.json "shown").
+## Empty => allowlist missing/unreadable => every bundled army is shown.
+var army_allowlist: Array = []
+## Dev/test override: true => get_selectable_armies() returns every army.
+var show_all_armies: bool = false
+const ARMY_ALLOWLIST_PATH := "res://data/army_allowlist.json"
 var cloud_army_names: Array = []  # Names of armies available in cloud storage
 var cloud_army_cache: Dictionary = {}  # Cache of downloaded cloud army data: army_name -> army_data
 var _cloud_armies_connected: bool = false  # Whether CloudStorage signals are connected
@@ -24,6 +32,8 @@ func _ready() -> void:
 
 func scan_available_armies() -> void:
 	available_armies.clear()
+	bundled_armies.clear()
+	_load_army_allowlist()
 	
 	# Try to scan armies in res:// directory
 	var dir = DirAccess.open("res://armies/")
@@ -33,6 +43,7 @@ func scan_available_armies() -> void:
 		while file_name != "":
 			if file_name.ends_with(".json"):
 				available_armies.append(file_name.get_basename())
+				bundled_armies.append(file_name.get_basename())
 			file_name = dir.get_next()
 		dir.list_dir_end()
 		print("Found armies in res://: ", available_armies)
@@ -406,7 +417,42 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 	print("Army applied successfully. Total units in game: ", all_units.size())
 
 func get_available_armies() -> Array:
+	## EVERY army on disk (incl. hidden test lists). UI dropdowns should use
+	## get_selectable_armies() instead.
 	return available_armies
+
+func _load_army_allowlist() -> void:
+	army_allowlist.clear()
+	if not FileAccess.file_exists(ARMY_ALLOWLIST_PATH):
+		print("ArmyListManager: No army allowlist at %s - showing all bundled armies" % ARMY_ALLOWLIST_PATH)
+		return
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(ARMY_ALLOWLIST_PATH))
+	if parsed is Dictionary and parsed.get("shown") is Array:
+		for army_id in parsed["shown"]:
+			army_allowlist.append(str(army_id))
+		print("ArmyListManager: Army allowlist loaded (%d shown): %s" % [army_allowlist.size(), army_allowlist])
+	else:
+		push_warning("ArmyListManager: %s has no \"shown\" array - showing all bundled armies" % ARMY_ALLOWLIST_PATH)
+
+func is_army_selectable(army_name: String) -> bool:
+	## Whether a player may pick this army in a dropdown. Bundled armies must
+	## be on the allowlist; user:// imports are always selectable; tutorial_*
+	## lists are only ever loaded by TutorialManager.
+	if army_name.begins_with("tutorial_"):
+		return false
+	if show_all_armies:
+		return true
+	if army_name in bundled_armies:
+		return army_allowlist.is_empty() or army_name in army_allowlist
+	return true
+
+func get_selectable_armies() -> Array:
+	## Armies shown in the army-select dropdowns (allowlist-filtered).
+	var result: Array = []
+	for army_name in available_armies:
+		if is_army_selectable(str(army_name)):
+			result.append(army_name)
+	return result
 
 func get_current_army_data() -> Dictionary:
 	return current_army_data
