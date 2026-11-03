@@ -18,6 +18,7 @@ Requires a 64-bit (arm64) Android phone. Any phone from ~2017 onwards is fine.
 | Drag a model you already placed (deployment) | Pick it up again (desktop: Shift+click) |
 | Drag on a list/menu | Scroll it |
 | Long-press (~0.5 s) | Right click: unit menu, cancel tape, cancel reposition |
+| Long-press a vehicle / non-round base (moving or charging it), then slide | Turn it: slide right = clockwise, 15° per ~24 px; lift drops it in place |
 | Hold a model + tap ⟲ ⟳ with a second finger | Turn it 15° per tap (vehicles, non-round bases) |
 | Two-finger drag | Pan the board (scrolls if over a list) |
 | Pinch | Zoom |

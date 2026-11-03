@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.71.0",
+      "date": "2026-11-03",
+      "summary": "Android: turn vehicles with one finger — long-press the model, then slide left or right.",
+      "changes": [
+        "Long-press a vehicle (or any model on a non-round base) you are moving or charging: it buzzes and is picked up, then slide your finger right to turn it clockwise or left for anticlockwise, 15° a step. Lift to drop it exactly where it stood.",
+        "Long-press on round-base infantry still opens the unit menu, as before.",
+        "Holding a model and tapping ⟲ / ⟳ with a second finger still works too."
+      ]
+    },
+    {
       "version": "1.70.0",
       "date": "2026-11-02",
       "summary": "Android: every tutorial lesson now works with touch, models drop where you lift your finger, and new Board / All / Multi buttons.",

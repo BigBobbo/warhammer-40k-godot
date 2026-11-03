@@ -39,7 +39,11 @@ const DRAG_SLOP_PX := 14.0
 const DOUBLE_TAP_SEC := 0.35
 const DOUBLE_TAP_PX := 40.0
 
-enum State { IDLE, PENDING, LEFT_DOWN, RIGHT_DOWN, SCROLLING, GESTURE, HOVER_PLACE }
+enum State { IDLE, PENDING, LEFT_DOWN, RIGHT_DOWN, SCROLLING, GESTURE, HOVER_PLACE, ROTATE_GRAB, ROTATE_HOLD }
+
+## Long-press-and-slide rotation: horizontal finger travel per 15° step
+## (slide right = clockwise, left = anticlockwise).
+const ROTATE_STEP_PX := 24.0
 
 ## Toolbar label shown for a KeybindingManager action — the tutorial renders
 ## {key:<action>} tokens with these on touch so "press [Ctrl+A]" becomes
@@ -77,7 +81,7 @@ var _toolbar_touch_index := -1
 var _toolbar_touch_button: Button = null
 
 # Counters for live validation (read via the MCP bridge).
-var stats := {"taps": 0, "drags": 0, "long_presses": 0, "pans": 0, "zooms": 0, "scrolls": 0, "back": 0, "hover_places": 0, "pickups": 0, "toolbar_second_finger": 0}
+var stats := {"rotate_grabs": 0, "rotate_steps": 0, "taps": 0, "drags": 0, "long_presses": 0, "pans": 0, "zooms": 0, "scrolls": 0, "back": 0, "hover_places": 0, "pickups": 0, "toolbar_second_finger": 0}
 
 var _toolbar: PanelContainer = null
 var _rclick_button: Button = null
@@ -98,6 +102,10 @@ var _placement_centered_for := ""
 # Motion emitted in the same frame as a button event is held back one frame
 # (see _emit_motion).
 var _last_button_frame := -1
+var _rotate_kind := ""        # "movement" / "charge" while a long-press rotation is live
+var _rotate_grab_frame := -1
+var _rotate_anchor_x := 0.0
+var _rotate_drop_pos := Vector2.ZERO  # canvas centre of the held model
 var _pending_motion: Array = []  # [pos, rel, mask]
 
 
@@ -138,6 +146,7 @@ func _reset_state() -> void:
 	_scroll_target = null
 	_toolbar_touch_index = -1
 	_toolbar_touch_button = null
+	_rotate_kind = ""
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +248,12 @@ func _on_touch(ev: InputEventScreenTouch) -> void:
 			print("[TouchInputAdapter] right release at %s" % str(ev.position))
 		State.SCROLLING:
 			print("[TouchInputAdapter] scroll end")
+		State.ROTATE_GRAB, State.ROTATE_HOLD:
+			# Drop the model exactly where it stands: controllers put the model's
+			# CENTRE at the release point, so release on its centre — not where
+			# the finger touched the hull — and only its facing changes.
+			_emit_button(MOUSE_BUTTON_LEFT, false, _rotate_drop_pos if state == State.ROTATE_HOLD else _start_pos)
+			print("[TouchInputAdapter] rotate done (%d steps) — dropped in place" % stats.rotate_steps)
 		State.HOVER_PLACE:
 			# The ghost followed the finger; the drop happens HERE, on lift.
 			_emit_button(MOUSE_BUTTON_LEFT, true, ev.position)
@@ -308,6 +323,15 @@ func _on_drag(ev: InputEventScreenDrag) -> void:
 				_scroll_target.scroll_vertical -= int(rel.y)
 		State.HOVER_PLACE:
 			_emit_motion(ev.position, rel, 0)
+		State.ROTATE_HOLD:
+			# No motion goes out: the model stays where it is and only turns.
+			var dx := ev.position.x - _rotate_anchor_x
+			while absf(dx) >= ROTATE_STEP_PX:
+				var cw := dx > 0.0
+				trigger_action("rotate_right" if cw else "rotate_left")
+				stats.rotate_steps += 1
+				_rotate_anchor_x += ROTATE_STEP_PX if cw else -ROTATE_STEP_PX
+				dx = ev.position.x - _rotate_anchor_x
 
 
 func _process(_delta: float) -> void:
@@ -321,12 +345,40 @@ func _process(_delta: float) -> void:
 	var bm := _battle_main()
 	if bm != null and (not is_instance_valid(_toolbar) or _toolbar.get_parent() != bm):
 		_build_toolbar(bm)
+	if state == State.ROTATE_GRAB and Engine.get_process_frames() > _rotate_grab_frame + 1:
+		if _is_holding_model(_rotate_kind):
+			state = State.ROTATE_HOLD
+			_rotate_anchor_x = _last_pos.x
+			_rotate_drop_pos = _held_model_centre_canvas(_rotate_kind)
+			stats.rotate_grabs += 1
+			print("[TouchInputAdapter] rotate mode: slide left/right to turn (%d px per 15 deg)" % int(ROTATE_STEP_PX))
+		else:
+			# Nothing got picked up (e.g. the move hasn't started): undo the
+			# press and behave like a plain long-press (right-click).
+			_emit_button(MOUSE_BUTTON_LEFT, false, _start_pos)
+			_emit_button(MOUSE_BUTTON_RIGHT, true, _start_pos)
+			state = State.RIGHT_DOWN
+			print("[TouchInputAdapter] rotate grab found nothing held -> right-click")
 	if state == State.PENDING and _touches.size() == 1 \
 			and _now() - _start_time >= LONG_PRESS_SEC \
 			and _last_pos.distance_to(_start_pos) < DRAG_SLOP_PX \
 			and _placement_mode_at(_start_pos) == "":
 		# (No long-press while aiming a placement ghost: players rest a finger
 		# on the board while they line a model up.)
+		var rk := _rotate_grab_target(_start_pos)
+		if rk != "":
+			# A model that can turn (vehicle / non-round base) of the unit being
+			# moved or charged: grab it with a LEFT press — rotation in every
+			# controller only acts on a HELD model — then slide to turn it.
+			# Desktop equivalent: hold the model + Q/E (or left+right drag).
+			state = State.ROTATE_GRAB
+			_rotate_kind = rk
+			_rotate_grab_frame = Engine.get_process_frames()
+			stats.long_presses += 1
+			Input.vibrate_handheld(25)
+			_emit_button(MOUSE_BUTTON_LEFT, true, _start_pos)
+			print("[TouchInputAdapter] long-press on a turnable %s model -> grab at %s" % [rk, str(_start_pos)])
+			return
 		state = State.RIGHT_DOWN
 		stats.long_presses += 1
 		Input.vibrate_handheld(25)
@@ -409,6 +461,10 @@ func _begin_gesture() -> void:
 			_emit_button(MOUSE_BUTTON_LEFT, false, _last_pos)
 		State.RIGHT_DOWN:
 			_emit_button(MOUSE_BUTTON_RIGHT, false, _last_pos)
+		State.ROTATE_GRAB:
+			_emit_button(MOUSE_BUTTON_LEFT, false, _start_pos)
+		State.ROTATE_HOLD:
+			_emit_button(MOUSE_BUTTON_LEFT, false, _rotate_drop_pos)
 	state = State.GESTURE
 	var pts := _two_points()
 	_gesture_centroid = (pts[0] + pts[1]) * 0.5
@@ -717,6 +773,83 @@ func _placement_mode_at(canvas_pos: Vector2) -> String:
 	return ""
 
 
+## "movement" / "charge" when a long-press at canvas_pos lands on a model that
+## can turn and belongs to the unit currently being moved / charged; "" else
+## (round-base infantry, enemy units, no active move: long-press stays a
+## right-click — unit menu, cancel tape...).
+func _rotate_grab_target(canvas_pos: Vector2) -> String:
+	var main := _battle_main()
+	if main == null or _tape_active() or get_viewport().gui_get_hovered_control() != null:
+		return ""
+	var br: Node2D = main.get_node_or_null("BoardRoot")
+	if br == null:
+		return ""
+	var world := br.get_global_transform_with_canvas().affine_inverse() * canvas_pos
+	var phase := int(GameState.get_current_phase())
+	if phase == GameStateData.Phase.MOVEMENT:
+		var mc = main.get("movement_controller")
+		if mc == null or str(mc.get("active_unit_id")) == "":
+			return ""
+		var m: Dictionary = mc._get_model_at_position(world)
+		if m.is_empty() or not mc._is_model_in_active_unit_group(str(m.get("unit_id", ""))):
+			return ""
+		return "movement" if mc._model_can_pivot(m) else ""
+	if phase == GameStateData.Phase.CHARGE:
+		var cc = main.get("charge_controller")
+		if cc == null or str(cc.get("active_unit_id")) == "":
+			return ""
+		var cm: Dictionary = cc._get_model_at_position(world)
+		return "charge" if not cm.is_empty() and _base_can_pivot(cm) else ""
+	return ""
+
+
+## Same rule as MovementController._model_can_pivot (any non-round base, or a
+## >32mm round base with a flying stem).
+func _base_can_pivot(model: Dictionary) -> bool:
+	if str(model.get("base_type", "circular")) != "circular":
+		return true
+	return int(model.get("base_mm", 32)) > 32 and bool(model.get("flying_stem", false))
+
+
+## Canvas position of the held model's centre (its current, staged position).
+func _held_model_centre_canvas(kind: String) -> Vector2:
+	var main := _battle_main()
+	var br: Node2D = main.get_node_or_null("BoardRoot") if main else null
+	if br == null:
+		return _start_pos
+	var world = null
+	match kind:
+		"movement":
+			var mc = main.get("movement_controller")
+			var pos = mc.selected_model.get("position") if mc else null
+			if pos is Vector2:
+				world = pos
+			elif pos is Dictionary:
+				world = Vector2(pos.get("x", 0.0), pos.get("y", 0.0))
+		"charge":
+			var cc = main.get("charge_controller")
+			if cc and cc.dragging_model is Dictionary:
+				var key = cc._charge_model_key(cc.dragging_model_source_unit_id, str(cc.dragging_model.get("id", "")))
+				world = cc.moved_models.get(key, cc._get_model_position(cc.dragging_model))
+	if world is Vector2:
+		return br.get_global_transform_with_canvas() * world
+	return _start_pos
+
+
+func _is_holding_model(kind: String) -> bool:
+	var main := _battle_main()
+	if main == null:
+		return false
+	match kind:
+		"movement":
+			var mc = main.get("movement_controller")
+			return mc != null and bool(mc.get("dragging_model"))
+		"charge":
+			var cc = main.get("charge_controller")
+			return cc != null and cc.get("dragging_model") != null
+	return false
+
+
 func _toolbar_button_at(canvas_pos: Vector2) -> Button:
 	if not is_instance_valid(_toolbar) or not _toolbar.is_visible_in_tree():
 		return null
@@ -882,7 +1015,8 @@ const TOUCH_HELP_TEXT := """[b]TOUCH CONTROLS[/b]
 [b]Hold + drag while placing[/b] — the model follows your finger and drops when you lift
 [b]Drag a model you already placed[/b] — pick it up again
 [b]Long-press[/b] — right-click: unit menu, cancel the tape
-[b]Turn a vehicle[/b] — hold it (touch + slide a little), then tap ⟲ ⟳ with another finger
+[b]Turn a vehicle[/b] — long-press it until it buzzes, then slide left / right (15° a step); lift to drop it in place.
+    Or hold it (touch + slide a little) and tap ⟲ ⟳ with another finger
 [b]Two fingers[/b] — drag to pan, pinch to zoom (drag over a list to scroll it)
 [b]Back button[/b] — Esc
 
