@@ -18,6 +18,7 @@ config/name="40k"
 run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
+config/quit_on_go_back=false
 
 [autoload]
 SceneRefs="*res://autoloads/SceneRefs.gd"
@@ -74,6 +75,7 @@ PadActionBar="*res://autoloads/PadActionBar.gd"
 PadRouter="*res://autoloads/PadRouter.gd"
 PadFocusRing="*res://autoloads/PadFocusRing.gd"
 VirtualCursor="*res://autoloads/VirtualCursor.gd"
+TouchInputAdapter="*res://autoloads/TouchInputAdapter.gd"
 MCPServer="*res://addons/godot_mcp/mcp_server.gd"
 ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
 AIBenchmarkRunner="*res://autoloads/AIBenchmarkRunner.gd"
@@ -89,6 +91,7 @@ window/size/viewport_height=1080
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
 
 [editor_plugins]
 

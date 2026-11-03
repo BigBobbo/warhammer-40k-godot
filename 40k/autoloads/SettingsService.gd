@@ -44,6 +44,15 @@ var audio_muted: bool = false
 
 # P3-111: Visual settings
 var ui_scale: float = 1.0        # 0.5 to 2.0
+# Phones/tablets (Android MVP): the 1920x1080 layout on a ~6" screen makes 12px
+# HUD text unreadable, so a fresh install on mobile starts larger. A saved
+# ui_scale always wins; players fine-tune it in Settings > UI Scale.
+const MOBILE_DEFAULT_UI_SCALE: float = 1.25
+
+static func default_ui_scale() -> float:
+	if OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+		return MOBILE_DEFAULT_UI_SCALE
+	return 1.0
 var animation_speed: float = 1.0 # 0.25 to 3.0
 
 # P0 Steam Deck legibility: while a controller is the active device, multiply the
@@ -345,6 +354,7 @@ func _resolve_harness_edition() -> Dictionary:
 
 func _ready() -> void:
 	# P3-111: Load persisted settings before applying anything
+	ui_scale = default_ui_scale()  # mobile starts larger; a saved value overrides
 	_load_settings()
 
 	# The game is 11th edition only: every player launch runs at 11, no matter
@@ -965,7 +975,7 @@ func _load_settings() -> void:
 	unit_visual_style = config.get_value("visual", "unit_visual_style", "letter")
 	unit_color_display_mode = config.get_value("visual", "unit_color_display_mode", "ring")
 	retro_mode = config.get_value("visual", "retro_mode", false)
-	ui_scale = config.get_value("visual", "ui_scale", 1.0)
+	ui_scale = config.get_value("visual", "ui_scale", default_ui_scale())
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)
 	colorblind_mode = config.get_value("visual", "colorblind_mode", "none")
 	show_unit_labels = config.get_value("visual", "show_unit_labels", true)

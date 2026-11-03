@@ -34,6 +34,28 @@
       "Turnin' a model is free in 11th — it don't cost a single inch of da move.",
       "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
       "Next lesson: Dakka Time — shootin'."
+    ],
+    "bullets_touch": [
+      "Click a unit's [Embarked] row to get the boys out of a transport — place each base inside the glowing ring. An attached Warboss gets out with them, so his base gets placed too.",
+      "Boyz that disembark can still make their own move — but only if the transport hasn't moved yet. Out first, drive after.",
+      "Movement modes: pick the radio button, then [b]Confirm Movement Mode[/b] — it doesn't stick till you confirm.",
+      "Drag models with a finger; [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes. To turn a vehicle, long-press it and slide left / right (or hold it and tap [b][⟲][/b] / [b][⟳][/b] with another finger).",
+      "Big squad? Tap [b][All][/b] on the toolbar to grab the whole lot — one drag shifts them all.",
+      "You don't have to spend a move in one drag — drop, grab again, the inches add up till they're gone.",
+      "Turning a model is free in 11th — it doesn't cost a single inch of the move.",
+      "[b]End This Unit's Move[/b] locks one unit. The big red button ends the whole phase.",
+      "Next lesson: Open Fire — shooting."
+    ],
+    "bullets_touch_orky": [
+      "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring. An attached Warboss gets out wiv 'em, so 'is base gets placed too.",
+      "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
+      "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
+      "Drag models wiv a finger; [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes. To turn a vehicle, long-press it an' slide left / right (or hold it an' tap [b][⟲][/b] / [b][⟳][/b] wiv anuvver finger).",
+      "Big mob? Tap [b][All][/b] on da toolbar to grab da whole lot — one drag shifts 'em all.",
+      "Ya don't gotta spend a move in one drag — drop, grab again, da inches add up till dey're gone.",
+      "Turnin' a model is free in 11th — it don't cost a single inch of da move.",
+      "[b]End This Unit's Move[/b] locks one unit. Da big red button ends da whole phase.",
+      "Next lesson: Dakka Time — shootin'."
     ]
   },
   "steps": [
@@ -117,7 +139,9 @@
       "hint_after_s": 35,
       "hint": {
         "text": "The Warboss is attached to the Boyz, so he gets out with them — his base is the last one you place. Right-click cancels if you get stuck — then click the row again. Every base needs to be wholly within 3\" of the wagon — keep the whole base inside the ring.",
-        "text_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wholly wivin 3\" of da wagon — keep da whole base inside da ring."
+        "text_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wholly wivin 3\" of da wagon — keep da whole base inside da ring.",
+        "touch": "The Warboss is attached to the Boyz, so he gets out with them — his base is the last one you place. Hold a finger down to see where a model will land; it drops when you lift. Stuck? [b][Esc][/b] on the toolbar cancels — then tap the row again. Every base needs to be wholly within 3\" of the wagon — keep the whole base inside the ring.",
+        "touch_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Hold a finger down to see where a model'll land; it drops when ya lift. Stuck? [b][Esc][/b] on da toolbar cancels — den tap da row again. Every base needs to be wholly wivin 3\" of da wagon — keep da whole base inside da ring."
       }
     },
     {
@@ -129,7 +153,9 @@
         "kbm": "The wagon hasn't moved yet, so the Boyz get their own move too. Press {key:select_all} to grab [b]all 11[/b], then one drag shifts the whole squad. Dropping them isn't the end — click [b]End This Unit's Move[/b] to lock it in.",
         "kbm_orky": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {key:select_all} to grab [b]all 11[/b], den one drag shifts da whole mob. Droppin' 'em ain't da end — click [b]End This Unit's Move[/b] to lock it in.",
         "pad": "The wagon hasn't moved yet, so the Boyz move too. {dpad} ▲ opens the move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} and {a} drops the lot. Then {menu} — [b]End This Unit's Move[/b] — locks it in.",
-        "pad_orky": "Da wagon ain't moved yet, so da Boyz move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} an' {a} drops da lot. Den {menu} — [b]End This Unit's Move[/b] — locks it in."
+        "pad_orky": "Da wagon ain't moved yet, so da Boyz move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} an' {a} drops da lot. Den {menu} — [b]End This Unit's Move[/b] — locks it in.",
+        "touch": "The wagon hasn't moved yet, so the Boyz get their own move too. Tap [b][All][/b] on the toolbar to grab [b]all 11[/b], then one drag shifts the whole squad. Dropping them isn't the end — tap [b]End This Unit's Move[/b] to lock it in.",
+        "touch_orky": "Da wagon ain't moved yet, so da Boyz get dere own move too. Tap [b][All][/b] on da toolbar to grab [b]all 11[/b], den one drag shifts da whole mob. Droppin' 'em ain't da end — tap [b]End This Unit's Move[/b] to lock it in."
       },
       "anchor": {
         "unit": "U_BOYZ_T"
@@ -304,7 +330,9 @@
         "kbm": "The wagon isn't on a round base, so which way it points matters. Grab the hull and [b]keep holding[/b] it, then tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turning costs no inches.",
         "kbm_orky": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
         "pad": "The wagon isn't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in your hand ({a} grabs it) or sitting where you dropped it. Turning costs no inches.",
-        "pad_orky": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches."
+        "pad_orky": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches.",
+        "touch": "The wagon isn't on a round base, so which way it points matters. [b]Long-press[/b] the hull until it buzzes, then slide your finger right or left — 15° a step — and lift to drop it in place. (Or hold it and tap [b][⟲][/b] / [b][⟳][/b] with another finger.) Turning costs no inches.",
+        "touch_orky": "Da wagon ain't on a round base, so which way it points matters. [b]Long-press[/b] da hull till it buzzes, den slide yer finger right or left — 15° a step — an' lift to drop it where it is. (Or hold it an' tap [b][⟲][/b] / [b][⟳][/b] wiv anuvver finger.) Turnin' costs no inches."
       },
       "anchor": {
         "unit": "U_BATTLEWAGON_T"
@@ -331,7 +359,9 @@
         "kbm": "You have to be holding the model — {key:rotate_left}/{key:rotate_right} do nothing when nothing is grabbed. Press and hold on the hull first, then tap them, then let go to drop it.",
         "kbm_orky": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
         "pad": "{lb}/{rb} turn the wagon any time its move isn't locked in yet — whether it's in your hand or parked where you dropped it. {a} on the hull picks it back up, {a} again drops it where it's pointing.",
-        "pad_orky": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'."
+        "pad_orky": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'.",
+        "touch": "Long-press right on the wagon's hull (not empty ground) and keep your finger down — once it buzzes, slide sideways to turn it, then let go. Or hold the hull and tap [b][⟲][/b]/[b][⟳][/b] with your other hand.",
+        "touch_orky": "Long-press right on da wagon's hull (not da dirt) an' keep yer finger down — once it buzzes, slide sideways to turn it, den let go. Or hold da hull an' tap [b][⟲][/b]/[b][⟳][/b] wiv yer uvver hand."
       }
     },
     {

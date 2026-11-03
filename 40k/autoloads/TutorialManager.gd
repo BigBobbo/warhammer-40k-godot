@@ -632,6 +632,9 @@ func _build_checklist(step: Dictionary, preserve: Dictionary = {}) -> void:
 		var label := TutorialScriptLib.field(raw, "label")
 		if pad and (raw.has("pad_label") or raw.has("pad_label_orky")):
 			label = TutorialScriptLib.field(raw, "pad_label")
+		elif not pad and TutorialScriptLib.touch_active():
+			label = TutorialScriptLib.field(raw, "touch_label", TutorialScriptLib.touchify(label)) \
+				if (raw.has("touch_label") or raw.has("touch_label_orky")) else TutorialScriptLib.touchify(label)
 		_checklist.append({"id": iid, "label": label, "script": str(raw.get("script", ""))})
 		_checklist_done[iid] = bool(preserve.get(iid, false))
 
@@ -793,9 +796,15 @@ func _complete_lesson() -> void:
 	var orky := TutorialScriptLib.is_orky()
 	var bullets: Array = summary.get("bullets_orky", summary.get("bullets", [])) if orky \
 			else summary.get("bullets", summary.get("bullets_orky", []))
+	var touch := TutorialScriptLib.touch_active() and not InputDeviceManager.is_pad_active()
+	if touch:
+		# Android: a hand-written touch list wins, else the keyboard list reworded.
+		var tk := "bullets_touch_orky" if orky else "bullets_touch"
+		if summary.has(tk) or summary.has("bullets_touch"):
+			bullets = summary.get(tk, summary.get("bullets_touch", bullets))
 	var body := ""
 	for b in bullets:
-		body += "•  %s\n" % str(b)
+		body += "•  %s\n" % (TutorialScriptLib.touchify(str(b)) if touch else str(b))
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:
 		overlay.show_summary({

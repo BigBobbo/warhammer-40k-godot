@@ -1,0 +1,231 @@
+{
+  "id": "tut_t3_touch_wagon_turn",
+  "covers": [
+    "tutorial.t3.touch",
+    "touch.second_finger_toolbar",
+    "touch.rotate_held_model"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial T3 wagon_turn on touch: tap the Battlewagon row, Advance, Confirm Movement Mode, Keep Roll and drag the hull by touch; then grab the hull (touch + small slide), KEEP holding, and tap the toolbar rotate button twice with a SECOND finger -> the held wagon turns 30 degrees without the gesture turning into a pan/pinch; lifting drops it and the step completes.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.start_lesson('t3_get_movin')\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 10.0
+    },
+    {
+      "act": "execute_script",
+      "script": "for i in 12:\n\tif TutorialManager.current_step_id() == 'wagon_mode':\n\t\tbreak\n\tTutorialManager.skip_step()\nreturn TutorialManager.current_step_id() == 'wagon_mode'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "for il in tree.current_scene.find_children('*', 'ItemList', true, false):\n\tif not il.is_visible_in_tree():\n\t\tcontinue\n\tfor i in il.item_count:\n\t\tif il.get_item_text(i).begins_with('Battlewagon'):\n\t\t\tvar r = il.get_item_rect(i)\n\t\t\tTouchInputAdapter.inject_tap(il.get_global_transform_with_canvas() * (r.position + r.size * 0.5))\n\t\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text('Advance')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text('Confirm Movement Mode')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'keep_da_roll'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text('Keep Roll')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'wagon_move'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mp = GameState.get_unit('U_BATTLEWAGON_T').models[0].position\nvar p = tree.current_scene.get_node('BoardRoot').get_global_transform_with_canvas() * Vector2(mp.x, mp.y)\nTouchInputAdapter.set_meta('w', p)\nTouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('w'), true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = TouchInputAdapter.get_meta('w')\nfor k in range(1, 13):\n\tTouchInputAdapter.inject_drag(0, p + Vector2(0, 2 * k))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('w') + Vector2(0, 24), false)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'wagon_turn' and body.contains('finger') and body.contains('[⟳]')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_wagon_turn_touch_prompt"
+    },
+    {
+      "act": "execute_script",
+      "script": "var mp = GameState.get_unit('U_BATTLEWAGON_T').models[0].position\nvar p = tree.current_scene.get_node('BoardRoot').get_global_transform_with_canvas() * Vector2(mp.x, mp.y)\nTouchInputAdapter.set_meta('w', p)\nTouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('w'), true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = TouchInputAdapter.get_meta('w')\nfor k in range(1, 6):\n\tTouchInputAdapter.inject_drag(0, p + Vector2(4 * k, 0))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nreturn mc.dragging_model and TouchInputAdapter.state == 2",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = TouchInputAdapter.toolbar_button_center('Touch_RotR')\nTouchInputAdapter.inject_touch(1, b, true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = TouchInputAdapter.toolbar_button_center('Touch_RotR')\nTouchInputAdapter.inject_touch(1, b, false)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = TouchInputAdapter.toolbar_button_center('Touch_RotR')\nTouchInputAdapter.inject_touch(1, b, true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = TouchInputAdapter.toolbar_button_center('Touch_RotR')\nTouchInputAdapter.inject_touch(1, b, false)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nreturn mc.dragging_model and TouchInputAdapter.stats.toolbar_second_finger == 2 and abs(float(mc.selected_model.get('rotation', 0.0)) - PI / 6.0) < 0.01",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_holding_wagon_turned_30deg"
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('w') + Vector2(20, 0), false)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'wagon_confirm' and abs(float(GameState.get_unit('U_BATTLEWAGON_T').models[0].get('rotation', 0.0))) > 0.4",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wagon_turn_step_done"
+    }
+  ]
+}
