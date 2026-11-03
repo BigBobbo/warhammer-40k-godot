@@ -1,0 +1,289 @@
+{
+  "id": "ai_suggestion_accept",
+  "covers": [
+    "ai.suggestion.accept",
+    "ai.suggestion.breakdown_panel",
+    "ui.HUD.ai_suggestion_button"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Accept the AI suggestion. P1 (human) vs P2 (AI). In P1's Movement phase the player clicks Suggest (K), then the card's '✔ Accept' button: the game carries out the suggested move for them (the suggested unit's models end up where the AI planned and the unit is flagged moved) without the player dragging anything. The card shows a '✔ Done' status and auto-refreshes to the next unit's suggestion, whose Accept is enabled again. Then in the Shooting phase a fresh suggestion is accepted the same way and the shooter is flagged as having shot. An AI-owned decision cannot be accepted (Accept disabled).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.set_ai_speed_preset(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")",
+      "equals": "BEGIN_NORMAL_MOVE",
+      "comment": "the fixture's first suggestion is a normal move with planned destinations"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.has(\"_ai_model_destinations\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nvar d: Dictionary = main._ai_suggestion_panel._decision\nvar uid := str(d.get(\"actor_unit_id\", \"\"))\nmain.set_meta(\"acc_uid\", uid)\nvar dests: Dictionary = d.get(\"_ai_model_destinations\", {})\nvar mid := str(dests.keys()[0])\nmain.set_meta(\"acc_mid\", mid)\nmain.set_meta(\"acc_dest\", Vector2(float(dests[mid][0]), float(dests[mid][1])))\nreturn GameState.get_unit(uid).get(\"flags\", {}).get(\"moved\", false)",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_card_with_accept"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_accepted_move_done"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(main.get_meta(\"acc_uid\")).get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nvar u = GameState.get_unit(main.get_meta(\"acc_uid\"))\nfor m in u.get(\"models\", []):\n\tif str(m.get(\"id\", \"\")) == main.get_meta(\"acc_mid\"):\n\t\tvar p = m.get(\"position\")\n\t\tvar v := Vector2(p.x, p.y) if p is Dictionary else (p as Vector2)\n\t\treturn v.distance_to(main.get_meta(\"acc_dest\")) < 2.0\nreturn false",
+      "equals": true,
+      "comment": "the model landed where the AI planned"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) != main.get_meta(\"acc_uid\")",
+      "equals": true,
+      "comment": "card auto-refreshed to the next unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_card_refreshed_next_unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.close()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set_meta(\"acc_shooter\", str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "04_shooting_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "05_shooting_accepted"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_status.text"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_status.text.begins_with(\"✔ Done\") or str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) != main.get_meta(\"acc_shooter\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(main.get_meta(\"acc_shooter\")).get(\"flags\", {}).get(\"has_shot\", false)",
+      "equals": true,
+      "comment": "the accepted SHOOT resolved: the shooter has shot"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.close()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(9)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")"
+    },
+    {
+      "act": "screenshot",
+      "label": "06_charge_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_status.text"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "keep accepting the follow-up suggestions (charge roll, charge move...) until the AI would end the phase; every accept must succeed",
+      "script": "var log := []\nfor i in range(8):\n\tvar d: Dictionary = AIPlayer.request_suggestion()\n\tvar t := str(d.get(\"type\", \"\"))\n\tif t == \"\" or t.begins_with(\"END_\"):\n\t\tlog.append(t + \"(stop)\")\n\t\tbreak\n\tvar r: Dictionary = AIPlayer.accept_suggestion(d)\n\tlog.append(t + (\":ok\" if r.get(\"success\", false) else \":FAIL \" + str(r.get(\"error\", \"\"))))\n\tif not r.get(\"success\", false):\n\t\tbreak\nprint(\"ACCEPT-CHAIN \", log)\nreturn \"FAIL\" in str(log)",
+      "equals": false
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "screenshot",
+      "label": "07_charge_chain_done"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.can_accept_suggestion({\"type\": \"END_SHOOTING\", \"_ai_player_override\": 2}).get(\"ok\", true)",
+      "equals": false,
+      "comment": "a decision owned by the AI seat is never accepted on its behalf"
+    }
+  ]
+}

@@ -121,6 +121,7 @@ signal spectator_phase_summary(player: int, phase: int, summary: Dictionary)
 signal turn_history_updated()
 signal ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array)  # AI opponent selected alphas; human card holder needs to pick gamma
 signal ai_suggestion_ready(player: int, decision: Dictionary, description: String)  # On-demand hint computed (preview only — not executed)
+signal ai_suggestion_accepted(player: int, decision: Dictionary, result: Dictionary)  # Player pressed Accept on the K card — the suggestion was carried out for them
 
 func _ready() -> void:
 	# ISS-032: AI cache policy is reset-by-design across save/load — the
@@ -924,6 +925,111 @@ func request_suggestion(focus_unit_id: String = "") -> Dictionary:
 	DebugLogger.info("AIPlayer suggestion", {"player": player, "phase": phase_name, "type": decision.get("type", ""), "description": description})
 	return decision
 
+# ACCEPT-SUGGESTION: the player pressed "Accept" on the K card — carry the
+# suggested action out for them through the same execution path the AI uses on
+# its own turn (route_action + multi-step movement / scout staging), so the
+# result is identical to what the AI would have done.
+const ACCEPT_FLAG := "_accepted_suggestion"
+
+func can_accept_suggestion(decision: Dictionary) -> Dictionary:
+	"""{ok, reason}: whether accept_suggestion() may run this decision now."""
+	if decision.is_empty():
+		return {"ok": false, "reason": "There is no suggestion to accept."}
+	if _processing_turn:
+		return {"ok": false, "reason": "The AI is taking its turn."}
+	if NetworkManager and NetworkManager.is_networked():
+		return {"ok": false, "reason": "Accepting suggestions is not available in online games."}
+	var player := _suggestion_decider(decision)
+	if player <= 0:
+		return {"ok": false, "reason": "Nobody owes this decision."}
+	if is_ai_player(player):
+		return {"ok": false, "reason": "This decision belongs to the AI — it will make it itself."}
+	var t := str(decision.get("type", ""))
+	if t == "":
+		return {"ok": false, "reason": "The suggestion has no action."}
+	return {"ok": true, "reason": "", "player": player}
+
+func _suggestion_decider(decision: Dictionary) -> int:
+	if decision.has("_ai_player_override"):
+		return int(decision["_ai_player_override"])
+	var p := int(last_suggestion_meta.get("player", 0))
+	if p <= 0:
+		p = int(decision.get("player", GameState.get_active_player()))
+	return p
+
+func accept_suggestion(decision: Dictionary) -> Dictionary:
+	"""Execute a K-card suggestion for the (human) player who owes the decision.
+	Returns {success, error?, description}. Movement plans are staged and
+	confirmed model by model exactly as the AI does on its own turn; if the
+	planned positions cannot be placed the unit is left mid-move (nothing
+	staged) for the player to move by hand — it is NOT forced to stay put."""
+	var gate := can_accept_suggestion(decision)
+	if not bool(gate.ok):
+		print("AIPlayer: accept_suggestion refused — %s" % gate.reason)
+		return {"success": false, "error": gate.reason}
+	var player: int = int(gate.player)
+	var action: Dictionary = decision.duplicate(true)
+	action["player"] = player
+	action[ACCEPT_FLAG] = true
+	var description := str(action.get("_ai_description", action.get("type", "")))
+	var t := str(action.get("type", ""))
+	print("AIPlayer: ACCEPT-SUGGESTION P%d accepts %s (%s)" % [player, t, description])
+	DebugLogger.info("AIPlayer accept_suggestion", {"player": player, "type": t, "description": description})
+	# Own the decision caches while the action (and its follow-ups) run, the
+	# same guard the AI's own turn uses — re-entrant evaluations stay out.
+	_processing_turn = true
+	var out := _run_accepted_suggestion(player, action)
+	_processing_turn = false
+	out["description"] = description
+	if bool(out.get("success", false)):
+		_log_ai_event(player, "Suggestion accepted: %s" % description)
+	else:
+		print("AIPlayer: ACCEPT-SUGGESTION failed for %s — %s" % [t, str(out.get("error", ""))])
+	emit_signal("ai_suggestion_accepted", player, action, out)
+	return out
+
+func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
+	var t := str(action.get("type", ""))
+	var unit_id := str(action.get("actor_unit_id", action.get("unit_id", "")))
+	# A move the player already began (card says "move in progress"): the BEGIN
+	# is done — clear anything they staged and place the AI's plan instead.
+	if bool(action.get("_ai_in_progress_move", false)) and action.has("_ai_model_destinations"):
+		NetworkIntegration.route_action({"type": "RESET_UNIT_MOVE", "actor_unit_id": unit_id, "player": player})
+		var staged := _try_stage_and_confirm(player, unit_id, action.get("_ai_model_destinations", {}),
+			str(action.get("_ai_description", "")), {}, _get_unit_name(unit_id), action.get("_ai_model_waypoints", {}))
+		if staged == "success":
+			return {"success": true}
+		return {"success": false, "error": "The AI's planned positions could not be placed — move %s by hand." % _get_unit_name(unit_id)}
+
+	# Same pre-route signal the AI's own turn emits (Main syncs tokens / draws
+	# charge arrows from it).
+	emit_signal("ai_action_taken", player, action, str(action.get("_ai_description", t)))
+	var result = NetworkIntegration.route_action(action)
+	if result == null:
+		return {"success": false, "error": "The game did not answer the action."}
+	if not result.get("success", false):
+		var err = result.get("error", result.get("errors", "Unknown error"))
+		return {"success": false, "error": _format_error_concise(err)}
+
+	# Follow-ups the AI's own turn runs after a successful action.
+	if t in ["DEPLOY_UNIT", "PLACE_REINFORCEMENT"] and unit_id != "":
+		emit_signal("ai_unit_deployed", player, unit_id)
+	elif t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and action.has("_ai_model_destinations"):
+		if result.get("awaiting_reroll", false) or result.has("stratagem_window_opened"):
+			# Paused for the player's Command Re-roll / an opponent window —
+			# stage once the move exists (unit_move_begun).
+			_pending_advance_moves[unit_id] = {"decision": action, "player": player}
+			# Hot-seat games (no AI seat) never connect the phase signals.
+			var ph = PhaseManager.current_phase_instance
+			if ph != null and ph.has_signal("unit_move_begun") and not ph.unit_move_begun.is_connected(_on_unit_move_begun):
+				ph.unit_move_begun.connect(_on_unit_move_begun)
+			return {"success": true, "deferred": true}
+		if not _execute_ai_movement(player, action):
+			return {"success": false, "error": "The AI's planned positions could not be placed — move %s by hand." % _get_unit_name(unit_id)}
+	elif t == "BEGIN_SCOUT_MOVE" and action.has("_ai_scout_destinations"):
+		_execute_ai_scout_movement(player, action)
+	return {"success": true}
+
 # T7-56: Per-turn action history for AI turn replay panel
 
 func _store_turn_history(player: int, actions: Array) -> void:
@@ -1550,7 +1656,7 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 
 func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: String) -> void:
 	"""Execute AI movement after an advance roll has resolved and active_moves is ready."""
-	if not enabled or PhaseManager.game_ended:
+	if (not enabled and not bool(decision.get(ACCEPT_FLAG, false))) or PhaseManager.game_ended:
 		return
 
 	# Get the actual move cap from MovementPhase's active_moves
@@ -2624,7 +2730,7 @@ func _execute_next_action(player: int) -> void:
 
 # --- AI Movement execution ---
 
-func _execute_ai_movement(player: int, decision: Dictionary) -> void:
+func _execute_ai_movement(player: int, decision: Dictionary) -> bool:
 	var unit_id = decision.get("actor_unit_id", "")
 	var destinations = decision.get("_ai_model_destinations", {})
 	var description = decision.get("_ai_description", "AI movement")
@@ -2632,7 +2738,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 
 	if unit_id == "" or destinations.is_empty():
 		print("AIPlayer: AI movement called with no unit or destinations")
-		return
+		return false
 
 	print("AIPlayer: Executing AI movement for %s — staging %d models" % [unit_id, destinations.size()])
 
@@ -2653,7 +2759,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 	var result = _try_stage_and_confirm(player, unit_id, destinations, description, origin_positions, unit_name,
 		decision.get("_ai_model_waypoints", {}))
 	if result == "success":
-		return
+		return true
 
 	# Full-scale staging failed — re-compute with fresh snapshot at shorter move caps
 	# (blind scaling squeezes models together without re-validating collisions)
@@ -2710,7 +2816,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 		result = _try_stage_and_confirm(player, unit_id, new_dests, description, origin_positions, unit_name)
 		if result == "success":
 			print("AIPlayer: Movement succeeded at recomputed %.0f%% scale for %s" % [recompute_scale * 100, unit_id])
-			return
+			return true
 		elif result != "staging_failed":
 			break
 
@@ -2718,6 +2824,13 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 	# way out crosses enemy models) can still work as Desperate Escape — models
 	# may move through enemies at the cost of a hazard roll each. Worth it when
 	# the alternative is staying locked in a losing combat.
+	# ACCEPT-SUGGESTION: the player accepted this plan — never commit them to a
+	# Desperate Escape or to staying put. The unit is left mid-move, nothing
+	# staged, and they move it by hand.
+	if bool(decision.get(ACCEPT_FLAG, false)):
+		print("AIPlayer: ACCEPT-SUGGESTION movement for %s could not be staged — leaving it for the player" % unit_id)
+		return false
+
 	if move_type == "BEGIN_FALL_BACK" and GameConstants.edition >= 11:
 		var de_unit = GameState.get_unit(unit_id)
 		var de_alive := 0
@@ -2737,7 +2850,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			var de_result = _try_stage_and_confirm(player, unit_id, destinations, description + " (Desperate Escape)", origin_positions, unit_name)
 			if de_result == "success":
 				print("AIPlayer: Desperate Escape fall back succeeded for %s" % unit_id)
-				return
+				return true
 
 	# All attempts failed — remain stationary
 	print("AIPlayer: All movement attempts failed for %s, remaining stationary" % unit_id)
@@ -2751,6 +2864,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 		"player": player,
 		"_ai_description": "%s remains stationary (all move attempts failed)" % [unit_name]
 	})
+	return false
 
 func _scale_destinations(destinations: Dictionary, origin_positions: Dictionary, scale: float) -> Dictionary:
 	var scaled = {}
