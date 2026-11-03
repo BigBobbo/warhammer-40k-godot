@@ -253,11 +253,46 @@ static func body_for_device(step: Dictionary, pad_active: bool) -> String:
 
 static func body_for_device_lang(step: Dictionary, pad_active: bool, orky: bool) -> String:
 	var prompt: Dictionary = step.get("prompt", {})
+	var touch := (not pad_active) and touch_active()
 	var device_keys := ["pad", "text", "kbm"] if pad_active else ["kbm", "text", "pad"]
+	if touch:
+		# Phone/tablet (Android): a hand-written `touch` body wins; otherwise
+		# the keyboard body, reworded for fingers ("click" -> "tap").
+		device_keys = ["touch", "kbm", "text", "pad"]
 	for k in device_keys:
 		if prompt.has(k) or prompt.has(k + "_orky"):
-			return field_lang(prompt, k, orky)
+			var body := field_lang(prompt, k, orky)
+			return touchify(body) if touch and k != "touch" else body
 	return ""
+
+
+# True while TouchInputAdapter is driving input (Android / --touch).
+static func touch_active() -> bool:
+	var root := _root()
+	if root == null:
+		return false
+	var tia = root.get_node_or_null("TouchInputAdapter")
+	return tia != null and bool(tia.get("enabled"))
+
+
+# Mouse wording -> finger wording, for keyboard text with no touch variant.
+static func touchify(text: String) -> String:
+	var pairs := [
+		["\\bRight-click(s|ed|ing)?\\b", "Long-press"], ["\\bright-click(s|ed|ing)?\\b", "long-press"],
+		["\\bClicking\\b", "Tapping"], ["\\bclicking\\b", "tapping"],
+		["\\bClicked\\b", "Tapped"], ["\\bclicked\\b", "tapped"],
+		["\\bClicks\\b", "Taps"], ["\\bclicks\\b", "taps"],
+		["\\bClick\\b", "Tap"], ["\\bclick\\b", "tap"],
+		["\\byour mouse\\b", "your finger"], ["\\bthe mouse\\b", "your finger"],
+		["\\bmouse\\b", "finger"],
+	]
+	# "(Click to Select)" is literal on-screen text in the weapon list — keep it.
+	var out := text.replace("Click to Select", "\u0001")
+	for pr in pairs:
+		var re := RegEx.new()
+		re.compile(pr[0])
+		out = re.sub(out, pr[1], true)
+	return out.replace("\u0001", "Click to Select")
 
 
 # Replace glyph/key/hint tokens with bold bracketed chip text. BBCode in the
@@ -279,6 +314,12 @@ static func _render_token(kind: String, arg: String, pad_active: bool) -> String
 	var root := _root()
 	match kind:
 		"key":
+			# On touch, name the toolbar button that does the same job.
+			if not pad_active and touch_active():
+				var tia = root.get_node_or_null("TouchInputAdapter")
+				var tl: String = tia.touch_label_for(arg) if tia else ""
+				if tl != "":
+					return "[b][%s][/b]" % tl
 			var kbm = root.get_node_or_null("KeybindingManager") if root else null
 			var key_name: String = kbm.get_key_display_name(arg) if kbm else arg
 			return "[b][%s][/b]" % key_name

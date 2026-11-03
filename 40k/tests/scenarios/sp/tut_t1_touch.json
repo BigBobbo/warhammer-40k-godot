@@ -1,0 +1,436 @@
+{
+  "id": "tut_t1_touch",
+  "covers": [
+    "tutorial.t1.touch",
+    "touch.tutorial_text",
+    "touch.toolbar_info",
+    "touch.toolbar_help",
+    "touch.toolbar_all"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial T1 played start to finish with ONLY touch input (TouchInputAdapter, real ScreenTouch/ScreenDrag events): menu -> Tutorial -> Play; touch-worded prompts ('two fingers', '[Info]', '[?]', '[All]'); two-finger pan + pinch tick the camera checklist; Info opens the datasheet, Esc closes it; ? opens the touch cheat sheet; All grabs all 11 grots and one finger drags them; the summary shows the touch bullet list.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.set_enabled(true)\nreturn TouchInputAdapter.enabled",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_node('/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_node('/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 9.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.active",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'welcome'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text(\"Continue\", true)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'camera' and body.contains(\"two fingers\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_camera_touch_prompt"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(900,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(1000,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(900,600)\nvar c1 = Vector2(1000,600)\nvar d0 = Vector2(0,-120)\nvar d1 = Vector2(0,-120)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(900,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(1000,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(900,600)\nvar c1 = Vector2(1000,600)\nvar d0 = Vector2(0,120)\nvar d1 = Vector2(0,120)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(900,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(1000,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(900,600)\nvar c1 = Vector2(1000,600)\nvar d0 = Vector2(-120,0)\nvar d1 = Vector2(-120,0)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(900,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(1000,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(900,600)\nvar c1 = Vector2(1000,600)\nvar d0 = Vector2(120,0)\nvar d1 = Vector2(120,0)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(920,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(980,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(920,600)\nvar c1 = Vector2(980,600)\nvar d0 = Vector2(-60,0)\nvar d1 = Vector2(60,0)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "TouchInputAdapter.inject_touch(0, Vector2(850,600), true)\nTouchInputAdapter.inject_touch(1, Vector2(1050,600), true)\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "var c0 = Vector2(850,600)\nvar c1 = Vector2(1050,600)\nvar d0 = Vector2(80,0)\nvar d1 = Vector2(-80,0)\nfor k in range(1, 9):\n\tTouchInputAdapter.inject_drag(0, c0 + d0 * k / 8.0)\n\tTouchInputAdapter.inject_drag(1, c1 + d1 * k / 8.0)\nTouchInputAdapter.inject_touch(0, c0 + d0, false)\nTouchInputAdapter.inject_touch(1, c1 + d1, false)\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'select_wagon' and body.contains(\"Tap [b]Battlewagon[/b]\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "for il in tree.current_scene.find_children('*', 'ItemList', true, false):\n\tif not il.is_visible_in_tree():\n\t\tcontinue\n\tfor i in il.item_count:\n\t\tif il.get_item_text(i).begins_with('Battlewagon'):\n\t\t\tvar r = il.get_item_rect(i)\n\t\t\tTouchInputAdapter.inject_tap(il.get_global_transform_with_canvas() * (r.position + r.size * 0.5))\n\t\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'open_datasheet' and body.contains(\"[Info]\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_Info'))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'close_datasheet'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_datasheet_opened_by_info_button"
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_Esc'))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'log_panel'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "if TutorialManager.current_step_id() in ['log_panel', 'hint_bar']:\n\tTouchInputAdapter.inject_tap_text('Continue')\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "if TutorialManager.current_step_id() in ['log_panel', 'hint_bar']:\n\tTouchInputAdapter.inject_tap_text('Continue')\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'controls_reference_open' and body.contains(\"[?]\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_Help'))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'controls_reference_close'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_touch_cheat_sheet"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_node('/root/TouchInputAdapter/TouchHelpLayer/TouchHelpPanel/VBox/TouchHelpClose')",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'end_phase_intro'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text(\"Continue\", true)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var st = TutorialManager.current_lesson.steps[TutorialManager.current_step_index]\nvar body = TutorialScript.render_text(TutorialScript.body_for_device(st, false), false)\nreturn TutorialManager.current_step_id() == 'move_grots' and body.contains(\"[All]\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "for il in tree.current_scene.find_children('*', 'ItemList', true, false):\n\tif not il.is_visible_in_tree():\n\t\tcontinue\n\tfor i in il.item_count:\n\t\tif il.get_item_text(i).begins_with('Gretchin'):\n\t\t\tvar r = il.get_item_rect(i)\n\t\t\tTouchInputAdapter.inject_tap(il.get_global_transform_with_canvas() * (r.position + r.size * 0.5))\n\t\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_tap(TouchInputAdapter.toolbar_button_center('Touch_All'))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nreturn mc.active_unit_id == 'U_GRETCHIN_T' and mc.selected_models.size() == 11",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var mp = GameState.state.units['U_GRETCHIN_T'].models[0].position\nvar p = tree.current_scene.get_node('BoardRoot').get_global_transform_with_canvas() * Vector2(mp.x, mp.y)\nTouchInputAdapter.set_meta('g', p)\nTouchInputAdapter.inject_touch(0, p, true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = TouchInputAdapter.get_meta('g')\nfor k in range(1, 13):\n\tTouchInputAdapter.inject_drag(0, p + Vector2(0, 5 * k))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "TouchInputAdapter.inject_touch(0, TouchInputAdapter.get_meta('g') + Vector2(0, 60), false)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'confirm_grots'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_all_grots_dragged"
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text(\"End This Unit's Move\", true)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.current_step_id() == 'wrap'",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return TouchInputAdapter.inject_tap_text(\"Continue\", true)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node_or_null('TutorialOverlay')\nfor r in o.find_children('*', 'RichTextLabel', true, false):\n\tif r.is_visible_in_tree() and r.text.contains('[?]') and r.text.contains('toolbar'):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_summary_touch_bullets"
+    }
+  ]
+}
