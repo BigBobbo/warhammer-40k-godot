@@ -2794,6 +2794,7 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		_ai_suggestion_panel.refresh_requested.connect(_on_ai_suggestion_pressed)
 		_ai_suggestion_panel.save_case_requested.connect(_on_ai_suggestion_save_case)
 		_ai_suggestion_panel.unit_focus_requested.connect(_on_ai_suggestion_unit_focus)
+		_ai_suggestion_panel.accept_requested.connect(_on_ai_suggestion_accept)
 		if PhaseManager and not PhaseManager.phase_action_taken.is_connected(_on_action_for_ai_suggestion_card):
 			PhaseManager.phase_action_taken.connect(_on_action_for_ai_suggestion_card)
 		if PhaseManager and not PhaseManager.phase_changed.is_connected(_on_action_for_ai_suggestion_card):
@@ -2817,6 +2818,10 @@ func _show_ai_suggestion_breakdown(decision: Dictionary, meta: Dictionary) -> vo
 		if _ai_suggestion_host and is_instance_valid(_ai_suggestion_host):
 			_ai_suggestion_host.hide()
 	_ai_suggestion_panel.show_decision(decision, meta)
+	var ai_for_gate = get_node_or_null("/root/AIPlayer")
+	if ai_for_gate and ai_for_gate.has_method("can_accept_suggestion"):
+		var gate: Dictionary = ai_for_gate.can_accept_suggestion(decision)
+		_ai_suggestion_panel.set_accept_available(bool(gate.get("ok", false)), str(gate.get("reason", "")))
 	_ai_card_pick_signature = str(_ai_card_board_signature().sig)
 	_show_ai_suggestion_overlay(decision)
 	print("Main: AI suggestion breakdown shown (%d records)%s" % [_ai_suggestion_panel.record_count,
@@ -2840,11 +2845,73 @@ func _refresh_ai_suggestion_overlay() -> void:
 		return
 	if _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel) or not _ai_suggestion_panel.visible:
 		return
+	if _ai_suggestion_panel.accepted:
+		_ai_suggestion_overlay.clear()  # already carried out — nothing left to mark
+		return
 	_ai_suggestion_overlay.show_suggestion(_ai_suggestion_panel._decision)
 
 func _clear_ai_suggestion_overlay() -> void:
 	if _ai_suggestion_overlay and is_instance_valid(_ai_suggestion_overlay):
 		_ai_suggestion_overlay.clear()
+
+func _on_ai_suggestion_accept() -> void:
+	"""'Accept' on the breakdown card: carry the suggested action out for the
+	player (AIPlayer.accept_suggestion — the AI's own execution path)."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player or _ai_suggestion_panel == null or not is_instance_valid(_ai_suggestion_panel):
+		return
+	var decision: Dictionary = _ai_suggestion_panel._decision
+	print("Main: AI suggestion accepted by player -> %s" % str(decision.get("_ai_description", decision.get("type", ""))))
+	# The board overlay marks what is ABOUT to happen — clear it first so it
+	# does not linger over the result.
+	_clear_ai_suggestion_overlay()
+	var open_before := _open_decision_dialogs()
+	var result: Dictionary = ai_player.accept_suggestion(decision)
+	if result.get("success", false):
+		_close_dialogs_answered_by_accept(open_before)
+	if not is_instance_valid(_ai_suggestion_panel):
+		return
+	_ai_suggestion_panel.show_accept_result(result)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		if result.get("success", false):
+			toast_mgr.show_toast("Suggestion carried out", Color(0.6, 0.9, 0.6), 2.0)
+		else:
+			toast_mgr.show_toast("Could not accept: %s" % str(result.get("error", "")), Color(0.95, 0.5, 0.45), 3.0)
+	print("Main: AI suggestion accept -> %s" % str(result))
+
+func _open_decision_dialogs() -> Array:
+	"""Visible decision dialogs (scripts under res://dialogs/) — the windows a
+	player answers a pending decision in (re-roll, Overwatch, stratagem…)."""
+	var out: Array = []
+	for w in get_tree().root.find_children("*", "Window", true, false):
+		if w == _ai_suggestion_host or not (w as Window).visible:
+			continue
+		var scr = w.get_script()
+		if scr != null and str(scr.resource_path).begins_with("res://dialogs/"):
+			out.append(w)
+	return out
+
+func _close_dialogs_answered_by_accept(open_before: Array) -> void:
+	"""ACCEPT-SUGGESTION: the accepted action answered the decision a dialog that
+	was already open was asking (e.g. Keep Roll on the Command Re-roll dialog).
+	The dialog is now stale — clicking it would send a second answer — so close
+	it WITHOUT running its own button/dismiss handlers. Dialogs the accepted
+	action itself opened (a new decision) are left alone."""
+	for w in open_before:
+		if not is_instance_valid(w) or not (w as Window).visible or w.is_queued_for_deletion():
+			continue
+		# The card may be hosted above this dialog — take it out first.
+		if _ai_suggestion_host and is_instance_valid(_ai_suggestion_host) and w.is_ancestor_of(_ai_suggestion_host):
+			if _ai_suggestion_panel and is_instance_valid(_ai_suggestion_panel):
+				_ai_suggestion_panel.reparent(self)
+			_ai_suggestion_host.hide()
+			_ai_suggestion_host.get_parent().remove_child(_ai_suggestion_host)
+		if "_choice_made" in w:
+			w._choice_made = true
+		print("Main: ACCEPT-SUGGESTION closing answered dialog '%s' (%s)" % [w.name, str(w.get_script().resource_path)])
+		(w as Window).hide()
+		w.queue_free()
 
 func _on_ai_suggestion_save_case(verdict: String, note: String) -> void:
 	"""'Good call' / 'Bad call' on the breakdown card: save the position and the
@@ -2863,7 +2930,7 @@ func _top_modal_window() -> Window:
 	"""The most recently added visible exclusive (modal) window, if any."""
 	var found: Window = null
 	for w in get_tree().root.find_children("*", "Window", true, false):
-		if w == _ai_suggestion_host or not w.visible:
+		if w == _ai_suggestion_host or not w.visible or w.is_queued_for_deletion():
 			continue
 		if (w as Window).exclusive:
 			found = w

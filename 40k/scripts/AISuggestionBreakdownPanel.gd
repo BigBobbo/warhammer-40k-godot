@@ -35,6 +35,9 @@ class_name AISuggestionBreakdownPanel
 #                      or ◀ / ▶ pressed — Main re-asks the AI about that unit)
 #   cycle_unit(step: int)  (same as ◀ (-1) / ▶ (+1))
 #   closed             (card hidden — Main clears the board overlay)
+#   accept_requested   ("Accept" pressed — Main asks AIPlayer.accept_suggestion
+#                      to carry the suggestion out); set_accept_available(ok, reason)
+#                      enables/disables the button; show_accept_result(result)
 #   option_hovered(record, cand_index, chosen) / option_unhovered
 #                      (pointer over an option row — Main previews it on the
 #                      board via AISuggestionBoardOverlay); hover_option(key)
@@ -84,6 +87,7 @@ signal unit_focus_requested(unit_id: String)
 signal closed
 signal option_hovered(record: Dictionary, cand_index: int, chosen: bool)
 signal option_unhovered
+signal accept_requested
 
 var breakdown_text: String = ""
 var full_text: String = ""
@@ -104,6 +108,10 @@ var _review_status: Label = null
 var _cycle_order: Array = []
 var _prev_unit_btn: Button = null
 var _next_unit_btn: Button = null
+var _accept_btn: Button = null
+var _accept_status: Label = null
+# True once the shown suggestion was carried out (Accept) — it is spent.
+var accepted: bool = false
 
 
 func _ready() -> void:
@@ -221,6 +229,19 @@ func _ready() -> void:
 	_review_status.text = "Mark this call to save the position as an AI test case (re-checked by tests/run_ai_test_cases.sh)."
 	rcol.add_child(_review_status)
 
+	# Accept status: what happened when the player accepted the suggestion
+	_accept_status = Label.new()
+	_accept_status.name = "AcceptStatus"
+	_accept_status.add_theme_font_size_override("font_size", 14)
+	_accept_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_accept_status.visible = false
+	var astat_wrap := MarginContainer.new()
+	astat_wrap.name = "AcceptStatusWrap"
+	for side in ["left", "right"]:
+		astat_wrap.add_theme_constant_override("margin_" + side, 12)
+	astat_wrap.add_child(_accept_status)
+	body.add_child(astat_wrap)
+
 	# Footer
 	var footer := PanelContainer.new()
 	footer.name = "Footer"
@@ -231,7 +252,7 @@ func _ready() -> void:
 	frow.add_theme_constant_override("separation", 10)
 	footer.add_child(frow)
 	var hint := Label.new()
-	hint.text = "Preview only — nothing was executed. The board shows the suggested unit (cyan), its target (red) and where it would move; hover an option to see it on the board. K refreshes, Esc closes."
+	hint.text = "Preview only — nothing happens until you press Accept. The board shows the suggested unit (cyan), its target (red) and where it would move; hover an option to see it on the board. K refreshes, Esc closes."
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", COL_DIM)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -253,6 +274,15 @@ func _ready() -> void:
 	_next_unit_btn.pressed.connect(func(): cycle_unit(1))
 	_next_unit_btn.visible = false
 	frow.add_child(_next_unit_btn)
+	_accept_btn = Button.new()
+	_accept_btn.name = "AcceptButton"
+	_accept_btn.text = "✔ Accept"
+	_accept_btn.tooltip_text = "Do this for me: the game carries out the suggested action exactly as the AI would"
+	_WhiteDwarfTheme.apply_to_button(_accept_btn)
+	_accept_btn.add_theme_color_override("font_color", Color(0.6, 0.95, 0.6))
+	_accept_btn.add_theme_color_override("font_hover_color", Color(0.8, 1.0, 0.8))
+	_accept_btn.pressed.connect(_on_accept_pressed)
+	frow.add_child(_accept_btn)
 	var copy_btn := Button.new()
 	copy_btn.name = "CopyButton"
 	copy_btn.text = "Copy as text"
@@ -295,6 +325,12 @@ func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
 	if _review_status:
 		_review_status.text = "Mark this call to save the position as an AI test case (re-checked by tests/run_ai_test_cases.sh)."
 		_review_status.add_theme_color_override("font_color", COL_DIM)
+	accepted = false
+	if _accept_status:
+		_accept_status.visible = false
+		_accept_status.text = ""
+	if _accept_btn:
+		_accept_btn.disabled = decision.is_empty()
 	_update_cycle_order(decision)
 	full_text = build_breakdown(decision, meta, {}, true).text
 	_render(true)
@@ -302,6 +338,42 @@ func show_decision(decision: Dictionary, meta: Dictionary = {}) -> void:
 	_refit()
 	print("[AISuggestionBreakdownPanel] Showing breakdown: %d decision record(s), %d candidate(s)" % [record_count, candidate_count])
 	DebugLogger.info("AISuggestionBreakdownPanel shown", {"records": record_count, "candidates": candidate_count, "type": decision.get("type", "")})
+
+
+func set_accept_available(ok: bool, reason: String = "") -> void:
+	"""Main: whether the shown suggestion can be carried out for the player."""
+	if _accept_btn == null:
+		return
+	_accept_btn.disabled = not ok
+	_accept_btn.tooltip_text = "Do this for me: the game carries out the suggested action exactly as the AI would" if ok \
+		else "Can't accept: %s" % reason
+	print("[AISuggestionBreakdownPanel] Accept %s%s" % ["available" if ok else "unavailable", "" if ok else " (%s)" % reason])
+
+
+func show_accept_result(result: Dictionary) -> void:
+	"""Feedback after Main ran (or failed to run) the accepted suggestion."""
+	if _accept_status == null:
+		return
+	_accept_status.visible = true
+	if bool(result.get("success", false)):
+		accepted = true
+		_accept_status.text = "✔ Done: %s%s" % [str(result.get("description", "")),
+			" (waiting on a roll / window)" if bool(result.get("deferred", false)) else ""]
+		_accept_status.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+		if _accept_btn:
+			_accept_btn.disabled = true  # this suggestion is spent — K or the auto-refresh shows the next
+			_accept_btn.tooltip_text = "Already done — press K for the next suggestion"
+	else:
+		_accept_status.text = "Could not accept: %s" % str(result.get("error", "unknown error"))
+		_accept_status.add_theme_color_override("font_color", Color(0.95, 0.6, 0.55))
+	_refit()
+
+
+func _on_accept_pressed() -> void:
+	if _accept_btn != null and _accept_btn.disabled:
+		return
+	print("[AISuggestionBreakdownPanel] Accept pressed (%s)" % str(_decision.get("type", "")))
+	accept_requested.emit()
 
 
 func show_case_saved(result: Dictionary) -> void:

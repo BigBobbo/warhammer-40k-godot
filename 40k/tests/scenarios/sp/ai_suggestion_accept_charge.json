@@ -1,0 +1,205 @@
+{
+  "id": "ai_suggestion_accept_charge",
+  "covers": [
+    "ai.suggestion.accept",
+    "ai.suggestion.human_vs_human"
+  ],
+  "fixture": "ork11e_ab_charge",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Accept the AI suggestion through a whole charge, in a LOCAL hot-seat game (no AI seat). K in the Charge phase suggests a charge; clicking the card's '✔ Accept' declares it for the player. Pressing K and Accept again carries out each follow-up the AI suggests (charge roll, charge move, any defender window) until the AI would end the phase — every accept succeeds and the game never leaves the Charge phase on its own.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(9)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 9
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")",
+      "equals": "DECLARE_CHARGE"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set_meta(\"acc_charger\", str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_charge_suggested"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_charge_declared"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_status.text.begins_with(\"✔ Done\")",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")",
+      "equals": "CHARGE_ROLL"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n: Array = tree.root.find_children(\"CommandRerollDialog\", \"\", true, false).filter(func(w): return w.visible and not w.is_queued_for_deletion())\nreturn n.size()",
+      "equals": 1,
+      "comment": "the charge roll paused for the player's Command Re-roll decision"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._decision.get(\"type\", \"\")",
+      "equals": "DECLINE_COMMAND_REROLL"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.get_parent().name"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_reroll_dialog_and_card"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_accept()",
+      "comment": "the card sits in its own window above the modal dialog; press its Accept handler"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n: Array = tree.root.find_children(\"CommandRerollDialog\", \"\", true, false).filter(func(w): return w.visible and not w.is_queued_for_deletion())\nreturn n.size()",
+      "equals": 0,
+      "comment": "the answered re-roll dialog is closed, not left stale on screen"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and is_instance_valid(main._ai_suggestion_panel) and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_reroll_answered_dialog_closed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "K + Accept for every follow-up the AI suggests until it would end the phase",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar log := []\nfor i in range(10):\n\tmain._on_ai_suggestion_pressed()\n\tvar d: Dictionary = main._ai_suggestion_panel._decision\n\tvar t := str(d.get(\"type\", \"\"))\n\tif t == \"\" or t.begins_with(\"END_\"):\n\t\tlog.append(t + \"(stop)\")\n\t\tbreak\n\tif main._ai_suggestion_panel._accept_btn.disabled:\n\t\tlog.append(t + \":DISABLED \" + main._ai_suggestion_panel._accept_btn.tooltip_text)\n\t\tbreak\n\tmain._on_ai_suggestion_accept()\n\tvar st: String = main._ai_suggestion_panel._accept_status.text\n\tlog.append(t + (\":ok\" if st.begins_with(\"✔\") else \":FAIL \" + st))\n\tif not st.begins_with(\"✔\"):\n\t\tbreak\nprint(\"ACCEPT-CHAIN \", log)\nmain.set_meta(\"acc_chain\", str(log))\nreturn (\"FAIL\" in str(log)) or (\"DISABLED\" in str(log))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"acc_chain\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_meta(\"acc_chain\").contains(\"APPLY_CHARGE_MOVE:ok\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n: Array = tree.root.find_children(\"CommandRerollDialog\", \"\", true, false).filter(func(w): return w.visible and not w.is_queued_for_deletion())\nreturn n.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(main.get_meta(\"acc_charger\")).get(\"flags\", {}).get(\"charged_this_turn\", false)",
+      "comment": "the accepted charge move landed",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_charge_chain_done"
+    }
+  ]
+}
