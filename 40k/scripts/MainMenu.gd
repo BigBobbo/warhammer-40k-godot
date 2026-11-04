@@ -1224,7 +1224,9 @@ func _load_available_armies() -> void:
 		print("MainMenu: Warning - ArmyListManager not available, using empty army list")
 		return
 
-	var available_armies = ArmyListManager.get_available_armies()
+	# Allowlist-filtered (data/army_allowlist.json): test lists stay loadable
+	# by id but never appear in the dropdowns.
+	var available_armies = ArmyListManager.get_selectable_armies()
 
 	if available_armies.is_empty():
 		print("MainMenu: Warning - No armies found in armies/ directory")
@@ -1236,9 +1238,7 @@ func _load_available_armies() -> void:
 	for army_id in available_armies:
 		# Tutorial armies (armies/tutorial_*.json) are loaded explicitly by
 		# TutorialManager and stay out of the regular dropdowns
-		# (PRPs/tutorial_system.md §4.2).
-		if str(army_id).begins_with("tutorial_"):
-			continue
+		# (PRPs/tutorial_system.md §4.2) — filtered in is_army_selectable().
 		var base_name = _format_army_name(army_id)
 		var date_str = ArmyListManager.get_army_date(army_id)
 		var points = ArmyListManager.get_army_points(army_id)
@@ -1465,7 +1465,8 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 		existing_ids.append(option.id)
 	var added_count = 0
 	for cloud_name in cloud_armies:
-		if cloud_name not in existing_ids:
+		# A cloud copy of a hidden bundled army (same id) stays hidden too.
+		if cloud_name not in existing_ids and ArmyListManager.is_army_selectable(cloud_name):
 			var base_name = _format_army_name(cloud_name) + " (Cloud)"
 			var date_str = ArmyListManager.get_army_date(cloud_name)
 			var display_name = base_name

@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.1",
+      "date": "2026-11-04",
+      "summary": "Tidier army picker: internal test lists no longer appear in the army-select dropdowns.",
+      "changes": [
+        "The Player 1 / Player 2 army dropdowns (and the Plan Editor and multiplayer lobby pickers) now only list the real armies — test lists like 'A C Test' and the 'Codex Test' armies are hidden.",
+        "Armies you import or build yourself still show up as before."
+      ]
+    },
+    {
       "version": "1.73.0",
       "date": "2026-11-03",
       "summary": "Accept the AI's suggestion: press ✔ Accept on the Suggest (K) card and the game does the move for you.",

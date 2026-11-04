@@ -1061,7 +1061,7 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 
 	var added_count = 0
 	for cloud_name in cloud_armies:
-		if cloud_name not in local_ids:
+		if cloud_name not in local_ids and ArmyListManager.is_army_selectable(cloud_name):
 			var base_name = _format_army_name(cloud_name) + " (Cloud)"
 			var date_str = ArmyListManager.get_army_date(cloud_name)
 			var display_name = base_name
@@ -1110,7 +1110,8 @@ func _setup_army_selection() -> void:
 
 	# Get available armies
 	army_options = []
-	var available_armies = ArmyListManager.get_available_armies()
+	# Allowlist-filtered (data/army_allowlist.json) — hides test lists.
+	var available_armies = ArmyListManager.get_selectable_armies()
 
 	# Build army options with dates (mirror MainMenu.gd pattern)
 	for army_name in available_armies:

@@ -1,0 +1,14 @@
+{
+  "_comment": "Allowlist of bundled armies (res://armies/<id>.json) shown in the army-select dropdowns (Main Menu, Plan Editor, Multiplayer Lobby, Web Lobby). Any bundled army NOT listed here is hidden from players but still loadable by tests/fixtures/tutorials by id. Armies the player imports into user://armies/ are always shown. To show/hide a bundled army, edit this list — read by ArmyListManager.get_selectable_armies(). Set ArmyListManager.show_all_armies = true to bypass (dev/tests).",
+  "shown": [
+    "adeptus_custodes",
+    "battlewagons",
+    "custodes_lions",
+    "orks",
+    "Orks_2000",
+    "orks_taktikal",
+    "recon_stomps",
+    "space_marines",
+    "sw11e_gw_import_2000"
+  ]
+}
