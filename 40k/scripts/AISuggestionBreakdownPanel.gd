@@ -251,6 +251,20 @@ func _ready() -> void:
 	frow.name = "Row"
 	frow.add_theme_constant_override("separation", 10)
 	footer.add_child(frow)
+	# Accept leads the footer (left end): it is the card's main action, and on
+	# phones the right edge of the screen can sit under rounded corners /
+	# cutouts, so it must not be the last thing in the row.
+	_accept_btn = Button.new()
+	_accept_btn.name = "AcceptButton"
+	_accept_btn.text = "✔ Accept"
+	_accept_btn.tooltip_text = "Do this for me: the game carries out the suggested action exactly as the AI would"
+	_WhiteDwarfTheme.apply_to_button(_accept_btn)
+	_accept_btn.custom_minimum_size = Vector2(130, 44)
+	_accept_btn.add_theme_font_size_override("font_size", 18)
+	_accept_btn.add_theme_color_override("font_color", Color(0.6, 0.95, 0.6))
+	_accept_btn.add_theme_color_override("font_hover_color", Color(0.8, 1.0, 0.8))
+	_accept_btn.pressed.connect(_on_accept_pressed)
+	frow.add_child(_accept_btn)
 	var hint := Label.new()
 	hint.text = "Preview only — nothing happens until you press Accept. The board shows the suggested unit (cyan), its target (red) and where it would move; hover an option to see it on the board. K refreshes, Esc closes."
 	hint.add_theme_font_size_override("font_size", 13)
@@ -274,15 +288,6 @@ func _ready() -> void:
 	_next_unit_btn.pressed.connect(func(): cycle_unit(1))
 	_next_unit_btn.visible = false
 	frow.add_child(_next_unit_btn)
-	_accept_btn = Button.new()
-	_accept_btn.name = "AcceptButton"
-	_accept_btn.text = "✔ Accept"
-	_accept_btn.tooltip_text = "Do this for me: the game carries out the suggested action exactly as the AI would"
-	_WhiteDwarfTheme.apply_to_button(_accept_btn)
-	_accept_btn.add_theme_color_override("font_color", Color(0.6, 0.95, 0.6))
-	_accept_btn.add_theme_color_override("font_hover_color", Color(0.8, 1.0, 0.8))
-	_accept_btn.pressed.connect(_on_accept_pressed)
-	frow.add_child(_accept_btn)
 	var copy_btn := Button.new()
 	copy_btn.name = "CopyButton"
 	copy_btn.text = "Copy as text"
@@ -504,12 +509,14 @@ func _apply_fit() -> void:
 	if not is_inside_tree():
 		return
 	var vp_size := get_tree().root.get_visible_rect().size
-	var w: float = minf(PANEL_WIDTH, maxf(320.0, vp_size.x - 2.0 * SCREEN_MARGIN))
+	var inset := _safe_area_insets(vp_size)
+	var usable_x: float = vp_size.x - inset.x - inset.y
+	var w: float = minf(PANEL_WIDTH, maxf(320.0, usable_x - 2.0 * SCREEN_MARGIN))
 	var h: float = maxf(240.0, vp_size.y - TOP_OFFSET - SCREEN_MARGIN - 60.0)
 	custom_minimum_size = Vector2(w, h)
 	size = Vector2(w, h)
 	# Right side: the game log owns the left edge and the board stays visible.
-	var pos := Vector2(roundf(vp_size.x - w - SCREEN_MARGIN), TOP_OFFSET)
+	var pos := Vector2(roundf(vp_size.x - inset.y - w - SCREEN_MARGIN), TOP_OFFSET)
 	var host := get_parent() as Window
 	if host != null and host.has_meta(HOST_META):
 		host.position = Vector2i(pos)
@@ -517,6 +524,25 @@ func _apply_fit() -> void:
 		position = Vector2.ZERO
 	else:
 		position = pos
+
+
+func _safe_area_insets(vp_size: Vector2) -> Vector2:
+	"""(left, right) insets in canvas units for the phone's safe area — the
+	strip under a camera cutout / rounded corners that the player cannot
+	see. Zero on desktop."""
+	if not (OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]):
+		return Vector2.ZERO
+	var win := DisplayServer.window_get_size()
+	var safe := DisplayServer.get_display_safe_area()
+	if win.x <= 0 or safe.size.x <= 0:
+		return Vector2.ZERO
+	var wpos := DisplayServer.window_get_position()
+	var k: float = vp_size.x / float(win.x)
+	var left: float = maxf(0.0, float(safe.position.x - wpos.x)) * k
+	var right: float = maxf(0.0, float((wpos.x + win.x) - safe.end.x)) * k
+	if left > 0.0 or right > 0.0:
+		print("[AISuggestionBreakdownPanel] safe-area insets L=%.0f R=%.0f (window %s, safe %s)" % [left, right, str(win), str(safe)])
+	return Vector2(left, right)
 
 
 func _bar_style(bg: Color, h: int, v: int, top_border: bool) -> StyleBoxFlat:

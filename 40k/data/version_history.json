@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.1",
+      "date": "2026-11-04",
+      "summary": "Android: the ✔ Accept button on the AI suggestion card is now easy to find and tap.",
+      "changes": [
+        "✔ Accept is now the first, larger button at the bottom-left of the 'Why the AI suggests this' card, instead of sitting at the right edge where phones with rounded corners or a camera cut-out could hide it.",
+        "On phones the card now keeps clear of the screen's unsafe edges (rounded corners / camera cut-out)."
+      ]
+    },
+    {
       "version": "1.73.0",
       "date": "2026-11-03",
       "summary": "Accept the AI's suggestion: press ✔ Accept on the Suggest (K) card and the game does the move for you.",
