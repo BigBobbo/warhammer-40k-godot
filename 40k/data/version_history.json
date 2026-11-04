@@ -2,12 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.72.1",
-      "date": "2026-11-03",
+      "version": "1.73.1",
+      "date": "2026-11-04",
       "summary": "Tidier army picker: internal test lists no longer appear in the army-select dropdowns.",
       "changes": [
         "The Player 1 / Player 2 army dropdowns (and the Plan Editor and multiplayer lobby pickers) now only list the real armies — test lists like 'A C Test' and the 'Codex Test' armies are hidden.",
         "Armies you import or build yourself still show up as before."
+      ]
+    },
+    {
+      "version": "1.73.0",
+      "date": "2026-11-03",
+      "summary": "Accept the AI's suggestion: press ✔ Accept on the Suggest (K) card and the game does the move for you.",
+      "changes": [
+        "The 'Why the AI suggests this' card (Suggest / K) has a new ✔ Accept button. Press it and the suggested action is carried out for you exactly as the AI would do it — no need to drag models or pick targets yourself.",
+        "Works for moves (models are placed where the AI planned), shooting, charges (declare, roll, re-roll choice, charge move), fights, deployment and stratagem windows.",
+        "After accepting, the card shows '✔ Done' and moves on to the AI's next suggestion, so you can keep accepting step by step.",
+        "If the AI's planned move can't be placed, your unit is left mid-move for you to move by hand — it is never forced to stay put.",
+        "A dialog the accepted action already answered (e.g. the Command Re-roll prompt) closes by itself.",
+        "Accept is only offered for your own decisions — never for the AI opponent's — and not in online games."
       ]
     },
     {
