@@ -9,6 +9,14 @@ Or over USB: `adb install -r warhammer40k.apk`.
 
 Requires a 64-bit (arm64) Android phone. Any phone from ~2017 onwards is fine.
 
+**"App not installed"?** The APK is signed with the debug keystore of the
+machine/container that built it (`~/.android/debug.keystore`, created by
+`setup_android_export.sh` if missing). Android refuses to update an installed
+app with an APK signed by a different key. Uninstall the old app first (this
+deletes saves stored on the phone), then install. Builds from the same keystore
+update in place; `build_apk.sh` stamps versionCode/versionName from
+`40k/data/version_history.json` so each release counts as newer.
+
 ## Touch controls
 | Gesture | Does |
 |---|---|
