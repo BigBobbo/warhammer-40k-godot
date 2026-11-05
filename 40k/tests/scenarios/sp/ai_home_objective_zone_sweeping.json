@@ -1,0 +1,118 @@
+{
+  "id": "ai_home_objective_zone_sweeping",
+  "covers": [
+    "missions.objectives.layout_home_zones",
+    "ai.movement.home_objective_ownership",
+    "ai.suggestion.breakdown_panel"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "Home-objective ownership on left/right deployments. The 11e layout generator tagged the TOP home marker 'player1', so on Sweeping Engagement / Dawn of War layouts (14 of 46) each player's home was labelled the opponent's: the scorer paid Purge the Foe's exclude_home primaries for the player's OWN home, and the AI read its own empty home as the enemy's (no home-undefended weight). Reproduces the reported game: Purge the Foe (P1 Custodes, Unstoppable Force) vs Take and Hold, layout take_and_hold_vs_purge_the_foe_1 (sweeping_engagement), a Custodian Guard squad ~8\" from P1's empty home. Asserts obj_home_1 is P1's (inside P1's zone), opens the AI suggestion card through the real HUD button and checks the card prices the home objective as OUR home (0 primary VP under exclude_home) rather than a 4 VP enemy objective.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.load_terrain_layout(\"take_and_hold_vs_purge_the_foe_1\")\nGameState.state.meta[\"deployment_type\"] = \"sweeping_engagement\"\nGameState.state.board[\"deployment_zones\"] = DeploymentZoneData.get_zones(\"sweeping_engagement\")\nBoardState.initialize_deployment_zones(\"sweeping_engagement\")\nvar objs = []\nfor obj in TerrainManager.layout_objectives:\n\tvar pos = obj.get(\"position\", [0, 0])\n\tobjs.append({\"id\": str(obj.id), \"position\": Vector2(pos[0] * 40.0, pos[1] * 40.0), \"radius_mm\": 40, \"zone\": str(obj.get(\"zone\", \"no_mans_land\")), \"source_pieces\": obj.get(\"source_pieces\", []).duplicate()})\nGameState.state.board[\"objectives\"] = objs\nMissionManager._assign_objective_designations(objs)\nMissionManager.initialize_dispositions_11e(\"purge_the_foe\", \"take_and_hold\")\nvar spots = {\n\t\"U_CUSTODIAN_GUARD_B\": Vector2(36.0, 40.0),\n\t\"U_TELEMON_HEAVY_DREADNOUGHT_I\": Vector2(40.0, 12.0),\n\t\"U_CALADIUS_GRAV-TANK_E\": Vector2(40.0, 20.0),\n\t\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\": Vector2(39.0, 5.0),\n\t\"U_SHIELD_CAPTAIN_A\": Vector2(40.0, 27.0),\n\t\"U_BLADE_CHAMPION_A\": Vector2(42.0, 27.0),\n\t\"U_WITCHSEEKERS_C\": Vector2(37.0, 2.0),\n\t\"U_WITCHSEEKERS_D\": Vector2(37.0, 16.0),\n\t\"U_BATTLEWAGON_G\": Vector2(4.0, 41.0),\n\t\"U_BOYZ_E\": Vector2(1.0, 31.0),\n\t\"U_PAINBOSS_I\": Vector2(1.0, 36.5),\n\t\"U_WARBOSS_B\": Vector2(3.0, 36.5),\n\t\"U_BOYZ_F\": Vector2(1.0, 45.0),\n\t\"U_WARBOSS_C\": Vector2(1.0, 52.0),\n\t\"U_WARBOSS_IN_MEGA_ARMOUR_D\": Vector2(3.5, 52.0),\n\t\"U_BOYZ_K\": Vector2(6.0, 4.0),\n\t\"U_WEIRDBOY_J\": Vector2(6.0, 8.0),\n\t\"U_KOMMANDOS_H\": Vector2(6.0, 18.0),\n\t\"U_STRIKE_FORCE_A\": Vector2(2.0, 12.0),\n}\nGameState.state.meta[\"battle_round\"] = 1\nfor uid in GameState.state.units:\n\tvar fu = GameState.state.units[uid]\n\tif int(fu.get(\"owner\", 0)) == 1:\n\t\tfor k in [\"moved\", \"advanced\", \"fell_back\", \"remained_stationary\", \"has_shot\", \"cannot_charge\", \"move_cap_inches\", \"charged\", \"has_fought\"]:\n\t\t\tfu.flags.erase(k)\nvar placed = 0\nfor uid in spots:\n\tvar u = GameState.state.units.get(uid)\n\tif u == null:\n\t\tcontinue\n\tvar base: Vector2 = spots[uid]\n\tvar i = 0\n\tfor m in u.models:\n\t\tm[\"position\"] = {\"x\": (base.x + float(i % 5) * 1.6) * 40.0, \"y\": (base.y + float(i / 5) * 1.6) * 40.0}\n\t\ti += 1\n\tplaced += 1\nfor o in objs:\n\tvar v = MissionManager.objectives_visual_refs.get(o.id)\n\tif v != null:\n\t\tfor c in v.get_children():\n\t\t\tc.free()\n\t\tv.setup(o)\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn placed",
+      "expect_min": 19
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = MissionManager._get_objective_by_id(\"obj_home_1\")\nvar p = o.position if o.position is Vector2 else Vector2(o.position.x, o.position.y)\nreturn \"%s in_p1_zone=%s\" % [o.zone, Geometry2D.is_point_in_polygon(p, GameState.get_deployment_zone_poly_px(1))]",
+      "equals": "player1 in_p1_zone=true"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.player_primary_missions[\"1\"].get(\"id\", \"\")",
+      "equals": "unstoppable_force"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_board_p1_home_bottom_right"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._is_home_objective_11e(\"obj_home_1\", 1) and not MissionManager._is_home_objective_11e(\"obj_home_2\", 1)",
+      "equals": true,
+      "comment": "the scorer's exclude_home test now names the objective in P1's zone as P1's home"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Move obj_home_1 (moving to objective) \u2014\")",
+      "equals": true,
+      "comment": "the Custodian Guard's home option is P1's own home (obj_home_1, 7\" away), carrying no primary VP under Unstoppable Force's exclude_home \u2014 before the fix it read 'Move obj_home_2 (... worth ~4 VP)'"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\": ADVANCE obj_home_1\") or main._ai_suggestion_panel.breakdown_text.contains(\": MOVE obj_home_1\")",
+      "equals": true,
+      "comment": "the plan sends a unit to cover P1's empty home"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Move obj_home_2\")",
+      "equals": false,
+      "comment": "the far enemy home is not offered as a one-move capture"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_suggestion_card"
+    }
+  ]
+}

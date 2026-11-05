@@ -11,8 +11,8 @@
 //   - rotation is baked into the polygon (rotation == 0, no walls)
 //   - piece_class mirrors the dataset piece_type
 //   - index_11e.json lists exactly the emitted layouts
-//   - objectives (D3-a/D4): exactly the five markers obj_home_1/2 (player1
-//     = smaller y), obj_nml_1/2, obj_center; home/nml markers sit on their
+//   - objectives (D3-a/D4): exactly the five markers obj_home_1/2 (each in
+//     its player's deployment zone), obj_nml_1/2, obj_center; home/nml markers sit on their
 //     source piece's centroid, obj_center on the linked centre pair's
 //     midpoint AND is the no-man's-land marker nearest the board centre
 //     (the invariant MissionManager's "central" designation relies on)
@@ -37,6 +37,16 @@ const r4 = v => Math.round(v * 1e4) / 1e4;
 const expectVert = v => [r4(44 - v.y), r4(v.x)];
 
 const BOARD_W = 44, BOARD_H = 60, EPS = 1e-9;
+
+// Independent ray-cast point-in-polygon; `poly` is [{x,y}] (game inches).
+const inZonePoly = (pt, poly) => {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > pt[1]) !== (b.y > pt[1]) && pt[0] < (b.x - a.x) * (pt[1] - a.y) / (b.y - a.y) + a.x) c = !c;
+  }
+  return c;
+};
 
 export function verifyAll() {
   const layouts = loadCollection('terrainLayouts');
@@ -124,7 +134,17 @@ export function verifyAll() {
       else if (!near(o.position, src.position)) fail(`${gameId} ${id}: marker ${JSON.stringify(o.position)} != source centroid ${JSON.stringify(src.position)}`);
     }
     if (byId.obj_home_1.zone !== 'player1' || byId.obj_home_2.zone !== 'player2') fail(`${gameId}: home zones wrong`);
-    if (byId.obj_home_1.position[1] >= byId.obj_home_2.position[1]) fail(`${gameId}: obj_home_1 must be the top (player 1) marker`);
+    // Each home marker must sit in its owner's deployment zone (on left/right
+    // deployments the top marker is NOT player 1's).
+    const dep = (game.recommended_deployments ?? [])[0];
+    const zonePath = join(here, '..', '..', '40k', 'deployment_zones', `${dep}.json`);
+    if (!dep || !existsSync(zonePath)) {
+      fail(`${gameId}: recommended deployment ${dep} has no zone file`);
+    } else {
+      const zones = Object.fromEntries((JSON.parse(readFileSync(zonePath, 'utf8')).zones ?? []).map(z => [z.player, z.poly]));
+      if (!inZonePoly(byId.obj_home_1.position, zones[1] ?? [])) fail(`${gameId}: obj_home_1 is not in player 1's ${dep} zone`);
+      if (!inZonePoly(byId.obj_home_2.position, zones[2] ?? [])) fail(`${gameId}: obj_home_2 is not in player 2's ${dep} zone`);
+    }
     const c = byId.obj_center;
     const srcs = (c.source_pieces ?? []).map(id => pieceById[id]).filter(Boolean);
     // The pair is defined by objective_role "center" (upstream link_group

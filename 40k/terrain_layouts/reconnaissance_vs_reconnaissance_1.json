@@ -12,25 +12,25 @@
   {
    "id": "obj_home_1",
    "position": [
-    8.5,
-    10.75
+    35.5,
+    49.25
    ],
    "radius_mm": 40,
    "zone": "player1",
    "source_pieces": [
-    "area-large-20"
+    "area-large-19"
    ]
   },
   {
    "id": "obj_home_2",
    "position": [
-    35.5,
-    49.25
+    8.5,
+    10.75
    ],
    "radius_mm": 40,
    "zone": "player2",
    "source_pieces": [
-    "area-large-19"
+    "area-large-20"
    ]
   },
   {

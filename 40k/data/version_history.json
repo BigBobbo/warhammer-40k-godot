@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.2",
+      "date": "2026-11-05",
+      "summary": "Home objectives fixed on Sweeping Engagement and Dawn of War maps: your home is now really yours.",
+      "changes": [
+        "On the 14 official layouts that use Sweeping Engagement or Dawn of War deployment, each player's home objective was labelled as the opponent's. It is now the one inside your own deployment zone.",
+        "Scoring: primary cards that exclude or reward home objectives (e.g. Unstoppable Force) now score the right objective.",
+        "AI and Suggest (K): the AI now treats your empty home as your home (and weighs defending it) instead of as an enemy objective worth VP."
+      ]
+    },
+    {
       "version": "1.73.1",
       "date": "2026-11-04",
       "summary": "Tidier army picker: internal test lists no longer appear in the army-select dropdowns.",

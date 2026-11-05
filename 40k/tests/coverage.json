@@ -2416,6 +2416,15 @@
       "status": "covered"
     },
     {
+      "id": "missions.objectives.layout_home_zones",
+      "description": "Each official 11e layout's home markers sit in their owner's deployment zone (obj_home_1 = player 1's, obj_home_2 = player 2's), including the left/right Sweeping Engagement / Dawn of War layouts; exclude_home primaries and the AI's home logic read the player's own home",
+      "scenarios": [
+        "ai_home_objective_zone_sweeping"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "missions.objectives.terrain_area_visuals",
       "description": "ISS-055/14.01 visuals: terrain-hosted objectives render as their highlighted area polygon(s) instead of the control-radius circle (obj_center spans both linked centre trapezoids; circle nodes absent); control uses the union of the linked areas",
       "scenarios": [
