@@ -34,6 +34,29 @@ const OBJ_FILL_COLOR = Color(0.9, 0.85, 0.5, 0.45)       # Warm gold fill
 const OBJ_CENTER_COLOR = Color(1.0, 0.95, 0.7, 1.0)      # Bright gold center marker
 const OBJ_OUTER_GLOW_COLOR = Color(1.0, 0.9, 0.5, 0.2)   # Subtle outer glow
 
+# Board rotation (Main.rotate_board_view): keep the objective's text labels
+# (id, control state, Tempting Target / Loot / card-action badges) upright on
+# screen. Each Label is turned about the objective's centre, so the stack keeps
+# its on-screen layout (control state above, badges below) whichever way the
+# board faces. The disc, circle and terrain-area outlines are left as they are.
+var _upright_rot: float = 0.0
+
+func _process(_delta: float) -> void:
+	_sync_upright_labels()
+
+func _sync_upright_labels(force: bool = false) -> void:
+	if not is_inside_tree():
+		return
+	var r: float = get_global_transform_with_canvas().get_rotation()
+	if not force and is_equal_approx(r, _upright_rot):
+		return
+	_upright_rot = r
+	for child in get_children():
+		if child is Label:
+			var lbl := child as Label
+			lbl.pivot_offset = -lbl.position
+			lbl.rotation = -r
+
 func setup(data: Dictionary) -> void:
 	objective_data = data
 	position = data.position
@@ -373,6 +396,7 @@ func set_tempting_target(enabled: bool, player: int = 0) -> void:
 			var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
 			tempting_target_label.position = Vector2(-65, control_radius + 5)
 			add_child(tempting_target_label)
+			_sync_upright_labels(true)
 		tempting_target_label.text = "TEMPTING TARGET (P%d)" % player
 		tempting_target_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.1, 1.0))
 		tempting_target_label.visible = true
@@ -400,6 +424,7 @@ func set_loot_objective(enabled: bool, player: int = 0) -> void:
 				y_offset += 20
 			loot_objective_label.position = Vector2(-55, y_offset)
 			add_child(loot_objective_label)
+			_sync_upright_labels(true)
 		loot_objective_label.text = "LOOT OBJECTIVE (P%d)" % player
 		loot_objective_label.add_theme_color_override("font_color", Color(0.0, 1.0, 0.2, 1.0))  # Orky green
 		loot_objective_label.visible = true
@@ -431,6 +456,7 @@ func set_card_action_badges(badges: Array) -> void:
 		# Below the objective, under the Tempting Target / Loot labels
 		card_action_label.position = Vector2(-120, control_radius + 25)
 		add_child(card_action_label)
+		_sync_upright_labels(true)
 	card_action_label.text = " · ".join(PackedStringArray(badges))
 	card_action_label.visible = true
 

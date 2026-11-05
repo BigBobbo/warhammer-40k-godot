@@ -117,6 +117,8 @@ func _ready() -> void:
 	# T09: a token rebuilt mid-phase (Main recreates the whole board after
 	# many actions) starts dim when its unit has already acted.
 	refresh_exhaustion()
+	# Board rotation: a token built while the board is turned starts upright.
+	_sync_upright(true)
 
 
 func _t09_on_phase_changed(_new_phase) -> void:
@@ -670,7 +672,7 @@ func _t15_letter_label_top() -> float:
 		var b = base_shape.get_bounds()
 		radius = min(b.size.x, b.size.y) / 2.0
 		bottom = radius
-		for p in _get_shape_polygon(model_data.get("rotation", 0.0)):
+		for p in _get_shape_polygon(_draw_rot()):
 			bottom = max(bottom, p.y)
 	var tick_bottom: float = radius + 3.0 + max(3.0, radius * 0.08)
 	return max(bottom, tick_bottom) + 1.0
@@ -714,7 +716,46 @@ func _t08_slot_color() -> Color:
 		return uic.player_slot_color(owner_player)
 	return Color(1, 1, 1, 1)
 
+
+# Board rotation (V / Main.rotate_board_view) keeps tokens readable: the token
+# node is turned against the board's on-screen rotation so its text (letter
+# Label, name plate, wound chip, status slots, badges) and round bases with
+# their art always read upright. Irregular (oval / rectangular) bases are then
+# drawn at model rotation + board rotation, so their footprint and art keep
+# their real facing on the board — their orientation is rules-relevant.
+var _upright_board_rot: float = 0.0  # on-screen rotation of the parent (board)
+
+
+func _sync_upright(force: bool = false) -> void:
+	var p = get_parent()
+	if not (p is CanvasItem) or not is_inside_tree():
+		return
+	var r: float = (p as CanvasItem).get_global_transform_with_canvas().get_rotation()
+	if not force and is_equal_approx(r, _upright_board_rot) and is_equal_approx(rotation, -r):
+		return
+	_upright_board_rot = r
+	rotation = -r
+	_t15_layout_letter_label()  # oval/rect: "under the base" is on screen now
+	queue_redraw()
+	if absf(r) > 0.001:
+		DebugLogger.debug("[TokenVisual] %s/%s upright: board rot %d deg, shape %s" % [
+			str(get_meta("unit_id", "")), str(get_meta("model_id", "")),
+			int(round(rad_to_deg(r))), base_shape.get_type() if base_shape else "none"])
+
+
+# Rotation to draw the base footprint (and facing art) at, in this node's
+# upright frame: round bases look the same either way, so they stay in the
+# token frame (art upright); irregular bases add the board's rotation back so
+# they stay true to the board.
+func _draw_rot() -> float:
+	var r := float(model_data.get("rotation", 0.0))
+	if base_shape != null and base_shape.get_type() != "circular":
+		r += _upright_board_rot
+	return r
+
+
 func _process(delta: float) -> void:
+	_sync_upright()
 	# T-095 ghost pulse: redraw is_preview tokens every frame so the pulse animates.
 	if is_preview:
 		_pulse_time += delta
@@ -823,7 +864,7 @@ func _draw() -> void:
 		_draw_enhanced(fill_color, border_color)
 	else:
 		# Original rendering path for classic/style_a/style_b and debug mode
-		var rot = model_data.get("rotation", 0.0)
+		var rot = _draw_rot()
 		base_shape.draw(self, Vector2.ZERO, rot, fill_color, border_color, border_width)
 
 		# Draw silhouette/glyph overlay based on setting
@@ -834,7 +875,7 @@ func _draw() -> void:
 		if not debug_mode:
 			var bounds = base_shape.get_bounds()
 			var classic_radius = min(bounds.size.x, bounds.size.y) / 2.0
-			var classic_rot = model_data.get("rotation", 0.0)
+			var classic_rot = _draw_rot()
 			_draw_health_bar(classic_radius)
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
 			_draw_engaged_overlay(classic_radius)
@@ -884,7 +925,7 @@ func _draw() -> void:
 func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var bounds = base_shape.get_bounds()
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
-	var rot = model_data.get("rotation", 0.0)
+	var rot = _draw_rot()
 	var shape_type = base_shape.get_type()
 	var use_retro = SettingsService.retro_mode if SettingsService else false
 
@@ -979,7 +1020,7 @@ func _draw_retro(fill_color: Color, border_color: Color) -> void:
 	# Draws: flat base -> pixel art sprite (primary visual) -> minimal overlays
 	var bounds = base_shape.get_bounds()
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
-	var rot = model_data.get("rotation", 0.0)
+	var rot = _draw_rot()
 	var shape_type = base_shape.get_type()
 
 	# --- Layer 1: Simple flat base (no gradient, no metallic rim) ---
@@ -1090,7 +1131,7 @@ func _get_faction_font() -> Font:
 func _draw_letter_mode() -> void:
 	var bounds = base_shape.get_bounds()
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
-	var rot = model_data.get("rotation", 0.0)
+	var rot = _draw_rot()
 	var shape_type = base_shape.get_type()
 
 	# Get unit color (auto-assign if not yet set)

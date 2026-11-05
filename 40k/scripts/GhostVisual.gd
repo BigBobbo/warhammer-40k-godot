@@ -277,11 +277,14 @@ func _draw_model_type_label(pulse_factor: float) -> void:
 		text_size.x + bg_padding.x * 2,
 		text_size.y + bg_padding.y * 2
 	)
+	# Board rotation: keep the label upright on screen, turned about the ghost centre.
+	draw_set_transform(Vector2.ZERO, _upright_rot(), Vector2.ONE)
 	draw_rect(bg_rect, Color(0.0, 0.0, 0.0, 0.5 * pulse_factor))
 
 	# White text
 	var text_color = Color(1.0, 1.0, 1.0, 0.9 * pulse_factor)
 	draw_string(font, label_pos, model_type_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func set_coherency_preview(lines_data: Array, status_text: String, is_valid: bool) -> void:
 	"""P3-116: Set coherency preview data for all unit models during movement.
@@ -476,7 +479,27 @@ func _draw_ghost_letter_label(radius: float, pulse_factor: float) -> void:
 	var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
 
+	# Board rotation: the letter reads upright on screen like the board tokens.
+	draw_set_transform(Vector2.ZERO, _upright_rot(), Vector2.ONE)
 	draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# Rotation that turns this ghost's local frame back to screen-up, so its text
+# reads upright whichever way the board view (Main.rotate_board_view) is turned.
+func _upright_rot() -> float:
+	if not is_inside_tree():
+		return 0.0
+	return -get_global_transform_with_canvas().get_rotation()
+
+
+# Facing art / arrow rotation, matching TokenVisual on a turned board: a round
+# base's art reads in the screen frame (model rotation, board turn removed);
+# irregular bases keep their art on the board facing with the base.
+func _art_rot() -> float:
+	if base_shape != null and base_shape.get_type() == "circular":
+		return base_rotation + _upright_rot()
+	return base_rotation
 
 
 # --- Facing sprite overlay (mirrors TokenVisual's letter-mode Layer 3) ---
@@ -576,7 +599,7 @@ func _draw_ghost_sprite_texture(tex: Texture2D, pulse_factor: float) -> void:
 	var bounds = base_shape.get_bounds()
 	var fit = min(bounds.size.x / tex.get_width(), bounds.size.y / tex.get_height())
 	var tint = Color(1, 1, 1, 0.85 * pulse_factor)
-	draw_set_transform(Vector2.ZERO, base_rotation, Vector2(fit, fit))
+	draw_set_transform(Vector2.ZERO, _art_rot(), Vector2(fit, fit))
 	var tex_size = Vector2(tex.get_width(), tex.get_height())
 	draw_texture_rect(tex, Rect2(-tex_size / 2.0, tex_size), false, tint)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -586,7 +609,7 @@ func _draw_ghost_tank_sprite(pulse_factor: float) -> void:
 	var body = _tank_body_tex
 	var fit = min(bounds.size.x * 0.95 / body.get_width(), bounds.size.y * 0.95 / body.get_height())
 	var tint = Color(1, 1, 1, 0.85 * pulse_factor)
-	draw_set_transform(Vector2.ZERO, base_rotation, Vector2(fit, fit))
+	draw_set_transform(Vector2.ZERO, _art_rot(), Vector2(fit, fit))
 	var body_size = Vector2(body.get_width(), body.get_height())
 	draw_texture_rect(body, Rect2(-body_size / 2.0, body_size), false, tint)
 	if _tank_barrel_tex != null:
@@ -594,7 +617,7 @@ func _draw_ghost_tank_sprite(pulse_factor: float) -> void:
 		var barrel_size = Vector2(barrel.get_width(), barrel.get_height())
 		# The Kenney barrel texture points muzzle-down; flip it 180° so the gun
 		# faces the hull front (up at rotation 0), matching TokenVisual.
-		draw_set_transform(Vector2.ZERO, base_rotation + PI, Vector2(fit, fit))
+		draw_set_transform(Vector2.ZERO, _art_rot() + PI, Vector2(fit, fit))
 		draw_texture_rect(barrel, Rect2(Vector2(-barrel_size.x / 2.0, -barrel_size.y * 0.28), barrel_size), false, tint)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -608,7 +631,8 @@ func _draw_facing_arrow(pulse_factor: float, arrow_color: Color) -> void:
 		return
 	# At rotation 0 the sprite faces "up" (-Y); the facing vector for base_rotation
 	# is therefore (sin, -cos), matching the sprite draw_set_transform rotation.
-	var front = Vector2(sin(base_rotation), -cos(base_rotation))
+	var art_rot := _art_rot()
+	var front = Vector2(sin(art_rot), -cos(art_rot))
 	var perp = Vector2(-front.y, front.x)
 	var tip = front * radius
 	var back = front * (radius * 0.55)

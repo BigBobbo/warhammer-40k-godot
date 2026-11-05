@@ -342,18 +342,22 @@ func _draw_zone_depth_label(points: PackedVector2Array, board_w: float, board_h:
 	)
 
 	var bg_color = UIC.with_alpha(LABEL_BG_COLOR, LABEL_BG_ALPHA * pulse_alpha)
+	# Board rotation: draw the label upright on screen, turned about its anchor.
+	bg_rect.position -= label_pos
+	draw_set_transform(label_pos, _upright_rot(), Vector2.ONE)
 	draw_rect(bg_rect, bg_color, true)
 
 	var text_color = UIC.with_alpha(border_color, pulse_alpha)
 	draw_string(
 		default_font,
-		label_pos - Vector2(text_size.x / 2.0, 0),
+		-Vector2(text_size.x / 2.0, 0),
 		label_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		FONT_SIZE,
 		text_color
 	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _estimate_zone_depth(points: PackedVector2Array, edge_p1: Vector2, edge_p2: Vector2, board_w: float, board_h: float) -> float:
 	# Estimate the zone depth by finding the maximum perpendicular distance
@@ -394,15 +398,25 @@ func _draw_player_label(points: PackedVector2Array, pulse_alpha: float) -> void:
 	var text_size = default_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_val)
 	var label_alpha = pulse_alpha * (0.4 if is_dimmed else 0.7)
 	var text_color = UIC.with_alpha(border_color, label_alpha)
+	# Board rotation: draw the faction name upright on screen about the centre.
+	draw_set_transform(center, _upright_rot(), Vector2.ONE)
 	draw_string(
 		default_font,
-		center - Vector2(text_size.x / 2.0, -text_size.y / 4.0),
+		-Vector2(text_size.x / 2.0, -text_size.y / 4.0),
 		label_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		font_size_val,
 		text_color
 	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+# Rotation that turns this node's local frame back to screen-up, so text reads
+# upright whichever way the board view (Main.rotate_board_view) is turned.
+func _upright_rot() -> float:
+	if not is_inside_tree():
+		return 0.0
+	return -get_global_transform_with_canvas().get_rotation()
 
 func set_active(active: bool) -> void:
 	is_active = active

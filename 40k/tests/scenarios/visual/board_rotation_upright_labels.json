@@ -1,0 +1,211 @@
+{
+  "id": "board_rotation_upright_labels",
+  "covers": [
+    "camera.rotate_board",
+    "tokens.upright_on_rotation",
+    "objectives.upright_labels"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 15,
+  "description": "Rotating the board view (V) keeps text readable: every TokenVisual is turned against the board's on-screen rotation, so letter Labels, name plates, wound chips, status slots and round bases (with their art/glyph) read upright; irregular (oval/rectangular) bases are drawn at model rotation + board rotation so their footprint keeps its real board facing. Objective labels (ObjectiveVisual) turn about the objective centre; deployment-zone faction/depth labels (DeploymentZoneVisual) and ghost text (GhostVisual) are drawn upright. Asserted at 0/90/180/270 via real V keypresses on fixture fullauto_pretrigger (104 tokens incl. oval Caladius / Wazbom / jetbike).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "Decline the movement-phase-start stratagem window so no dialog covers the board."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_CALADIUS_GRAV-TANK_E",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame the Witchseekers column, the oval Caladius and objective NML-2.\nvar m = tree.root.get_node(\"Main\")\nvar c = Vector2(SettingsService.get_board_width_px() / 2.0, SettingsService.get_board_height_px() / 2.0)\nm.view_zoom = 1.6\nm.view_offset = (Vector2(1500, 1300) - c).rotated(m.view_rotation) + c - Vector2(930, 560) / m.view_zoom\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "00_unrotated"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every token, letter Label and objective label reads upright on screen;\n# round bases follow the token frame, irregular bases keep board facing.\nvar m = tree.root.get_node(\"Main\")\nvar vr: float = m.view_rotation\nvar n_round = 0\nvar n_irr = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_method(\"_draw_rot\") or t.base_shape == null:\n\t\tcontinue\n\tvar screen_rot = t.get_global_transform_with_canvas().get_rotation()\n\tif absf(angle_difference(screen_rot, 0.0)) > 0.01:\n\t\treturn \"%s/%s token screen rotation %f\" % [t.get_meta(\"unit_id\"), t.get_meta(\"model_id\"), screen_rot]\n\tvar lbl = t.get_node_or_null(\"Label\")\n\tif lbl != null and absf(angle_difference(lbl.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\treturn \"%s label not upright\" % t.get_meta(\"unit_id\")\n\tvar model_rot = float(t.model_data.get(\"rotation\", 0.0))\n\t# On-screen base rotation = token screen rotation (0) + draw rotation.\n\tvar want = model_rot if t.base_shape.get_type() == \"circular\" else model_rot + vr\n\tif absf(angle_difference(t._draw_rot(), want)) > 0.01:\n\t\treturn \"%s base draw rot %f want %f\" % [t.get_meta(\"unit_id\"), t._draw_rot(), want]\n\tif t.base_shape.get_type() == \"circular\":\n\t\tn_round += 1\n\telse:\n\t\tn_irr += 1\nvar n_obj = 0\nfor o in m.find_children(\"*\", \"ObjectiveVisual\", true, false):\n\tfor ch in o.get_children():\n\t\tif ch is Label:\n\t\t\tif absf(angle_difference(ch.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\t\t\treturn \"%s label %s not upright\" % [o.name, ch.name]\n\t\t\tn_obj += 1\nreturn \"ok round=%d irregular=%d objective_labels=%d rot=%d\" % [n_round, n_irr, n_obj, int(round(rad_to_deg(vr))) % 360]",
+      "equals": "ok round=101 irregular=3 objective_labels=10 rot=0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Default V is shared with toggle_vp_timeline, whose handler runs first and\n# eats the key, so rebind board rotation to a free key the way a player can\n# in Settings > Controls, then press it for real below.\nvar conflict = KeybindingManager.find_conflict(\"rotate_board\", KEY_V, true, false, false)\nKeybindingManager.set_binding(\"rotate_board\", KEY_V, true)\nreturn [conflict, KeybindingManager.get_key_display_name(\"rotate_board\")]",
+      "equals": [
+        "",
+        "Shift+V"
+      ]
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "V",
+      "comment": "Real Shift+V keypress -> Main._input rotate_board -> rotate_board_view(PI/2).",
+      "shift": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "int(round(rad_to_deg(main.view_rotation)))",
+      "equals": 90,
+      "comment": "board turned 90 deg"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame the Witchseekers column, the oval Caladius and objective NML-2.\nvar m = tree.root.get_node(\"Main\")\nvar c = Vector2(SettingsService.get_board_width_px() / 2.0, SettingsService.get_board_height_px() / 2.0)\nm.view_zoom = 1.6\nm.view_offset = (Vector2(1500, 1300) - c).rotated(m.view_rotation) + c - Vector2(930, 560) / m.view_zoom\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rotated_90"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every token, letter Label and objective label reads upright on screen;\n# round bases follow the token frame, irregular bases keep board facing.\nvar m = tree.root.get_node(\"Main\")\nvar vr: float = m.view_rotation\nvar n_round = 0\nvar n_irr = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_method(\"_draw_rot\") or t.base_shape == null:\n\t\tcontinue\n\tvar screen_rot = t.get_global_transform_with_canvas().get_rotation()\n\tif absf(angle_difference(screen_rot, 0.0)) > 0.01:\n\t\treturn \"%s/%s token screen rotation %f\" % [t.get_meta(\"unit_id\"), t.get_meta(\"model_id\"), screen_rot]\n\tvar lbl = t.get_node_or_null(\"Label\")\n\tif lbl != null and absf(angle_difference(lbl.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\treturn \"%s label not upright\" % t.get_meta(\"unit_id\")\n\tvar model_rot = float(t.model_data.get(\"rotation\", 0.0))\n\t# On-screen base rotation = token screen rotation (0) + draw rotation.\n\tvar want = model_rot if t.base_shape.get_type() == \"circular\" else model_rot + vr\n\tif absf(angle_difference(t._draw_rot(), want)) > 0.01:\n\t\treturn \"%s base draw rot %f want %f\" % [t.get_meta(\"unit_id\"), t._draw_rot(), want]\n\tif t.base_shape.get_type() == \"circular\":\n\t\tn_round += 1\n\telse:\n\t\tn_irr += 1\nvar n_obj = 0\nfor o in m.find_children(\"*\", \"ObjectiveVisual\", true, false):\n\tfor ch in o.get_children():\n\t\tif ch is Label:\n\t\t\tif absf(angle_difference(ch.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\t\t\treturn \"%s label %s not upright\" % [o.name, ch.name]\n\t\t\tn_obj += 1\nreturn \"ok round=%d irregular=%d objective_labels=%d rot=%d\" % [n_round, n_irr, n_obj, int(round(rad_to_deg(vr))) % 360]",
+      "equals": "ok round=101 irregular=3 objective_labels=10 rot=90"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The oval Caladius: its letter/name stays under the base ON SCREEN, and its\n# footprint keeps its board facing (screen rotation = model rot + board rot).\nvar m = tree.root.get_node(\"Main\")\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif str(t.get_meta(\"unit_id\", \"\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tvar screen_center = t.get_global_transform_with_canvas().origin\n\t\tvar lbl = t.get_node(\"Label\")\n\t\tvar lbl_top = lbl.get_global_transform_with_canvas().origin.y\n\t\tvar base_rot_screen = t.get_global_transform_with_canvas().get_rotation() + t._draw_rot()\n\t\tvar board_rot = float(t.model_data.get(\"rotation\", 0.0)) + m.view_rotation\n\t\treturn [t.base_shape.get_type(), lbl_top > screen_center.y, absf(angle_difference(base_rot_screen, board_rot)) < 0.01]\nreturn \"missing\" ",
+      "equals": [
+        "oval",
+        true,
+        true
+      ]
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "V",
+      "shift": true,
+      "comment": "Real Shift+V keypress -> Main._input rotate_board -> rotate_board_view(PI/2)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame the Witchseekers column, the oval Caladius and objective NML-2.\nvar m = tree.root.get_node(\"Main\")\nvar c = Vector2(SettingsService.get_board_width_px() / 2.0, SettingsService.get_board_height_px() / 2.0)\nm.view_zoom = 1.6\nm.view_offset = (Vector2(1500, 1300) - c).rotated(m.view_rotation) + c - Vector2(930, 560) / m.view_zoom\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "02_rotated_180"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every token, letter Label and objective label reads upright on screen;\n# round bases follow the token frame, irregular bases keep board facing.\nvar m = tree.root.get_node(\"Main\")\nvar vr: float = m.view_rotation\nvar n_round = 0\nvar n_irr = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_method(\"_draw_rot\") or t.base_shape == null:\n\t\tcontinue\n\tvar screen_rot = t.get_global_transform_with_canvas().get_rotation()\n\tif absf(angle_difference(screen_rot, 0.0)) > 0.01:\n\t\treturn \"%s/%s token screen rotation %f\" % [t.get_meta(\"unit_id\"), t.get_meta(\"model_id\"), screen_rot]\n\tvar lbl = t.get_node_or_null(\"Label\")\n\tif lbl != null and absf(angle_difference(lbl.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\treturn \"%s label not upright\" % t.get_meta(\"unit_id\")\n\tvar model_rot = float(t.model_data.get(\"rotation\", 0.0))\n\t# On-screen base rotation = token screen rotation (0) + draw rotation.\n\tvar want = model_rot if t.base_shape.get_type() == \"circular\" else model_rot + vr\n\tif absf(angle_difference(t._draw_rot(), want)) > 0.01:\n\t\treturn \"%s base draw rot %f want %f\" % [t.get_meta(\"unit_id\"), t._draw_rot(), want]\n\tif t.base_shape.get_type() == \"circular\":\n\t\tn_round += 1\n\telse:\n\t\tn_irr += 1\nvar n_obj = 0\nfor o in m.find_children(\"*\", \"ObjectiveVisual\", true, false):\n\tfor ch in o.get_children():\n\t\tif ch is Label:\n\t\t\tif absf(angle_difference(ch.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\t\t\treturn \"%s label %s not upright\" % [o.name, ch.name]\n\t\t\tn_obj += 1\nreturn \"ok round=%d irregular=%d objective_labels=%d rot=%d\" % [n_round, n_irr, n_obj, int(round(rad_to_deg(vr))) % 360]",
+      "equals": "ok round=101 irregular=3 objective_labels=10 rot=180"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The oval Caladius: its letter/name stays under the base ON SCREEN, and its\n# footprint keeps its board facing (screen rotation = model rot + board rot).\nvar m = tree.root.get_node(\"Main\")\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif str(t.get_meta(\"unit_id\", \"\")) == \"U_CALADIUS_GRAV-TANK_E\":\n\t\tvar screen_center = t.get_global_transform_with_canvas().origin\n\t\tvar lbl = t.get_node(\"Label\")\n\t\tvar lbl_top = lbl.get_global_transform_with_canvas().origin.y\n\t\tvar base_rot_screen = t.get_global_transform_with_canvas().get_rotation() + t._draw_rot()\n\t\tvar board_rot = float(t.model_data.get(\"rotation\", 0.0)) + m.view_rotation\n\t\treturn [t.base_shape.get_type(), lbl_top > screen_center.y, absf(angle_difference(base_rot_screen, board_rot)) < 0.01]\nreturn \"missing\" ",
+      "equals": [
+        "oval",
+        true,
+        true
+      ]
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "V",
+      "shift": true,
+      "comment": "Real Shift+V keypress -> Main._input rotate_board -> rotate_board_view(PI/2)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every token, letter Label and objective label reads upright on screen;\n# round bases follow the token frame, irregular bases keep board facing.\nvar m = tree.root.get_node(\"Main\")\nvar vr: float = m.view_rotation\nvar n_round = 0\nvar n_irr = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_method(\"_draw_rot\") or t.base_shape == null:\n\t\tcontinue\n\tvar screen_rot = t.get_global_transform_with_canvas().get_rotation()\n\tif absf(angle_difference(screen_rot, 0.0)) > 0.01:\n\t\treturn \"%s/%s token screen rotation %f\" % [t.get_meta(\"unit_id\"), t.get_meta(\"model_id\"), screen_rot]\n\tvar lbl = t.get_node_or_null(\"Label\")\n\tif lbl != null and absf(angle_difference(lbl.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\treturn \"%s label not upright\" % t.get_meta(\"unit_id\")\n\tvar model_rot = float(t.model_data.get(\"rotation\", 0.0))\n\t# On-screen base rotation = token screen rotation (0) + draw rotation.\n\tvar want = model_rot if t.base_shape.get_type() == \"circular\" else model_rot + vr\n\tif absf(angle_difference(t._draw_rot(), want)) > 0.01:\n\t\treturn \"%s base draw rot %f want %f\" % [t.get_meta(\"unit_id\"), t._draw_rot(), want]\n\tif t.base_shape.get_type() == \"circular\":\n\t\tn_round += 1\n\telse:\n\t\tn_irr += 1\nvar n_obj = 0\nfor o in m.find_children(\"*\", \"ObjectiveVisual\", true, false):\n\tfor ch in o.get_children():\n\t\tif ch is Label:\n\t\t\tif absf(angle_difference(ch.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\t\t\treturn \"%s label %s not upright\" % [o.name, ch.name]\n\t\t\tn_obj += 1\nreturn \"ok round=%d irregular=%d objective_labels=%d rot=%d\" % [n_round, n_irr, n_obj, int(round(rad_to_deg(vr))) % 360]",
+      "equals": "ok round=101 irregular=3 objective_labels=10 rot=270"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CALADIUS_GRAV-TANK_E",
+      "comment": "Clicking a token still selects it on a turned board."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rotated_270_selected"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "V",
+      "shift": true,
+      "comment": "Real Shift+V keypress -> Main._input rotate_board -> rotate_board_view(PI/2)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "int(round(rad_to_deg(main.view_rotation)))",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every token, letter Label and objective label reads upright on screen;\n# round bases follow the token frame, irregular bases keep board facing.\nvar m = tree.root.get_node(\"Main\")\nvar vr: float = m.view_rotation\nvar n_round = 0\nvar n_irr = 0\nfor t in m.get_node(\"BoardRoot/TokenLayer\").get_children():\n\tif not t.has_method(\"_draw_rot\") or t.base_shape == null:\n\t\tcontinue\n\tvar screen_rot = t.get_global_transform_with_canvas().get_rotation()\n\tif absf(angle_difference(screen_rot, 0.0)) > 0.01:\n\t\treturn \"%s/%s token screen rotation %f\" % [t.get_meta(\"unit_id\"), t.get_meta(\"model_id\"), screen_rot]\n\tvar lbl = t.get_node_or_null(\"Label\")\n\tif lbl != null and absf(angle_difference(lbl.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\treturn \"%s label not upright\" % t.get_meta(\"unit_id\")\n\tvar model_rot = float(t.model_data.get(\"rotation\", 0.0))\n\t# On-screen base rotation = token screen rotation (0) + draw rotation.\n\tvar want = model_rot if t.base_shape.get_type() == \"circular\" else model_rot + vr\n\tif absf(angle_difference(t._draw_rot(), want)) > 0.01:\n\t\treturn \"%s base draw rot %f want %f\" % [t.get_meta(\"unit_id\"), t._draw_rot(), want]\n\tif t.base_shape.get_type() == \"circular\":\n\t\tn_round += 1\n\telse:\n\t\tn_irr += 1\nvar n_obj = 0\nfor o in m.find_children(\"*\", \"ObjectiveVisual\", true, false):\n\tfor ch in o.get_children():\n\t\tif ch is Label:\n\t\t\tif absf(angle_difference(ch.get_global_transform_with_canvas().get_rotation(), 0.0)) > 0.01:\n\t\t\t\treturn \"%s label %s not upright\" % [o.name, ch.name]\n\t\t\tn_obj += 1\nreturn \"ok round=%d irregular=%d objective_labels=%d rot=%d\" % [n_round, n_irr, n_obj, int(round(rad_to_deg(vr))) % 360]",
+      "equals": "ok round=101 irregular=3 objective_labels=10 rot=0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "KeybindingManager.reset_binding(\"rotate_board\")\nreturn KeybindingManager.get_key_display_name(\"rotate_board\")",
+      "equals": "V",
+      "comment": "Restore the default binding."
+    }
+  ]
+}
