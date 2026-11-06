@@ -2417,7 +2417,7 @@
     },
     {
       "id": "ai.movement.capture_race",
-      "description": "CAPTURE-RACE (FIX_CAPTURE_RACE): a one-move capture of an objective we do not hold keeps only MOVE_RACE_LOSS_FACTOR of its score when the enemy OC that can stand in range after its next move is at least RI_RACE_LOST_RATIO x what we can have there this turn; the Suggest card shows the cut as 'Can't keep it'",
+      "description": "CAPTURE-RACE (FIX_CAPTURE_RACE): a one-move capture of an objective we do not hold keeps only MOVE_RACE_LOSS_FACTOR of its score when the enemy OC that can stand in range after its next move is at least CAPTURE_RACE_LOST_RATIO (3x) what we can have there this turn; the Suggest card shows the cut as 'Can't keep it'",
       "scenarios": [
         "ai_capture_race_lone_unit"
       ],

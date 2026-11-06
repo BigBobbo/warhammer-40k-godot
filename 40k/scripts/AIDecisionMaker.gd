@@ -1807,13 +1807,20 @@ const FIX_RI_QUARTER: float = 1.0
 # capture a centre the enemy could stand on with ~27 OC next move ("needs 6
 # more OC after this unit") over an uncontested home it reached for sure.
 # When the enemy OC that can stand in range after its next move (+ its
-# holders) is at least RI_RACE_LOST_RATIO x what we can have there this turn
+# holders) is at least CAPTURE_RACE_LOST_RATIO x what we can have there this turn
 # (our holders, this unit, and units that can still move this phase and
 # reach it in one move), the capture keeps MOVE_RACE_LOSS_FACTOR of its
 # score. Units that already moved this phase are not counted: our next
 # chance to add OC comes after the enemy's turn and the next scoring.
 # 0 = previous behaviour.
 const FIX_CAPTURE_RACE: float = 1.0
+# CAPTURE-RACE: the hopeless odds. Not RI_RACE_LOST_RATIO (1.5): a durable
+# squad at 2-2.5x odds is a fight the threat/contest terms already price
+# (test_ai_fix_lone_trip pins a T6 squad taking 8 vs 20; FAR-TRIP, which
+# stopped such trips over 2+ turns, lost -6.26 VP/game in the Custodes
+# mirror), and LONE-TRIP owns fragile units there. The reported case was
+# 27 vs 4 (~7x).
+const CAPTURE_RACE_LOST_RATIO: float = 3.0
 # RI-QUARTER: share of the quarter VP counted for each later battle round
 # (the unit usually stays in the quarter it entered, but may move or die).
 const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
@@ -10599,8 +10606,8 @@ static func _assign_units_to_objectives(
 				if cr_enemy_oc > 0:
 					print("AIDecisionMaker: [CAPTURE_RACE] check %s -> %s: enemy next move ~%d OC vs ours this turn %d (holders %d + unit %d + movable units within one move; lost at >= %.1fx)" % [
 						_dn(unit, unit_id), obj_id, cr_enemy_oc, cr_our_oc, int(eval.get("friendly_oc", 0)), int(unit_oc),
-						get_param("RI_RACE_LOST_RATIO", RI_RACE_LOST_RATIO)])
-				if cr_enemy_oc > 0 and float(cr_enemy_oc) >= float(cr_our_oc) * get_param("RI_RACE_LOST_RATIO", RI_RACE_LOST_RATIO):
+						get_param("CAPTURE_RACE_LOST_RATIO", CAPTURE_RACE_LOST_RATIO)])
+				if cr_enemy_oc > 0 and float(cr_enemy_oc) >= float(cr_our_oc) * get_param("CAPTURE_RACE_LOST_RATIO", CAPTURE_RACE_LOST_RATIO):
 					capture_race_lost = true
 					capture_race_our_oc = cr_our_oc
 					race_enemy_oc = cr_enemy_oc
