@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.2",
+      "date": "2026-11-05",
+      "summary": "Rotating the board keeps unit labels and round tokens readable.",
+      "changes": [
+        "When the board view is rotated, unit letters, name plates, wound/status chips and round-based models now stay upright instead of turning sideways or upside down.",
+        "Objective labels (e.g. NML-2, control state) and deployment-zone names also stay upright.",
+        "Oval and rectangular bases (vehicles, bikes, aircraft) still turn with the board, so their facing on the table is unchanged."
+      ]
+    },
+    {
       "version": "1.73.1",
       "date": "2026-11-04",
       "summary": "Tidier army picker: internal test lists no longer appear in the army-select dropdowns.",
