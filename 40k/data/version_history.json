@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.74.0",
+      "date": "2026-11-06",
+      "summary": "Smarter AI objective choice: it no longer sends a lone unit to grab an objective the enemy can take straight back.",
+      "changes": [
+        "The AI (and Suggest / K) now checks whether it can actually KEEP an objective it captures this turn: if the enemy can stand there with far more OC on its next move than we can have there, the capture counts for much less.",
+        "So a lone unit near an empty objective it can hold (like your home) takes that instead of running alone into a centre the enemy will flood.",
+        "The Suggest card shows the new cut as \"Can't keep it\" in the option breakdown."
+      ]
+    },
+    {
       "version": "1.73.2",
       "date": "2026-11-05",
       "summary": "Home objectives fixed on Sweeping Engagement and Dawn of War maps: your home is now really yours.",

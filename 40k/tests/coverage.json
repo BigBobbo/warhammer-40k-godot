@@ -2416,6 +2416,15 @@
       "status": "covered"
     },
     {
+      "id": "ai.movement.capture_race",
+      "description": "CAPTURE-RACE (FIX_CAPTURE_RACE): a one-move capture of an objective we do not hold keeps only MOVE_RACE_LOSS_FACTOR of its score when the enemy OC that can stand in range after its next move is at least RI_RACE_LOST_RATIO x what we can have there this turn; the Suggest card shows the cut as 'Can't keep it'",
+      "scenarios": [
+        "ai_capture_race_lone_unit"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "missions.objectives.layout_home_zones",
       "description": "Each official 11e layout's home markers sit in their owner's deployment zone (obj_home_1 = player 1's, obj_home_2 = player 2's), including the left/right Sweeping Engagement / Dawn of War layouts; exclude_home primaries and the AI's home logic read the player's own home",
       "scenarios": [
