@@ -463,6 +463,18 @@ once per drop. `AIDecisionMaker.deploy_drop_count_bound()` is the sum above
 (evaluations, fresh checks, growth work); `deploy_drop_stats()` records the
 largest counts one drop used, and the tests assert them.
 
+Measured wall-clock (the 45-layout sweep with the gate's Wartrike
+attachments, 1350 drops, on a shared 4-CPU container at load 4-5): p99 per
+drop 1.07 s with warm caches and 1.14 s cold, worst 1.51 s / 1.55 s; 7 (warm)
+and 10 (cold) drops take longer than 1.2 s. All of them are Wartrike-led
+Warbikers in a crowded Search and Destroy or Crucible zone: the terrain spots
+spend their budget, no block fits at the column spot, and the column build
+scans the whole lattice and grows. Smaller budgets do not fix that without
+sending units to reserves: with `DEPLOY_11E_GUARD_GROW_SHARE` 0 (0.1) the
+worst drop is still 1.41 s (1.39 s) and Wazdakka Gutsmek goes to Strategic
+Reserves on 2 (1) of the 45 layouts. The unit stays on the table and the
+drop takes longer.
+
 The K card words a spot that was not used by its reason: "not tried" (the
 drop's budget was spent before it), "no legal set-up found within the build
 budget" (its own build ran out), "the build budget ran out checking room for
