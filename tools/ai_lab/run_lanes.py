@@ -53,7 +53,11 @@ def say(msg: str) -> None:
 def userdata_dir() -> str:
     if platform.system() == "Darwin":
         return os.path.expanduser("~/Library/Application Support/Godot/app_userdata/40k")
-    return os.path.expanduser("~/.local/share/godot/app_userdata/40k")
+    # Godot on Linux puts user:// under $XDG_DATA_HOME when it is set, so a run
+    # isolated with XDG_DATA_HOME must harvest its results from there too.
+    xdg = os.environ.get("XDG_DATA_HOME", "").strip()
+    base = xdg if xdg else os.path.expanduser("~/.local/share")
+    return os.path.join(base, "godot", "app_userdata", "40k")
 
 
 def parse_seeds(spec: str) -> list[int]:
