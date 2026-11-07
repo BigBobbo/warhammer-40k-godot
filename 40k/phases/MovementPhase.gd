@@ -894,7 +894,7 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
 	# Surge moves allow moving through/into Engagement Range)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
-		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model, model_actual_unit_id):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
@@ -6581,7 +6581,7 @@ func _ork11e_translation_legal(unit_id: String, move_data: Dictionary, entries: 
 			return false
 		if not _check_engagement_range_at_position(e.uid, str(model.get("id", "")), dest, "NORMAL").valid:
 			return false
-		if not fly and _path_crosses_enemy_bases(from, dest, unit_id, model):
+		if not fly and _path_crosses_enemy_bases(from, dest, unit_id, model, str(e.uid)):
 			return false
 		if not fly and _path_crosses_monster_vehicle_bases(from, dest, unit_id, model):
 			return false
@@ -7177,6 +7177,31 @@ func _shw_moves_through_models(unit_id: String) -> bool:
 		return false
 	return UnitAbilities.is_super_heavy_walker(get_unit(unit_id))
 
+## EA-10 · 11e 17.01 MOVING MONSTERS AND VEHICLES: "Each time you make a normal
+## or advance move with a unit, MONSTER/VEHICLE models in that unit can be moved
+## through friendly and enemy models (excluding other MONSTER/VEHICLE models)."
+## True when unit_id's current move is a normal or advance move (reactive normal
+## moves included — they are set up as NORMAL) and the model being moved is a
+## MONSTER/VEHICLE. The rule is worded per model, so the model is judged on its
+## OWN unit: model_unit_id (an attached CHARACTER's unit for its models), else
+## unit_id. Read by _path_crosses_enemy_bases, which then only counts enemy
+## MONSTER/VEHICLE models as blockers. No FLY gate: a FLY model that does not
+## take to the skies still has 17.01. 11e only — 10e had no such permission.
+func _mv1701_moves_through_models(unit_id: String, model_unit_id: String = "") -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var mode := str(active_moves.get(unit_id, {}).get("mode", ""))
+	if not mode in ["NORMAL", "ADVANCE"]:
+		return false
+	return _unit_is_monster_or_vehicle(get_unit(model_unit_id if model_unit_id != "" else unit_id))
+
+static func _unit_is_monster_or_vehicle(unit: Dictionary) -> bool:
+	for kw in unit.get("meta", {}).get("keywords", []):
+		var k := str(kw).to_upper()
+		if k == "MONSTER" or k == "VEHICLE":
+			return true
+	return false
+
 static func _unit_is_titanic(unit: Dictionary) -> bool:
 	for kw in unit.get("meta", {}).get("keywords", []):
 		if str(kw).to_upper() == "TITANIC":
@@ -7451,10 +7476,18 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: Strin
 		return 0.0  # Going level or downward (10e: descent is free)
 	return to_h - from_h
 
-func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
+func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary, model_unit_id: String = "") -> bool:
 	# Check if a movement path crosses any enemy model bases using shape-aware overlap.
-	# 10e Rule: A model cannot move through enemy models during Normal Move or Advance.
-	# Only Fall Back and FLY units may move through enemy models.
+	# 11e 03.01: "Each time you move a model, unless otherwise stated: ... Its
+	# base cannot be moved through enemy models." The callers decide which moves
+	# this applies to (the mode list) and own the move-wide exemptions (FLY /
+	# take to the skies, Shokk-Boosta, Grapnel Launchers). The exemptions that
+	# narrow WHICH enemy models block are handled here: Calistus ka'tah (none
+	# block), 24.35 SUPER-HEAVY WALKER (only TITANIC models block) and 17.01
+	# MOVING MONSTERS AND VEHICLES (on a normal / advance move only
+	# MONSTER/VEHICLE models block a MONSTER/VEHICLE model — EA-10).
+	# model_unit_id: the moved model's own unit (an attached CHARACTER's unit
+	# for its models; "" = unit_id) — 17.01 is worded per model.
 	# This checks base-to-base overlap only — moving *near* enemies is fine,
 	# moving *through* their bases is not.
 	# Reactive moves (Krump and Run, Scatter!, Codex: Orks (11e) follow-ups) are
@@ -7467,6 +7500,11 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	var shw_only_titanic := _shw_moves_through_models(unit_id)
 	if shw_only_titanic:
 		log_phase_message("  24.35 SUPER-HEAVY WALKER — %s may move through enemy models except TITANIC ones" % unit_id)
+	# 11e 17.01 MOVING MONSTERS AND VEHICLES: only enemy MONSTER/VEHICLE models
+	# block a MONSTER/VEHICLE model's normal / advance move.
+	var mv_only_mv := _mv1701_moves_through_models(unit_id, model_unit_id)
+	if mv_only_mv:
+		log_phase_message("  17.01 MONSTER/VEHICLE — %s may move through enemy models except MONSTER/VEHICLE ones" % (model_unit_id if model_unit_id != "" else unit_id))
 	var current_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
@@ -7491,6 +7529,8 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 			if enemy_unit.get("owner", 0) == current_player:
 				continue
 			if shw_only_titanic and not _unit_is_titanic(enemy_unit):
+				continue
+			if mv_only_mv and not _unit_is_monster_or_vehicle(enemy_unit):
 				continue
 
 			var enemy_models = enemy_unit.get("models", [])

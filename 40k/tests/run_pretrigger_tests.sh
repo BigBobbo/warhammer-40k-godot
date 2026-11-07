@@ -114,6 +114,10 @@
 #     the free board area left by the HUD panels, the fit (whole board, 32px
 #     on the tight axis, centred, quarter-turn swap, tiny-rect fallback) and
 #     the anchored log-zoom glide samples
+#   - EA-10 11e 17.01 MOVING MONSTERS AND VEHICLES: a MONSTER/VEHICLE model's
+#     normal / advance move passes enemy non-MONSTER/VEHICLE models (STAGE /
+#     SET_MODEL_DEST / reactive translation), per model in Attached units;
+#     enemy M/V still block, the move must end unengaged, 10e unchanged
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -298,6 +302,7 @@ TESTS=(
     "tests/test_iss071_firing_deck_11e.gd"
     "tests/test_iss072_duplicated_abilities.gd"
     "tests/test_iss073_shw_mobile_gamble.gd"
+    "tests/test_ea10_mv_moves_through_enemy_11e.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_fire_overwatch_15_08_11e.gd"
