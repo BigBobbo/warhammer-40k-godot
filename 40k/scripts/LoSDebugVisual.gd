@@ -92,6 +92,10 @@ var overview_source_unit_id: String = ""  # "" -> every unit of the active playe
 var overview_ineligible_only: bool = false
 # {from, to, is_clear, verdict, reason, src, tgt, block_at?}
 var overview_lines: Array = []
+# What the last _draw() actually wrote on the board: one {src, tgt, verdict,
+# text} per reason label (the text as drawn, after truncation). Observability
+# for scenarios/tests — _draw() has no other side effect to assert on.
+var drawn_reason_labels: Array = []
 var _overview_accum: float = 0.0
 var _overview_sig: int = 0
 
@@ -102,6 +106,7 @@ func _ready() -> void:
 	print("[LoSDebugVisual] Initialized")
 
 func _draw() -> void:
+	drawn_reason_labels.clear()
 	if not debug_enabled:
 		return
 
@@ -146,7 +151,8 @@ func _draw() -> void:
 		var _label_red_hidden := verdict == VERDICT_BLOCKED and str(ol.get("reason_code", "")) == "hidden"
 		if (verdict == VERDICT_VISIBLE or _label_red_hidden) and str(ol.get("reason", "")) != "":
 			var _txt := str(ol.get("label", ""))
-			_draw_reason_label(ol["from"], ol["to"], _txt if _txt != "" else str(ol["reason"]), oc)
+			var _drawn := _draw_reason_label(ol["from"], ol["to"], _txt if _txt != "" else str(ol["reason"]), oc)
+			drawn_reason_labels.append({"src": str(ol.get("src", "")), "tgt": str(ol.get("tgt", "")), "verdict": verdict, "text": _drawn})
 
 	# Draw all LoS lines
 	for los_data in los_lines:
@@ -196,10 +202,11 @@ func _draw() -> void:
 # itself. Sits at the target end of the line (where the player is looking when
 # they wonder why that squad is missing from the list) and is nudged
 # perpendicular so it never sits on top of the line art.
-func _draw_reason_label(from: Vector2, to: Vector2, reason: String, color: Color) -> void:
+## Returns the text it drew ("" when no font is available).
+func _draw_reason_label(from: Vector2, to: Vector2, reason: String, color: Color) -> String:
 	var font := ThemeDB.fallback_font
 	if font == null:
-		return
+		return ""
 	var text := reason
 	if text.length() > OVERVIEW_REASON_MAX_CHARS:
 		text = text.substr(0, OVERVIEW_REASON_MAX_CHARS - 1) + "…"
@@ -215,6 +222,7 @@ func _draw_reason_label(from: Vector2, to: Vector2, reason: String, color: Color
 		OVERVIEW_REASON_FONT_SIZE, 5, Color(0.0, 0.0, 0.0, 0.85))
 	draw_string(font, anchor, text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		OVERVIEW_REASON_FONT_SIZE, color)
+	return text
 
 # Darker and near-transparent: the stretch of a sight line that is already dead
 # because terrain cut it off before this point.
@@ -576,6 +584,18 @@ func _rebuild_overview() -> void:
 	queue_redraw()
 
 
+## The board label for a HIDDEN refusal (13.09). Full prose overruns
+## OVERVIEW_REASON_MAX_CHARS before the numbers, so it leads with what the
+## player needs — and it describes the UNIT, not the drawn line: the line art is
+## the nearest model pair (possibly cut by a wall), while the numbers are the
+## target's detection range against your models and the closest of your models
+## with a CLEAR sight line ("your best LoS"). The distance is rounded up and
+## the range down (RulesEngine.format_limit_and_beyond), so a refused distance
+## never prints as equal to the range.
+static func hidden_label_text(detection_in: float, closest_in: float) -> String:
+	var t: Array = RulesEngine.format_limit_and_beyond(detection_in, closest_in)
+	return "Hidden unit: seen within %s\" (your best LoS %s\")" % [t[0], t[1]]
+
 # One overview line for a (shooter unit -> enemy unit) pair.
 #
 # Geometry AND verdict both come from RulesEngine now. The old version rolled
@@ -610,10 +630,7 @@ func _unit_pair_sight_line(src_id: String, tgt_id: String, src: Dictionary, tgt:
 			reason = why.reason
 			reason_code = str(why.code)
 			if reason_code == "hidden" and why.has("detection_in"):
-				# Full prose overruns OVERVIEW_REASON_MAX_CHARS before the numbers;
-				# the board label leads with what the player needs.
-				label = "Hidden: only visible within %d\" (closest %.1f\")" % [
-					int(round(float(why.detection_in))), float(why.get("closest_in", 0.0))]
+				label = hidden_label_text(float(why.detection_in), float(why.get("closest_in", 0.0)))
 			if why.code == "no_los" or why.code == "hidden":
 				# The rules engine already proved no model pair can see this
 				# unit. Skip the hunt entirely and just draw the nearest pair's

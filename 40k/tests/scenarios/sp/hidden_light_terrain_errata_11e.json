@@ -14,7 +14,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "13.09 HIDDEN errata ('Change to First Bullet Point', wahapedia): INFANTRY/BEASTS/SWARM within a terrain area containing LIGHT or dense terrain features are hidden; the launch text (and this engine until now) said dense only. Live shooting path: Boyz Gamma ~17.6\" from a Custodian Guard are a legal target in the open; a barricade (light) area under them makes them hidden, the target list drops them, and holding L with the shooter armed draws a red line labelled 'Hidden: only visible within 15\" (closest ...)'. Controls: closing inside 15\" restores the target; an exposed crater never hides.",
+  "description": "13.09 HIDDEN errata ('Change to First Bullet Point', wahapedia): INFANTRY/BEASTS/SWARM within a terrain area containing LIGHT or dense terrain features are hidden; the launch text (and this engine until now) said dense only. Live shooting path: Boyz Gamma ~17.6\" from a Custodian Guard are a legal target in the open; a barricade (light) area under them makes them hidden, the target list drops them, and holding L with the shooter armed draws a red line labelled 'Hidden unit: seen within 15\" (your best LoS ...\")' — the label is asserted as actually drawn (LoSDebugVisual.drawn_reason_labels) and the shooting controller's own eligible_targets excludes the Boyz. Controls: closing inside 15\" restores the target; an exposed crater never hides.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -109,6 +109,13 @@
     },
     {
       "act": "execute_script",
+      "multiline": true,
+      "comment": "The shooting controller's own target list (filled when the shooter was clicked) excludes the hidden Boyz — not just RulesEngine.",
+      "script": "var sc = tree.root.get_node(\"Main\").get_node(\"ShootingController\")\nprint(\"[hidden_light_terrain_errata_11e] controller eligible_targets: %s\" % str(sc.eligible_targets.keys()))\nreturn \"%s|%s\" % [str(sc.active_shooter_id), str(sc.eligible_targets.has(\"U_BOYZ_K\"))]",
+      "equals": "U_CUSTODIAN_GUARD_B|false"
+    },
+    {
+      "act": "execute_script",
       "script": "main.t32_synthesize_l(true)",
       "equals": true,
       "comment": "Hold L (the LoS overlay key) with the shooter armed: ineligible enemies get a reason line."
@@ -120,9 +127,20 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nfor ol in lv.overview_lines:\n\tif ol[\"tgt\"] == \"U_BOYZ_K\":\n\t\tprint(\"[hidden_light_terrain_errata_11e] overlay line: verdict=%s code=%s label=%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), ol.get(\"label\", \"\")])\n\t\treturn \"%s|%s|%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), str(str(ol.get(\"label\", \"\")).begins_with(\"Hidden: only visible within 15\\\"\"))]\nreturn \"no line\"",
-      "comment": "The Boyz line is RED (blocked) with reason code 'hidden' and a short on-board label leading with the 15\" detection range (red lines were previously unlabelled, so the player could not tell why).",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nfor ol in lv.overview_lines:\n\tif ol[\"tgt\"] == \"U_BOYZ_K\":\n\t\tprint(\"[hidden_light_terrain_errata_11e] overlay line: verdict=%s code=%s label=%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), ol.get(\"label\", \"\")])\n\t\treturn \"%s|%s|%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), str(str(ol.get(\"label\", \"\")).begins_with(\"Hidden unit: seen within 15\\\" (your best LoS \"))]\nreturn \"no line\"",
+      "comment": "The Boyz line is RED (blocked) with reason code 'hidden' and a short on-board label that describes the UNIT: its 15\" detection range and your closest clear line of sight (red lines were previously unlabelled, so the player could not tell why).",
       "equals": "blocked|hidden|true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The label is really DRAWN on the board: _draw() records what it wrote in drawn_reason_labels (before, reverting the red-Hidden label branch in _draw() changed no asserted value).",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nfor e in lv.drawn_reason_labels:\n\tif e[\"tgt\"] == \"U_BOYZ_K\":\n\t\tprint(\"[hidden_light_terrain_errata_11e] drawn label: %s (%s)\" % [e[\"text\"], e[\"verdict\"]])\n\t\treturn \"%s|%s\" % [e[\"verdict\"], str(str(e[\"text\"]).begins_with(\"Hidden unit: seen within 15\\\" (your best LoS \"))]\nreturn \"not drawn: %s\" % str(lv.drawn_reason_labels)",
+      "equals": "blocked|true"
     },
     {
       "act": "execute_script",

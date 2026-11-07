@@ -7430,13 +7430,15 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 			# that is not the 12" default.
 			var lo_range = get_lone_operative_range(target_unit)
 			if min_dist > lo_range:
-				return _ineligible("lone_operative", "%s has Lone Operative — must be within %d\" (currently %.1f\")" % [target_name, int(lo_range), min_dist])
+				var lo_txt := format_limit_and_beyond(lo_range, min_dist)
+				return _ineligible("lone_operative", "%s has Lone Operative — must be within %s\" (currently %s\")" % [target_name, lo_txt[0], lo_txt[1]])
 
 	# Psychic Veil
 	if target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
 		var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
 		if min_dist > 18.0:
-			return _ineligible("psychic_veil", "%s has Psychic Veil — must be within 18\" (currently %.1f\")" % [target_name, min_dist])
+			var pv_txt := format_limit_and_beyond(18.0, min_dist)
+			return _ineligible("psychic_veil", "%s has Psychic Veil — must be within %s\" (currently %s\")" % [target_name, pv_txt[0], pv_txt[1]])
 
 	# Per-weapon analysis: figure out if it's a range issue, LoS issue, or engagement issue
 	var actor_in_engagement = actor_unit.get("flags", {}).get("in_engagement", false)
@@ -7558,11 +7560,18 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 		return _ineligible("out_of_range", "%s is out of range" % target_name)
 	if not any_in_los:
 		if any_hidden_blocked:
-			var hid := _ineligible("hidden", "%s is Hidden (in light/dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist])
+			# The numbers describe the UNIT pair: the closest of your models
+			# that has a clear sight line to a model of the target (and is
+			# refused only by its detection range) — not necessarily the pair
+			# a caller draws. Printed so "closest" never reads as within range.
+			var hid_txt := format_limit_and_beyond(hidden_det_range, hidden_min_dist)
+			var hid := _ineligible("hidden", "%s is Hidden (in light/dense terrain, hasn't shot recently) — visible only within %s\" detection range; your closest model with a clear sight line is %s\" away" % [target_name, hid_txt[0], hid_txt[1]])
 			# Structured numbers for compact UI labels (LoS overlay), so callers
 			# need not parse the prose.
 			hid["detection_in"] = hidden_det_range
 			hid["closest_in"] = hidden_min_dist
+			hid["detection_text"] = hid_txt[0]
+			hid["closest_text"] = hid_txt[1]
 			return hid
 		return _ineligible("no_los", "No line of sight to %s — terrain blocks every sight line" % target_name)
 
@@ -7570,6 +7579,21 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 
 static func _ineligible(code: String, reason: String) -> Dictionary:
 	return {"reason": reason, "code": code}
+
+## Text for a "must be within LIMIT (currently ACTUAL)" refusal, where the
+## refusal is strict — ACTUAL > LIMIT ("within" = "not more than", rules
+## commentary 01.04). Plain %.1f rounding printed 15.01" as "15.0" next to
+## "within 15"", telling the player they were already close enough. The limit
+## is printed rounded DOWN to 0.1" (as a whole number when it is one) and the
+## actual distance rounded UP to 0.1", so the printed actual is always strictly
+## larger than the printed limit. Returns [limit_text, actual_text].
+static func format_limit_and_beyond(limit_in: float, actual_in: float) -> Array:
+	var lim10 := floorf(limit_in * 10.0)
+	var act10 := ceilf(actual_in * 10.0)
+	if act10 <= lim10:
+		act10 = lim10 + 1.0
+	var lim_txt := ("%d" % int(lim10 / 10.0)) if fmod(lim10, 10.0) == 0.0 else ("%.1f" % (lim10 / 10.0))
+	return [lim_txt, "%.1f" % (act10 / 10.0)]
 
 
 # Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
