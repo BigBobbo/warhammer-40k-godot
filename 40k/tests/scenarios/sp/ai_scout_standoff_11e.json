@@ -1,0 +1,214 @@
+{
+  "id": "ai_scout_standoff_11e",
+  "covers": [
+    "ai.scout.standoff_11e",
+    "phases.ScoutPhase.UI.standoff_prompt_11e",
+    "phases.ScoutPhase.CONFIRM_SCOUT_MOVE.position_writes_to_state",
+    "ui.HUD.ai_suggestion_button"
+  ],
+  "fixture": "mirror_orks_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 42,
+  "description": "P0.2 rules distances (11e 24.32 SCOUT MOVE: end more than 8\" horizontally from all enemy units). The AI's suggested Scout move uses the 8-9\" band its old hard-coded 9\" refused, and the Scout prompts read 8\" (they said 9\" for the whole of 11e). Setup by script: only P2's Kommandos and P1's Kommandos (each re-formed as a coherent 2x5 block - the fixture's 16.9\" lines are not 11e-coherent) and one P1 model (Kaptin Badrukk, 40mm) stay on the board; Badrukk sits 13.25\" from the P2 Kommandos' centroid toward the objective the AI first picks. P2 clicks Suggest: the card proposes BEGIN_SCOUT_MOVE (at the old 9\" the AI skipped). Accept: the real ScoutPhase stages and confirms every model; the closest Kommando ends 8-9\" from the enemy base to base. The step hands over to P1, who clicks their Kommandos in the list: the status line and unit card say 'must end >8\" from enemies'. No ERROR in the debug log.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: clear the board around the Kommandos, coherent blocks, enemy blocker at 13.25\"",
+      "script": "var main = tree.root.get_node(\"Main\")\nDebugLogger._flush_buffer()\nvar lf = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar lines := 0\nwhile lf != null and not lf.eof_reached():\n\tlf.get_line()\n\tlines += 1\nmain.set_meta(\"b1_log_mark\", lines)\nvar st = GameState.state\nfor puid in st.units:\n\tif puid == \"U_KOMMANDOS_H\" or puid == \"MIR_U_KOMMANDOS_H\" or puid == \"MIR_U_KAPTIN_BADRUKK_A\":\n\t\tcontinue\n\tst.units[puid].status = GameStateData.UnitStatus.IN_RESERVES\n\tfor pm in st.units[puid].models:\n\t\tpm.position = null\nvar pk: Array = st.units.MIR_U_KOMMANDOS_H.models\nvar pcx := 0.0\nfor i in range(3, 10):\n\tpcx += float(pk[i].position.x)\npcx /= 7.0\nvar pcy := float(pk[3].position.y)\nfor i in range(10):\n\tpk[i].position = {\"x\": pcx + (float(i % 5) - 2.0) * 60.0, \"y\": pcy + (float(i / 5) - 0.5) * 60.0}\nvar km: Array = st.units.U_KOMMANDOS_H.models\nvar cx := 0.0\nfor i in range(3, 10):\n\tcx += float(km[i].position.x)\ncx /= 7.0\nvar cy := float(km[3].position.y)\nfor i in range(10):\n\tkm[i].position = {\"x\": cx + (float(i % 5) - 2.0) * 60.0, \"y\": cy + (float(i / 5) - 0.5) * 60.0}\nvar start := {}\nfor m in km:\n\tstart[str(m.id)] = [float(m.position.x), float(m.position.y)]\nmain.set_meta(\"b1_start\", start)\nGameState.set_active_player(2)\nvar snap = GameState.create_snapshot(false)\nvar unit = snap.units.U_KOMMANDOS_H\nvar c: Vector2 = AIDecisionMaker._get_unit_centroid(unit)\nvar target: Vector2 = AIDecisionMaker._find_best_scout_objective(unit, AIDecisionMaker._get_objectives(snap), AIDecisionMaker._get_enemy_units(snap, 2), AIDecisionMaker._get_units_for_player(snap, 2), 2, snap)\nvar dir := (target - c).normalized()\nvar blk := c + dir * 13.25 * 40.0\nst.units.MIR_U_KAPTIN_BADRUKK_A.models[0].position = {\"x\": blk.x, \"y\": blk.y}\nmain._recreate_unit_visuals()\nreturn \"kommandos centroid (%.0f,%.0f) toward (%.0f,%.0f); blocker at (%.0f,%.0f)\" % [c.x, c.y, target.x, target.y, blk.x, blk.y]"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "decline any pending stratagem window so the phase's own decision is next",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nvar n = 0\nwhile pi.has_method(\"get_pending_stratagem_window\") and not pi.get_pending_stratagem_window().is_empty() and n < 6:\n\tvar w = pi.get_pending_stratagem_window()\n\tpi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(pi.get_pending_stratagem_window_decider()), \"window_id\": w.get(\"window_id\", \"\")})\n\tn += 1\nreturn n"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Scout phase tooltip: up to Scouts X\", ending more than 8\" (was 'up to 9\"')",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar t := str(main._get_phase_tooltip_text(GameStateData.Phase.SCOUT))\nreturn t.contains(\"more than 8\\\"\") and not t.contains(\"9\\\"\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_scout_step_p2"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.clear_action_log()"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"type\", \"\"))",
+      "equals": "BEGIN_SCOUT_MOVE",
+      "comment": "at the old 9\" stand-off the AI skipped this unit"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the planned ends are in the 8-9\" band",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar d: Dictionary = main._ai_suggestion_panel._decision\nvar dests: Dictionary = d.get(\"_ai_scout_destinations\", {})\nvar b = GameState.state.units.MIR_U_KAPTIN_BADRUKK_A.models[0]\nvar bp := Vector2(float(b.position.x), float(b.position.y))\nvar best := INF\nfor mid in dests:\n\tvar v := Vector2(float(dests[mid][0]), float(dests[mid][1]))\n\tbest = minf(best, v.distance_to(bp) / 40.0 - (32.0 / 2.0) / 25.4 - (float(b.base_mm) / 2.0) / 25.4)\nmain.set_meta(\"b1_planned_min\", best)\nreturn snappedf(best, 0.01)",
+      "expect_min": 8.0,
+      "expect_max": 8.99
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_k_card_scout_move"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the accepted suggestion staged and CONFIRMED the move (no skip, no rejection)",
+      "script": "var c := 0\nvar k := 0\nfor e in AIPlayer.get_action_log():\n\tif str(e.get(\"action_type\", \"\")) == \"CONFIRM_SCOUT_MOVE\":\n\t\tc += 1\n\tif str(e.get(\"description\", \"\")).contains(\"skipped\") or str(e.get(\"action_type\", \"\")) == \"SKIP_SCOUT_MOVE\":\n\t\tk += 1\nreturn \"confirm=%d skip=%d\" % [c, k]",
+      "equals": "confirm=1 skip=0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "every Kommando moved and the closest ends 8-9\" from the enemy base to base",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar b = GameState.state.units.MIR_U_KAPTIN_BADRUKK_A.models[0]\nvar bp := Vector2(float(b.position.x), float(b.position.y))\nvar start: Dictionary = main.get_meta(\"b1_start\")\nvar best := INF\nvar moved := 0\nfor m in GameState.state.units.U_KOMMANDOS_H.models:\n\tvar p := Vector2(float(m.position.x), float(m.position.y))\n\tvar s: Array = start[str(m.id)]\n\tif p.distance_to(Vector2(s[0], s[1])) > 20.0:\n\t\tmoved += 1\n\tbest = minf(best, p.distance_to(bp) / 40.0 - (float(m.base_mm) / 2.0) / 25.4 - (float(b.base_mm) / 2.0) / 25.4)\nmain.set_meta(\"b1_after_min\", best)\nmain.set_meta(\"b1_moved\", moved)\nprint(\"[B1-SCENARIO] Kommandos moved %d/10 models; closest base-to-base gap to the enemy %.2f in\" % [moved, best])\nreturn snappedf(best, 0.01)",
+      "expect_min": 8.0,
+      "expect_max": 8.99
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nreturn int(main.get_meta(\"b1_moved\", 0))",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "03_kommandos_end_8in_band"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.close()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 1,
+      "comment": "P2's only Scout unit is done; the step hands over to P1"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_unit_list()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.unit_list.get_item_metadata(0))",
+      "equals": "MIR_U_KOMMANDOS_H"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._scout_active_unit_id)",
+      "equals": "MIR_U_KOMMANDOS_H"
+    },
+    {
+      "act": "execute_script",
+      "script": "not str(main.status_label.text).contains(\">9\\\"\")",
+      "equals": true,
+      "comment": "the status line (the generic 'select a scout unit' prompt by now) never shows the 10e >9\""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.models_label.text",
+      "equals": "Drag models to move (up to 6\", must end >8\" from enemies)",
+      "comment": "D9: the unit card reads the 11e stand-off (was >9\")"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_p1_scout_prompt_reads_8in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean debug log since setup: no ERROR line",
+      "script": "var main = tree.root.get_node(\"Main\")\nDebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar mark := int(main.get_meta(\"b1_log_mark\", 0))\nvar i := 0\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\ti += 1\n\tif i > mark and l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[B1-SCENARIO] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0
+    }
+  ]
+}
