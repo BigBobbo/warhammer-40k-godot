@@ -1156,11 +1156,13 @@
     },
     {
       "id": "movement.terrain.no_phantom_climb_cost",
-      "description": "_get_vertical_climb_cost returns 0 for INFANTRY (regression: full terrain height no longer added). 13.06: a terrain AREA's open ground costs no climb for any unit, on a move or a charge — get_height_inches(area) = 0 and get_terrain_at_position returns the terrain FEATURE at a point before the area around it.",
+      "description": "_get_vertical_climb_cost returns 0 for INFANTRY (regression: full terrain height no longer added). 13.06: a terrain AREA's open ground costs no climb for any unit, on a move or a charge — get_height_inches(area) = 0 and get_terrain_at_position returns the terrain FEATURE at a point before the area around it. 13.06 Dense: INFANTRY/BEASTS/SWARM/MOBILE move horizontally through dense terrain features, so a DENSE piece costs them no climb and no difficult ground on a Normal / Advance / Fall Back move, exactly as on a charge — TerrainManager.unit_traverses_piece is the predicate both costs share, read with the move's terrain keywords (a rule-granted MOBILE counts); light / exposed features keep their climb.",
       "scenarios": [
         "infantry_tall_ruin_traversal",
         "vehicle_enters_area_open_ground_11e",
-        "mp:tests/test_terrain_area_no_climb_11e.gd"
+        "mp:tests/test_terrain_area_no_climb_11e.gd",
+        "beasts_onto_dense_wall_no_climb_11e",
+        "mp:tests/test_terrain_dense_traversal_cost_11e.gd"
       ],
       "fidelity": "RULES",
       "last_verified_commit": "28088acc",
@@ -2256,7 +2258,8 @@
         "terrain_11e_layouts",
         "mp:tests/test_terrain_layout_area_lint.gd",
         "terrain_home_area_hidden_obscuring_11e",
-        "vehicle_enters_area_open_ground_11e"
+        "vehicle_enters_area_open_ground_11e",
+        "beasts_onto_dense_wall_no_climb_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -11970,6 +11973,17 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "movement.drag_ruler",
+      "description": "T03 live drag ruler (MovementController._refresh_drag_ruler -> MovementRangeVisual.DragRuler): while a model is held, the label beside the cursor reads the inches the move spends, costed by the phase function that validates the drop (raw distance + MovementPhase._get_movement_terrain_penalty), coloured green within M, yellow within M + Advance, red beyond. beasts_onto_dense_wall_no_climb_11e holds a Fenrisian Wolf over a dense wall: 2.9\" green (no phantom climb).",
+      "scenarios": [
+        "beasts_onto_dense_wall_no_climb_11e",
+        "mp:tests/test_drag_ruler_budget.gd"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

@@ -434,8 +434,10 @@ func get_engagement_range_for_positions(pos1: Vector2, pos2: Vector2) -> float:
 	return GameConstants.engagement_range_inches()
 
 ## The terrain piece a model at `pos` stands in, for the legacy climb model
-## (MovementPhase._get_vertical_climb_cost and the AI's move-cost estimate,
-## AIDecisionMaker._estimate_move_terrain_penalty): a terrain FEATURE that
+## (MovementPhase._get_vertical_climb_cost, and its AI mirror
+## AIDecisionMaker._estimate_move_terrain_penalty — read only with
+## FIX_MOVE_TERRAIN_11E on; the shipped AI prices a Normal / Advance move with
+## calculate_charge_terrain_penalty, which walks every piece): a terrain FEATURE that
 ## contains the point wins over the terrain AREA around it — 13.01 places
 ## features within areas, and only features are moved over or through (13.06:
 ## a move through an area's open ground "is therefore unimpeded"). An area is
@@ -491,6 +493,25 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 			return true
 
 	return false
+
+## Does a unit with `unit_keywords` pass through `terrain_piece` at ground level?
+## The one predicate the move and charge terrain costs share — a traversed piece
+## costs the mover no climb and no difficult-ground penalty:
+##   ▪ the piece's legacy can_move_through map (INFANTRY through every ruin), or
+##   ▪ 11e 13.06 Dense: "INFANTRY/BEASTS/SWARM/MOBILE models can move
+##     horizontally through dense terrain features" (_passes_dense_feature_11e;
+##     11e only, DENSE pieces only — light / exposed features keep their climb).
+## Readers: calculate_charge_terrain_penalty (charge), calculate_movement_
+## terrain_penalty and MovementPhase._get_vertical_climb_cost (Normal / Advance /
+## Fall Back). Pass the move's terrain keywords (MovementPhase.
+## _terrain_rule_keywords, ChargePhase._charge_terrain_keywords) so a MOBILE
+## granted by a rule counts. Until 2026-11 only the charge cost read the 13.06
+## half: a BEASTS / SWARM model stepping from its area's open ground onto a dense
+## wall paid the wall's 6" climb + 2" on a move, 0" on a charge along the same
+## line (the move was refused: 10.9" of a 10" Move).
+func unit_traverses_piece(unit_keywords: Array, terrain_piece: Dictionary) -> bool:
+	return can_unit_move_through_terrain(unit_keywords, terrain_piece) \
+		or _passes_dense_feature_11e(unit_keywords, terrain_piece)
 
 ## Returns the height in inches for a terrain height category.
 ## LOW (<2") = 1.5", MEDIUM (2-5") = 3.5", TALL (>5") = 6.0"
@@ -555,8 +576,7 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		if not crosses_edge and not starts_inside and not ends_inside:
 			continue
 
-		var unit_can_traverse = can_unit_move_through_terrain(unit_keywords, terrain) \
-			or _passes_dense_feature_11e(unit_keywords, terrain)
+		var unit_can_traverse = unit_traverses_piece(unit_keywords, terrain)
 
 		# A segment wholly inside one footprint crosses no wall — ground-floor
 		# movement within the same ruin pays no climb (matches movement phase).
@@ -620,6 +640,10 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 ## through a Ruin's walls/floors) is NOT slowed by it — Ruins are not Difficult
 ## Ground for such a unit, so no distance is added. Only units that cannot
 ## traverse the piece (e.g. VEHICLES over a low ruin) pay the flat penalty.
+## 11e (13.06): INFANTRY/BEASTS/SWARM/MOBILE also move freely through DENSE
+## pieces — the exemption reads unit_traverses_piece, the predicate the charge
+## cost (calculate_charge_terrain_penalty) uses, so a move and a charge along
+## the same line cost the same.
 ## Pass the moving unit's keywords via unit_keywords to enable this exemption;
 ## callers that omit it (legacy/tests) get the pre-fix "everyone pays" behaviour.
 ##
@@ -649,8 +673,9 @@ func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_
 		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed.
 		# 10e Ruins fix: units that can move through this piece (INFANTRY through a
 		# Ruin) move freely and pay nothing — Ruins are not Difficult Ground for them.
+		# 11e 13.06: so do INFANTRY/BEASTS/SWARM/MOBILE through a DENSE piece.
 		if has_terrain_trait(terrain, "difficult_ground"):
-			if can_unit_move_through_terrain(unit_keywords, terrain):
+			if unit_traverses_piece(unit_keywords, terrain):
 				print("[TerrainManager] %s traversable by unit — no difficult ground penalty (moves through freely)" % terrain.get("id", "unknown"))
 			else:
 				total_penalty += DIFFICULT_GROUND_PENALTY_INCHES

@@ -7425,9 +7425,12 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	if terrain_manager and terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		# Pass the unit's keywords so INFANTRY (and anything that can move through
 		# the piece) are not charged the ruins/difficult-ground penalty — 10e: they
-		# move through walls/floors freely. FLY is already handled above.
-		var _mv_unit = get_unit(unit_id) if unit_id != "" else {}
-		var _mv_keywords = _mv_unit.get("meta", {}).get("keywords", []) if not _mv_unit.is_empty() else []
+		# move through walls/floors freely; 11e 13.06: INFANTRY/BEASTS/SWARM/MOBILE
+		# through dense pieces (TerrainManager.unit_traverses_piece). The move's
+		# terrain keywords include a MOBILE granted by a rule (SUPER-HEAVY WALKER
+		# gamble, STOMPING JUGGERNAUT), as the 13.06 path gate reads them. FLY is
+		# already handled above.
+		var _mv_keywords: Array = _terrain_rule_keywords(unit_id, active_moves.get(unit_id, {})) if unit_id != "" else []
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
 	# (WP-M4c GRAPNEL LAUNCHERS, Reiver Squad: "ignore all vertical distance" — SMAbilitiesC.)
@@ -7461,10 +7464,19 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: Strin
 	# ruins per can_move_through) stay on the ground floor — no climb cost.
 	# Without this, a 4" move onto a tall (6") ruin was inflated by +6" and
 	# rejected as "exceeds cap", silently snapping the model back.
+	# 11e 13.06: INFANTRY/BEASTS/SWARM/MOBILE move horizontally through DENSE
+	# features, so a dense feature is no climb for them either —
+	# TerrainManager.unit_traverses_piece, the predicate the charge cost uses,
+	# with the move's terrain keywords (+ a MOBILE granted by a rule). Since the
+	# lookup returns the FEATURE at a point (bd9392c), a BEASTS / SWARM model
+	# stepping from its area's open ground onto a dense wall in the same area
+	# otherwise climbed the wall's 6" (a 2.9" Fenrisian Wolves move cost 10.9").
 	if unit_id != "" and not to_t.is_empty() and tm.has_method("can_unit_move_through_terrain"):
-		var unit = get_unit(unit_id)
-		var keywords = unit.get("meta", {}).get("keywords", []) if not unit.is_empty() else []
-		if tm.can_unit_move_through_terrain(keywords, to_t):
+		var keywords: Array = _terrain_rule_keywords(unit_id, active_moves.get(unit_id, {}))
+		if tm.has_method("unit_traverses_piece"):
+			if tm.unit_traverses_piece(keywords, to_t):
+				return 0.0
+		elif tm.can_unit_move_through_terrain(keywords, to_t):
 			return 0.0
 	var from_h = 0.0
 	var to_h = 0.0
