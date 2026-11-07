@@ -7,7 +7,7 @@
     "phases.ChargePhase.cus11e_selfless_service",
     "scripts.ChargeController.selfless_label"
   ],
-  "description": "Codex: Adeptus Custodes (11e) SELFLESS SERVICE (Emissaries Imperatus, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Charge phase). The Ork player ends the Charge phase (END_CHARGE): the new charge_phase_end window opens for P2 BEFORE Heroic Intervention; a real click on 'Use on Witchseeker Squad' (unengaged, within 6\" of the Gretchin) spends 1 CP: it declares a charge at the closest enemy within 6\" (2D6, capped at 6\"); the charge move uses the charge path tools ('SELFLESS SERVICE') and the move the charge panel sends is applied: the Witchseekers end engaged with Fights First (a charge, not a Heroic Intervention).",
+  "description": "Codex: Adeptus Custodes (11e) SELFLESS SERVICE (Emissaries Imperatus, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Charge phase). The Ork player ends the Charge phase (END_CHARGE): the new charge_phase_end window opens for P2 BEFORE Heroic Intervention; a real click on 'Use on Witchseeker Squad' (unengaged, within 6\" of the Gretchin) spends 1 CP: it declares a charge at the closest enemy within 6\" (2D6, capped at 6\"); the charge move uses the charge path tools ('SELFLESS SERVICE') and the move the charge panel sends is applied: the Witchseekers end engaged with Fights First (a charge, not a Heroic Intervention). WP-G5: the human now rolls (capped at 6) and picks the target(s) within 6\" in the SELFLESS SERVICE dialog before the charge path tools take over; the full real-drag path is cus11e_g5_selfless_service.",
   "fixture": "cus11e_c5_reactive",
   "edition": 11,
   "rng_seed": 42,
@@ -128,6 +128,46 @@
       "act": "expect_cp",
       "player": 2,
       "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/RollButton",
+      "timeout_s": 4.0,
+      "comment": "WP-G5: the human now rolls the charge"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.seed_roll(5, 8) >= 5",
+      "equals": true,
+      "comment": "setup privilege: the 2D6 is seeded so the Witchseekers can reach"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/RollButton",
+      "comment": "REAL click: Roll Charge (2D6)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/Targets/Target_U_GRETCHIN_C",
+      "comment": "REAL click: the Gretchin (within 6\") as the charge target"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/DeclareButton",
+      "comment": "REAL click: Charge"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "execute_script",

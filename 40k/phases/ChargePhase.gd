@@ -157,6 +157,7 @@ func _on_phase_enter() -> void:
 	# non-active player decides).
 	_cus11e_charge_end_done = false
 	_cus11e_selfless_pending = false
+	_cus11e_g5 = {}
 	_cus11e_open_charge_phase_start_window()
 
 func _on_phase_exit() -> void:
@@ -195,7 +196,12 @@ func _initialize_charge() -> void:
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	
+
+	# WP-G5 Codex: Adeptus Custodes SELFLESS SERVICE (CustodesReactive.gd): the human's roll / targets.
+	var cus11e_g5_gate: Dictionary = _cus11e_reactive().gate(self, action)
+	if not cus11e_g5_gate.is_empty():
+		return cus11e_g5_gate
+
 	match action_type:
 		"SELECT_CHARGE_UNIT":
 			return _validate_select_charge_unit(action)
@@ -291,6 +297,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_tank_shock(action)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
+		"CUS11E_REACTIVE_CHARGE_ROLL", "CUS11E_REACTIVE_CHARGE_TARGETS", "CUS11E_REACTIVE_CHARGE_FAIL":
+			return _cus11e_reactive().process(self, action)  # WP-G5 (CustodesReactive.gd)
 		"END_SHOOTING":
 			return create_result(true, [], "")
 		_:
@@ -1887,6 +1895,7 @@ func _complete_phase_after_heroic_intervention_if_pending() -> void:
 
 var _cus11e_charge_end_done: bool = false   # charge_phase_end opened this phase
 var _cus11e_selfless_pending: bool = false  # a SELFLESS SERVICE charge holds the window follow-up
+var _cus11e_g5: Dictionary = {}  # WP-G5 (CustodesReactive.gd): a human SELFLESS SERVICE roll / target pick in progress
 
 func _cus11e_open_charge_phase_start_window() -> void:
 	if GameConstants.edition < 11:
@@ -1918,6 +1927,8 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 ## units within 6" of your unit and within the maximum distance." Returns true
 ## when the charge move pauses the phase (human drag / AI move action).
 func _cus11e_begin_selfless_service(player: int, followup: Dictionary) -> bool:
+	if _cus11e_reactive().begin_charge(self, player, followup):  # WP-G5: a human rolls, picks any targets within 6" and drags the charge
+		return true
 	var unit_id := str(followup.get("unit_id", ""))
 	var unit := get_unit(unit_id)
 	var unit_name := str(unit.get("meta", {}).get("name", unit_id))
@@ -1965,6 +1976,7 @@ func _cus11e_hi_result(result: Dictionary) -> Dictionary:
 	if not _cus11e_selfless_pending:
 		return result
 	_cus11e_selfless_pending = false
+	_cus11e_reactive().on_charge_finished(self)  # WP-G5: the human SELFLESS SERVICE flow ends with the move
 	var changes: Array = result.get("changes", [])
 	if not changes.is_empty():
 		PhaseManager.apply_state_changes(changes)

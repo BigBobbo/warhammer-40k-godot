@@ -19,10 +19,12 @@ extends SceneTree
 #      until the start of the owner's next Command phase
 #   H. SWIFT AS THE EAGLE ×2  enemy_ended_move (opponent's move within 8");
 #      reactive normal move D3+3"
-#   I. NO ESCAPE              enemy_ended_move after a fall-back; auto charge
-#      (2D6) against the unit that fell back; end-of-turn flag expiry
+#   I. NO ESCAPE              enemy_ended_move after a fall-back; the human
+#      rolls 2D6, picks the unit that fell back and makes the charge move
+#      (WP-G5, CustodesReactive.gd); end-of-turn flag expiry
 #   J. RAPID REACTIONS        enemy_ended_move after a fall-back from a unit
-#      engaged at the start of the phase; auto-resolved shooting at it
+#      engaged at the start of the phase; the human's chosen weapons shoot it
+#      (WP-G5); the AI keeps the auto-resolved shooting (K)
 #   K. AI decider paths
 #
 # Usage: godot --headless --path 40k --script tests/test_custodes_codex_movement.gd
@@ -569,6 +571,13 @@ func _section_no_escape() -> void:
 	RE.set_test_seed(9)
 	var use = _use(phase, 2, "enemy_ended_move", sid, "U_CUSTODIAN_GUARD_A")
 	_check("USE succeeds, P2 CP -2", use.get("success", false) and _cp(2) == cp0 - 2, "%s %d->%d" % [str(use.get("error", "")), cp0, _cp(2)])
+	# WP-G5: a human decider now rolls, picks the target and makes the charge
+	# move (CustodesReactive.gd) — the actions the reactive dialog / drag send.
+	_check("WP-G5: the human charge flow waits for the roll", str(phase._cus11e_g5.get("stage", "")) == "roll", str(phase._cus11e_g5))
+	phase.execute_action({"type": "CUS11E_REACTIVE_CHARGE_ROLL", "player": 2})
+	if not phase._cus11e_g5.is_empty():
+		phase.execute_action({"type": "CUS11E_REACTIVE_CHARGE_TARGETS", "player": 2, "payload": {"target_ids": ["U_BOYZ_B"]}})
+		_move_unit(phase, "U_CUSTODIAN_GUARD_A", Vector2(0.0, -2.6))
 	var rolls: Array = phase.dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get("source", "")) == "NO ESCAPE")
 	_check("2D6 charge roll logged", rolls.size() == 1 and rolls[0].rolls.size() == 2, str(rolls))
 	var success := not rolls.is_empty() and not bool(rolls[0].get("charge_failed", true))
@@ -608,6 +617,12 @@ func _section_rapid_reactions() -> void:
 	RE.set_test_seed(31)
 	var use = _use(phase, 2, "enemy_ended_move", sid, "U_CUSTODIAN_GUARD_A")
 	_check("USE succeeds, P2 CP -1", use.get("success", false) and _cp(2) == cp0 - 1, str(use.get("error", "")))
+	# WP-G5: a human decider now picks the weapons and rolls (CustodesReactive.gd)
+	# — every weapon that can target the Boyz, as the reactive dialog sends by default.
+	var g5_opts: Array = phase._cus11e_g5.get("options", [])
+	_check("WP-G5: the human picks the weapons (stage shoot)", str(phase._cus11e_g5.get("kind", "")) == "shoot" and not g5_opts.is_empty(), str(phase._cus11e_g5))
+	var picks: Array = g5_opts.map(func(o): return {"key": str(o.key), "weapon_id": str(o.profiles[0].weapon_id)})
+	use = phase.execute_action({"type": "CUS11E_REACTIVE_SHOOT", "player": 2, "payload": {"weapons": picks}})
 	var shots: Array = phase.dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get("context", "")) == "to_hit")
 	_check("the Guard shot (hit rolls in the dice log)", not shots.is_empty())
 	var only_boyz := true

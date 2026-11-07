@@ -1,0 +1,369 @@
+{
+  "id": "cus11e_g5_selfless_service",
+  "covers": [
+    "codex.custodes.stratagems.selfless-service-emissaries-imperatus",
+    "codex.custodes.CustodesReactive",
+    "codex.custodes.CustodesReactiveDialog",
+    "stratagem.window.charge_phase_end",
+    "phases.ChargePhase.cus11e_selfless_service",
+    "scripts.ChargeController.selfless_label"
+  ],
+  "description": "WP-G5 — player-controlled SELFLESS SERVICE (Emissaries Imperatus, 1 CP), printed target rule. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges as cus11e_selfless_service plus the Warboss placed within 6\" of the Witchseekers and a seeded 9+ 2D6. The Ork player ends the Charge phase; a real click on Use on the Witchseekers spends 1 CP and opens the SELFLESS SERVICE dialog: Roll Charge shows the roll changed to 6; BOTH enemy units within 6\" (Gretchin and Warboss) are offered, the Boyz (beyond 6\") are not; the player picks the Gretchin and clicks Charge; the Heroic Intervention charge path tools (labelled SELFLESS SERVICE) take over: a real drag puts one Witchseeker in contact, Snap to Contact moves the rest, Confirm Charge Moves applies it: charged, Fights First, the Gretchin charged; HI is declined and the phase ends.",
+  "fixture": "cus11e_c5_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(2, \"Emissaries Imperatus\", {})",
+      "comment": "setup privileges (see description)",
+      "equals": "Emissaries Imperatus"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(9)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var C5 = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn C5.move_to(\"U_WARBOSS_A\", 1.5, 41.5)",
+      "comment": "setup privilege: the Warboss stands within 6\" of the Witchseekers (a second legal SELFLESS SERVICE target)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      },
+      "comment": "the Ork player's End Charge Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "charge_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.to_lower().contains(\"charge phase\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_selfless_service_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/RollButton",
+      "timeout_s": 4.0,
+      "comment": "WP-G5: the human rolls the charge"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.stage()",
+      "equals": "roll"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.phase().dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get(\"source\", \"\")) == \"SELFLESS SERVICE\").size()",
+      "equals": 0,
+      "comment": "nothing was rolled for the player"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn str(H.phase().heroic_intervention_unit_id)",
+      "equals": "",
+      "comment": "no target was picked for the player"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn int(H.phase().get_pending_stratagem_window_decider())",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.seed_roll(9) >= 9",
+      "equals": true,
+      "comment": "setup privilege: a 9+ is seeded so the 6\" cap shows"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/RollButton",
+      "comment": "REAL click: Roll Charge (2D6)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.stage()",
+      "equals": "targets"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nvar r = H.phase().dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get(\"source\", \"\")) == \"SELFLESS SERVICE\")\nreturn r.size() == 1 and int(r[0].total) == 6 and int(r[0].uncapped_total) >= 9",
+      "equals": true,
+      "comment": "the roll is changed to 6"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn tree.root.get_node(\"Cus11eReactiveDialog/Content/RollResult\").text.contains(\"changed to 6\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/Targets/Target_U_GRETCHIN_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/Targets/Target_U_WARBOSS_A",
+      "timeout_s": 3.0,
+      "comment": "ANY enemy unit within 6\" is a legal target (printed text), not only the closest"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn tree.root.get_node_or_null(\"Cus11eReactiveDialog/Content/Targets/Target_U_BOYZ_B\") == null",
+      "equals": true,
+      "comment": "an enemy unit beyond 6\" is not offered"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_selfless_service_targets"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/Targets/Target_U_GRETCHIN_C",
+      "comment": "REAL click: pick the Gretchin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/DeclareButton",
+      "comment": "REAL click: Charge the selected target(s)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn str(H.phase().heroic_intervention_unit_id)",
+      "equals": "U_WITCHSEEKERS_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.phase().heroic_intervention_pending_charge.get(\"targets\", [])",
+      "equals": [
+        "U_GRETCHIN_C"
+      ]
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveChargeBar/Panel/Row/FailChargeButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_WITCHSEEKERS_A",
+      "comment": "the charge panel's drag tools have the Witchseekers (HI charge path)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.awaiting_movement",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.charge_distance",
+      "equals": 6,
+      "comment": "the drag budget is the capped roll"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 330.4,
+      "from_y": 1785.2,
+      "to_x": 330.4,
+      "to_y": 1700.0,
+      "comment": "REAL drag: one Witchseeker into base contact with the Gretchin (the charge tool snaps it)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_selfless_service_dragged"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Snap to Contact",
+      "comment": "REAL click: the charge panel moves the remaining models into contact"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "04_selfless_service_staged"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Charge Moves",
+      "comment": "REAL click: confirm the charge move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WITCHSEEKERS_A.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WITCHSEEKERS_A.flags.fights_first",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_C.flags.has_been_charged",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn RulesEngine.is_unit_engaged(\"U_WITCHSEEKERS_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.g5().is_empty() and not H.phase()._cus11e_selfless_pending",
+      "equals": true,
+      "comment": "the human flow is over; the end of the phase continues"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "comment": "core Heroic Intervention (not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10,
+      "comment": "the Charge phase ended (Fight phase)"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_witchseekers_charged"
+    }
+  ],
+  "transition_to_phase": 8
+}

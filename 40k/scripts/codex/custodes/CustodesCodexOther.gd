@@ -8,7 +8,8 @@ extends RefCounted
 ##   unit_declares_charge   FURY OF THE EMPEROR (ChargePhase)
 ##   charge_phase_start     GRAVIMETRIC GRENADE (start of the opponent's Charge phase)
 ##   charge_phase_end       SELFLESS SERVICE (end of the opponent's Charge phase;
-##                          follow-up cus11e_selfless_service, ChargePhase)
+##                          follow-up cus11e_selfless_service, ChargePhase;
+##                          WP-G5: a human rolls / picks targets in CustodesReactive.gd)
 ##   phase_end              SUPERHUMAN FOCUS (x2) — end of any phase, both players
 ##   unit_destroyed         VICTORY BEFORE DEATH
 ##   (S panel)              UNLEASH THE LIONS (your Command phase),
