@@ -22,7 +22,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker._config_overrides.erase(\"PLANS_ENABLED\")\nvar plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json\")\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))"
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker._config_overrides.erase(\"PLANS_ENABLED\")\nvar plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json\")\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))"
     },
     {
       "act": "wait_seconds",
@@ -185,7 +185,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0\nreturn \"plans_disabled\""
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0\nreturn \"plans_disabled\""
     },
     {
       "act": "wait_seconds",

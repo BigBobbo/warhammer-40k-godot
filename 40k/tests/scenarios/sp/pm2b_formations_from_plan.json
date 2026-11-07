@@ -38,7 +38,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nif plan.is_empty():\n\treturn \"NO_PLAN\"\n# configure() clears plans, so it has to come first.\n# Engine human-gates read game_config.playerN_type and default to\n# HUMAN, so flip them to AI now that the scene is up.\nvar gc = GameState.state[\"meta\"][\"game_config\"]\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))",
+      "script": "var plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nif plan.is_empty():\n\treturn \"NO_PLAN\"\n# configure() clears plans, so it has to come first.\n# Engine human-gates read game_config.playerN_type and default to\n# HUMAN, so flip them to AI now that the scene is up.\nvar gc = GameState.state[\"meta\"][\"game_config\"]\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"AI\"})\nAIPlayer.set_ai_speed_preset(0)\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))",
       "equals": "Fixture — Recon Stomps rich (all five verbs)"
     },
     {
