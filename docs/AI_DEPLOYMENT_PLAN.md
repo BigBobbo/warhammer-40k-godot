@@ -109,7 +109,7 @@ Further observations:
 | G2 | **No 11e visibility model** in deployment. Candidates are placed *next to* ruins instead of *inside* dense areas, so leakers are common. | Multi-model units fully Hidden: 0/8 (Custodes), 0/6 and 1/6 (Ork mirror); 6/8 Custodes units leak | Gives the enemy's turn 1 free targets. |
 | G3 | **Deploys at the front edge by default** (row 1 = 2" from front) | `_decide_deployment` deploy_y | Maximises turn-1 charge and shooting exposure. |
 | G4 | Ignores the **turn-order uncertainty** (roll-off happens after deployment) | §1.1 | Deploys as if it will move first. |
-| G5 | No **enemy reach model**: threat = centroid + max range, Euclidean, current positions only | `_calculate_enemy_threat_data` :28695 | Exposure is misjudged both ways. |
+| G5 | No **enemy reach model**: threat = centroid + max range, Euclidean, current positions only. Charge reach adds +2" engagement range, which 11e doesn't grant. | `_calculate_enemy_threat_data` :28695 | Exposure is misjudged both ways. |
 | G6 | 11e terrain scorer bugs | Explore audit | Wrong spots, systematically. |
 | G7 | No **job / destination** concept; unit order is army-list order; no army-level plan | :5035, review doc §3.1 | Units don't stage for turn 1–2; scarce hidden spots are taken first-come, first-served. |
 | G8 | Formation shapes: one 5-wide grid, circular bases | :24548 | Can't fill a ruin footprint, form a screen line, or fit a lane. |
@@ -141,7 +141,7 @@ Rules text: `docs/rules/40k_11th_edition_core_rules.txt`. Engine constants: `scr
 | **Plunging Fire**: +1 BS from terrain 3"+ high at ground-level targets, or TOWERING within 12" | 22.05 | The engine never writes `elevation_inches`, so upper-floor deployment isn't possible yet (future hook). |
 | **Terrain objectives**: holding = being *within* the objective's terrain area | 14.01 | Home and most NML objectives are ruins, so holders can be **Hidden while holding**. |
 | **Movement through dense terrain**: infantry/beasts/swarm/mobile pass horizontally; others can't cross dense sections >2" high | 13.06 | Vehicles and monsters get **boxed in**. Deploy them with exit lanes. |
-| Advance = M + D6; no charge after advancing. Charge: declared within 12", 2D6, end within 2" engagement range | 09.06, 11.02; `engagement_range_inches()=2` | Turn-1 melee reach ≈ M + 2D6 + 2". M6 → ~15" (50%); M12 → ~21". |
+| Advance = M + D6; no charge after advancing. Charge: declared within 12"; after the 2D6 roll, targets must be **within the roll, base to base** (engagement range does not extend it) | 09.06, 11.02, 11.04; engine `ChargePhase.gd:862` | Turn-1 melee reach = M + 2D6. At 58% (needs 7): M6 → 13", M12 → 19". Hard ceiling M + 12". |
 | Fire Overwatch (snap shooting): 1 visible target within 24", hits on 6s | 15.08–15.09 | Minor deployment factor. |
 | **Strategic reserves**: ≤50% points; arrive R2+ via ingress wholly within 6" of an edge and >8" from enemies; not in the enemy zone before R3; **destroyed at end of R3** if not arrived. Deep Strike: anywhere >8". Rapid Ingress (1CP, not R1). | 20.01–20.04, 24.09, 15.07 | Reserves are a real "hide" for units the board can't protect, but a timed one. Screens must deny 8" holes by R2. |
 | **Infiltrators**: set up anywhere >8" from the enemy zone and all enemy units | 24.20 | Forward objective grabs, forward screens, and pushing enemy infiltrators back (8" both ways). |
@@ -163,19 +163,122 @@ Minimum zone-to-zone gap, computed from the polygons:
 | Sweeping Engagement | Stepped long-edge | 16.0" |
 | Search & Destroy | Quarter-arcs | 12.7" |
 
-At a 20" gap an M12 unit charges your front line on turn 1 about half the time. On Search & Destroy even M6 infantry threaten the zone tips. Front-edge deployment is never neutral.
+At a 20" gap, an M12 unit starting on its own zone edge needs an 8" roll to hit your front edge on turn 1 (42%). On Search & Destroy, M6 infantry need a 7 at the zone tips (58%). Front-edge deployment is never neutral.
 
 ---
 
 ## 3. Deployment doctrine (research synthesis)
 
-<!-- DOCTRINE_PLACEHOLDER -->
+Tags:
+- [11e] = source from the 11th-edition era (Apr–Nov 2026).
+- [10e] = 10th-edition source.
+- [gen] = edition-agnostic or older.
+- [derived] = arithmetic on the 11e rules above.
 
-### 3.x The deployment routine (what the AI computes, and what the coach teaches)
+Caveat: Tabletop Battles (formerly Goonhammer) pages could not be fetched; points marked "(ext.)" come from search extracts. Full source list is in Appendix B.
+
+### 3.1 What 11e changed about deploying
+- **Infantry can stand on the line now.** INFANTRY in a terrain area can sit at the front of the zone with LoS into no-man's-land and stay untargetable beyond 15" until they shoot. GW: "deploy your models a lot more freely without worrying about a first-turn barrage" [11e, WarCom terrain].
+  - Hidden is checked **per model**: "half-an-inch out of the footprint, you aren't Hidden" [11e, FLG footprints; TTB Hidden (ext.)].
+- **Alpha strikes matter less.** The first-player win rate is ≈51% in 11e [11e, 40k-analytics (ext.)]. Siegler credits "Dense deployment protection, Hidden… plus improved cover" for fewer turn-1 alpha strikes and fights pulled toward the middle [11e, FLG].
+  - ⇒ Deploy so you survive going second, but **don't give up turn-1 staging** just to avoid an alpha.
+- **Vehicles and monsters still use the old logic.** They can't be Hidden, and get no cover from an area they stand *in*: obscuring ignores areas either model is within.
+  - ⇒ Keep them **outside terrain areas, directly behind them**. Long thin footprints still hide a tank parked right behind [11e, TTB visibility (ext.); WarCom terrain].
+  - A shooter only needs to be *within* an area (not wholly) to ignore its obscuring, so any enemy that can **toe into** the intervening ruin on turn 1 sees through it. Observer sampling must include those spots [11e, TTB terrain (ext.)].
+- **Screening is harder.**
+  - 9" coherency + 8" arrival distance means one unit seals only ≈25" of a line (9" + 2×8") [derived]. A 60" edge needs ≥3 units, a 44" edge ≥2 [derived].
+  - Enemies may move *through* engagement range in the Movement phase, so only gaps narrower than their base actually body-block [11e, WarCom combat].
+  - Pile-in and consolidate are 3", and Overrun adds a second pile-in, so keep protected units **≥6" behind** screens [derived].
+- **Deep-strike charges are bad.** You must land >8" away, and the target must be within the 2D6 roll (base to base), so the charge needs a 9: 28%, or 48% with a re-roll [11e, WarCom combat; TTB Hammer of Math (ext.)]. Ingress also stops further moves until the Charge phase.
+  - ⇒ Melee belongs in reserves only with charge buffs, or as late backfield hunters.
+- **Reserves:** one 50% pool; Rapid Ingress not in round 1. "Reserving too much is the common mistake"; 50% is "almost never" right. Only reserve units with a round-2/3 job; keep on-table OC for your home objectives [11e, Grimslate].
+- **Turn-1 scoring exists in some pairings.** Examples: 13–15 primary on turn 1 in Priority Assets reports [11e, FLG War in the Caribbean; TTB (ext.)]; locally, Battlefield Dominance scores R1–2 and Outmanoeuvre scores R1.
+  - ⇒ If you might go first, stage scorers **one move from expansion/central objectives**, still Hidden or obscured.
+- **Fight order:** chargers fight first and the active player picks first. Defensive counter-punch placement is worth less; counter-chargers act on your own turn [11e, WarCom combat].
+- **Missions shape the posture:**
+  - Take and Hold: many high-OC bodies drip-fed to the centre.
+  - Purge the Foe: durable bricks, kill lanes, and *avoid giving up free kills*.
+  - Reconnaissance: four-quarter spread outside 6" of the centre.
+  - Disruption / Priority Assets: action units and Infiltrators; turn-1 actions score heavily.
+  - [11e, TTB disposition reviews (ext.)]
+  - Each disposition has 5 missions × 3 recommended layouts, so **deployments can be precomputed per pairing** [11e, WarCom missions; 40 Carrot].
+- **Hidden rule details to verify:**
+  - The Rules Commentary/app reportedly extends Hidden to Light-only areas, and Gone to Ground needs only partial occlusion by a Solid feature [11e, TTB Hidden (ext.), unverified]. The engine follows the printed text (dense only) — keep a config flag.
+  - Detection modifiers are clamped 9"–30" (engine: floor 9" only).
+  - Per-army detection modifiers (e.g. Tau +3"/+9", SM "Nowhere to Hide" +3", Custodes +3") belong in the enemy reach model.
+
+### 3.2 Doctrine by topic
+- **Turn order unknown ⇒ deploy as if second, but not purely reactively** [10e, Art of Caesura; gen, Fighting Tigers]. Going second: "deny them a first-turn kill", then flip objectives. Keep killable units off central objectives when the opponent's mission pays for kills there [11e, FLG].
+- **Drops:**
+  - Deploy the least important and least revealing units first. Your most threatening unit dropped first tells the opponent how to deploy [gen, Grimhammer (ext.)].
+  - The last drops have "perfect information" [gen, Turn Zero (ext.)].
+  - Keep a written deployment order [10e, 40k Unorthodoxy].
+  - When deploying first, **leave a hole for big footprints** you'll drop late [10e, Art of Caesura].
+  - **If both sides have Infiltrators, be the Defender** (deploy first) to claim forward spots; otherwise take the second drop for information [10e, 40k Unorthodoxy; Art of Caesura].
+  - Bait: put a unit where the opponent will want to spend activations, then counter [10e, Art of Caesura].
+- **Infiltrators and Scouts:** cut off enemy infiltrate *and* scout moves whenever you can [10e, 40k Unorthodoxy]. In 11e: 8" bubbles over the forward ruins enemy infiltrators would use as Hidden staging [derived]. Infiltrators can't also Scout [11e, TTB (ext.)].
+- **Movement planning:**
+  - Mark staging areas, yours and theirs; maps are symmetric, so take theirs first [10e, Art of Caesura].
+  - Measure the **whole route**, not just the destination, for turns 1–2 [10e, Art of Caesura; 11e, 40 Carrot].
+  - Reach the enemy zone by turn 2 at the latest; prioritise the natural expansion objective and the centre [10e, 40k Unorthodoxy].
+  - Don't wait for turn 5: there is a 15 VP/round cap [11e, TTB Take and Hold (ext.)].
+- **Assault:**
+  - "Assault units need to be able to assault": forward, not behind the army [10e, 40k Unorthodoxy; gen, Fighting Tigers].
+  - The charge is rolled before targets are chosen, so stage where **≥2 enemy units fall within M + 2D6** and a short roll still has a target [11e, TTB Hammer of Math (ext.)].
+  - Charges don't need LoS, so finish moves behind blockers [10e, WarCom tactica].
+  - BoLS worries that Hidden over-rewards assault armies staging right behind their line — exactly the Stage→Strike pattern [11e, BoLS].
+- **Shooting:**
+  - Fire lanes over open ground and NML objectives. Purge the Foe's 6-objective maps split the centre and block long lanes [11e, WarCom July update].
+  - Dawn of War allows "very easy flank attacks" from shooters [11e, FLG].
+  - Deploy [HEAVY] units already on their firing posts (+1 to hit if moved ≤3") [11e, S&B].
+  - The Solid ground floor blocks LoS in and out; upper floors see out. Plunging Fire gives +1 BS from 3"+ and cancels cover [11e, WarCom terrain; S&B]. The engine can't place models on upper floors yet.
+  - Firing gives up Hidden through the opponent's next turn, so *who fires first* is a decision [11e].
+  - An **Overwatch picket** (24" LoS over the enemy's approach lanes) has small value but loses Hidden when it fires [11e, TTB (ext.)].
+- **Characters and fragile units:**
+  - Wholly inside dense, on the **far side**, partly behind a Solid feature (Gone to Ground → 12") [11e, WarCom; TTB].
+  - Screen them "from every angle", aircraft included [gen, TTB screening (ext.)].
+  - Plan where they relocate on turn 1, before deep-strike threats go live [gen, Goonhammer (ext.)].
+- **Backfield:**
+  - Put a cheap unit on home against deep strikers [11e, FLG].
+  - The 10e "≈9" in from the zone corners" became 8" [10e→derived].
+  - How much home matters depends on the matchup: Take and Hold, Defend Stronghold, and Priority Assets' 10 VP for your home at game end [11e, TTB/FLG].
+  - Hold from the far edge of the objective area, with a body in front [10e→derived].
+- **Transports:**
+  - Dedicated transports must start with a unit embarked (July update) [11e, WarCom].
+  - They can't hide, and dense pieces lane-lock them (a Rogal Dorn was "lane-locked"), so check each vehicle's turn-1/2 route [11e, FLG].
+
+### 3.3 Charge odds (11e: the target must be within the 2D6 roll, base to base)
+
+| Distance | 5" | 6" | 7" | 8" | 9" (deep strike) | 10" | 11" | 12" |
+|---|---|---|---|---|---|---|---|---|
+| P(2D6 ≥ d) | 83% | 72% | 58% | 42% | 28% | 17% | 8% | 3% |
+| With re-roll | 97% | 92% | 83% | 66% | 48% | 31% | 16% | 5.5% |
+
+The engine matches this (`ChargePhase.gd:862`: engagement range does not extend the roll). The AI's `_calculate_enemy_threat_data` still adds +2" (M + 12 + ER), overstating reach by 2".
+
+### 3.4 How experts teach it (feeds the coach, §6)
+- **Three questions** [gen, Turn Zero (ext.)]:
+  - How do I out-range their offence?
+  - How do I protect my key units?
+  - What can they do on their first turn?
+- **Checklist** [10e, Art of Caesura]:
+  - Know the mission.
+  - Draw fire lanes.
+  - Find both sides' staging areas.
+  - Deploy as if second.
+  - Give every unit a role.
+  - Read what the enemy threatens.
+  - Hide and shape movement with terrain.
+  - Tape-measure turns 1–2.
+  - Rehearse.
+- **Rehearse both turn orders**; record the main plan, a fallback, and the trigger to switch. "Teach yourself patterns and triggers, not scripts" [11e, 40 Carrot].
+
+### 3.5 The deployment routine (what the AI computes, and what the coach teaches)
 
 1. **Read the mission.**
-   - Which objectives score, and when: home, expansion, centre. Scoring starts in the R2 Command phase, so *end-of-R1 positions* decide the first score.
+   - Which objectives score, and when: home, expansion, centre. Most cards score from the R2 Command phase, so *end-of-R1 positions* decide the first score. Some score in R1 (e.g. Battlefield Dominance, Outmanoeuvre).
    - Which secondaries reward zones, quarters, edges or kills.
+   - Whether the opponent is paid for kills on central objectives.
 2. **Read the board from the enemy's turn 1.**
    - Where can each enemy unit be after one move (+D6)?
    - Which of your cells can they see from there (exposure)?
@@ -273,11 +376,11 @@ Column meanings:
 | GUNLINE_LONG | A firing post with lanes onto NML objectives and the enemy's approach lanes; remain stationary for [HEAVY] | Infantry: inside a dense ruin on an *open side* facing the lanes (Hidden until it fires). Vehicles: in an LoS shadow 1 short move behind a firing post ("peek"). Indirect: deepest shadow, spotter lanes considered. | Peek and shoot; [HEAVY] bonus if it moved ≤3" | Hidden through enemy T1, then shoot | Infantry fully Hidden; vehicles in shadow | Lanes with zero targets; boxed-in vehicles |
 | FIRE_SUPPORT_MID | 18–24" from where the enemy will be in T1/T2 (NML objectives) | Mid-zone hidden spot with 1-move reach to a firing post | Advance to the post and fire | Hold and fire on the enemy that came forward | Hidden | Front-row exposure |
 | SHORT_RANGE | Within half range of high-value targets on turn 2 | Hidden **forward** staging behind or inside front-edge ruins; or embarked; or reserves | Move up hidden (it can't reach a target T1 anyway) | Counter-attack enemy units that came forward | Hidden or embarked | Being the first visible target |
-| SCREEN | Between enemy charge lanes and valuable units; forward posts that push infiltrators/scouts ≥8" back | Front band, ≥1 move ahead of what it protects, spread to block corridors (≤2" between models' engagement zones) within coherency | Push forward to deny NML | Absorb the charge | Optional (being charged is its job) | Screening empty lanes; standing where enemy shooting kills it before it does anything |
-| HAMMER_FAST | Charge range of enemy units/objectives on T1–T2; flanks | Hidden at the **front edge**, behind blocking terrain, with a clear lane to a flank or NML objective. Out of enemy T1 reach *or* only reachable by things it wants to fight. | T1 objective grab or charge if in range | Punish enemy units that came forward | Fully Hidden (or shadow for bikes, which can't hide) | Open ground in front of enemy guns; dead-end lanes |
+| SCREEN | Between enemy charge lanes and valuable units; forward posts that push infiltrators/scouts ≥8" back | Front band, **≥6" ahead** of what it protects (3" pile-in/consolidate + Overrun). Gaps only body-block if narrower than the enemy's base. Within the 9" envelope a unit seals ≈25" of line against 8" arrivals. | Push forward to deny NML | Absorb the charge | Optional (being charged is its job) | Screening empty lanes; standing where enemy shooting kills it before it does anything |
+| HAMMER_FAST | Charge range of enemy units/objectives on T1–T2; flanks | Hidden at the **front edge**, behind blocking terrain, with a clear lane to a flank or NML objective. Prefer spots where **≥2 enemy units fall within M + 7"**, so a short roll still has a target. Out of enemy T1 reach *or* only reachable by things it wants to fight. | T1 objective grab or charge if in range | Punish enemy units that came forward | Fully Hidden (or shadow for bikes, which can't hide) | Open ground in front of enemy guns; dead-end lanes |
 | HAMMER_SLOW | NML objectives on T2; counter-charge enemy forward units | Hidden in forward-centre ruins, 1 move from NML objectives | Move to the NML objective edge (hidden if the objective is a ruin) | Counter-charge | Fully Hidden | Corners (no reach), flanks without objectives |
 | ANVIL / BRICK | Centre or expansion objective by the end of R1 | Hidden, as far forward as safe on the lane to that objective | Take it | Take it after the enemy commits | Hidden | Being out-ranged in the open |
-| BIG_NONHIDE | Its job destination (fire post, objective, charge lane) | **LoS shadow** with an exit lane (path distance to destination ≤ M); keep 6" from fragile friendlies | Move out | Stay in shadow, then strike | — | Corners walled by dense ruins (it can't cross dense >2"); open lanes |
+| BIG_NONHIDE | Its job destination (fire post, objective, charge lane) | **LoS shadow, *outside* the terrain area and directly behind it** (an area you stand in no longer hides you), with an exit lane (path distance to destination ≤ M); keep 6" from fragile friendlies | Move out | Stay in shadow, then strike | — | Standing inside a ruin's footprint; corners walled by dense ruins (it can't cross dense >2"); open lanes; spots enemies can see by toeing into the ruin |
 | TRANSPORT | Delivery point for the cargo's job | Shadow + exit lane toward the cargo's destination | Deliver | Hide | — | Being the alpha-strike target in the open |
 | INFILTRATOR | NML objective ruins, forward screens | >8" from the enemy zone and units, inside a dense NML ruin (Hidden + holding) | Hold or act | **Expect to be charged** if within enemy T1 reach; only deploy forward if it survives or it's cheap | Fully Hidden | Within enemy fast-melee reach unless it's chaff |
 | SCOUT (move) | As its job, but 6–9" further forward | Deploy normally; choose the scout destination after seeing the turn order | — | — | Destination Hidden | Ending 8–15" from enemies in the open |
@@ -344,7 +447,11 @@ SCOUT       ─► scout moves / reserve-scout set-up scored by the same field, 
 Inputs:
 - Army profiles: speed, range, durability, melee share, hide-capable share.
 - Map: pockets per side, shadows, lanes.
-- Mission: the primary card pairing and secondaries (`MissionManager`).
+- Mission: the primary card pairing and secondaries (`MissionManager`). Disposition priors from §3.1:
+  - Take and Hold → many OC bodies toward the centre.
+  - Purge the Foe → durability + kill lanes + KillDeny.
+  - Reconnaissance → four-quarter SPREAD outside 6" of the centre.
+  - Disruption / Priority Assets → action units and Infiltrators forward.
 
 Sides are "left / centre / right" bins along the zone front, scored by pockets, objectives and the enemy's committed weight.
 
@@ -372,7 +479,7 @@ Sides are "left / centre / right" bins along the zone front, scored by pockets, 
 
 | Term | Formula (v1) | Notes |
 |---|---|---|
-| **Second** (survive their T1) | `−λ_job · min(1, Σ_e [ Pvis_e(S)·KillR_e→U + Pchg_e(S)·KillM_e→U ]) · pts(U)/100` | Expected points lost if they go first. `KillR`/`KillM` = expected fraction of U destroyed by e's guns/melee (`_estimate_weapon_damage` / `_estimate_melee_damage` ÷ U's wounds). `Pvis` = share of e's reachable observer points with LoS (and within 15"/12" if U is fully Hidden). Indirect counts only on 6s, or 4+ with a spotter. `Pchg` = P(2D6 ≥ path_dist − 2") after e's M move. Scouts and infiltrators add reach. |
+| **Second** (survive their T1) | `−λ_job · min(1, Σ_e [ Pvis_e(S)·KillR_e→U + Pchg_e(S)·KillM_e→U ]) · pts(U)/100` | Expected points lost if they go first. `KillR`/`KillM` = expected fraction of U destroyed by e's guns/melee (`_estimate_weapon_damage` / `_estimate_melee_damage` ÷ U's wounds). `Pvis` = share of e's reachable observer points with LoS (and within 15"/12" if U is fully Hidden), including "toe-in" points inside intervening ruins. Indirect counts only on 6s, or 4+ with a spotter. `Pchg` = P(2D6 ≥ d), where d = base-to-base distance after e's best M move (terrain-aware path; 11e targets must be within the roll). Scouts and infiltrators add reach. |
 | **First** (our T1 opportunity) | Shooters: Σ target value × P(see and in range after our move). Melee: P(charge or contest) on reachable enemy units/objectives. Grabbers: P(reach objective by M or M+D6). | Enemy hidden units count only if within 15" |
 | **Job** | Destination reach: `Σ_d w_d · f(turns_to_d)` via path fields. Home holder: inside the home area. Plus "option value" = number of distinct destinations reachable in one move. | The "where do you want to go" term |
 | **Leak penalty** | Large penalty if some but not all models are Hidden while the unit is otherwise visible | Fixes the commonest current error |
@@ -380,6 +487,9 @@ Sides are "left / centre / right" bins along the zone front, scored by pockets, 
 | **Syn** | Aura and Leader ranges to beneficiaries; transport near its cargo's destination | |
 | **Mob** | Penalty when path distance to the destination > M (boxed in), especially for BIG_NONHIDE | Fixes the "Stompa in the corner" pattern |
 | **Clutter** | Blocking a friendly lane or pocket; within 6" of own Deadly Demise vehicles; unit-on-unit charge chains | |
+| **KillDeny** | Penalty for easy-to-kill units placed where the opponent's primary or secondary pays for kills (central objectives, Purge the Foe, "kill a unit on an objective") | From the opponent's mission cards |
+| **Picket** | Small bonus for one unit with 24" LoS over the enemy's approach lanes (Overwatch), minus the cost of losing Hidden if it fires | |
+| **Multi-target** (melee) | Bonus when ≥2 enemy units/objectives are within M + 7" of the staging spot | Charge targets are chosen after the roll |
 
 Defaults:
 - λ by job: FRAGILE_SUPPORT 3.0, GUNLINE 2.0, HAMMER 1.5, ANVIL 1.2, SCREEN/CHAFF 0.4.
@@ -397,6 +507,9 @@ Defaults:
 3. **Late:** HAMMER_FAST/SLOW (pick the side after seeing enemy soft spots), FRAGILE_SUPPORT (hide where threats aren't), and anti-vehicle shooters (face the enemy's vehicles).
 
 Additional rules:
+- Least important and least revealing first. Dropping the scariest unit first tells the opponent how to deploy.
+- When dropping early, **reserve a hole for late big footprints**: the allocation step keeps their slot free.
+- ROLL_OFF choice: today the AI always deploys second. Change it to deploy **first (Defender) when both armies have Infiltrators** and ours gain from claiming forward ruins; otherwise keep second.
 - Screens: early if the enemy has Infiltrators or Scouts, to push them back; otherwise late.
 - Keep ≥1 flexible unit for the very end. The side with more units places its tail with full information. Count drops in FORMATIONS: embarking and attaching reduce drops.
 - Infiltrators: drop when the forward slot is best evaluated. Early drops claim NML space under the 8" mutual rule.
@@ -416,6 +529,7 @@ Additional rules:
 ### 5.9 FORMATIONS-phase decisions (reserves, transports, attachments)
 - **Board capacity check:** if hide-capable units outnumber hidden slots, or big units outnumber shadows, the overflow becomes reserve candidates. Rank by Deep Strike / fast / no-T1-job / most exposed, within 50% points and units.
   - Keep enough on the table for OC + screens + DS denial.
+  - **Strong prior against heavy reserves.** Research: "reserving too much is the common mistake"; 50% is "almost never" right. Deep-strike charges need a 9 (28%). Melee goes in only with charge buffs, or as a late backfield hunter.
 - **Arrival plan:** R2 by default; nothing waits past R3 (they would be destroyed). Fix the arrival scorer's 9" (should be 8").
 - **Transports:** embark short-range or fragile infantry when the transport has a shadow slot with an exit lane, and the cargo's destination is ≤ transport M + disembark reach.
 - **Attachments:** prefer pairings whose combined footprint still fits a pocket (an attached leader + 10 bodies may not fit the home ruin).
@@ -444,7 +558,7 @@ Additional rules:
 
 The data layers are identical to §5.1, so the coach is mostly UI.
 
-1. **Pre-deployment briefing card** (one screen) — example: "Your zone: 2 dense ruins (≈6 infantry units can hide), 30% LoS shadow for vehicles. Enemy fastest threat: Warbikers, 21" turn-1 reach. Turn order is rolled after deployment — deploy to survive going second. Suggested posture: Hide & Punish, weight right (more cover + NML objective)." Then a job list for your units, which can be changed.
+1. **Pre-deployment briefing card** (one screen) — example: "Your zone: 2 dense ruins (≈6 infantry units can hide), 30% LoS shadow for vehicles. Enemy fastest threat: Warbikers, 19" turn-1 charge reach at 58% (24" max). Turn order is rolled after deployment — deploy to survive going second. Suggested posture: Hide & Punish, weight right (more cover + NML objective)." Then a job list for your units, which can be changed.
 2. **Overlays** (toggle in deployment; extends the existing Vision/Threat overlays):
    - Hide pockets (green).
    - LoS shadows (blue).
@@ -477,7 +591,7 @@ Each phase lands behind `DEPLOY_V2_ENABLED` (via `get_param`, default 0) and add
 
 | Phase | Deliverables | Key files | Tests / gate |
 |---|---|---|---|
-| **P0 Fix + measure** | (a) `DeploymentEval` metrics: fully Hidden infantry %, leakers, value-weighted exposure, T1 charge risk, forced-reserve count, home holder present, exit-lane OK. (b) Shape- and base-aware legal formation generator; remove the cap-bypass fallback for AI. (c) Fix the 11e terrain-scorer bugs (categories, area vs feature, swapped weights, anti_tank, `is_top_zone` on side maps). (d) Fix Scout 9"→8" and reserve arrival 9"→8". (e) A6b predeploy fixtures on several maps and layouts. | New `scripts/ai/DeploymentEval.gd`; AIDM :24548, :5594–5760, :5189; `AIPlayer.gd:3855-4013`; `tests/saves/` | Unit tests per fix. Windowed scenario: AI deploys the Ork mirror with **0 forced reserves**. Bench: metrics recorded per game. |
+| **P0 Fix + measure** | (a) `DeploymentEval` metrics: fully Hidden infantry %, leakers, value-weighted exposure, T1 charge risk, forced-reserve count, home holder present, exit-lane OK. (b) Shape- and base-aware legal formation generator; remove the cap-bypass fallback for AI. (c) Fix the 11e terrain-scorer bugs (categories, area vs feature, swapped weights, anti_tank, `is_top_zone` on side maps). (d) Fix Scout 9"→8" and reserve arrival 9"→8"; drop the +2" engagement range from `_calculate_enemy_threat_data` charge reach in 11e (this also affects the movement AI). (e) A6b predeploy fixtures on several maps and layouts. | New `scripts/ai/DeploymentEval.gd`; AIDM :24548, :5594–5760, :5189; `AIPlayer.gd:3855-4013`; `tests/saves/` | Unit tests per fix. Windowed scenario: AI deploys the Ork mirror with **0 forced reserves**. Bench: metrics recorded per game. |
 | **P1 Battlefield read** | Pockets, fast exposure field (lifted LoS + cache; optional per-layout offline tables), path fields per movement class, lanes, DS geometry, enemy reach model | New `scripts/ai/BattlefieldRead.gd` (static, snapshot-in) | Headless: exposure field equals `model_visible_11e` on samples. Perf budget ≤2 s per phase (CI-timed). Debug overlay scenario screenshot. |
 | **P2 Jobs + scorer** | Job classifier v2, slot generator, `V(U,S)`, records/glossary, per-unit argmax | New `scripts/ai/DeploymentPlanner.gd`; hook in `_decide_deployment` | Headless golden tests (Gretchin → HOME_HOLDER/SCREEN; Warbikers → HAMMER_FAST; Mek → FRAGILE_SUPPORT). Scenario: on the fixture, ≥80% of hide-capable units fully Hidden (capacity permitting). |
 | **P3 Army level** | Posture, slot allocation (regret greedy / Hungarian), drop-order policy | DeploymentPlanner | Headless: no pocket is stolen from a higher-priority unit. Scenario: the order shows backfield first and hammers last. |
@@ -524,7 +638,8 @@ Do P0 first regardless: (b) alone returns about a third of an Ork army to the ta
   - The LoS memo epoch key doesn't match the snapshot shape (cache is effectively global).
   - `get_first_turn_player()` defaults to 1 while unset.
 - **Unknown enemy placements** early in deployment: model undeployed enemies over their zone, then re-solve per drop. Don't over-commit early (drop order).
-- **Faction specials** (redeploys, extra Infiltrators, deployment stratagems) need hooks: the job/slot model should accept faction-provided slots.
+- **Faction specials** (redeploys, extra Infiltrators, deployment stratagems, detection-range modifiers) need hooks: the job/slot model should accept faction-provided slots and per-army detection modifiers.
+- **Rules ambiguity:** the Rules Commentary reportedly lets Light-only areas grant Hidden (unverified; the engine follows the printed dense-only text). Read pocket eligibility through one predicate (`TerrainManager.is_model_hidden`) so a later ruling changes one place.
 
 ---
 
@@ -539,3 +654,46 @@ Do P0 first regardless: (b) alone returns about a third of an Ork army to the ta
 | `proposed_exposure_field_p1.png` | Rendered from a live computation: P1-zone cells × enemy T1-reachable points (`model_visible_11e`) |
 | `baseline_*_crucible.json` | Per-unit raw rows (role, models in area/dense/Hidden, distance to enemy zone, seen-by count) |
 | `probes/*.gd`, `probes/*.py` | The exact `execute_script` probes and renderers used (MCP bridge, 127.0.0.1:9080) |
+
+## Appendix B — sources (web research, 2026-11-07)
+
+"(ext.)" = page could not be fetched; the point comes from a search extract. Verify before quoting.
+
+- **11e, Warhammer Community:**
+  - [Terrain rules](https://www.warhammer-community.com/en-gb/articles/xlppkx5s/new40k-take-cover-with-updated-terrain-rules/)
+  - [Terrain objectives](https://www.warhammer-community.com/articles/lxzwueun/new40k-terrain-objectives-make-the-battlefield-your-mission)
+  - [Combat changes](https://www.warhammer-community.com/en-gb/articles/m3son4il/new40k-combat-changes-shake-up-fighting-in-the-new-edition/)
+  - [Missions / dispositions](https://www.warhammer-community.com/en-gb/articles/oefzq9fg/new40k-how-your-army-affects-your-mission/)
+  - [July update](https://www.warhammer-community.com/articles/rgqanids/warhammer-40000-july-update-what-you-need-to-know)
+- **11e, Frontline Gaming:**
+  - [War in the Caribbean VI report](https://frontlinegaming.org/2026/07/01/war-in-the-caribbean-vi-tournament-report/)
+  - [Faction packs & competitive changes](https://frontlinegaming.org/2026/06/10/new-40k-chaos-faction-packs-and-competitive-rules-changes/)
+  - [Footprint standardisation](https://frontlinegaming.org/2026/04/14/11th-edition-is-changing-everything-here-is-how-were-standardizing-the-tabletop/)
+  - [Astra Militarum dispositions](https://frontlinegaming.org/2026/06/15/astra-militarum-11th-ed-dispositions-first-impressions/)
+  - [WarhammerTV roundup](https://frontlinegaming.org/2026/05/28/11th-ed-40k-rules-roundup-from-the-warhammertv-battle-report/)
+- **11e, Tabletop Battles (ext.):**
+  - [Hidden & Gone to Ground](https://www.tabletopbattles.com/40k-ruleshammer-11th-edition-hidden-and-gone-to-ground-guide)
+  - [Terrain guide](https://www.tabletopbattles.com/ruleshammer-terrain-guide-11th-edition)
+  - [Visibility examples](https://www.tabletopbattles.com/40k-ruleshammer-11th-edition-more-visibility-and-cover-examples)
+  - [Movement deep dive](https://www.tabletopbattles.com/11th-edition-40k-rules-deep-dive-moving-and-the-movement-phase/)
+  - [Charge & fight](https://www.tabletopbattles.com/11th-edition-40k-rules-deep-dive-the-charge-and-fight-phases/)
+  - [Hammer of Math: charges](https://www.tabletopbattles.com/40k-hammer-of-math-charge-basics-in-11th-edition)
+  - [Missions intro](https://www.tabletopbattles.com/40k-an-introduction-to-missions-in-11th-edition/)
+  - [Take and Hold](https://www.tabletopbattles.com/40k-11th-edition-force-disposition-review-take-and-hold/)
+  - [Purge the Foe](https://www.tabletopbattles.com/40k-11th-edition-force-disposition-review-purge-the-foe/)
+  - [Disruption](https://www.tabletopbattles.com/40k-11th-edition-force-disposition-review-disruption/)
+  - [Turn Zero](https://www.tabletopbattles.com/start-competing-40k-deployment-tactics-surviving-turn-zero/)
+- **11e, other:**
+  - [Grimslate: reserves](https://grimslate.com/blog/reserves-and-deep-strike-11th-edition) — note: it states ">9"" for Deep Strike, which is stale.
+  - [Sprues & Brews core-rules deep dive](https://spruesandbrews.com/2026/06/01/warhammer-40000-11th-edition-core-rules-deep-dive/) — note: it says "7" charges from deep strike", which is wrong (a 9 is needed).
+  - [40 Carrot deployment guide](https://40-carrot.app/guides/warhammer-40k-deployment-strategy/)
+  - [BoLS on Hidden](https://www.belloflostsouls.net/2026/05/warhamer-40k-is-the-new-hidden-rule-any-good.html)
+  - [40k-analytics](https://40k-analytics.github.io/stateofthegame/) (ext.)
+- **10e / general:**
+  - [Art of Caesura: deployment](https://the-art-of-caesura.blogspot.com/2025/10/the-full-stop-deployment.html)
+  - [40k Unorthodoxy](https://40kunorthodoxy.blogspot.com/)
+  - [WarCom movement tactica](https://www.warhammer-community.com/en-gb/articles/wrrt241d/warhammer-40000-tactica-the-movement-phase/)
+  - [Fighting Tigers of Veda](https://fightingtigersofveda.com/?p=1781)
+  - [Goonhammer: screening](https://www.goonhammer.com/start-competing-how-to-screen-everything) (ext.)
+  - [Grimhammer: deployment](https://grimhammertactics.com/40k-tactics-mastering-deployment-in-competitive-40k/) (ext.)
+  - [FLG premeasuring (8e)](https://frontlinegaming.org/2018/09/04/premeasuring-is-a-measurement-of-success-nick-nanavati-2/)
