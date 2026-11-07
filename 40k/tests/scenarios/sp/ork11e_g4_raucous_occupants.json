@@ -1,0 +1,81 @@
+{
+  "id": "ork11e_g4_raucous_occupants",
+  "covers": [
+    "codex.orks.datasheet_abilities.raucous_occupants",
+    "scripts.codex.orks.OrkFortification11e",
+    "objectives.control"
+  ],
+  "description": "WP-G4 Codex: Orks (11e) RAUCOUS OCCUPANTS (Big'ed Bossbunka): while the Bossbunka is within range of its controller's home objective, add the OC of models embarked within it to its OC (printed 0). Fixture ork11e_g4_oc (P1 Orks' Command phase; the Bossbunka on obj_home_1 with 10 Boyz embarked; 3 Custodian Guard (OC 2 each) contesting). Objective control is recomputed through MissionManager (the scoring path the board's objective markers render); P1 controls its home objective; with the occupants battle-shocked the Guard take it back. Setup privilege: the battle-shocked flag in the A/B step.",
+  "fixture": "ork11e_g4_oc",
+  "edition": 11,
+  "rng_seed": 5,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(GameState.state.units[\"U_BOYZ_D\"].get(\"embarked_in\", \"\")) == \"U_BIGED_BOSSBUNKA_A\" and int(GameState.state.units[\"U_BIGED_BOSSBUNKA_A\"].meta.stats.objective_control) == 0",
+      "equals": true,
+      "comment": "the Boyz are embarked in the Bossbunka (printed OC 0) on P1's home objective"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "MissionManager.check_all_objectives()\nreturn int(MissionManager.objective_control_state.get(\"obj_home_1\", 0))",
+      "equals": 1,
+      "comment": "RAUCOUS OCCUPANTS: the Bossbunka adds the embarked Boyz' OC and P1 controls its home objective against the Custodian Guard"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var loc = MissionManager.get_level_of_control(MissionManager._get_objective_by_id(\"obj_home_1\"))\nprint(\"[g4] obj_home_1 level of control \", loc)\nreturn int(loc[1]) > int(loc[2])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = GameState.state.units[\"U_BIGED_BOSSBUNKA_A\"]\nreturn int(MissionManager.model_oc(b, b.models[0]))",
+      "equals": 20,
+      "comment": "the Bossbunka's OC = 10 Boyz x OC 2"
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BIGED_BOSSBUNKA_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hits := []\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"Label\", true, false):\n\tif n.is_visible_in_tree() and str(n.text).begins_with(\"HOME_1:\"):\n\t\thits.append(str(n.text))\nprint(\"[g4] objective control readout \", hits)\nreturn hits.has(\"HOME_1: Orks\")",
+      "equals": true,
+      "comment": "the Command panel's OBJECTIVE CONTROL readout shows HOME_1: Orks"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_home_objective_controlled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.units[\"U_BOYZ_D\"].flags[\"battle_shocked\"] = true\nMissionManager.check_all_objectives()\nreturn int(MissionManager.objective_control_state.get(\"obj_home_1\", 0))",
+      "equals": 2,
+      "comment": "A/B: battle-shocked occupants add nothing — the Custodian Guard control it"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_occupants_battle_shocked"
+    }
+  ]
+}

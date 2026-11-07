@@ -106,6 +106,7 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 		hz.rolls = hz.rolls + extra.rolls
 		hz.failures = int(hz.failures) + int(extra.failures)
 		hz.mortal_wounds = int(hz.mortal_wounds) + int(extra.mortal_wounds)
+	hz = load("res://scripts/codex/orks/OrkFortification11e.gd").fall_back_hazard(unit_id, board, hz)  # WP-G4 Codex: Orks (11e) FORTIFICATION: auto-passed vs only FORTIFICATIONs
 	return {
 		"hazard": hz,
 		"mortal_wounds": hz.mortal_wounds,

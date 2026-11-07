@@ -1,0 +1,120 @@
+{
+  "id": "ork11e_g4_ramshackle_cover",
+  "covers": [
+    "codex.orks.datasheet_abilities.ramshackle_cover",
+    "scripts.codex.orks.OrkFortification11e",
+    "rules.cover.13_08"
+  ],
+  "description": "WP-G4 Codex: Orks (11e) RAMSHACKLE COVER (Big'ed Bossbunka): an attack that targets a unit not fully visible to the attacking model because of the Bossbunka gives the target the benefit of cover. Fixture ork11e_g4_cover (P2 Custodes' Shooting phase, open field with no terrain, the Bossbunka between the Custodian Guard and the Boyz). A real token click selects the Guard; hovering the Boyz shows the line-of-sight cover badge; the guardian spear is assigned with the panel's actions and the staged hit roll shows the benefit of cover (BS 2+ worsened to 3+). Setup privileges: auto wound allocation; both players 0 CP.",
+  "fixture": "ork11e_g4_cover",
+  "edition": 11,
+  "rng_seed": 5,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "equals": true,
+      "comment": "setup privileges: auto wound allocation; both players 0 CP"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tm = TerrainManager\nreturn tm.terrain_features.size() == 0 and bool(tm.unit_has_cover_11e(GameState.state.units[\"U_BOYZ_D\"], GameState.state.units[\"U_GUARD_A\"].models[1]))",
+      "equals": true,
+      "comment": "open field (no terrain): the Boyz have cover only because the Bossbunka hides part of them"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GUARD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.current_scene.get_node(\"ShootingController\").eligible_targets.has(\"U_BOYZ_D\")",
+      "equals": true
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_BOYZ_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "01_los_cover_badge"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.assign_and_confirm(2, \"U_GUARD_A\", \"U_BOYZ_D\")",
+      "equals": true,
+      "comment": "the panel's ASSIGN_TARGET + Confirm Targets"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P1's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hc = PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_hit_context\", {})\nprint(\"[g4] ledger \", hc.get(\"modifier_ledger\", []), \" display \", hc.get(\"hit_threshold_display\", \"\"))\nreturn str(hc.get(\"hit_threshold_display\", \"\"))",
+      "equals": "3+ (cover)",
+      "comment": "the guardian spear's BS 2+ is worsened to 3+ by the benefit of cover"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dock = tree.current_scene.get_node(\"ShootingController\").resolution_dock\nprint(\"[g4] dock status: \", dock.status_label.text)\nreturn dock.status_label.text.find(\"(cover)\") >= 0",
+      "equals": true,
+      "comment": "the dock's hit-roll line shows the benefit of cover"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dock_cover"
+    }
+  ]
+}

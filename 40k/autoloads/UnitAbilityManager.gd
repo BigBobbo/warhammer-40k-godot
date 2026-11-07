@@ -2134,14 +2134,14 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# Advanced Firepower — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
-	# CustodesAbilities.gd (WP-C7), this row only describes it.
+	# CustodesAbilities.gd (WP-G4: rides the PRIME TARGET single-re-roll grant), this row only describes it.
 	"Advanced Firepower": {
 		"condition": "cus11e",  # WP-C7: Codex: Adeptus Custodes (11e) rule lives in CustodesAbilities.gd
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
-		"implemented": false,  # WP-C7: not implemented yet (single-die re-rolls; see custodes_abilities_audit.md)
-		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll (Codex: Adeptus Custodes 11e) — NOT IMPLEMENTED yet."
+		"implemented": true,  # WP-G4: CustodesAbilities.af_project (single-re-roll grant)
+		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll — once each per phase (Codex: Adeptus Custodes 11e)."
 	},
 
 	# Captain-General — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in

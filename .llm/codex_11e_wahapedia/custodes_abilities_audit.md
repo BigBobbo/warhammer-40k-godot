@@ -55,7 +55,7 @@ already reads; once per phase via a per-unit / per-army phase key.
 | Gyrfalcon Jetbike Sodality | Death Blow | charged this turn: melee +1 AP | none | `attack_mods`. §27|
 | Vigilator Squad | Deft Parry | melee attacks that target this unit: -1 to hit | none | `attack_mods` (target side, any attacker). §29, scenario `cus11e_ab_deft_parry` |
 | Aquilon Terminators (Talons) | Reap a Terrible Tally | vs INFANTRY: re-roll hit 1s and wound 1s | none | `attack_mods`. §29|
-| Caladius Annihilator | Advanced Firepower | ranged vs MONSTER/VEHICLE: re-roll one hit, one wound and one damage roll | 10e: per-weapon [LETHAL HITS] | 10e rule deleted; **codex rule NOT implemented** (single-die re-rolls; WP-C46's Magna Imperator plumbing could host it) — row `implemented: false`. §31|
+| Caladius Annihilator | Advanced Firepower | ranged vs MONSTER/VEHICLE: re-roll one hit, one wound and one damage roll | 10e: per-weapon [LETHAL HITS] | 10e rule deleted; **implemented (WP-G4)** — `CustodesAbilities.af_project` rides the PRIME TARGET single-re-roll grant vs a MONSTER/VEHICLE target (interactive dock chips for a human, automatic on Fast Roll / auto-resolve / AI / Fire Overwatch; no hit re-roll for snap shooting); once per phase per roll type. `test_codex11e_g4_combat.gd` A1–A7, scenarios `cus11e_g4_advanced_firepower`, `cus11e_g4_advanced_firepower_fast`|
 | Venatari with Kinetic Destroyers | Strike from the Skies | your Shooting phase, made an ingress move this turn: re-roll hit rolls | none | `attack_mods` (arrival stamp). §30|
 | Shield-Captain (3 variants) | Master of Ka'tahs | — | — | WP-C3 (out of scope) |
 
