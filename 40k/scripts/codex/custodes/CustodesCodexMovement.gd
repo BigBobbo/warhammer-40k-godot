@@ -19,6 +19,8 @@ extends RefCounted
 ##   reactive_normal_move {unit_id, max_inches, roll, source}  SWIFT AS THE EAGLE
 ##   cus11e_reactive_charge {unit_id, target_ids, source}       NO ESCAPE
 ##   cus11e_shoot {unit_id, forced_target_id, source}           RAPID REACTIONS
+##   (WP-G5: a human decider resolves both through CustodesReactive.gd — roll /
+##   targets / drag, weapon choice; the auto resolvers below serve the AI.)
 ##
 ## Turn-long grants (cus11e_* flags — the Shooting phase's effect_* wipe keeps
 ## them) are read by EffectPrimitives' has_effect_advance_and_charge /

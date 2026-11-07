@@ -878,7 +878,10 @@ func _update_selected_unit_display() -> void:
 	if unit_mode_label:
 		var mode_text = "Mode: "
 		var amd: Dictionary = _active_move_data_for(active_unit_id)
-		if amd.get("is_reactive_move", false) and not amd.get("completed", false):
+		if amd.has("cus11e_charge") and not amd.get("completed", false):
+			# WP-G5 Codex: Adeptus Custodes NO ESCAPE: a charge made with the reactive-move drag (CustodesReactive.gd).
+			mode_text += "Charge — %s (up to %s\")" % [str(amd.cus11e_charge.get("source", "")), _fmt_inches(float(amd.get("move_cap_inches", 0.0)))]
+		elif amd.get("is_reactive_move", false) and not amd.get("completed", false):
 			# A reactive normal move (SCARPER!, WHIRLIGIG EVASION, ...): the mode
 			# and its maximum distance are fixed by the rule that granted it.
 			mode_text += "Normal Move — %s (up to %s\")" % [reactive_move_source(amd), _fmt_inches(float(amd.get("move_cap_inches", 0.0)))]

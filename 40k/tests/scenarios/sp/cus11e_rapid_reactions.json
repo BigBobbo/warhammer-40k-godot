@@ -6,7 +6,7 @@
     "stratagem.window.enemy_ended_move",
     "rules.ranged.reactive_shooting"
   ],
-  "description": "Codex: Adeptus Custodes (11e) RAPID REACTIONS (Aquilan Shield, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Movement phase). The Ork player falls the Boyz back out of engagement with Custodian Guard A: enemy_ended_move opens for P2; a real click on 'Use on Custodian Guard...' (engaged with the Boyz at the start of the phase) spends 1 CP: the Guard shoots the Boyz at once (auto-resolved; hit rolls in the dice log).",
+  "description": "Codex: Adeptus Custodes (11e) RAPID REACTIONS (Aquilan Shield, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Movement phase). The Ork player falls the Boyz back out of engagement with Custodian Guard A: enemy_ended_move opens for P2; a real click on 'Use on Custodian Guard...' (engaged with the Boyz at the start of the phase) spends 1 CP: the Guard shoots the Boyz at once (auto-resolved; hit rolls in the dice log). WP-G5: the human now picks the weapons and clicks Roll Attacks in the RAPID REACTIONS dialog; cus11e_g5_rapid_reactions covers it in full.",
   "fixture": "cus11e_c5_reactive",
   "edition": 11,
   "rng_seed": 42,
@@ -174,6 +174,21 @@
       "delta_from_start": -1
     },
     {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/ShootButton",
+      "timeout_s": 4.0,
+      "comment": "WP-G5: the human now picks the weapons and rolls"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/ShootButton",
+      "comment": "REAL click: Roll Attacks (every weapon that can target the Boyz, as offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
       "act": "execute_script",
       "multiline": true,
       "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar shots = H.phase().dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\")\nfor d in shots:\n\tif str(d.get(\"target_unit_id\", \"U_BOYZ_B\")) != \"U_BOYZ_B\":\n\t\treturn false\nreturn not shots.is_empty()",
@@ -202,6 +217,15 @@
     {
       "act": "wait_seconds",
       "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/DoneButton",
+      "comment": "REAL click: Done on the results"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
     },
     {
       "act": "screenshot",

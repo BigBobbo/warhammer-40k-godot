@@ -1,0 +1,284 @@
+{
+  "id": "cus11e_g5_rapid_reactions",
+  "covers": [
+    "codex.custodes.stratagems.rapid-reactions-aquilan-shield",
+    "codex.custodes.CustodesReactive",
+    "codex.custodes.CustodesReactiveDialog",
+    "stratagem.window.enemy_ended_move",
+    "phases.MovementPhase.cus11e_shoot"
+  ],
+  "description": "WP-G5 — player-controlled RAPID REACTIONS (Aquilan Shield, 1 CP). Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges as cus11e_rapid_reactions. The Ork player falls the Boyz back out of engagement with Custodian Guard A; a real click on Use on Custodian Guard A spends 1 CP and opens the RAPID REACTIONS dialog: the Custodes player sees every ranged weapon that can target the Boyz (the only legal target), keeps them selected and clicks Roll Attacks: the attacks are resolved at the Boyz only, the dialog shows the result, Done closes it, and the Ork player has the phase back.",
+  "fixture": "cus11e_c5_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(2, \"Aquilan Shield\", {})",
+      "comment": "setup privileges (see description)",
+      "equals": "Aquilan Shield"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_FALL_BACK",
+        "actor_unit_id": "U_BOYZ_B",
+        "player": 1
+      },
+      "comment": "the Ork player's BEGIN_FALL_BACK"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_move window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_BOYZ_B\", 0.0, -2.5)",
+      "comment": "the Ork move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "Command Re-roll (not under test): keep the roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()",
+      "comment": "belt-and-braces: nothing else left waiting"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_aquilan_shield_rapid_reactions/Buttons/Use_faction_ac_aquilan_shield_rapid_reactions_U_CUSTODIAN_GUARD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_aquilan_shield_rapid_reactions/Buttons/Use_faction_ac_aquilan_shield_rapid_reactions_U_CUSTODIAN_GUARD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rapid_reactions_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_aquilan_shield_rapid_reactions/Buttons/Use_faction_ac_aquilan_shield_rapid_reactions_U_CUSTODIAN_GUARD_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/Weapons/Weapon_0/Use",
+      "timeout_s": 4.0,
+      "comment": "WP-G5: the human picks the weapons (no auto-resolution)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.phase().dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\").size()",
+      "equals": 0,
+      "comment": "nothing fired yet"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn str(H.g5().get(\"target_id\", \"\"))",
+      "equals": "U_BOYZ_B",
+      "comment": "the only target is the unit that fell back"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn int(H.phase().get_pending_stratagem_window_decider())",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Cus11eReactiveDialog/Content/Weapons/Weapon_0/Use",
+      "property": "button_pressed",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.dialog_text()",
+      "comment": "dialog text for the log"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_rapid_reactions_weapons"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/ShootButton",
+      "comment": "REAL click: Roll Attacks"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nvar h = H.phase().dice_log.filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\")\nreturn h.size() > 0 and h.all(func(d): return str(d.get(\"target_unit_id\", \"U_BOYZ_B\")) == \"U_BOYZ_B\")",
+      "equals": true,
+      "comment": "the Guard shot, every attack at the Boyz"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn H.g5().is_empty() and int(H.phase().get_pending_stratagem_window_decider()) == 0 and not H.phase().has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "the Ork player has the phase back"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Cus11eReactiveDialog/Content/Result",
+      "timeout_s": 3.0,
+      "comment": "the dialog shows the attacks' result"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn tree.root.get_node(\"Cus11eReactiveDialog/Content/Result\").text.begins_with(\"RAPID REACTIONS\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"RAPID REACTIONS: Custodian Guard\")",
+      "expect_min": 1,
+      "comment": "the Game Log has the result"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_rapid_reactions_result"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Cus11eReactiveDialog/Content/DoneButton",
+      "comment": "REAL click: Done"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/cus11e_g5_scen.gd\")\nreturn tree.root.get_node_or_null(\"Cus11eReactiveDialog\") == null",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_rapid_reactions_done"
+    }
+  ]
+}

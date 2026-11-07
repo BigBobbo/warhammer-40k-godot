@@ -132,6 +132,7 @@ var _ork11e_eem_pending: Dictionary = {}        # {unit_id, move_type}: an activ
 var _ork11e_reactive_move: Dictionary = {}      # {player, unit_id, max_inches, source}: a HUMAN reactive normal move in progress
 var _ork11e_auto_moving: bool = false           # an AI reactive normal move is being resolved synchronously
 var _ork11e_assault_disembark: Dictionary = {}  # {player, transport_id, remaining}: READIED BRAWLERS follow-up in progress
+var _cus11e_g5: Dictionary = {}  # WP-G5 (CustodesReactive.gd): a human NO ESCAPE charge / RAPID REACTIONS shooting in progress
 var _ork11e_phase_end_windows_done: bool = false
 var _ork11e_pending_move_changes: Array = []    # the ended move's diffs while its CONFIRM is still being processed (see _post_move_prompts)
 
@@ -422,6 +423,11 @@ func validate_action(action: Dictionary) -> Dictionary:
 		if not action_type.begins_with("DEBUG_"):
 			return {"valid": false, "errors": ["Waiting for Player %d to allocate the FIRE OVERWATCH wounds (05.03)" % int(_snap_saves.get("defender", 0))]}
 
+	# WP-G5 Codex: Adeptus Custodes NO ESCAPE / RAPID REACTIONS (CustodesReactive.gd): the human's roll / targets / weapons.
+	var cus11e_g5_gate: Dictionary = _cus11e_reactive().gate(self, action)
+	if not cus11e_g5_gate.is_empty():
+		return cus11e_g5_gate
+
 	# Codex: Orks (11e): while a stratagem follow-up owns the phase (a human
 	# reactive normal move, a READIED BRAWLERS assault disembark) only the
 	# actions that complete it are accepted.
@@ -558,6 +564,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_place_reinforcement(action)
 		"CUS11E_SELECT_INGRESS_UNIT":
 			return _cus11e_process_select_ingress(action)
+		"CUS11E_REACTIVE_CHARGE_ROLL", "CUS11E_REACTIVE_CHARGE_TARGETS", "CUS11E_REACTIVE_CHARGE_FAIL", "CUS11E_REACTIVE_SHOOT":
+			return _cus11e_reactive().process(self, action)  # WP-G5 (CustodesReactive.gd)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
 		"USE_COMMAND_REROLL":
@@ -3376,6 +3384,7 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	# available (same maximum distance) — the stratagem has been paid for.
 	if str(_ork11e_reactive_move.get("unit_id", "")) == unit_id:
 		_ork11e_setup_reactive_active_move(unit_id, float(_ork11e_reactive_move.get("max_inches", 0.0)), str(_ork11e_reactive_move.get("source", "")))
+		_cus11e_reactive().on_reactive_move_reset(self, unit_id)  # WP-G5 NO ESCAPE: the reset move is still the charge
 		emit_signal("unit_move_begun", unit_id, "NORMAL")
 
 	return create_result(true, changes)
@@ -3383,6 +3392,8 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
+	if move_data.has(_cus11e_reactive().ACTIVE_MOVE_KEY):  # WP-G5 NO ESCAPE: the charge move is judged as a charge (CustodesReactive.gd)
+		return _cus11e_reactive().confirm_movement_charge(self, action)
 	var changes = []
 	var additional_dice = []
 
@@ -5916,6 +5927,8 @@ func get_pending_stratagem_window_decider() -> int:
 		return int(_ork11e_assault_disembark.get("player", 0))
 	if not _snap_saves.is_empty():
 		return int(_snap_saves.get("defender", 0))
+	if not _cus11e_g5.is_empty():  # WP-G5 (CustodesReactive.gd)
+		return int(_cus11e_g5.get("player", 0))
 	return 0
 
 ## Movement actions a reactive normal move (codex follow-up, Krump and Run,
@@ -5983,9 +5996,13 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 			return _ork11e_begin_assault_disembark(player, followup)
 		# Codex: Adeptus Custodes (CustodesCodex11e.gd) — resolved at once.
 		"cus11e_reactive_charge":
+			if _cus11e_reactive().begin_charge(self, player, followup):  # WP-G5: a human rolls, picks the targets and drags the charge
+				return true
 			_cus11e_followup_reactive_charge(player, followup)
 			return false
 		"cus11e_shoot":
+			if _cus11e_reactive().begin_shoot(self, player, followup):  # WP-G5: a human picks the weapons and rolls
+				return true
 			_cus11e_followup_shoot(player, followup)
 			return false
 		"snap_shooting":
@@ -6017,18 +6034,21 @@ func _cus11e_followup_reactive_charge(player: int, followup: Dictionary) -> void
 ## your unit can only target that enemy unit" — auto-resolved like GUN-CRAZY
 ## SHOW-OFFS (every weapon that can target it, one profile per weapon), each
 ## component of an Attached unit with its own weapons.
-func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
+## WP-G5: `chosen` = the human's weapon assignments (CustodesReactive.gd);
+## empty = the auto-resolved set. Returns {summary, hits, wounds, casualties, lines}.
+func _cus11e_followup_shoot(player: int, followup: Dictionary, chosen: Array = []) -> Dictionary:
 	var unit_id := str(followup.get("unit_id", ""))
 	var target_id := str(followup.get("forced_target_id", ""))
 	var source := str(followup.get("source", "Stratagem"))
 	var unit_name := GameState.get_unit_display_name(unit_id)
 	var target_name := GameState.get_unit_display_name(target_id)
-	var assignments: Array = _cus11e_codex().forced_shoot_assignments(unit_id, target_id)
+	var assignments: Array = chosen if not chosen.is_empty() else _cus11e_codex().forced_shoot_assignments(unit_id, target_id)
+	var lines: Array = []
 	if assignments.is_empty():
 		var none_msg := "%s: %s has no ranged weapon that can target %s — no attacks" % [source, unit_name, target_name]
 		log_phase_message(none_msg)
 		GameEventLog.add_player_entry(player, none_msg)
-		return
+		return {"summary": none_msg, "hits": 0, "wounds": 0, "casualties": 0, "lines": lines}
 	var by_shooter := {}
 	for a in assignments:
 		var sh := str(a.get("_shooter", unit_id))
@@ -6045,7 +6065,8 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 		var weapon_names: Array = []
 		for a in by_shooter[shooter]:
 			weapon_names.append(str(RulesEngine.get_weapon_profile(str(a.weapon_id), board).get("name", a.weapon_id)))
-		var header := "%s: %s shoots %s (normal shooting, auto-resolved) with %s" % [source, GameState.get_unit_display_name(str(shooter)), target_name, ", ".join(weapon_names)]
+		var header := "%s: %s shoots %s (normal shooting%s) with %s" % [source, GameState.get_unit_display_name(str(shooter)), target_name, "" if not chosen.is_empty() else ", auto-resolved", ", ".join(weapon_names)]
+		lines.append(header)
 		log_phase_message(header)
 		GameEventLog.add_combat_header("P%d: %s" % [player, header])
 		var res = RulesEngine.resolve_shoot({"type": "SHOOT", "actor_unit_id": str(shooter),
@@ -6061,6 +6082,9 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 				hits += int(db.get("successes", 0))
 			elif c == "to_wound":
 				wounds += int(db.get("successes", 0))
+			if c in ["to_hit", "to_wound", "save"] and db.get("rolls_raw", db.get("rolls", [])) is Array:
+				lines.append("  %s %s (%s): %s -> %d" % [str(db.get("weapon_name", db.get("weapon_id", ""))), c.replace("_", " "),
+					str(db.get("threshold", "")), str(db.get("rolls_raw", db.get("rolls", []))), int(db.get("successes", 0))])
 		var diffs: Array = res.get("diffs", [])
 		for d in diffs:
 			var path := str(d.get("path", ""))
@@ -6085,6 +6109,7 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)
+	return {"summary": summary, "hits": hits, "wounds": wounds, "casualties": casualties, "lines": lines}
 
 ## FIRE OVERWATCH (15.08) follow-up: the defender's unit shoots the enemy unit
 ## they picked using SNAP shooting (15.09), at the end of the opponent's
@@ -7078,6 +7103,8 @@ func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Ve
 	return false
 
 func _check_engagement_range_at_position(unit_id: String, model_id: String, dest: Vector2, mode: String) -> Dictionary:
+	if active_moves.get(unit_id, {}).has(_cus11e_reactive().ACTIVE_MOVE_KEY):  # WP-G5 NO ESCAPE: a charge move may end engaged (judged at End This Unit's Move)
+		return {"valid": true, "errors": []}
 	if mode == "FALL_BACK":
 		# Fall Back allows ending outside ER even if path goes through
 		if _is_position_in_engagement_range(unit_id, model_id, dest):

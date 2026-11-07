@@ -11,7 +11,8 @@ extends SceneTree
 #      starting strength 1
 #   D. GRAVIMETRIC GRENADE   charge_phase_start (real ChargePhase entry, opponent's
 #      phase); visible enemy within 12"; -1 to its charge roll (A/B seed)
-#   E. SELFLESS SERVICE      charge_phase_end (real END_CHARGE, before HI); the
+#   E. SELFLESS SERVICE      charge_phase_end (real END_CHARGE, before HI); WP-G5:
+#      the human rolls (capped at 6) and picks the target(s) within 6"; the
 #      charge through the HI machinery: roll capped at 6, enemy within 6",
 #      APPLY_HEROIC_INTERVENTION_MOVE; the end of the phase continues
 #   F. SUPERHUMAN FOCUS ×2   phase_end (real PhaseManager hook, both players);
@@ -416,6 +417,14 @@ func _section_selfless() -> void:
 	var cp0 := _cp(2)
 	var use = _use(phase, 2, "charge_phase_end", sid, "U_WITCHSEEKERS_A")
 	_check("USE succeeds, P2 CP -1", use.get("success", false) and _cp(2) == cp0 - 1, str(use.get("error", "")))
+	# WP-G5: a human decider now rolls and picks the targets (any enemy unit
+	# within 6" and within the roll - CustodesReactive.gd); the move is still
+	# made with the Heroic Intervention charge path tools.
+	_check("WP-G5: the human charge flow waits for the roll", str(phase._cus11e_g5.get("stage", "")) == "roll", str(phase._cus11e_g5))
+	phase.execute_action({"type": "CUS11E_REACTIVE_CHARGE_ROLL", "player": 2})
+	if str(phase._cus11e_g5.get("stage", "")) == "targets":
+		_check("WP-G5: the Gretchin (within 6 inches) are a legal target", "U_GRETCHIN_C" in phase._cus11e_g5.get("selectable", []), str(phase._cus11e_g5.get("selectable", [])))
+		phase.execute_action({"type": "CUS11E_REACTIVE_CHARGE_TARGETS", "player": 2, "payload": {"target_ids": ["U_GRETCHIN_C"]}})
 	var roll: Dictionary = {}
 	for d in phase.dice_log:
 		if typeof(d) == TYPE_DICTIONARY and str(d.get("source", "")) == "SELFLESS SERVICE":
@@ -423,7 +432,7 @@ func _section_selfless() -> void:
 	_check("charge roll logged, capped at 6", not roll.is_empty() and int(roll.get("total", 99)) <= 6, str(roll))
 	if not roll.get("charge_failed", true):
 		_check("the charge waits for its move (HI machinery, owner P2)", str(phase.heroic_intervention_unit_id) == "U_WITCHSEEKERS_A" and phase.get_pending_stratagem_window_decider() == 2, str(phase.heroic_intervention_unit_id))
-		_check("target = the closest enemy within 6\" (Gretchin C)", phase.heroic_intervention_pending_charge.get("targets", []) == ["U_GRETCHIN_C"], str(phase.heroic_intervention_pending_charge))
+		_check("target = the enemy unit the player selected (Gretchin C)", phase.heroic_intervention_pending_charge.get("targets", []) == ["U_GRETCHIN_C"], str(phase.heroic_intervention_pending_charge))
 		var mv: Dictionary = ADM._compute_charge_move(GS.create_snapshot(), "U_WITCHSEEKERS_A", int(roll.total), ["U_GRETCHIN_C"], 2, "APPLY_HEROIC_INTERVENTION_MOVE")
 		_check("a legal charge move exists", str(mv.get("type", "")) == "APPLY_HEROIC_INTERVENTION_MOVE", str(mv.get("_ai_description", "")))
 		mv["player"] = 2

@@ -581,6 +581,10 @@ func _cus11e_open_phase_start_window() -> void:
 static func _cus11e_codex():
 	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
 
+## WP-G5: player-controlled NO ESCAPE / SELFLESS SERVICE / RAPID REACTIONS (CustodesReactive.gd).
+static func _cus11e_reactive():
+	return load("res://scripts/codex/custodes/CustodesReactive.gd")
+
 ## Codex: Adeptus Custodes datasheet abilities (WP-C7, CustodesAbilities.gd):
 ## the phase_start window and the phases' passive hooks. Loaded lazily.
 static func _cus11e_abilities():
