@@ -7738,11 +7738,16 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	# the model already overlaps at the start only counts when the path closes
 	# on it (MoveType.sweep_moves_through). Samples about every 10 px, as before.
 	var reference_model: Dictionary = MoveType.contact_tolerant_mover(model)
+	# 11e 23.02: "Each time a unit makes any type of move, its models can be
+	# moved through AIRCRAFT models" (MoveType.unit_is_aircraft).
+	var aircraft_pass: bool = GameConstants.edition >= 11
 
 	# Check against all enemy models only (friendly models can be crossed freely)
 	for enemy_unit_id in units:
 		var enemy_unit = units[enemy_unit_id]
 		if enemy_unit.get("owner", 0) == current_player:
+			continue
+		if aircraft_pass and MoveType.unit_is_aircraft(enemy_unit):
 			continue
 		if shw_only_titanic and not _unit_is_titanic(enemy_unit):
 			continue
@@ -7796,12 +7801,17 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 	# — a model in base contact with a VEHICLE read as crossing it the moment it
 	# moved away); see _path_crosses_enemy_bases.
 	var reference_model: Dictionary = MoveType.contact_tolerant_mover(model)
+	# 11e 23.02: models can be moved through AIRCRAFT models (friendly or enemy)
+	# on any type of move — every shipped AIRCRAFT is also a VEHICLE.
+	var aircraft_pass: bool = GameConstants.edition >= 11
 
 	for check_unit_id in units:
 		if own_unit_ids.has(str(check_unit_id)):
 			continue  # Skip own unit's models (every component of an Attached unit)
 
 		var check_unit = units[check_unit_id]
+		if aircraft_pass and MoveType.unit_is_aircraft(check_unit):
+			continue  # 23.02: AIRCRAFT models never block a move's path
 		if friendly_pass and check_unit.get("owner", 0) == mover_player:
 			continue  # 17.01 FAQ: friendly models do not block this move
 		if enemy_pass and check_unit.get("owner", 0) != mover_player:

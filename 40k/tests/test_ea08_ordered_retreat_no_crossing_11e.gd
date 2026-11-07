@@ -191,6 +191,42 @@ func _run_tests():
 	r = _case(gs, pm, base_state, from, [Vector2(400, 1000 + 72.44)], Vector2(400, 860), "", ["INFANTRY"], ["VEHICLE"], 60)
 	_check("Ordered Retreat straight away from an enemy VEHICLE in exact base contact is legal", _both_valid(r), _brief(r))
 
+	print("\n-- 23.02: \"Each time a unit makes any type of move, its models can be moved through AIRCRAFT models\" --")
+	# The Boy north of the mover engages it; an enemy Dakkajet (its keywords:
+	# AIRCRAFT and VEHICLE, 60 mm) stands 20 px south of it. A fall-back 260 px
+	# straight south passes through the Dakkajet and ends unengaged (95 px clear).
+	var jet_kws := ["AIRCRAFT", "DAKKAJET", "FLY", "ORKS", "SPEED FREEKS", "VEHICLE"]
+	var plain_kws := ["DAKKAJET", "ORKS", "SPEED FREEKS", "VEHICLE"]
+	var jet_pos := Vector2(400, 1000 + 25.197 + 47.244 + 20.0)
+	for kws in [jet_kws, plain_kws]:
+		var is_air: bool = "AIRCRAFT" in kws
+		phase = _phase_with(gs, pm, base_state, {
+			"U_FB": _unit("U_FB", 1, ["INFANTRY"], [from], 32, 1, "Retreaters"),
+			"U_EN": _unit("U_EN", 2, ["INFANTRY"], north, 32, 1, "Blockers"),
+			"U_JET": _unit("U_JET", 2, kws, [jet_pos], 60, 12, "Dakkajet")})
+		_begin_fb(phase, "U_FB")
+		r = {"fb_mode": str(phase.active_moves.get("U_FB", {}).get("fall_back_mode", "")),
+			"stage": _stage(phase, "U_FB", "m0", Vector2(400, 1260)), "smd": _smd(phase, "U_FB", "m0", Vector2(400, 1260))}
+		if is_air:
+			_check("Ordered Retreat through an enemy AIRCRAFT model (a Dakkajet) is legal", r.fb_mode == "ordered_retreat" and _both_valid(r), _brief(r))
+		else:
+			_check("control: the same VEHICLE without the AIRCRAFT keyword still blocks the Ordered Retreat",
+				not r.stage.get("valid", true) and not r.smd.get("valid", true), _brief(r))
+	# A normal move (8") 300 px straight south through an enemy AIRCRAFT model
+	# 140 px away (not engaged), ending 110 px clear of it.
+	for kws in [jet_kws, plain_kws]:
+		var is_air2: bool = "AIRCRAFT" in kws
+		phase = _phase_with(gs, pm, base_state, {
+			"U_FB": _unit("U_FB", 1, ["INFANTRY"], [from], 32, 1, "Movers"),
+			"U_JET": _unit("U_JET", 2, kws, [Vector2(400, 1140)], 32, 12, "Dakkajet")})
+		phase.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_FB", "player": 1, "payload": {}})
+		r = {"stage": _stage(phase, "U_FB", "m0", Vector2(400, 1300)), "smd": _smd(phase, "U_FB", "m0", Vector2(400, 1300))}
+		if is_air2:
+			_check("a normal move through an enemy AIRCRAFT model is legal (any type of move)", _both_valid(r), _brief(r))
+		else:
+			_check("control: a normal move through the same model without AIRCRAFT is refused",
+				not r.stage.get("valid", true) and not r.smd.get("valid", true), _brief(r))
+
 	print("\n-- controls: what does not change --")
 	r = _case(gs, pm, base_state, from, north, through, "", ["INFANTRY", "FLY"])
 	_check("a FLY unit's Ordered Retreat may still pass over enemy models (pre-existing FLY exemption)", _both_valid(r), _brief(r))
@@ -371,6 +407,8 @@ func _run_tests():
 		_check("helper: exact base contact, moving away: not through", not MT.path_crosses_enemy_models(board, 1, mover, from, Vector2(400, 900)))
 		_check("helper: moving through the enemy model: through", MT.path_crosses_enemy_models(board, 1, mover, from, Vector2(400, 1200)))
 		_check("helper: friendly models never block", not MT.path_crosses_enemy_models(board, 2, mover, from, Vector2(400, 1200)))
+		board.units.U_E.meta.keywords = ["AIRCRAFT", "VEHICLE", "FLY"]
+		_check("helper: an enemy AIRCRAFT model never blocks (23.02)", not MT.path_crosses_enemy_models(board, 1, mover, from, Vector2(400, 1200)))
 
 	tm.terrain_features = prev_terrain
 	gs.state = prev_state

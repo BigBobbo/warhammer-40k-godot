@@ -12330,6 +12330,18 @@
       "fidelity": "RULES"
     },
     {
+      "id": "rules.23_02.move_through_aircraft",
+      "description": "11e 23.02 MOVEMENT (EA-08 review): \"Each time a unit makes any type of move, its models can be moved through AIRCRAFT models.\" The movement path checks skip AIRCRAFT models at edition 11 — MovementPhase._path_crosses_enemy_bases (03.01 / Ordered Retreat / Normal / Advance) and _path_crosses_monster_vehicle_bases (17.01; every shipped AIRCRAFT is a VEHICLE) — and MoveType.path_crosses_enemy_models (WIND-SWIFT EVASION staging / Auto-move / Confirm, Tactical Fluidity placement). A move still cannot end on one. Windowed: a Shield-Captain engaged by the Wazbom Blastajet makes an Ordered Retreat whose path clips the Wazbom's base — staged and confirmed (refused before). Headless: Movement-phase Ordered Retreat and normal move through a Dakkajet (and the non-AIRCRAFT control), the WIND-SWIFT Ordered Retreat through a Dakkajet, the shared helper.",
+      "scenarios": [
+        "ea08_fall_back_past_aircraft_11e",
+        "mp:tests/test_ea08_ordered_retreat_no_crossing_11e.gd",
+        "mp:tests/test_ea63_out_of_phase_fall_back_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
       "id": "network.relay_client.fall_back_desperate_escape_11e",
       "description": "EA-08 review (online play, 11e 09.07 / 09.02.02): a Desperate Escape made by the web-relay CLIENT. SET_FALL_BACK_MODE is one of NetworkManager.DETERMINISTIC_ACTIONS, so the client's own MovementPhase switches the mode and its drags through enemy models are no longer refused locally; the hazard rolls and their Feel No Pain rolls (BEGIN_FALL_BACK / SET_FALL_BACK_MODE: RulesEngine.rng_for_action) and the AFTER MOVING battle-shock roll (CONFIRM_UNIT_MOVE: the seed salted, so it does not replay the 24.35 gamble's die) come from the action's rng_seed, so client and host roll the same dice; the synced hazard record (flags.desperate_escape_hazards_this_phase) also marks the move as a Desperate Escape (MovementPhase._fall_back_mode_of / get_fall_back_mode, the movement panel's mode line). Headless: host + relay-client runs of the real NetworkManager / MovementPhase (box after / before Fall Back, three seed sets each, identical state hashes, no desync). Two-process: tests/mp_two_process_core_rules.py fb_relay_client — real clicks on Fall Back and the Desperate Escape box, a real drag through a Witchseeker, End This Unit's Move; identical GameStates. Windowed (single-player UI path): ea08_fall_back_modes_11e.",
       "scenarios": [

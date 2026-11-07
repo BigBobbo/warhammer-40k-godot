@@ -1,0 +1,50 @@
+{
+  "id": "ea08_fall_back_past_aircraft_11e",
+  "covers": [
+    "rules.23_02.move_through_aircraft"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "EA-08 review (11e 23.02 MOVEMENT: 'Each time a unit makes any type of move, its models can be moved through AIRCRAFT models'). Setup privilege only: the Ork player's Wazbom Blastajet (the fixture's real AIRCRAFT VEHICLE datasheet, 120 mm base) has arrived and stands next to the Custodes Shield-Captain (40 mm, M 6\"), engaging it; the board around them is open. Everything after that is a REAL click / drag: (1) a click selects the Shield-Captain; (2) a click on Fall Back begins an Ordered Retreat; (3) a drag 5.9\" east along the Wazbom's side, whose straight path clips the Wazbom's base (the engine's own sweep says so), is STAGED — before the fix the Ordered Retreat crossing check (and the MONSTER/VEHICLE check) counted the AIRCRAFT model as a blocker and refused it; (4) End This Unit's Move: the Shield-Captain ends unengaged.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privilege: the Wazbom Blastajet (AIRCRAFT) is on the battlefield right next to the Shield-Captain (10 px between the bases: engaged); open ground around them (no terrain feature within reach in the layout this fixture loads)", "script": "var s = GameState.state\nvar wz = s.units.U_WAZBOM_BLASTAJET\nwz.status = 2\nwz.models[0].position = {\"x\": 1420.0, \"y\": 300.0}\ns.units.U_SHIELD_CAPTAIN_A.models[0].position = {\"x\": 1356.0, \"y\": 420.0}\ntree.current_scene._recreate_unit_visuals()\nreturn [\"AIRCRAFT\" in wz.meta.keywords, RulesEngine.is_unit_engaged(\"U_SHIELD_CAPTAIN_A\", s)]", "equals": [true, true] },
+    { "act": "execute_script", "multiline": true, "comment": "frame the two models", "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(1450.0, 380.0)\nvar z := 1.6\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "01_shield_captain_engaged_by_the_wazbom" },
+    { "act": "execute_script", "multiline": true, "comment": "the drag below really goes through the Wazbom's base: the engine's own path sweep (MoveType.sweep_moves_through, base 1 mm smaller) overlaps it", "script": "var MT = load(\"res://scripts/rules/movetypes/MoveType.gd\")\nvar s = GameState.state\nvar cap: Dictionary = s.units.U_SHIELD_CAPTAIN_A.models[0].duplicate(true)\nvar wzm: Dictionary = s.units.U_WAZBOM_BLASTAJET.models[0]\nreturn MT.sweep_moves_through(MT.contact_tolerant_mover(cap), Vector2(1356.0, 420.0), Vector2(1592.0, 420.0), wzm, Vector2(1420.0, 300.0))", "equals": true },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_A" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "execute_script", "script": "str(main.movement_controller.active_unit_id)", "equals": "U_SHIELD_CAPTAIN_A" },
+    { "act": "click_node", "button_text": "Fall Back" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_A\"][\"fall_back_mode\"]", "equals": "ordered_retreat" },
+    { "act": "execute_script", "script": "main.movement_controller.unit_mode_label.text.find(\"Ordered Retreat\") != -1", "equals": true },
+
+    { "act": "drag_board", "from_x": 1356.0, "from_y": 420.0, "to_x": 1592.0, "to_y": 420.0, "steps": 16 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_A\"][\"staged_moves\"].size()", "equals": 1, "comment": "23.02: the Ordered Retreat may pass the AIRCRAFT model — staged" },
+    { "act": "execute_script", "multiline": true, "comment": "staged where it was dropped, past the Wazbom (not clamped short of it)", "script": "var sm: Array = PhaseManager.get_current_phase_instance().active_moves[\"U_SHIELD_CAPTAIN_A\"][\"staged_moves\"]\nif sm.is_empty():\n\treturn -1.0\nvar d = sm[0].get(\"dest\", Vector2.ZERO)\nvar p: Vector2 = d if d is Vector2 else Vector2(float(d[0]), float(d[1]))\nprint(\"[ea08 aircraft] staged dest \", p)\nreturn p.x > 1580.0 and absf(p.y - 420.0) < 6.0", "equals": true },
+    { "act": "screenshot", "label": "02_ordered_retreat_staged_past_the_aircraft" },
+
+    { "act": "click_node", "button_text": "End This Unit's Move" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.moved", "equals": true },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.flags.fell_back", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_SHIELD_CAPTAIN_A\", GameState.state)", "equals": false },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"hazard roll\")", "equals": 0, "comment": "an Ordered Retreat: no hazard rolls" },
+    { "act": "screenshot", "label": "03_fell_back_past_the_wazbom" }
+  ]
+}

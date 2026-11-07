@@ -169,9 +169,19 @@ static func sweep_moves_through(mover: Dictionary, from: Vector2, to: Vector2, o
 				return true
 	return false
 
+## 11e 23.02 MOVEMENT: "Each time a unit makes any type of move, its models can
+## be moved through AIRCRAFT models" — an AIRCRAFT unit's models never block a
+## move's path (friendly or enemy; a move still cannot END on one).
+static func unit_is_aircraft(u: Dictionary) -> bool:
+	for kw in u.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == "AIRCRAFT":
+			return true
+	return false
+
 ## Would `model` (of a unit owned by `owner`), moved straight from `from` to
 ## `to`, move through an alive, on-table model of another player? skip_unit_ids
-## (a set: unit_id -> true) is never a blocker. 03.01 / 09.07 (Ordered Retreat).
+## (a set: unit_id -> true) is never a blocker, nor is an AIRCRAFT model
+## (23.02). 03.01 / 09.07 (Ordered Retreat).
 static func path_crosses_enemy_models(board: Dictionary, owner: int, model: Dictionary, from: Vector2, to: Vector2, skip_unit_ids: Dictionary = {}) -> bool:
 	if from.distance_to(to) < 0.01:
 		return false
@@ -186,6 +196,8 @@ static func path_crosses_enemy_models(board: Dictionary, owner: int, model: Dict
 		var u: Dictionary = units[uid]
 		if int(u.get("owner", 0)) == owner or u.get("embarked_in", null) != null:
 			continue
+		if unit_is_aircraft(u):
+			continue  # 23.02: models can be moved through AIRCRAFT models
 		for om in u.get("models", []):
 			if not om.get("alive", true):
 				continue

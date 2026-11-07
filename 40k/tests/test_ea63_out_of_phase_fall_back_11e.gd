@@ -314,6 +314,7 @@ func _run() -> void:
 	print("\n=== test_ea63_out_of_phase_fall_back_11e ===")
 	_section_wind_swift()
 	_section_tactical_fluidity()
+	_section_aircraft()
 
 
 func _section_wind_swift() -> void:
@@ -457,3 +458,56 @@ func _section_tactical_fluidity() -> void:
 	_check("Desperate Escape: it moves through the ring and ends unengaged",
 		r.get("success", false) and _cap_pos().distance_to(p0) > 3.0 and not SWC.is_engaged(CAPTAIN),
 		"moved %.2f\" engaged=%s" % [_cap_pos().distance_to(p0), str(SWC.is_engaged(CAPTAIN))])
+
+
+## EA-08/EA-63 review (11e 23.02 MOVEMENT): "Each time a unit makes any type of
+## move, its models can be moved through AIRCRAFT models." The out-of-phase
+## Ordered Retreat crossing check (ReactiveMove11e.validate with
+## fall_back_mode, MoveType.path_crosses_enemy_models — WIND-SWIFT EVASION's
+## staging / Auto-move / Confirm and Tactical Fluidity's placement) must let an
+## AIRCRAFT model be passed. Board: an engaged MOUNTED Outrider (60 mm) with an
+## enemy Boy just north of it; an enemy Dakkajet (keywords and 92x120 oval base
+## as armies/ork11e_codex_test.json U_DAKKAJET_A) south of it. The fall-back
+## goes 9.75" straight south, through the Dakkajet, and ends unengaged.
+func _air_unit(id: String, owner: int, kws: Array, pos: Vector2, base: Dictionary) -> Dictionary:
+	var m := {"id": "m0", "alive": true, "wounds": 3, "current_wounds": 3, "position": {"x": pos.x, "y": pos.y}}
+	m.merge(base)
+	return {"id": id, "owner": owner, "status": 2, "flags": {}, "status_effects": {},
+		"meta": {"name": id, "keywords": kws, "abilities": [],
+			"stats": {"move": 12, "toughness": 5, "save": 3, "wounds": 3, "leadership": 6, "objective_control": 2}},
+		"models": [m], "weapons": [], "attachment_data": {}}
+
+func _section_aircraft() -> void:
+	print("\n-- 23.02: an Ordered Retreat made outside the Movement phase may pass an enemy AIRCRAFT model --")
+	var MT = load("res://scripts/rules/movetypes/MoveType.gd")
+	var tm = root.get_node("TerrainManager")
+	var prev_terrain: Array = tm.terrain_features.duplicate(true)
+	var prev_state: Dictionary = GS.state.duplicate(true)
+	tm.terrain_features = []
+	var from := Vector2(400, 1000)
+	var to := Vector2(400, 1390)
+	for jet_kws in [["AIRCRAFT", "DAKKAJET", "FLY", "ORKS", "SPEED FREEKS", "VEHICLE"], ["DAKKAJET", "ORKS", "SPEED FREEKS", "VEHICLE"]]:
+		var is_air: bool = "AIRCRAFT" in jet_kws
+		var board: Dictionary = prev_state.duplicate(true)
+		board["board"]["terrain"] = []
+		board["units"] = {
+			"U_OUT": _air_unit("U_OUT", 1, ["ADEPTUS ASTARTES", "MOUNTED", "OUTRIDER SQUAD"], from, {"base_mm": 60, "base_type": "circular"}),
+			"U_BOY": _air_unit("U_BOY", 2, ["INFANTRY", "ORKS"], Vector2(400, 1000 - 47.24 - 25.2 - 10.0), {"base_mm": 32, "base_type": "circular"}),
+			"U_JET": _air_unit("U_JET", 2, jet_kws, Vector2(400, 1000 + 47.24 + 94.5 + 20.0), {"base_mm": 120, "base_type": "oval", "base_dimensions": {"length": 92, "width": 120}})}
+		GS.state = board
+		var origin := {"U_OUT:0": from}
+		var proposed := {"U_OUT:0": to}
+		var engaged0: bool = RE.is_unit_engaged("U_OUT", board)
+		var engaged1: bool = RE.is_unit_engaged("U_OUT", RM.board_with_positions(board, "U_OUT", proposed))
+		var r_or: Dictionary = RM.validate("normal", "U_OUT", origin, proposed, 12.0, {"fall_back_mode": "ordered_retreat"}, board)
+		var crosses: bool = MT.path_crosses_enemy_models(board, 1, board.units.U_OUT.models[0], from, to)
+		if is_air:
+			_check("fixture: engaged at the start, unengaged at the end", engaged0 and not engaged1, "start=%s end=%s" % [str(engaged0), str(engaged1)])
+			_check("WIND-SWIFT EVASION Ordered Retreat straight through an enemy Dakkajet is legal", r_or.get("ok", false), str(r_or))
+			_check("MoveType.path_crosses_enemy_models: an AIRCRAFT model is not crossed (Tactical Fluidity's placement uses it too)", not crosses)
+		else:
+			_check("control: the same model without the AIRCRAFT keyword still blocks the Ordered Retreat",
+				not r_or.get("ok", true) and _any_has(r_or.get("violations", []), ["an Ordered Retreat cannot move through enemy models"]), str(r_or))
+			_check("control: ... and path_crosses_enemy_models reports it", crosses)
+	GS.state = prev_state
+	tm.terrain_features = prev_terrain
