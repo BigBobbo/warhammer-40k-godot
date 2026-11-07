@@ -1,0 +1,2388 @@
+{
+ "results": [
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 4,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 25.5,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 460,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 3,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 25.5,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 1,
+    "player": 2,
+    "reserves_points": 380,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 21.3,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "fixture",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 4,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 26.3,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 4,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 26.0,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 21.6,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "fixture",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 7,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 24.8,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 7,
+    "forced_reserves": 4,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 26.1,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 21.2,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 25.9,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 7,
+    "forced_reserves": 3,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.8,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 400,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 21.2,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 4,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 440,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 13,
+    "forced_reserves": 2,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 2,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 8,
+    "on_table": 15,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 260,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 22.5,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 5,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 13,
+    "forced_reserves": 3,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 380,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 23.3,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 18.1,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 1,
+    "player": 1,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 4,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 17.2,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 1,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 21.7,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 18.8,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 1,
+    "player": 1,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 4,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 16.6,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 1,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 21.4,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 11,
+    "forced_reserves": 4,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 4,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 21.3,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 5,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 17.8,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 23.5,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 4,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 4,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 20.1,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 5,
+    "forced_reserves": 5,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 5,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 22.5,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 22.0,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 7,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 26.4,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 695,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 3,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 21.2,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 380,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 22.0,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 25.7,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 21.2,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 500,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 21.8,
+   "fixture": "mirror_orks_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 26.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 8,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 25.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 7,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 13.5,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "fixture",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 1,
+    "min_gap_to_enemy_zone_in": 26.0,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 9,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 26.0,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 7,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 13.2,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "fixture",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 1,
+    "forced_reserves": 0,
+    "fully_hidden": 5,
+    "fully_hidden_multi": 3,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 25.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 5,
+    "fully_hidden_multi": 3,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 13.5,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 1,
+    "forced_reserves": 0,
+    "fully_hidden": 5,
+    "fully_hidden_multi": 3,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 25.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 5,
+    "fully_hidden_multi": 3,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 13.6,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 2,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 7,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 1,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 9,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 13.7,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 2,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 8,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 1,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 8,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 13.4,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 17.5,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 18.4,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 4,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 13.5,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 13.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 4,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 21.1,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 13.2,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 22.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 17.5,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 7,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 13.2,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 7,
+    "min_gap_to_enemy_zone_in": 22.5,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 17.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 6,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 13.2,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.0,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 2,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.4,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 13.1,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 23.5,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 22.5,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 13.0,
+   "fixture": "mirror_custodes_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 1,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 27.6,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 4,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 26.9,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 3,
+    "player": 2,
+    "reserves_points": 440,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 18.1,
+   "fixture": "asym_2000_predeploy",
+   "zone": "fixture",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 26.3,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 6,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 5,
+    "forced_reserves": 5,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 26.4,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 4,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "crucible_of_battle",
+   "layout": "take_and_hold_mirror_1",
+   "phase_after": 13,
+   "seconds": 17.0,
+   "fixture": "asym_2000_predeploy",
+   "zone": "fixture",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 6,
+    "fully_hidden_multi": 3,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 24.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 3,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 2,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 0,
+    "min_gap_to_enemy_zone_in": 27.1,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 4,
+    "player": 2,
+    "reserves_points": 400,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 17.2,
+   "fixture": "asym_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 5,
+    "fully_hidden_multi": 2,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 24.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 4,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 1,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 0,
+    "min_gap_to_enemy_zone_in": 27.1,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "hammer_anvil",
+   "layout": "purge_the_foe_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 17.4,
+   "fixture": "asym_2000_predeploy",
+   "zone": "hammer_anvil",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 8,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 14,
+    "forced_reserves": 3,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 320,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 17.7,
+   "fixture": "asym_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 20.9,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 8,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 12,
+    "forced_reserves": 4,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 4,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 6,
+    "on_table": 13,
+    "open": 3,
+    "player": 2,
+    "reserves_points": 520,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "dawn_of_war",
+   "layout": "take_and_hold_mirror_2",
+   "phase_after": 13,
+   "seconds": 18.2,
+   "fixture": "asym_2000_predeploy",
+   "zone": "dawn_of_war",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 2,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 8,
+    "min_gap_to_enemy_zone_in": 14.0,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 1,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 16.6,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 1,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 17.2,
+   "fixture": "asym_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 8,
+    "min_gap_to_enemy_zone_in": 16.2,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 5,
+    "fully_hidden": 1,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 4,
+    "min_gap_to_enemy_zone_in": 15.9,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "search_and_destroy",
+   "layout": "disruption_vs_priority_assets_3",
+   "phase_after": 13,
+   "seconds": 17.0,
+   "fixture": "asym_2000_predeploy",
+   "zone": "search_and_destroy",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 4,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 22.7,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 3,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 6,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 6,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 19.1,
+    "non_hideable": 4,
+    "on_table": 11,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 640,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 17.6,
+   "fixture": "asym_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 4,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 0,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 0,
+    "leakers": 6,
+    "min_gap_to_enemy_zone_in": 19.3,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 9,
+    "forced_reserves": 5,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": false
+    },
+    "in_reserves": 5,
+    "leakers": 2,
+    "min_gap_to_enemy_zone_in": 17.7,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 5,
+    "player": 2,
+    "reserves_points": 500,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "sweeping_engagement",
+   "layout": "disruption_vs_disruption_3",
+   "phase_after": 13,
+   "seconds": 17.9,
+   "fixture": "asym_2000_predeploy",
+   "zone": "sweeping_engagement",
+   "seed": 11,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 3,
+    "min_gap_to_enemy_zone_in": 22.2,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 5,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 6,
+    "forced_reserves": 3,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 3,
+    "leakers": 1,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 7,
+    "on_table": 14,
+    "open": 6,
+    "player": 2,
+    "reserves_points": 380,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 17.0,
+   "fixture": "asym_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 7,
+   "plans": "off"
+  },
+  {
+   "1": {
+    "embarked": 0,
+    "failed_attempts": 0,
+    "forced_reserves": 0,
+    "fully_hidden": 3,
+    "fully_hidden_multi": 1,
+    "hide_capable": 11,
+    "hide_capable_multi": 8,
+    "home_objective": {
+     "ids": [
+      "obj_home_1"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 0,
+    "leakers": 6,
+    "min_gap_to_enemy_zone_in": 22.2,
+    "non_hideable": 0,
+    "on_table": 11,
+    "open": 2,
+    "player": 1,
+    "reserves_points": 0,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 11
+   },
+   "2": {
+    "embarked": 0,
+    "failed_attempts": 8,
+    "forced_reserves": 5,
+    "fully_hidden": 0,
+    "fully_hidden_multi": 0,
+    "hide_capable": 7,
+    "hide_capable_multi": 6,
+    "home_objective": {
+     "ids": [
+      "obj_home_2"
+     ],
+     "known": true,
+     "occupied": true
+    },
+    "in_reserves": 5,
+    "leakers": 5,
+    "min_gap_to_enemy_zone_in": 20.8,
+    "non_hideable": 5,
+    "on_table": 12,
+    "open": 2,
+    "player": 2,
+    "reserves_points": 580,
+    "rows": [],
+    "seen_by_enemy_units_any": -1,
+    "undeployed": 0,
+    "units_total": 17
+   },
+   "deployment_type": "tipping_point",
+   "layout": "disruption_vs_disruption_2",
+   "phase_after": 13,
+   "seconds": 17.0,
+   "fixture": "asym_2000_predeploy",
+   "zone": "tipping_point",
+   "seed": 11,
+   "plans": "off"
+  }
+ ],
+ "totals": {
+  "forced": 152,
+  "failed": 298,
+  "multi": 504,
+  "full_multi": 53,
+  "leak": 263,
+  "runs": 36
+ }
+}
