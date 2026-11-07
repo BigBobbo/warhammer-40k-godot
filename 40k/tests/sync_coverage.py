@@ -16,18 +16,16 @@ added. The generated tiles are marked `fidelity: "DECLARED"` and say so in their
 description, so they are never confused with a hand-audited tile and can be
 upgraded later.
 
-Run it after adding or editing a scenario's `covers` list:
-
-    python3 40k/tests/sync_coverage.py
-    python3 40k/tests/check_coverage.py   # should now exit 0
-
-Idempotent: running twice adds nothing the second time.
-
-Scoped run — register only the tags your scenario(s) declare (the plain run
-appends a tile for EVERY un-catalogued tag in the repo, 1000+ on 2026-11-07):
+Run it SCOPED after adding or editing a scenario's `covers` list — register
+only the tags your scenario(s) declare (SESSION_PLAYBOOK.md §4):
 
     python3 40k/tests/sync_coverage.py --scenario my_new_scenario_11e
-    python3 40k/tests/check_coverage.py --scenario my_new_scenario_11e
+    python3 40k/tests/check_coverage.py --scenario my_new_scenario_11e   # should exit 0
+
+Do not run it without --scenario: the plain run appends a tile for EVERY
+un-catalogued tag in the repo (1000+ on 2026-11-07).
+
+Idempotent: running twice adds nothing the second time.
 
 A tile added by a scoped run still lists every scenario that declares its tag,
 so it is the same tile the plain run would add.

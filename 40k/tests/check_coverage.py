@@ -12,8 +12,11 @@ Verifies that:
      adding PRs merge concurrently: any PR that lands a new scenario without
      running sync_coverage.py leaves main's tag→tile mapping momentarily
      incomplete, which used to turn this gate permanently red and ignored.
-     It is now a non-fatal warning; run `python3 40k/tests/sync_coverage.py`
-     to clear it (it appends a tile per un-catalogued tag).
+     It is now a non-fatal warning. Register the tiles for the scenario you
+     add or edit with `python3 40k/tests/sync_coverage.py --scenario <id>`
+     (it appends a DECLARED tile for that scenario's un-catalogued tags only).
+     Do not run sync_coverage.py without --scenario: it appends a tile for
+     every un-catalogued tag in the repo (over a thousand).
   3. (WARNING) tiles with last_verified_commit older than HEAD~50 should be
      re-verified — flagged as stale but does not fail.
   4. (ERROR, opt-in) `--scenario ID` (repeatable): the named scenario's
@@ -130,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
                 uncatalogued += 1
                 warnings.append(f"scenario '{sid}' ({sd['_path']}) declares cover tag '{tag}' but no matching tile in coverage.json")
     if uncatalogued:
-        warnings.append(f"{uncatalogued} un-catalogued cover tag(s) — run `python3 40k/tests/sync_coverage.py` to register tiles for them")
+        warnings.append(f"{uncatalogued} un-catalogued cover tag(s) — register the tiles for a scenario you add or edit with `python3 40k/tests/sync_coverage.py --scenario <id>` (without --scenario it appends a tile for every un-catalogued tag in the repo)")
 
     # 4) Opt-in: the named scenarios' covers <-> tiles agree in both directions.
     for sid in args.scenario:
