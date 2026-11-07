@@ -11906,6 +11906,39 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "HANDLER"
+    },
+    {
+      "id": "rules.17_01.attached_character_carried_per_model",
+      "description": "11e 17.01 is worded per model (EA-10 review): End This Unit's Move (CONFIRM_UNIT_MOVE) moves models nobody staged — an attached CHARACTER riding its bodyguard's first move delta, or the bodyguard following its CHARACTER — and each such model now gets the per-model checks STAGE_MODEL_MOVE gives (03.01 no enemy base crossed unless its OWN unit is MONSTER/VEHICLE on a normal / advance move; no blocking MONSTER/VEHICLE base; 09.05 / 09.06 AFTER MOVING not engaged). Windowed: the Mek Gunz (VEHICLE) advances through a line of Custodians but End This Unit's Move is refused because its unstaged Mek (INFANTRY) would be carried through them and left engaged; nothing moves; after Reset Unit a legal move carries the Mek. Headless: the carried-through-a-screen and carried-into-engagement refusals, the reset control, and the mirror (a MONSTER CHARACTER staged alone, its MOUNTED bodyguard cannot follow). Also: an attached MONSTER/VEHICLE CHARACTER no longer blocks its own path or its bodyguard's (shipped Beastboss on Squigosaur -> Squighog Boyz and Old One Eye -> Carnifexes shapes, headless).",
+      "scenarios": [
+        "ea10_attached_carry_and_fall_back_11e",
+        "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "rules.17_01.faq_monster_vehicle_through_friendly_other_moves",
+      "description": "11e 17.01 FAQ: 'While making a move type other than a normal / advance move, can my MONSTER/VEHICLE unit move through friendly units? A: Yes.' On a fall-back or surge move a MONSTER/VEHICLE model's path is no longer blocked by friendly MONSTER/VEHICLE bases (enemy MONSTER/VEHICLE models still block; on a normal / advance move friendly MONSTER/VEHICLE models still block a MONSTER/VEHICLE, 17.01 'excluding other MONSTER/VEHICLE models'). Windowed: the engaged Deff Dread falls back (Ordered Retreat) with a real drag straight through a friendly Killa Kan and End This Unit's Move confirms it. Headless: fall-back through a friendly VEHICLE (staged + confirmed), the enemy-VEHICLE and normal-move controls, the surge / INFANTRY / 10e helper cases.",
+      "scenarios": [
+        "ea10_attached_carry_and_fall_back_11e",
+        "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "phases.MovementPhase.carried_model_move_errors_11e",
+      "description": "MovementPhase._carried_model_move_errors(unit_id, move_data), called by _validate_confirm_unit_move at edition 11 on NORMAL / ADVANCE moves: builds the confirm's carry plans without confirming (_attached_carry_plan — shared with _move_attached_characters — and _bodyguard_follow_plan — shared with _process_confirm_unit_move) and refuses the confirm with '<unit> cannot follow <unit> through enemy models — move <unit> around them, then end the move' (or '... through Monster or Vehicle models', or '... would end within engagement range following ...'). _path_crosses_monster_vehicle_bases skips every component of the moving Attached unit (_moving_unit_component_ids) and, per _mv1701_faq_moves_through_friendly, friendly units on a fall-back / surge move of a MONSTER/VEHICLE model; STAGE_MODEL_MOVE judges the destination's engagement range with the moved model's own unit.",
+      "scenarios": [
+        "ea10_attached_carry_and_fall_back_11e",
+        "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

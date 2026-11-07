@@ -1,0 +1,333 @@
+{
+  "id": "ea10_attached_carry_and_fall_back_11e",
+  "covers": [
+    "rules.17_01.attached_character_carried_per_model",
+    "rules.17_01.faq_monster_vehicle_through_friendly_other_moves",
+    "phases.MovementPhase.carried_model_move_errors_11e"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "EA-10 review fixes (11e 17.01 MOVING MONSTERS AND VEHICLES is worded per model; its FAQ). Fixture ork11e_o34_active (P1 Orks from ork11e_codex_test, open field). SETUP-ONLY: the Mek from armies/recon_stomps.json (the 11e Codex: Orks import) joins the Ork army and is attached to the Mek Gunz by the real CharacterAttachmentManager.attach_character (its can_attach gate passes: the shipped Mek leads MEK GUNZ); Custodian Guard Sodality Gamma is lined up across the Mek Gunz's lane; Sodality Delta engages the Deff Dread with the three Killa Kans in a row behind it. Part 1 (player path): the Mek Gunz (VEHICLE) advances (Waaagh! free re-roll clicked: 5 + 5 = 10in) and a real drag takes it straight through the Custodians (17.01, EA-10), but a real click on 'End This Unit's Move' is refused — its unstaged INFANTRY Mek would be carried through the same enemy models and left engaged (03.01; 09.06 AFTER MOVING) — and nothing moves. 'Undo Model', a legal drag and End This Unit's Move then confirm, with the Mek carried by the Mek Gunz's delta. Part 2: the engaged Deff Dread (VEHICLE) falls back (Ordered Retreat) and a real drag takes it straight through a friendly Killa Kan (17.01 FAQ: on a move other than a normal / advance move a MONSTER/VEHICLE can be moved through friendly units), confirmed with End This Unit's Move. Before the fixes the first End This Unit's Move carried the Mek through the Custodians, and the Deff Dread's drop was refused with 'Cannot move through Monster or Vehicle models'.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Orks' movement_phase_start window (no stratagem used)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var army: Dictionary = ArmyListManager.load_army_list(\"recon_stomps\", 1)\nif not army.get(\"units\", {}).has(\"U_MEK_A\"):\n\treturn \"recon_stomps has no U_MEK_A\"\nif GameState.state.units.has(\"U_MEK_A\"):\n\treturn \"fixture already has a U_MEK_A\"\nvar mek: Dictionary = army.units[\"U_MEK_A\"].duplicate(true)\nmek[\"owner\"] = 1\nmek[\"status\"] = 2\nmek[\"flags\"] = {}\nmek.models[0][\"position\"] = {\"x\": 1400.0, \"y\": 2065.0}\nGameState.state.units[\"U_MEK_A\"] = mek\nvar can: Dictionary = CharacterAttachmentManager.can_attach(\"U_MEK_A\", \"U_MEK_GUNZ_A\")\nif not can.get(\"valid\", false):\n\treturn \"can_attach refused: %s\" % str(can)\nCharacterAttachmentManager.attach_character(\"U_MEK_A\", \"U_MEK_GUNZ_A\")\nGameState.state.units[\"U_MEK_GUNZ_A\"].models[0][\"position\"] = {\"x\": 1400.0, \"y\": 1990.0}\nvar screen = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(screen.size()):\n\tscreen[i][\"position\"] = {\"x\": 1334.0 + 66.0 * i, \"y\": 1850.0}\nGameState.state.units[\"U_DEFF_DREAD_A\"].models[0][\"position\"] = {\"x\": 1000.0, \"y\": 2150.0}\nvar kans = GameState.state.units[\"U_KILLA_KANS_A\"].models\nfor i in range(kans.size()):\n\tkans[i][\"position\"] = {\"x\": 870.0 + 130.0 * i, \"y\": 2035.0}\nvar foes = GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models\nfor i in range(foes.size()):\n\tfoes[i][\"position\"] = {\"x\": 934.0 + 66.0 * i, \"y\": 2250.0}\ntree.current_scene._recreate_unit_visuals()\nvar g: Dictionary = GameState.get_unit(\"U_MEK_GUNZ_A\")\nvar m: Dictionary = GameState.get_unit(\"U_MEK_A\")\nif not \"VEHICLE\" in g.meta.keywords or \"FLY\" in g.meta.keywords or not \"INFANTRY\" in m.meta.keywords:\n\treturn \"not the case under test: %s / %s\" % [str(g.meta.keywords), str(m.meta.keywords)]\nreturn \"%s attached to %s; %d Custodians in the lane; Deff Dread engaged=%s\" % [str(m.get(\"attached_to\")), \"U_MEK_GUNZ_A\" if g.attachment_data.attached_characters.has(\"U_MEK_A\") else \"?\", screen.size(), str(RulesEngine.is_unit_engaged(\"U_DEFF_DREAD_A\", GameState.state))]",
+      "equals": "U_MEK_GUNZ_A attached to U_MEK_GUNZ_A; 3 Custodians in the lane; Deff Dread engaged=true",
+      "comment": "SETUP-ONLY PRIVILEGE: the shipped Mek (recon_stomps, 11e codex import; leader_data can_lead MEK GUNZ) joins P1 and is attached to the Mek Gunz (VEHICLE, not FLY) by CharacterAttachmentManager.attach_character, which runs can_attach first. Custodian Guard Sodality Gamma (3 x 40 mm, 66 px apart: no 32 mm base fits between them) is lined up 2.1in in front of the Mek Gunz, the Mek sits behind it; the Deff Dread (60 mm) is engaged by Sodality Delta with the three Killa Kans (VEHICLE, 60 mm) in a row behind it"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1300.0,
+      "y": 1980.0,
+      "comment": "anchor the zoom between the two set-ups"
+    },
+    {
+      "act": "simulate_wheel",
+      "direction": "up",
+      "count": 5,
+      "comment": "zoom in so the screenshots show the bases"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "01_mek_gunz_and_mek_behind_the_custodians"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_MEK_GUNZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Advance"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Movement Mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "'Mek Gunz has been selected to move' window (Fungus-fuel Injection / Clever Know-wotz): declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CommandRerollDialog",
+      "timeout_s": 4.0,
+      "comment": "the Orks' Waaagh! free re-roll offer for the advance roll (a 2: M5 + 2 = 7in, too short to clear the Custodians with 2in to spare)"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Re-roll (Free)",
+      "comment": "a real click on the dialog's free re-roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var am: Dictionary = PhaseManager.get_current_phase_instance().active_moves.get(\"U_MEK_GUNZ_A\", {})\nreturn \"%s %s\" % [str(am.get(\"mode\", \"\")), str(am.get(\"move_cap_inches\", -1))]",
+      "equals": "ADVANCE 10.0",
+      "comment": "the advance stands at 5 + 5 = 10in"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1400.0,
+      "from_y": 1990.0,
+      "to_x": 1400.0,
+      "to_y": 1700.0,
+      "comment": "a real 7.25in drag of the Mek Gunz (VEHICLE) straight north through the middle Custodian; its Mek is NOT dragged"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md: Dictionary = PhaseManager.get_current_phase_instance().active_moves.get(\"U_MEK_GUNZ_A\", {})\nvar staged: Array = md.get(\"staged_moves\", [])\nif staged.size() != 1 or str(staged[0].get(\"model_source_unit_id\", \"\")) != \"U_MEK_GUNZ_A\":\n\tvar msgs := []\n\tfor t in ToastManager.active_toasts:\n\t\tif is_instance_valid(t):\n\t\t\tfor c in t.get_children():\n\t\t\t\tif c is Label:\n\t\t\t\t\tmsgs.append(c.text)\n\treturn \"staged %d: %s\" % [staged.size(), \" | \".join(msgs)]\nvar dd = staged[0].get(\"dest\")\nvar p := Vector2(float(dd[0]), float(dd[1])) if dd is Array else Vector2(dd.x, dd.y)\nif p.distance_to(Vector2(1400.0, 1700.0)) > 3.0:\n\treturn \"staged at %s\" % str(p)\nreturn \"only the Mek Gunz is staged, past the Custodians\"",
+      "equals": "only the Mek Gunz is staged, past the Custodians",
+      "comment": "17.01: the VEHICLE may be moved through the enemy INFANTRY (EA-10); the Mek is not staged"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mek_gunz_staged_through_the_custodians"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var msgs := []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.get_children():\n\t\t\tif c is Label:\n\t\t\t\tmsgs.append(c.text)\nfor msg in msgs:\n\tif \"cannot follow\" in msg:\n\t\treturn \"refused: \" + msg\nreturn \"not refused: \" + \" | \".join(msgs)",
+      "equals": "refused: Mek cannot follow Mek Gunz through enemy models — move Mek around them, then end the move",
+      "comment": "End This Unit's Move is refused: the INFANTRY Mek would be carried through the Custodians (03.01 — 17.01 is per model) and left engaged; before the fix the confirm carried it through"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar md: Dictionary = ph.active_moves.get(\"U_MEK_GUNZ_A\", {})\nvar mek = GameState.state.units[\"U_MEK_A\"].models[0].position\nvar gun = GameState.state.units[\"U_MEK_GUNZ_A\"].models[0].position\nreturn \"open=%s staged=%d moved=%s mek=(%d,%d) gun=(%d,%d)\" % [str(not md.get(\"completed\", true)), md.get(\"staged_moves\", []).size(), str(GameState.state.units[\"U_MEK_GUNZ_A\"].get(\"flags\", {}).get(\"moved\", false)), int(round(float(mek.x))), int(round(float(mek.y))), int(round(float(gun.x))), int(round(float(gun.y)))]",
+      "equals": "open=true staged=1 moved=false mek=(1400,2065) gun=(1400,1990)",
+      "comment": "nothing moved: the move stays open with the Mek Gunz staged, the Mek stays behind the Custodians"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_end_move_refused_mek_cannot_follow"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Undo Model",
+      "comment": "undo the Mek Gunz's drop (the advance stands)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1400.0,
+      "from_y": 1990.0,
+      "to_x": 1280.0,
+      "to_y": 2080.0,
+      "comment": "a legal 3.75in drag of the Mek Gunz back and to the left (no enemy in the way)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MEK_GUNZ_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mek = GameState.state.units[\"U_MEK_A\"].models[0].position\nvar gun = GameState.state.units[\"U_MEK_GUNZ_A\"].models[0].position\nvar dg := Vector2(float(gun.x), float(gun.y)) - Vector2(1400.0, 1990.0)\nvar dm := Vector2(float(mek.x), float(mek.y)) - Vector2(1400.0, 2065.0)\nif dg.distance_to(Vector2(-120.0, 90.0)) > 3.0:\n\treturn \"gun moved %s\" % str(dg)\nif dm.distance_to(dg) > 0.5:\n\treturn \"mek moved %s, gun %s\" % [str(dm), str(dg)]\nif RulesEngine.is_unit_engaged(\"U_MEK_A\", GameState.state):\n\treturn \"mek engaged\"\nreturn \"the Mek followed the Mek Gunz\"",
+      "equals": "the Mek followed the Mek Gunz",
+      "comment": "a move the Mek can follow confirms and carries it by the Mek Gunz's delta, unengaged"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_mek_gunz_move_confirmed",
+      "comment": "the legal move is confirmed (state checked above: the Mek was carried by the same delta). NOTE: the carried Mek's token is only redrawn at its new spot on the next selection refresh (pre-existing token lag for carried CHARACTERs) — screenshot 05 shows it there"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_DEFF_DREAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fall Back",
+      "comment": "the engaged Deff Dread falls back (a real click on the Fall Back radio)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var am: Dictionary = PhaseManager.get_current_phase_instance().active_moves.get(\"U_DEFF_DREAD_A\", {})\nreturn \"%s %s\" % [str(am.get(\"mode\", \"\")), str(am.get(\"fall_back_mode\", \"\"))]",
+      "equals": "FALL_BACK ordered_retreat"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1000.0,
+      "from_y": 2150.0,
+      "to_x": 1000.0,
+      "to_y": 1880.0,
+      "comment": "a real 6.75in drag of the Deff Dread (VEHICLE) straight north through the friendly Killa Kan behind it"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md: Dictionary = PhaseManager.get_current_phase_instance().active_moves.get(\"U_DEFF_DREAD_A\", {})\nvar staged: Array = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\tvar msgs := []\n\tfor t in ToastManager.active_toasts:\n\t\tif is_instance_valid(t):\n\t\t\tfor c in t.get_children():\n\t\t\t\tif c is Label:\n\t\t\t\t\tmsgs.append(c.text)\n\treturn \"not staged — \" + \" | \".join(msgs)\nvar dd = staged[staged.size() - 1].get(\"dest\")\nvar p := Vector2(float(dd[0]), float(dd[1])) if dd is Array else Vector2(dd.x, dd.y)\nif p.distance_to(Vector2(1000.0, 1880.0)) > 3.0:\n\treturn \"staged at %s\" % str(p)\nreturn \"staged past the Killa Kan\"",
+      "equals": "staged past the Killa Kan",
+      "comment": "17.01 FAQ: on a fall-back a MONSTER/VEHICLE can be moved through friendly units; before the fix the drop was refused with 'Cannot move through Monster or Vehicle models'"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.illegal_reason_label.text",
+      "equals": "",
+      "comment": "no refusal reason is shown"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_deff_dread_falls_back_through_the_killa_kan"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_DEFF_DREAD_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dr = GameState.state.units[\"U_DEFF_DREAD_A\"].models[0]\nvar p := Vector2(float(dr.position.x), float(dr.position.y))\nif p.distance_to(Vector2(1000.0, 1880.0)) > 3.0:\n\treturn \"Deff Dread at %s\" % str(p)\nvar kans = GameState.state.units[\"U_KILLA_KANS_A\"].models\nfor i in range(kans.size()):\n\tif Vector2(float(kans[i].position.x), float(kans[i].position.y)).distance_to(Vector2(870.0 + 130.0 * i, 2035.0)) > 0.5:\n\t\treturn \"a Killa Kan moved\"\nif RulesEngine.is_unit_engaged(\"U_DEFF_DREAD_A\", GameState.state):\n\treturn \"ended engaged\"\nreturn \"fell back through the Killa Kan, unengaged\"",
+      "equals": "fell back through the Killa Kan, unengaged"
+    },
+    {
+      "act": "screenshot",
+      "label": "06_deff_dread_fell_back"
+    }
+  ]
+}

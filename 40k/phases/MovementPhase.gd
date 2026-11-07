@@ -884,8 +884,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		log_phase_message("  FAILED: Distance %.1f\" exceeds cap %.1f\" (pivot cost: %.0f\")" % [total_distance_for_model, effective_cap, move_data.get("pivot_value", 0.0) if move_data.get("pivot_cost_applied", false) else 0.0])
 		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, effective_cap]]}
 	
-	# Check engagement range restrictions for the destination
-	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
+	# Check engagement range restrictions for the destination. Judged with the
+	# moved model's OWN base (model_actual_unit_id): an attached CHARACTER's
+	# model id resolved on the bodyguard is the wrong model (a colliding "m1")
+	# or none at all (EA-10 review).
+	var er_check = _check_engagement_range_at_position(model_actual_unit_id, model_id, dest_vec, move_data.mode)
 	if not er_check.valid:
 		return {"valid": false, "errors": er_check.errors}
 
@@ -899,9 +902,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
-	# FLY units are exempt
+	# FLY units are exempt. The moved model's own unit is passed: the 11e 17.01
+	# FAQ (friendly models never block a MONSTER/VEHICLE on a fall-back / surge
+	# move) is judged per model.
 	if not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
-		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
+		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model, model_actual_unit_id):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
@@ -1016,6 +1021,16 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 			var dest = model_move.dest
 			if _is_position_in_engagement_range(unit_id, model_move.model_id, dest):
 				return {"valid": false, "errors": ["Model %s would still be in engagement range" % model_move.model_id]}
+
+	# EA-10 review (11e): the models this confirm moves WITHOUT a stage of their
+	# own — attached CHARACTERs riding the bodyguard, or the bodyguard following
+	# its CHARACTER — get the per-model checks STAGE_MODEL_MOVE gives the rest:
+	# 17.01 lets a MONSTER/VEHICLE drive through enemy infantry, not the INFANTRY
+	# CHARACTER it carries, and nobody may end the move engaged.
+	var carried_errors := _carried_model_move_errors(unit_id, move_data)
+	if not carried_errors.is_empty():
+		log_phase_message("CONFIRM_UNIT_MOVE refused for %s: %s" % [unit_id, " | ".join(PackedStringArray(carried_errors))])
+		return {"valid": false, "errors": carried_errors}
 
 	# Check unit coherency after all staged moves are applied
 	# Rule: Each model must be within 2" horizontally and 5" vertically of at least one other model (2 others for 7+ model units)
@@ -3416,26 +3431,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 		# Resolve which unit actually owns this model (bodyguard or attached character)
 		# Use model_source_unit_id from staging to avoid model ID collisions (e.g. both
-		# bodyguard and character having "m1")
-		var staged_source = staged_move.get("model_source_unit_id", "")
-		var model_owner_id = unit_id
-		var model_idx = -1
-
-		if staged_source != "" and staged_source != unit_id:
-			model_idx = _get_model_index(staged_source, staged_move.model_id)
-			if model_idx >= 0:
-				model_owner_id = staged_source
-				DebugLogger.info(str("  Model %s belongs to source unit %s (index %d)" % [staged_move.model_id, staged_source, model_idx]))
-
-		if model_idx < 0:
-			model_idx = _get_model_index(unit_id, staged_move.model_id)
-		if model_idx < 0:
-			for char_id in _confirm_attached_chars:
-				model_idx = _get_model_index(char_id, staged_move.model_id)
-				if model_idx >= 0:
-					model_owner_id = char_id
-					DebugLogger.info(str("  Model %s belongs to attached character %s (index %d)" % [staged_move.model_id, char_id, model_idx]))
-					break
+		# bodyguard and character having "m1") — _staged_move_owner, shared with the
+		# confirm's validation (_staged_position_changes).
+		var owner_info := _staged_move_owner(unit_id, staged_move, _confirm_attached_chars, true)
+		var model_owner_id: String = owner_info.owner
+		var model_idx: int = owner_info.index
 
 		# Update model position in game state
 		changes.append({
@@ -3473,51 +3473,19 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		var source = mm.get("model_source_unit_id", unit_id)
 		explicitly_moved_model_keys["%s:%s" % [source, mm.model_id]] = true
 
-	var bg_models = _confirm_unit.get("models", [])
-	var bg_model_ids = {}
-	for bg_m in bg_models:
-		if bg_m.get("alive", true):
-			bg_model_ids[bg_m.get("id", "")] = true
-
-	# Check if any bodyguard model was explicitly moved (using source unit to disambiguate)
-	var any_bg_model_moved = false
-	for mm in move_data.model_moves:
-		var source = mm.get("model_source_unit_id", unit_id)
-		if source == unit_id and mm.model_id in bg_model_ids:
-			any_bg_model_moved = true
-			break
-
-	# If only character models were moved, auto-move bodyguard models by the same delta
-	if not any_bg_model_moved and move_data.model_moves.size() > 0:
-		var first_move = move_data.model_moves[0]
-		var from_pos = first_move.get("from", null)
-		var to_pos = first_move.get("dest", null)
-		if from_pos != null and to_pos != null:
-			var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
-			var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
-			var move_delta = to_vec - from_vec
-			DebugLogger.info(str("[MovementPhase] No bodyguard models explicitly moved — auto-moving bodyguard with character delta: %s" % str(move_delta)))
-			for bg_m in bg_models:
-				if not bg_m.get("alive", true):
-					continue
-				var bg_mid = bg_m.get("id", "")
-				var bg_key = "%s:%s" % [unit_id, bg_mid]
-				if explicitly_moved_model_keys.has(bg_key):
-					continue
-				var model_pos = bg_m.get("position", null)
-				if model_pos == null:
-					continue
-				var pos_x = model_pos.get("x", 0) if model_pos is Dictionary else model_pos.x
-				var pos_y = model_pos.get("y", 0) if model_pos is Dictionary else model_pos.y
-				var new_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
-				var bg_idx = _get_model_index(unit_id, bg_mid)
-				if bg_idx >= 0:
-					changes.append({
-						"op": "set",
-						"path": "units.%s.models.%d.position" % [unit_id, bg_idx],
-						"value": {"x": new_pos.x, "y": new_pos.y}
-					})
-					DebugLogger.info(str("[MovementPhase] Auto-moved bodyguard model %s by delta %s" % [bg_mid, str(move_delta)]))
+	# If only character models were moved, auto-move bodyguard models by the same
+	# delta — _bodyguard_follow_plan, the same plan the confirm's validation
+	# checks (_carried_model_move_errors).
+	var bg_follow := _bodyguard_follow_plan(unit_id, move_data.model_moves, explicitly_moved_model_keys)
+	if bg_follow.active:
+		DebugLogger.info(str("[MovementPhase] No bodyguard models explicitly moved — auto-moving bodyguard with character delta: %s" % str(bg_follow.delta)))
+		for entry in bg_follow.entries:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [unit_id, entry.index],
+				"value": {"x": entry.to.x, "y": entry.to.y}
+			})
+			DebugLogger.info(str("[MovementPhase] Auto-moved bodyguard model %s by delta %s" % [entry.model_id, str(bg_follow.delta)]))
 
 	# Move attached character models with the bodyguard unit
 	# Skip character models that were already explicitly moved via staged moves
@@ -6583,7 +6551,7 @@ func _ork11e_translation_legal(unit_id: String, move_data: Dictionary, entries: 
 			return false
 		if not fly and _path_crosses_enemy_bases(from, dest, unit_id, model, str(e.uid)):
 			return false
-		if not fly and _path_crosses_monster_vehicle_bases(from, dest, unit_id, model):
+		if not fly and _path_crosses_monster_vehicle_bases(from, dest, unit_id, model, str(e.uid)):
 			return false
 		if _position_intersects_terrain(dest, model):
 			return false
@@ -7202,6 +7170,38 @@ static func _unit_is_monster_or_vehicle(unit: Dictionary) -> bool:
 			return true
 	return false
 
+## EA-10 review · 11e 17.01 FAQ: "While making a move type other than a normal
+## / advance move, can my MONSTER/VEHICLE unit move through friendly units?
+## A: Yes." (03.01: a model "can be moved through friendly models"; 17.01's
+## "excluding other MONSTER/VEHICLE models" binds normal / advance moves only.)
+## True when unit_id's current move has a mode other than NORMAL / ADVANCE
+## (fall-back, surge) and the model being moved is a MONSTER/VEHICLE, judged on
+## its OWN unit (model_unit_id, else unit_id), like 17.01. Read by
+## _path_crosses_monster_vehicle_bases, which then skips friendly units —
+## enemy MONSTER/VEHICLE models still block. 11e only.
+func _mv1701_faq_moves_through_friendly(unit_id: String, model_unit_id: String = "") -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var mode := str(active_moves.get(unit_id, {}).get("mode", ""))
+	if mode == "" or mode in ["NORMAL", "ADVANCE"]:
+		return false
+	return _unit_is_monster_or_vehicle(get_unit(model_unit_id if model_unit_id != "" else unit_id))
+
+## The component units of the (Attached) unit unit_id moves as, as a set: the
+## unit itself plus every CHARACTER attached to it — both link directions,
+## RulesEngine.attached_unit_component_ids — headed by unit_id's bodyguard when
+## unit_id is itself an attached CHARACTER. 19.01: one unit for all rules
+## purposes, so these models never block each other's paths.
+func _moving_unit_component_ids(unit_id: String) -> Dictionary:
+	var head := unit_id
+	var back_ptr = get_unit(unit_id).get("attached_to", null)
+	if back_ptr != null and str(back_ptr) != "" and not get_unit(str(back_ptr)).is_empty():
+		head = str(back_ptr)
+	var out := {unit_id: true}
+	for cid in RulesEngine.attached_unit_component_ids(head, game_state_snapshot):
+		out[str(cid)] = true
+	return out
+
 static func _unit_is_titanic(unit: Dictionary) -> bool:
 	for kw in unit.get("meta", {}).get("keywords", []):
 		if str(kw).to_upper() == "TITANIC":
@@ -7546,17 +7546,32 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 
 	return false
 
-func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
+func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary, model_unit_id: String = "") -> bool:
 	# 10e Errata: No model can move across MONSTER or VEHICLE models (friendly or enemy)
 	# unless the moving model has the FLY keyword (FLY check done by caller).
 	# This checks all units on the board for MONSTER/VEHICLE keyword and blocks
 	# path crossing through their bases, excluding the moving unit's own models.
+	# The moving unit's own models are EVERY component of an Attached unit
+	# (19.01: one unit for all rules purposes; 03.01: friendly models can be
+	# moved through) — keyed on unit_id alone, an attached MONSTER/VEHICLE
+	# CHARACTER's own base blocked every move of its model (its base overlaps
+	# the path's first sample) and the bodyguard's paths across it (EA-10 review).
+	# 11e 17.01 FAQ: on a move other than a normal / advance move a
+	# MONSTER/VEHICLE model can be moved through friendly models, so then only
+	# ENEMY MONSTER/VEHICLE models block it (_mv1701_faq_moves_through_friendly).
+	# model_unit_id: the moved model's own unit (an attached CHARACTER's unit
+	# for its models; "" = unit_id) — the FAQ is judged per model, like 17.01.
 	# Codex: Adeptus Custodes CALISTUS (CustodesKatah.gd): "all types of model".
 	if _cus11e_moves_through_all_models(unit_id):
 		return false
 	# 24.35 SUPER-HEAVY WALKER: MONSTER / VEHICLE models no longer block the
 	# move — only TITANIC ones do (friendly or enemy).
 	var shw_only_titanic := _shw_moves_through_models(unit_id)
+	var own_unit_ids := _moving_unit_component_ids(unit_id)
+	var friendly_pass := _mv1701_faq_moves_through_friendly(unit_id, model_unit_id)
+	if friendly_pass:
+		log_phase_message("  17.01 FAQ — %s is not making a normal / advance move: friendly MONSTER/VEHICLE models do not block it" % (model_unit_id if model_unit_id != "" else unit_id))
+	var mover_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
 	var reference_model = model.duplicate()
@@ -7573,10 +7588,12 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 		model_at_pos["position"] = sample_pos
 
 		for check_unit_id in units:
-			if check_unit_id == unit_id:
-				continue  # Skip own unit's models
+			if own_unit_ids.has(str(check_unit_id)):
+				continue  # Skip own unit's models (every component of an Attached unit)
 
 			var check_unit = units[check_unit_id]
+			if friendly_pass and check_unit.get("owner", 0) == mover_player:
+				continue  # 17.01 FAQ: friendly models do not block this move
 			if shw_only_titanic and not _unit_is_titanic(check_unit):
 				continue
 			# Only block on MONSTER or VEHICLE units
@@ -9322,46 +9339,94 @@ func _occupancy_values_excluding(occupancy: Dictionary, exclude_key: String) -> 
 		out.append(occupancy[k])
 	return out
 
-func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, explicitly_moved_models: Dictionary = {}, pending_changes: Array = []) -> Array:
-	"""Move attached character models to maintain formation with bodyguard.
-	Calculates delta from the bodyguard's first model move and applies to character models.
-	Models in explicitly_moved_models were already positioned via staged moves and are skipped.
-	pending_changes holds the position set-ops built earlier this confirm (bodyguard
-	final positions + explicitly-staged character positions) so the rigidly-translated
-	character models can be nudged off any model they would land on."""
-	var changes = []
+## A move record's "from" / "dest" (or a model's "position") as a Vector2 —
+## Vector2 or {x, y}; null when unset.
+static func _move_point(p) -> Variant:
+	if p is Vector2:
+		return p
+	if p is Dictionary:
+		return Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+	return null
+
+## Which unit's model a staged move moves, and its index there: the staged
+## source unit (an attached CHARACTER — model ids collide, e.g. "m1" in both),
+## else the bodyguard unit_id, else the first attached CHARACTER holding that
+## model id. {owner, index} (index -1 = not found). Shared by
+## _process_confirm_unit_move and _staged_position_changes.
+func _staged_move_owner(unit_id: String, staged_move: Dictionary, attached_chars: Array, verbose: bool = false) -> Dictionary:
+	var model_id = staged_move.get("model_id", "")
+	var staged_source := str(staged_move.get("model_source_unit_id", ""))
+	var model_owner_id := unit_id
+	var model_idx := -1
+	if staged_source != "" and staged_source != unit_id:
+		model_idx = _get_model_index(staged_source, model_id)
+		if model_idx >= 0:
+			model_owner_id = staged_source
+			if verbose:
+				DebugLogger.info(str("  Model %s belongs to source unit %s (index %d)" % [model_id, staged_source, model_idx]))
+	if model_idx < 0:
+		model_idx = _get_model_index(unit_id, model_id)
+	if model_idx < 0:
+		for char_id in attached_chars:
+			model_idx = _get_model_index(str(char_id), model_id)
+			if model_idx >= 0:
+				model_owner_id = str(char_id)
+				if verbose:
+					DebugLogger.info(str("  Model %s belongs to attached character %s (index %d)" % [model_id, char_id, model_idx]))
+				break
+	return {"owner": model_owner_id, "index": model_idx}
+
+## The position set-ops CONFIRM_UNIT_MOVE writes for the staged moves, built
+## without confirming: the final positions _attached_carry_plan's overlap nudge
+## reads when _carried_model_move_errors checks a confirm before it runs.
+func _staged_position_changes(unit_id: String, move_data: Dictionary) -> Array:
+	var out: Array = []
+	var attached: Array = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
+	for staged_move in move_data.get("staged_moves", []):
+		var dest = _move_point(staged_move.get("dest", null))
+		if dest == null:
+			continue
+		var owner_info := _staged_move_owner(unit_id, staged_move, attached)
+		out.append({"op": "set",
+			"path": "units.%s.models.%s.position" % [owner_info.owner, owner_info.index],
+			"value": {"x": dest.x, "y": dest.y}})
+	return out
+
+## The attached-CHARACTER models CONFIRM_UNIT_MOVE carries with the bodyguard:
+## every model not explicitly moved, shifted by the delta of the bodyguard's
+## first model move in `moves` (the move's model moves in confirm order:
+## model_moves, then staged_moves) and nudged off any model it would land on.
+## One plan for the confirm that applies it (_move_attached_characters) and the
+## validation that may refuse it (_carried_model_move_errors, EA-10 review).
+## pending_changes: position set-ops holding this confirm's final positions.
+## {found_delta, delta, entries: [{uid, index, model_id, model, from, to, follows}]}
+func _attached_carry_plan(bodyguard_id: String, attached_char_ids: Array, moves: Array, explicitly_moved_models: Dictionary, pending_changes: Array, verbose: bool = false) -> Dictionary:
+	var plan := {"found_delta": false, "delta": Vector2.ZERO, "entries": []}
 	var bodyguard = get_unit(bodyguard_id)
 	if bodyguard.is_empty():
-		return changes
+		return plan
 
 	# Calculate movement delta from first bodyguard model (only from bodyguard models, not character models)
-	var bg_models = bodyguard.get("models", [])
 	var bg_model_ids = {}
-	for bg_m in bg_models:
+	for bg_m in bodyguard.get("models", []):
 		bg_model_ids[bg_m.get("id", "")] = true
-	var move_delta = Vector2.ZERO
-	var found_delta = false
-
-	# Find the movement delta from the active_moves data
-	if active_moves.has(bodyguard_id):
-		var move_data = active_moves[bodyguard_id]
-		for model_move in move_data.model_moves:
-			# Only use bodyguard model moves for delta calculation, not character model moves
-			if model_move.model_id in bg_model_ids:
-				var from_pos = model_move.get("from", null)
-				var to_pos = model_move.get("dest", null)
-				if from_pos != null and to_pos != null:
-					var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
-					var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
-					move_delta = to_vec - from_vec
-					found_delta = true
-					break
-
-	if not found_delta:
-		DebugLogger.info(str("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id))
-		return changes
-
-	DebugLogger.info(str("[MovementPhase] Moving attached characters with delta: %s" % str(move_delta)))
+	for model_move in moves:
+		# Only a bodyguard model's move sets the delta — matched on its source unit
+		# too: an attached CHARACTER's model can share a bodyguard model id ("m1").
+		if str(model_move.get("model_source_unit_id", bodyguard_id)) != bodyguard_id:
+			continue
+		if not model_move.get("model_id", "") in bg_model_ids:
+			continue
+		var from_vec = _move_point(model_move.get("from", null))
+		var to_vec = _move_point(model_move.get("dest", null))
+		if from_vec != null and to_vec != null:
+			plan.delta = to_vec - from_vec
+			plan.found_delta = true
+			break
+	if not plan.found_delta:
+		return plan
+	if verbose:
+		DebugLogger.info(str("[MovementPhase] Moving attached characters with delta: %s" % str(plan.delta)))
 
 	# Occupancy of every alive model at its FINAL position for this move (pending
 	# changes override live state). Keyed by "unit:model_id" so we can exclude the
@@ -9384,22 +9449,20 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 			# Uses unit_id:model_id key to handle model ID collisions (e.g. "m1" in both units)
 			var model_key = "%s:%s" % [char_id, model_id]
 			if explicitly_moved_models.has(model_key):
-				DebugLogger.info(str("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id))
+				if verbose:
+					DebugLogger.info(str("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id))
 				continue
 
-			var model_pos = model.get("position", null)
-			if model_pos == null:
+			var from_pos = _move_point(model.get("position", null))
+			if from_pos == null:
 				continue
-
-			var pos_x = model_pos.get("x", 0) if model_pos is Dictionary else model_pos.x
-			var pos_y = model_pos.get("y", 0) if model_pos is Dictionary else model_pos.y
-			var ideal_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
+			var ideal_pos: Vector2 = from_pos + plan.delta
 
 			# Nudge off any model the rigid delta would land the character on (its
 			# own stale spot is excluded so it never blocks itself).
 			var others := _occupancy_values_excluding(occupancy, model_key)
 			var new_pos = Measurement.find_nearest_non_overlapping_position(model, ideal_pos, others)
-			if new_pos != ideal_pos:
+			if new_pos != ideal_pos and verbose:
 				DebugLogger.info(str("[MovementPhase] Attached character %s.%s nudged off overlap: ideal %s -> %s" % [char_id, model_id, str(ideal_pos), str(new_pos)]))
 
 			# Record this character's resolved position so later attached models avoid it too.
@@ -9407,10 +9470,152 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 			placed["position"] = new_pos
 			occupancy[model_key] = placed
 
+			plan.entries.append({"uid": str(char_id), "index": i, "model_id": str(model_id), "model": model,
+				"from": from_pos, "to": new_pos, "follows": bodyguard_id})
+	return plan
+
+## When only attached CHARACTER models were moved, CONFIRM_UNIT_MOVE moves every
+## bodyguard model nobody moved by the first move's delta (applied by
+## _process_confirm_unit_move, checked by _carried_model_move_errors).
+## moves: the move's model moves in confirm order (model_moves, then
+## staged_moves). {active, delta, entries: [{uid, index, model_id, model, from, to, follows}]}
+func _bodyguard_follow_plan(unit_id: String, moves: Array, explicitly_moved_models: Dictionary) -> Dictionary:
+	var plan := {"active": false, "delta": Vector2.ZERO, "entries": []}
+	if moves.is_empty():
+		return plan
+	var bg_models: Array = get_unit(unit_id).get("models", [])
+	var bg_model_ids := {}
+	for bg_m in bg_models:
+		if bg_m.get("alive", true):
+			bg_model_ids[bg_m.get("id", "")] = true
+	# Any bodyguard model moved (using source unit to disambiguate): the
+	# characters follow it instead (_attached_carry_plan).
+	for mm in moves:
+		if str(mm.get("model_source_unit_id", unit_id)) == unit_id and mm.get("model_id", "") in bg_model_ids:
+			return plan
+	var first_move: Dictionary = moves[0]
+	var from_vec = _move_point(first_move.get("from", null))
+	var to_vec = _move_point(first_move.get("dest", null))
+	if from_vec == null or to_vec == null:
+		return plan
+	plan.active = true
+	plan.delta = to_vec - from_vec
+	var follows := str(first_move.get("model_source_unit_id", unit_id))
+	for bg_m in bg_models:
+		if not bg_m.get("alive", true):
+			continue
+		var bg_mid := str(bg_m.get("id", ""))
+		if explicitly_moved_models.has("%s:%s" % [unit_id, bg_mid]):
+			continue
+		var pos = _move_point(bg_m.get("position", null))
+		if pos == null:
+			continue
+		var bg_idx := _get_model_index(unit_id, bg_mid)
+		if bg_idx < 0:
+			continue
+		plan.entries.append({"uid": unit_id, "index": bg_idx, "model_id": bg_mid, "model": bg_m,
+			"from": pos, "to": pos + plan.delta, "follows": follows})
+	return plan
+
+## EA-10 review (11e 17.01 is worded per model; 03.01 "Its base cannot be moved
+## through enemy models"; 09.05 / 09.06 AFTER MOVING "Your unit must be
+## unengaged"): CONFIRM_UNIT_MOVE also moves models nobody moved — an attached
+## CHARACTER's models ride the bodyguard's first move delta
+## (_attached_carry_plan), and when only CHARACTER models were moved the
+## bodyguard follows theirs (_bodyguard_follow_plan). Since 17.01 lets a
+## MONSTER/VEHICLE model drive through enemy infantry, that ride could carry an
+## INFANTRY CHARACTER through the same screen (a Mek leading Mek Gunz), or drag a
+## MONSTER CHARACTER's non-MONSTER/VEHICLE bodyguard after it, and leave it
+## engaged. Each carried model must pass what STAGE_MODEL_MOVE would ask of it,
+## judged on its OWN unit: its straight path crosses no enemy base the model may
+## not cross and no blocking MONSTER/VEHICLE base, and it does not end engaged.
+## Returns the refusal reasons ([] = the confirm may go ahead). 11e normal /
+## advance moves (the moves 17.01 opens up).
+func _carried_model_move_errors(unit_id: String, move_data: Dictionary) -> Array:
+	var errors: Array = []
+	if GameConstants.edition < 11:
+		return errors
+	var mode := str(move_data.get("mode", ""))
+	if not mode in ["NORMAL", "ADVANCE"]:
+		return errors
+	var attached: Array = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
+	if attached.is_empty():
+		return errors
+	var moves: Array = []
+	moves.append_array(move_data.get("model_moves", []))
+	moves.append_array(move_data.get("staged_moves", []))
+	if moves.is_empty():
+		return errors
+	var explicit := {}
+	for mm in moves:
+		explicit["%s:%s" % [str(mm.get("model_source_unit_id", unit_id)), str(mm.get("model_id", ""))]] = true
+	var carried: Array = []
+	var follow := _bodyguard_follow_plan(unit_id, moves, explicit)
+	if follow.active:
+		carried = follow.entries
+	else:
+		carried = _attached_carry_plan(unit_id, attached, moves, explicit, _staged_position_changes(unit_id, move_data)).entries
+	var path_checked := not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data)
+	var reported := {}
+	for c in carried:
+		if not c.model.get("alive", true):
+			continue
+		var reason := ""
+		if path_checked and _path_crosses_enemy_bases(c.from, c.to, unit_id, c.model, c.uid):
+			reason = "enemy"
+		elif path_checked and _path_crosses_monster_vehicle_bases(c.from, c.to, unit_id, c.model, c.uid):
+			reason = "mv"
+		elif not _check_engagement_range_at_position(c.uid, c.model_id, c.to, mode).valid:
+			reason = "engaged"
+		if reason == "" or reported.has("%s:%s" % [c.uid, reason]):
+			continue
+		reported["%s:%s" % [c.uid, reason]] = true
+		var who := GameState.get_unit_display_name(c.uid)
+		var leader := GameState.get_unit_display_name(str(c.follows))
+		log_phase_message("  CONFIRM refused: %s.%s carried %s -> %s by %s's move (%s)" % [c.uid, c.model_id, str(c.from), str(c.to), str(c.follows), reason])
+		match reason:
+			"enemy":
+				errors.append("%s cannot follow %s through enemy models — move %s around them, then end the move" % [who, leader, who])
+			"mv":
+				errors.append("%s cannot follow %s through Monster or Vehicle models — move %s around them, then end the move" % [who, leader, who])
+			_:
+				errors.append("%s would end within engagement range following %s — move %s, then end the move" % [who, leader, who])
+	return errors
+
+func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, explicitly_moved_models: Dictionary = {}, pending_changes: Array = []) -> Array:
+	"""Move attached character models to maintain formation with bodyguard.
+	Calculates delta from the bodyguard's first model move and applies to character models.
+	Models in explicitly_moved_models were already positioned via staged moves and are skipped.
+	pending_changes holds the position set-ops built earlier this confirm (bodyguard
+	final positions + explicitly-staged character positions) so the rigidly-translated
+	character models can be nudged off any model they would land on."""
+	var changes = []
+	var bodyguard = get_unit(bodyguard_id)
+	if bodyguard.is_empty():
+		return changes
+
+	# The delta, the skipped (explicitly moved) models and the overlap nudge are
+	# all computed by _attached_carry_plan — the same plan the confirm's
+	# validation checks (_carried_model_move_errors), so what is checked is what
+	# is applied.
+	var moves: Array = active_moves[bodyguard_id].get("model_moves", []) if active_moves.has(bodyguard_id) else []
+	var plan := _attached_carry_plan(bodyguard_id, attached_char_ids, moves, explicitly_moved_models, pending_changes, true)
+	if not plan.found_delta:
+		DebugLogger.info(str("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id))
+		return changes
+
+	for char_id in attached_char_ids:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+
+		for entry in plan.entries:
+			if entry.uid != str(char_id):
+				continue
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%d.position" % [char_id, i],
-				"value": {"x": new_pos.x, "y": new_pos.y}
+				"path": "units.%s.models.%d.position" % [char_id, entry.index],
+				"value": {"x": entry.to.x, "y": entry.to.y}
 			})
 
 		# Also set character unit flags to match bodyguard
