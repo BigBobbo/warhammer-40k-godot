@@ -69,6 +69,23 @@ var _exam_out_path: String = ""
 var _exam: Dictionary = {}
 var _exam_phase: int = -1
 var _exam_results: Array = []
+# EXAM-DET-1: an exam grades the state at the END of its phase, and nothing
+# later. The AI is never told an exam is over, so it plays straight on into the
+# next phase and the opponent's turn; the runner used to notice the phase change
+# on a 0.25 s poll and then wait 20 frames before grading, and everything the AI
+# did in between was graded too. How much fit in depended on frame time, i.e. on
+# machine load: on identical code mv04 counted 54, 59 or 94 terms-sum
+# mismatches (0, 3 or 18 of player 2's movement actions included). The runner
+# now stops the AI synchronously, inside the signal that ends the exam (see
+# _exam_stop_ai), and records where it stopped.
+var _exam_stopped: bool = false
+var _exam_stop: Dictionary = {}
+var _exam_start_round: int = 0
+var _exam_max_actions: int = 400
+# EXAM-DET-1: provenance stamped into the exam result, so a verdict always says
+# which board it was graded on (see _ensure_fixture_in_user_saves).
+var _fixture_sha256: String = ""
+var _fixture_note: String = ""
 
 var _start_ticks: int = 0
 var _last_progress_ticks: int = 0
@@ -236,10 +253,6 @@ func _run_gdscript(src: String, label: String):
 	return obj.run(get_tree())
 
 func _exam_evaluate() -> void:
-	var records := []
-	var ai = get_node_or_null("/root/AIPlayer")
-	if ai != null and "_all_decision_records" in ai:
-		records = ai._all_decision_records
 	var passed := 0
 	var failed := 0
 	for a in _exam.get("assert", []):
@@ -270,15 +283,37 @@ func _exam_evaluate() -> void:
 		_exam_results.append({"name": name, "ok": ok, "detail": detail})
 		print("[AIExam]   %s %s — %s" % ["PASS" if ok else "FAIL", name, detail])
 	var verdict := "PASS" if failed == 0 and passed > 0 else "FAIL"
-	var out := {
+	var out := _exam_result_base(verdict, passed, failed)
+	_write_exam_trace(out)
+	_write_exam_result(out)
+	print("[AIExam] RESULT %s" % JSON.stringify(out))
+	print("[AIExam] trace %s records_sha256=%s units_sha256=%s fixture_sha256=%s" % [
+		str(out.get("trace", "")), str(out.get("records_sha256", "")).left(16),
+		str(out.get("units_sha256", "")).left(16), _fixture_sha256.left(16)])
+	print("[AIExam] %s: %d passed, %d failed -> %s" % [out.id, passed, failed, verdict])
+	get_tree().quit(0 if verdict == "PASS" else 1)
+
+func _exam_result_base(verdict: String, passed: int, failed: int) -> Dictionary:
+	var ai = get_node_or_null("/root/AIPlayer")
+	var batches := 0
+	if ai != null and "_all_decision_records" in ai:
+		batches = ai._all_decision_records.size()
+	return {
 		"id": _exam.get("id", "exam"), "verdict": verdict,
 		"passed": passed, "failed": failed,
 		"rationale": _exam.get("rationale", ""),
 		"phase": _exam_phase, "player": _exam.get("player", 1),
 		"seed": _seed,
-		"decision_batches": records.size(),
+		"decision_batches": batches,
 		"assertions": _exam_results,
+		# EXAM-DET-1: where the AI was stopped, which board was graded, which build.
+		"stopped": _exam_stop,
+		"fixture": {"name": _fixture, "path": _fixture_path(), "sha256": _fixture_sha256,
+			"note": _fixture_note},
+		"git_sha": _git_sha,
 	}
+
+func _write_exam_result(out: Dictionary) -> void:
 	var dir := _exam_out_path.get_base_dir()
 	if dir != "":
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://" + dir))
@@ -286,40 +321,149 @@ func _exam_evaluate() -> void:
 	if fh != null:
 		fh.store_string(JSON.stringify(out, "  "))
 		fh.close()
-	print("[AIExam] RESULT %s" % JSON.stringify(out))
-	print("[AIExam] %s: %d passed, %d failed -> %s" % [out.id, passed, failed, verdict])
-	get_tree().quit(0 if verdict == "PASS" else 1)
+
+## EXAM-DET-1: everything a verdict was computed from, written next to the
+## result as <exam-out>.trace.json — the AI's decision batches and action log as
+## of the stop, and every model's final position — so two runs can be diffed
+## directly instead of through a hacked spec. `records_sha256` / `units_sha256`
+## in the result compare them at a glance. Same code + same fixture + same seed
+## must give the same trace; when it does not, that is a determinism bug to
+## chase, not noise to average over.
+func _write_exam_trace(out: Dictionary) -> void:
+	var ai = get_node_or_null("/root/AIPlayer")
+	var records: Array = []
+	var action_log: Array = []
+	if ai != null and "_all_decision_records" in ai:
+		records = ai._all_decision_records
+		action_log = ai._action_log
+	var units := {}
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state.units[uid]
+		var models := []
+		for m in u.get("models", []):
+			var p = m.get("position")
+			var xy = null
+			if p is Vector2:
+				xy = [p.x, p.y]
+			elif p is Dictionary:
+				xy = [float(p.get("x", 0.0)), float(p.get("y", 0.0))]
+			models.append({"pos": xy, "alive": bool(m.get("alive", true)),
+				"wounds": m.get("current_wounds", null)})
+		units[uid] = {"models": models, "status": u.get("status", null), "flags": u.get("flags", {})}
+	out["records_sha256"] = JSON.stringify(records).sha256_text()
+	out["units_sha256"] = JSON.stringify(units).sha256_text()
+	var trace_path := _exam_out_path.get_basename() + ".trace.json"
+	out["trace"] = trace_path
+	var trace := {
+		"id": out.get("id", "exam"), "seed": _seed, "fixture_sha256": _fixture_sha256,
+		"git_sha": _git_sha, "stopped": _exam_stop,
+		"decision_batches": records, "action_log": action_log, "units": units,
+	}
+	var dir := trace_path.get_base_dir()
+	if dir != "":
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://" + dir))
+	var fh = FileAccess.open("user://" + trace_path, FileAccess.WRITE)
+	if fh != null:
+		fh.store_string(JSON.stringify(trace, " "))
+		fh.close()
 
 func _exam_watch_loop() -> void:
-	"""Run exactly one phase for the player under test, then grade."""
+	"""Run exactly one phase for the player under test, then grade.
+
+	EXAM-DET-1: the end of the exam is caught by SIGNAL, not by the poll —
+	PhaseManager.phase_changed for the end of the phase, AIPlayer.ai_action_taken
+	for the action cap — and the AI is stopped inside that signal, so the graded
+	state is the same at any frame rate. The poll only watches the two things no
+	signal reports: the game ending (the AI stops itself then) and the wall-clock
+	cap, which grades nothing (see _exam_timeout)."""
 	var pm = get_node_or_null("/root/PhaseManager")
-	var start_round = GameState.get_battle_round()
-	var max_actions = int(_exam.get("max_actions", 400))
-	var acted := 0
 	var ai = get_node_or_null("/root/AIPlayer")
-	while true:
+	_exam_start_round = GameState.get_battle_round()
+	_exam_max_actions = int(_exam.get("max_actions", 400))
+	if not pm.phase_changed.is_connected(_on_exam_phase_changed):
+		pm.phase_changed.connect(_on_exam_phase_changed)
+	if ai != null and ai.has_signal("ai_action_taken") \
+			and not ai.ai_action_taken.is_connected(_on_exam_ai_action_taken):
+		ai.ai_action_taken.connect(_on_exam_ai_action_taken)
+	# A phase that completes on entry is already over: the AI has not acted yet
+	# (it only acts from _process), so stopping here is as exact as the signal.
+	_check_exam_phase_over()
+	while not _exam_stopped:
 		await get_tree().create_timer(0.25).timeout
-		var elapsed = (Time.get_ticks_msec() - _start_ticks) / 1000.0
-		if ai != null:
-			acted = ai._action_log.size() if "_action_log" in ai else 0
-		var cur_phase = int(GameState.state.get("meta", {}).get("phase", -1))
+		if _exam_stopped:
+			break
 		if pm.game_ended:
-			print("[AIExam] game ended during the exam phase")
+			_exam_stop_ai("game ended during the exam phase")
 			break
-		if cur_phase != _exam_phase or GameState.get_battle_round() != start_round:
-			print("[AIExam] phase %d complete (now %d) after %d actions" % [
-				_exam_phase, cur_phase, acted])
-			break
-		if acted >= max_actions:
-			print("[AIExam] action cap %d reached" % max_actions)
-			break
-		if elapsed > _max_seconds:
-			print("[AIExam] wall-clock cap %.0fs reached" % _max_seconds)
-			break
-	# Let any in-flight resolution settle before grading.
+		if (Time.get_ticks_msec() - _start_ticks) / 1000.0 > _max_seconds:
+			_exam_timeout()
+			return
+	# The AI is stopped and nothing else drives the game, so these frames only
+	# let deferred calls queued by the exam phase's last action finish.
 	for i in range(20):
 		await get_tree().process_frame
 	_exam_evaluate()
+
+func _on_exam_phase_changed(_new_phase) -> void:
+	_check_exam_phase_over()
+
+func _check_exam_phase_over() -> void:
+	if _exam_stopped:
+		return
+	var cur_phase = int(GameState.state.get("meta", {}).get("phase", -1))
+	if cur_phase != _exam_phase or GameState.get_battle_round() != _exam_start_round:
+		_exam_stop_ai("phase %d complete (now %d)" % [_exam_phase, cur_phase])
+
+func _on_exam_ai_action_taken(_player, _action, _description) -> void:
+	if _exam_stopped:
+		return
+	var ai = get_node_or_null("/root/AIPlayer")
+	if ai != null and ai._action_log.size() >= _exam_max_actions:
+		_exam_stop_ai("action cap %d reached" % _exam_max_actions)
+
+## EXAM-DET-1: freeze the AI where the exam ends. Called synchronously from the
+## signal that ended it (phase_changed is emitted at the very end of
+## PhaseManager.transition_to_phase, once the next phase has been entered), so
+## the next phase's actions — and the opponent's whole turn — can never leak
+## into the graded state or the decision records, however long frames take.
+## AIPlayer.enabled gates _process, _evaluate_and_act and its deferred
+## executors; nothing else submits actions in an all-AI exam.
+func _exam_stop_ai(reason: String) -> void:
+	if _exam_stopped:
+		return
+	_exam_stopped = true
+	var ai = get_node_or_null("/root/AIPlayer")
+	var acted := 0
+	var batches := 0
+	if ai != null:
+		ai.enabled = false
+		acted = ai._action_log.size()
+		batches = ai._all_decision_records.size()
+	_exam_stop = {
+		"reason": reason,
+		"phase": int(GameState.state.get("meta", {}).get("phase", -1)),
+		"round": GameState.get_battle_round(),
+		"active_player": GameState.get_active_player(),
+		"actions": acted,
+		"decision_batches": batches,
+	}
+	print("[AIExam] %s after %d actions — AI stopped (%d decision batches)" % [
+		reason, acted, batches])
+
+## A wall-clock overrun is not a verdict. Grading a half-played phase made the
+## result depend on how fast the box was, so a timeout grades nothing: it writes
+## a TIMEOUT result, prints no verdict line (run_exams.sh then lists the exam as
+## ERROR, "no verdict"), and exits 3 — the benchmark's timeout code.
+func _exam_timeout() -> void:
+	_exam_stop_ai("wall-clock cap %.0fs reached" % _max_seconds)
+	var out := _exam_result_base("TIMEOUT", 0, 0)
+	out["note"] = "the exam phase did not finish within %.0f s of wall clock; nothing was graded" % _max_seconds
+	_write_exam_trace(out)
+	_write_exam_result(out)
+	print("[AIExam] RESULT %s" % JSON.stringify(out))
+	print("[AIExam] TIMEOUT %s — no verdict: the phase did not finish within %.0fs of wall clock (raise the spec's max_seconds, or re-run on a less loaded box)" % [
+		str(_exam.get("id", "exam")), _max_seconds])
+	get_tree().quit(3)
 
 func _kick_off() -> void:
 	await get_tree().process_frame
@@ -327,6 +471,8 @@ func _kick_off() -> void:
 
 	# 1) Load the fixture (a post-deployment save = full game from round 1)
 	_ensure_fixture_in_user_saves()
+	_fixture_sha256 = _sha256_of(_fixture_path())
+	print("[AIBench] fixture %s sha256=%s (%s; %s)" % [_fixture, _fixture_sha256, _fixture_path(), _fixture_note])
 	var save_mgr = get_node_or_null("/root/SaveLoadManager")
 	if save_mgr == null or not save_mgr.load_game(_fixture):
 		_finish_with_error("fixture load failed: %s" % _fixture)
@@ -743,30 +889,74 @@ static func _sha256_of(path: String) -> String:
 		return ""
 	return FileAccess.get_sha256(path)
 
-## A fresh container has no user://saves/ copy of the fixture (the migration
-## from res:// runs from the menu, never in a headless benchmark), so the load
-## failed with "fixture load failed". Copy it (and its .meta) from the repo:
-## res://tests/saves/ (tracked) or res://saves/.
+## The game loads user://saves/<fixture>.w40ksave (SaveLoadManager.save_directory).
+## A fresh container has no copy there, so copy it (and its .meta) from the repo.
+##
+## EXAM-DET-1: the TRACKED copy in res://tests/saves/ is the source of truth. It
+## is copied in when the user:// copy is missing OR its bytes differ. This used
+## to copy only when missing — like run_exams.sh's `cp -n` and SaveLoadManager's
+## non-destructive legacy migration from res://saves/ — so a user dir that
+## outlived a fixture change kept serving the OLD board, and a verdict depended
+## on the history of the machine instead of on the code: on identical code
+## mv01 passed against a dbdb29f-era copy (obj_nml_1 at (400, 880)) and failed
+## against the tracked fixture (obj_nml_1 at (1500, 750) since 6f07340).
+## ScenarioRunner learned the same lesson on 2026-10-17. A fixture that is NOT
+## tracked (a rollout save, a dev save in res://saves/) keeps first-copy-wins,
+## since nothing says which copy is right. Either way the loaded file's sha256
+## is stamped into the result (_fixture_sha256).
 func _ensure_fixture_in_user_saves() -> void:
 	var dst_dir := "user://saves/"
-	if FileAccess.file_exists(dst_dir + _fixture + ".w40ksave"):
-		return
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dst_dir))
-	for src_dir in ["res://tests/saves/", "res://saves/"]:
-		if not FileAccess.file_exists(src_dir + _fixture + ".w40ksave"):
-			continue
-		for ext in [".w40ksave", ".meta"]:
-			var src: String = src_dir + _fixture + ext
-			if not FileAccess.file_exists(src):
-				continue
-			var data := FileAccess.get_file_as_bytes(src)
-			var f := FileAccess.open(dst_dir + _fixture + ext, FileAccess.WRITE)
-			if f != null:
-				f.store_buffer(data)
-				f.close()
-		print("[AIBench] fixture %s copied from %s to %s" % [_fixture, src_dir, dst_dir])
+	var dst := dst_dir + _fixture + ".w40ksave"
+	var tracked_dir := "res://tests/saves/"
+	if FileAccess.file_exists(tracked_dir + _fixture + ".w40ksave"):
+		var had := FileAccess.file_exists(dst)
+		var old_sha := _sha256_of(dst)
+		var new_sha := _sha256_of(tracked_dir + _fixture + ".w40ksave")
+		var copied := _sync_fixture_files(tracked_dir, dst_dir)
+		if not had:
+			_fixture_note = "copied from %s" % tracked_dir
+			print("[AIBench] fixture %s copied from %s to %s" % [_fixture, tracked_dir, dst_dir])
+		elif old_sha != new_sha:
+			_fixture_note = "replaced a stale user://saves copy (sha256 %s) from %s" % [old_sha.left(16), tracked_dir]
+			print("[AIBench] fixture %s: the %s copy was STALE (sha256 %s, tracked %s) — replaced from %s" % [
+				_fixture, dst_dir, old_sha.left(16), new_sha.left(16), tracked_dir])
+		elif copied > 0:
+			_fixture_note = "refreshed the .meta from %s" % tracked_dir
+		else:
+			_fixture_note = "user://saves copy matches %s" % tracked_dir
 		return
+	if FileAccess.file_exists(dst):
+		_fixture_note = "untracked fixture: using the existing user://saves copy"
+		return
+	if FileAccess.file_exists("res://saves/" + _fixture + ".w40ksave"):
+		_sync_fixture_files("res://saves/", dst_dir)
+		_fixture_note = "untracked fixture: copied from res://saves/"
+		print("[AIBench] fixture %s copied from res://saves/ to %s" % [_fixture, dst_dir])
+		return
+	_fixture_note = "not found in res://tests/saves/ or res://saves/"
 	print("[AIBench] WARNING: fixture %s not found in res://tests/saves/ or res://saves/" % _fixture)
+
+## Copy <fixture>.w40ksave and .meta from src_dir to dst_dir wherever the
+## destination is missing or differs byte-for-byte. Returns how many it wrote.
+func _sync_fixture_files(src_dir: String, dst_dir: String) -> int:
+	var n := 0
+	for ext in [".w40ksave", ".meta"]:
+		var src: String = src_dir + _fixture + ext
+		var dst: String = dst_dir + _fixture + ext
+		if not FileAccess.file_exists(src):
+			continue
+		if FileAccess.file_exists(dst) and _sha256_of(dst) == _sha256_of(src):
+			continue
+		var data := FileAccess.get_file_as_bytes(src)
+		var f := FileAccess.open(dst, FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(data)
+			f.close()
+			n += 1
+		else:
+			print("[AIBench] WARNING: could not write %s" % dst)
+	return n
 
 func _fixture_path() -> String:
 	"""Where the loaded fixture actually lives.

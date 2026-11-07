@@ -102,3 +102,29 @@ Two rules learned the expensive way:
    dice roll wearing a decision's clothes, and it will flake.
 2. **No exam may reward degenerate play.** If an exam can be passed by an AI
    that does nothing else, it is measuring the wrong thing.
+
+## Determinism (EXAM-DET-1, 2026-11-07)
+
+Same code + same fixture + same seed gives the same verdict and the same
+decision records, on an idle box or a loaded one. Two things used to break
+that, and both are fixed in the runner (`autoloads/AIBenchmarkRunner.gd`):
+
+* **The graded moment.** The AI is never told an exam is over; it plays on
+  into the next phase and the opponent's turn. The runner used to notice the
+  phase change on a poll and grade 20 frames later, so a load-dependent amount
+  of later play was graded too (`mv04` read 54, 59 or 94 on identical code).
+  It now stops the AI synchronously inside `PhaseManager.phase_changed` (or at
+  the action cap), and the result's `stopped` block says where. A wall-clock
+  overrun grades nothing: it reports `TIMEOUT` and run_exams.sh lists the exam
+  as ERROR, never as a PASS or FAIL.
+* **The loaded board.** The fixture is copied into `user://saves/` from
+  `tests/saves/` whenever the copy there is missing **or differs**; it used to
+  be first-copy-wins (`cp -n`, the legacy save migration), so a user dir that
+  outlived a fixture change kept the old board and the verdict depended on the
+  machine's history. The result's `fixture.sha256` names the board graded.
+
+Each run also writes `user://test_results/exams/<id>.trace.json` — the
+decision batches, action log and final positions the verdict was computed
+from — and puts `records_sha256` / `units_sha256` in the result, so checking
+two runs for determinism is a string compare, and finding where they part is a
+diff. `EXAM_KEEP_LOGS=1` keeps the per-exam godot logs as well.

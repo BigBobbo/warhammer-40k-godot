@@ -4,7 +4,11 @@
 # Each exam plays ONE phase from a constructed position with the real AI at
 # Hard, then grades machine-checkable assertions over the resulting state and
 # the AI's own decision records. Seconds each, not minutes; deterministic at a
-# fixed seed.
+# fixed seed: the AI is stopped the moment the exam phase ends, and the
+# committed fixture is always the one loaded. Each result
+# (user://test_results/exams/<id>.json) carries records_sha256 / units_sha256
+# and the fixture's sha256; <id>.trace.json beside it holds the decision
+# batches, action log and final positions, so two runs can be diffed.
 #
 # Usage:
 #   bash 40k/tests/run_exams.sh                    # every exam in tests/exams/
@@ -12,6 +16,7 @@
 #   bash 40k/tests/run_exams.sh --aspirational     # the fail-by-design list
 #   bash 40k/tests/run_exams.sh --slow             # correct but over budget
 #   bash 40k/tests/run_exams.sh --all              # every list
+#   EXAM_LANES=1 EXAM_KEEP_LOGS=1 bash 40k/tests/run_exams.sh <id>  # serial, keep logs
 #
 # Exit 0 iff every exam in the batch passed. The aspirational list is reported
 # but never gates: those exams exist to FAIL until the task that owns each one
@@ -25,10 +30,26 @@ EXAM_DIR="tests/exams"
 ASPIRATIONAL_DIR="tests/exams/aspirational"
 SLOW_DIR="tests/exams/slow"
 
-# Fixtures live in tests/saves but load_game() resolves them from res://saves/.
+# Fixtures are committed under tests/saves/. The game loads them from
+# user://saves/, and AIBenchmarkRunner stages the exam's fixture there itself,
+# replacing any copy whose bytes differ from the committed one (EXAM-DET-1).
+# saves/ (res://saves/, gitignored) is SaveLoadManager's legacy location, copied
+# into a fresh user dir at startup, so keep it current too. This used to be
+# `cp -n`, which never overwrites: a checkout that outlived a fixture change kept
+# the old boards here, and the verdict then depended on the machine's history,
+# not on the code. Same fix as run_scenarios.sh / run_pretrigger_tests.sh.
 mkdir -p saves
-cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
-cp -n tests/saves/*.meta saves/ 2>/dev/null || true
+for src in tests/saves/*.w40ksave tests/saves/*.meta; do
+    [ -f "$src" ] || continue
+    dst="saves/$(basename "$src")"
+    cmp -s "$src" "$dst" 2>/dev/null || cp "$src" "$dst"
+done
+
+# Provenance: which build produced each verdict (stamped into every result).
+GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+    GIT_SHA="${GIT_SHA}-dirty"
+fi
 
 MODE="${1:---suite}"
 SPECS=()
@@ -99,7 +120,8 @@ run_one() {
     local budget="${EXAM_TIMEOUT:-240}"
     grep -q '"fixture": *"[a-z_]*orks' "$spec" && budget="${EXAM_TIMEOUT_ORKS:-720}"
     timeout "$budget" godot --headless --path . -- --ai-benchmark \
-        "--exam=res://${spec}" "--exam-out=test_results/exams/${id}.json" > "$log" 2>&1
+        "--exam=res://${spec}" "--exam-out=test_results/exams/${id}.json" \
+        "--bench-git-sha=${GIT_SHA}" > "$log" 2>&1
     echo $? > "$RUNDIR/$id.rc"
 }
 
@@ -129,7 +151,13 @@ for spec in "${SPECS[@]}"; do
         FAILED=$((FAILED + 1)); FAILED_IDS+=("$id")
     fi
 done
-rm -rf "$RUNDIR"
+# EXAM_KEEP_LOGS=1 keeps each exam's godot log (the AI's thinking, the
+# "[AIExam] ... AI stopped" line) instead of deleting them with the run.
+if [ "${EXAM_KEEP_LOGS:-0}" = "1" ]; then
+    echo "  godot logs kept in $RUNDIR"
+else
+    rm -rf "$RUNDIR"
+fi
 
 ELAPSED=$(( $(date +%s) - START ))
 echo "================================================================"
