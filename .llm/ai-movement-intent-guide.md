@@ -260,7 +260,7 @@ If the shot is lost, fall back to the pre-shot target.
 - **No bare literals** on `score/value/priority +=` lines (`tools/ai_lab/tunability_audit.py:26-30`). `ratchet_check.py` fails if the count of untunable numbers rises or the number of `_t_add` call sites falls (:93-117).
 - **Rule DSL traps.** `multiply`/`add` on an undeclared parameter starts from 0 (ADM:1518-1528). An unknown condition type counts as met (ADM:1448).
 - **Naming.** Avoid "intent" in code and UI text. It already names the movement ledger (`_record_movement_intent`, 3977) and is the player-facing word for plan earmarks (`40k/docs/PLAN_FORMAT.md:433-437`).
-- **Ledger.** Only `_t_add`/`_t_mul` values go in `score_terms`. Descriptive numbers go in the record's `context`. A descriptive key placed in `score_breakdown` needs three entries: `NON_ADDITIVE_KEYS` (`tools/ai_lab/validate_records.py:82-89`), the mv04 SKIP list, and a glossary entry with a format other than `"pts"`.
+- **Ledger.** Only `_t_add`/`_t_mul` values go in `score_terms`. Descriptive numbers go in the record's `context`. A descriptive key placed in `score_breakdown` needs two entries: `NON_ADDITIVE_KEYS` (`tools/ai_lab/validate_records.py:82-89`) and a glossary entry with a format other than `"pts"`. (Exam mv04 has no list of its own since EXAM-DET-1: it skips whatever `AIReasoningGlossary.is_addend` rejects.)
 - **Decision records.** Movement records come only from `_finalize_movement_decision` (4084-4198), and only for units with more than one objective candidate. A new pass sets `assign_pass`, which becomes `assigned_by` on the card. New decision types go through `_record_choice` (2341).
 - **Player-visible text.**
   - Plan card: `_add_thinking_step` (2810). The header starts with "Movement plan". Unit lines are `"  <name> (OCn): VERB <target>, … — reason"`. AIP:2323-2339 slices the card on these, and GEL:758-813 matches them.
@@ -286,7 +286,7 @@ bash 40k/tests/run_exams.sh > /tmp/exams_before.txt   # 10 gated exams, 3 lanes,
 
 Write down what is already red. I did not run these; by reading the code they are probably red already:
 
-- **mv04 exam.** Every candidate carries `gap_inches` (ADM:10580 → 4148), and mv04's SKIP list lacks it.
+- **mv04 exam.** Every candidate carries `gap_inches` (ADM:10580 → 4148), and mv04's SKIP list lacked it. Confirmed red (54 mismatches) and fixed 2026-11-07 (EXAM-DET-1): mv04 now asks `AIReasoningGlossary.is_addend`. mv01/mv03 were also red on a fresh user dir (stale board coordinates) and were re-authored.
 - **Six scenarios** call `AIPlayer.configure(types, {…})` with two arguments; AIP:254 takes one. These are `ai_battle_plan_log_integrity`, `ai_coordinated_movement`, `ork11e_ai_attacker_reactive_dialog_shown`, `pm2a_ai_deploys_from_plan`, `pm2b_formations_from_plan` and `pm3_earmarks_bias_assignment`. Two more, `ai_move_shape_telemon_gantry` and `ai_suggestion_fight_multi_target`, call `request_suggestion(-1, id)` with the same problem.
 - **Two headless tests already fail:** `test_ai_cover_scoring.gd` 21/3 and `test_ai_threat_range_awareness.gd` 34/3 (`40k/tests/ci/direct_known_failures.txt:30,35`).
 

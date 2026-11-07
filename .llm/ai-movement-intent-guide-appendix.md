@@ -257,7 +257,7 @@ All of this was checked at HEAD `dc9d3b0` (v1.73.3). Short names: **AIDM** = `40
 3. **The "terms must sum to the score" checks miss two fields.** Since `03ed34d` (2026-10-28), movement candidates put `gap_inches` and `adv_chance` into `score_breakdown` (AIDM:4148-4151). Neither list of non-score fields skips them:
    - exam mv04's `SKIP` list (`40k/tests/exams/mv04_every_mover_is_recorded.json:34`);
    - `NON_ADDITIVE_KEYS` in `tools/ai_lab/validate_records.py:82-89`.
-   - Not run, but mv04 is probably failing.
+   - Not run, but mv04 is probably failing. (It was: 54 mismatches. Fixed 2026-11-07, EXAM-DET-1: mv04 now asks `AIReasoningGlossary.is_addend`; `NON_ADDITIVE_KEYS` still lacks both keys.)
 4. **The word "intent" is already used twice.**
    - The movement intent ledger: `_record_movement_intent` (AIDM:3977-3989).
    - The player-facing word for plan earmarks. `40k/docs/PLAN_FORMAT.md:433-437` says "Do not introduce a third word".
@@ -350,7 +350,7 @@ assigned_unit_ids[uid] = true
 - If the target isn't an objective, add your token to the plan-line special case at AIDM:7097. Add any new action to `action_counts` at AIDM:7035.
 
 **Rules:**
-- Only `_t_add`/`_t_mul` values go into `score_terms`. Put descriptive values in the record's `context`. A descriptive key that does go into `score_breakdown` has to be added in three places: `validate_records.py:82-89`, the mv04 `SKIP` list, and `AIReasoningGlossary.TERMS` with a format other than `"pts"`.
+- Only `_t_add`/`_t_mul` values go into `score_terms`. Put descriptive values in the record's `context`. A descriptive key that does go into `score_breakdown` has to be added in two places: `validate_records.py:82-89` and `AIReasoningGlossary.TERMS` with a format other than `"pts"`. (Exam mv04 reads the glossary since EXAM-DET-1, 2026-11-07.)
 - **Fire-count tag.** Print `print("AIDecisionMaker: [FIX_<NAME>] <unit> <what> old=… new=…")` once per evaluation in which the fix changes a value. There are 43 such lines already (e.g. AIDM:3015). The counting rule is in `protocol_v2.md:21-24, 105-106`.
 - **AI test cases** fingerprint the chosen key, position or description of the first non-side record (`40k/scripts/AISuggestionTestCases.gd:29-57`). A new side-record type must be added to `SIDE_RECORD_TYPES` there (:52) and to AIDM's `_SIDE_RECORD_TYPES` (:3584).
 - **Where records go:**
