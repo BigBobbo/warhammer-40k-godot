@@ -82,7 +82,21 @@ func _build_dialog_text() -> void:
 
 	# Add warnings based on transport status
 	# (Plain text only — AcceptDialog's label does not render BBCode.)
-	if transport_advanced:
+	# WP-G2: a shock disembark (Rapid Disembarkation / Assault Vehicle) after the
+	# transport's advance, or a Pilin' Out rapid disembark in the opponent's turn.
+	var transport_unit: Dictionary = GameState.get_unit(transport_id)
+	var shock_source: String = load("res://scripts/codex/ShockDisembark11e.gd").source(transport_unit) if transport_advanced else ""
+	var pilin_out: bool = load("res://scripts/codex/orks/OrkAbilities11e.gd").pilin_out_active(transport_unit)
+	if shock_source != "":
+		text += "\n\n%s — Shock Disembark (rapid disembark mode, 18.04)" % shock_source.to_upper()
+		text += "\n• The transport ended an advance move: set up wholly within 3\" of it"
+		text += "\n• The disembarked unit cannot move further this phase"
+		text += "\n• Until the end of the turn it is not eligible to declare a charge"
+	elif pilin_out:
+		text += "\n\nPILIN' OUT — Rapid Disembark (18.04), in your opponent's Movement phase"
+		text += "\n• Set up wholly within 3\" of the transport"
+		text += "\n• Until the end of the turn the unit is not eligible to declare a charge"
+	elif transport_advanced:
 		text += "\n\nWARNING: Cannot disembark!"
 		text += "\nThe transport has Advanced this turn."
 		text += "\nUnits cannot disembark from a transport that Advanced."
@@ -130,7 +144,7 @@ func _build_dialog_text() -> void:
 	# — with no foes near the 3" ring it always read as "this will be a combat
 	# disembark" while being rules-impossible.
 	if GameConstants.edition >= 11 and not transport_advanced and not transport_fell_back and not transport_moved \
-			and _combat_disembark_could_apply():
+			and not pilin_out and _combat_disembark_could_apply():
 		combat_checkbox = CheckBox.new()
 		combat_checkbox.text = "Use Combat Disembark (18.04) — only if the unit cannot be set up\nwithin 3\" outside Engagement Range: 6\" set-up, may be placed engaged\nwith the transport's foes; hazard roll per model, battle-shocked, no charge"
 		combat_checkbox.tooltip_text = "Tick only when you cannot set up the whole unit outside Engagement Range within 3\". The unit is set up within 6\" instead and may be placed engaged with enemy units the transport is engaged with."

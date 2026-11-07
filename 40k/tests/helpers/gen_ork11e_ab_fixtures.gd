@@ -288,7 +288,13 @@ func _build(name: String, spec: Dictionary) -> bool:
 	p1_data.faction["team_name"] = "WP-O6 datasheet abilities"
 	alm.apply_army_to_game_state(p1_data, 1)
 	alm.scan_available_armies()
-	var cus = alm.load_army_list(CUSTODES_ARMY, 2)
+	var cus: Dictionary = {}
+	if spec.has("p2_roster"):
+		# WP-G2 (gen_codex11e_g2_fixtures.gd): P2 from a codex roster fixture
+		# (tests/fixtures/<p2_roster>.json, e.g. every Custodes datasheet).
+		cus = alm._process_army_data(_json(str(spec.p2_roster)), 2)
+	else:
+		cus = alm.load_army_list(CUSTODES_ARMY, 2)
 	if cus.is_empty() or not cus.has("units"):
 		return _fail("army list %s did not load" % CUSTODES_ARMY)
 	alm.apply_army_to_game_state(cus, 2)

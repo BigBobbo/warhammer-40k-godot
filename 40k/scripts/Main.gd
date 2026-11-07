@@ -3813,7 +3813,7 @@ func _on_rapid_ingress_confirmed() -> void:
 		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr:
-			toast_mgr.show_success("Rapid Ingress: %s arrived!" % unit_name)
+			toast_mgr.show_success("%s: %s arrived!" % ["Deff from the Shadows" if load("res://scripts/codex/orks/OrkAbilities11e.gd").deff_from_the_shadows_arriving(unit_id) else "Rapid Ingress", unit_name])  # WP-G2
 		print("Main: Rapid Ingress reinforcement placed successfully for %s" % unit_name)
 	else:
 		var errors = result.get("errors", [])

@@ -28135,13 +28135,21 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 	print("AIDecisionMaker: [RAPID INGRESS] Evaluating for player %d (%d eligible units, %d CP, Round %d)" % [
 		defending_player, eligible_units.size(), player_cp, battle_round])
 
+	# WP-G2: rows carry their own cost (cp_cost; Swift Ruin -1 CP, Deff from the
+	# Shadows free) — the CP gates below apply only when every row costs CP.
+	var ri_min_cost := 1
+	if not eligible_units.is_empty():
+		ri_min_cost = 99
+		for e in eligible_units:
+			ri_min_cost = mini(ri_min_cost, int(e.get("cp_cost", 1)))
+
 	# Need at least 1 CP
-	if player_cp < 1:
+	if ri_min_cost > 0 and player_cp < 1:
 		print("AIDecisionMaker: [RAPID INGRESS] Not enough CP (%d) — declining" % player_cp)
 		return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (insufficient CP)"}
 
 	# Don't spend last CP on Rapid Ingress unless it's urgent (Round 4+)
-	if player_cp <= 1 and battle_round < 4:
+	if ri_min_cost > 0 and player_cp <= 1 and battle_round < 4:
 		print("AIDecisionMaker: [RAPID INGRESS] Only 1 CP remaining and Round %d — declining (save CP)" % battle_round)
 		return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (saving CP)"}
 
@@ -28159,6 +28167,11 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 
 		var unit_name = _dn(unit, unit_id)
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
+		# WP-G2: a paid row the AI cannot / will not afford is skipped.
+		var ri_row_cost := int(entry.get("cp_cost", 1))
+		if ri_row_cost > player_cp or (ri_row_cost > 0 and player_cp <= 1 and battle_round < 4):
+			print("AIDecisionMaker: [RAPID INGRESS]   %s costs %d CP (have %d) — skipping" % [unit_name, ri_row_cost, player_cp])
+			continue
 
 		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, defending_player, battle_round)
 
@@ -28169,8 +28182,9 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 		elif battle_round >= 3:
 			score += 1.0
 
-		# Penalty for spending CP (vs. saving for Command Re-roll, etc.)
-		score -= 1.0
+		# Penalty for spending CP (vs. saving for Command Re-roll, etc.) — none for a free row (WP-G2)
+		if ri_row_cost > 0:
+			score -= 1.0
 
 		print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — score: %.1f" % [unit_name, reserve_type, score])
 		scored_units.append({

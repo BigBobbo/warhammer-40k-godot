@@ -22,6 +22,10 @@ extends RefCounted
 ##   PhaseManager       on_phase_transition() — flag expiry
 ##   phases             charge / advance / move characteristic modifiers and the
 ##                      automatic triggers (Mobbed, Thievin' Scavengers, ...)
+##   WP-G2              PILIN' OUT (enemy_ended_move card + the disembark
+##                      follow-up in the rapid mode: DisembarkMove /
+##                      DisembarkDialog read pilin_out_active), DEFF FROM THE
+##                      SHADOWS (EndOfMovementArrivals11e.gd rows)
 ##
 ## Ability names are matched FOLDED (case, apostrophes ’/' and punctuation
 ## ignored, a trailing "(…)" dropped), so army files, the browser army builder
@@ -187,6 +191,7 @@ const F_ENGINE := "ork11e_ab_engine"          # {player, engine}: Full Throttle 
 const F_USES := "ork11e_ab_uses"              # {slug: {battle, round_key, turn_key, phase_key}} usage counters
 const F_DA_JUMP_DS := "ork11e_ab_da_jump_ds"  # true: this unit has Deep Strike (Da Jump)
 const F_SHOKK_BOOSTA := "ork11e_ab_shokk_boosta"  # true while the boosted advance move is being made
+const F_PILIN_OUT := "ork11e_ab_pilin_out"    # WP-G2: phase key while this Trukk's Pilin' Out rapid disembark follow-up runs
 const F_FOD_MODE := "ork11e_fod_mode"          # shared with OrkCodexFight (Fight On Death)
 const F_FOD_SOURCE := "ork11e_fod_source"
 
@@ -1278,7 +1283,7 @@ static func strategic_reserves_diffs(unit_id: String) -> Array:
 # the stratagem expiry (StratagemManager._clear_stratagem_flags).
 # ===========================================================================
 
-const PHASE_SCOPED := [F_AMMO_RUNTS, F_BOSS_AMMO_RUNT, F_PULSA_TARGET, F_ROKKIT_CHARGE, F_WARPATH, F_SHOKK_BOOSTA]
+const PHASE_SCOPED := [F_AMMO_RUNTS, F_BOSS_AMMO_RUNT, F_PULSA_TARGET, F_ROKKIT_CHARGE, F_WARPATH, F_SHOKK_BOOSTA, F_PILIN_OUT]
 const END_OF_TURN := [F_FOUND_EM, F_NO_OVERWATCH, F_BUSTED, F_BEASTSCENT]
 
 static func on_phase_transition(old_phase: int, new_phase: int) -> void:
@@ -1397,7 +1402,7 @@ const WINDOW_ABILITIES := {
 		"get_back_in_da_race", "keep_huntin", "clever_know_wotz", "found_em", "drive_by_skorchin"],
 	"movement_phase_start": ["makari", "da_jump"],
 	"movement_phase_end": ["da_jump"],
-	"enemy_ended_move": ["supreme_kunnin"],
+	"enemy_ended_move": ["supreme_kunnin", "pilin_out"],  # WP-G2 Pilin' Out
 	"unit_selected_to_fight": ["rokkit_charge", "warpath"],
 	"unit_ended_charge_move": ["krushin_impetus"],
 	"fight_phase_end": ["kunnin_infiltrator", "aerial_manoover", "burna_bomb", "boom_bomb"],
@@ -1425,6 +1430,7 @@ const EFFECT_TEXT := {
 	"gut_hatch": "Units embarked within this unit can make an assault disembark move.",
 	"shokk_boosta": "This advance roll is a 6 and this unit can move through all types of model; when it ends that advance move, make a hazard roll for each of its models.",
 	"supreme_kunnin": "Once per phase, per army: this unit makes a normal move of up to D6\" (or up to 5\" if it is riled up).",
+	"pilin_out": "An enemy unit ended a move within 8\" of this model: units embarked within it can make a disembark move using the rapid disembark mode (set up within 3\"; not eligible to declare a charge until the end of the turn).",
 	"warpath": "Psychic roll (D6, on a 1 this unit is battle-shocked). Melee attacks gain the Warpath effect and [PSYCHIC].",
 	"da_jump": "Psychic roll (D6, on a 1 this unit is battle-shocked). Place this unit in strategic reserves; it has Deep Strike.",
 	"kunnin_infiltrator": "Every model in this unit is hidden and unengaged: place this unit in strategic reserves.",
@@ -1656,6 +1662,23 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				if group_riled_up(hid):
 					vs.append({"id": "riled5", "label": "Riled up: normal move up to 5\"", "cp_cost": 0})
 				out.append(_entry(hid, {"variants": vs, "require_variant": true, "ai_variant": "riled5" if group_riled_up(hid) else "d6"}))
+			return out
+		"pilin_out":
+			# WP-G2: in the opponent's Movement phase, each time an enemy unit
+			# ends a move within 8" of the Trukk (no printed limit: per trigger).
+			if own_turn or _phase() != PH_MOVEMENT:
+				return []
+			var enemy := str(ctx.get("enemy_unit_id", ""))
+			if enemy == "" or int(Common.unit(enemy).get("owner", 0)) == player:
+				return []
+			var out: Array = []
+			for uid in Common.state().get("units", {}):
+				var u := Common.unit(str(uid))
+				if int(u.get("owner", 0)) != player or not has(u, "pilin_out") or not Common.is_on_battlefield(u):
+					continue
+				if pilin_out_candidates(str(uid)).is_empty() or not within(str(uid), enemy, 8.0):
+					continue
+				out.append(_entry(str(uid)))
 			return out
 		"kunnin_infiltrator", "aerial_manoover":
 			if own_turn:
@@ -2132,6 +2155,13 @@ static func _apply(slug: String, player: int, uid: String, secondary: String, va
 				"followup": {"type": "reactive_normal_move", "unit_id": uid, "max_inches": cap, "roll": roll,
 					"source": "Supreme Kunnin'", "away_from_unit_id": str(ctx.get("enemy_unit_id", ""))},
 				"log": "%s uses Supreme Kunnin': a normal move of up to %d\"%s" % [name, int(cap), (" (D6 = %d)" % roll) if roll > 0 else " (riled up)"]}
+		"pilin_out":
+			# WP-G2: the follow-up runs the READIED BRAWLERS disembark flow one
+			# embarked unit at a time; DisembarkMove.select_mode reads F_PILIN_OUT
+			# and picks the rapid mode (cleared when the follow-up ends).
+			return {"diffs": [use_diff(uid, slug), {"op": "set", "path": "units.%s.flags.%s" % [uid, F_PILIN_OUT], "value": _phase_key()}],
+				"followup": {"type": "assault_disembark", "transport_id": uid, "source": "Pilin' Out"},
+				"log": "%s — Pilin' Out: %s ended a move within 8\"; units embarked within it can make a rapid disembark move" % [name, Common.unit_name(str(ctx.get("enemy_unit_id", "")))]}
 		"kunnin_infiltrator", "aerial_manoover", "shokk_attack_engine":
 			var d: Array = [use_diff(uid, slug)]
 			d.append_array(strategic_reserves_diffs(uid))
@@ -2326,6 +2356,8 @@ static func ai_score(player: int, sid: String, target_unit_id: String, window_id
 			return 0.0  # repositioning through reserves is a plan-level decision
 		"supreme_kunnin":
 			return 1.5
+		"pilin_out":
+			return 1.5  # WP-G2: out of the Trukk before it is shot, free to move and charge next turn
 		"kunnin_infiltrator", "aerial_manoover":
 			return 0.0
 		"rokkit_barrage", "squig_barrage", "bust_em", "madcap_artillery":
@@ -2404,6 +2436,97 @@ static func on_movement_phase_end(player: int) -> void:
 			_event_log(player, "Thievin' Scavengers: %s secures objective %s" % [Common.unit_name(str(uid)), str(oid)])
 			Common.log_info("OrkAbilities11e: Thievin' Scavengers — %s secured %s for P%d" % [uid, oid, player])
 
+# ===========================================================================
+# WP-G2 — PILIN' OUT (Trukk) and DEFF FROM THE SHADOWS (Boss Snikrot)
+# ===========================================================================
+
+## Pilin' Out: the units embarked within the Trukk that can make the disembark
+## move (18.04 ELIGIBLE IF: embarked, did not embark this phase, the transport
+## has not advanced / fallen back this phase); attached CHARACTERs disembark
+## with their bodyguard (one entry per Attached unit).
+static func pilin_out_candidates(transport_id: String) -> Array:
+	var out: Array = []
+	var t := Common.unit(transport_id)
+	if t.is_empty() or not Common.is_on_battlefield(t):
+		return out
+	var tf: Dictionary = t.get("flags", {})
+	if bool(tf.get("advanced", false)) or bool(tf.get("fell_back", false)):
+		return out
+	for eid in _embarked_units(transport_id):
+		var u := Common.unit(str(eid))
+		if str(u.get("embarked_in", "")) != transport_id:
+			continue
+		var att = u.get("attached_to", null)
+		if att != null and str(att) != "":
+			continue
+		if bool(u.get("flags", {}).get("embarked_this_phase", false)):
+			continue
+		out.append(str(eid))
+	return out
+
+## Pilin' Out follow-up running for this transport (this phase): DisembarkMove
+## selects the rapid disembark mode; the DisembarkDialog says so.
+static func pilin_out_active(transport: Dictionary) -> bool:
+	if not _edition_11() or transport.is_empty():
+		return false
+	return str(transport.get("flags", {}).get(F_PILIN_OUT, "")) == _phase_key()
+
+## The follow-up ended (MovementPhase hook next to READIED BRAWLERS' clear):
+## later disembarks from the Trukk use the normal 18.04 modes again.
+static func pilin_out_off_diffs(transport_id: String) -> Array:
+	var t := Common.unit(transport_id)
+	if t.is_empty() or not t.get("flags", {}).has(F_PILIN_OUT):
+		return []
+	t.get("flags", {}).erase(F_PILIN_OUT)
+	return [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, F_PILIN_OUT]}]
+
+## Deff from the Shadows (First battle round onwards): "At the end of your
+## opponent's Movement phase, if this unit is in strategic reserves, this unit
+## can make an ingress move." Free (not a stratagem: no CP, a battle-shocked
+## unit may use it), allowed in the first battle round, once per phase per unit
+## (one end of the phase). Returns the head ids offered now.
+static func deff_from_the_shadows_units(player: int) -> Array:
+	var out: Array = []
+	if not _edition_11() or _phase() != PH_MOVEMENT or player == Common.active_player():
+		return out
+	for uid in Common.state().get("units", {}):
+		var u := Common.unit(str(uid))
+		if int(u.get("owner", 0)) != player or int(u.get("status", 0)) != 7:  # 7 = IN_RESERVES
+			continue
+		if not Common.is_alive(u) or u.get("embarked_in", null) != null:
+			continue
+		var head := head_id(str(uid))
+		if head in out:
+			continue
+		var hu := Common.unit(head)
+		if int(hu.get("status", 0)) != 7 or not group_has(head, "deff_from_the_shadows"):
+			continue
+		if used_this_phase(group_holder(head, "deff_from_the_shadows"), "deff_from_the_shadows"):
+			continue
+		out.append(head)
+	return out
+
+## The arrival this phase uses Deff from the Shadows (the battle-round-1 bar of
+## 20.03 is lifted for it): MovementPhase's ingress set-up validation hook.
+static func deff_from_the_shadows_arriving(unit_id: String) -> bool:
+	if not _edition_11() or unit_id == "":
+		return false
+	var h := group_holder(unit_id, "deff_from_the_shadows")
+	return h != "" and used_this_phase(h, "deff_from_the_shadows")
+
+## Records the use (no CP); returns the diffs (applied).
+static func deff_from_the_shadows_use(player: int, unit_id: String) -> Array:
+	var h := group_holder(unit_id, "deff_from_the_shadows")
+	if h == "":
+		return []
+	var d: Array = [use_diff(h, "deff_from_the_shadows")]
+	var gs = Common.game_state()
+	if gs:
+		gs.apply_state_changes(d)
+	Common.log_info("OrkAbilities11e: Deff from the Shadows — %s makes an ingress move at the end of the opponent's Movement phase (P%d, round %d, no CP)" % [unit_id, player, _round()])
+	_event_log(player, "Deff from the Shadows: %s makes an ingress move from strategic reserves (no CP)" % Common.unit_name(unit_id))
+	return d
+
 ## Idol of Belligerence (Stompa) + Beastscent (Kill Rig): a unit disembarks
 ## from `transport_id` in its controller's Movement phase. Returns diffs
 ## (already applied).
@@ -2415,7 +2538,16 @@ static func on_disembark(unit_id: String, transport_id: String) -> Array:
 		return all
 	var t := Common.unit(transport_id)
 	var player := int(t.get("owner", 0))
+	# WP-G2 PILIN' OUT: a rapid disembark move in the opponent's Movement phase —
+	# the unit is set up and moves no further this phase (no tactical follow-up move).
+	if pilin_out_active(t):
+		for gid in Common.attached_group_ids(unit_id):
+			all.append({"op": "set", "path": "units.%s.flags.cannot_move" % gid, "value": true})
+		_event_log(player, "Pilin' Out: %s disembarks from %s (rapid disembark: not eligible to declare a charge this turn)" % [Common.unit_name(unit_id), Common.unit_name(transport_id)])
 	if player != Common.active_player():
+		var gs0 = Common.game_state()
+		if gs0 and not all.is_empty():
+			gs0.apply_state_changes(all)
 		return all
 	if has(t, "idol_of_belligerence"):
 		all.append_array(rile_up_diffs(unit_id, player, "start_of_your_next_turn", "Idol of Belligerence"))

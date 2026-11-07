@@ -11,6 +11,10 @@ static func _ork_codex_movement():
 static func _sm11e_abilities_b():
 	return load("res://scripts/codex/space_marines/SMAbilitiesB.gd")
 
+# WP-G2: the shock disembark move (Rapid Disembarkation / Assault Vehicle) — ShockDisembark11e.gd (loaded at call time, as above).
+static func _shock_disembark():
+	return load("res://scripts/codex/ShockDisembark11e.gd")
+
 ## 18.04 DISEMBARK MOVE (11e) — ELIGIBLE IF: embarked, did not embark
 ## this phase, and the TRANSPORT has NOT made an advance or fall-back
 ## move this phase (those bar disembarking entirely). Modes are then
@@ -48,9 +52,10 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	if unit.get("flags", {}).get("embarked_this_phase", false):
 		return {"eligible": false, "reasons": ["unit embarked this phase (18.04)"]}
 	# 18.04 RAW: an advanced or fallen-back transport bars disembarking.
-	# (WP-M4b RAPID DISEMBARKATION, Codex: Space Marines 11e Impulsor: after its
-	# advance move the embarked units can make a shock disembark move.)
-	if transport.get("flags", {}).get("advanced", false) and not _sm11e_abilities_b().transport_allows_shock_disembark(transport):
+	# (WP-M4b RAPID DISEMBARKATION, Codex: Space Marines 11e Impulsor / WP-G2 ASSAULT
+	# VEHICLE, Codex: Adeptus Custodes 11e: after its advance move the embarked
+	# units can make a shock disembark move.)
+	if transport.get("flags", {}).get("advanced", false) and not _shock_disembark().transport_allows(transport):
 		return {"eligible": false, "reasons": ["transport made an advance move this phase (18.04)"]}
 	if transport.get("flags", {}).get("fell_back", false):
 		return {"eligible": false, "reasons": ["transport made a fall-back move this phase (18.04)"]}
@@ -77,9 +82,14 @@ func select_mode(unit_id: String, board: Dictionary, context: Dictionary = {}) -
 	# normal move the embarked units make an assault disembark move (18.06).
 	if _sm11e_abilities_b().transport_grants_assault_disembark(transport):
 		return {"mode": "assault", "mandatory": true, "available": ["assault"]}
-	# WP-M4b RAPID DISEMBARKATION (Impulsor): a SHOCK disembark move after its
-	# advance — set-up 3", not eligible to declare a charge: the rapid mode's terms.
-	if _sm11e_abilities_b().transport_allows_shock_disembark(transport):
+	# WP-M4b RAPID DISEMBARKATION (Impulsor) / WP-G2 ASSAULT VEHICLE (Coronus, AP Rhino):
+	# a SHOCK disembark move after its advance — set-up 3", not eligible to declare
+	# a charge: the rapid mode's terms.
+	if _shock_disembark().transport_allows(transport):
+		return {"mode": "rapid", "mandatory": true, "available": ["rapid"]}
+	# WP-G2 PILIN' OUT (Codex: Orks 11e, Trukk): in the opponent's Movement phase the
+	# embarked units "make a disembark move using the rapid disembark mode".
+	if load("res://scripts/codex/orks/OrkAbilities11e.gd").pilin_out_active(transport):
 		return {"mode": "rapid", "mandatory": true, "available": ["rapid"]}
 	if tf.get("moved_this_phase", false):
 		# normal or ingress move this phase (advance/fall-back are barred

@@ -1203,6 +1203,11 @@ func _handle_empty_unit_list() -> void:
 	DebugLogger.warn("MovementController: movement unit list is empty after refresh (retry %d/%d)" % [
 		_empty_unit_list_retries, EMPTY_UNIT_LIST_MAX_RETRIES])
 	if _empty_unit_list_retries < EMPTY_UNIT_LIST_MAX_RETRIES:
+		# Two refreshes in one frame (e.g. a Rapid Ingress set-up confirmed
+		# while the list is empty) share the one pending retry — connecting
+		# the same one-shot callable twice is an engine ERROR.
+		if get_tree().process_frame.is_connected(_retry_empty_unit_list):
+			return
 		_empty_unit_list_retries += 1
 		# Next frame: the phase may simply not have finished entering yet.
 		get_tree().process_frame.connect(_retry_empty_unit_list, CONNECT_ONE_SHOT)

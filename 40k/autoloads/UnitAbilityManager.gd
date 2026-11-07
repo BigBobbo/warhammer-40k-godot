@@ -1721,8 +1721,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,  # WP-C7: no shock disembark move in the core rules (custodes_abilities_audit.md)
-		"description": "In your Movement phase, when this unit ends an advance move, units embarked within it can make a shock disembark move (not implemented: the core rules in docs/ define no shock disembark move) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+		"implemented": true,  # WP-G2: shock disembark = the rapid disembark mode after the advance (ShockDisembark11e.gd, RULINGS WP-G2)
+		"description": "In your Movement phase, when this unit ends an advance move, units embarked within it can make a shock disembark move: the rapid disembark mode (set up within 3\", not eligible to declare a charge this turn) even though the transport advanced (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
 	# Mobile Hunter — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
@@ -2008,6 +2008,28 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"description": "Re-roll Charge rolls if this unit was set up from Reserves this turn"
+	},
+
+	# Pilin' Out — Codex: Orks (11e) datasheet ability (Trukk); the rule is in
+	# OrkAbilities11e.gd (WP-G2), this row only describes it.
+	"Pilin' Out": {
+		"condition": "ork11e",  # WP-G2: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "In your opponent's Movement phase, when an enemy unit ends a move within 8\" of this model: units embarked within it can make a disembark move using the rapid disembark mode (Codex: Orks 11e — OrkAbilities11e)."
+	},
+
+	# Deff from the Shadows — Codex: Orks (11e) datasheet ability (Boss Snikrot); the
+	# rule is in OrkAbilities11e.gd / EndOfMovementArrivals11e.gd (WP-G2).
+	"Deff from the Shadows": {
+		"condition": "ork11e",  # WP-G2: Codex: Orks (11e) rule lives in OrkAbilities11e.gd
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "First battle round onwards: at the end of your opponent's Movement phase, if this unit is in strategic reserves, it can make an ingress move (no CP) (Codex: Orks 11e — OrkAbilities11e)."
 	},
 
 	# Kunnin' Infiltrator — Codex: Orks (11e) datasheet ability; the rule is in
