@@ -1,0 +1,104 @@
+{
+ "id": "ai_deploy_kcard_spot_reasons",
+ "description": "K card worded by reason (review finding L3-2). The AI deploys both seats of the 2000-pt Ork mirror on the crucible_of_battle triangle (plans off, each Deffkilla Wartrike leading a 6-bike Warbikers unit, as in ai_deploy_p0_legal_formations) and is stopped the instant P1 is to deploy Warbikers Gamma + Deffkilla Wartrike Alpha. On that board the unit's two terrain spots are refused because their builds ran out of evaluations, and the unit goes to the column spot. Handed to a local hot-seat human, Suggest (K) must say so: each such spot reads 'not used: no legal set-up found within the build budget' and the override reason 'N higher-scoring spots were not fully tried: the build budget for this drop ran out' - never 'no legal set-up fits there' / 'no legal set-up for the whole unit fits at N higher-scoring spots', which the card used to print for any refused spot. K executes nothing.",
+ "covers": [
+  "ai.suggestion.pure_preview",
+  "ai.suggestion.on_demand_hint",
+  "ai.deployment.attached_leaders_composite_deploy"
+ ],
+ "fixture": "mirror_orks_2000_predeploy",
+ "edition": 11,
+ "rng_seed": 7,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "expect_phase",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": "4|true",
+   "script": "# L3-2 (K card worded by reason): the AI deploys both seats of the Ork mirror\n# with the gate's attached Wartrikes (same set-up as ai_deploy_p0_legal_formations)\n# and is stopped SYNCHRONOUSLY the instant the turn passes to P1 with Warbikers\n# Gamma (+ Deffkilla Wartrike Alpha) next: TurnManager emits\n# deployment_side_changed inside the action that ends P2's drop, before the AI\n# can act for P1. On this board that unit's terrain spots are refused because\n# their builds ran out of evaluations ('avoid: budget'), not because nothing\n# fits - the case the K card used to call 'no legal set-up fits there'.\nfor k in [\"ai_kcard_reasons_latch\", \"ai_kcard_reasons_hook\", \"ai_kcard_reasons_saved\"]:\n\tif GameState.has_meta(k):\n\t\tGameState.remove_meta(k)\nvar gc0 = GameState.state[\"meta\"].get(\"game_config\", null)\nGameState.set_meta(\"ai_kcard_reasons_saved\", {\"ai_players\": AIPlayer.ai_players.duplicate(), \"enabled\": AIPlayer.enabled,\n\t\"game_config\": gc0.duplicate(true) if gc0 is Dictionary else null, \"had_game_config\": GameState.state[\"meta\"].has(\"game_config\"),\n\t\"speed_preset\": AIPlayer._ai_speed_preset, \"spectator_index\": AIPlayer._spectator_speed_index})\nvar pairs = {\"U_DEFFKILLA_WARTRIKE_A\": \"U_WARBIKERS_C\", \"U_DEFFKILLA_WARTRIKE_B\": \"U_WARBIKERS_D\"}\nvar attached = 0\nfor cid0 in pairs:\n\tfor sfx in [\"\", \"_P2\"]:\n\t\tvar cid = str(cid0) + sfx\n\t\tvar bid = str(pairs[cid0]) + sfx\n\t\tvar bg = GameState.state.units[bid]\n\t\tvar ad = bg.get(\"attachment_data\", {})\n\t\tif ad == null:\n\t\t\tad = {}\n\t\tvar lst = ad.get(\"attached_characters\", [])\n\t\tif not (cid in lst):\n\t\t\tlst.append(cid)\n\t\tad[\"attached_characters\"] = lst\n\t\tbg[\"attachment_data\"] = ad\n\t\tGameState.state.units[cid][\"attached_to\"] = bid\n\t\tattached += 1\nvar hook = func(player):\n\tif GameState.has_meta(\"ai_kcard_reasons_latch\") or int(player) != 1:\n\t\treturn\n\tvar und = GameState.get_undeployed_units_for_player(1)\n\tif und.is_empty() or str(und[0]) != \"U_WARBIKERS_C\":\n\t\treturn\n\tAIPlayer.ai_players = {1: false, 2: false}\n\tvar latch = {\"undeployed_p1\": und.size(), \"digest\": DeploymentEval.positions_digest(GameState.state)}\n\tGameState.set_meta(\"ai_kcard_reasons_latch\", latch)\n\tprint(\"SCENARIO ai_kcard_reasons latch: P1 next %s, %d P1 units still to deploy\" % [str(und[0]), und.size()])\nTurnManager.deployment_side_changed.connect(hook)\nGameState.set_meta(\"ai_kcard_reasons_hook\", hook)\nvar gc = GameState.state[\"meta\"].get(\"game_config\", {})\nif gc == null:\n\tgc = {}\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIDecisionMaker.set_ai_seed(7)\nAIPlayer.configure({1: \"AI\", 2: \"AI\"})\n# AFTER configure(): it clears plans and profiles.\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0.0\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer.set_spectator_speed_index(4)\nprint(\"SCENARIO ai_kcard_reasons armed: %d attached leaders\" % attached)\nreturn \"%d|%s\" % [attached, str(TurnManager.deployment_side_changed.is_connected(hook))]"
+  },
+  {
+   "act": "wait_for_script",
+   "equals": true,
+   "timeout_s": 240.0,
+   "poll_s": 0.5,
+   "script": "return GameState.has_meta(\"ai_kcard_reasons_latch\")"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": "1|1|U_WARBIKERS_C|false|false",
+   "script": "# The AI stopped with P1 to move and Warbikers Gamma next, and nothing moved\n# since the latch.\nvar latch = GameState.get_meta(\"ai_kcard_reasons_latch\", {})\nvar und = GameState.get_undeployed_units_for_player(1)\nvar ai_on = AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2)\nvar moved = DeploymentEval.positions_digest(GameState.state) != str(latch.get(\"digest\", \"\"))\nreturn \"%d|%d|%s|%s|%s\" % [GameState.get_current_phase(), GameState.get_active_player(), str(und[0]) if not und.is_empty() else \"-\", str(ai_on), str(moved)]"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": "true",
+   "script": "# Hand the board to a local hot-seat human (both seats HUMAN), as in\n# ai_suggestion_deployment: the Suggest (K) card is then an AI-reasoning\n# inspector for P1's next unit. Plans stay off so the card shows the 11e\n# terrain picker's own record.\nvar h = GameState.get_meta(\"ai_kcard_reasons_hook\", null)\nif h != null and TurnManager.deployment_side_changed.is_connected(h):\n\tTurnManager.deployment_side_changed.disconnect(h)\nvar gc = GameState.state[\"meta\"].get(\"game_config\", {})\nif gc == null:\n\tgc = {}\ngc[\"player1_type\"] = \"HUMAN\"\ngc[\"player2_type\"] = \"HUMAN\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0.0\nvar main = tree.current_scene\nmain.refresh_ai_suggestion_button()\nAIPlayer.clear_action_log()\nreturn str(main._ai_suggestion_button.visible)"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "K"
+  },
+  {
+   "act": "wait_for_script",
+   "equals": true,
+   "timeout_s": 30.0,
+   "poll_s": 0.25,
+   "script": "return tree.current_scene._ai_suggestion_panel != null and tree.current_scene._ai_suggestion_panel.is_visible_in_tree()"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": true,
+   "script": "# Diagnostics (debug log): the whole card text, then the unit it is about.\nvar p = tree.current_scene._ai_suggestion_panel\nvar bt: String = p.breakdown_text\nfor line in bt.split(\"\\n\"):\n\tif line.find(\"not used\") >= 0 or line.find(\"scored higher\") >= 0 or line.find(\"Deploying next\") >= 0 or line.find(\"DEPLOYMENT\") >= 0:\n\t\tprint(\"SCENARIO ai_kcard_reasons card: %s\" % line)\n\t\tDebugLogger.info(\"SCENARIO ai_kcard_reasons card: %s\" % line)\nreturn bt.contains(\"Warbikers Gamma\") and bt.contains(\"== DEPLOYMENT\")"
+  },
+  {
+   "act": "execute_script",
+   "equals": true,
+   "script": "main._ai_suggestion_panel.breakdown_text.contains(\"not used: no legal set-up found within the build budget\")"
+  },
+  {
+   "act": "execute_script",
+   "equals": true,
+   "script": "main._ai_suggestion_panel.breakdown_text.contains(\"not fully tried: the build budget for this drop ran out\")"
+  },
+  {
+   "act": "execute_script",
+   "equals": false,
+   "script": "main._ai_suggestion_panel.breakdown_text.contains(\"no legal set-up fits there\")"
+  },
+  {
+   "act": "execute_script",
+   "equals": false,
+   "script": "main._ai_suggestion_panel.breakdown_text.contains(\"no legal set-up for the whole unit fits\")"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": "0|false",
+   "script": "# K is a pure preview: nothing was sent and the board is as latched.\nvar latch = GameState.get_meta(\"ai_kcard_reasons_latch\", {})\nvar moved = DeploymentEval.positions_digest(GameState.state) != str(latch.get(\"digest\", \"\"))\nreturn \"%d|%s\" % [AIPlayer.get_action_log().size(), str(moved)]"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_kcard_budget_spots_worded_by_reason"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "equals": "false|false|false",
+   "script": "# Hygiene: close the card, drop the scenario's meta, and put the AI seats,\n# AI speeds, game_config seat types and the plans override back as the\n# scenario found them.\nvar main = tree.current_scene\nif main._ai_suggestion_panel != null:\n\tmain._ai_suggestion_panel.hide()\nvar h = GameState.get_meta(\"ai_kcard_reasons_hook\", null)\nif h != null and TurnManager.deployment_side_changed.is_connected(h):\n\tTurnManager.deployment_side_changed.disconnect(h)\nvar saved = GameState.get_meta(\"ai_kcard_reasons_saved\", {})\nif not saved.is_empty():\n\tif bool(saved.get(\"had_game_config\", false)) and saved.get(\"game_config\", null) is Dictionary:\n\t\tGameState.state[\"meta\"][\"game_config\"] = saved.get(\"game_config\")\n\telse:\n\t\tGameState.state[\"meta\"].erase(\"game_config\")\n\tvar seats = saved.get(\"ai_players\", {})\n\tAIPlayer.configure({1: \"AI\" if bool(seats.get(1, false)) else \"HUMAN\", 2: \"AI\" if bool(seats.get(2, false)) else \"HUMAN\"})\n\tAIPlayer.enabled = bool(saved.get(\"enabled\", false))\n\tAIPlayer.set_ai_speed_preset(int(saved.get(\"speed_preset\", 1)))\n\tAIPlayer.set_spectator_speed_index(int(saved.get(\"spectator_index\", 2)))\nAIDecisionMaker._config_overrides.erase(\"PLANS_ENABLED\")\nfor k in [\"ai_kcard_reasons_latch\", \"ai_kcard_reasons_hook\", \"ai_kcard_reasons_saved\"]:\n\tif GameState.has_meta(k):\n\t\tGameState.remove_meta(k)\nvar still = h != null and TurnManager.deployment_side_changed.is_connected(h)\nreturn \"%s|%s|%s\" % [str(still), str(GameState.has_meta(\"ai_kcard_reasons_latch\")), str(AIDecisionMaker._config_overrides.has(\"PLANS_ENABLED\"))]"
+  }
+ ]
+}
