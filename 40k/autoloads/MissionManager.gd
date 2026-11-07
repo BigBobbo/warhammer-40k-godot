@@ -3210,10 +3210,14 @@ func _destroyed_enemy_in_terrain_11e(player: int, trapped_only: bool = false) ->
 				continue
 			if pos is Dictionary:
 				pos = Vector2(pos.x, pos.y)
-			var terrain = tm.get_terrain_at_position(pos)
-			if terrain.is_empty():
+			# Every piece under the model (areas AND features):
+			# get_terrain_at_position prefers the FEATURE a model stands in, but
+			# Booby Trap traps terrain AREAS (13.01), so a kill inside a ruin
+			# within a trapped area must still match the area's id.
+			var here: Array = tm.pieces_at_position(pos)
+			if here.is_empty():
 				continue
-			if trapped_only and not str(terrain.get("id", "")) in trapped:
+			if trapped_only and not here.any(func(t): return str(t.get("id", "")) in trapped):
 				continue
 			return true
 	return false

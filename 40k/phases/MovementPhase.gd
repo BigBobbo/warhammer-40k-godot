@@ -7423,7 +7423,8 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: Strin
 	# multi-floor ruin. Uses TerrainManager.get_terrain_at_position(pos) +
 	# get_height_inches() (height_category → 1.5/3.5/6.0). Descent is free
 	# per 10e (10e treats vertical descent as part of the move at no extra
-	# inches — only ascent costs).
+	# inches — only ascent costs). The lookup prefers the terrain FEATURE at the
+	# point; a terrain AREA's open ground has height 0 (13.06: unimpeded).
 	var tm = get_node_or_null("/root/TerrainManager")
 	if tm == null:
 		return 0.0

@@ -433,11 +433,36 @@ func get_engagement_range_for_positions(pos1: Vector2, pos2: Vector2) -> float:
 		return GameConstants.barricade_engagement_range_inches()
 	return GameConstants.engagement_range_inches()
 
+## The terrain piece a model at `pos` stands in, for the legacy climb model
+## (MovementPhase._get_vertical_climb_cost and the AI's move-cost estimate,
+## AIDecisionMaker._estimate_move_terrain_penalty): a terrain FEATURE that
+## contains the point wins over the terrain AREA around it — 13.01 places
+## features within areas, and only features are moved over or through (13.06:
+## a move through an area's open ground "is therefore unimpeded"). An area is
+## returned only where no feature contains the point; its height is 0
+## (get_height_inches), so open ground never costs a climb. The 11e layouts list
+## every area before its features, so the first-match lookup this replaced
+## returned the AREA even inside a feature. Pieces without a piece_class
+## (legacy layouts) are features. Membership questions ("is this model within
+## that area?") use pieces_at_position.
 func get_terrain_at_position(pos: Vector2) -> Dictionary:
+	var area_hit: Dictionary = {}
 	for terrain in terrain_features:
 		if is_point_in_polygon(pos, terrain.polygon):
-			return terrain
-	return {}
+			if str(terrain.get("piece_class", "")) != "area":
+				return terrain
+			if area_hit.is_empty():
+				area_hit = terrain
+	return area_hit
+
+## Every terrain piece (areas and features) whose footprint contains `pos`, in
+## layout order.
+func pieces_at_position(pos: Vector2) -> Array:
+	var out: Array = []
+	for terrain in terrain_features:
+		if is_point_in_polygon(pos, terrain.polygon):
+			out.append(terrain)
+	return out
 
 func is_point_in_polygon(point: Vector2, polygon: PackedVector2Array) -> bool:
 	return Geometry2D.is_point_in_polygon(point, polygon)
@@ -469,7 +494,15 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 
 ## Returns the height in inches for a terrain height category.
 ## LOW (<2") = 1.5", MEDIUM (2-5") = 3.5", TALL (>5") = 6.0"
+## A terrain AREA (piece_class "area") is a boundary on the ground, not a
+## surface: 0. Its height_category / height_inches describe the tallest feature
+## it contains (13.01; used by Hidden / Obscuring and the layout lint) — read as
+## a climb it charged every non-INFANTRY move or charge into the area's open
+## ground up to 6" (and twice on a charge that crossed both edges), which 13.06
+## does not: only moves over or through terrain FEATURES are impeded.
 func get_height_inches(terrain_piece: Dictionary) -> float:
+	if str(terrain_piece.get("piece_class", "")) == "area":
+		return 0.0
 	var height_cat = terrain_piece.get("height_category", "tall")
 	match height_cat:
 		"low":

@@ -1,0 +1,149 @@
+{
+  "id": "vehicle_enters_area_open_ground_11e",
+  "covers": [
+    "autoloads/TerrainManager.gd:get_height_inches",
+    "autoloads/TerrainManager.gd:get_terrain_at_position",
+    "phases.MovementPhase._get_vertical_climb_cost",
+    "terrain.layouts_11e",
+    "debug_log.no_errors"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "13.06 TERRAIN AND MOVEMENT: 'This INFANTRY model is not being moved over or through any terrain features. Its move through the terrain area shown is therefore unimpeded.' Regression: the legacy climb model read a terrain AREA's height (tall since 7846f06 re-derived recon_1's home objective areas) as a surface, so a VEHICLE / MONSTER moving into an area's open ground paid a 6\" climb (and a charge 8\"). Official layout take_and_hold_vs_reconnaissance_1 over the audit_baseline_postdeploy fixture: the player selects the Telemon Heavy Dreadnought (M8\"), picks Normal Move and drags it 5\" north into the open ground of home objective area area-large-7, touching no feature; the move costs 5 + 2\" (the area's difficult ground) and is accepted; End This Unit's Move leaves it in the area.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a movement_phase_start window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: the official layout take_and_hold_vs_reconnaissance_1 (the fixture's own layout is restored in cleanup); the Telemon Heavy Dreadnought (VEHICLE WALKER, M8\", 100mm base) on open battlefield at (32\", 57.5\"), 5\" south of the open ground of home objective area area-large-7 (x 25.5-37\", y 48-55\", a tall dense AREA since 7846f06); every other unit but one far-away Boyz mob removed from play.",
+      "script": "var main = tree.root.get_node(\"Main\")\nTerrainManager.set_meta(\"tac_saved_layout\", TerrainManager.current_layout)\nTerrainManager.load_terrain_layout(\"take_and_hold_vs_reconnaissance_1\")\nvar units = GameState.state[\"units\"]\nvar px = 40.0\nvar keep = {\"U_TELEMON_HEAVY_DREADNOUGHT_I\": [Vector2(32.0, 57.5)], \"U_BOYZ_K\": []}\nfor uid in units:\n\tif not keep.has(uid):\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tunits[uid][\"flags\"] = {}\n\tunits[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\nvar tel = units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0]\ntel[\"position\"] = {\"x\": 32.0 * px, \"y\": 57.5 * px}\ntel[\"rotation\"] = 0.0\nvar k = 0\nfor m in units[\"U_BOYZ_K\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (6.0 + (k % 5) * 1.4) * px, \"y\": (6.0 + int(k / 5) * 1.4) * px}\n\t\tk += 1\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\nmain._recreate_unit_visuals()\nmain.movement_controller._refresh_unit_list()\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 1.0\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(1240, 2160) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.06: a move through an area's open ground is unimpeded — no climb; only the area's difficult ground (+2\", unchanged). Before the fix the area's 'tall' height read as a 6\" climb: 5 + 6 + 2 = 13\" > M8\", and a charge on the same line paid 8\".",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar a = Vector2(32.0, 57.5) * 40.0\nvar b = Vector2(32.0, 52.5) * 40.0\nvar climb = float(ph._get_vertical_climb_cost(a, b, \"U_TELEMON_HEAVY_DREADNOUGHT_I\"))\nvar pen = float(ph._get_movement_terrain_penalty(a, b, \"U_TELEMON_HEAVY_DREADNOUGHT_I\", false))\nvar chg = float(TerrainManager.calculate_charge_terrain_penalty(a, b, false, [\"VEHICLE\", \"WALKER\"]))\nvar dest_piece = str(TerrainManager.get_terrain_at_position(b).get(\"id\", \"\"))\nprint(\"[%s] 5in move into area-large-7 open ground: dest=%s climb=%.1f move_penalty=%.1f charge_penalty=%.1f\" % [\"vehicle_enters_area_open_ground_11e\", dest_piece, climb, pen, chg])\nreturn \"%s|%.1f|%.1f|%.1f\" % [dest_piece, climb, pen, chg]",
+      "equals": "area-large-7|0.0|2.0|2.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.get_unit_list_texts()[0].begins_with(\"Telemon Heavy Dreadnought\")",
+      "equals": true,
+      "comment": "the Telemon is the only row of the movement unit list"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 0,
+      "comment": "Real player input: select the Telemon in the unit list."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Normal Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_TELEMON_HEAVY_DREADNOUGHT_I\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1280.0,
+      "from_y": 2300.0,
+      "to_x": 1280.0,
+      "to_y": 2100.0,
+      "comment": "real drag: 5\" north into the area's open ground"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_telemon_dragged_into_the_home_area"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the move was accepted: the Telemon ends in area-large-7's open ground (before the fix the drop was refused as 13\" > 8\" and the model snapped back)",
+      "script": "var u = GameState.get_unit(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")\nvar m = u[\"models\"][0]\nvar p = m[\"position\"]\nvar ids = []\nfor pc in TerrainManager.pieces_model_within(m):\n\tids.append(str(pc.get(\"id\", \"\")))\nids.sort()\nprint(\"[%s] after the move: (%.2f, %.2f)in, within %s\" % [\"vehicle_enters_area_open_ground_11e\", float(p.x) / 40.0, float(p.y) / 40.0, str(ids)])\nreturn \"%s|%s\" % [str(absf(float(p.y) / 40.0 - 52.5) < 0.3), \",\".join(PackedStringArray(ids))]",
+      "equals": "true|area-large-7"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_TELEMON_HEAVY_DREADNOUGHT_I\", {}).get(\"completed\", false)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_move_ended_in_the_area"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[vehicle_enters_area_open_ground_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: the fixture's layout back",
+      "script": "if TerrainManager.has_meta(\"tac_saved_layout\"):\n\tvar lay = str(TerrainManager.get_meta(\"tac_saved_layout\"))\n\tTerrainManager.remove_meta(\"tac_saved_layout\")\n\tif lay != \"\":\n\t\tTerrainManager.load_terrain_layout(lay)\nreturn true",
+      "equals": true
+    }
+  ]
+}
