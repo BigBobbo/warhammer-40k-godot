@@ -32,9 +32,11 @@ extends SceneTree
 # is a target (both link directions), planned charge, Advance plan,
 # melee-only unit, loss cap, control range kept, the objective's OC kept
 # (14.02: every model in range counts), probe and pair budgets, the legacy
-# cover nudge screened, the F002 hold-fire prediction, a kept FIX_MOVE_COVER
-# spot wins; follow-through — the returned destinations are re-checked;
-# wording.
+# cover nudge screened, the F002 hold-fire prediction (the predicate, and end
+# to end through the search and the re-check: a chip shot from a spot where
+# every model is Hidden next turn is refused, one with a model outside the
+# area is kept), a kept FIX_MOVE_COVER spot wins; follow-through — the
+# returned destinations are re-checked; wording.
 #
 # Run with: godot --headless --path . -s tests/unit/test_ai_fix_move_for_shot.gd
 # (runs once the scene tree is up: the stage reads RulesEngine /
@@ -117,6 +119,7 @@ func _run_tests():
 	test_guard_probe_and_pair_budgets()
 	test_guard_legacy_nudge_screened()
 	test_guard_f002_hold_fire_predicted()
+	test_guard_f002_end_to_end()
 	test_guard_cover_spot_wins()
 	test_follow_through_rechecks_returned_destinations()
 	test_note_wording()
@@ -243,6 +246,26 @@ func _oc_case(x0: float) -> Dictionary:
 		_dense_area("screen", x0, 900.0, x0 + 200.0, 1500.0)], [obj])
 	_add(snap, "CG", 1, _line(520.0, SQUAD_Y))
 	_add(snap, "TGT", 2, _line(1300.0, 1150.0), [SPEAR_M])
+	return snap
+
+## The F002 board: test_on_range_step's (TGT 24.8" south of the straight end, an
+## aimed step brings it inside the 24" spears) with the objective's ruin
+## replaced by a wide LIGHT area x 300-1020, y 940-1500 — 13.09 (errata) hides
+## INFANTRY in light OR dense terrain, and light does not obscure (13.10) — so
+## every spot the search can reach puts every Custodian inside it: Hidden in
+## the enemy's next turn if it holds fire. TGT (5 x W3, T6, Sv2+, 24" spears)
+## stays more than its 15" detection range from any such spot, so Hidden hides
+## the squad from the only enemy gun (immunity share 1), and the spears' ~1.85
+## damage is a chip shot on its 15 wounds: worth 10 x 1.85 / 15 = 1.2 < the
+## 3.0 forfeit. `x1` moves the area's east edge: at 750 the line's east model
+## (x 790, base 758.5-821.5) stands outside it at the shot spot.
+func _f002_case(x1: float = 1020.0) -> Dictionary:
+	var light := {"id": "area_obj", "piece_class": "area", "type": "woods", "category": "light",
+		"height_category": "low", "can_move_through": {"INFANTRY": true, "MONSTER": true, "VEHICLE": true},
+		"polygon": _rect(300.0, 940.0, x1, 1500.0)}
+	var snap = _snapshot([light], [_obj_area()])
+	_add(snap, "CG", 1, _line(SQUAD_X0, SQUAD_Y))
+	_add(snap, "TGT", 2, _line(600.0, 2073.0))
 	return snap
 
 ## 14.02: [models within range of the live objective, their summed OC] for
@@ -822,6 +845,90 @@ func test_guard_f002_hold_fire_predicted() -> void:
 		var at_pick: Dictionary = _board_at(snap, "CG", pd)
 		var cost_pick: float = AIDM._hidden_forfeit_cost(at_pick.units["CG"], enemies, at_pick)
 		_assert(cost_pick == 0.0, "any spot kept with F002 on is one where F002 shoots (forfeit there %.2f == 0)" % cost_pick)
+	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
+
+## The guard end to end, through the search and the follow-through (the direct
+## predicate calls above are extras): on _f002_case the only shot on offer is a
+## chip shot from spots where every model is Hidden next turn. F002 off: the
+## search keeps such a spot and the re-check keeps the returned move. F002 on
+## (3.0): the search rejects it (rej.f002) and keeps nothing F002 would refuse
+## to fire from; the re-check drops the same destinations with its reason; and
+## decide() makes no shot claim.
+func test_guard_f002_end_to_end() -> void:
+	print("\n--- (c) guard: F002 end to end — the search and the re-check refuse a Hidden chip-shot spot ---")
+	_fix(1.0)
+	var snap = _f002_case()
+	var unit: Dictionary = snap.units["CG"]
+	var enemies: Dictionary = AIDM._get_enemy_units(snap, 1)
+	var c: Vector2 = AIDM._get_unit_centroid(unit)
+	var h_idx: int = AIDM._hidden_next_turn_index()
+	_knob("HIDDEN_FORFEIT_PENALTY", 0.0)
+	var diag0 := {}
+	var pick0 = _pick(snap, "CG", OBJ, diag0)
+	var base: Dictionary = diag0.get("base_dests", {})
+	print("  F002 off: pick %s kind=%s ev=%s; diag rej=%s probed=%s" % [str(pick0.get("end", "none")), str(pick0.get("kind", "")),
+		str(pick0.get("ev", "")), str(diag0.get("rej")), str(diag0.get("probed"))])
+	_assert(not base.is_empty() and _elig(snap, "CG", base).is_empty(), "precondition (engine): the straight move has no eligible target")
+	_assert(not pick0.is_empty(), "F002 off: the search keeps a shot spot")
+	if pick0.is_empty():
+		AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
+		return
+	var pd0 := _pick_dests(snap, "CG", pick0)
+	var at0: Dictionary = _board_at(snap, "CG", pd0)
+	var n_hidden := 0
+	for m in at0.units["CG"].models:
+		if tm.is_model_hidden_at(m, at0.units["CG"], h_idx):
+			n_hidden += 1
+	_assert(n_hidden == at0.units["CG"].models.size(), "precondition (engine): every model Hidden in the enemy's next turn at that spot (%d/%d)" % [
+		n_hidden, at0.units["CG"].models.size()])
+	_assert(_elig(snap, "CG", pd0).has("TGT"), "precondition (engine): TGT is an eligible target from it")
+	var ok0 = AIDM._move_for_shot_recheck(unit, "CG", snap, pick0, pd0, OBJ, enemies)
+	_assert(bool(ok0.keep), "F002 off: the re-check keeps those destinations (why '%s')" % str(ok0.why))
+	_knob("HIDDEN_FORFEIT_PENALTY", 3.0)
+	var cost0: float = AIDM._hidden_forfeit_cost(at0.units["CG"], enemies, at0)
+	var worth0: float = AIDM.HIDDEN_FULL_KILL_WORTH * minf(float(pick0.ev) / maxf(float(AIDM._calculate_kill_threshold(snap.units["TGT"])), 0.001), 1.0)
+	_assert(cost0 > 0.0 and worth0 < cost0, "F002 on: holding fire there keeps Hidden worth %.2f, the shot is worth %.2f — F002 holds" % [cost0, worth0])
+	var diag3 := {}
+	var pick3 = _pick(snap, "CG", OBJ, diag3)
+	print("  F002 3.0: pick %s kind=%s; diag rej=%s probed=%s" % [str(pick3.get("end", "none")), str(pick3.get("kind", "")),
+		str(diag3.get("rej")), str(diag3.get("probed"))])
+	_assert(int(diag3.get("rej", {}).get("f002", 0)) >= 1, "F002 3.0: the search rejects a shot spot because F002 would hold fire there (rej.f002=%s)" % str(diag3.get("rej", {}).get("f002")))
+	if not pick3.is_empty():
+		var at3: Dictionary = _board_at(snap, "CG", _pick_dests(snap, "CG", pick3))
+		var cost3: float = AIDM._hidden_forfeit_cost(at3.units["CG"], enemies, at3)
+		_assert(cost3 == 0.0, "any spot kept with F002 on is one where F002 shoots (forfeit there %.2f == 0)" % cost3)
+	var ok3 = AIDM._move_for_shot_recheck(unit, "CG", snap, pick0, pd0, OBJ, enemies)
+	print("  F002 3.0 re-check of the F002-off destinations: keep=%s why=%s" % [str(ok3.keep), str(ok3.why)])
+	_assert(not bool(ok3.keep) and str(ok3.why) == "F002 would hold fire there to stay Hidden",
+		"F002 3.0: the re-check drops them — 'F002 would hold fire there to stay Hidden' (got keep=%s why '%s')" % [str(ok3.keep), str(ok3.why)])
+	var d3 = _decide(snap, "CG", "", false)
+	print("  F002 3.0 decide: %s" % _shape(d3))
+	_assert(not str(d3.get("_ai_move_adjustments", [])).contains("for a shot next phase") \
+			and not str(d3.get("_ai_description", "")).contains("for a shot at"),
+		"F002 3.0: decide() makes no shot claim for a spot F002 would not fire from")
+	# Control: the area's east edge at x 750 leaves the line's east model
+	# outside it at the same spot. One visible model makes the unit a target
+	# (06.01), so F002 shoots there and the guard must let the spot through.
+	var snap_b = _f002_case(750.0)
+	var diag_b := {}
+	var pick_b = _pick(snap_b, "CG", OBJ, diag_b)
+	print("  control (east model outside), F002 3.0: pick %s kind=%s; diag rej=%s" % [str(pick_b.get("end", "none")),
+		str(pick_b.get("kind", "")), str(diag_b.get("rej"))])
+	_assert(not pick_b.is_empty() and int(diag_b.get("rej", {}).get("f002", -1)) == 0,
+		"control: one model outside the area — F002 3.0 keeps the shot spot, rej.f002 == 0 (got %s)" % str(diag_b.get("rej", {}).get("f002")))
+	if not pick_b.is_empty():
+		var pdb := _pick_dests(snap_b, "CG", pick_b)
+		var atb: Dictionary = _board_at(snap_b, "CG", pdb)
+		var n_hidden_b := 0
+		for m in atb.units["CG"].models:
+			if tm.is_model_hidden_at(m, atb.units["CG"], h_idx):
+				n_hidden_b += 1
+		var cost_b: float = AIDM._hidden_forfeit_cost(atb.units["CG"], AIDM._get_enemy_units(snap_b, 1), atb)
+		_assert(n_hidden_b > 0 and n_hidden_b < atb.units["CG"].models.size() and cost_b == 0.0,
+			"control: %d/%d models Hidden there, so holding fire keeps nothing (forfeit %.2f == 0)" % [n_hidden_b,
+				atb.units["CG"].models.size(), cost_b])
+		var ok_b = AIDM._move_for_shot_recheck(snap_b.units["CG"], "CG", snap_b, pick_b, pdb, OBJ, AIDM._get_enemy_units(snap_b, 1))
+		_assert(bool(ok_b.keep), "control: the re-check keeps it too (why '%s')" % str(ok_b.why))
 	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
 
 func test_guard_cover_spot_wins() -> void:
