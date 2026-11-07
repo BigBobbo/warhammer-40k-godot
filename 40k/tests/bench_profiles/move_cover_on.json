@@ -1,0 +1,10 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Move cover ON — opt-in, not shipped",
+	"description": "Enables FIX_MOVE_COVER: a unit making a normal move toward its plan objective ends the move Hidden (11e 13.09 as errata'd: INFANTRY/BEASTS/SWARM within a light or dense terrain area, no ranged attacks this or the previous turn) or in cover (13.08, -1 BS) from the enemy shooters that can reach it next turn, giving up at most MOVE_COVER_MAX_LOSS_INCHES of objective progress, plus the cover_gain plan prior. Paired with HIDDEN_FORFEIT_PENALTY (F002) at its corpus-suggested 3.0 so the unit does not walk into Hidden and then shoot it away: the stage only credits Hidden where F002 can hold fire or the unit has no target. NOT the shipped default (both ship at 0); this is the arm to load for the fire gate / paired A/B, and what tests/scenarios/sp/ai_move_cover.json loads. Exam: tests/exams/mv05_end_the_move_hidden.json.",
+	"parameters": {
+		"FIX_MOVE_COVER": 1.0,
+		"HIDDEN_FORFEIT_PENALTY": 3.0
+	}
+}

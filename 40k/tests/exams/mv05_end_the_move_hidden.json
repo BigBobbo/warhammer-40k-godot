@@ -1,0 +1,148 @@
+{
+  "id": "mv05_end_the_move_hidden",
+  "covers": ["ai.movement.move_cover", "rules.11e.hidden_13_09", "rules.11e.benefit_of_cover_13_08"],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "phase": 7,
+  "player": 1,
+  "seed": 4246,
+  "owner": "FIX_MOVE_COVER (movement: end the move Hidden or in cover — SUR-01/SUR-03/SUR-11)",
+  "rationale": "11e 13.09 (as errata'd): an INFANTRY model is hidden while it is within a terrain area containing a light or dense feature and its unit made no ranged attacks this turn or the previous one, and a hidden model is visible only to enemy models within its detection range (15\" unless stated). 06.01: a unit is visible if ANY of its models is, so untargetability needs EVERY model hidden. Here U_CUSTODIAN_GUARD_B (5 x 40 mm, M6) stands in a line 2.2\" north of obj_nml_1's dense ruin (area-large-2, x 1360-1640) with the only enemy shooter that could reach it next turn 23\" away in the open. The straight approach onto the ruin's nearest edge ends with the 5th model's base past the ruin's east edge (x 1690): four models hidden, the fifth in the open, so the whole unit can be targeted. Ending the same move about 1.4\" further west costs nothing — the same objective, the same OC 10 in range, no extra turn — and puts every model inside the ruin: all five Hidden beyond the shooter's 15\" detection range even after its 6\" move (13.09), and every model's centre inside a terrain area for the Benefit of Cover (13.08, -1 BS) even if the squad later shoots. An AI that stops one model outside is leaving a free defensive rule on the table, not making a trade-off. Asserts 4-7 stop an AI from passing by hiding instead of taking the objective, by standing still, or by an illegal move.",
+  "setup": [
+    "var st = GameState.state",
+    "# Behaviour under test ships OFF: switch it on for player 1 only. Loaded",
+    "# inline (not from the bench profile) so the exam names exactly the knobs",
+    "# it depends on; HIDDEN_FORFEIT_PENALTY pairs it with F002 so the squad",
+    "# does not walk into Hidden and then shoot it away.",
+    "AIDecisionMaker.load_player_profile(1, {\"parameters\": {\"FIX_MOVE_COVER\": 1.0, \"HIDDEN_FORFEIT_PENALTY\": 3.0}})",
+    "# The squad: a line 65 px apart at y 400, nearest bases 2.2\" north of",
+    "# area-large-2's top edge (y 520) and not touching it; the 5th model at",
+    "# x 1690 is past the ruin's east edge (x 1640).",
+    "var g = st.units.U_CUSTODIAN_GUARD_B",
+    "var k = 0",
+    "for m in g.models:",
+    "\tm.position = {\"x\": 1430.0 + float(k) * 65.0, \"y\": 400.0}",
+    "\tk += 1",
+    "if g.has(\"flags\"):",
+    "\tg.flags.erase(\"last_shot_idx\")",
+    "\tg.flags.erase(\"shot_recently\")",
+    "# The one enemy shooter in reach: a line at y 1560 in the open (clear of",
+    "# area-medium-35 / area-short-line-39 / area-long-line-27), every edge",
+    "# distance to the squad's end spot about 23\".",
+    "var s = st.units.U_CUSTODIAN_GUARD_A_P2",
+    "var j = 0",
+    "for m in s.models:",
+    "\tm.position = {\"x\": 1440.0 + float(j) * 65.0, \"y\": 1560.0}",
+    "\tj += 1",
+    "# Park every other model at 70 px spacing (bases are 32-40 mm, < 63 px):",
+    "# player 1 in the north-west corner, player 2 in the south-east, at least",
+    "# 32\" from the ruin so nothing else is a threat or a rival for it.",
+    "var p1 = 0",
+    "var p2 = 0",
+    "for uid in st.units:",
+    "\tif uid == \"U_CUSTODIAN_GUARD_B\" or uid == \"U_CUSTODIAN_GUARD_A_P2\":",
+    "\t\tcontinue",
+    "\tvar u = st.units[uid]",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 50.0 + 70.0 * float(p1 % 6), \"y\": 50.0 + 70.0 * float(p1 / 6)}",
+    "\t\t\tp1 += 1",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1300.0 + 70.0 * float(p2 % 6), \"y\": 2320.0 - 70.0 * float(p2 / 6)}",
+    "\t\t\tp2 += 1",
+    "return TerrainManager.area_at(Vector2(1500.0, 750.0)).get(\"id\", \"\")"
+  ],
+  "assert": [
+    {
+      "name": "fixture sanity: obj_nml_1's marker sits in area-large-2",
+      "script": "return TerrainManager.area_at(Vector2(1500.0, 750.0)).get(\"id\", \"\")",
+      "equals": "area-large-2"
+    },
+    {
+      "name": "every alive model of U_CUSTODIAN_GUARD_B ends Hidden (13.09 + errata)",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var n = 0",
+        "for m in u.models:",
+        "\tif m.get(\"alive\", true) and TerrainManager.is_model_hidden(m, u):",
+        "\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 5
+    },
+    {
+      "name": "...and has the in-area Benefit of Cover (13.08) against any attacker",
+      "script": "return TerrainManager.unit_has_cover_11e(GameState.state.units.U_CUSTODIAN_GUARD_B, {})",
+      "equals": true
+    },
+    {
+      "name": "guard: it still takes obj_nml_1 (14.02, a model within the hosting area)",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var obj = {}",
+        "for o in GameState.state.board.objectives:",
+        "\tif str(o.get(\"id\", \"\")) == \"obj_nml_1\":",
+        "\t\tobj = o",
+        "if obj.is_empty():",
+        "\treturn -1",
+        "var n = 0",
+        "for m in u.models:",
+        "\tif m.get(\"alive\", true) and MissionManager.model_in_objective_range(m, obj):",
+        "\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    },
+    {
+      "name": "guard: it moved (alive-model centroid at least 3\" from where it started)",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var sum = Vector2.ZERO",
+        "var n = 0",
+        "for m in u.models:",
+        "\tif not m.get(\"alive\", true):",
+        "\t\tcontinue",
+        "\tvar p = m.position",
+        "\tsum += Vector2(float(p.x), float(p.y)) if not (p is Vector2) else p",
+        "\tn += 1",
+        "if n == 0:",
+        "\treturn 0.0",
+        "return (sum / float(n)).distance_to(Vector2(1560.0, 400.0)) / 40.0"
+      ],
+      "expect_min": 3.0
+    },
+    {
+      "name": "guard: no model moved more than its 6\" Move",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var worst = 0.0",
+        "for k in range(u.models.size()):",
+        "\tvar p = u.models[k].position",
+        "\tvar v = Vector2(float(p.x), float(p.y)) if not (p is Vector2) else p",
+        "\tworst = max(worst, v.distance_to(Vector2(1430.0 + 65.0 * float(k), 400.0)) / 40.0)",
+        "return worst"
+      ],
+      "expect_max": 6.0
+    },
+    {
+      "name": "the move was a recorded movement decision naming obj_nml_1",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_B\":",
+        "\t\t\tcontinue",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"movement\":",
+        "\t\t\tcontinue",
+        "\t\tvar c = r.get(\"candidates\", [])",
+        "\t\tvar ci = int(r.get(\"chosen_index\", -1))",
+        "\t\tif ci >= 0 and ci < c.size() and str(c[ci].get(\"description\", \"\")).find(\"obj_nml_1\") >= 0:",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

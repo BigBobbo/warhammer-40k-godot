@@ -144,6 +144,20 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | `CORRIDOR_BLOCK_SCORE_BASE` | 7.0 | Base score of a corridor-block assignment |
 | `CORRIDOR_BLOCK_POSITION_RATIO` | 0.55 | Blocker placed this fraction of the way from objective toward enemy |
 | `CORRIDOR_BLOCK_MAX_POSITIONS` | 4 | Max simultaneous corridor blocks |
+| `FIX_MOVE_COVER` | 0 | Behaviour switch (on at ≥ 0.5): a normal move toward the plan objective picks an end spot that leaves the unit Hidden (11e 13.09, light or dense area per the errata) or in cover (13.08, -1 BS) from the enemy shooters that can reach it next turn, plus the `cover_gain` plan prior. 0 = previous behaviour. Opt-in: `40k/tests/bench_profiles/move_cover_on.json` (pairs it with `HIDDEN_FORFEIT_PENALTY` 3.0); exam `mv05_end_the_move_hidden` |
+| `MOVE_COVER_MAX_LOSS_INCHES` | 2.0 | Most objective progress (gap to its range, terrain-area aware) a cover / Hidden spot may give up vs the straight move; the spot also may not add a turn-to-reach or lose control range |
+| `MOVE_COVER_HIDDEN_WEIGHT` | 3.0 | Points for being Hidden next turn from the whole threatening shot volume (scaled by the blinded share; 1 pt ≈ 1" of progress) |
+| `MOVE_COVER_COVER_WEIGHT` | 1.5 | Points for the Benefit of Cover against the whole cover-respecting shot volume (TORRENT / [IGNORES COVER] / PSYCHIC excluded) |
+| `MOVE_COVER_NFV_FACTOR` | 0.5 | Share of the cover points when cover rests only on "not fully visible" (judged from the shooter's current spot) rather than every model inside a terrain area |
+| `MOVE_COVER_LOSS_WEIGHT` | 1.0 | Points subtracted per inch of objective progress the spot gives up |
+| `MOVE_COVER_THREAT_WEIGHT` | 1.0 | Points subtracted per point of threat (`_evaluate_position_threat`) the spot adds vs the straight end |
+| `MOVE_COVER_MIN_GAIN` | 0.5 | Net points a spot must beat the straight end by — at selection and again on the destinations the mover returns |
+| `MOVE_COVER_PLAN_WEIGHT` | 0.5 | Plan prior: share of the cheap spot value at the planner's estimated destination added as `cover_gain` (0 = executor stage only; its Hidden half is dropped while `WEIGHT_HIDDEN_GAINED` > 0) |
+| `MOVE_COVER_FAN_INCHES` | 2.0 | Radius of the heading fan round the straight end (proposes "behind terrain" spots) |
+| `MOVE_COVER_MAX_SHOOTERS` | 4 | (int) Threatening enemy units priced per move, heaviest shot volume first |
+| `MOVE_COVER_MAX_CANDIDATES` | 12 | (int) Spots that pass the cheap screens and get the full engine-predicate evaluation, nearest the straight end first |
+| `MOVE_COVER_FAN_HEADINGS` | 8 | (int) Headings in the fan (0 = terrain-area spots only) |
+| `MOVE_COVER_MAX_GTG_CHECKS` | 64 | (int) Gone-to-Ground (13.11.01, -3" detection behind dense walls) engine checks per search; pairs past the budget count as visible (no credit) |
 
 ### Multi-phase planning (movement → shooting → charge)
 

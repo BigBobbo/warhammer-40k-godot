@@ -40,6 +40,7 @@ const TERMS := {
 	"threat_delta": {"label": "Danger", "fmt": "pts", "help": "Penalty for moving into more enemy shooting / charge threat than the unit faces now."},
 	"overwatch_risk": {"label": "Overwatch risk", "fmt": "pts", "help": "Penalty for moving where enemies can fire Overwatch."},
 	"hidden_gain": {"label": "Stays Hidden", "fmt": "pts", "help": "Bonus for ending where the unit stays Hidden."},
+	"cover_gain": {"label": "Ends in cover", "fmt": "pts", "help": "Bonus when the move toward this objective ends with every model in terrain: Hidden from enemy shooters that cannot get within detection range, or the Benefit of Cover (-1 BS)."},
 	"charge_lane": {"label": "On the way to its charge", "fmt": "pts", "help": "Bonus when the objective lies toward the unit's planned charge target (penalty if opposite)."},
 	"shooting_lane": {"label": "Shooting lane", "fmt": "pts", "help": "Bonus when the objective keeps the planned shooting target in range."},
 	"primary_awareness": {"label": "Primary mission", "fmt": "pts", "help": "Bonus from this round's primary mission (objective pressure, enemy home, centre, must-hold home)."},
