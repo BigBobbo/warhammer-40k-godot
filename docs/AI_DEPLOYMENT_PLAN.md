@@ -1,6 +1,6 @@
 # AI Deployment — how it works today, how it should work (11e), and the build plan
 
-Date: 2026-11-07 · Scope: AI deployment + a human "deployment coach" · Status: proposal, nothing implemented yet
+Date: 2026-11-07 · Scope: AI deployment + a human "deployment coach" · Status: **P0 implemented** (results and decisions: §10); P1–P7 are a proposal
 Evidence: `docs/ai_deployment_evidence/` (live screenshots, live-data maps, raw measurements, probe scripts)
 
 ---
@@ -25,6 +25,11 @@ Evidence: `docs/ai_deployment_evidence/` (live screenshots, live-data maps, raw 
   - Offline per-layout tables are a further option: there are only 45 official layouts.
   - Result on this board: **53/165 cells are true LoS shadows** from every turn-1-reachable enemy point.
   - **All 29 dense cells keep infantry Hidden.** The formula only half-used them, leaving units with a few models inside and the rest outside.
+- **P0 is done (§10).** Over 36 live harness runs (3 armies × 6 maps × 2 seeds):
+  - Units forced into Strategic Reserves: 152 → **0**.
+  - Refused placements: 298 → **0** (now counted at the source by AIPlayer).
+  - Multi-model units fully Hidden: 53 → **348** of 504.
+  - Leakers: 263 → **0**.
 - **Build order:**
   - P0: fix legality, the 11e terrain-scorer bugs and metrics.
   - P1: battlefield read.
@@ -109,7 +114,7 @@ Further observations:
 | G2 | **No 11e visibility model** in deployment. Candidates are placed *next to* ruins instead of *inside* dense areas, so leakers are common. | Multi-model units fully Hidden: 0/8 (Custodes), 0/6 and 1/6 (Ork mirror); 6/8 Custodes units leak | Gives the enemy's turn 1 free targets. |
 | G3 | **Deploys at the front edge by default** (row 1 = 2" from front) | `_decide_deployment` deploy_y | Maximises turn-1 charge and shooting exposure. |
 | G4 | Ignores the **turn-order uncertainty** (roll-off happens after deployment) | §1.1 | Deploys as if it will move first. |
-| G5 | No **enemy reach model**: threat = centroid + max range, Euclidean, current positions only. Charge reach adds +2" engagement range, which 11e doesn't grant. | `_calculate_enemy_threat_data` :28695 | Exposure is misjudged both ways. |
+| G5 | No **enemy reach model**: threat = centroid + max range, Euclidean, current positions only. The charge radius is M + 12 + ER (+2" at 11e), which 11e's reach (M + 12, base to base) does not literally grant. But it is compared against *centroid* distances, and a centroid overstates the base-to-base gap by more than 2" (p10 1.87", median 3.93"; P0.2 measurement), so in practice the +2" is an undersized geometry allowance, not an overstatement: dropping it alone misses more real charge threats (36 vs 21 of 128 rules-reachable pairs). | `_calculate_enemy_threat_data` :28695 | Exposure is misjudged both ways. The fix is a base-to-base reach model (P1/P4), not a smaller centroid radius. |
 | G6 | 11e terrain scorer bugs | Explore audit | Wrong spots, systematically. |
 | G7 | No **job / destination** concept; unit order is army-list order; no army-level plan | :5035, review doc §3.1 | Units don't stage for turn 1–2; scarce hidden spots are taken first-come, first-served. |
 | G8 | Formation shapes: one 5-wide grid, circular bases | :24548 | Can't fill a ruin footprint, form a screen line, or fit a lane. |
@@ -255,7 +260,7 @@ Caveat: Tabletop Battles (formerly Goonhammer) pages could not be fetched; point
 | P(2D6 ≥ d) | 83% | 72% | 58% | 42% | 28% | 17% | 8% | 3% |
 | With re-roll | 97% | 92% | 83% | 66% | 48% | 31% | 16% | 5.5% |
 
-The engine matches this (`ChargePhase.gd:862`: engagement range does not extend the roll). The AI's `_calculate_enemy_threat_data` still adds +2" (M + 12 + ER), overstating reach by 2".
+The engine matches this (`ChargePhase.gd:862`: engagement range does not extend the roll), and so do the AI's charge-odds helpers (`_charge_roll_needed` / `_charge_success_probability`: 0 mismatches against 11.04 over the whole distance grid, P0.2). The movement AI's `_calculate_enemy_threat_data` radius is M + 12 + ER. Read literally that is 2" too long, but it is measured from unit *centroids*, which overstate the base-to-base gap by a median 3.93", so the ER term acts as a (still undersized) geometry allowance. P0 keeps it (decision D6); a rules-faithful reach needs a base-to-base test (P1/P4).
 
 ### 3.4 How experts teach it (feeds the coach, §6)
 - **Three questions** [gen, Turn Zero (ext.)]:
@@ -433,7 +438,7 @@ SCOUT       ─► scout moves / reserve-scout set-up scored by the same field, 
 | Path fields | Path distance from every cell to each objective, the zone front and lane exits, per movement class (infantry / vehicle-monster / FLY) | BFS/Dijkstra on a 1" grid using `TerrainManager` movement rules (dense >2" blocks non-infantry) | <1 s per class, cached per layout |
 | Lanes | Corridors wide enough for each base class from my zone toward objectives and flanks | Erode the free space by base radius and flood | Cached per layout |
 | DS geometry | Backfield region to protect; current 8" bubble coverage; holes | Union of 8" discs from my deployed and planned units | Incremental |
-| Enemy reach model | Per enemy unit: move class, M, advance, scouts/infiltrate, guns (range, damage vs our profiles, indirect), melee (damage, Fights First), charge probability at distance d = P(2D6 ≥ d − 2") | Reuse `_estimate_weapon_damage`, `_estimate_melee_damage`, `_advance_reach_chance`. Undeployed enemies come from the known roster. | Per enemy drop |
+| Enemy reach model | Per enemy unit: move class, M, advance, scouts/infiltrate, guns (range, damage vs our profiles, indirect), melee (damage, Fights First), charge probability at distance d = P(2D6 ≥ d), with d base to base after the enemy's move (11.04: the target must be within the roll, and engagement range does not extend it; same as §5.5) | Reuse `_estimate_weapon_damage`, `_estimate_melee_damage`, `_advance_reach_chance`. Undeployed enemies come from the known roster. | Per enemy drop |
 
 ### 5.2 Posture (army master plan) — chosen once, revisited after each enemy drop
 
@@ -594,7 +599,7 @@ P0 items are rules-correctness fixes, so they ship **default ON**, each with a k
 
 | Phase | Deliverables | Key files | Tests / gate |
 |---|---|---|---|
-| **P0 Fix + measure** | (a) `DeploymentEval` metrics: fully Hidden infantry %, leakers, value-weighted exposure, T1 charge risk, forced-reserve count, home holder present, exit-lane OK. (b) Shape- and base-aware legal formation generator; remove the cap-bypass fallback for AI. (c) Fix the 11e terrain-scorer bugs (categories, area vs feature, swapped weights, anti_tank, `is_top_zone` on side maps). (d) Fix Scout 9"→8" and reserve arrival 9"→8"; drop the +2" engagement range from `_calculate_enemy_threat_data` charge reach in 11e (this also affects the movement AI). (e) A6b predeploy fixtures on several maps and layouts. | New `scripts/ai/DeploymentEval.gd`; AIDM :24548, :5594–5760, :5189; `AIPlayer.gd:3855-4013`; `tests/saves/` | Unit tests per fix. Windowed scenario: AI deploys the Ork mirror with **0 forced reserves**. Bench: metrics recorded per game. |
+| **P0 Fix + measure** | (a) `DeploymentEval` metrics: fully Hidden infantry %, leakers, value-weighted exposure, T1 charge risk, forced-reserve count, home holder present, exit-lane OK. (b) Shape- and base-aware legal formation generator; remove the cap-bypass fallback for AI. (c) Fix the 11e terrain-scorer bugs (categories, area vs feature, swapped weights, anti_tank, `is_top_zone` on side maps). (d) Fix Scout 9"→8" and reserve arrival 9"→8" (each model measured with its own base, as the engine does), and read Scouts 7"/8" correctly. Keep the +ER in `_calculate_enemy_threat_data`: it is a centroid geometry allowance, and dropping it makes the movement AI miss more real 11e charge threats (P0.2, decision D6); a base-to-base reach model is P1/P4 work. (e) A6b predeploy fixtures on several maps and layouts. | New `scripts/ai/DeploymentEval.gd`; AIDM :24548, :5594–5760, :5189; `AIPlayer.gd:3855-4013`; `tests/saves/` | Unit tests per fix. Windowed scenario: AI deploys the Ork mirror with **0 forced reserves**. Bench: metrics recorded per game. |
 | **P1 Battlefield read** | Pockets, fast exposure field (lifted LoS + cache; optional per-layout offline tables), path fields per movement class, lanes, DS geometry, enemy reach model | New `scripts/ai/BattlefieldRead.gd` (static, snapshot-in) | Headless: exposure field equals `model_visible_11e` on samples. Perf budget ≤2 s per phase (CI-timed). Debug overlay scenario screenshot. |
 | **P2 Jobs + scorer** | Job classifier v2, slot generator, `V(U,S)`, records/glossary, per-unit argmax | New `scripts/ai/DeploymentPlanner.gd`; hook in `_decide_deployment` | Headless golden tests (Gretchin → HOME_HOLDER/SCREEN; Warbikers → HAMMER_FAST; Mek → FRAGILE_SUPPORT). Scenario: on the fixture, ≥80% of hide-capable units fully Hidden (capacity permitting). |
 | **P3 Army level** | Posture, slot allocation (regret greedy / Hungarian), drop-order policy | DeploymentPlanner | Headless: no pocket is stolen from a higher-priority unit. Scenario: the order shows backfield first and hammers last. |
@@ -604,6 +609,8 @@ P0 items are rules-correctness fixes, so they ship **default ON**, each with a k
 | **P7 Tune + ship** | Weight sweeps; default-on only when the grid clears | `data/ai_config.json`, bench profiles | Protocol below; version bump + "What's New" |
 
 Do P0 first regardless: (b) alone returns about a third of an Ork army to the table on turn 1.
+
+P0 as shipped: §10. It differs from the P0 row above in two places. (b) keeps the past-the-caps reserves bypass as a logged anti-hang last resort (decision D5). (d) keeps the +ER in `_calculate_enemy_threat_data` (decision D6).
 
 ---
 
@@ -646,6 +653,87 @@ Do P0 first regardless: (b) alone returns about a third of an Ork army to the ta
 
 ---
 
+## 10. P0 results and decisions (2026-11-07)
+
+P0 is implemented. P1 onwards (§7) is still a proposal.
+
+**What shipped:**
+- **P0.1 legal formations.** `scripts/ai/FormationBuilder.gd` (§5.8). The AI's set-ups are legal by construction, attached leaders are set up with their unit in one `COMPOSITE_DEPLOY` (`combined_char_data`), and `DeploymentPhase` validates those character models like any other model.
+- **P0.2 rules distances.** 11e Scout / reserve stand-offs of 8", measured per model base; the on-screen Scout prompts read `GameConstants`. Built on its own branch.
+- **P0.3 11e terrain picker and zone frame.** §1.4 G6 note; `FIX_DEPLOY_FRAME`, `FIX_DEPLOY_TERRAIN_11E`.
+- **P0.4 metrics and delivery gate.** `DeploymentEval` (evaluate, `count_forced_reserves`, `count_rejected_deploy_actions`, `positions_digest`, `audit_legality`), the windowed scenario `ai_deploy_p0_legal_formations`, headless tests, and `deployment_eval` in the benchmark result.
+- **Terrain layout data fix.** In 8 layout files, 30 wall features pointed at a terrain area up to 38" away; each now belongs to the area that holds its footprint. 26 mirrored link groups that merged areas on opposite sides of the board are split. This changes 13.09 Hidden and 13.10 / 13.11 visibility for every player. Built on its own branch.
+
+### 10.1 Live harness: before and after
+
+**Setup:**
+- Command: `tools/deploy_harness.py`, plans off.
+- 36 runs: 3 fixtures × 6 maps (the fixture's own board, Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, Tipping Point) × seeds 7 and 11.
+- 72 seat-runs in total.
+
+**Data sources:**
+- **Baseline:** `ai_deployment_evidence/p0_baseline_harness.{md,json}`, pre-P0.
+- **P0.1:** the formation builder alone.
+- **P0.1 + P0.3:** `ai_deployment_evidence/p0_3_terrain_harness.{md,json}`, which also has the 18 per-map rows.
+- **Final:** this branch with P0.4, `ai_deployment_evidence/p0_final_harness.{md,json}`.
+
+| Metric (36 runs) | Baseline | P0.1 | P0.1 + P0.3 | Final |
+|---|---|---|---|---|
+| Units forced into Strategic Reserves | **152** (18,155 pts) | 0 | 0 | **0** |
+| Refused placements, legacy game-log count | 298 | 0 | 0 | 0 |
+| Refused deployment actions, counted at the source (P0.4) | not measured | not measured | not measured | **0** |
+| Whole-board legality-audit violations | not measured | 0 | 0 | 0 |
+| Multi-model hide-capable units fully Hidden | 53 / 504 | 82 / 504 | 348 / 504 | 348 / 504 |
+| Leakers (unit partly Hidden) | 263 | 262 | **0** | 0 |
+| Home objective held at the end of deployment | 55 / 72 | 54 / 72 | 60 / 72 | 60 / 72 |
+| Worst drop | not measured | 412 ms (builder time only) | 870 ms whole decision (mean 77 ms) | 875 ms whole decision (mean 80 ms) |
+
+By fixture (baseline → P0.1 + P0.3):
+
+| Fixture | Forced reserves | Fully Hidden multi-model | Leakers | Home held |
+|---|---|---|---|---|
+| Ork mirror | 100 (12,115 pts) → 0 | 14 → 102 of 144 | 85 → 0 | 20 → 20 of 24 |
+| Asym (Custodes vs Orks) | 52 (6,040 pts) → 0 | 12 → 120 of 168 | 90 → 0 | 18 → 20 of 24 |
+| Custodes mirror | 0 → 0 | 27 → 126 of 192 | 88 → 0 | 17 → 20 of 24 |
+
+Notes:
+- **Determinism.** The final run matches the P0.1 + P0.3 run exactly: per-seat deployment metrics and the audit are identical in all 36 runs, so P0.4 changed only measurement, not AI decisions. Afterwards `verify_delivery` on the live harness game passed: no ERROR line in the debug log, and the last board had 0 refused actions, 0 forced reserves, 0 audit violations and 0 undeployed units.
+- **Sweeping Engagement home objective.** It is 0 of 12 in every column. The layout used for that map labels `obj_home_1` as player 1's, but that objective sits in player 2's zone, so no deployment can hold it. This is a data / seat-labelling issue, not an AI one.
+- **Why there is a new metric.** The legacy game-log count sees only a unit's FIRST refused DEPLOY_UNIT / COMPOSITE_DEPLOY. It misses refused retries, a reserves fallback refused by the caps, and refused PLACE_IN_RESERVES / EMBARK_UNITS_DEPLOYMENT actions. The count at the source (`AIPlayer.get_deploy_rejections()`) sees all of them.
+  - On the pre-P0 code path the gap is large. The gate scenario run with the three kill switches at 0 gives **24 / 18 refused actions at the source but only 5 / 5 in the game log**.
+
+### 10.2 The delivery gate
+
+- **Windowed scenario `tests/scenarios/sp/ai_deploy_p0_legal_formations.json`.**
+  - The run: Ork mirror on the crucible triangle, seed 7, plans off, each Deffkilla Wartrike leading a 6-bike Warbikers unit.
+  - How the board is graded: a `phase_changed` hook stops both AI seats the instant deployment ends.
+  - Result: **24 / 24**. Per seat: 0 forced reserves, 0 refused actions (counted at the source and in the game log), 17 / 0 / 0 (on the table + embarked / in reserves / undeployed), 2 + 2 `COMPOSITE_DEPLOY` with all 4 leaders on the table, audit 0. UI: one token per model, the Reserves badge hidden, the rails empty, the first-turn roll-off shown.
+  - The same scenario with the P0 kill switches at 0 fails 8 steps: forced 4 / 3, the reserves rails list 4 / 3 units (685 / 545 pts), and there is no COMPOSITE_DEPLOY.
+  - Screenshots: `ai_deployment_evidence/p0_4_gate_after_deployed_board.jpg` and `p0_4_gate_before_kill_switches_off.jpg`.
+- **Headless tests, in the gated `run_pretrigger_tests.sh` list:**
+  - `test_ai_deployment_e2e.gd`: real AIPlayer path, 8 configs plus a determinism replay. The configs include concave Search and Destroy, Sweeping Engagement, an edition-10 run and attached Big Meks.
+  - `test_formation_builder.gd`.
+  - `test_ai_deploy_terrain_11e.gd`.
+  - `test_deployment_eval.gd`: metrics, plus contract tests that send a really-invalid DEPLOY_UNIT, COMPOSITE_DEPLOY, PLACE_IN_RESERVES and EMBARK_UNITS_DEPLOYMENT through the real `AIPlayer._execute_next_action`. Each is counted exactly once. An accepted K-card suggestion and a reserves fallback refused by the caps are counted once too.
+- **Benchmark.** A predeploy bench game writes `deployment_eval` (per seat: metrics, forced, rejected, legacy count; plus legality violations) to its result and to the game record outcome. Games that start after deployment write `{}`.
+
+### 10.3 Decisions taken for P0
+
+The D-numbers are those of the P0 implementation brief. D1–D3 (COMPOSITE_DEPLOY for attached leaders, every alive model must get a position, the phase's overlap check left as is) are covered in §5.8 and §10 above.
+
+
+- **D4 Flags.** The P0 items are rules-correctness fixes, so they ship default ON. Each has a kill switch whose 0 value restores the previous behaviour exactly, for A/B measurement only: `DEPLOY_FORMATION_BUILDER`, `FIX_DEPLOY_FRAME`, `FIX_DEPLOY_TERRAIN_11E` (`docs/AI_TUNING.md`). Strategy work from P2 onwards goes behind `DEPLOY_V2_ENABLED`, default 0 (§7).
+- **D5 Stuck fallback kept.** A unit with no legal set-up goes to Strategic Reserves within the 50% caps, logged as a warning (`[FORMATION] DEFECT forced reserve …`). If the caps refuse it, it is still placed past them as the anti-hang last resort: an UNDEPLOYED unit blocks SWITCH_PLAYER / END_DEPLOYMENT, and the game hangs (pm10). That path is logged as an ERROR (`push_error` + `DebugLogger.error`), so the `verify_delivery` / `read_debug_log` no-error gates fail whenever it fires. Neither path fired in the measurements above.
+  - The "(fallback)" / "past the caps" action-log descriptions stay, because `DeploymentEval.count_forced_reserves` counts them.
+  - This supersedes "remove the cap-bypass fallback for AI" in §7 P0(b). §5.8 already records the decision.
+- **D6 No global threat change.** `_calculate_enemy_threat_data` keeps its M + 12 + ER radius. It is measured from unit centroids, which overstate the base-to-base gap by a median 3.93". Dropping the +ER alone makes the movement AI miss more real 11e charge threats (36 vs 21 of 128 rules-reachable pairs).
+  - Only its comments and this document changed: §1.4 G5, §3.3, §5.1 and §7 P0(d).
+  - A rules-faithful, base-to-base reach model is P1 / P4 work. The AI's charge-odds helpers already match 11.04.
+- **D7 Reinforcements out of scope.** Units arriving from reserves are still placed with the pre-P0 circular-grid formation code: `_compute_reinforcement_positions` uses `_generate_formation_positions` + `_resolve_formation_collisions`, plus the random-centre retry in `AIPlayer._handle_failed_reinforcement`. So 6-bike oval units probably cannot arrive from reserves (RC10; not measured in P0). This is a follow-up.
+  - A second follow-up comes from D3. `DeploymentPhase`'s own overlap check tests circle-vs-oval in one direction only (RC8). The builder and `audit_legality` test both directions, so P0's AI placements are safe; the phase check itself is unchanged.
+
+---
+
 ## Appendix A — files in `docs/ai_deployment_evidence/`
 
 | File | What |
@@ -657,6 +745,12 @@ Do P0 first regardless: (b) alone returns about a third of an Ork army to the ta
 | `proposed_exposure_field_p1.png` | Rendered from a live computation: P1-zone cells × enemy T1-reachable points (`model_visible_11e`) |
 | `baseline_*_crucible.json` | Per-unit raw rows (role, models in area/dense/Hidden, distance to enemy zone, seen-by count) |
 | `probes/*.gd`, `probes/*.py` | The exact `execute_script` probes and renderers used (MCP bridge, 127.0.0.1:9080) |
+| `p0_baseline_harness.{md,json}` | P0.0 baseline: 36 live harness runs on the pre-P0 code (152 forced reserves, 298 refused placements) |
+| `p0_3_terrain_harness.{md,json}` | The same 36 runs after P0.1 + P0.3, with baseline / P0.1 / P0.3 columns per fixture and map |
+| `p0_final_harness.{md,json}` | The same 36 runs on the final P0 branch (with P0.4's at-source rejection count) |
+| `p0_3_ingame_asym_crucible_11e_board.jpg`, `p0_3_kcard_inside_dense_ruins.jpg` | P0.3 live screenshots: the asym board after AI deployment; the K card for an "Inside dense ruins" pick |
+| `p0_4_gate_after_deployed_board.jpg` | P0.4 gate scenario: both Ork armies fully on the table, each Wartrike beside its Warbikers, the roll-off waiting |
+| `p0_4_gate_before_kill_switches_off.jpg` | The same scenario with the P0 kill switches at 0 (the pre-P0 path): the reserves rails list 4 units (685 pts) and 3 units (545 pts) |
 
 ## Appendix B — sources (web research, 2026-11-07)
 

@@ -15,7 +15,9 @@ extends RefCounted
 ##     deployment maps and seeds (P0 of the deployment plan);
 ##   * tests/scenarios/sp/ai_deploy_p0_legal_formations.json — the windowed
 ##     gate that the AI deploys a full army with no forced reserves;
-##   * headless unit tests.
+##   * autoloads/AIBenchmarkRunner.gd — `deployment_eval` in the result of
+##     every bench game that plays its own deployment (P0.4);
+##   * headless unit tests (test_deployment_eval.gd, test_ai_deployment_e2e.gd).
 ##
 ## Autoloads are reached late-bound (same pattern as AIDecisionMaker) so this
 ## script compiles in `godot --headless --script` test mode.
