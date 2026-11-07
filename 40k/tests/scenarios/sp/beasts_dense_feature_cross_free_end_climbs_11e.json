@@ -1,0 +1,228 @@
+{
+  "id": "beasts_dense_feature_cross_free_end_climbs_11e",
+  "covers": [
+    "movement.terrain.no_phantom_climb_cost",
+    "movement.drag_ruler",
+    "terrain.layouts_11e"
+  ],
+  "fixture": "sw11e_s4_command",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "13.06 TERRAIN AND MOVEMENT (Dense): 'INFANTRY/BEASTS/SWARM/MOBILE models can move horizontally through dense terrain features' and 'INFANTRY/BEASTS/SWARM models can move vertically through dense terrain features' — moving ACROSS a dense feature costs a BEASTS model nothing; MOVING VERTICALLY: 'Add the distance moved vertically up ... to any other distance that model has moved' — a BEASTS model that ENDS on a dense feature's top pays the climb. Review of f8d9786 (which made the climb onto any dense piece the move ends in free for BEASTS/SWARM/MOBILE, and pinned a wolf ending inside a Solid wall as legal): the climb onto the piece a move ENDS in exempts only INFANTRY's legacy ground-floor model again; the dense-area difficult-ground exemption (13.06 traversal) stays. Official layout take_and_hold_vs_reconnaissance_1 over the sw11e_s4_command fixture: the player selects the Fenrisian Wolves in the unit list, picks Normal Move and drags the wolf 4\" west onto the dense platform generator-11 with the button held: the live drag ruler reads 7.5\" (4\" + 3.5\" climb, green); the drop is staged at that cost. Undo Model, then the wolf is dragged 8.5\" west ACROSS the generator to the open ground past it: the ruler reads the raw 8.5\" (green), the drop is staged at the raw distance, and End This Unit's Move leaves the wolf there.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a movement_phase_start window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: the official layout take_and_hold_vs_reconnaissance_1 (the fixture's own layout is restored in cleanup). generator-11 is a dense 3\" platform (25-29 x 41.5-44.5\"; 3.5\" to the climb model) inside the dense terrain area area-medium-9 (24-30 x 41-45\", difficult ground). One Fenrisian Wolf (BEASTS, M10\", 40mm base) on the open battlefield east of the area at (31.5\", 43\"); the pack's other wolves and every other unit but one far-away Boyz mob removed from play.",
+      "script": "var main = tree.root.get_node(\"Main\")\nTerrainManager.set_meta(\"tac_saved_layout\", TerrainManager.current_layout)\nTerrainManager.load_terrain_layout(\"take_and_hold_vs_reconnaissance_1\")\nvar units = GameState.state[\"units\"]\nvar px = 40.0\nfor uid in units:\n\tif uid != \"U_FENRISIAN_WOLVES_A\" and uid != \"U_BOYZ_B\":\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tunits[uid][\"flags\"] = {}\n\tunits[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\nvar wolves = units[\"U_FENRISIAN_WOLVES_A\"][\"models\"]\nfor i in range(wolves.size()):\n\twolves[i][\"alive\"] = (i == 0)\nwolves[0][\"position\"] = {\"x\": 31.5 * px, \"y\": 43.0 * px}\nwolves[0][\"rotation\"] = 0.0\nvar k = 0\nfor m in units[\"U_BOYZ_B\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (3.0 + (k % 5) * 1.4) * px, \"y\": (20.0 + int(k / 5) * 1.4) * px}\n\t\tk += 1\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\nmain._recreate_unit_visuals()\nmain.movement_controller._refresh_unit_list()\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 1.0\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(1090, 1720) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.06: ending on the dense platform's top counts the climb (MOVING VERTICALLY), and only the climb (the dense area's difficult ground is traversed); moving across it to the far side (horizontally and vertically through dense) costs nothing, as on a charge. f8d9786 made the top free (0.0); before it (1b6765b) both paid the area's 2\" difficult ground as well.",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar a = Vector2(31.5, 43.0) * 40.0\nvar top = Vector2(27.5, 43.0) * 40.0\nvar far = Vector2(23.0, 43.0) * 40.0\nvar uid = \"U_FENRISIAN_WOLVES_A\"\nvar kws = GameState.get_unit(uid)[\"meta\"][\"keywords\"]\nvar top_id = str(TerrainManager.get_terrain_at_position(top).get(\"id\", \"\"))\nvar climb_top = float(ph._get_vertical_climb_cost(a, top, uid))\nvar pen_top = float(ph._get_movement_terrain_penalty(a, top, uid, false))\nvar climb_far = float(ph._get_vertical_climb_cost(a, far, uid))\nvar pen_far = float(ph._get_movement_terrain_penalty(a, far, uid, false))\nvar chg_far = float(TerrainManager.calculate_charge_terrain_penalty(a, far, false, kws))\nprint(\"[%s] onto the generator top: dest=%s climb=%.1f move_penalty=%.1f | across it: climb=%.1f move_penalty=%.1f charge_penalty=%.1f\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", top_id, climb_top, pen_top, climb_far, pen_far, chg_far])\nreturn \"%s|%.1f|%.1f|%.1f|%.1f|%.1f\" % [top_id, climb_top, pen_top, climb_far, pen_far, chg_far]",
+      "equals": "generator-11|3.5|3.5|0.0|0.0|0.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.get_unit_list_texts()[0].begins_with(\"Fenrisian Wolves\")",
+      "equals": true,
+      "comment": "the wolves are the only row of the movement unit list"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 0,
+      "comment": "Real player input: select the Fenrisian Wolves in the unit list."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_FENRISIAN_WOLVES_A"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Normal Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1260.0,
+      "from_y": 1720.0,
+      "to_x": 1100.0,
+      "to_y": 1720.0,
+      "steps": 10,
+      "release": false,
+      "comment": "real drag, LMB still held: the wolf 4\" west onto the generator's top"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the live drag ruler: 4.0\" + the 3.5\" climb = 7.5\" (green, within M). f8d9786 read 4.0\" (no climb); 1b6765b 9.5\" (+2\" area difficult ground).",
+      "script": "var mc = tree.root.get_node(\"Main\").movement_controller\nvar r = mc.drag_ruler_visual\nif r == null or not is_instance_valid(r):\n\treturn \"no ruler\"\nprint(\"[%s] onto the generator top drag ruler: '%s' slot=%s inches=%.2f\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", r.label_text, r.label_slot, mc.drag_ruler_inches])\nreturn \"%s|%s\" % [r.label_text, r.label_slot]",
+      "equals": "7.5\"|CONFIRMED_GREEN"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_wolf_held_over_the_generator_top_ruler_reads_7_5in"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 1100.0,
+      "y": 1720.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the drop is staged on the top (BEASTS may end on a surface that is not ground level) and booked at raw + climb",
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {})\nvar staged = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\treturn \"not staged\"\nvar d = staged[0].get(\"dest\")\nvar booked = float(md.get(\"model_distances\", {}).get(\"U_FENRISIAN_WOLVES_A:m1\", -1.0))\nprint(\"[%s] onto the generator top staged at (%.2f, %.2f)in, booked %.2fin\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", d.x / 40.0, d.y / 40.0, booked])\nreturn \"%s|%s\" % [str(absf(d.x / 40.0 - 27.5) < 0.3 and absf(d.y / 40.0 - 43.0) < 0.3), str(absf(booked - 7.5) < 0.3)]",
+      "equals": "true|true"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Undo Model",
+      "comment": "Real click: take the step back."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {})\nvar m = GameState.get_unit(\"U_FENRISIAN_WOLVES_A\")[\"models\"][0]\nvar shown = tree.root.get_node(\"Main\").movement_controller\nprint(\"[%s] after Undo Model: staged=%d, model at (%.2f, %.2f)in\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", md.get(\"staged_moves\", []).size(), float(m.position.x) / 40.0, float(m.position.y) / 40.0])\nreturn \"%d|%s\" % [md.get(\"staged_moves\", []).size(), str(absf(float(m.position.x) / 40.0 - 31.5) < 0.1)]",
+      "equals": "0|true"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1260.0,
+      "from_y": 1720.0,
+      "to_x": 920.0,
+      "to_y": 1720.0,
+      "steps": 12,
+      "release": false,
+      "comment": "real drag, LMB still held: the wolf 8.5\" west ACROSS the generator to the open ground past it"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the live drag ruler: the raw 8.5\" (green) — longer than the step onto the top, yet cheaper: the dense feature and its dense area are traversed (1b6765b: 10.5\" Advance, yellow).",
+      "script": "var mc = tree.root.get_node(\"Main\").movement_controller\nvar r = mc.drag_ruler_visual\nif r == null or not is_instance_valid(r):\n\treturn \"no ruler\"\nprint(\"[%s] across the generator drag ruler: '%s' slot=%s inches=%.2f\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", r.label_text, r.label_slot, mc.drag_ruler_inches])\nreturn \"%s|%s\" % [r.label_text, r.label_slot]",
+      "equals": "8.5\"|CONFIRMED_GREEN"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_wolf_held_past_the_generator_ruler_reads_8_5in"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 920.0,
+      "y": 1720.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "staged past the generator, booked at its raw distance",
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {})\nvar staged = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\treturn \"not staged\"\nvar d = staged[0].get(\"dest\")\nvar booked = float(md.get(\"model_distances\", {}).get(\"U_FENRISIAN_WOLVES_A:m1\", -1.0))\nprint(\"[%s] across the generator staged at (%.2f, %.2f)in, booked %.2fin\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", d.x / 40.0, d.y / 40.0, booked])\nreturn \"%s|%s\" % [str(absf(d.x / 40.0 - 23.0) < 0.3 and absf(d.y / 40.0 - 43.0) < 0.3), str(absf(booked - 8.5) < 0.3)]",
+      "equals": "true|true"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the move was accepted: the wolf ends on the open ground past the generator",
+      "script": "var m = GameState.get_unit(\"U_FENRISIAN_WOLVES_A\")[\"models\"][0]\nvar p = m[\"position\"]\nvar here = TerrainManager.get_terrain_at_position(Vector2(float(p.x), float(p.y)))\nprint(\"[%s] after the move: (%.2f, %.2f)in on '%s'\" % [\"beasts_dense_feature_cross_free_end_climbs_11e\", float(p.x) / 40.0, float(p.y) / 40.0, str(here.get(\"id\", \"\"))])\nreturn \"%s|%s\" % [str(absf(float(p.x) / 40.0 - 23.0) < 0.3 and absf(float(p.y) / 40.0 - 43.0) < 0.3), str(here.get(\"id\", \"\"))]",
+      "equals": "true|"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_FENRISIAN_WOLVES_A\", {}).get(\"completed\", false)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_move_ended_past_the_generator"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[beasts_dense_feature_cross_free_end_climbs_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: the fixture's layout back",
+      "script": "if TerrainManager.has_meta(\"tac_saved_layout\"):\n\tvar lay = str(TerrainManager.get_meta(\"tac_saved_layout\"))\n\tTerrainManager.remove_meta(\"tac_saved_layout\")\n\tif lay != \"\":\n\t\tTerrainManager.load_terrain_layout(lay)\nreturn true",
+      "equals": true
+    }
+  ]
+}

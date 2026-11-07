@@ -293,11 +293,12 @@ func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 #     final position is universally rejected — keywords are not consulted.
 #   ▪ solid dense FEATURE pieces (the converted 11e layouts author walls as
 #     polygon pieces, piece_class "feature", with no segment list): at
-#     edition 11 these reject units that cannot traverse dense terrain per
-#     13.06 — INFANTRY/BEASTS/SWARM/MOBILE may stand among them freely,
-#     everyone else is blocked unless the piece is within their step-over
-#     height (2", 4" for SUPER-HEAVY WALKER). Pass the unit's keywords;
-#     callers that omit them get the strict (non-infantry) treatment.
+#     edition 11 (TerrainManager.solid_terrain_endpoint_blocker_11e) only
+#     INFANTRY/BEASTS/SWARM may end among them; everyone else — MOBILE
+#     included: 13.06 lets it move THROUGH dense features, not end on them —
+#     is blocked unless the piece is within their step-over height (2", 4"
+#     for SUPER-HEAVY WALKER). Pass the unit's keywords (with any rule-granted
+#     MOBILE); callers that omit them get the strict (non-infantry) treatment.
 func model_overlaps_any_wall(model: Dictionary, unit_keywords: Array = []) -> bool:
 	# Settings › Gameplay › "Ignore collisions for VEHICLE models": a Stompa-sized
 	# base clips a ruin footprint almost anywhere on a dense board, leaving the

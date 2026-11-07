@@ -494,21 +494,30 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 
 	return false
 
-## Does a unit with `unit_keywords` pass through `terrain_piece` at ground level?
-## The one predicate the move and charge terrain costs share — a traversed piece
-## costs the mover no climb and no difficult-ground penalty:
+## Does a unit with `unit_keywords` move THROUGH `terrain_piece` freely (crossing
+## it, or moving within it, at ground level)? The predicate the move's
+## difficult-ground term and the charge cost share:
 ##   ▪ the piece's legacy can_move_through map (INFANTRY through every ruin), or
 ##   ▪ 11e 13.06 Dense: "INFANTRY/BEASTS/SWARM/MOBILE models can move
 ##     horizontally through dense terrain features" (_passes_dense_feature_11e;
-##     11e only, DENSE pieces only — light / exposed features keep their climb).
-## Readers: calculate_charge_terrain_penalty (charge), calculate_movement_
-## terrain_penalty and MovementPhase._get_vertical_climb_cost (Normal / Advance /
-## Fall Back). Pass the move's terrain keywords (MovementPhase.
+##     11e only, DENSE pieces only).
+## Readers: calculate_charge_terrain_penalty (charge: climb and difficult
+## ground) and calculate_movement_terrain_penalty (Normal / Advance / Fall
+## Back: difficult ground). Pass the move's terrain keywords (MovementPhase.
 ## _terrain_rule_keywords, ChargePhase._charge_terrain_keywords) so a MOBILE
-## granted by a rule counts. Until 2026-11 only the charge cost read the 13.06
-## half: a BEASTS / SWARM model stepping from its area's open ground onto a dense
-## wall paid the wall's 6" climb + 2" on a move, 0" on a charge along the same
-## line (the move was refused: 10.9" of a 10" Move).
+## granted by a rule counts.
+## NOT an exemption for the piece a move ENDS in: a model whose centre ends
+## inside a dense feature is on its surface (13.06 MOVING VERTICALLY: the climb
+## counts) or through a Solid wall (13.06.01), so MovementPhase.
+## _get_vertical_climb_cost exempts only the can_move_through map (the legacy
+## INFANTRY ground-floor model) — 2026-11 review of f8d9786. The charge cost
+## still exempts the dense piece a charge ends in (the same over-exemption on
+## the charge side, kept as it was).
+## Light / exposed features: this returns false for every non-INFANTRY unit, so
+## both costs charge their climb and difficult ground. That is the current
+## engine model, a tracked deviation (rules audit TER-02), not 13.06 — "All
+## models can move horizontally and vertically through exposed and light
+## terrain features".
 func unit_traverses_piece(unit_keywords: Array, terrain_piece: Dictionary) -> bool:
 	return can_unit_move_through_terrain(unit_keywords, terrain_piece) \
 		or _passes_dense_feature_11e(unit_keywords, terrain_piece)
@@ -562,6 +571,12 @@ func is_terrain_obscuring(terrain_piece: Dictionary) -> bool:
 ## penalty — a charge move is a move, so this mirrors
 ## calculate_movement_terrain_penalty. Callers that omit unit_keywords keep the
 ## legacy "everyone pays" behaviour.
+## Known over-exemption (2026-11 review, kept as it was): the traversal test
+## also exempts a dense piece the charge ENDS in, so a BEASTS / SWARM / MOBILE
+## charge that ends on a dense feature pays no climb — a Normal / Advance / Fall
+## Back move to the same spot pays it (MovementPhase._get_vertical_climb_cost,
+## 13.06 MOVING VERTICALLY). The shipped AI prices Normal / Advance moves with
+## this function, so changing it changes AI play.
 ##
 ## Returns the extra distance in inches that must be added to the path distance.
 func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
@@ -642,8 +657,9 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 ## traverse the piece (e.g. VEHICLES over a low ruin) pay the flat penalty.
 ## 11e (13.06): INFANTRY/BEASTS/SWARM/MOBILE also move freely through DENSE
 ## pieces — the exemption reads unit_traverses_piece, the predicate the charge
-## cost (calculate_charge_terrain_penalty) uses, so a move and a charge along
-## the same line cost the same.
+## cost (calculate_charge_terrain_penalty) uses, so the difficult-ground part of
+## a move and of a charge along the same line agree. (The move's climb onto the
+## piece it ends in is MovementPhase._get_vertical_climb_cost, not this.)
 ## Pass the moving unit's keywords via unit_keywords to enable this exemption;
 ## callers that omit it (legacy/tests) get the pre-fix "everyone pays" behaviour.
 ##
@@ -1422,17 +1438,28 @@ func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vect
 			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
 	return {"allowed": blockers.is_empty(), "blockers": blockers}
 
-## Endpoint companion to 13.06 (Stompa-on-walls fix): a model whose
-## keywords do not let it traverse dense terrain may not END a move,
-## deployment, disembark or pile-in with its base overlapping a solid
-## dense feature taller than its step-over limit — a Stompa cannot stand
-## in a ruin wall. Returns the blocking piece id, or "" when the position
-## is legal. Inert below edition 11, like can_move_through_11e.
+## Endpoint companion to 13.06 (Stompa-on-walls fix): a model may not END a
+## move, deployment, disembark or pile-in with its base overlapping a solid
+## dense feature taller than its step-over limit — a Stompa cannot stand in a
+## ruin wall — unless it has INFANTRY/BEASTS/SWARM (_ends_in_dense_11e).
+## Returns the blocking piece id, or "" when the position is legal. Inert below
+## edition 11, like can_move_through_11e.
+## MOBILE is NOT exempt here (2026-11 review): 13.06 lets a MOBILE model move
+## horizontally THROUGH dense features (can_move_through_11e honours it), but a
+## base that ends on a dense feature is either on a surface that is not ground
+## level — "SETTING UP OR ENDING A MOVE": only INFANTRY/BEASTS/SWARM/FLY/MONSTER
+## may — or through a Solid wall (13.06.01: no model may). Before, a MOUNTED
+## bike or a WALKER with a rule-granted MOBILE (Skilled Riders, UNSTOPPABLE
+## MOMENTUM, STOMPING JUGGERNAUT, the 24.35 gamble) could end on a generator
+## top or inside a wall. Known gaps left as they were: INFANTRY/BEASTS/SWARM may
+## still end through a Solid wall (13.06.01, EA-66), and FLY / MONSTER models
+## are still refused a platform top they may stand on (the engine cannot tell a
+## surface from a wall yet).
 func solid_terrain_endpoint_blocker_11e(model: Dictionary, model_keywords: Array, extra_keywords: Array = []) -> String:
 	if GameConstants.edition < 11:
 		return ""
 	var kws := _upper_keywords(model_keywords, extra_keywords)
-	if _passes_dense_11e(kws):
+	if _ends_in_dense_11e(kws):
 		return ""
 	var height_limit := _dense_height_limit_11e(kws)
 	for piece in terrain_features:
@@ -1465,6 +1492,17 @@ func _passes_dense_feature_11e(unit_keywords: Array, terrain_piece: Dictionary) 
 ## 13.06: these keywords traverse dense terrain freely.
 func _passes_dense_11e(upper_kws: Array) -> bool:
 	for k in ["INFANTRY", "BEASTS", "SWARM", "MOBILE"]:
+		if k in upper_kws:
+			return true
+	return false
+
+## 13.06: these keywords may END a move overlapping a dense feature
+## (solid_terrain_endpoint_blocker_11e) — "INFANTRY/BEASTS/SWARM models can
+## move vertically through dense terrain features" and may end on its surfaces
+## that are not ground level. MOBILE passes through horizontally only
+## (_passes_dense_11e), so it is not listed.
+func _ends_in_dense_11e(upper_kws: Array) -> bool:
+	for k in ["INFANTRY", "BEASTS", "SWARM"]:
 		if k in upper_kws:
 			return true
 	return false

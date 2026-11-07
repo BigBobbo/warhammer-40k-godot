@@ -33,15 +33,20 @@ func _init():
 	create_timer(0.1).timeout.connect(_run_tests)
 
 func _seed_board(gs, keywords: Array, abilities: Array = []) -> void:
-	# One SHW model at (500,500). A dense, 6"-tall feature sits across the
-	# path to (560,500): a SUPER-HEAVY WALKER (4" limit) is blocked by it
-	# unless MOBILE is granted.
+	# One SHW model (100mm base) at (400,500). A dense, 6"-tall feature
+	# (x 520-540) sits across the path to (640,500): a SUPER-HEAVY WALKER (4"
+	# limit) is blocked by it unless MOBILE is granted. Both ends are clear of
+	# the feature — MOBILE lets a model move THROUGH dense terrain, not end on
+	# it (13.06 SETTING UP OR ENDING A MOVE). Until the 2026-11 review the
+	# model started at (500,500) and ended at (560,500), its base overlapping
+	# the feature at both ends: the "crossing" never crossed, and it passed only
+	# because the endpoint check exempted every MOBILE unit.
 	gs.state["units"] = {
 		"U_SHW": {"id": "U_SHW", "owner": 1, "status": 2, "flags": {},
 			"meta": {"name": "Big Walker", "keywords": keywords, "abilities": abilities,
 				"stats": {"move": 10, "toughness": 9, "save": 3, "wounds": 12, "objective_control": 4}},
 			"models": [
-				{"id": "m0", "alive": true, "wounds": 12, "current_wounds": 12, "base_mm": 100, "base_type": "circular", "position": {"x": 500, "y": 500}},
+				{"id": "m0", "alive": true, "wounds": 12, "current_wounds": 12, "base_mm": 100, "base_type": "circular", "position": {"x": 400, "y": 500}},
 			]},
 	}
 	gs.state["meta"]["active_player"] = 1
@@ -98,9 +103,13 @@ func _run_tests():
 
 	print("\n-- _validate_set_model_dest: MOBILE crosses dense >4\" --")
 	var v_mobile = phase._validate_set_model_dest({"actor_unit_id": "U_SHW",
-		"payload": {"model_id": "m0", "dest": [560, 500]}})
+		"payload": {"model_id": "m0", "dest": [640, 500]}})
 	_check("MOBILE-granted SHW crosses the dense 6\" feature (allowed)",
 		v_mobile.get("valid", false), str(v_mobile))
+	var v_end_on = phase._validate_set_model_dest({"actor_unit_id": "U_SHW",
+		"payload": {"model_id": "m0", "dest": [530, 500]}})
+	_check("... but may not END on it (MOBILE: through, not onto — 13.06 SETTING UP OR ENDING A MOVE)",
+		not v_end_on.get("valid", true) and "Cannot end move overlapping a wall" in str(v_end_on.get("errors", [])), str(v_end_on))
 
 	# Same SHW, NO gamble -> blocked by the dense >4" feature.
 	gs.state = prev_state.duplicate(true)
@@ -113,7 +122,7 @@ func _run_tests():
 	_check("no gamble -> active move records shw_mobile = false",
 		phase.active_moves.get("U_SHW", {}).get("shw_mobile", false) == false)
 	var v_block = phase._validate_set_model_dest({"actor_unit_id": "U_SHW",
-		"payload": {"model_id": "m0", "dest": [560, 500]}})
+		"payload": {"model_id": "m0", "dest": [640, 500]}})
 	_check("SHW without MOBILE is BLOCKED by the dense 6\" feature (13.06)",
 		not v_block.get("valid", true), str(v_block))
 
@@ -204,7 +213,7 @@ func _run_tests():
 	_check("e11: codex 'Super-heavy Walker' ability -> active move records shw_mobile = true",
 		phase.active_moves.get("U_SHW", {}).get("shw_mobile", false) == true)
 	var v_ability = phase._validate_set_model_dest({"actor_unit_id": "U_SHW",
-		"payload": {"model_id": "m0", "dest": [560, 500]}})
+		"payload": {"model_id": "m0", "dest": [640, 500]}})
 	_check("e11: and its MOBILE move crosses the dense 6\" feature (allowed)",
 		v_ability.get("valid", false), str(v_ability))
 

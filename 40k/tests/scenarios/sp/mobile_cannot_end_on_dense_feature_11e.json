@@ -1,0 +1,262 @@
+{
+  "id": "mobile_cannot_end_on_dense_feature_11e",
+  "covers": [
+    "movement.terrain.dense_endpoint_keywords_11e",
+    "movement.drag_ruler",
+    "terrain.layouts_11e"
+  ],
+  "fixture": "sw11e_s3_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "13.06 TERRAIN AND MOVEMENT: a MOBILE model 'can move horizontally through dense terrain features', but SETTING UP OR ENDING A MOVE lets a model end on a surface that is not ground level only with INFANTRY/BEASTS/SWARM/FLY/MONSTER (and 13.06.01: no model ends through a Solid wall). Review fix: TerrainManager.solid_terrain_endpoint_blocker_11e exempted every MOBILE unit, so a MOUNTED or WALKER unit with a rule-granted MOBILE (FENRISIAN FEROCITY, Skilled Riders, UNSTOPPABLE MOMENTUM, STOMPING JUGGERNAUT, the 24.35 gamble) could end on a dense platform's top or inside a wall; now only INFANTRY/BEASTS/SWARM are exempt. Official layout take_and_hold_vs_reconnaissance_1 over the sw11e_s3_active fixture: the player selects Thunderwolf Cavalry (MOUNTED) in the unit list, clicks Normal Move, and in the unit_selected_to_move window clicks Use on FENRISIAN FEROCITY (1 CP: MOBILE this phase). Dragging a cavalry model onto the dense platform generator-11 shows 'Cannot overlap with walls' and the drop is refused; dragging it 9\" ACROSS the generator to the open ground past it reads the raw 9.0\" (green), is staged at the raw distance, and End This Unit's Move leaves it there.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var H = load(\"res://tests/helpers/sw11e_s3_scen.gd\")\nreturn H.setup(1, {\"cp\": {\"2\": 0}})",
+      "comment": "setup privilege: the Space Wolves player gets all three Space Wolves detachments (FENRISIAN FEROCITY is Saga of the Great Wolf); the Ork player has 0 CP (no Ork windows, not under test)",
+      "equals": "Saga of the Great Wolf + Champions of Fenris + Saga of the Beastslayer"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "movement_phase_start (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: the official layout take_and_hold_vs_reconnaissance_1 (the fixture's own layout is restored in cleanup). generator-11 is a dense 3\" platform (25-29 x 41.5-44.5\") inside the dense terrain area area-medium-9 (24-30 x 41-45\"). One Thunderwolf Cavalry model (MOUNTED, M12\", 60mm base) on the open battlefield east of the area at (31.5\", 43\"); its other models and every unit but a far-away Gretchin mob removed from play.",
+      "script": "var main = tree.root.get_node(\"Main\")\nTerrainManager.set_meta(\"tac_saved_layout\", TerrainManager.current_layout)\nTerrainManager.load_terrain_layout(\"take_and_hold_vs_reconnaissance_1\")\nvar units = GameState.state[\"units\"]\nvar px = 40.0\nfor uid in units:\n\tif uid != \"U_THUNDERWOLF_CAVALRY_B\" and uid != \"U_GRETCHIN_C\":\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tunits[uid][\"flags\"] = {}\n\tunits[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\nvar cav = units[\"U_THUNDERWOLF_CAVALRY_B\"][\"models\"]\nfor i in range(cav.size()):\n\tcav[i][\"alive\"] = (i == 0)\ncav[0][\"position\"] = {\"x\": 31.5 * px, \"y\": 43.0 * px}\ncav[0][\"rotation\"] = 0.0\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\nmain._recreate_unit_visuals()\nmain.movement_controller._refresh_unit_list()\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 1.0\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(1080, 1720) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.06: with MOBILE the cavalry may move ACROSS the dense generator (horizontally through dense), but SETTING UP OR ENDING A MOVE lets only INFANTRY/BEASTS/SWARM/FLY/MONSTER end on a surface that is not ground level — so the endpoint blocker refuses its top with or without MOBILE (before the fix MOBILE made it '').",
+      "script": "var m = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")[\"models\"][0].duplicate(true)\nm[\"position\"] = Vector2(27.0, 43.0) * 40.0\nvar kws = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")[\"meta\"][\"keywords\"]\nvar with_mobile = str(TerrainManager.solid_terrain_endpoint_blocker_11e(m, kws, [\"MOBILE\"]))\nvar without = str(TerrainManager.solid_terrain_endpoint_blocker_11e(m, kws))\nvar path = TerrainManager.can_move_through_11e(kws, Vector2(31.5, 43.0) * 40.0, Vector2(22.5, 43.0) * 40.0, [\"MOBILE\"], GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")[\"models\"][0])\nprint(\"[%s] end on generator-11's top: blocker with MOBILE='%s' without='%s' | path across it with MOBILE allowed=%s\" % [\"mobile_cannot_end_on_dense_feature_11e\", with_mobile, without, str(path.allowed)])\nreturn \"%s|%s|%s\" % [with_mobile, without, str(path.allowed)]",
+      "equals": "generator-11|generator-11|true"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.get_unit_list_texts()[0].begins_with(\"Thunderwolf Cavalry\")",
+      "equals": true,
+      "comment": "the cavalry is the only row of the movement unit list"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 0,
+      "comment": "Real player input: select the Thunderwolf Cavalry in the unit list."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_THUNDERWOLF_CAVALRY_B"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Normal Move",
+      "comment": "Real click: begin a Normal Move — the unit_selected_to_move window opens"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity/Buttons/Use_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity_U_THUNDERWOLF_CAVALRY_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity/Buttons/Use_faction_sw_saga_of_the_great_wolf_fenrisian_ferocity_U_THUNDERWOLF_CAVALRY_B",
+      "comment": "REAL click on FENRISIAN FEROCITY's Use button: the cavalry has MOBILE this phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the engine's MOBILE grant is on and the move's terrain keywords include it",
+      "script": "var u = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")\nvar md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_THUNDERWOLF_CAVALRY_B\", {})\nvar kws = PhaseManager.get_current_phase_instance()._terrain_rule_keywords(\"U_THUNDERWOLF_CAVALRY_B\", md)\nprint(\"[%s] after FENRISIAN FEROCITY: flag=%s mode=%s terrain keywords=%s\" % [\"mobile_cannot_end_on_dense_feature_11e\", str(u.get(\"flags\", {}).get(\"ork11e_mobile\", false)), str(md.get(\"mode\", \"\")), str(kws)])\nreturn \"%s|%s|%s\" % [str(u.get(\"flags\", {}).get(\"ork11e_mobile\", false)), str(md.get(\"mode\", \"\")), str(\"MOBILE\" in kws)]",
+      "equals": "true|NORMAL|true"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1260.0,
+      "from_y": 1720.0,
+      "to_x": 1080.0,
+      "to_y": 1720.0,
+      "steps": 10,
+      "release": false,
+      "comment": "real drag, LMB still held: the cavalry model 4.5\" west onto the generator's top"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the movement panel names the problem while the model is held (before the fix: no reason — MOBILE let it end there)",
+      "script": "var mc = tree.root.get_node(\"Main\").movement_controller\nvar r = mc.drag_ruler_visual\nvar reason = str(mc.illegal_reason_label.text) if mc.illegal_reason_label else \"<no label>\"\nvar ruler = (str(r.label_text) if r != null and is_instance_valid(r) else \"no ruler\")\nprint(\"[%s] held over the generator top: ruler '%s' reason '%s'\" % [\"mobile_cannot_end_on_dense_feature_11e\", ruler, reason])\nreturn reason",
+      "equals": "Cannot overlap with walls"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_mobile_cavalry_held_over_the_generator_top_refused"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 1080.0,
+      "y": 1720.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the drop is refused: nothing staged, the model is where it started",
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_THUNDERWOLF_CAVALRY_B\", {})\nvar staged = md.get(\"staged_moves\", [])\nvar m = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")[\"models\"][0]\nprint(\"[%s] after the drop on the generator top: staged=%d, model at (%.2f, %.2f)in\" % [\"mobile_cannot_end_on_dense_feature_11e\", staged.size(), float(m.position.x) / 40.0, float(m.position.y) / 40.0])\nreturn \"%d|%s\" % [staged.size(), str(absf(float(m.position.x) / 40.0 - 31.5) < 0.1)]",
+      "equals": "0|true"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1260.0,
+      "from_y": 1720.0,
+      "to_x": 900.0,
+      "to_y": 1720.0,
+      "steps": 12,
+      "release": false,
+      "comment": "real drag, LMB still held: the same model 9\" west ACROSS the generator to the open ground past it"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the ruler reads the raw 9.0\" (green, within M12): MOBILE crosses the dense generator and its dense area freely, and no reason is shown",
+      "script": "var mc = tree.root.get_node(\"Main\").movement_controller\nvar r = mc.drag_ruler_visual\nif r == null or not is_instance_valid(r):\n\treturn \"no ruler\"\nvar reason = str(mc.illegal_reason_label.text) if mc.illegal_reason_label else \"<no label>\"\nprint(\"[%s] held past the generator: ruler '%s' slot=%s reason '%s'\" % [\"mobile_cannot_end_on_dense_feature_11e\", r.label_text, r.label_slot, reason])\nreturn \"%s|%s|%s\" % [r.label_text, r.label_slot, reason]",
+      "equals": "9.0\"|CONFIRMED_GREEN|"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mobile_cavalry_held_past_the_generator_ruler_reads_9in"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 900.0,
+      "y": 1720.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "staged past the generator at its raw distance",
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_THUNDERWOLF_CAVALRY_B\", {})\nvar staged = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\treturn \"not staged\"\nvar d = staged[0].get(\"dest\")\nvar booked = float(md.get(\"model_distances\", {}).values()[0]) if not md.get(\"model_distances\", {}).is_empty() else -1.0\nprint(\"[%s] staged at (%.2f, %.2f)in, booked %.2fin (%s)\" % [\"mobile_cannot_end_on_dense_feature_11e\", d.x / 40.0, d.y / 40.0, booked, str(md.get(\"model_distances\", {}))])\nreturn \"%s|%s\" % [str(absf(d.x / 40.0 - 22.5) < 0.3 and absf(d.y / 40.0 - 43.0) < 0.3), str(absf(booked - 9.0) < 0.3)]",
+      "equals": "true|true"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the move was accepted on the open ground past the generator",
+      "script": "var m = GameState.get_unit(\"U_THUNDERWOLF_CAVALRY_B\")[\"models\"][0]\nvar p = m[\"position\"]\nvar here = TerrainManager.get_terrain_at_position(Vector2(float(p.x), float(p.y)))\nprint(\"[%s] after the move: (%.2f, %.2f)in on '%s'\" % [\"mobile_cannot_end_on_dense_feature_11e\", float(p.x) / 40.0, float(p.y) / 40.0, str(here.get(\"id\", \"\"))])\nreturn \"%s|%s\" % [str(absf(float(p.x) / 40.0 - 22.5) < 0.3 and absf(float(p.y) / 40.0 - 43.0) < 0.3), str(here.get(\"id\", \"\"))]",
+      "equals": "true|"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_THUNDERWOLF_CAVALRY_B\", {}).get(\"completed\", false)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_mobile_cavalry_move_ended_past_the_generator"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[mobile_cannot_end_on_dense_feature_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: the fixture's layout back",
+      "script": "if TerrainManager.has_meta(\"tac_saved_layout\"):\n\tvar lay = str(TerrainManager.get_meta(\"tac_saved_layout\"))\n\tTerrainManager.remove_meta(\"tac_saved_layout\")\n\tif lay != \"\":\n\t\tTerrainManager.load_terrain_layout(lay)\nreturn true",
+      "equals": true
+    }
+  ]
+}

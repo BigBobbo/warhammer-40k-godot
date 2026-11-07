@@ -257,7 +257,7 @@ TESTS=(
     "tests/test_hidden_save_compat_11e.gd"
     "tests/test_terrain_layout_area_lint.gd"
     "tests/test_terrain_area_no_climb_11e.gd"
-    "tests/test_terrain_dense_traversal_cost_11e.gd"  # 13.06: BEASTS/SWARM/MOBILE pay no climb / difficult ground through dense terrain (move = charge)
+    "tests/test_terrain_dense_traversal_cost_11e.gd"  # 13.06: crossing dense terrain is free for INFANTRY/BEASTS/SWARM/MOBILE; ending on it pays the climb; MOBILE-only cannot end on it
     "tests/test_rules_primer_hidden_11e.gd"
     "tests/test_save_format_migration.gd"
     "tests/test_iss053_cover_plunging_11e.gd"

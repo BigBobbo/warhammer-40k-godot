@@ -7429,7 +7429,9 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 		# through dense pieces (TerrainManager.unit_traverses_piece). The move's
 		# terrain keywords include a MOBILE granted by a rule (SUPER-HEAVY WALKER
 		# gamble, STOMPING JUGGERNAUT), as the 13.06 path gate reads them. FLY is
-		# already handled above.
+		# already handled above. (The climb onto the piece the move ENDS in is a
+		# separate term — _get_vertical_climb_cost — and is not exempted by this
+		# horizontal-traversal rule.)
 		var _mv_keywords: Array = _terrain_rule_keywords(unit_id, active_moves.get(unit_id, {})) if unit_id != "" else []
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
@@ -7464,19 +7466,24 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: Strin
 	# ruins per can_move_through) stay on the ground floor — no climb cost.
 	# Without this, a 4" move onto a tall (6") ruin was inflated by +6" and
 	# rejected as "exceeds cap", silently snapping the model back.
-	# 11e 13.06: INFANTRY/BEASTS/SWARM/MOBILE move horizontally through DENSE
-	# features, so a dense feature is no climb for them either —
-	# TerrainManager.unit_traverses_piece, the predicate the charge cost uses,
-	# with the move's terrain keywords (+ a MOBILE granted by a rule). Since the
-	# lookup returns the FEATURE at a point (bd9392c), a BEASTS / SWARM model
-	# stepping from its area's open ground onto a dense wall in the same area
-	# otherwise climbed the wall's 6" (a 2.9" Fenrisian Wolves move cost 10.9").
+	# 11e: this reads only the piece the move ENDS in, so the 13.06 rule for
+	# moving horizontally THROUGH dense features (TerrainManager.
+	# unit_traverses_piece — the difficult-ground and charge exemption) is NOT
+	# an exemption here. On the 11e layouts a model whose centre ends inside a
+	# dense feature is never on ground level: it is on a platform top
+	# (generator / gantry / catwalk: 13.06 MOVING VERTICALLY "add the distance
+	# moved vertically up ... to any other distance") or through a Solid wall
+	# (13.06.01: not a legal end for any model — EA-66, open). So BEASTS /
+	# SWARM pay the climb onto a dense feature, and a MOBILE-only unit may not
+	# end there at all (13.06 SETTING UP OR ENDING A MOVE; TerrainManager.
+	# solid_terrain_endpoint_blocker_11e). Crossing a dense feature to its far
+	# side stays free for them (both ends read ground level). The charge cost
+	# (calculate_charge_terrain_penalty) still exempts a dense piece the charge
+	# ends in — the same over-exemption on the charge side, not changed here.
 	if unit_id != "" and not to_t.is_empty() and tm.has_method("can_unit_move_through_terrain"):
-		var keywords: Array = _terrain_rule_keywords(unit_id, active_moves.get(unit_id, {}))
-		if tm.has_method("unit_traverses_piece"):
-			if tm.unit_traverses_piece(keywords, to_t):
-				return 0.0
-		elif tm.can_unit_move_through_terrain(keywords, to_t):
+		var unit = get_unit(unit_id)
+		var keywords = unit.get("meta", {}).get("keywords", []) if not unit.is_empty() else []
+		if tm.can_unit_move_through_terrain(keywords, to_t):
 			return 0.0
 	var from_h = 0.0
 	var to_h = 0.0

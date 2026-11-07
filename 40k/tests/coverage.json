@@ -1156,16 +1156,27 @@
     },
     {
       "id": "movement.terrain.no_phantom_climb_cost",
-      "description": "_get_vertical_climb_cost returns 0 for INFANTRY (regression: full terrain height no longer added). 13.06: a terrain AREA's open ground costs no climb for any unit, on a move or a charge — get_height_inches(area) = 0 and get_terrain_at_position returns the terrain FEATURE at a point before the area around it. 13.06 Dense: INFANTRY/BEASTS/SWARM/MOBILE move horizontally through dense terrain features, so a DENSE piece costs them no climb and no difficult ground on a Normal / Advance / Fall Back move, exactly as on a charge — TerrainManager.unit_traverses_piece is the predicate both costs share, read with the move's terrain keywords (a rule-granted MOBILE counts); light / exposed features keep their climb.",
+      "description": "_get_vertical_climb_cost returns 0 for INFANTRY (regression: full terrain height no longer added). 13.06: a terrain AREA's open ground costs no climb for any unit, on a move or a charge — get_height_inches(area) = 0 and get_terrain_at_position returns the terrain FEATURE at a point before the area around it. 13.06 Dense: INFANTRY/BEASTS/SWARM/MOBILE move horizontally (INFANTRY/BEASTS/SWARM also vertically) THROUGH dense terrain features, so crossing a DENSE piece (or moving within its dense terrain area) costs them no climb and no difficult ground on a Normal / Advance / Fall Back move, as on a charge — TerrainManager.unit_traverses_piece is the traversal predicate the difficult-ground term and the charge cost share (a rule-granted MOBILE counts). It is NOT an exemption for the piece a move ENDS in: a BEASTS / SWARM model that ends on a dense feature pays its climb (13.06 MOVING VERTICALLY) — only the legacy can_move_through map (INFANTRY's ground-floor model) exempts the endpoint climb. Known engine-model deviations, not 13.06: light / exposed features still cost non-INFANTRY units their climb and difficult ground (rules audit TER-02; 13.06 makes them free for all models); the charge cost still exempts a dense piece a charge ends in.",
       "scenarios": [
         "infantry_tall_ruin_traversal",
         "vehicle_enters_area_open_ground_11e",
         "mp:tests/test_terrain_area_no_climb_11e.gd",
-        "beasts_onto_dense_wall_no_climb_11e",
+        "beasts_dense_feature_cross_free_end_climbs_11e",
         "mp:tests/test_terrain_dense_traversal_cost_11e.gd"
       ],
       "fidelity": "RULES",
-      "last_verified_commit": "28088acc",
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.dense_endpoint_keywords_11e",
+      "description": "13.06 SETTING UP OR ENDING A MOVE: a model may end on a surface of a terrain feature that is not ground level only with INFANTRY/BEASTS/SWARM/FLY/MONSTER, and 13.06.01 lets no model end through a Solid (dense) feature. TerrainManager.solid_terrain_endpoint_blocker_11e (read by Measurement.model_overlaps_any_wall for moves, charges, pile-ins, consolidations, deployment, disembarking and the drag preview) exempts INFANTRY/BEASTS/SWARM only: a MOBILE unit (native, or granted by FENRISIAN FEROCITY, Skilled Riders, UNSTOPPABLE MOMENTUM, STOMPING JUGGERNAUT or the 24.35 gamble) may move ACROSS a dense feature (TerrainManager.can_move_through_11e) but may not end overlapping one taller than its step-over limit. Known gaps: INFANTRY/BEASTS/SWARM may still end through a Solid wall (EA-66); FLY / MONSTER models are still refused a platform top.",
+      "scenarios": [
+        "mobile_cannot_end_on_dense_feature_11e",
+        "mp:tests/test_terrain_dense_traversal_cost_11e.gd"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -2259,7 +2270,8 @@
         "mp:tests/test_terrain_layout_area_lint.gd",
         "terrain_home_area_hidden_obscuring_11e",
         "vehicle_enters_area_open_ground_11e",
-        "beasts_onto_dense_wall_no_climb_11e"
+        "beasts_dense_feature_cross_free_end_climbs_11e",
+        "mobile_cannot_end_on_dense_feature_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -11979,9 +11991,10 @@
     },
     {
       "id": "movement.drag_ruler",
-      "description": "T03 live drag ruler (MovementController._refresh_drag_ruler -> MovementRangeVisual.DragRuler): while a model is held, the label beside the cursor reads the inches the move spends, costed by the phase function that validates the drop (raw distance + MovementPhase._get_movement_terrain_penalty), coloured green within M, yellow within M + Advance, red beyond. beasts_onto_dense_wall_no_climb_11e holds a Fenrisian Wolf over a dense wall: 2.9\" green (no phantom climb).",
+      "description": "T03 live drag ruler (MovementController._refresh_drag_ruler -> MovementRangeVisual.DragRuler): while a model is held, the label beside the cursor reads the inches the move spends, costed by the phase function that validates the drop (raw distance + MovementPhase._get_movement_terrain_penalty), coloured green within M, yellow within M + Advance, red beyond. beasts_dense_feature_cross_free_end_climbs_11e holds a Fenrisian Wolf over the dense generator's top: 7.5\" green (4\" + the 3.5\" climb), then 8.5\" across it: 8.5\" green (traversal is free); mobile_cannot_end_on_dense_feature_11e holds a MOBILE Thunderwolf Cavalry model over that top ('Cannot overlap with walls', drop refused) and 9\" across it (9.0\" green).",
       "scenarios": [
-        "beasts_onto_dense_wall_no_climb_11e",
+        "beasts_dense_feature_cross_free_end_climbs_11e",
+        "mobile_cannot_end_on_dense_feature_11e",
         "mp:tests/test_drag_ruler_budget.gd"
       ],
       "fidelity": "CLICK",
