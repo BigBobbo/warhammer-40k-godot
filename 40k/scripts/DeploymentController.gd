@@ -131,6 +131,10 @@ const EXCLUSION_CLAMP_MAX_CANDIDATE_TESTS: int = 12
 # DZ" placement validation but, like reinforcement mode, emits unit_confirmed on
 # confirm so Main can dispatch SCOUT_RESERVES_DEPLOY instead of a normal deploy.
 var is_scout_reserves_mode: bool = false
+# WP-G1: Redeployment step — scripts/RedeploymentController.gd drives this
+# controller to re-place an already-deployed unit; an Attached unit is always
+# re-placed as one, whether or not formations were declared.
+var is_redeploy_mode: bool = false
 
 # MA-15: Model type picker state
 var has_model_type_picker: bool = false
@@ -410,7 +414,7 @@ func setup_placement_models(p_unit_id: String, only_reserves_characters: bool = 
 
 	# Reserves arrivals do not depend on formations_declared(): the attachment is
 	# already live on the unit by then (it is what put the character in reserves).
-	if attached_char_ids.size() > 0 and (only_reserves_characters or GameState.formations_declared()):
+	if attached_char_ids.size() > 0 and (only_reserves_characters or is_redeploy_mode or GameState.formations_declared()):
 		is_combined_deployment = true
 		print("[DeploymentController] Combined placement: bodyguard %s + %d attached character(s)" % [p_unit_id, attached_char_ids.size()])
 

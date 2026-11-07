@@ -1,0 +1,40 @@
+{
+  "id": "cus11e_g1_castellans_mark_p2_vs_ai",
+  "covers": [
+    "codex.custodes.enhancements.castellans_mark",
+    "phases.RedeploymentPhase",
+    "scripts.RedeploymentController",
+    "AIDecisionMaker._decide_redeployment"
+  ],
+  "description": "WP-G1 CASTELLAN'S MARK for the SECOND player: a human Player 2 vs an AI Player 1 (the Attacker). Fixture ork11e_enh_wreckas_redeploy (P1 Orks with Kaptin's Hat, P2 Custodes); setup privilege: P2's Custodian Guard is given Castellan's Mark (it has no list-build effect). Players alternate starting with the Attacker: the AI (P1) resolves its Kaptin's Hat choices first (it keeps its units in place), then the step passes to Player 2 and the redeploy panel lists P2's ADEPTUS CUSTODES unit. Real clicks: [Redeploy] the Custodian Guard, three board clicks inside P2's deployment zone, [Confirm Redeploy] -> the models stand at the clicked spots, one Castellan's Mark use spent, and (P2 having nothing left) the step ends.",
+  "fixture": "ork11e_enh_wreckas_redeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description); P1 is the AI", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].meta[\"enhancements\"] = [\"Castellan's Mark\"]\nFactionAbilityManager._razgit_redeploys_used = {\"1\": 0, \"2\": 0}\nGameState.state.meta[\"attacker\"] = 1\nGameState.state.meta[\"defender\"] = 2\nAIPlayer.enabled = true\nAIPlayer.ai_players = {1: true, 2: false}\nreturn [FactionAbilityManager.get_redeploy_enhancement_name(2), AIPlayer.is_ai_player(1), AIPlayer.is_ai_player(2)]", "equals": ["Castellan's Mark", true, false] },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(2)" },
+    { "act": "wait_for_script", "script": "return GameState.get_active_player() == 2 and int(GameState.state.meta.phase) == 2", "equals": true, "timeout_s": 15.0, "comment": "the AI Attacker resolves first, then the step passes to Player 2" },
+    { "act": "execute_script", "script": "[int(GameState.state.units.U_FLASH_GITZ_A.status) == 2, int(GameState.state.units.U_BOYZ_C.status) == 2, FactionAbilityManager.get_razgit_redeploys_remaining(1) == 3]", "equals": [true, true, true], "comment": "the AI kept its units in place" },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/RedeploymentScrollContainer/RedeploymentOuter/RedeploymentPanel/UnitRows/Row_U_CUSTODIAN_GUARD_B/Buttons/Redeploy_U_CUSTODIAN_GUARD_B", "timeout_s": 5.0 },
+    { "act": "execute_script", "multiline": true, "script": "var p = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/RedeploymentScrollContainer/RedeploymentOuter/RedeploymentPanel\")\nvar head: String = p.get_node(\"HeaderLabel\").text\nreturn [head.begins_with(\"Player 2\"), head.contains(\"Castellan's Mark\"), p.get_node(\"UnitRows\").get_child_count() == 1]", "equals": [true, true, true] },
+    { "act": "screenshot", "label": "01_p2_castellans_mark_panel_after_ai" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/RedeploymentScrollContainer/RedeploymentOuter/RedeploymentPanel/UnitRows/Row_U_CUSTODIAN_GUARD_B/Buttons/Redeploy_U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.redeployment_controller.get_placing_unit_id()", "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "click_board_at", "x": 1440.0, "y": 2240.0 },
+    { "act": "click_board_at", "x": 1510.0, "y": 2240.0 },
+    { "act": "click_board_at", "x": 1580.0, "y": 2240.0 },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "main.redeployment_controller._placer.get_placed_count()", "equals": 3 },
+    { "act": "screenshot", "label": "02_p2_custodian_guard_placed" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/RedeploymentScrollContainer/RedeploymentOuter/RedeploymentPanel/ConfirmRedeployButton" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "Vector2(GameState.state.units.U_CUSTODIAN_GUARD_B.models[0].position.x, GameState.state.units.U_CUSTODIAN_GUARD_B.models[0].position.y).distance_to(Vector2(1440, 2240)) < 2.0", "equals": true },
+    { "act": "execute_script", "script": "FactionAbilityManager.get_razgit_redeploys_remaining(2)", "equals": 2 },
+    { "act": "wait_for_script", "script": "return int(GameState.state.meta.phase) != 2", "equals": true, "timeout_s": 5.0, "comment": "P2 has nothing left: the step ends" },
+    { "act": "execute_script", "multiline": true, "script": "AIPlayer.enabled = false\nAIPlayer.ai_players = {1: false, 2: false}\nreturn true", "equals": true },
+    { "act": "screenshot", "label": "03_p2_redeployed_step_ended" }
+  ]
+}

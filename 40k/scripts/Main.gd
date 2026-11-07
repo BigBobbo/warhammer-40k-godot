@@ -78,6 +78,7 @@ var shooting_controller: Node
 var charge_controller: Node
 var fight_controller: Node
 var scoring_controller: Node
+var redeployment_controller: Node = null  # WP-G1: scripts/RedeploymentController.gd
 var current_phase: GameStateData.Phase
 
 # ── Selection lookup (_selected_unit_id_or_empty) ────────────────────────────
@@ -5724,7 +5725,10 @@ func setup_phase_controllers() -> void:
 	if scoring_controller and is_instance_valid(scoring_controller):
 		scoring_controller.queue_free()
 	scoring_controller = null
-	
+	if redeployment_controller and is_instance_valid(redeployment_controller):
+		redeployment_controller.queue_free()  # WP-G1
+	redeployment_controller = null
+
 	# Wait TWO frames for complete cleanup
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -5742,6 +5746,13 @@ func setup_phase_controllers() -> void:
 			_setup_roll_off_phase()
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
+		GameStateData.Phase.REDEPLOYMENT:
+			# WP-G1: the Redeployment step a human can use (unit list, re-place /
+			# Strategic Reserves / keep, Done) — logic in RedeploymentController.
+			redeployment_controller = load("res://scripts/RedeploymentController.gd").new()
+			redeployment_controller.name = "RedeploymentController"
+			add_child(redeployment_controller)
+			redeployment_controller.setup(self)
 		GameStateData.Phase.SCOUT_MOVES:
 			_setup_scout_moves_ui()
 		GameStateData.Phase.COMMAND:
@@ -8891,7 +8902,11 @@ func _refresh_unit_list_inner() -> void:
 			unit_list.visible = false
 			unit_list.clear()
 			print("Refreshing right panel unit list for fight - unit list hidden")
-		
+
+		GameStateData.Phase.REDEPLOYMENT:
+			# WP-G1: RedeploymentController's panel lists the eligible units.
+			unit_list.visible = false
+
 		_:
 			# Default: show all units for active player in right panel
 			unit_list.visible = true
@@ -12948,6 +12963,8 @@ func _on_phase_action_pressed() -> void:
 			_on_end_deployment_pressed()  # Already handles network routing
 			return
 		GameStateData.Phase.REDEPLOYMENT:
+			if redeployment_controller and is_instance_valid(redeployment_controller):
+				redeployment_controller.cancel_placement()  # WP-G1: drop a half-placed unit back where it was
 			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
 			# END_SCOUT_PHASE now commits any in-progress staged scout moves and
