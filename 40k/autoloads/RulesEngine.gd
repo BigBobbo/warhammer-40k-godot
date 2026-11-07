@@ -4352,6 +4352,31 @@ static func attached_character_ids(unit_id: String, board: Dictionary) -> Array:
 	out.erase(unit_id)
 	return out
 
+# 06.01 UNIT VISIBLE / 19.01 — the TARGET side of a shooting visibility check:
+# every model of the Attached unit headed by target_unit_id (its own models,
+# then each attached CHARACTER's — both link directions, as
+# attached_unit_component_ids), each paired with the component unit dict it
+# belongs to. "If one or more models in a unit are visible ... that unit is
+# visible" and "An attached unit is a single unit for all rules purposes", so a
+# visible, in-range leader makes the Attached unit a target even when every
+# bodyguard model is hidden. 13.09's INFANTRY/BEASTS/SWARM keyword is judged per
+# model from its own component (19.03); the shot record is the Attached unit's
+# (HiddenShotRecord stamps every component). As in attached_unit_models, a
+# bodyguard with no models left no longer heads an Attached unit (19.05).
+# Returns [[model, component_unit, gate_key], ...] (gate_key: "<unit_id>#<i>").
+static func _target_model_entries(target_unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	var ids: Array = [target_unit_id]
+	if _unit_has_alive_model(units.get(target_unit_id, {})):
+		ids = attached_unit_component_ids(target_unit_id, board)
+	var out: Array = []
+	for cid in ids:
+		var cu = units.get(str(cid), {})
+		var ms: Array = cu.get("models", [])
+		for i in range(ms.size()):
+			out.append([ms[i], cu, "%s#%d" % [str(cid), i]])
+	return out
+
 static func _unit_has_alive_model(unit: Dictionary) -> bool:
 	for m in unit.get("models", []):
 		if m.get("alive", true):
@@ -6651,21 +6676,23 @@ static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board
 		return out
 
 	var pairs: Array = []
-	var target_models: Array = target_unit.get("models", [])
+	# The whole Attached unit on the target side (06.01 / 19.01), so "can these
+	# units see each other" agrees with target eligibility.
+	var target_entries := _target_model_entries(target_unit_id, board)
 	for actor_model in actor_unit.get("models", []):
 		if not actor_model.get("alive", true):
 			continue
 		var actor_pos = _get_model_position(actor_model)
 		if not actor_pos:
 			continue
-		for ti in range(target_models.size()):
-			var target_model = target_models[ti]
+		for entry in target_entries:
+			var target_model = entry[0]
 			if not target_model.get("alive", true):
 				continue
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
 				continue
-			pairs.append([actor_pos.distance_squared_to(target_pos), actor_model, target_model, actor_pos, target_pos, ti])
+			pairs.append([actor_pos.distance_squared_to(target_pos), actor_model, target_model, actor_pos, target_pos, entry])
 	if pairs.is_empty():
 		return out
 	pairs.sort_custom(func(a, b): return a[0] < b[0])
@@ -6679,9 +6706,10 @@ static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board
 		# 13.09: a hidden model is not visible beyond its detection range —
 		# "visible to any model in the firing unit" must honour that too.
 		if tm_hidden != null:
-			if not hidden_gates.has(p[5]):
-				hidden_gates[p[5]] = tm_hidden.hidden_gate_for(p[2], target_unit)
-			if not tm_hidden.hidden_gate_allows(hidden_gates[p[5]], p[2], p[1]):
+			var gate_key: String = p[5][2]
+			if not hidden_gates.has(gate_key):
+				hidden_gates[gate_key] = tm_hidden.hidden_gate_for(p[2], p[5][1])
+			if not tm_hidden.hidden_gate_allows(hidden_gates[gate_key], p[2], p[1]):
 				continue
 		if _check_line_of_sight(p[3], p[4], board, p[1], p[2]):
 			return {"has_los": true, "from": p[3], "to": p[4]}
@@ -6769,9 +6797,11 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	# INDIRECT FIRE (T2-4): Indirect Fire weapons can shoot without Line of Sight
 	var is_indirect = has_indirect_fire(weapon_id, board)
 
-	# Check if any model in actor unit can see and is in range of any model in target unit
+	# Check if any model in actor unit can see and is in range of any model in
+	# target unit — the WHOLE Attached unit on the target side (06.01 / 19.01:
+	# an attached CHARACTER's models count; _target_model_entries).
 	var actor_models = actor_unit.get("models", [])
-	var target_models = target_unit.get("models", [])
+	var target_entries := _target_model_entries(target_unit_id, board)
 	var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 
 	for actor_model in actor_models:
@@ -6782,8 +6812,8 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 		if not actor_pos:
 			continue
 
-		for ti in range(target_models.size()):
-			var target_model = target_models[ti]
+		for entry in target_entries:
+			var target_model = entry[0]
 			if not target_model.get("alive", true):
 				continue
 
@@ -6806,10 +6836,11 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				# including the terrain-area grouping + "within" exclusions).
 				# PERF: the observer-independent half of the gate is computed
 				# once per target model (hidden_gates), distance-first per pair.
+				# The model's OWN component decides its keywords (19.03).
 				if tm_11e != null:
-					var gate_key := "%s#%d" % [target_unit_id, ti]
+					var gate_key: String = entry[2]
 					if not hidden_gates.has(gate_key):
-						hidden_gates[gate_key] = tm_11e.hidden_gate_for(target_model, target_unit)
+						hidden_gates[gate_key] = tm_11e.hidden_gate_for(target_model, entry[1])
 					if not tm_11e.hidden_gate_allows(hidden_gates[gate_key], target_model, actor_model):
 						continue
 				# Check LoS with enhanced base-aware visibility
@@ -7415,6 +7446,7 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 	# PERF: the 13.09 gate's observer-independent half, once per target model.
 	var hidden_gates := {}
+	var target_entries := _target_model_entries(target_unit_id, board)
 	# PERF: the pair scan below depends only on a weapon's range and whether it
 	# is [INDIRECT FIRE] (it walks EVERY actor model whatever the bearer), so a
 	# repeat of the same (range, indirect) combination scans the exact same
@@ -7452,14 +7484,14 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 				continue
 			scanned_combos[combo_key] = true
 
-			var target_ms: Array = target_unit.get("models", [])
+			# The whole Attached unit on the target side (06.01 / 19.01).
 			for actor_m in actor_unit.get("models", []):
 				if any_in_los:
 					break
 				if not actor_m.get("alive", true):
 					continue
-				for ti in range(target_ms.size()):
-					var target_m = target_ms[ti]
+				for entry in target_entries:
+					var target_m = entry[0]
 					if not target_m.get("alive", true):
 						continue
 					var distance = Measurement.model_to_model_distance_px(actor_m, target_m)
@@ -7475,9 +7507,9 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 							# lower the closest Hidden distance (strict <, as before).
 							var gate_ok := true
 							if tm_hidden != null:
-								if not hidden_gates.has(ti):
-									hidden_gates[ti] = tm_hidden.hidden_gate_for(target_m, target_unit)
-								gate_ok = tm_hidden.hidden_gate_allows(hidden_gates[ti], target_m, actor_m)
+								if not hidden_gates.has(entry[2]):
+									hidden_gates[entry[2]] = tm_hidden.hidden_gate_for(target_m, entry[1])
+								gate_ok = tm_hidden.hidden_gate_allows(hidden_gates[entry[2]], target_m, actor_m)
 							var d_in = Measurement.px_to_inches(distance)
 							if not gate_ok and any_hidden_blocked and d_in >= hidden_min_dist:
 								continue
@@ -7488,7 +7520,7 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 									any_hidden_blocked = true
 									if d_in < hidden_min_dist:
 										hidden_min_dist = d_in
-										hidden_det_range = tm_hidden.detection_range_inches_for(target_m, target_unit, actor_m)
+										hidden_det_range = tm_hidden.detection_range_inches_for(target_m, entry[1], actor_m)
 								else:
 									any_in_los = true
 						if any_in_los:
