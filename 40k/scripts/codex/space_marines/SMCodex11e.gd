@@ -472,5 +472,5 @@ static func on_action_applied(phase_name: String) -> Array:
 ## WIND-SWIFT EVASION follow-up solver (AI decider / the move panel's
 ## Auto-move): positions (key -> Vector2) that end the normal / fall-back move
 ## unengaged, or {} when none was found.
-static func solve_fight_move(unit_id: String, origin: Dictionary, max_inches: float, kind: String) -> Dictionary:
-	return GroupMovement.solve_fight_move(unit_id, origin, max_inches, kind)
+static func solve_fight_move(unit_id: String, origin: Dictionary, max_inches: float, kind: String, fall_back_mode: String = "") -> Dictionary:
+	return GroupMovement.solve_fight_move(unit_id, origin, max_inches, kind, fall_back_mode)

@@ -1166,7 +1166,84 @@ static func on_rapid_ingress_setup(unit_id: String, positions: Array) -> Array:
 # phase (auto-placed: straight away from the engaged enemy units)
 # ===========================================================================
 
-static func _auto_fall_back_diffs(unit_id: String, max_in: float) -> Dictionary:
+## EA-63 (09.07 / 09.02.02): the fall-back is a 09.07 fall-back move with
+## modes. The player picks one on the ability card: Ordered Retreat (cannot
+## move through enemy models) or Desperate Escape (a hazard roll per model of
+## the Attached unit before it moves, may move through enemy models, then a
+## battle-shock roll if it is not battle-shocked). Battle-shocked, or forced by
+## an enemy rule (Corner the Quarry, Savage Frenzy, Wimp-kickaz, ...):
+## Desperate Escape only (FallBackMove.select_mode).
+static func _fluidity_mode_variants(unit_id: String) -> Dictionary:
+	if not _edition_11():
+		return {}
+	var sel: Dictionary = MoveTypes.get_type("fall_back").select_mode(head_id(unit_id), Common.state())
+	var vs: Array = []
+	if "ordered_retreat" in sel.get("available", []):
+		vs.append({"id": "ordered_retreat", "label": "Ordered Retreat (cannot move through enemy models)", "cp_cost": 0})
+	vs.append({"id": "desperate_escape", "label": ("Desperate Escape (required)" if bool(sel.get("mandatory", false))
+		else "Desperate Escape (hazard roll per model)"), "cp_cost": 0})
+	return {"require_variant": true, "variants": vs, "ai_variant": str(sel.get("mode", "ordered_retreat"))}
+
+## The whole fall-back for Tactical Fluidity: mode (variant, FallBackMove.select_mode),
+## BEFORE MOVING hazard rolls for a desperate escape (FallBackMove.before_moving —
+## one per model of the Attached unit — and hazard_casualties, 06.02), the
+## auto placement (_auto_fall_back_diffs), and 09.07 AFTER MOVING's battle-shock
+## roll for a desperate escape by a unit that is not battle-shocked. A
+## placement is looked for before any die is rolled: a unit with no legal
+## fall-back makes no hazard rolls. Returns {diffs, moved, mode, note}.
+static func _fluidity_fall_back(unit_id: String, variant: String) -> Dictionary:
+	var out := {"diffs": [], "moved": 0.0, "mode": "ordered_retreat", "note": ""}
+	var head := head_id(unit_id)
+	var tmpl = MoveTypes.get_type("fall_back")
+	var sel: Dictionary = tmpl.select_mode(head, Common.state())
+	var mode := str(sel.get("mode", "ordered_retreat"))
+	if variant == "desperate_escape" and "desperate_escape" in sel.get("available", []):
+		mode = "desperate_escape"
+	if mode == "":
+		mode = "ordered_retreat"
+	out.mode = mode
+	var de := mode == "desperate_escape"
+	_log("Tactical Fluidity: %s falls back — %s (variant '%s', available %s)" % [head, mode, variant, str(sel.get("available", []))])
+	if float(_auto_fall_back_diffs(unit_id, FLUIDITY_FALL_BACK_IN, de).moved) <= 0.0:
+		return out  # no legal fall-back: the move is not made, nothing is rolled
+	if de:
+		var re = Common.rules()
+		var ctx: Dictionary = tmpl.before_moving(head, Common.state(), re.make_rng() if re else null, {"mode": mode})
+		var hz: Dictionary = ctx.get("hazard", {})
+		var cas: Dictionary = FallBackMove.hazard_casualties(head, int(hz.get("mortal_wounds", 0)), Common.state(), "desperate_escape")
+		var dead: int = cas.get("destroyed", []).size()
+		out.note = " — Desperate Escape: %d hazard roll(s) %s, %d failed: %d mortal wound(s), %d model(s) destroyed" % [
+			hz.get("rolls", []).size(), str(hz.get("rolls", [])), int(hz.get("failures", 0)), int(hz.get("mortal_wounds", 0)), dead]
+		_log("Tactical Fluidity: %s desperate escape hazard rolls %s — %s" % [head, str(hz.get("rolls", [])), str(cas)])
+		if not cas.get("diffs", []).is_empty():
+			# Applied now so the placement moves the survivors only (the same
+			# set ops ride the ability's result for replay / network).
+			var gs = Common.game_state()
+			if gs:
+				gs.apply_state_changes(cas.diffs)
+			out.diffs.append_array(cas.diffs)
+		if group(head).all(func(g): return not Common.is_on_battlefield(Common.unit(str(g)))):
+			out.note += " — the unit was destroyed"
+			return out
+	var fb := _auto_fall_back_diffs(unit_id, FLUIDITY_FALL_BACK_IN, de)
+	out.diffs.append_array(fb.diffs)
+	out.moved = fb.moved
+	# 09.07 AFTER MOVING: "Desperate Escape: If your unit is not battle-shocked,
+	# you must make a battle-shock roll for your unit (01.07)."
+	if de and float(fb.moved) > 0.0 and not bool(Common.unit(head).get("flags", {}).get("battle_shocked", false)):
+		var fam = Common.autoload("FactionAbilityManager")
+		if fam and fam.has_method("force_battle_shock_test"):
+			var bs: Dictionary = fam.force_battle_shock_test(head, 0, "Desperate Escape")
+			out.diffs.append_array(bs.get("diffs", []))
+			out.note += " — battle-shock roll %d vs Ld %d: %s" % [int(bs.get("total", 0)), int(bs.get("leadership", 0)), "passed" if bs.get("passed", true) else "battle-shocked"]
+	return out
+
+## Auto placement: translate the whole (Attached) unit straight away from the
+## engaged enemy units (then at 20°-90° either side), the longest legal step
+## first (6" .. 0.5"): every model on the board, no model ending engaged or on
+## another model, and — unless the unit makes a desperate escape (09.07 WHILE
+## MOVING) — no model moving through an enemy model (03.01, EA-63).
+static func _auto_fall_back_diffs(unit_id: String, max_in: float, may_cross_enemies: bool = false) -> Dictionary:
 	var out := {"diffs": [], "moved": 0.0}
 	var re = Common.rules()
 	var meas = Common.autoload("Measurement")
@@ -1198,51 +1275,68 @@ static func _auto_fall_back_diffs(unit_id: String, max_in: float) -> Dictionary:
 	var size = Common.state().get("board", {}).get("size", {})
 	var w_px := float(size.get("width", 44.0)) * PX_PER_INCH
 	var h_px := float(size.get("height", 60.0)) * PX_PER_INCH
-	var step := max_in
-	while step >= 0.5:
-		var shift := dir * step * PX_PER_INCH
-		var ok := true
-		var board: Dictionary = Common.state().duplicate(true)
-		for gid in ids:
-			var bu: Dictionary = board.units.get(str(gid), {})
-			for m in bu.get("models", []):
-				if not m.get("alive", true) or m.get("position", null) == null:
-					continue
-				var np := Common._pos(m) + shift
-				var r := _model_radius_px(m)
-				if np.x - r < 0 or np.y - r < 0 or np.x + r > w_px or np.y + r > h_px:
-					ok = false
-				m["position"] = {"x": np.x, "y": np.y}
-		if ok:
+	var owner := int(Common.unit(unit_id).get("owner", 0))
+	var group_set := {}
+	for gid in ids:
+		group_set[str(gid)] = true
+	for ang in [0.0, 20.0, -20.0, 40.0, -40.0, 60.0, -60.0, 90.0, -90.0]:
+		var adir: Vector2 = dir.rotated(deg_to_rad(ang))
+		var step := max_in
+		while step >= 0.5:
+			var shift := adir * step * PX_PER_INCH
+			var ok := true
+			var start_board: Dictionary = Common.state()
+			# The hypothetical board: only the moving components are copied deep.
+			var board: Dictionary = start_board.duplicate(false)
+			board["units"] = start_board.get("units", {}).duplicate(false)
 			for gid in ids:
-				for eid in board.units:
-					var eu: Dictionary = board.units[eid]
-					if int(eu.get("owner", 0)) == int(Common.unit(unit_id).get("owner", 0)) or not Common.is_alive(eu):
+				if board.units.has(str(gid)):
+					board.units[str(gid)] = board.units[str(gid)].duplicate(true)
+			for gid in ids:
+				var bu: Dictionary = board.units.get(str(gid), {})
+				for m in bu.get("models", []):
+					if not m.get("alive", true) or m.get("position", null) == null:
 						continue
-					if re.check_units_in_engagement_range(board.units[str(gid)], eu, board):
+					var from := Common._pos(m)
+					var np := from + shift
+					var r := _model_radius_px(m)
+					if np.x - r < 0 or np.y - r < 0 or np.x + r > w_px or np.y + r > h_px:
 						ok = false
-				# no overlap with any other model
-				if ok and meas and meas.has_method("model_to_model_distance_inches"):
-					for m in board.units[str(gid)].get("models", []):
-						if not m.get("alive", true) or m.get("position", null) == null:
+					# EA-63: an Ordered Retreat cannot move through enemy models.
+					if ok and not may_cross_enemies and MoveType.path_crosses_enemy_models(start_board, owner, m, from, np, group_set):
+						ok = false
+					m["position"] = {"x": np.x, "y": np.y}
+			if ok:
+				for gid in ids:
+					for eid in board.units:
+						var eu: Dictionary = board.units[eid]
+						if int(eu.get("owner", 0)) == owner or not Common.is_alive(eu):
 							continue
-						for oid in board.units:
-							if str(oid) in ids:
+						if re.check_units_in_engagement_range(board.units[str(gid)], eu, board):
+							ok = false
+					# No model may end on another model. (Was a never-true
+					# "distance < 0" test — model distances are edge gaps >= 0.)
+					if ok and meas and meas.has_method("models_overlap"):
+						for m in board.units[str(gid)].get("models", []):
+							if not m.get("alive", true) or m.get("position", null) == null:
 								continue
-							for om in board.units[oid].get("models", []):
-								if om.get("alive", true) and om.get("position", null) != null and float(meas.model_to_model_distance_inches(m, om)) < 0.0:
-									ok = false
-		if ok:
-			for gid in ids:
-				var models: Array = Common.unit(str(gid)).get("models", [])
-				for i in range(models.size()):
-					if not models[i].get("alive", true) or models[i].get("position", null) == null:
-						continue
-					var np2 := Common._pos(models[i]) + shift
-					out.diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": {"x": np2.x, "y": np2.y}})
-			out.moved = step
-			return out
-		step -= 0.5
+							for oid in board.units:
+								if str(oid) in ids or board.units[oid].get("embarked_in", null) != null:
+									continue
+								for om in board.units[oid].get("models", []):
+									if om.get("alive", true) and om.get("position", null) != null and meas.models_overlap(m, om):
+										ok = false
+			if ok:
+				for gid in ids:
+					var models: Array = Common.unit(str(gid)).get("models", [])
+					for i in range(models.size()):
+						if not models[i].get("alive", true) or models[i].get("position", null) == null:
+							continue
+						var np2 := Common._pos(models[i]) + shift
+						out.diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": {"x": np2.x, "y": np2.y}})
+				out.moved = step
+				return out
+			step -= 0.5
 	return out
 
 
@@ -1581,7 +1675,9 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				for hid in _holders(player, slug):
 					if used_this_round(hid, slug) or not _engaged(hid):
 						continue
-					out.append(_entry(head_id(hid), {"holder": hid, "label": "%s — fall-back move up to 6\"" % Common.group_label(hid)}))
+					var tf_extra := {"holder": hid, "label": "%s — fall-back move up to 6\"" % Common.group_label(hid)}
+					tf_extra.merge(_fluidity_mode_variants(hid))  # EA-63: the 09.07 fall-back mode
+					out.append(_entry(head_id(hid), tf_extra))
 	return out
 
 ## StratagemManager.can_use_stratagem for an ability card.
@@ -1790,12 +1886,14 @@ static func _apply(slug: String, player: int, uid: String, holder: String, secon
 			return {"diffs": diffs, "log": "Suppression Fire (%s): %s is suppressed (-1 to hit) until the start of your next turn" % [Common.unit_name(holder), Common.group_label(secondary)]}
 		"tactical_fluidity":
 			if str(_ctx.get("window_id", "")) == "fight_phase_end":
-				var fb := _auto_fall_back_diffs(holder, FLUIDITY_FALL_BACK_IN)
+				# EA-63: a 09.07 fall-back with its modes (_fluidity_fall_back).
+				var fb := _fluidity_fall_back(holder, variant)
 				var diffs: Array = fb.diffs
 				diffs.append(_round_use_diff(holder, slug))
+				var mode_label := "Desperate Escape" if str(fb.mode) == "desperate_escape" else "Ordered Retreat"
 				if float(fb.moved) <= 0.0:
-					return {"diffs": diffs, "log": "Tactical Fluidity: %s found no legal fall-back move (it stays engaged)" % name}
-				return {"diffs": diffs, "log": "Tactical Fluidity: %s makes a fall-back move of %.1f\" (straight away from the engaged enemy units)" % [name, float(fb.moved)]}
+					return {"diffs": diffs, "log": "Tactical Fluidity: %s found no legal fall-back move as %s (it stays engaged)%s" % [name, mode_label, str(fb.note)]}
+				return {"diffs": diffs, "log": "Tactical Fluidity: %s makes a fall-back move of %.1f\" as %s (away from the engaged enemy units)%s" % [name, float(fb.moved), mode_label, str(fb.note)]}
 			var r := int(Common.roll_dice(1)[0])
 			return {"diffs": [_round_use_diff(holder, slug)],
 				"followup": {"type": "reactive_normal_move", "unit_id": head_id(uid), "max_inches": float(r), "source": "Tactical Fluidity"},

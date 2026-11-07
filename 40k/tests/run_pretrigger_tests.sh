@@ -124,6 +124,9 @@
 #     per phase; carried CHARACTERs are path-checked too
 #   - EA-36 11e 09.07.01 / 19.01: a Desperate Escape rolls a hazard per model of
 #     the whole Attached unit and pools the mortal wounds across it (06.02)
+#   - EA-63 11e fall-backs outside the Movement phase (WIND-SWIFT EVASION,
+#     TACTICAL FLUIDITY) follow the modes: option choice, hazard rolls, no
+#     crossing in Ordered Retreat, the post-move battle-shock roll
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -312,6 +315,7 @@ TESTS=(
     "tests/test_ea10_mv_moves_through_enemy_11e.gd"
     "tests/test_ea08_ordered_retreat_no_crossing_11e.gd"
     "tests/test_ea36_desperate_escape_attached_unit_11e.gd"
+    "tests/test_ea63_out_of_phase_fall_back_11e.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_fire_overwatch_15_08_11e.gd"

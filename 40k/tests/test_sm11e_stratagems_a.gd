@@ -996,7 +996,9 @@ func _section_fight() -> void:
 	_check("TACTICAL WITHDRAWAL not at the end of its own Fight phase", not tw in _offer_ids(fe))
 	phase.open_stratagem_window(1, "fight_phase_end", {"phase": "fight"}, "")
 	cp0 = _cp(1)
-	use = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "fight_phase_end", "stratagem_id": ws, "target_unit_id": "U_OUTRIDER_SQUAD_A"})
+	# EA-63: an engaged unit's fall-back mode is chosen with the stratagem (09.07).
+	use = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "fight_phase_end", "stratagem_id": ws, "target_unit_id": "U_OUTRIDER_SQUAD_A",
+		"context": {"variant_id": "ordered_retreat"}})
 	_check("USE WIND-SWIFT EVASION succeeds, CP -1", use.get("success", false) and _cp(1) == cp0 - 1, str(use.get("error", "")))
 	var fm: Dictionary = phase.sm11e_fight_move
 	_check("engaged → a fall-back move up to M (12\") waits for P1", not fm.is_empty() and str(fm.get("move_kind", "")) == "fall_back" and float(fm.get("max_inches", 0)) >= 12.0, str(fm.keys()))

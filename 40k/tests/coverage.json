@@ -12290,6 +12290,44 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.space_marines.stratagems.wind-swift-evasion",
+      "description": "Codex: Space Marines (11e) WIND-SWIFT EVASION (Stormlance Task Force, 1 CP, fight_phase_end): an ADEPTUS ASTARTES MOUNTED unit that was eligible to fight makes a normal move (unengaged) or a fall-back move (engaged) through the reactive-move panel (SMCodexAMovement). EA-63: the fall-back follows the 09.07 modes — the card offers 'Fall back: Ordered Retreat' / 'Fall back: Desperate Escape' (only Desperate Escape, '(required)', when an enemy rule forces it); Ordered Retreat paths may not cross enemy models; Desperate Escape rolls a hazard per model of the Attached unit before moving and, once the move is made, a battle-shock roll if the unit is not battle-shocked.",
+      "scenarios": [
+        "sm11e_wind_swift_evasion",
+        "ea63_wind_swift_desperate_escape_11e",
+        "mp:tests/test_sm11e_stratagems_a.gd",
+        "mp:tests/test_ea63_out_of_phase_fall_back_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "rules.09_07.out_of_phase_fall_back_modes",
+      "description": "11e 09.07 / 09.02.02 / 09.07.01 (EA-63): fall-back moves made outside the Movement phase follow the fall-back modes — WIND-SWIFT EVASION (stratagem option) and TACTICAL FLUIDITY (ability-card option, engine-placed): Ordered Retreat cannot move through enemy models; Desperate Escape (chosen, or forced by battle-shock / Corner the Quarry / Savage Frenzy / Wimp-kickaz) makes a hazard roll per model before moving and, after the move, a battle-shock roll if the unit is not battle-shocked. Windowed: WIND-SWIFT EVASION forced into Desperate Escape by Wimp-kickaz — the card offers only that option, the hazard rolls and the battle-shock roll reach the game log; TACTICAL FLUIDITY's card offers both options and its Desperate Escape makes the hazard roll, the fall-back and the battle-shock roll. Headless: both rules, chosen / forced / battle-shocked, the Ordered Retreat crossing ban (a ring of Gretchin), the plain-Use refusal.",
+      "scenarios": [
+        "ea63_wind_swift_desperate_escape_11e",
+        "ea63_tactical_fluidity_desperate_escape_11e",
+        "mp:tests/test_ea63_out_of_phase_fall_back_11e.gd",
+        "mp:tests/test_sm11e_abilities_b.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "codex.space_marines.datasheet_abilities.tactical_fluidity",
+      "description": "Codex: Space Marines (11e) TACTICAL FLUIDITY (Captain in Phobos Armour; SMAbilitiesB ability card, once per battle round): after shooting, a reactive normal move of up to D6\"; at the end of the opponent's Fight phase, an engaged unit makes a fall-back move of up to 6\" placed by the engine. EA-63: that fall-back follows the 09.07 modes — the card offers Ordered Retreat / Desperate Escape (Desperate Escape only, '(required)', when battle-shocked or forced); Ordered Retreat placements never cross an enemy model; Desperate Escape rolls a hazard per model of the Attached unit before moving (no dice if no legal placement exists) and, once moved, a battle-shock roll if the unit is not battle-shocked. Windowed: the shipped Captain engaged with Ork Kommandos at the end of the Ork Fight phase — the card shows both options and no plain Use; Desperate Escape makes the hazard roll, the fall-back and the battle-shock roll.",
+      "scenarios": [
+        "ea63_tactical_fluidity_desperate_escape_11e",
+        "mp:tests/test_ea63_out_of_phase_fall_back_11e.gd",
+        "mp:tests/test_sm11e_abilities_b.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
     }
   ]
 }

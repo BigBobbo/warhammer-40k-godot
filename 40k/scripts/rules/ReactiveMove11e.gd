@@ -188,7 +188,10 @@ static func model_to_unit_inches(m: Dictionary, target_id: String, board: Dictio
 
 ## kind: "normal" | "surge". origin/proposed: key -> Vector2.
 ## opts: {end_condition?: "within_objective_range", surge_target?: unit_id,
-##        reference?: positions the solver reached (surge "as close as possible")}
+##        reference?: positions the solver reached (surge "as close as possible"),
+##        fall_back_mode?: "ordered_retreat" | "desperate_escape" — a fall-back
+##        made outside the Movement phase (WIND-SWIFT EVASION): an Ordered
+##        Retreat cannot move a model through enemy models (03.01 / 09.07, EA-63)}
 ## Returns {ok: bool, violations: Array[String]}.
 static func validate(kind: String, unit_id: String, origin: Dictionary, proposed: Dictionary, max_inches: float, opts: Dictionary, board: Dictionary) -> Dictionary:
 	var violations: Array = []
@@ -210,6 +213,14 @@ static func validate(kind: String, unit_id: String, origin: Dictionary, proposed
 			if om.get("alive", true) and _pos(om) != Vector2.INF:
 				others.append(om)
 	var moved_models: Array = []
+	# EA-63: an Ordered Retreat's straight paths keep clear of enemy models
+	# (judged on the unmoved board: the group's own models never block).
+	var ordered_retreat := str(opts.get("fall_back_mode", "")) == "ordered_retreat"
+	var group_set := {}
+	for gid in group:
+		group_set[str(gid)] = true
+	var owner := int(board.get("units", {}).get(unit_id, {}).get("owner", 0))
+	var crossed_reported := false
 	for key in proposed:
 		var parts := _split_key(str(key))
 		var u = units.get(parts[0], {})
@@ -221,6 +232,10 @@ static func validate(kind: String, unit_id: String, origin: Dictionary, proposed
 		var start: Vector2 = origin.get(key, _pos(m))
 		var dest := _pos(m)
 		var moved_px := start.distance_to(dest)
+		if ordered_retreat and not crossed_reported and moved_px > 0.01 \
+				and MoveType.path_crosses_enemy_models(board, owner, m, start, dest, group_set):
+			violations.append("%s: an Ordered Retreat cannot move through enemy models (09.07)" % model_label(str(key), board))
+			crossed_reported = true
 		if moved_px > max_px + tol_px:
 			violations.append("%s moved %.1f\" (max %.1f\")" % [model_label(str(key), board), moved_px / PX_PER_INCH, max_inches])
 		if moved_px > 0.01 and meas:

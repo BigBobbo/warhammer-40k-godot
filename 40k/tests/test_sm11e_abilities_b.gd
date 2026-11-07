@@ -1047,7 +1047,8 @@ func _section_tactical_fluidity() -> void:
 	_check("Tactical Fluidity: not at the end of your own Fight phase", _offer(1, "fight_phase_end", {"phase": "fight"}, "tactical_fluidity").is_empty())
 	_phase(P_FIGHT, 2)
 	var y0 := float(_u("U_CAPTAIN_IN_PHOBOS_ARMOUR_A").models[0].position.y)
-	var fr := _use(1, "tactical_fluidity", "U_CAPTAIN_IN_PHOBOS_ARMOUR_A", "fight_phase_end", {"phase": "fight"})
+	# EA-63: the 09.07 fall-back mode is one of the card's two options.
+	var fr := _use(1, "tactical_fluidity", "U_CAPTAIN_IN_PHOBOS_ARMOUR_A", "fight_phase_end", {"phase": "fight"}, "", "ordered_retreat")
 	var moved := absf(float(_u("U_CAPTAIN_IN_PHOBOS_ARMOUR_A").models[0].position.y) - y0) / PX
 	_check("Tactical Fluidity: fall-back move (<= 6\") ends unengaged", fr.get("success", false) and not SWC.is_engaged("U_CAPTAIN_IN_PHOBOS_ARMOUR_A") and moved > 0.0 and moved <= 6.01, "moved %.2f\" engaged=%s" % [moved, str(SWC.is_engaged("U_CAPTAIN_IN_PHOBOS_ARMOUR_A"))])
 

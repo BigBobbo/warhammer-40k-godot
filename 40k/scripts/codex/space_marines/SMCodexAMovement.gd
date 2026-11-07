@@ -120,8 +120,28 @@ static func eligible_targets(strat: Dictionary, player: int, window_id: String, 
 				for tid in transports:
 					options.append({"id": str(tid), "label": Common.unit_name(str(tid))})
 				extra["secondary"] = {"kind": "unit", "prompt": "DUTY IS NEVER DONE: embark %s within which TRANSPORT?" % Common.group_label(str(uid)), "options": options}
+		elif csv == CSV_WINDSWIFT and Common.is_engaged(Common.head_id(str(uid))):
+			extra.merge(windswift_fall_back_variants(str(uid)))  # EA-63: the 09.07 fall-back mode
 		out.append(Common.target_entry(str(uid), extra))
 	return out
+
+
+## EA-63 (09.07 / 09.02.02): an engaged unit's WIND-SWIFT EVASION is a 09.07
+## fall-back move with modes, picked when the stratagem is used: Ordered Retreat
+## (cannot move through enemy models) or Desperate Escape (a hazard roll per
+## model of the Attached unit before it moves, can move through enemy models,
+## then a battle-shock roll). Forced by an enemy rule (Corner the Quarry,
+## Savage Frenzy, Wimp-kickaz, ...): Desperate Escape only
+## (FallBackMove.select_mode). The AI takes the default mode.
+static func windswift_fall_back_variants(unit_id: String) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {}
+	var sel: Dictionary = MoveTypes.get_type("fall_back").select_mode(Common.head_id(unit_id), Common.state())
+	var vs: Array = []
+	if "ordered_retreat" in sel.get("available", []):
+		vs.append({"id": "ordered_retreat", "label": "Fall back: Ordered Retreat"})
+	vs.append({"id": "desperate_escape", "label": "Fall back: Desperate Escape (required)" if bool(sel.get("mandatory", false)) else "Fall back: Desperate Escape"})
+	return {"require_variant": true, "variants": vs, "ai_variant": str(sel.get("mode", "ordered_retreat"))}
 
 
 static func validate(strat: Dictionary, player: int, target_unit_id: String, ctx: Dictionary) -> Dictionary:
@@ -166,8 +186,11 @@ static func apply(strat: Dictionary, target_unit_id: String, ctx: Dictionary) ->
 			var m_in := unit_move_inches(head)
 			_log(player, "WIND-SWIFT EVASION: %s is %s — it can make a %s move (up to %.0f\")" % [
 				label, "engaged" if engaged else "unengaged", "fall-back" if engaged else "normal", m_in])
-			return {"diffs": [], "followup": {"type": "sm11e_fight_move", "unit_id": head, "kind": kind,
-				"max_inches": m_in, "source": "WIND-SWIFT EVASION"}}
+			var fu_ws := {"type": "sm11e_fight_move", "unit_id": head, "kind": kind,
+				"max_inches": m_in, "source": "WIND-SWIFT EVASION"}
+			if engaged:
+				fu_ws["fall_back_mode"] = str(ctx.get("variant_id", ""))  # EA-63: chosen mode ("" = the default)
+			return {"diffs": [], "followup": fu_ws}
 		CSV_ONSLAUGHT:
 			_log(player, "SUDDEN ONSLAUGHT: %s's advance roll is changed to a 6" % label)
 			return Common.set_flag_diffs(group, FLAG_ONSLAUGHT, true)
@@ -254,7 +277,13 @@ static func variant_cp_cost(_strat: Dictionary, _variant_id: String) -> int:
 	return -1
 
 
-static func variant_label(_strat: Dictionary, _variant_id: String) -> String:
+static func variant_label(strat: Dictionary, variant_id: String) -> String:
+	if str(strat.get("csv_id", "")) == CSV_WINDSWIFT:
+		match variant_id:
+			"ordered_retreat":
+				return "fall-back move: Ordered Retreat"
+			"desperate_escape":
+				return "fall-back move: Desperate Escape"
 	return ""
 
 
@@ -594,22 +623,27 @@ static func fight_move_start(phase, player: int, followup: Dictionary) -> bool:
 		phase.log_phase_message("%s: no move for %s (unit gone or 0\")" % [source, unit_id])
 		return false
 	var pre_diffs: Array = []
+	var fb_mode := ""
 	if kind == "fall_back":
-		pre_diffs.append_array(_fall_back_before_moving(phase, unit_id, source))
+		var fbb := _fall_back_before_moving(phase, unit_id, source, str(followup.get("fall_back_mode", "")))
+		fb_mode = str(fbb.mode)
+		pre_diffs.append_array(fbb.diffs)
 		for gid in Common.attached_group_ids(unit_id):
 			pre_diffs.append({"op": "set", "path": "units.%s.flags.fell_back" % str(gid), "value": true})
 	if not pre_diffs.is_empty():
 		Common.phase_manager().apply_state_changes(pre_diffs)
 		phase._window_sync_diffs.append_array(pre_diffs)
-	if not Common.is_on_battlefield(Common.unit(unit_id)):
+	# (EA-36: the hazard mortal wounds are pooled — a leader can outlive its
+	# bodyguard, and then still makes the move.)
+	if not Common.attached_group_ids(unit_id).any(func(g): return Common.is_on_battlefield(Common.unit(str(g)))):
 		phase.log_phase_message("%s: %s was destroyed by its desperate escape — no move" % [source, unit_id])
 		return false
 	var label := "%s (%s move)" % [source, "fall-back" if kind == "fall_back" else "normal"]
 	var fu := {"player": player, "kind": "normal", "move_kind": kind, "unit_id": unit_id, "source": label,
 		"origin": ReactiveMoveLib.current_positions(unit_id, Common.state()), "max_inches": max_in,
-		"translation": Vector2.ZERO}
+		"translation": Vector2.ZERO, "fall_back_mode": fb_mode}
 	if phase._is_ai_window_decider(player):
-		var proposed := solve_fight_move(unit_id, fu.origin, max_in, kind)
+		var proposed := solve_fight_move(unit_id, fu.origin, max_in, kind, fb_mode)
 		if proposed.is_empty():
 			phase.log_phase_message("%s: %s — no legal placement found, the unit does not move" % [label, Common.group_label(unit_id)])
 			return false
@@ -617,6 +651,9 @@ static func fight_move_start(phase, player: int, followup: Dictionary) -> bool:
 		Common.phase_manager().apply_state_changes(ai_diffs)
 		phase._window_sync_diffs.append_array(ai_diffs)
 		_log(player, "%s: %s made its move (up to %.0f\")" % [label, Common.group_label(unit_id), max_in])
+		var bs_diffs := _desperate_escape_battle_shock(fu)
+		if not bs_diffs.is_empty():
+			phase._window_sync_diffs.append_array(bs_diffs)
 		return false
 	phase.sm11e_fight_move = fu
 	phase.log_phase_message("%s: waiting for Player %d to move %s (up to %.0f\")" % [label, player, Common.group_label(unit_id), max_in])
@@ -624,32 +661,52 @@ static func fight_move_start(phase, player: int, followup: Dictionary) -> bool:
 	return true
 
 
-static func _fall_back_before_moving(phase, unit_id: String, source: String) -> Array:
-	var diffs: Array = []
+## 09.07 BEFORE MOVING for the fall-back: the mode (wanted_mode — the variant the
+## player picked — when it is available, else FallBackMove.select_mode's), and
+## for a desperate escape one hazard roll per model of the WHOLE Attached unit
+## (FallBackMove.before_moving, EA-36), its mortal wounds allocated once across
+## it (FallBackMove.hazard_casualties, 06.02). Returns {diffs, mode}.
+static func _fall_back_before_moving(phase, unit_id: String, source: String, wanted_mode: String = "") -> Dictionary:
+	var out := {"diffs": [], "mode": "ordered_retreat"}
 	var tmpl = MoveTypes.get_type("fall_back")
 	if tmpl == null:
-		return diffs
+		return out
 	var sel: Dictionary = tmpl.select_mode(unit_id, Common.state())
 	var mode := str(sel.get("mode", "ordered_retreat"))
-	phase.log_phase_message("[11e] %s fall-back mode for %s: %s" % [source, unit_id, mode])
+	if wanted_mode != "" and wanted_mode in sel.get("available", []):
+		mode = wanted_mode
+	out.mode = mode
+	phase.log_phase_message("[11e] %s fall-back mode for %s: %s (wanted '%s', available %s)" % [source, unit_id, mode, wanted_mode, str(sel.get("available", []))])
 	if mode != "desperate_escape":
-		return diffs
+		return out
 	var re = Common.rules()
 	var ctx: Dictionary = tmpl.before_moving(unit_id, Common.state(), re.make_rng(), {"mode": mode})
 	var hz: Dictionary = ctx.get("hazard", {})
 	phase.log_phase_message("[11e] %s desperate escape hazard rolls for %s: %s (%d failure(s))" % [source, unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
-	if int(hz.get("failures", 0)) <= 0:
-		return diffs
-	var unit := Common.unit(unit_id)
-	var mw := int(hz.get("mortal_wounds", 0))
-	mw = re.mortal_wounds_after_fnp(unit, mw, null, [], false, "desperate_escape")
-	var out = Allocation.apply_mortal_wounds_11e(unit, mw, CasualtyPreference.engine_auto_preference(unit, Common.state()))
-	for ridx in out.remaining:
-		diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(ridx)], "value": int(out.remaining[ridx])})
-	for di in out.models_destroyed:
-		diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
-		diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
-	return diffs
+	var cas: Dictionary = FallBackMove.hazard_casualties(unit_id, int(hz.get("mortal_wounds", 0)), Common.state(), "desperate_escape")
+	_log(int(Common.unit(unit_id).get("owner", 0)), "%s — Desperate Escape: %s makes %d hazard roll(s) %s, %d failed: %d mortal wound(s), %d model(s) destroyed" % [
+		source, Common.group_label(unit_id), hz.get("rolls", []).size(), str(hz.get("rolls", [])), int(hz.get("failures", 0)),
+		int(hz.get("mortal_wounds", 0)), cas.get("destroyed", []).size()])
+	out.diffs = cas.get("diffs", [])
+	return out
+
+## EA-63 (09.07 AFTER MOVING): "Desperate Escape: If your unit is not
+## battle-shocked, you must make a battle-shock roll for your unit (01.07)" —
+## after a desperate escape fall-back that was made. Returns the roll's diffs
+## (FactionAbilityManager.force_battle_shock_test also applies them).
+static func _desperate_escape_battle_shock(fu: Dictionary) -> Array:
+	if str(fu.get("move_kind", "")) != "fall_back" or str(fu.get("fall_back_mode", "")) != "desperate_escape":
+		return []
+	var unit_id := str(fu.get("unit_id", ""))
+	if bool(Common.unit(unit_id).get("flags", {}).get("battle_shocked", false)):
+		return []
+	var fam = Common.autoload("FactionAbilityManager")
+	if fam == null or not fam.has_method("force_battle_shock_test"):
+		return []
+	var bs: Dictionary = fam.force_battle_shock_test(unit_id, 0, "Desperate Escape")
+	Common.log_info("SMCodexAMovement: %s desperate escape battle-shock roll for %s: %d vs Ld %d — %s" % [
+		str(fu.get("source", "")), unit_id, int(bs.get("total", 0)), int(bs.get("leadership", 0)), "passed" if bs.get("passed", true) else "battle-shocked"])
+	return bs.get("diffs", [])
 
 
 ## The move in progress, for the move panel and scenarios ({} = none).
@@ -662,7 +719,7 @@ static func fight_move_info(phase, positions: Dictionary = {}) -> Dictionary:
 	for key in fu.origin:
 		if current.has(key):
 			moved = maxf(moved, fu.origin[key].distance_to(current[key]) / Common.PX_PER_INCH)
-	var check := ReactiveMoveLib.validate("normal", fu.unit_id, fu.origin, current, fu.max_inches, {}, Common.state())
+	var check := ReactiveMoveLib.validate("normal", fu.unit_id, fu.origin, current, fu.max_inches, _validate_opts(fu), Common.state())
 	return {"player": fu.player, "kind": "normal", "move_kind": fu.move_kind, "unit_id": fu.unit_id,
 		"unit_name": Common.group_label(fu.unit_id), "source": fu.source,
 		"max_inches": fu.max_inches, "moved_inches": moved, "roll": 0, "reroll_available": false,
@@ -713,7 +770,7 @@ static func fight_move_action(phase, action: Dictionary) -> Dictionary:
 				for key in fu.origin:
 					positions[key] = fu.origin[key] + v
 		"ORK11E_REACTIVE_MOVE_AUTO":
-			positions = solve_fight_move(fu.unit_id, fu.origin, fu.max_inches, str(fu.move_kind))
+			positions = solve_fight_move(fu.unit_id, fu.origin, fu.max_inches, str(fu.move_kind), str(fu.get("fall_back_mode", "")))
 			if positions.is_empty():
 				return phase.create_result(false, [], "%s: no legal placement found for %s — move it by hand or choose Don't move" % [fu.source, Common.group_label(fu.unit_id)])
 		"ORK11E_REACTIVE_MOVE_RESET":
@@ -721,7 +778,7 @@ static func fight_move_action(phase, action: Dictionary) -> Dictionary:
 			positions = fu.origin.duplicate()
 		"ORK11E_REACTIVE_MOVE_CONFIRM":
 			var current := ReactiveMoveLib.current_positions(fu.unit_id, Common.state())
-			var check := ReactiveMoveLib.validate("normal", fu.unit_id, fu.origin, current, fu.max_inches, {}, Common.state())
+			var check := ReactiveMoveLib.validate("normal", fu.unit_id, fu.origin, current, fu.max_inches, _validate_opts(fu), Common.state())
 			if not check.ok:
 				return phase.create_result(false, [], "%s: %s" % [fu.source, "; ".join(check.violations)])
 			return _finish_fight_move(phase, ReactiveMoveLib.position_diffs(current), true)
@@ -733,11 +790,21 @@ static func fight_move_action(phase, action: Dictionary) -> Dictionary:
 	return phase.create_result(true, diffs, "", {"ork11e_reactive_move": info})
 
 
+## EA-63: what ReactiveMove11e.validate is told about this move — a fall-back's
+## mode (an Ordered Retreat cannot move through enemy models).
+static func _validate_opts(fu: Dictionary) -> Dictionary:
+	if str(fu.get("move_kind", "")) == "fall_back" and str(fu.get("fall_back_mode", "")) != "":
+		return {"fall_back_mode": str(fu.fall_back_mode)}
+	return {}
+
+
 static func _finish_fight_move(phase, diffs: Array, moved: bool) -> Dictionary:
 	var fu: Dictionary = phase.sm11e_fight_move
 	var msg := "%s: %s %s" % [fu.source, Common.group_label(fu.unit_id), "made its move" if moved else "did not move"]
 	_log(int(fu.player), msg)
 	phase.log_phase_message(msg)
+	if moved:
+		diffs = diffs + _desperate_escape_battle_shock(fu)  # EA-63: 09.07 AFTER MOVING
 	var ended := {"player": fu.player, "unit_id": fu.unit_id, "source": fu.source, "moved": moved}
 	phase.sm11e_fight_move = {}
 	phase.emit_signal("ork11e_reactive_move_ended", ended)
@@ -751,7 +818,7 @@ static func _finish_fight_move(phase, diffs: Array, moved: bool) -> Dictionary:
 ## toward the nearest objective it is not within range of (else away from the
 ## nearest enemy) — the shortest legal distance first for a fall-back, the
 ## longest for a normal move. {} = no legal placement.
-static func solve_fight_move(unit_id: String, origin: Dictionary, max_inches: float, kind: String) -> Dictionary:
+static func solve_fight_move(unit_id: String, origin: Dictionary, max_inches: float, kind: String, fall_back_mode: String = "") -> Dictionary:
 	if origin.is_empty():
 		return {}
 	var board := Common.state()
@@ -806,7 +873,7 @@ static func solve_fight_move(unit_id: String, origin: Dictionary, max_inches: fl
 			var proposed := {}
 			for key in origin:
 				proposed[key] = origin[key] + v
-			if ReactiveMoveLib.validate("normal", unit_id, origin, proposed, max_inches, {}, board).ok:
+			if ReactiveMoveLib.validate("normal", unit_id, origin, proposed, max_inches, _validate_opts({"move_kind": kind, "fall_back_mode": fall_back_mode}), board).ok:
 				return proposed
 	return {}
 

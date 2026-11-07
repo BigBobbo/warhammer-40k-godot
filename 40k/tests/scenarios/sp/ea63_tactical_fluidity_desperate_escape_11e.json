@@ -1,0 +1,240 @@
+{
+  "id": "ea63_tactical_fluidity_desperate_escape_11e",
+  "covers": [
+    "scripts.codex.space_marines.SMAbilitiesB",
+    "codex.space_marines.datasheet_abilities.tactical_fluidity",
+    "rules.09_07.out_of_phase_fall_back_modes",
+    "stratagem.window.fight_phase_end",
+    "dialogs.StratagemDialog"
+  ],
+  "fixture": "sm11e_m3a_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "sm_abilities_b": true,
+  "description": "EA-63 (11e 09.07 / 09.02.02): TACTICAL FLUIDITY's fall-back at the end of the OPPONENT's Fight phase follows the fall-back modes. Fixture sm11e_m3a_reactive (P1 Orks ACTIVE vs P2 Space Marines, round 2), the Fight-phase flow of sm11e_tactical_withdrawal. Setup privileges: the WP-M3a detachments, the Ork player 0 CP, the shipped Captain in Phobos Armour (armies/sm11e_codex_test.json) set up 1.9\" south of the Kommandos (engaged, not battle-shocked), every engaged unit counts as having fought, Codex: Space Marines datasheet-ability cards on (sm_abilities_b). Real clicks: End Pile-in, End Fight, End Consolidation; the fight_phase_end window offers the Tactical Fluidity card with TWO options — Ordered Retreat / Desperate Escape — and no plain Use; a click on Desperate Escape makes the Captain's hazard roll, the fall-back (up to 6\" away from the Kommandos, ending unengaged) and then the 09.07 battle-shock roll, all in the game log. Before the fix: one plain Use, no hazard roll, no battle-shock roll.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.setup(2, {\"cp\": {\"1\": 0}})",
+      "comment": "setup privilege: the seven WP-M3a detachments, the Ork player 0 CP",
+      "equals": "7 detachments"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: the shipped Captain in Phobos Armour, 1.9\" south of the Kommandos' front model (engaged with them only)",
+      "script": "var army: Dictionary = ArmyListManager.load_army_list(\"sm11e_codex_test\", 2)\nif not army.get(\"units\", {}).has(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"):\n\treturn \"no Captain in Phobos Armour in sm11e_codex_test\"\nif GameState.state.units.has(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"):\n\treturn \"fixture already has the Captain\"\nvar cap: Dictionary = army.units[\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"].duplicate(true)\ncap[\"id\"] = \"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"\ncap[\"owner\"] = 2\ncap[\"status\"] = 2\ncap[\"flags\"] = {}\ncap[\"attachment_data\"] = {\"attached_characters\": []}\ncap.erase(\"attached_to\")\ncap.erase(\"embarked_in\")\nvar front = null\nfor m in GameState.state.units[\"U_KOMMANDOS_A\"].models:\n\tif m.get(\"alive\", true) and (front == null or float(m.position.y) > float(front.position.y)):\n\t\tfront = m\ncap.models[0][\"position\"] = {\"x\": float(front.position.x), \"y\": float(front.position.y) + 76.0}\ncap.models[0][\"alive\"] = true\nGameState.state.units[\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"] = cap\ntree.current_scene._recreate_unit_visuals()\nGameState.state.meta[\"ea63_cap_y0\"] = float(cap.models[0].position.y)\nvar C = load(\"res://scripts/codex/space_wolves/SWCommon.gd\")\nreturn str(C.engaged_enemy_ids(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\"))",
+      "equals": "[\"U_KOMMANDOS_A\"]"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar p = GameState.get_unit(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\").models[0].position\nreturn H.frame(float(p.x) / 40.0, float(p.y) / 40.0 + 3.0, 1.3)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "comment": "the other player's pile-in half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar fp = H.phase()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over",
+      "comment": "setup privilege: every engaged unit counts as having fought (the fights themselves are not under test)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nvar d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "comment": "the other player's consolidation half (if offered)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.window_id()",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/sm11e_m3a_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_tactical_fluidity/Buttons/Use_sm11e_ab_b_tactical_fluidity_U_CAPTAIN_IN_PHOBOS_ARMOUR_A_desperate_escape",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_tactical_fluidity/Buttons/Use_sm11e_ab_b_tactical_fluidity_U_CAPTAIN_IN_PHOBOS_ARMOUR_A_ordered_retreat",
+      "timeout_s": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_tactical_fluidity/Buttons/Use_sm11e_ab_b_tactical_fluidity_U_CAPTAIN_IN_PHOBOS_ARMOUR_A\") == null",
+      "comment": "no plain Use: the 09.07 fall-back mode is one of the card's two options",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_tactical_fluidity/Buttons/Use_sm11e_ab_b_tactical_fluidity_U_CAPTAIN_IN_PHOBOS_ARMOUR_A_desperate_escape\").text.find(\"Desperate Escape\") != -1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"hazard roll\")",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ea63_tactical_fluidity_two_modes_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_ab_b_tactical_fluidity/Buttons/Use_sm11e_ab_b_tactical_fluidity_U_CAPTAIN_IN_PHOBOS_ARMOUR_A_desperate_escape",
+      "comment": "REAL click on the card's Desperate Escape option"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a re-offered window (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"as Desperate Escape\")",
+      "comment": "the fall-back was made as a desperate escape",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Desperate Escape: 1 hazard roll(s)\")",
+      "comment": "BEFORE MOVING: one hazard roll for the Captain's model",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"takes a Battle-shock test\")",
+      "comment": "AFTER MOVING: the battle-shock roll (the Captain was not battle-shocked)",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\")\nvar dy: float = float(u.models[0].position.y) - float(GameState.state.meta[\"ea63_cap_y0\"])\nprint(\"[ea63] Captain moved %.2f in, engaged=%s\" % [dy / 40.0, str(RulesEngine.is_unit_engaged(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\", GameState.state))])\nreturn dy > 40.0 and not RulesEngine.is_unit_engaged(\"U_CAPTAIN_IN_PHOBOS_ARMOUR_A\", GameState.state)",
+      "comment": "the Captain fell back away from the Kommandos and ends unengaged",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ea63_tactical_fluidity_desperate_escape_made"
+    }
+  ]
+}

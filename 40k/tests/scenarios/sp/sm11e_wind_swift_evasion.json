@@ -154,12 +154,12 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A_ordered_retreat",
       "timeout_s": 3.0
     },
     {
       "act": "expect_node_property",
-      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A_ordered_retreat",
       "property": "disabled",
       "equals": false
     },
@@ -169,8 +169,8 @@
     },
     {
       "act": "click_node",
-      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A",
-      "comment": "REAL click on the stratagem's Use button"
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_sm_stormlance_task_force_wind_swift_evasion/Buttons/Use_faction_sm_stormlance_task_force_wind_swift_evasion_U_OUTRIDER_SQUAD_A_ordered_retreat",
+      "comment": "REAL click on the stratagem's Fall back: Ordered Retreat option (EA-63: an engaged unit picks its 09.07 fall-back mode)"
     },
     {
       "act": "wait_seconds",
