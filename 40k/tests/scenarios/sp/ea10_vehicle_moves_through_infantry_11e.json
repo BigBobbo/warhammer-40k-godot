@@ -1,0 +1,194 @@
+{
+  "id": "ea10_vehicle_moves_through_infantry_11e",
+  "covers": [
+    "rules.17_01.monster_vehicle_move_through_models",
+    "phases.MovementPhase.mv1701_moves_through_models_11e"
+  ],
+  "fixture": "sw11e_s4_move",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "EA-10 (11e 17.01 MOVING MONSTERS AND VEHICLES): 'Each time you make a normal or advance move with a unit, MONSTER/VEHICLE models in that unit can be moved through friendly and enemy models (excluding other MONSTER/VEHICLE models).' Before the fix every non-FLY normal/advance path ran _path_crosses_enemy_bases with no MONSTER/VEHICLE exemption, so a VEHICLE could not drive through a line of enemy infantry ('Cannot move through enemy models during Normal Move or Advance'). Fixture sw11e_s4_move (open field, no terrain). SETUP-ONLY: the 10 enemy Ork Boyz are lined up across the lane north of the Venerable Dreadnought (VEHICLE, 60 mm, M8) and the Iron Priest (INFANTRY). Control: a real drag of the Iron Priest through the line is refused with the crossing reason. Then a real 7.9in drag takes the Dreadnought straight through the Boyz, a real click on 'End This Unit's Move' confirms, and it ends more than 2in past the line.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dr = GameState.get_unit(\"U_VENERABLE_DREADNOUGHT_A\")\nvar kws: Array = dr.meta.keywords\nif not \"VEHICLE\" in kws or \"FLY\" in kws or \"TITANIC\" in kws or UnitAbilities.is_super_heavy_walker(dr):\n\treturn \"not the case under test: %s\" % str(kws)\nvar boyz = GameState.state.units[\"U_BOYZ_B\"].models\nfor i in range(boyz.size()):\n\tboyz[i][\"position\"] = {\"x\": 1226.0 + 52.0 * i, \"y\": 1730.0}\ntree.current_scene._recreate_unit_visuals()\nvar p = dr.models[0].position\nreturn \"%d,%d\" % [int(round(float(p.x))), int(round(float(p.y)))]",
+      "equals": "1460,1887",
+      "comment": "SETUP-ONLY PRIVILEGE: line the 10 enemy Boyz (32 mm) up across the lane at y=1730 (x 1226..1694, 52 px apart: a gap no base fits through), 2.1in clear of the Dreadnought (VEHICLE, not FLY / TITANIC / SUPER-HEAVY WALKER) and of the Iron Priest"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 1460.0,
+      "y": 1730.0,
+      "comment": "anchor the zoom on the lane"
+    },
+    {
+      "act": "simulate_wheel",
+      "direction": "up",
+      "count": 6,
+      "comment": "zoom the camera in on the lane so the screenshots show the bases"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_IRON_PRIEST_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_IRON_PRIEST_A\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL",
+      "comment": "selecting the Iron Priest began its normal move"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_boyz_line_in_front_of_the_dreadnought"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1360.0,
+      "from_y": 1865.0,
+      "to_x": 1360.0,
+      "to_y": 1590.0,
+      "comment": "CONTROL: a real 6.9in drag of the Iron Priest (INFANTRY, M7) straight through the Boyz line"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_IRON_PRIEST_A\", {})\nif not md.get(\"staged_moves\", []).is_empty():\n\treturn \"staged (should have been refused)\"\nvar msgs := []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.get_children():\n\t\t\tif c is Label:\n\t\t\t\tmsgs.append(c.text)\nreturn \"refused: \" + \" | \".join(msgs)",
+      "equals": "refused: Cannot move through enemy models during Normal Move or Advance",
+      "comment": "CONTROL: an INFANTRY model still cannot pass enemy models (03.01) \u2014 the drop is refused with the crossing reason and nothing is staged"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_infantry_refused_at_the_boyz_line"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_VENERABLE_DREADNOUGHT_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_VENERABLE_DREADNOUGHT_A\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL",
+      "comment": "selecting the Dreadnought began its normal move"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1460.0,
+      "from_y": 1887.0,
+      "to_x": 1460.0,
+      "to_y": 1572.0,
+      "comment": "a real 7.9in drag north (Venerable Dreadnought M8) straight through the Boyz line"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_VENERABLE_DREADNOUGHT_A\", {})\nvar staged: Array = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\tvar msgs := []\n\tfor t in ToastManager.active_toasts:\n\t\tif is_instance_valid(t):\n\t\t\tfor c in t.get_children():\n\t\t\t\tif c is Label:\n\t\t\t\t\tmsgs.append(c.text)\n\treturn \"not staged \u2014 \" + \" | \".join(msgs)\nvar d = staged[staged.size() - 1].get(\"dest\")\nvar p := Vector2(float(d[0]), float(d[1])) if d is Array else Vector2(d.x, d.y)\nif p.distance_to(Vector2(1460.0, 1572.0)) > 3.0:\n\treturn \"staged at %s\" % str(p)\nreturn \"staged past the Boyz line\"",
+      "equals": "staged past the Boyz line",
+      "comment": "the drag is accepted and staged on the far side of the line (within 3 px of the drop: screen-pixel rounding); before the fix it was refused with 'Cannot move through enemy models during Normal Move or Advance' and the token snapped back"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.illegal_reason_label.text",
+      "equals": "",
+      "comment": "no refusal reason is shown"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dreadnought_staged_through_the_boyz"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_VENERABLE_DREADNOUGHT_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dr = GameState.state.units[\"U_VENERABLE_DREADNOUGHT_A\"].models[0]\nvar boyz = GameState.state.units[\"U_BOYZ_B\"].models\nfor i in range(boyz.size()):\n\tvar b = boyz[i]\n\tif Vector2(float(b.position.x), float(b.position.y)).distance_to(Vector2(1226.0 + 52.0 * i, 1730.0)) > 0.5:\n\t\treturn \"a Boy moved\"\nvar p := Vector2(float(dr.position.x), float(dr.position.y))\nif p.distance_to(Vector2(1460.0, 1572.0)) > 3.0:\n\treturn \"Dreadnought at %s\" % str(p)\nif RulesEngine.is_unit_engaged(\"U_VENERABLE_DREADNOUGHT_A\", GameState.state):\n\treturn \"ended engaged\"\nreturn \"through the line, unengaged\"",
+      "equals": "through the line, unengaged",
+      "comment": "the confirmed move left the Dreadnought on the far side of the Boyz line, unengaged (09.05 AFTER MOVING), and no Boy was moved"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_dreadnought_through_the_boyz_line"
+    }
+  ]
+}

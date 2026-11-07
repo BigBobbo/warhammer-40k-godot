@@ -11884,6 +11884,28 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.17_01.monster_vehicle_move_through_models",
+      "description": "11e 17.01 MOVING MONSTERS AND VEHICLES (EA-10): on a normal or advance move, a MONSTER/VEHICLE model can be moved through enemy models that are not MONSTER/VEHICLE (and through friendly models, 03.01). Enemy MONSTER/VEHICLE models still block, the move must still end unengaged and off other models, and non-M/V models keep 03.01 ('Its base cannot be moved through enemy models'). Windowed: a real drag takes a Venerable Dreadnought (VEHICLE) straight through a line of enemy Ork Boyz and End This Unit's Move confirms it, while the same drag of the Iron Priest (INFANTRY) is refused with 'Cannot move through enemy models during Normal Move or Advance'. Headless: VEHICLE / MONSTER / TITANIC / advance / reactive normal move, the enemy M/V, engagement and overlap controls, per model in Attached units, 10e unchanged.",
+      "scenarios": [
+        "ea10_vehicle_moves_through_infantry_11e",
+        "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "phases.MovementPhase.mv1701_moves_through_models_11e",
+      "description": "MovementPhase._mv1701_moves_through_models(unit_id, model_unit_id): edition 11, the unit's active move is NORMAL / ADVANCE (reactive normal moves are set up as NORMAL) and the moved model's OWN unit is MONSTER/VEHICLE (an attached CHARACTER's model is judged on the character's keywords). _path_crosses_enemy_bases then only counts enemy MONSTER/VEHICLE models as blockers; STAGE_MODEL_MOVE passes model_actual_unit_id and the Codex: Orks (11e) reactive-move translation passes each entry's own unit. Logs '17.01 MONSTER/VEHICLE — <unit> may move through enemy models except MONSTER/VEHICLE ones'.",
+      "scenarios": [
+        "ea10_vehicle_moves_through_infantry_11e",
+        "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "HANDLER"
     }
   ]
 }
