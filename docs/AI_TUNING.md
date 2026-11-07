@@ -373,6 +373,33 @@ keeps that bug for A/B. **Ratchet note:** the role weights must stay compound
 (`_deploy_role_terrain_weights`); routing them through a helper without those
 lines drops the tunable count and fails `tools/ai_lab/ratchet_check.py`.
 
+### Deployment — legal set-up formations (P0.1)
+
+`scripts/ai/FormationBuilder.gd` turns the spot the deployment formula (or
+the 11e terrain picker below) chose into a set-up the phase will accept:
+uniform blocks of the unit's real bases (rotation 0/90) on a 0.5" anchor
+lattice inside the zone polygon, attached characters placed beside the
+bodyguard and sent in the same `COMPOSITE_DEPLOY`, then a model-by-model
+growth fallback; the result is checked with the live
+`DeploymentPhase.validate_action` before it is sent. Budgets are counts,
+never wall-clock, and there is no RNG, so the same board gives the same
+formation on any machine.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DEPLOY_FORMATION_BUILDER` | 1 | Kill switch (correctness fix, ships ON). 0 restores the pre-P0.1 formula tail, plan legality / repair and AIPlayer retry exactly — for A/B only; at 0 the AI again sends formations the phase refuses and falls back to Strategic Reserves. |
+| `DEPLOY_FORMATION_MAX_EVALS` | 80000 | (int) anchor × block evaluations per drop |
+| `DEPLOY_FORMATION_MAX_FRESH` | 16000 | (int) fresh per-position legality checks per drop (cached results do not count) |
+| `DEPLOY_FORMATION_SAT_VARIANTS` | 10 | (int) attached-character slot variants tried per rotation combination |
+| `DEPLOY_FORMATION_GROW_SEEDS` | 60 | (int) seeds for the model-by-model growth fallback |
+| `DEPLOY_FORMATION_MAX_GROW_WORK` | 400000 | (int) growth-fallback work units (about 1 µs each) |
+
+A unit with no legal set-up anywhere in the zone goes to Strategic Reserves
+within the 50% caps (`[FORMATION] DEFECT forced reserve`, a warning); only
+if the caps refuse it too is it placed past them so deployment can finish
+(an ERROR — decision D5 in docs/AI_DEPLOYMENT_PLAN.md §10). Neither fired in
+the P0 measurements.
+
 ### Deployment — 11e terrain and zone frame (P0.3)
 
 Two kill switches, both default 1 (correctness fixes; 0 restores the

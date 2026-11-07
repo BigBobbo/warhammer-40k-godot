@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.74.0",
+      "date": "2026-11-07",
+      "summary": "AI deployment overhaul: AI armies now set up every unit legally on the table and hide their infantry in 11th-edition terrain; Scout and reserve distances follow 11th edition.",
+      "changes": [
+        "AI armies no longer dump units into Strategic Reserves at the start of a game because a formation 'didn't fit'. Each unit's formation is now built around its real bases (oval bike, Deffkopta and Wartrike bases included, turned to fit) and checked against the same rules the game enforces — wholly inside the deployment zone, no overlapping models, unit coherency, clear of walls — before it is placed. AI Ork armies used to lose 2–6 units (up to ~700 pts) this way; now every unit deploys.",
+        "An AI leader attached to a unit (e.g. a Deffkilla Wartrike leading Warbikers) is set up together with that unit, inside the 9\" coherency range, instead of being dropped beside it afterwards.",
+        "When you set up a unit together with its attached leader, the leader's models are now checked like any other model: inside your deployment zone, not overlapping anything, and in coherency with the unit.",
+        "AI deployment reads 11th-edition terrain: infantry set up wholly inside dense ruins so the whole unit is Hidden, other units shelter behind ruins on the side away from the enemy, and no AI unit is left half in and half out of a ruin. On Dawn of War and Sweeping Engagement the AI now knows which edge of its zone faces the enemy.",
+        "The Suggest (K) card in Deployment lists the real terrain spots the AI weighed (inside dense ruins, behind ruins, or the plain column layout, with the 'Whole unit Hidden' bonus) and describes where the unit actually ends up.",
+        "AI Scout moves and AI arrivals from Reserves (Strategic Reserves, Deep Strike, Rapid Ingress) now use the 11th-edition distance of more than 8\" from enemy models (was 9\"), measured from each model's own base, and the AI reads 'Scouts 7\"' / 'Scouts 8\"' correctly.",
+        "The Scout move prompts and the Scout phase tooltip now say 'more than 8\" from enemies' in 11th edition (they said 9\"), and the tooltip gives the unit's own Scouts distance.",
+        "Terrain layouts: wall pieces that some layouts linked to a ruin on the far side of the board now belong to the ruin they stand in, and mirrored ruins no longer share one terrain link. Hidden, line of sight and cover now work correctly around them — for example, the home-objective ruins of a Take and Hold vs Reconnaissance layout hide infantry and block sight as they should."
+      ]
+    },
+    {
       "version": "1.73.2",
       "date": "2026-11-05",
       "summary": "Rotating the board keeps unit labels and round tokens readable.",
