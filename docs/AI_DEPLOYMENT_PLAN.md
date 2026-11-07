@@ -610,7 +610,7 @@ P0 items are rules-correctness fixes, so they ship **default ON**, each with a k
 
 Do P0 first regardless: (b) alone returns about a third of an Ork army to the table on turn 1.
 
-P0 as shipped: §10. It differs from the P0 row above in two places. (b) keeps the past-the-caps reserves bypass as a logged anti-hang last resort (decision D5). (d) keeps the +ER in `_calculate_enemy_threat_data` (decision D6).
+P0 as shipped: §10. It differs from the P0 row above in one place: (b) keeps the past-the-caps reserves bypass as a logged anti-hang last resort (decision D5). Row (d) already reflects decision D6.
 
 ---
 
