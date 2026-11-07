@@ -2,6 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.4",
+      "date": "2026-11-07",
+      "summary": "Hidden follow-up fixes: turn order, Fire Overwatch, attached leaders, faster checks, and Reconnaissance home areas now hide units.",
+      "changes": [
+        "Hidden now counts turns in play order, so it works correctly when Player 2 takes the first turn.",
+        "Shots fired outside your Shooting phase (FIRE OVERWATCH, snap shooting, Rapid Reactions, Ork forced shooting) now break Hidden too. Shadow Masters is offered after FIRE OVERWATCH as well.",
+        "An attached leader's models now count when deciding whether its unit can be seen, and shooting at a unit you can only see or reach through its leader now makes attacks instead of dropping every model.",
+        "Each shooting model is checked on its own: models beyond a Hidden unit's detection range that cannot see a non-hidden model in it no longer fire at it.",
+        "Abilities that ask for a \"hidden unit\" (e.g. Nowhere to Hide, Venator Omni-auspex, STRIKE FROM THE SHADOWS) now apply when at least one model is hidden. Kunnin' Infiltrator still needs every model hidden, as its text says.",
+        "The detection-range limit only applies to enemy models, so your own abilities (e.g. Author of the Codex) can pick your own Hidden units again.",
+        "PRECISION judges an attached leader's Hidden status by the leader's own keywords.",
+        "The L-key Hidden label now reads e.g. \"Hidden unit: seen within 15\\\" (your best LoS 17.4\\\")\" and never shows a refused distance as within range.",
+        "Terrain layouts: 30 terrain features in 8 layouts now belong to the area they actually sit in. On Take and Hold vs Reconnaissance 1, the two home objective areas now hide units and block sight like every other area.",
+        "VEHICLE and MONSTER units moving or charging into a terrain area's open ground no longer pay a climb; the ruins inside the area still do.",
+        "Hidden checks are much faster: the line-of-sight overlay and target explanations dropped from about 0.6 s to about 0.02 s.",
+        "Saves now use format 1.4.0; older saves are converted on load. Builds older than this one cannot open new saves."
+      ]
+    },
+    {
       "version": "1.73.3",
       "date": "2026-11-07",
       "summary": "Hidden now works in light terrain too, matching the official 11th-edition errata.",
