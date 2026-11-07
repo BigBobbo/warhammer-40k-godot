@@ -12,6 +12,12 @@ extends SceneTree
 #      edition-aware (1.5" gap: out of ER at edition 10, in ER at edition 11).
 #   C) Static scan: no ENGAGEMENT_RANGE const re-declarations outside
 #      GameConstants.gd.
+#   A2) Stand-off accessors (P0.2): scout / reinforcement / infiltrators are
+#      8" at 11e and 9" at 10e, and ScoutPhase reads the scout accessor.
+#   D) Static scan (P0.2, regression net only — not validation): no const/var
+#      declaration whose name is a stand-off (enemy / standoff / infiltrat /
+#      ds_clear) is assigned a literal 8.0 / 9.0 outside GameConstants.gd, and
+#      no player-facing Scout / Infiltrators string in Main.gd hard-codes 9".
 #
 # Usage: godot --headless --path . -s tests/test_iss002_game_constants.gd
 
@@ -37,8 +43,10 @@ func _run_tests():
 		return
 	print("\n=== test_iss002_game_constants ===\n")
 	_test_edition_values()
+	_test_standoff_accessors()
 	_test_measurement_default_is_edition_aware()
 	_test_no_redeclared_constants()
+	_test_no_redeclared_standoffs()
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
 
@@ -84,6 +92,29 @@ func _test_edition_values() -> void:
 	GameConstants.edition = 10
 	_check("edition restored to 10 -> ER back to 1.0\"",
 		GameConstants.engagement_range_inches() == 1.0)
+
+# -- A2: stand-off accessors (P0.2) -------------------------------------------
+
+func _test_standoff_accessors() -> void:
+	print("\n-- A2: stand-off accessors (11e 24.32 / 20.04 / 24.20) --")
+	var ed0 := GameConstants.edition
+	var sp = load("res://phases/ScoutPhase.gd").new()
+	for ed in [11, 10]:
+		GameConstants.edition = ed
+		var want := 8.0 if ed >= 11 else 9.0
+		_check("edition %d: scout_min_enemy_distance_inches() == %.0f\"" % [ed, want],
+			GameConstants.scout_min_enemy_distance_inches() == want, str(GameConstants.scout_min_enemy_distance_inches()))
+		_check("edition %d: reinforcement_min_enemy_distance_inches() == %.0f\"" % [ed, want],
+			GameConstants.reinforcement_min_enemy_distance_inches() == want, str(GameConstants.reinforcement_min_enemy_distance_inches()))
+		_check("edition %d: infiltrators_min_enemy_distance_inches() == %.0f\"" % [ed, want],
+			GameConstants.infiltrators_min_enemy_distance_inches() == want, str(GameConstants.infiltrators_min_enemy_distance_inches()))
+		_check("edition %d: ScoutPhase reads the scout accessor" % ed,
+			sp._scout_min_enemy_distance_inches() == GameConstants.scout_min_enemy_distance_inches(),
+			str(sp._scout_min_enemy_distance_inches()))
+	_check("ScoutPhase no longer declares its own SCOUT_MIN_ENEMY_DISTANCE_INCHES",
+		not ("SCOUT_MIN_ENEMY_DISTANCE_INCHES" in sp.get_script().get_script_constant_map()))
+	sp.free()
+	GameConstants.edition = ed0
 
 # -- B: Measurement default flips with edition --------------------------------
 
@@ -141,6 +172,126 @@ func _scan_dir(dir_path: String, rx: RegEx, offenders: Array) -> void:
 					if line.strip_edges().begins_with("#"):
 						continue
 					if rx.search(line) != null:
+						offenders.append("%s:%d" % [full, line_no])
+				f.close()
+		entry = dir.get_next()
+	dir.list_dir_end()
+
+# -- D: stand-off literals (P0.2) ----------------------------------------------
+# A regression net, not validation: it catches the exact shapes that hid the
+# 11e stand-offs for a whole edition — `const SCOUT_ENEMY_DIST_INCHES = 9.0`
+# (AI scouts), `const SCOUT_MIN_ENEMY_DISTANCE_INCHES = 9.0` (ScoutPhase),
+# `var min_enemy_dist_px = 9.0 * ...` / `var ds_clear_px = (9.0 * ...)` (AI
+# reserves), `var enemy_px = m.inches_to_px(8.0)` (IngressMove) and
+# `var infiltrate_min = 8.0 if ... else 9.0` (DeploymentPhase).
+# Names: a stand-off word (enemy / standoff / infiltrat / ds_clear), but not a
+# scoring coefficient (bonus / penalty / weight / score — e.g.
+# MELEE_AGGRESSION_ENEMY_SEEK_BONUS = 8.0 is a score, not a distance rule).
+# It must NOT hit GameState.SCOUT_DISTANCE_PATTERN or
+# AIDecisionMaker.SCOUT_OBJ_DISTANCE_PENALTY (the first proposed regex did).
+# scripts/codex is skipped: those files hold 11e datasheet values with their
+# own rule text (e.g. Drop Pod Assault's 8"), not edition-switched core rules.
+
+const STANDOFF_SCAN_SKIP_DIRS = ["res://scripts/codex"]
+
+func _test_no_redeclared_standoffs() -> void:
+	print("\n-- D: no hard-coded 8\"/9\" stand-off declarations (P0.2) --")
+	var decl := RegEx.new()
+	var e1 = decl.compile("^\\s*(?:static\\s+)?(?:const|var)\\s+(\\w+)\\s*(?::\\s*[\\w.]+\\s*)?:?=\\s*(.*)$")
+	var name_rx := RegEx.new()
+	var e2 = name_rx.compile("(?i)(enemy|standoff|stand_off|infiltrat|ds_clear)")
+	var skip_rx := RegEx.new()
+	var e3 = skip_rx.compile("(?i)(bonus|penalty|weight|score)")
+	var lit_rx := RegEx.new()
+	var e4 = lit_rx.compile("(?<![\\w.])[89]\\.0(?![\\w.])")
+	_check("stand-off scan regexes compile", e1 == OK and e2 == OK and e3 == OK and e4 == OK)
+
+	# Self-test: the scan flags every shape it exists for, and spares the
+	# legitimate lines the first proposal tripped on.
+	var must_flag := [
+		"\tconst SCOUT_ENEMY_DIST_INCHES: float = 9.0",
+		"const SCOUT_MIN_ENEMY_DISTANCE_INCHES: float = 9.0",
+		"\tvar min_enemy_dist_px = 9.0 * PIXELS_PER_INCH + base_radius_px + 25.0  # 25px",
+		"\tvar ds_clear_px = (9.0 * PIXELS_PER_INCH) - OBJECTIVE_CONTROL_RANGE_PX",
+		"\tvar enemy_px = m.inches_to_px(8.0)",
+		"\tvar infiltrate_min = 8.0 if GameConstants.edition >= 11 else 9.0",
+		"\tvar scout_standoff := 9.0",
+	]
+	var must_pass := [
+		"const SCOUT_DISTANCE_PATTERN: String = \"(?i)\\\\bscouts?\\\\s*(\\\\d+)\"",
+		"const SCOUT_OBJ_DISTANCE_PENALTY: float = 0.3",
+		"const MELEE_AGGRESSION_ENEMY_SEEK_BONUS: float = 8.0",
+		"\tvar scout_standoff_in: float = GameConstants.scout_min_enemy_distance_inches()",
+	]
+	var self_ok := true
+	for l in must_flag:
+		if not _standoff_line_flagged(l, decl, name_rx, skip_rx, lit_rx):
+			self_ok = false
+			print("    self-test MISSED: %s" % l)
+	for l in must_pass:
+		if _standoff_line_flagged(l, decl, name_rx, skip_rx, lit_rx):
+			self_ok = false
+			print("    self-test FALSE POSITIVE: %s" % l)
+	_check("stand-off scan self-test (%d regression shapes flagged, %d legit lines spared)" % [must_flag.size(), must_pass.size()], self_ok)
+
+	var offenders := []
+	for dir_path in SCAN_DIRS:
+		_scan_standoffs(dir_path, decl, name_rx, skip_rx, lit_rx, offenders)
+	_check("no stand-off declared as a literal 8.0/9.0 outside GameConstants.gd (%d dirs)" % SCAN_DIRS.size(),
+		offenders.is_empty(), ", ".join(offenders))
+
+	# Player-facing Scout / Infiltrators prompts (D9): Main.gd must read the
+	# GameConstants accessors, never spell 9" (the 10e value) itself.
+	var ui_offenders := []
+	var f = FileAccess.open("res://scripts/Main.gd", FileAccess.READ)
+	_check("scripts/Main.gd readable", f != null)
+	if f != null:
+		var n := 0
+		while not f.eof_reached():
+			var line = f.get_line()
+			n += 1
+			if line.strip_edges().begins_with("#"):
+				continue
+			var low = line.to_lower()
+			if ("scout" in low or "infiltrat" in low) and (">9\\\"" in line or "up to 9\\\"" in line):
+				ui_offenders.append("Main.gd:%d" % n)
+		f.close()
+	_check("no Scout/Infiltrators UI string in Main.gd hard-codes 9\"", ui_offenders.is_empty(), ", ".join(ui_offenders))
+
+func _standoff_line_flagged(line: String, decl: RegEx, name_rx: RegEx, skip_rx: RegEx, lit_rx: RegEx) -> bool:
+	if line.strip_edges().begins_with("#"):
+		return false
+	var m = decl.search(line)
+	if m == null:
+		return false
+	var nm: String = m.get_string(1)
+	var rhs: String = m.get_string(2)
+	var hash_at := rhs.find("#")
+	if hash_at >= 0:
+		rhs = rhs.substr(0, hash_at)
+	return name_rx.search(nm) != null and skip_rx.search(nm) == null and lit_rx.search(rhs) != null
+
+func _scan_standoffs(dir_path: String, decl: RegEx, name_rx: RegEx, skip_rx: RegEx, lit_rx: RegEx, offenders: Array) -> void:
+	if dir_path in STANDOFF_SCAN_SKIP_DIRS:
+		return
+	var dir = DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry = dir.get_next()
+	while entry != "":
+		var full = dir_path + "/" + entry
+		if dir.current_is_dir():
+			if not entry.begins_with("."):
+				_scan_standoffs(full, decl, name_rx, skip_rx, lit_rx, offenders)
+		elif entry.ends_with(".gd") and entry != "GameConstants.gd":
+			var f = FileAccess.open(full, FileAccess.READ)
+			if f != null:
+				var line_no = 0
+				while not f.eof_reached():
+					var line = f.get_line()
+					line_no += 1
+					if _standoff_line_flagged(line, decl, name_rx, skip_rx, lit_rx):
 						offenders.append("%s:%d" % [full, line_no])
 				f.close()
 		entry = dir.get_next()
