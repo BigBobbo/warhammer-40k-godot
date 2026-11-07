@@ -12,7 +12,10 @@ extends SceneTree
 #    re-rolls; snap = unmodified 6s only
 #  - ModifierStack: 10.06 M/V -1 and 17.03 engaged-M/V-target -1 replace
 #    10e's Big Guns Never Tire (gated < 11) and feed both resolve paths
-#  - snap shooting's "one VISIBLE enemy unit" (15.09) honours 13.09 Hidden
+#  - snap shooting's "one VISIBLE enemy unit within 24\"" (15.09) honours
+#    13.09 Hidden and 19.01 (an Attached unit is one unit) — checked on the
+#    LIVE gate FIRE OVERWATCH uses (RulesEngine.snap_shooting_targets_11e);
+#    the dormant SnapShooting template is checked to agree with it
 #
 # Live terrain: the fixture boards carry their own terrain_features, but the
 # 13.09 Hidden gate (RulesEngine.unit_sight_line -> TerrainManager
@@ -186,12 +189,25 @@ func _run_tests():
 	var sc = snap.hit_consequences(_profile(rules, "Boltgun", board), "U_SQUAD", "U_FOE_FAR", board)
 	_check("snap: unmodified 6s only + no re-rolls (15.09)",
 		sc.snap_only_6s and sc.no_hit_rerolls)
-	_check("snap: target beyond 24\" refused",
-		not snap.target_allowed("U_SQUAD", "U_FOE_FAR", _profile(rules, "Boltgun", board), board).allowed)
+
+	# 15.09 WHILE SHOOTING — "one visible enemy unit within 24\"" — is checked on
+	# the LIVE gate: FIRE OVERWATCH offers and resolves its targets through
+	# RulesEngine.snap_shooting_targets_11e (StratagemManager's offer,
+	# MovementPhase's follow-up). SnapShooting.target_allowed is the template
+	# the Shooting phase would read if "snap" were ever selected — it never is
+	# (eligible() never qualifies) — so it is only checked to AGREE with the
+	# live gate ("template agrees"). Review of 6f74563: the 15.09 checks used
+	# to pin the template alone, so a regression in the gate players use went
+	# unseen, and the template measured 24" to the bodyguard's models only.
 	var sb = _board()
 	sb.units["U_FOE"].models[0].position = {"x": 400, "y": 1200}  # unengaged, ~20"
+	var live_open: Array = _snap_ids(rules, "U_SQUAD", sb)
+	_check("snap (live gate): a visible unengaged enemy unit within 24\" is a target, one beyond 24\" is not",
+		"U_FOE" in live_open and not "U_FOE_FAR" in live_open, str(live_open))
+	_check("snap (template agrees): target beyond 24\" refused",
+		not snap.target_allowed("U_SQUAD", "U_FOE_FAR", _profile(rules, "Boltgun", sb), sb).allowed)
 	var snap_open: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sb), sb)
-	_check("snap: visible unengaged target within 24\" allowed",
+	_check("snap (template agrees): visible unengaged target within 24\" allowed",
 		snap_open.allowed, str(snap_open))
 
 	# 15.09 "one VISIBLE enemy unit" + 13.09 (errata): an INFANTRY model within a
@@ -200,18 +216,46 @@ func _run_tests():
 	# TerrainManager layout, so the light area is built there.
 	if tm != null:
 		tm.terrain_features = _light_area_live("snap_light", Vector2(400, 1200))
+		var live_hidden: Array = _snap_ids(rules, "U_SQUAD", sb)
+		_check("snap (live gate): the same foe in a light terrain area (hidden, 13.09) and 20\" away (beyond its 15\" detection range) is not a target",
+			not "U_FOE" in live_hidden, str(live_hidden))
 		var snap_hidden: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sb), sb)
-		_check("snap: the same foe in a light terrain area (hidden, 13.09) and 20\" away (beyond its 15\" detection range) is not visible -> refused",
+		_check("snap (template agrees): refused as not visible",
 			not snap_hidden.allowed and str(snap_hidden.get("reason", "")) == "target not visible (15.09)", str(snap_hidden))
 		var sn = _board()
 		sn.units["U_FOE"].models[0].position = {"x": 400, "y": 900}  # unengaged, ~11" edge-to-edge
 		tm.terrain_features = _light_area_live("snap_light_near", Vector2(400, 900))
 		_check("setup: that foe is hidden (light terrain area, 13.09)",
 			tm.is_model_hidden(sn.units["U_FOE"].models[0], sn.units["U_FOE"]))
+		var live_near: Array = _snap_ids(rules, "U_SQUAD", sn)
+		_check("snap (live gate): a hidden foe within its 15\" detection range is visible -> a target",
+			"U_FOE" in live_near, str(live_near))
 		var snap_near: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sn), sn)
-		_check("snap: a hidden foe within its 15\" detection range is visible -> allowed",
+		_check("snap (template agrees): allowed",
 			snap_near.allowed, str(snap_near))
 		tm.terrain_features = []
+
+	# 19.01 "an Attached unit is a single unit for all rules purposes": its
+	# attached LEADER 20" away puts the unit within 24" though its bodyguard
+	# model is 27.5" away. Both link directions, alone and together
+	# (CharacterAttachmentManager writes both; saves exist with only one).
+	for link in ["both", "back", "forward"]:
+		var ab := _attached_board(link)
+		var live_att: Array = _snap_ids(rules, "U_SQUAD", ab)
+		_check("snap (live gate), %s link(s): the Attached unit whose leader is 20\" away (bodyguard 27.5\") is a target" % link,
+			"U_FOE" in live_att, str(live_att))
+		if link == "both":
+			_check("snap (live gate), both links: the attached leader is not offered as a unit of its own",
+				not "U_FOE_LDR" in live_att, str(live_att))
+		var snap_att: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", ab), ab)
+		_check("snap (template agrees), %s link(s): allowed (it measured the bodyguard only: 'target beyond 24\"')" % link,
+			snap_att.allowed, str(snap_att))
+	var far_att := _attached_board("both")
+	far_att.units["U_FOE_LDR"].models[0].position = {"x": 400, "y": 1500}  # the leader too: ~27"
+	_check("snap (live gate): with the leader beyond 24\" as well, the Attached unit is not a target",
+		not "U_FOE" in _snap_ids(rules, "U_SQUAD", far_att), str(_snap_ids(rules, "U_SQUAD", far_att)))
+	_check("snap (template agrees): refused, target beyond 24\"",
+		str(snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", far_att), far_att).get("reason", "")) == "target beyond 24\" (15.09)")
 
 	print("\n-- ModifierStack integration (replaces BGNT at 11e) --")
 	var mb = _board({}, {"x": 540, "y": 400})
@@ -260,6 +304,43 @@ func _light_area_live(id: String, center_px: Vector2) -> Array:
 			"parent_area_id": id + "_area",
 			"can_move_through": {"INFANTRY": true, "VEHICLE": false, "MONSTER": false}},
 	]
+
+## The ids of the live FIRE OVERWATCH gate's snap-shooting targets for
+## `shooter` (RulesEngine.snap_shooting_targets_11e).
+func _snap_ids(rules, shooter: String, board: Dictionary) -> Array:
+	var out: Array = []
+	for t in rules.snap_shooting_targets_11e(shooter, board):
+		out.append(str(t.get("unit_id", "")))
+	return out
+
+## The squad at (400,400) and an enemy Attached unit: bodyguard U_FOE at
+## (400,1500) (27.5" centre to centre) and its attached CHARACTER U_FOE_LDR at
+## (400,1200) (20"). `link`: "both" (attachment_data.attached_characters AND
+## attached_to, as CharacterAttachmentManager writes them), "forward" or
+## "back" (only one side, as in some saves).
+func _attached_board(link: String) -> Dictionary:
+	var b := {"units": {
+		"U_SQUAD": {"id": "U_SQUAD", "owner": 1, "flags": {},
+			"meta": {"name": "Squad", "keywords": ["INFANTRY"],
+				"stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": [_w("Boltgun", "")]},
+			"models": [_model("m0", 400, 400)]},
+		"U_FOE": {"id": "U_FOE", "owner": 2, "flags": {},
+			"meta": {"name": "Bodyguard", "keywords": ["INFANTRY"],
+				"stats": {"toughness": 4, "save": 5, "wounds": 1}},
+			"models": [_model("f0", 400, 1500)]},
+		"U_FOE_LDR": {"id": "U_FOE_LDR", "owner": 2, "flags": {},
+			"meta": {"name": "Leader", "keywords": ["INFANTRY", "CHARACTER"],
+				"stats": {"toughness": 4, "save": 3, "wounds": 4}},
+			"models": [_model("l0", 400, 1200)]},
+	},
+	"terrain_features": [{"id": "dummy_low", "height_category": "low", "polygon": [], "walls": []}],
+	"meta": {}}
+	if link == "both" or link == "forward":
+		b.units["U_FOE"]["attachment_data"] = {"attached_characters": ["U_FOE_LDR"]}
+	if link == "both" or link == "back":
+		b.units["U_FOE_LDR"]["attached_to"] = "U_FOE"
+	return b
 
 ## Board where the squad is unengaged but the enemy TANK is engaged (with
 ## the friendly tank moved next to it).

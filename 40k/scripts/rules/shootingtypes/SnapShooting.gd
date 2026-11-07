@@ -41,16 +41,20 @@ func hit_consequences(_weapon_profile: Dictionary, _unit_id: String, _target_id:
 	return out
 
 
+## 15.09 "within 24\"": the closest distance between the two ATTACHED units —
+## 19.01, "an Attached unit is a single unit for all rules purposes", so a
+## leader 20" away puts its unit within 24" even when every bodyguard model is
+## farther. Measured exactly as the live FIRE OVERWATCH gate
+## (RulesEngine.snap_shooting_targets_11e) measures it: every component of the
+## shooter's and of the target's Attached unit, both link directions
+## (attached_unit_target_id / attached_unit_component_ids). This used to read
+## only board.units[target_id].models, so it refused such a target ("target
+## beyond 24\"") that the live gate offers. Note: live play never reaches this
+## template (eligible() never qualifies, so ShootingPhase never selects
+## "snap"); FIRE OVERWATCH offers and resolves targets through
+## snap_shooting_targets_11e.
 func _closest_distance_inches(unit_id: String, target_id: String, board: Dictionary) -> float:
-	var meas = Engine.get_main_loop().root.get_node("/root/Measurement")
-	var a = board.get("units", {}).get(unit_id, {})
-	var b = board.get("units", {}).get(target_id, {})
-	var best := INF
-	for ma in a.get("models", []):
-		if not ma.get("alive", true) or ma.get("position") == null:
-			continue
-		for mb in b.get("models", []):
-			if not mb.get("alive", true) or mb.get("position") == null:
-				continue
-			best = min(best, meas.px_to_inches(meas.model_to_model_distance_px(ma, mb)))
-	return best
+	var rules = _rules()
+	var shooter_components: Array = rules.attached_unit_component_ids(rules.attached_unit_target_id(unit_id, board), board)
+	var target_components: Array = rules.attached_unit_component_ids(rules.attached_unit_target_id(target_id, board), board)
+	return float(rules._snap_min_distance_inches(shooter_components, target_components, board))
