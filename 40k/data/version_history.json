@@ -12,13 +12,23 @@
       ]
     },
     {
-      "version": "1.73.2",
+      "version": "1.73.3",
       "date": "2026-11-05",
       "summary": "Home objectives fixed on Sweeping Engagement and Dawn of War maps: your home is now really yours.",
       "changes": [
         "On the 14 official layouts that use Sweeping Engagement or Dawn of War deployment, each player's home objective was labelled as the opponent's. It is now the one inside your own deployment zone.",
         "Scoring: primary cards that exclude or reward home objectives (e.g. Unstoppable Force) now score the right objective.",
         "AI and Suggest (K): the AI now treats your empty home as your home (and weighs defending it) instead of as an enemy objective worth VP."
+      ]
+    },
+    {
+      "version": "1.73.2",
+      "date": "2026-11-05",
+      "summary": "Rotating the board keeps unit labels and round tokens readable.",
+      "changes": [
+        "When the board view is rotated, unit letters, name plates, wound/status chips and round-based models now stay upright instead of turning sideways or upside down.",
+        "Objective labels (e.g. NML-2, control state) and deployment-zone names also stay upright.",
+        "Oval and rectangular bases (vehicles, bikes, aircraft) still turn with the board, so their facing on the table is unchanged."
       ]
     },
     {
