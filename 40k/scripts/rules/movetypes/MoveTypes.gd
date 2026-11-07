@@ -11,6 +11,8 @@ static func _ensure() -> void:
 	if _registry.is_empty():
 		for mt in [RemainStationaryMove.new(), NormalMove.new(), AdvanceMove.new(), FallBackMove.new(), IngressMove.new(), SurgeMove.new(), DisembarkMove.new(), EmergencyDisembarkMove.new(), ChargeMove11e.new(), PileInMove.new(), ConsolidationMove.new()]:
 			_registry[mt.id] = mt
+		var pulse_jet: MoveType = preload("res://scripts/rules/movetypes/PulseJetMove.gd").new()  # WP-G3 Codex: Orks (11e) PULSE JET MOVE
+		_registry[pulse_jet.id] = pulse_jet
 
 static func get_type(id: String) -> MoveType:
 	_ensure()

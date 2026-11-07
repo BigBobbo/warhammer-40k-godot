@@ -253,6 +253,10 @@ func execute_action(action: Dictionary) -> Dictionary:
 					result.changes.append_array(sm11e_snare)
 				else:
 					result["changes"] = sm11e_snare
+			# WP-G3 Codex: Orks (11e) RUNNIN' WIV DA HERD (OrkAbilities11e): re-sync the Painboss INFANTRY -> MOBILE/MOUNTED keyword swap (attach / detach / bodyguard destroyed).
+			var g3_herd: Array = load("res://scripts/codex/orks/OrkAbilities11e.gd").sync_herd_keywords()
+			if not g3_herd.is_empty():
+				result["changes"] = (result.changes if result.get("changes", null) is Array else []) + g3_herd
 
 		# Units this action destroyed / battle-shocked open their event
 		# windows now (design §3: unit_destroyed, unit_battle_shocked,

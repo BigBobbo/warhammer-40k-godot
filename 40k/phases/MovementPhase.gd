@@ -41,6 +41,7 @@ const Ork11eMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovem
 const Ork11eCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 # WP-O6: Codex: Orks (11e) datasheet abilities (move / advance modifiers, triggers).
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
+const PulseJetMoveScript = preload("res://scripts/rules/movetypes/PulseJetMove.gd")  # WP-G3 Codex: Orks (11e) PULSE JET MOVE
 # Codex: Orks (11e) army rules + detachment rules (WP-O34).
 const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
@@ -505,6 +506,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _validate_begin_surge_move(action)
+		"BEGIN_PULSE_JET_MOVE":  # WP-G3 Codex: Orks (11e) PULSE JET MOVE (PulseJetMove.gd)
+			return _validate_begin_pulse_jet_move(action)
 		"USE_SCATTER":
 			return _validate_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -592,6 +595,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _process_begin_surge_move(action)
+		"BEGIN_PULSE_JET_MOVE":  # WP-G3 Codex: Orks (11e) PULSE JET MOVE (PulseJetMove.gd)
+			return _process_begin_pulse_jet_move(action)
 		"USE_SCATTER":
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -637,6 +642,10 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 	# Check if unit has already moved
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
+
+	# WP-G3: a pulse jet move (pulse roll made) cannot be swapped for a normal move / advance.
+	if str(active_moves.get(unit_id, {}).get("mode", "")) == "PULSE_JET":
+		return {"valid": false, "errors": ["Unit is making a pulse jet move — finish or reset it"]}
 
 	# P2-72: Enforce one Normal move per phase limit
 	# 10e Core Rules: "A unit cannot make more than one Normal move per phase."
@@ -3596,7 +3605,8 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# follow-up). Duplicate set-ops with the legacy flags below are
 	# idempotent.
 	if GameConstants.edition >= 11:
-		var mt_map_11e = {"NORMAL": "normal", "ADVANCE": "advance", "FALL_BACK": "fall_back"}
+		var mt_map_11e = {"NORMAL": "normal", "ADVANCE": "advance", "FALL_BACK": "fall_back",
+			"PULSE_JET": "pulse_jet"}  # WP-G3 Codex: Orks (11e) PULSE JET MOVE: cannot charge / start an action, -1 to be hit
 		if mt_map_11e.has(move_data.mode):
 			var mt_fx = MoveTypes.get_type(mt_map_11e[move_data.mode]).after_moving_effects(
 				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
@@ -5727,6 +5737,8 @@ func _resume_after_selected_to_move(ctx: Dictionary, _window_result: Dictionary)
 			return _process_begin_fall_back_after_windows(action)
 		"disembark":  # Codex: Space Marines (11e) AGGRESSIVE DISEMBARKATION (SMCodex11e.gd)
 			return _process_disembark_unit_after_windows(action)
+		"pulse_jet":  # WP-G3 Codex: Orks (11e) PULSE JET MOVE
+			return _process_begin_pulse_jet_move_after_windows(action)
 	return create_result(true, [])
 
 ## Resume point for unit_ended_normal_move: the remaining post-move prompts.
@@ -7034,6 +7046,105 @@ func _process_begin_surge_move(action: Dictionary) -> Dictionary:
 		}
 	], "", {"dice": [{"context": "surge", "n": 1, "rolls": [surge_distance]}]})
 
+# ── WP-G3 Codex: Orks (11e) PULSE JET MOVE ──────────────────────────────────
+# Rules + eligibility: scripts/rules/movetypes/PulseJetMove.gd (template) and
+# OrkAbilities11e (grant, AFTER MOVING effects, -1 to hit). Driven here as the
+# active-move mode "PULSE_JET": pulse roll at BEGIN (mode locked — the roll is
+# made), cap 18" + roll, through all models and terrain (the model / dense-
+# terrain gates and the terrain penalty read PulseJetMove.moves_through_everything),
+# must end unengaged (the ER end check every non-fall-back move gets), AFTER
+# effects applied at CONFIRM through the template (mt_map_11e).
+
+func _validate_begin_pulse_jet_move(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("actor_unit_id", ""))
+	var base := _validate_begin_normal_move(action)  # owner / deployed / embarked / attached / moved / AIRCRAFT / reserves
+	if not base.get("valid", false):
+		return base
+	var el: Dictionary = MoveTypes.get_type("pulse_jet").eligible(unit_id, GameState.state)
+	if not el.eligible:
+		return {"valid": false, "errors": el.reasons}
+	var md: Dictionary = active_moves.get(unit_id, {})
+	if not md.is_empty() and (bool(md.get("mode_locked", false)) or not md.get("staged_moves", []).is_empty() or not md.get("model_moves", []).is_empty()):
+		return {"valid": false, "errors": ["Choose the pulse jet move before moving any model (reset the unit's move first)"]}
+	return {"valid": true, "errors": []}
+
+func _process_begin_pulse_jet_move(action: Dictionary) -> Dictionary:
+	# Codex: Orks (11e) unit_selected_to_move window — the pulse jet is chosen when the unit is selected to move.
+	var stm := _ork11e_open_selected_to_move_windows(action, "pulse_jet")
+	if stm.paused:
+		return create_result(true, stm.diffs)
+	return _ork11e_merge_diffs(_process_begin_pulse_jet_move_after_windows(action), stm.diffs)
+
+func _process_begin_pulse_jet_move_after_windows(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("actor_unit_id", ""))
+	var unit := get_unit(unit_id)
+	var unit_name := str(unit.get("meta", {}).get("name", unit_id))
+	var tmpl = MoveTypes.get_type("pulse_jet")
+	# BEFORE MOVING: the pulse roll (seeded like the advance roll).
+	var rng_seed = action.get("payload", {}).get("rng_seed", -1)
+	if rng_seed == -1 and has_node("/root/NetworkManager"):
+		var net_mgr = get_node("/root/NetworkManager")
+		if net_mgr.is_networked() and net_mgr.is_host():
+			rng_seed = net_mgr.get_next_rng_seed()
+	var ctx: Dictionary = tmpl.before_moving(unit_id, GameState.state, RulesEngine.RNGService.new(rng_seed), {})
+	var roll := int(ctx.get("pulse_roll", 0))
+	var cap: float = tmpl.max_distance_inches(unit, ctx)
+	_reset_staged_visuals_if_needed(unit_id)
+	active_moves[unit_id] = {
+		"mode": "PULSE_JET",
+		"pulse_roll": roll,
+		"took_to_skies": false,
+		"shw_mobile": false,
+		"mode_locked": true,  # the pulse roll is made: no switching back to a normal move
+		"completed": false,
+		"move_cap_inches": cap,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"original_rotations": {},
+		"model_distances": {},
+		"dice_rolls": [{"context": "pulse_roll", "rolls": [roll]}],
+		"pivot_value": get_pivot_value_for_unit(unit_id),
+		"pivot_cost_applied": false,
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {}
+	}
+	dice_log.append({"unit_id": unit_id, "unit_name": unit_name, "type": "Pulse roll",
+		"roll": roll, "result": "Pulse jet move cap = %d\" (18\" + %d)" % [int(cap), roll]})
+	log_phase_message("[WP-G3] Pulse Jet: %s pulse roll D6 = %d -> move up to %.0f\" through all models and terrain" % [unit_name, roll, cap])
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(unit.get("owner", 0)),
+			"%s makes a pulse jet move: pulse roll [%d] — up to %d\" (18\" + %d), through models and terrain; cannot charge this turn, -1 to be hit until its next turn" % [unit_name, roll, int(cap), roll])
+	emit_signal("unit_move_begun", unit_id, "PULSE_JET")
+	return create_result(true, [
+		{"op": "set", "path": "units.%s.flags.move_cap_inches" % unit_id, "value": cap},
+		{"op": "set", "path": "units.%s.flags.movement_active" % unit_id, "value": true},
+	], "", {"dice": [{"context": "pulse_roll", "n": 1, "rolls": [roll]}]})
+
+## WP-G3: the pulse jet offers for get_available_actions (BEGIN_PULSE_JET_MOVE
+## for each unit the template rules eligible that has not moved a model yet).
+func _g3_pulse_jet_actions() -> Array:
+	var out: Array = []
+	if GameConstants.edition < 11:
+		return out
+	for uid in GameState.state.get("units", {}):
+		var u := get_unit(str(uid))
+		if int(u.get("owner", 0)) != get_current_player() or not OrkAbilities11eScript.pulse_jet_granted(str(uid)):
+			continue  # (cheap gate first: get_available_actions runs often)
+		if not _validate_begin_pulse_jet_move({"actor_unit_id": str(uid)}).get("valid", false):
+			continue
+		out.append({"type": "BEGIN_PULSE_JET_MOVE", "actor_unit_id": str(uid),
+			"description": "Pulse Jet move (18\" + D6) with %s" % u.get("meta", {}).get("name", uid)})
+	return out
+
+## WP-G3: a pulse jet move ignores vertical distance and moves through all
+## models and all terrain categories (PulseJetMove WHILE MOVING).
+func _g3_pulse_jet_through_all(unit_id: String) -> bool:
+	return PulseJetMoveScript.moves_through_everything(active_moves.get(unit_id, {}))
+
 func mark_unit_surged_this_phase(unit_id: String) -> void:
 	"""Mark a unit as having made a surge move this phase.
 	Called from other phases (ShootingPhase, FightPhase) when they trigger surge moves."""
@@ -7150,6 +7261,7 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
 	return (GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
 		and OrkAbilities11eScript.shokk_boosta_active(unit_id)) \
+		or PulseJetMoveScript.moves_through_everything(move_data) \
 		or load("res://scripts/codex/space_marines/SMAbilitiesC.gd").moves_through_models(unit_id)  # WP-M4c GRAPNEL LAUNCHERS (Reiver Squad): move through all types of model
 
 ## Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): the unit's
@@ -7207,7 +7319,8 @@ static func _unit_is_titanic(unit: Dictionary) -> bool:
 func _check_dense_terrain_gate(unit_id: String, move_data: Dictionary, from_pos: Vector2, dest_vec: Vector2, model: Dictionary) -> Dictionary:
 	if GameConstants.edition < 11:
 		return {"valid": true, "errors": []}
-	var flying_54: bool = move_data.get("took_to_skies", false)
+	var flying_54: bool = move_data.get("took_to_skies", false) \
+		or PulseJetMoveScript.moves_through_everything(move_data)  # WP-G3 PULSE JET: "through all categories of terrain feature"
 	var ksb_54: bool = str(move_data.get("mode", "")) == "ADVANCE" and _unit_has_kustom_shokk_box(unit_id)
 	var tm_54 = get_node_or_null("/root/TerrainManager")
 	if flying_54 or tm_54 == null or not tm_54.has_method("can_move_through_11e"):
@@ -7404,6 +7517,9 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	#   and the unit is not on its ground floor already.
 	# FLY units ignore both penalties (return 0).
 	if _unit_has_fly_keyword(unit_id):
+		return 0.0
+	# WP-G3 PULSE JET: ignore all vertical distance; move through all terrain categories.
+	if _g3_pulse_jet_through_all(unit_id):
 		return 0.0
 	# Kustom Shokk Box (Speedwaaagh!): the bearer moves through terrain features,
 	# so it pays no horizontal difficult-ground penalty.
@@ -8089,6 +8205,7 @@ func get_available_actions() -> Array:
 					"actor_unit_id": str(uid),
 					"description": "Surge %0.0f\" toward the closest enemy: %s" % [surge_inches, surge_unit.get("meta", {}).get("name", uid)]
 				})
+		filtered.append_array(_g3_pulse_jet_actions())  # WP-G3 Codex: Orks (11e) PULSE JET MOVE offers (Wazdakka, Full Throttle "pulse")
 		# Top-up: basics the templates deem eligible that the 10e builder
 		# did not offer (e.g. engagement state divergence). Only units the
 		# builder considered movable (present in avail_cache) qualify.

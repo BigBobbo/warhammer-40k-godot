@@ -85,6 +85,7 @@ const FAIL_DIRECTION = "DIRECTION"
 const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
 const FAIL_WALL = "WALL"
 const FAIL_TERRAIN = "TERRAIN"
+const FAIL_THROUGH_MODELS = "THROUGH_MODELS"  # WP-G3 (11e 03)
 
 # Human-readable explanations for each failure category (teaches players the rules)
 # "{er}" is substituted with the edition's engagement range by get_failure_category_tooltip.
@@ -100,6 +101,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_MUST_END_CLOSER: "Each model making a charge move must end closer to at least one declared charge target than it started. Models cannot move laterally or away from all targets during a charge.",
 	FAIL_WALL: "Models cannot end their charge movement overlapping a terrain wall. Models may move through walls during the charge (per their keywords), but the final position must be clear of every wall segment.",
 	FAIL_TERRAIN: "A model's charge path passes through a solid terrain feature (such as a ruin wall) it cannot cross. Infantry-type units move through dense terrain freely and Fly units charge over it; other units must go around.",
+	FAIL_THROUGH_MODELS: "11e 03: a model can be moved through friendly models, but its base cannot be moved through enemy models (AIRCRAFT excepted). FLY units charge over them. Get Out da Way! (Nobz) lets the unit charge through every model except MONSTER and VEHICLE models.",
 }
 
 # 11e wording for INSUFFICIENT_ROLL (get_failure_category_tooltip swaps it in at
@@ -2330,6 +2332,14 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			for err in terrain_validation.errors:
 				categorized_errors.append({"category": FAIL_TERRAIN, "detail": err})
 
+	# 3d. WP-G3 (11e 03): a charge path may not pass through enemy models —
+	# AIRCRAFT / FLY chargers / Codex: Orks (11e) GET OUT DA WAY! in ChargeMove11e.path_blocking_models.
+	var through_validation = _g3_validate_paths_through_models(unit_id, per_model_paths)
+	if not through_validation.valid:
+		errors.append_array(through_validation.errors)
+		for err in through_validation.errors:
+			categorized_errors.append({"category": FAIL_THROUGH_MODELS, "detail": err})
+
 	# 5. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
@@ -2363,6 +2373,24 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			categorized_errors.append({"category": FAIL_MUST_END_CLOSER, "detail": err})
 
 	return {"valid": errors.is_empty(), "errors": errors, "categorized_errors": categorized_errors}
+
+## WP-G3 (11e 03 MOVING): every model's charge path, sampled along its
+## polyline, must not pass through a blocking model (ChargeMove11e).
+func _g3_validate_paths_through_models(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	var errors: Array = []
+	var blockers: Array = ChargeMove11e.path_blocking_models(unit_id, game_state_snapshot)
+	if blockers.is_empty():
+		return {"valid": true, "errors": errors}
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
+		if not (path is Array) or path.size() < 2:
+			continue
+		var hit := ChargeMove11e.path_crosses_models(_resolve_charge_path_ref(unit_id, path_key).get("model", {}), path, blockers)
+		if hit != "":
+			var hit_name = get_unit(hit).get("meta", {}).get("name", hit)
+			errors.append("Model %s's charge path passes through %s's models (11e 03: models cannot be moved through enemy models)" % [path_key, hit_name])
+			log_phase_message("[WP-G3] charge path of %s:%s crosses %s — rejected" % [unit_id, path_key, hit])
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	var errors = []

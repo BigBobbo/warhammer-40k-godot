@@ -12066,6 +12066,7 @@ func _on_network_result_applied(result: Dictionary) -> void:
 		"BEGIN_NORMAL_MOVE",          # Movement initialization
 		"BEGIN_ADVANCE",              # Movement initialization
 		"BEGIN_FALL_BACK",            # Movement initialization
+		"BEGIN_PULSE_JET_MOVE",       # Movement initialization (WP-G3 Codex: Orks 11e pulse jet)
 		"LOCK_MOVEMENT_MODE",         # Movement mode lock
 		"SET_ADVANCE_BONUS",          # Movement dice roll
 		"UNDO_LAST_MODEL_MOVE",       # Movement undo (handles own visuals)

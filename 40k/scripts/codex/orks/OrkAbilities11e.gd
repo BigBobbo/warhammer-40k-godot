@@ -188,6 +188,8 @@ const F_MADCAP := "ork11e_ab_madcap"          # {player, effect}: wobbled / zapp
 const F_BURNA_BOMBED := "ork11e_ab_burna_bombed"  # {player}: cannot be hidden; ranged attacks vs it [IGNORES COVER]
 const F_BEASTSCENT := "ork11e_ab_beastscent"  # {player}: +1 to wound vs MONSTER/VEHICLE until the end of the turn
 const F_ENGINE := "ork11e_ab_engine"          # {player, engine}: Full Throttle choice until the start of P's next Command phase
+const F_PULSE_JET := "ork11e_ab_pulse_jet"    # {player, set_turn_key}: WP-G3 made a pulse jet move — attacks that target it have -1 to hit until the start of P's next turn
+const F_HERD_KW := "ork11e_ab_herd_kw"        # {removed, added, bodyguard}: WP-G3 Runnin' wiv da Herd keyword swap in effect (what was changed, for an exact revert)
 const F_USES := "ork11e_ab_uses"              # {slug: {battle, round_key, turn_key, phase_key}} usage counters
 const F_DA_JUMP_DS := "ork11e_ab_da_jump_ds"  # true: this unit has Deep Strike (Da Jump)
 const F_SHOKK_BOOSTA := "ork11e_ab_shokk_boosta"  # true while the boosted advance move is being made
@@ -690,6 +692,11 @@ static func attack_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_
 		if typeof(busted) == TYPE_DICTIONARY and int(busted.get("player", 0)) == owner and group_has_keyword(actor_id, "SPEED FREEKS"):
 			m.lethal = true
 			_src(m, "Bust 'Em", "other", "lethal_hits", "target is busted")
+		# WP-G3 PULSE JET (Wazdakka Gutsmek, Ork Special Move Types): "until the
+		# start of your next turn, attacks that target your unit have -1 to hit".
+		if typeof(_gf(target_unit, F_PULSE_JET)) == TYPE_DICTIONARY:
+			m.hit_minus = true
+			_src(m, "Pulse Jet", "hit", "minus_one", "target made a pulse jet move (until the start of its next turn)")
 		var pulsa = _gf(actor_unit, F_PULSA_TARGET)
 		if pulsa != null and str(pulsa) != "" and head_id(str(pulsa)) == head_id(target_id):
 			m.ap += 1
@@ -967,10 +974,8 @@ static func move_modifier(unit: Dictionary) -> float:
 	var madcap = group_flag(uid, F_MADCAP)
 	if typeof(madcap) == TYPE_DICTIONARY and str(madcap.get("effect", "")) == "smashed":
 		mod -= 2.0
-	if has(unit, "runnin_wiv_da_herd"):
-		var bg = unit.get("attached_to", null)
-		if bg != null and str(bg) != "" and Common.has_keyword(Common.unit(str(bg)), "MOUNTED"):
-			mod += 4.0
+	if herd_condition(unit):  # (WP-G3: the same "attached to a Mounted unit" test as the keyword swap — bodyguard alive)
+		mod += 4.0
 	mod += float(_enh().move_modifier(unit))  # WP-O5 Follow Me Ladz / Cybork Boosta / Blitzboss
 	return mod
 
@@ -1090,6 +1095,157 @@ static func engine_of(unit_id: String) -> String:
 ## types of model while making the boosted advance move.
 static func shokk_boosta_active(unit_id: String) -> bool:
 	return unit_id != "" and group_flag(unit_id, F_SHOKK_BOOSTA) != null
+
+# ===========================================================================
+# WP-G3 PULSE JET (Wazdakka Gutsmek; Full Throttle "pulse") — Ork army rule
+# "Special Move Types": PULSE JET MOVE. The move type is
+# scripts/rules/movetypes/PulseJetMove.gd (MoveTypes registry, "pulse_jet");
+# MovementPhase drives it as mode "PULSE_JET" (BEGIN_PULSE_JET_MOVE). This
+# module owns the grant, the AFTER MOVING effects and the -1 to hit marker.
+# ===========================================================================
+
+const PULSE_JET_BASE_INCHES := 18.0
+
+## "In your Movement phase, when this unit is selected to move, if this unit is
+## unengaged, this unit can make a pulse jet move" — only while Full Throttle
+## gave it the Pulse Jet engine (until the start of its next Command phase).
+## Engagement / phase / move-state checks live in PulseJetMove.eligible.
+static func pulse_jet_granted(unit_id: String) -> bool:
+	if not _edition_11() or unit_id == "":
+		return false
+	return has(Common.unit(unit_id), "pulse_jet") and engine_of(unit_id) == "pulse"
+
+## AFTER MOVING: "until the end of the turn, your unit is not eligible to
+## declare a charge or start an action; until the start of your next turn,
+## attacks that target your unit have -1 to hit rolls." (cannot_charge /
+## cannot_start_action are end-of-turn flags — ScoringPhase / GameManager
+## clear them; F_PULSE_JET expires in on_phase_transition.) Every component of
+## an Attached unit gets them.
+static func pulse_jet_after_effects(unit_id: String) -> Array:
+	var owner := int(Common.unit(unit_id).get("owner", 0))
+	var d: Array = []
+	for gid in group(unit_id):
+		for f in ["moved", "cannot_charge", "cannot_start_action"]:
+			d.append({"op": "set", "path": "units.%s.flags.%s" % [gid, f], "value": true})
+		d.append({"op": "set", "path": "units.%s.flags.%s" % [gid, F_PULSE_JET], "value": {"player": owner, "set_turn_key": _turn_key()}})
+	return d
+
+## True while attacks that target `unit_id` have -1 to hit from a pulse jet move.
+static func pulse_jet_hit_penalty(unit_id: String) -> bool:
+	return unit_id != "" and typeof(group_flag(unit_id, F_PULSE_JET)) == TYPE_DICTIONARY
+
+## AI: which Throttlerokkit Shokka Engine Full Throttle picks. Far from every
+## enemy (> 24", out of reach of a move + charge) the Pulse Jet's 18+D6" jump and
+## its -1 to hit win; otherwise Turbo Engine (advance / fall back and still charge).
+static func _ai_full_throttle_variant(unit_id: String, has_pulse: bool) -> String:
+	if not has_pulse:
+		return "turbo"
+	var owner := int(Common.unit(unit_id).get("owner", 0))
+	for eid in _enemy_heads(owner):
+		if dist_in(unit_id, eid) <= 24.0:
+			return "turbo"
+	return "pulse"
+
+# ===========================================================================
+# WP-G3 RUNNIN' WIV DA HERD (Painboss): "While this model is attached to a
+# Mounted unit, this model: Does not have INFANTRY. Has MOBILE and MOUNTED.
+# Has +4" M." The +4" is move_modifier(). The keyword swap is written into the
+# Painboss unit's meta.keywords itself (~335 call sites in 73 files read
+# meta.keywords directly — no single accessor covers them), and recorded in
+# F_HERD_KW so it is reverted exactly when the condition stops (detached,
+# bodyguard destroyed). Re-synced after every action (BasePhase.execute_action
+# hook) and at every phase transition (on_phase_transition).
+# ===========================================================================
+
+const HERD_REMOVE := ["INFANTRY"]
+const HERD_ADD := ["MOBILE", "MOUNTED"]
+
+## True while unit `u` (a Runnin' wiv da Herd model) is attached to a MOUNTED
+## unit that still has a model alive.
+static func herd_condition(u: Dictionary) -> bool:
+	if not has(u, "runnin_wiv_da_herd") or not Common.is_alive(u):
+		return false
+	var bg_id = u.get("attached_to", null)
+	if bg_id == null or str(bg_id) == "":
+		return false
+	var bg := Common.unit(str(bg_id))
+	return not bg.is_empty() and Common.is_alive(bg) and Common.has_keyword(bg, "MOUNTED")
+
+## Diffs that bring every Runnin' wiv da Herd unit's keywords in line with the
+## condition. Pure: reads the live state, mutates nothing.
+static func herd_keyword_diffs() -> Array:
+	var d: Array = []
+	if not _edition_11():
+		return d
+	var units: Dictionary = Common.state().get("units", {})
+	for uid in units:
+		var u: Dictionary = units[uid]
+		var rec = u.get("flags", {}).get(F_HERD_KW, null)
+		var applied := typeof(rec) == TYPE_DICTIONARY
+		if not applied and not has(u, "runnin_wiv_da_herd"):
+			continue
+		var want := herd_condition(u)
+		if want == applied:
+			continue
+		var kws: Array = (u.get("meta", {}).get("keywords", []) as Array).duplicate()
+		if want:
+			var removed: Array = []
+			var added: Array = []
+			for kw in HERD_REMOVE:
+				if kw in kws:
+					kws.erase(kw)
+					removed.append(kw)
+			for kw in HERD_ADD:
+				if not kw in kws:
+					kws.append(kw)
+					added.append(kw)
+			d.append({"op": "set", "path": "units.%s.meta.keywords" % uid, "value": kws})
+			d.append({"op": "set", "path": "units.%s.flags.%s" % [uid, F_HERD_KW], "value": {"removed": removed, "added": added, "bodyguard": str(u.get("attached_to", ""))}})
+		else:
+			for kw in rec.get("added", []):
+				kws.erase(kw)
+			for kw in rec.get("removed", []):
+				if not kw in kws:
+					kws.append(kw)
+			d.append({"op": "set", "path": "units.%s.meta.keywords" % uid, "value": kws})
+			d.append({"op": "remove", "path": "units.%s.flags.%s" % [uid, F_HERD_KW]})
+	return d
+
+## Apply herd_keyword_diffs() to the live state (through PhaseManager when it
+## is up, so they land like any other change) and return them (BasePhase
+## appends them to the action's recorded changes).
+static func sync_herd_keywords() -> Array:
+	var d := herd_keyword_diffs()
+	if d.is_empty():
+		return d
+	var pm = Common.autoload("PhaseManager")
+	if pm != null and pm.has_method("apply_state_changes"):
+		pm.apply_state_changes(d)
+	else:
+		_apply_diffs_in_place(d)
+	Common.log_info("OrkAbilities11e: Runnin' wiv da Herd keyword sync — %s" % str(d.map(func(x): return "%s %s" % [x.op, x.path])))
+	return d
+
+## Apply "units.<id>.<section>.<key>" set / remove diffs directly (phase
+## transitions mutate in place, like the flag expiry).
+static func _apply_diffs_in_place(d: Array) -> void:
+	var units: Dictionary = Common.state().get("units", {})
+	for x in d:
+		var parts := str(x.path).split(".")
+		if parts.size() != 4:
+			continue
+		var u: Dictionary = units.get(parts[1], {})
+		if u.is_empty():
+			continue
+		if not u.has(parts[2]):
+			u[parts[2]] = {}
+		var holder: Dictionary = u[parts[2]]
+		if str(x.op) == "remove":
+			holder.erase(parts[3])
+		else:
+			holder[parts[3]] = x.value
+	if not d.is_empty():
+		Common.log_info("OrkAbilities11e: Runnin' wiv da Herd keyword sync (phase transition) — %s" % str(d.map(func(x): return "%s %s" % [x.op, x.path])))
 
 # ===========================================================================
 # BATTLE-SHOCK ROLLS (01.07: a leadership roll — 2D6 >= one of the unit's Ld)
@@ -1313,7 +1469,7 @@ static func on_phase_transition(old_phase: int, new_phase: int) -> void:
 				if flags.has(f):
 					flags.erase(f)
 					cleared.append("%s.%s" % [uid, f])
-			for f in [F_SQUIG_COVERED, F_MADCAP, F_ENGINE]:
+			for f in [F_SQUIG_COVERED, F_MADCAP, F_ENGINE, F_PULSE_JET]:  # (WP-G3 F_PULSE_JET: "until the start of your next turn")
 				var v = flags.get(f, null)
 				if typeof(v) == TYPE_DICTIONARY and int(v.get("player", 0)) == active:
 					if f == F_ENGINE:
@@ -1343,6 +1499,7 @@ static func on_phase_transition(old_phase: int, new_phase: int) -> void:
 	if not cleared.is_empty():
 		Common.log_info("OrkAbilities11e: phase %d -> %d expired %s" % [old_phase, new_phase, str(cleared)])
 	_apply_permanent_states(new_phase)
+	_apply_diffs_in_place(herd_keyword_diffs())  # WP-G3 Runnin' wiv da Herd keyword swap (in place, like the expiry above)
 	_enh().on_phase_transition(old_phase, new_phase)  # WP-O5 enhancement expiry / Mekwaaagh! / Surly as a Squiggoth
 
 ## Waaagh! Effigy / Super Runts ("This unit is riled up") and One Last Kill
@@ -1788,7 +1945,7 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 						vs.append({"id": e[0], "label": e[1], "cp_cost": 0})
 				if vs.is_empty():
 					continue
-				out.append(_entry(str(uid), {"variants": vs, "require_variant": true, "ai_variant": "turbo"}))
+				out.append(_entry(str(uid), {"variants": vs, "require_variant": true, "ai_variant": _ai_full_throttle_variant(str(uid), has(u, "pulse_jet"))}))  # WP-G3: "pulse" when far from every enemy
 			return out
 		"shokk_attack_engine":
 			if not own_turn:

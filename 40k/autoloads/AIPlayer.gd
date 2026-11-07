@@ -1014,7 +1014,7 @@ func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
 	# Follow-ups the AI's own turn runs after a successful action.
 	if t in ["DEPLOY_UNIT", "PLACE_REINFORCEMENT"] and unit_id != "":
 		emit_signal("ai_unit_deployed", player, unit_id)
-	elif t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and action.has("_ai_model_destinations"):
+	elif t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "BEGIN_PULSE_JET_MOVE"] and action.has("_ai_model_destinations"):  # (WP-G3 pulse jet)
 		if result.get("awaiting_reroll", false) or result.has("stratagem_window_opened"):
 			# Paused for the player's Command Re-roll / an opponent window —
 			# stage once the move exists (unit_move_begun).
@@ -2627,7 +2627,7 @@ func _execute_next_action(player: int) -> void:
 				_request_evaluation()
 
 		# Handle failed movement — skip the unit and re-evaluate
-		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"]:
+		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "BEGIN_PULSE_JET_MOVE"]:  # (WP-G3 pulse jet)
 			var failed_move_unit = decision.get("actor_unit_id", "")
 			if failed_move_unit != "":
 				var move_unit_name = _get_unit_name(failed_move_unit)
@@ -2705,7 +2705,7 @@ func _execute_next_action(player: int) -> void:
 				emit_signal("ai_unit_deployed", player, reinforced_unit_id)
 
 		# Handle multi-step movement: BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, or BEGIN_FALL_BACK with pre-computed destinations
-		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
+		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "BEGIN_PULSE_JET_MOVE"] and decision.has("_ai_model_destinations"):  # (WP-G3 pulse jet)
 			# Check if advance is awaiting reroll — active_moves won't exist yet.
 			# Codex: Orks (11e): a human opponent's stratagem window
 			# (enemy_selected_to_fall_back) can also pause BEGIN_* before the move
