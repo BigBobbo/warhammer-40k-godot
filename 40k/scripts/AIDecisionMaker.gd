@@ -29034,7 +29034,7 @@ static func _hidden_forfeit_cost(shooter_unit: Dictionary, enemies: Dictionary) 
 	return p * frac
 
 ## F003 — is this enemy about to regain Hidden? It qualifies on keywords, is
-## standing in a dense terrain area, and has not fired this turn, so on its
+## standing in a light or dense terrain area (13.09 errata), and has not fired this turn, so on its
 ## next turn it may simply be untargetable. Shoot it while the window is open.
 static func _target_regains_hidden_soon(target_unit: Dictionary) -> bool:
 	if not _unit_hidden_eligible(target_unit):
