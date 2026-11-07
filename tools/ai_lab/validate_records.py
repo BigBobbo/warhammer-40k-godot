@@ -87,6 +87,8 @@ NON_ADDITIVE_KEYS = {
     "distance_inches",
     "turns_to_reach",
     "unit_oc",            # F-07: context, kept for readability, never an addend
+    "gap_inches",         # 03ed34d: edge gap to the objective's range, a descriptor
+    "adv_chance",         # 03ed34d: chance an Advance closes the gap, a descriptor
 }
 
 
