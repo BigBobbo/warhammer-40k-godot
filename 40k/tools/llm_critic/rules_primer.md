@@ -1,8 +1,11 @@
 # 11th edition rules the reviewer needs (verified against the core rules text)
 
-Source: `docs/rules/40k_11th_edition_core_rules.txt` (11th edition core rules).
-Rule numbers are the book's. These are the rules decisions most often hinge
-on; for anything else, look it up in that file (Grep it) instead of guessing.
+Source: `docs/rules/40k_11th_edition_core_rules.txt` (11th edition core rules,
+launch text) plus `docs/rules/40k_11th_edition_errata_faq_commentary.md` (the
+official errata, FAQs and rules commentary — where they conflict with the
+launch text, they win). Rule numbers are the book's. These are the rules
+decisions most often hinge on; for anything else, look it up in those files
+(Grep them) instead of guessing.
 
 ## Distances and engagement
 - **Engagement range (02)**: within 2" horizontally and 5" vertically of a model.
@@ -35,9 +38,13 @@ on; for anything else, look it up in that file (Grep it) instead of guessing.
   SWARM within a terrain area, or is not fully visible because of intervening
   terrain, the target has cover: **worsen the attack's BS by 1** (it is a to-hit
   penalty, not a save bonus).
-- **Hidden (13.09)**: INFANTRY/BEASTS/SWARM in a terrain area with a dense
-  feature, whose unit made no ranged attacks this turn or last turn, can only be
-  seen by enemy models within 15" (detection range).
+- **Hidden (13.09, as amended by the errata)**: an INFANTRY/BEASTS/SWARM model
+  within a terrain area containing one or more **light or dense** features,
+  whose unit made no ranged attacks this turn or the previous turn (Fire
+  Overwatch / snap shooting counts), can only be seen by ENEMY models within its
+  detection range (15" unless stated; -3" while gone to ground behind dense
+  terrain, 13.11.01). A "hidden unit" is one with at least one hidden model
+  (commentary 01.02.07). Exposed-only areas never hide.
 - **Obscuring (13.10)**: terrain areas with light or dense features are
   obscuring. If every line of sight between two models crosses an obscuring
   area that neither model is inside, they cannot see each other. A model INSIDE
