@@ -136,6 +136,13 @@ const TERMS := {
 	"ind_move_shot": {"label": "Shot after the move", "fmt": "pts", "help": "The same after the planned move: any move loses the 1-3 band, so an unseen target's hits fail on 1-5 unless the move gives the unit a direct shot."},
 	"ind_move_objective": {"label": "Move takes an objective", "fmt": "pts", "help": "The planned move puts OC on an objective this turn and so improves who controls it (14.02)."},
 	"ind_move_progress": {"label": "Progress toward its objective", "fmt": "pts", "help": "Inches the planned move closes toward its assigned objective's range, × the points per inch."},
+	# [HEAVY] creep: a Normal move of 3" or less instead of holding still for [HEAVY] (FIX_HEAVY_CREEP) — the terms sum to its gain over holding still
+	"hc_cover": {"label": "Cover gained", "fmt": "pts", "help": "How much better the end spot's cover is than where the unit stands (13.08: every model in a terrain area, or not fully visible to the shooter; Hidden, 13.09, when it would not shoot), against the enemy shooters that can reach it next turn — the move-into-cover search's own value."},
+	"hc_objective": {"label": "Onto its objective", "fmt": "pts", "help": "The creep puts a model within range of its objective (14.02) — holding still it had none there."},
+	"hc_lane": {"label": "Firing lane", "fmt": "pts", "help": "The shot on offer after the creep minus holding still: the targets the rules let it shoot from there (range and line of sight), each ranged weapon on its best one."},
+	"hc_progress": {"label": "Progress toward its objective", "fmt": "pts", "help": "Inches the creep closes toward its objective's range, × the points per inch (0 by default: progress alone never justifies a creep)."},
+	"hc_loss": {"label": "Progress given up", "fmt": "pts", "help": "Inches the creep moves away from its objective's range, × the points per inch."},
+	"hc_threat": {"label": "More danger", "fmt": "pts", "help": "Penalty when the creep ends in more enemy shooting / charge threat than holding still."},
 	# Charge — 'no charge' option
 	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP and by faction aggression)."},
 	# Stratagem windows / reactive stratagems

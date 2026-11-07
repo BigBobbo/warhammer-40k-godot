@@ -1680,10 +1680,16 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 	if str(decision.get("type", "")) != "BEGIN_ADVANCE":
 		estimated_move = move_inches
 	var actual_differs = abs(actual_move_cap - estimated_move) > 0.1
+	# FIX_HEAVY_CREEP: a creep was planned within its own cap (24.16's 3"), not
+	# M — re-plan only when the real cap is below that, and never past it.
+	# Without the key: exactly as before.
+	var planned_cap := float(decision.get("_ai_move_cap_inches", 0.0))
+	if planned_cap > 0.0:
+		actual_differs = actual_move_cap < planned_cap - 0.1
 
 	if actual_differs:
 		print("AIPlayer: Advance actual cap %.1f\" differs from estimate %.1f\" — recomputing destinations for %s" % [actual_move_cap, estimated_move, unit_id])
-		var new_destinations := recompute_destinations_for_cap(player, unit_id, unit, decision, actual_move_cap)
+		var new_destinations := recompute_destinations_for_cap(player, unit_id, unit, decision, _ai_move_cap_for(decision, actual_move_cap))
 		if new_destinations.is_empty():
 			print("AIPlayer: Recomputed destinations empty for %s with actual cap %.1f\" — trying with original destinations" % [unit_id, actual_move_cap])
 			# Fall through to use original destinations — staging will clamp or fail per-model
@@ -1692,6 +1698,14 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 			print("AIPlayer: Recomputed %d model destinations for %s" % [new_destinations.size(), unit_id])
 
 	_execute_ai_movement(player, decision)
+
+## FIX_HEAVY_CREEP: the cap a move decision was planned within — its
+## "_ai_move_cap_inches" (a [HEAVY] creep's 3", 24.16) when it carries one,
+## else `full_inches`. Every re-plan of the decision (the staging retry, a
+## deferred move) stays inside it, so a creep is never re-planned at M. Pure.
+static func _ai_move_cap_for(decision: Dictionary, full_inches: float) -> float:
+	var cap := float(decision.get("_ai_move_cap_inches", 0.0))
+	return minf(full_inches, cap) if cap > 0.0 else full_inches
 
 func recompute_destinations_for_cap(player: int, unit_id: String, unit: Dictionary, decision: Dictionary, move_cap_inches: float) -> Dictionary:
 	"""Re-plan a move decision's per-model destinations for the move cap the unit
@@ -2803,7 +2817,10 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> bool:
 		var target_pos = _advance_heading_target(unit_fresh, decision.get("_ai_model_destinations", {}), move_stat)
 		if target_pos == Vector2.INF:
 			target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
-		var scaled_move = move_stat * recompute_scale
+		# FIX_HEAVY_CREEP: a creep's retry scales its own 3" cap, not M (the
+		# first retry at 75% of M would throw [HEAVY] away). Without the key:
+		# move_stat, as before.
+		var scaled_move = _ai_move_cap_for(decision, move_stat) * recompute_scale
 
 		var new_dests = AIDecisionMaker._compute_movement_toward_target(
 			unit_fresh, unit_id, target_pos, scaled_move, snapshot, enemies,

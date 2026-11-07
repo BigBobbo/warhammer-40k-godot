@@ -366,6 +366,7 @@ TESTS=(
     "tests/unit/test_ai_fix_move_for_charge.gd"
     "tests/unit/test_ai_fix_stay_engaged.gd"
     "tests/unit/test_ai_fix_indirect_stationary.gd"
+    "tests/unit/test_ai_fix_heavy_creep.gd"
     "tests/unit/test_ai_hidden_predictions_11e.gd"
     "tests/unit/test_ai_fix_shoot_attached_range.gd"
     "tests/unit/test_plan_roundtrip.gd"

@@ -3153,6 +3153,48 @@ const INDIRECT_STATIONARY_PROGRESS_PTS: float = 1.0   # pts per inch the move cl
 const INDIRECT_STATIONARY_MAX_TARGETS: int = 4        # enemy units priced per option, highest prior first (0 = never prices, never fires)
 const INDIRECT_STATIONARY_TRUST_UNMOVED: float = 0.0  # >= 0.5: a friendly unit that has yet to move also counts as a spotter
 
+# FIX_HEAVY_CREEP (OFF-06) — keep [HEAVY] while moving 3" or less. 24.16: each
+# [HEAVY] attack in your Shooting phase adds 1 to the hit roll if the
+# attacking unit is unengaged, was not set up on the battlefield this turn,
+# and no model in it has moved more than 3" this turn (FAQ: a FLY unit's
+# vertical movement when it takes to the skies does not count). 10e needed
+# the unit to Remain Stationary, and T7-26 (_should_hold_for_heavy_bonus)
+# still keeps [HEAVY] that way: it freezes the unit on centroid range alone,
+# with no line of sight and no move of 3" or less considered, and it also
+# holds a unit set up this turn (a disembark is a set-up, 18.04), which has
+# no bonus to keep. With this on, a T7-26 hold (and only a T7-26 hold) is
+# re-examined: a unit set up on the battlefield this turn makes its planned
+# move instead; any other unit looks for a Normal move of 3" or less for
+# every model (attached CHARACTERs included; the engine's own distance: path
+# legs plus its terrain cost) that buys cover (FIX_MOVE_COVER's end-spot
+# value, _mc_eval), range of its plan objective (14.02) or a firing lane (the
+# shot on offer over the targets RulesEngine.get_eligible_targets accepts
+# there), keeps every (target, [HEAVY] weapon) pair the engine allows from
+# where it stands, passes FIX_MOVE_COVER's objective guards and beats holding
+# still by HEAVY_CREEP_MIN_GAIN — and makes that move. The mover is called
+# once with a 3" cap and its destinations are re-checked; anything that fails
+# returns T7-26's REMAIN_STATIONARY unchanged. A unit with an [INDIRECT FIRE]
+# weapon keeps the hold (Remaining Stationary is what arms 10.07's 1-3 band,
+# FIX_INDIRECT_STATIONARY's job). Evidence: exam mv10_creep_to_keep_heavy (a
+# heavy bolter froze for +1 to hit on nothing behind a light area it could
+# step into and see out of). 0 = previous behaviour (byte-identical play).
+# 11e only.
+const FIX_HEAVY_CREEP: float = 0.0
+# 24.16's number — a rule, not a knob (never read through get_param): the most
+# any model (attached CHARACTERs included) may move, by the engine's count,
+# and keep [HEAVY]. The plan reaches min(this, M) x 0.95 (the placement
+# ladder's per-model cap), so the re-check's "<= this" keeps a 0.15" margin.
+const HEAVY_CREEP_LIMIT_INCHES: float = 3.0
+const HEAVY_CREEP_MIN_GAIN: float = 0.5           # net pts (FIX_MOVE_COVER's scale) the best creep must beat holding still by; ties keep the hold
+const HEAVY_CREEP_OBJECTIVE_WEIGHT: float = 3.0   # pts when the creep puts OC within range of the plan objective and holding still had none (hc_objective; the top of FIX_MOVE_COVER's scale)
+const HEAVY_CREEP_LANE_WEIGHT: float = 1.0        # × (the shot on offer at the spot − holding still), _mc_shoot_worth over the engine's eligible targets (hc_lane; can be negative)
+const HEAVY_CREEP_PROGRESS_WEIGHT: float = 0.0    # pts per inch of objective gap the creep closes (hc_progress); 0 = progress alone never justifies a creep
+const HEAVY_CREEP_PROBES: int = 8                 # engine eligibility calls on candidate spots per search (plus the stay and the re-check); 0 = never probes, never fires
+const HEAVY_CREEP_MAX_CANDIDATES: int = 12        # screened spots given the full _mc_eval evaluation
+const HEAVY_CREEP_FAN_HEADINGS: int = 8           # headings of the lane fan round the centroid (0 = the straight creep and terrain-area fits only)
+# Fan lengths as a share of the creep's reach (a plain Array: not a profile knob).
+const HEAVY_CREEP_FAN_LENGTHS: Array = [1.0, 0.5]
+
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
 const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
@@ -7819,12 +7861,57 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
 				var heavy_data = _get_unit_heavy_weapon_data(unit)
 				if _should_hold_for_heavy_bonus(unit, centroid, target_pos, enemies, move_inches, assignment, heavy_data):
-					return {
-						"type": "REMAIN_STATIONARY",
-						"actor_unit_id": unit_id,
-						"_ai_description": "%s holds for Heavy weapon bonus (+1 to hit, %.1f extra expected hits, obj %s)" % [
-							unit_name, heavy_data.total_expected_extra_hits, assigned_obj_id]
-					}
+					# --- FIX_HEAVY_CREEP: keep [HEAVY] while moving 3" or less (11e 24.16) ---
+					# 24.16 only asks that no model moved more than 3" this turn (10e
+					# needed the unit to Remain Stationary — T7-26's model). Read only on
+					# a T7-26 hold. A unit set up on the battlefield this turn has no
+					# bonus to keep, so it goes on to its planned move (no return here).
+					# Otherwise a Normal move of 3" or less that wins (_heavy_creep_stage:
+					# cover, its objective's range or a firing lane, every [HEAVY] target
+					# kept, re-checked on the mover's destinations) replaces the freeze;
+					# anything else returns the REMAIN_STATIONARY below unchanged. Off:
+					# the flag is the first term, nothing else is read.
+					var hc_on: bool = get_param("FIX_HEAVY_CREEP", FIX_HEAVY_CREEP) >= 0.5 and GameConstants.edition >= 11
+					if hc_on and _heavy_creep_set_up_this_turn(unit, snapshot):
+						print("AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=move why=set_up_this_turn" % unit_name)
+						_add_thinking_step("%s: no [HEAVY] bonus to keep — it was set up on the battlefield this turn (24.16), so it makes its planned move instead of holding still" % unit_name)
+					else:
+						if hc_on and assignment_action == "move" and ro_move.is_empty() and target_pos != Vector2.INF \
+								and not _unit_has_indirect_weapon(unit, snapshot):
+							var hc := _heavy_creep_stage(unit, unit_id, snapshot, centroid, target_pos, str(assigned_obj_id),
+								move_inches, enemies, objectives, threat_data, max_weapon_range_inches)
+							if not hc.is_empty():
+								var hc_check: Dictionary = hc.check
+								var hc_terms: Dictionary = hc_check.terms
+								var hc_end: Vector2 = hc_check.end
+								print("AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=creep why=%s end=(%.0f,%.0f) moved=%.2f\" gain=%.2f cover=%.2f obj=%.2f lane=%.2f progress=%.2f loss=%.2f threat=%.2f pairs=%d probes=%d" % [
+									unit_name, str(hc_check.why_code), hc_end.x, hc_end.y, float(hc_check.moved_in),
+									float(hc_check.gain), float(hc_terms.get("hc_cover", 0.0)), float(hc_terms.get("hc_objective", 0.0)),
+									float(hc_terms.get("hc_lane", 0.0)), float(hc_terms.get("hc_progress", 0.0)),
+									float(hc_terms.get("hc_loss", 0.0)), float(hc_terms.get("hc_threat", 0.0)),
+									int(hc_check.n_pairs), int(hc.pick.probes)])
+								_add_thinking_step("%s: keeps its [HEAVY] +1 to hit — creeps %.1f\" instead of holding still (%s)" % [
+									unit_name, float(hc_check.moved_in), _stay_engaged_terms_text(hc_terms)])
+								var hc_notes: Array = hc.notes
+								for n in hc_notes:
+									_add_thinking_step("%s move: %s" % [unit_name, n])
+								return {
+									"type": "BEGIN_NORMAL_MOVE",
+									"actor_unit_id": unit_id,
+									"_ai_model_destinations": hc.dests,
+									"_ai_move_adjustments": hc_notes.duplicate(),
+									"_ai_description": "%s moves toward %s (%s, creeping %.1f\" to keep its [HEAVY] +1 to hit%s, obj: %.1f\" away)" % [
+										unit_name, assigned_obj_id, assignment.get("reason", "moving to objective"),
+										float(hc_check.moved_in), str(hc_check.reason_suffix), float(hc_check.gap_in)],
+									# AIPlayer: a re-plan (staging retry, deferred move) stays inside 24.16's 3".
+									"_ai_move_cap_inches": HEAVY_CREEP_LIMIT_INCHES,
+								}
+						return {
+							"type": "REMAIN_STATIONARY",
+							"actor_unit_id": unit_id,
+							"_ai_description": "%s holds for Heavy weapon bonus (+1 to hit, %.1f extra expected hits, obj %s)" % [
+								unit_name, heavy_data.total_expected_extra_hits, assigned_obj_id]
+						}
 
 			# --- T7-11: Lone Operative protection ---
 			# Lone Operatives that are not attached to another unit can only be targeted
@@ -15721,6 +15808,721 @@ static func _should_hold_for_heavy_bonus(
 			w_data.name, w_data.attacks, w_data.bs, max(2, w_data.bs - 1),
 			w_data.hit_improvement * 100.0])
 	return true
+
+# =============================================================================
+# FIX_HEAVY_CREEP: KEEP [HEAVY] WHILE MOVING 3" OR LESS (11e 24.16)
+# =============================================================================
+# The upgrade of T7-26's hold in _select_movement_action's normal-move chain.
+# 24.16: [HEAVY] adds 1 to the hit roll while the attacking unit is
+# unengaged, was not set up on the battlefield this turn, and no model in it
+# has moved more than 3" this turn. T7-26 keeps that bonus the 10e way, by
+# freezing the unit; with FIX_HEAVY_CREEP a held unit looks for a Normal move
+# of 3" or less — every model, attached CHARACTERs included, by the engine's
+# own distance — that buys cover, its objective's range or a firing lane and
+# keeps every [HEAVY] target it has. Every rules question is the engine's:
+# FIX_MOVE_COVER's _mc_eval prices the end spot (TerrainManager's 13.08 /
+# 13.09 predicates), RulesEngine.get_eligible_targets on shallow hypothetical
+# boards (_move_for_shot_board) says which (target, weapon) pairs it has,
+# MissionManager's range predicate (_mfs_oc_in_range) the objective, and
+# _estimate_move_terrain_penalty mirrors MovementPhase's distance. The
+# generator stages that would bend a spot are screened with the FIX_MOVE_COVER
+# mirrors, the mover is called once, and _heavy_creep_recheck verifies the
+# destinations it returns. No static state.
+
+## 24.16 bullet 2: was the unit set up on the battlefield this turn? A
+## disembark is a set-up (18.04: "set up as described in Set Up"), as are a
+## reserves arrival and a Deep Strike — TransportManager's own 18.02 test,
+## over the whole Attached unit (the bodyguard and each attached CHARACTER).
+## Pure: no parameter reads.
+static func _heavy_creep_set_up_this_turn(unit: Dictionary, snapshot: Dictionary) -> bool:
+	for u in _indirect_components(unit, snapshot):
+		if bool(u.get("disembarked_this_phase", false)):
+			return true
+		var f: Dictionary = u.get("flags", {})
+		if bool(f.get("set_up_this_turn", false)) or bool(f.get("arrived_from_reserves", false)) \
+				or bool(f.get("deep_struck", false)) or bool(f.get("disembarked_this_turn", false)):
+			return true
+	return false
+
+## The [HEAVY] ranged weapon ids the unit shoots with: the engine's own list
+## (RulesEngine.get_unit_weapons — every alive bearer, attached CHARACTERs'
+## guns included) filtered by each profile's abilities, the test ModifierStack
+## applies (24.16).
+static func _heavy_creep_heavy_wids(re, unit_id: String, board: Dictionary) -> Dictionary:
+	var out := {}
+	var seen := {}
+	var uw: Dictionary = re.get_unit_weapons(unit_id, board)
+	for bearer in uw:
+		for wid in uw[bearer]:
+			var key := str(wid)
+			if seen.has(key):
+				continue
+			seen[key] = true
+			var prof: Dictionary = re.get_weapon_profile(key, board)
+			if not prof.is_empty() and AbilityRegistry.has_ability(AbilityRegistry.from_weapon(prof), "heavy"):
+				out[key] = true
+	return out
+
+## One engine probe: the targets RulesEngine.get_eligible_targets accepts for
+## the unit on `board` (only `only_ids` are asked — the reachable ones) and
+## the (target, [HEAVY] weapon) pairs among them, keyed "target|weapon".
+static func _heavy_creep_pairs(re, unit_id: String, board: Dictionary, heavy_wids: Dictionary,
+		only_ids: Dictionary) -> Dictionary:
+	var elig: Dictionary = {}
+	if not only_ids.is_empty():
+		elig = re.get_eligible_targets(unit_id, board, false, only_ids)
+	var pairs := {}
+	for tid in elig:
+		for wid in elig[tid].get("weapons_in_range", []):
+			if heavy_wids.has(str(wid)):
+				pairs["%s|%s" % [str(tid), str(wid)]] = true
+	return {"elig": elig, "pairs": pairs}
+
+## Does `pairs` keep every pair of `stay_pairs`?
+static func _hc_pairs_kept(stay_pairs: Dictionary, pairs: Dictionary) -> bool:
+	for k in stay_pairs:
+		if not pairs.has(k):
+			return false
+	return true
+
+static func _hc_sum(terms: Dictionary) -> float:
+	var s := 0.0
+	for k in terms:
+		s += float(terms[k])
+	return s
+
+## The engine's distance for the move each model makes, the largest of them
+## (inches): per staged bodyguard model the legs summed (MovementPhase, T-082:
+## |start->waypoint| + |waypoint->dest| when the mover planned a two-leg
+## waypoint for it — the _move_waypoint_log entry matching its dest — else
+## |start->dest|), each leg plus MovementPhase's terrain cost
+## (_estimate_move_terrain_penalty, its mirror); per attached CHARACTER the
+## first staged bodyguard model's delta (the engine carries it by that at
+## CONFIRM) plus its own terrain cost. The engine writes flags.moved_max_inches
+## before it carries the characters, so it does not count them; 24.16 ("no
+## model in that unit") does, and so does this.
+static func _heavy_creep_moved_inches(unit_id: String, members: Array, dests: Dictionary) -> float:
+	var wp_by_mid := {}
+	for e in _move_waypoint_log.get(unit_id, []):
+		wp_by_mid[str(e.model_id)] = e
+	var positions := _mfs_positions_from_dests(members, dests)
+	var worst := 0.0
+	for i in range(members.size()):
+		var mb: Dictionary = members[i]
+		if not bool(mb.get("moves", true)):
+			continue
+		var kw: Array = mb.unit.get("meta", {}).get("keywords", [])
+		var orig: Vector2 = mb.orig
+		var to: Vector2 = positions[i]
+		var d_in := 0.0
+		if mb.is_char:
+			if orig.distance_to(to) > 0.0:
+				d_in = orig.distance_to(to) / PIXELS_PER_INCH + _estimate_move_terrain_penalty(orig, to, kw, mb.unit)
+		else:
+			var mid := str(mb.model.get("id", ""))
+			if not dests.has(mid):
+				continue  # not staged: it does not move
+			var wp_e = wp_by_mid.get(mid, null)
+			if wp_e != null and Vector2(wp_e.dest).distance_to(to) < 0.5:
+				var wp: Vector2 = wp_e.wp
+				d_in = (orig.distance_to(wp) + wp.distance_to(to)) / PIXELS_PER_INCH \
+					+ _estimate_move_terrain_penalty(orig, wp, kw, mb.unit) + _estimate_move_terrain_penalty(wp, to, kw, mb.unit)
+			else:
+				d_in = orig.distance_to(to) / PIXELS_PER_INCH + _estimate_move_terrain_penalty(orig, to, kw, mb.unit)
+		worst = maxf(worst, d_in)
+	return worst
+
+## An attached CHARACTER is carried at CONFIRM, never placed by the ladder:
+## its spot may not overlap another model (`obstacles`) nor end within
+## Engagement Range of an enemy (09.05).
+static func _heavy_creep_char_fail(members: Array, positions: Array, enemies: Dictionary, obstacles: Array) -> bool:
+	for i in range(members.size()):
+		var mb: Dictionary = members[i]
+		if not mb.is_char or not bool(mb.get("moves", true)):
+			continue
+		var m: Dictionary = mb.model
+		var p: Vector2 = positions[i]
+		if _is_position_near_enemy(p, enemies, mb.unit):
+			return true
+		if _position_collides_with_deployed(p, int(m.get("base_mm", 32)), obstacles, 1.0,
+				str(m.get("base_type", "circular")), m.get("base_dimensions", {})):
+			return true
+	return false
+
+## Would the creep to `t` cost terrain distance? The engine adds
+## MovementPhase's terrain cost to every model's distance
+## (_estimate_move_terrain_penalty, its mirror — the only vertical cost it
+## knows), and the mover's own centroid-level cost (_normal_move_terrain_penalty)
+## would shorten or re-angle the move, so a creep plans flat ground only. Run
+## last among the geometric screens: TerrainManager prints a line per piece.
+static func _heavy_creep_penalty(members: Array, positions: Array, centroid: Vector2, t: Vector2,
+		kw: Array, unit: Dictionary) -> bool:
+	if not ("FLY" in kw) and _normal_move_terrain_penalty(centroid, t, false, kw, unit) > 0.0:
+		return true
+	for i in range(members.size()):
+		var mb: Dictionary = members[i]
+		if not bool(mb.get("moves", true)):
+			continue
+		var mkw: Array = mb.unit.get("meta", {}).get("keywords", [])
+		if _estimate_move_terrain_penalty(mb.orig, positions[i], mkw, mb.unit) > 0.0:
+			return true
+	return false
+
+## FIX_MOVE_COVER's objective guards for the formation at `positions`, against
+## the stay: at most MOVE_COVER_MAX_LOSS_INCHES of the gap to the plan
+## objective's range given up, no extra turn to reach it, control range kept,
+## and no less OC within its range (14.02, every model counted). {why ("" when
+## it passes), probe, gap, loss_in, in_range, oc}.
+static func _heavy_creep_guard(hc: Dictionary, positions: Array) -> Dictionary:
+	var unit: Dictionary = hc.unit
+	var probe := _move_cover_probe_unit(unit, hc.members, positions)
+	var gap := _unit_gap_to_objective_px(probe, hc.target_pos)
+	var stay_gap := float(hc.stay_gap)
+	var loss_in: float = (gap - stay_gap) / PIXELS_PER_INCH if gap != INF and stay_gap != INF else 0.0
+	var out := {"why": "", "probe": probe, "gap": gap, "loss_in": loss_in, "in_range": false, "oc": 0}
+	if gap == INF or loss_in > get_param("MOVE_COVER_MAX_LOSS_INCHES", MOVE_COVER_MAX_LOSS_INCHES):
+		out.why = "loss"
+		return out
+	var full_px := float(hc.full_px)
+	if stay_gap > 0.0 and stay_gap != INF and full_px > 0.0 and ceil(gap / full_px) > ceil(stay_gap / full_px):
+		out.why = "turns"
+		return out
+	out["in_range"] = _unit_has_model_in_control_range(probe, hc.target_pos)
+	if bool(hc.stay_in) and not bool(out.in_range):
+		out.why = "control"
+		return out
+	out["oc"] = _mfs_oc_in_range(unit, str(hc.unit_id), hc.snapshot, hc.members, positions, hc.target_pos)
+	if int(out.oc) < int(hc.stay_oc):
+		out.why = "oc"
+	return out
+
+## The cheap half of a spot's ledger (no eligibility call): the formation at
+## `positions` (centroid `p`) against the stay, every term through _t_add.
+##   hc_cover     FIX_MOVE_COVER's end-spot value (_mc_eval: in-area and
+##                not-fully-visible cover, Hidden, against every shooter that
+##                can reach the spot or the stay) over the stay's;
+##   hc_objective HEAVY_CREEP_OBJECTIVE_WEIGHT when it puts OC within range of
+##                the plan objective (14.02) and the stay had none;
+##   hc_progress / hc_loss  per inch of that objective's gap closed / given up;
+##   hc_threat    the rise in the distance-only danger (FIX_MOVE_COVER's
+##                threat weight).
+## The lane (hc_lane) is added by the caller from an engine probe.
+static func _heavy_creep_terms(hc: Dictionary, g: Dictionary, positions: Array, p: Vector2) -> Dictionary:
+	var members: Array = hc.members
+	var threats := _mc_threat_union(hc.threats_stay, _move_cover_threats(members, positions, hc.enemies, hc.threat_cache))
+	var mctx: Dictionary = hc.mc_ctx
+	mctx["p"] = p
+	var ev := _mc_eval(hc.tm, hc.unit, members, positions, threats, mctx, true)
+	var thr := 0.0
+	if not (hc.threat_data as Array).is_empty():
+		thr = float(_evaluate_position_threat(p, hc.threat_data, hc.unit).total_threat)
+	var loss_in := float(g.loss_in)
+	var terms := {}
+	_t_add(terms, "hc_cover", float(ev.value) - float(hc.e_stay.value))
+	if not bool(hc.stay_in) and bool(g.in_range) and int(g.oc) > 0:
+		_t_add(terms, "hc_objective", get_param("HEAVY_CREEP_OBJECTIVE_WEIGHT", HEAVY_CREEP_OBJECTIVE_WEIGHT))
+	_t_add(terms, "hc_progress", get_param("HEAVY_CREEP_PROGRESS_WEIGHT", HEAVY_CREEP_PROGRESS_WEIGHT) * maxf(0.0, -loss_in))
+	_t_add(terms, "hc_loss", -get_param("MOVE_COVER_LOSS_WEIGHT", MOVE_COVER_LOSS_WEIGHT) * maxf(0.0, loss_in))
+	_t_add(terms, "hc_threat", -get_param("MOVE_COVER_THREAT_WEIGHT", MOVE_COVER_THREAT_WEIGHT) * maxf(0.0, thr - float(hc.thr_stay)))
+	return {"terms": terms, "ev": ev, "n_threats": threats.size(), "thr": thr}
+
+## The engine half of a spot's ledger: the (target, [HEAVY] weapon) pairs and
+## the shot on offer there — RulesEngine.get_eligible_targets on the board
+## with the formation at `positions` (_move_for_shot_board), and F002's
+## currency (_mc_shoot_worth, the one _mc_eval uses) over the targets it
+## accepts, from the bodyguard standing there (`probe`).
+static func _heavy_creep_probe(hc: Dictionary, positions: Array, probe: Dictionary) -> Dictionary:
+	var board := _move_for_shot_board(hc.snapshot, str(hc.unit_id), hc.members, positions)
+	var pr := _heavy_creep_pairs(hc.re, str(hc.unit_id), board, hc.heavy_wids, hc.only_ids)
+	var units: Dictionary = (hc.snapshot as Dictionary).get("units", {})
+	var targets := {}
+	for tid in pr.elig:
+		if units.has(tid):
+			targets[tid] = units[tid]
+	pr["shot"] = _mc_shoot_worth(hc.unit, probe, targets, hc.snapshot)
+	return pr
+
+## Add a creep proposal, pulled onto the reach disc, unless it is no move at
+## all (within 0.25" of the centroid) or within 0.5" of an earlier one.
+static func _hc_add_prop(props: Array, q: Vector2, kind: String, centroid: Vector2, reach_px: float,
+		region: Dictionary = {}) -> bool:
+	if q == Vector2.INF:
+		return false
+	if centroid.distance_to(q) > reach_px:
+		q = centroid + (q - centroid).normalized() * reach_px
+	if centroid.distance_to(q) < 0.25 * PIXELS_PER_INCH:
+		return false
+	for pr in props:
+		if q.distance_to(pr.t) < 0.5 * PIXELS_PER_INCH:
+			return false
+	props.append({"t": q, "kind": kind, "region": region, "idx": props.size()})
+	return true
+
+## Better creep: higher gain (1e-6 ties), then in-area cover, then less
+## objective progress given up, then nearer the straight creep, then the
+## earlier proposal.
+static func _hc_better(a: Dictionary, b: Dictionary, straight_t: Vector2) -> bool:
+	var tie := 1e-6
+	if float(a.gain) > float(b.gain) + tie:
+		return true
+	if float(a.gain) < float(b.gain) - tie:
+		return false
+	if bool(a.ev.in_area) != bool(b.ev.in_area):
+		return bool(a.ev.in_area)
+	if absf(float(a.loss_in) - float(b.loss_in)) > tie:
+		return float(a.loss_in) < float(b.loss_in)
+	var da := Vector2(a.t).distance_to(straight_t)
+	var db := Vector2(b.t).distance_to(straight_t)
+	if absf(da - db) > tie:
+		return da < db
+	return int(a.idx) < int(b.idx)
+
+## The names of the enemy units in `ids` (the K card's and the note's words).
+static func _hc_names(snapshot: Dictionary, ids: Array) -> String:
+	var units: Dictionary = snapshot.get("units", {})
+	var names: Array = []
+	for tid in ids:
+		var nm := _dn(units.get(str(tid), {}), str(tid))
+		if not names.has(nm):
+			names.append(nm)
+	if names.size() <= 1:
+		return "" if names.is_empty() else str(names[0])
+	return "%s and %s" % [", ".join(names.slice(0, names.size() - 1)), str(names[names.size() - 1])]
+
+## FIX_HEAVY_CREEP stage: the Normal move of 3" or less that a T7-26-held unit
+## makes instead of holding still, or {} to hold. The search: proposals on the
+## reach disc (min(3", M) x 0.95 — the straight creep toward the plan
+## objective, FIX_MOVE_COVER's formation fits into nearby terrain areas, a
+## heading fan for lanes); cheap screens mirroring every mover stage that would
+## bend them (path, legacy cover nudge, placement ladder, carried characters,
+## terrain cost, 13.06.01 Solid overlap) and FIX_MOVE_COVER's objective guards;
+## the cheap ledger (_heavy_creep_terms); then, best first, at most
+## HEAVY_CREEP_PROBES engine probes for the [HEAVY] pair guard and the lane.
+## The best creep beating holding still by HEAVY_CREEP_MIN_GAIN is handed to
+## the mover ONCE (no range clamp, no threat dodge: the pair guard and the
+## threat term replace them) and re-checked on the destinations it returns.
+## Returns {dests, notes (the creep's note first, then the mover's own), pick,
+## check}. `diag`, if passed, is filled with the search's counts — the numbers
+## the HEAVY_CREEP debug line logs, for tests.
+static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dictionary, centroid: Vector2,
+		target_pos: Vector2, obj_id: String, move_inches: float, enemies: Dictionary, objectives: Array,
+		threat_data: Array, max_wr: float, diag: Dictionary = {}) -> Dictionary:
+	var tm = _terrain_manager()
+	var re = _rules_engine()
+	if tm == null or re == null or not tm.has_method("is_model_hidden_at") or not tm.has_method("unit_has_cover_11e") \
+			or not re.has_method("get_eligible_targets") or centroid == Vector2.INF or target_pos == Vector2.INF \
+			or move_inches <= 0.0:
+		return {}
+	var kw: Array = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in kw:
+		diag["why"] = "aircraft"
+		return {}
+	var n_probes := get_param_int("HEAVY_CREEP_PROBES", HEAVY_CREEP_PROBES)
+	if n_probes <= 0:
+		diag["why"] = "no probes"
+		return {}
+	var t0 := Time.get_ticks_usec()
+	var unit_name := _dn(unit, unit_id)
+	var members := _move_cover_members(unit, snapshot, true)
+	if members.is_empty():
+		return {}
+	# 13.06 adds the distance moved down as well as up and the engine never
+	# models a descent: a creep is planned for ground-level models only.
+	for mb in members:
+		if float(mb.model.get("elevation_inches", 0.0)) > 0.0:
+			diag["why"] = "elevated"
+			_debug_log_info("HEAVY_CREEP %s: a model stands above the ground floor — holds for [HEAVY] (no creep planned)" % unit_name)
+			return {}
+	var plan_in := minf(HEAVY_CREEP_LIMIT_INCHES, move_inches)
+	var cap_px := plan_in * PIXELS_PER_INCH * 0.95  # the placement ladder's per-model cap (safe_move_px)
+	# Half a pixel inside the cap, so float error never trips the cap screen.
+	var reach_px := cap_px - 0.5
+	# The fitted formation is what the move carries; a leader it leaves where
+	# he stands (`moves` false) shapes no fit but is judged in every claim.
+	var offsets: Array = []
+	var exts: Array = []
+	var r_min := INF
+	var spread := 0.0
+	for mb in members:
+		exts.append(_mfs_extent_px(mb.model))
+		if not bool(mb.get("moves", true)):
+			continue
+		offsets.append(mb.orig - centroid)
+		var r := _mc_radius_px(mb.model)
+		r_min = minf(r_min, r)
+		spread = maxf(spread, (mb.orig - centroid).length() + r)
+
+	# --- the stay: T7-26's alternative, priced on the same ledger
+	var stay_pos := _move_cover_shift(members, Vector2.ZERO)
+	var probe_stay := _move_cover_probe_unit(unit, members, stay_pos)
+	var threat_cache := {}
+	var own_ids := {unit_id: true}
+	for mb in members:
+		own_ids[str(mb.unit.get("id", ""))] = true
+	var deployed := _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var char_obstacles: Array = []
+	for dm in deployed:
+		if not own_ids.has(str(dm.get("unit_id", ""))):
+			char_obstacles.append(dm)
+	var hc := {
+		"tm": tm, "re": re, "unit": unit, "unit_id": unit_id, "snapshot": snapshot, "members": members,
+		"exts": exts, "target_pos": target_pos, "enemies": enemies, "threat_data": threat_data,
+		"threat_cache": threat_cache, "full_px": move_inches * PIXELS_PER_INCH, "obj_id": obj_id,
+		"char_obstacles": char_obstacles,
+	}
+	hc["stay_gap"] = _unit_gap_to_objective_px(probe_stay, target_pos)
+	hc["stay_in"] = _unit_has_model_in_control_range(probe_stay, target_pos)
+	hc["stay_oc"] = _mfs_oc_in_range(unit, unit_id, snapshot, members, stay_pos, target_pos)
+	hc["threats_stay"] = _move_cover_threats(members, stay_pos, enemies, threat_cache)
+	hc["mc_ctx"] = {"enemies": enemies, "shootable": _mc_shootable(enemies), "snapshot": snapshot,
+		"has_ranged": true, "max_wr": max_wr, "gtg_budget": {"n": 0}, "p": centroid}
+	hc["e_stay"] = _mc_eval(tm, unit, members, stay_pos, hc.threats_stay, hc.mc_ctx, true)
+	hc["thr_stay"] = 0.0 if threat_data.is_empty() \
+		else float(_evaluate_position_threat(centroid, threat_data, unit).total_threat)
+
+	# --- proposals: the straight creep, terrain-area fits, a lane fan
+	var objective := _objective_at_pos(target_pos)
+	var obj_pieces: Array = objective.get("source_pieces", []) if objective.get("source_pieces", []) is Array else []
+	var straight_t := _projected_move_end(centroid, _objective_approach_target(unit, target_pos), plan_in * 0.95)
+	var props: Array = []
+	var fit_stats := {"pulled": 0, "unreach": 0}
+	_hc_add_prop(props, straight_t, "objective", centroid, reach_px)
+	var regions := _move_cover_regions(tm, centroid, cap_px + spread, r_min, obj_pieces, str(objective.get("id", "")))
+	for rg in regions:
+		_hc_add_prop(props, _mc_fit_disc(offsets, centroid, rg.cover_poly, centroid, reach_px, fit_stats),
+			"cover", centroid, reach_px, rg)
+		_hc_add_prop(props, _mc_fit_disc(offsets, straight_t, rg.cover_poly, centroid, reach_px, fit_stats),
+			"cover", centroid, reach_px, rg)
+	var n_fan := get_param_int("HEAVY_CREEP_FAN_HEADINGS", HEAVY_CREEP_FAN_HEADINGS)
+	var fan: Array = []
+	for k in range(maxi(n_fan, 0)):
+		for len_f in HEAVY_CREEP_FAN_LENGTHS:
+			fan.append(centroid + Vector2.from_angle(TAU * float(k) / float(n_fan)) * reach_px * float(len_f))
+	fan.sort_custom(func(a, b): return Vector2(a).distance_to(straight_t) < Vector2(b).distance_to(straight_t))
+	for q in fan:
+		_hc_add_prop(props, q, "lane", centroid, reach_px)
+
+	# --- cheap screens, each the mirror of a mover stage that would bend the
+	# spot (so the target that is sent is the move that comes back), then the
+	# objective guards and the cheap ledger
+	var snap_terrain: Array = snapshot.get("board", {}).get("terrain_features", [])
+	var bg_models := _get_alive_models_with_positions(unit)
+	var lead: Dictionary = bg_models[0] if not bg_models.is_empty() else {}
+	var lead_bm := int(lead.get("base_mm", 0))
+	var enemy_centroids: Array = []
+	for eid in enemies:
+		var ecen := _get_unit_centroid(enemies[eid])
+		if ecen != Vector2.INF:
+			enemy_centroids.append(ecen)
+	var mv_models: Array = [] if "FLY" in kw else _get_monster_vehicle_models(snapshot, unit_id)
+	var max_cands := get_param_int("HEAVY_CREEP_MAX_CANDIDATES", HEAVY_CREEP_MAX_CANDIDATES)
+	var rej := {"cap": 0, "path": 0, "nudge": 0, "place": 0, "char": 0, "penalty": 0, "solid": 0, "loss": 0,
+		"turns": 0, "control": 0, "oc": 0, "lane_lost": 0}
+	var survivors: Array = []
+	for pr in props:
+		if survivors.size() >= max_cands:
+			break
+		var t: Vector2 = pr.t
+		var d: Vector2 = t - centroid
+		if d.length() > cap_px:
+			rej.cap += 1
+			continue
+		if _move_path_blocked(centroid, t, kw, snap_terrain, unit) \
+				or (lead_bm > 0 and _path_blocked_by_solid_terrain_direct(centroid, t, lead_bm,
+					str(lead.get("base_type", "circular")), lead.get("base_dimensions", {}), kw)):
+			rej.path += 1
+			continue
+		if _mc_cover_nudge_would_rotate(centroid, t, kw, snap_terrain, enemy_centroids, unit):
+			rej.nudge += 1  # _find_cover_path would turn it 15-30°
+			continue
+		if _mc_place_fail(unit, d, enemies, deployed, mv_models, cap_px) != "":
+			rej.place += 1
+			continue
+		var positions := _move_cover_shift(members, d)
+		if _heavy_creep_char_fail(members, positions, enemies, char_obstacles):
+			rej.char += 1
+			continue
+		if _heavy_creep_penalty(members, positions, centroid, t, kw, unit):
+			rej.penalty += 1
+			continue
+		if _mfs_in_solid_feature(tm, positions, exts):
+			rej.solid += 1
+			continue
+		var g := _heavy_creep_guard(hc, positions)
+		if str(g.why) != "":
+			rej[str(g.why)] = int(rej.get(str(g.why), 0)) + 1
+			continue
+		var ct := _heavy_creep_terms(hc, g, positions, t)
+		survivors.append({"t": t, "kind": str(pr.kind), "region": pr.region, "idx": int(pr.idx),
+			"positions": positions, "probe": g.probe, "loss_in": float(g.loss_in), "oc": int(g.oc),
+			"terms": ct.terms, "ev": ct.ev, "cheap": _hc_sum(ct.terms)})
+	diag["threats"] = (hc.threats_stay as Array).size()
+	diag["regions"] = regions.size()
+	diag["proposals"] = props.size()
+	diag["rej"] = rej
+	diag["evaluated"] = survivors.size()
+	diag["stay_value"] = float(hc.e_stay.value)
+
+	# --- engine probes, best cheap value first: the [HEAVY] pair guard and the lane
+	var probes_used := 0
+	var best := {}
+	var stay_pairs := {}
+	var shot_stay := 0.0
+	if not survivors.is_empty():
+		var reach_in := float(re.max_ranged_weapon_range_inches(unit_id, snapshot))
+		var slack_in := 1.0  # an inch over the reach, so the pre-filter never drops a target the engine would accept
+		var only_ids := {}
+		var shootable: Dictionary = hc.mc_ctx.shootable
+		for eid in shootable:
+			var e: Dictionary = shootable[eid]
+			var status = e.get("status", 0)
+			if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES \
+					or e.get("embarked_in", null) != null:
+				continue
+			var near := INF
+			for ent in _mfs_target_entries(re, e, str(eid), snapshot):
+				var op := _get_model_position(ent[0])
+				var orr := _mfs_extent_px(ent[0])
+				for i in range(members.size()):
+					near = minf(near, (op.distance_to(members[i].orig) - orr - float(exts[i])) / PIXELS_PER_INCH)
+			if near <= reach_in + plan_in + slack_in:
+				only_ids[str(eid)] = true
+		hc["only_ids"] = only_ids
+		hc["heavy_wids"] = _heavy_creep_heavy_wids(re, unit_id, snapshot)
+		var stay_probe := _heavy_creep_probe(hc, stay_pos, probe_stay)
+		stay_pairs = stay_probe.pairs
+		shot_stay = float(stay_probe.shot)
+		hc["pairs_stay"] = stay_pairs
+		hc["elig_stay"] = stay_probe.elig
+		hc["shot_stay"] = shot_stay
+		var kind_rank := {"objective": 0, "cover": 1, "lane": 2}
+		survivors.sort_custom(func(a, b):
+			if absf(float(a.cheap) - float(b.cheap)) > 1e-6:
+				return float(a.cheap) > float(b.cheap)
+			if int(kind_rank.get(a.kind, 3)) != int(kind_rank.get(b.kind, 3)):
+				return int(kind_rank.get(a.kind, 3)) < int(kind_rank.get(b.kind, 3))
+			var da := Vector2(a.t).distance_to(straight_t)
+			var db := Vector2(b.t).distance_to(straight_t)
+			if absf(da - db) > 1e-6:
+				return da < db
+			return int(a.idx) < int(b.idx)
+		)
+		var lane_w := get_param("HEAVY_CREEP_LANE_WEIGHT", HEAVY_CREEP_LANE_WEIGHT)
+		for sv in survivors:
+			if probes_used >= n_probes:
+				break
+			probes_used += 1
+			var pr2 := _heavy_creep_probe(hc, sv.positions, sv.probe)
+			if not _hc_pairs_kept(stay_pairs, pr2.pairs):
+				rej.lane_lost += 1
+				continue
+			_t_add(sv.terms, "hc_lane", lane_w * (float(pr2.shot) - shot_stay))
+			sv["gain"] = _hc_sum(sv.terms)
+			sv["pairs"] = pr2.pairs
+			sv["elig"] = pr2.elig
+			if best.is_empty() or _hc_better(sv, best, straight_t):
+				best = sv
+	diag["probes"] = probes_used
+	diag["pairs_stay"] = stay_pairs.size()
+	diag["shot_stay"] = shot_stay
+	diag["best_gain"] = float(best.gain) if not best.is_empty() else -INF
+	var min_gain := get_param("HEAVY_CREEP_MIN_GAIN", HEAVY_CREEP_MIN_GAIN)
+	var rej_txt := "cap=%d,path=%d,nudge=%d,place=%d,char=%d,penalty=%d,solid=%d,loss=%d,turns=%d,control=%d,oc=%d,lane_lost=%d" % [
+		rej.cap, rej.path, rej.nudge, rej.place, rej.char, rej.penalty, rej.solid, rej.loss, rej.turns, rej.control,
+		rej.oc, rej.lane_lost]
+	if best.is_empty() or float(best.gain) < min_gain:
+		diag["why"] = "no gain"
+		_debug_log_info("HEAVY_CREEP %s: stay value=%.2f pairs=%d shot=%.2f threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d probes=%d best=%s gain=%s — holds for [HEAVY] (%.1f ms)" % [
+			unit_name, float(hc.e_stay.value), stay_pairs.size(), shot_stay, (hc.threats_stay as Array).size(),
+			regions.size(), props.size(), rej_txt, survivors.size(), probes_used,
+			("(%.0f,%.0f) %s" % [best.t.x, best.t.y, str(best.kind)]) if not best.is_empty() else "none",
+			("%.2f [%s]" % [float(best.gain), _stay_engaged_terms_text(best.terms)]) if not best.is_empty() else "none",
+			float(Time.get_ticks_usec() - t0) / 1000.0])
+		if best.is_empty():
+			_add_thinking_step("%s: holds still for [HEAVY] — no move of 3\" or less is legal and keeps its [HEAVY] targets" % unit_name)
+		else:
+			_add_thinking_step("%s: holds still for [HEAVY] — no move of 3\" or less buys enough (best %+.2f < %.2f)" % [
+				unit_name, float(best.gain), min_gain])
+		return {}
+
+	# --- the mover, once; its destinations re-checked
+	var saved_notes: Array = _move_shape_notes.duplicate()
+	_move_shape_notes = []
+	var dests := _compute_movement_toward_target(unit, unit_id, best.t, plan_in, snapshot, enemies, 0.0, [], objectives)
+	var gen_notes: Array = _move_shape_notes.duplicate()
+	var check := _heavy_creep_recheck(hc, dests)
+	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+	if not bool(check.keep):
+		_move_shape_notes = saved_notes
+		diag["why"] = "recheck"
+		diag["recheck_why"] = str(check.why)
+		_debug_log_info("HEAVY_CREEP %s: creep to (%.0f,%.0f) dropped after the move (%s) — holds for [HEAVY] as before (%.1f ms)" % [
+			unit_name, best.t.x, best.t.y, str(check.why), ms])
+		_add_thinking_step("%s: holds still for [HEAVY] — the planned creep did not survive placement (%s)" % [unit_name, str(check.why)])
+		return {}
+	# Why it creeps: the largest positive term; the action line's words.
+	var cterms: Dictionary = check.terms
+	var why_code := "cover"
+	var why_v := 0.0
+	for k in [["hc_cover", "cover"], ["hc_objective", "objective"], ["hc_lane", "lane"], ["hc_progress", "progress"]]:
+		var v := float(cterms.get(k[0], 0.0))
+		if v > why_v:
+			why_v = v
+			why_code = str(k[1])
+	var new_ids: Array = []
+	for tid in check.elig:
+		if not (hc.elig_stay as Dictionary).has(tid):
+			new_ids.append(tid)
+	check["why_code"] = why_code
+	check["new_ids"] = new_ids
+	match why_code:
+		"cover":
+			check["reason_suffix"] = ", into cover"
+		"objective":
+			check["reason_suffix"] = ", onto the objective"
+		"lane":
+			check["reason_suffix"] = (", for a line to %s" % _hc_names(snapshot, new_ids)) if not new_ids.is_empty() else ", for a better shot"
+		_:
+			check["reason_suffix"] = ""
+	# The area every model ends in (the note's words).
+	var area_label := ""
+	if bool(check.ev.get("in_area", false)):
+		if not (best.region as Dictionary).is_empty():
+			area_label = str(best.region.get("label", ""))
+		if area_label == "":
+			var at: Dictionary = tm.area_at(check.positions[0]) if not (check.positions as Array).is_empty() else {}
+			area_label = "%s (%s terrain)" % [str(at.get("type", "terrain")).replace("_", " "), str(tm.category_of(at))] \
+				if not at.is_empty() else "terrain"
+	check["area_label"] = area_label
+	var note := _heavy_creep_note(hc, check)
+	var notes: Array = [note]
+	notes.append_array(gen_notes)
+	_move_shape_notes = notes.duplicate()
+	diag["why"] = "creep"
+	best["probes"] = probes_used
+	_debug_log_info("HEAVY_CREEP %s: stay value=%.2f pairs=%d shot=%.2f threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d probes=%d best=(%.0f,%.0f) %s gain=%.2f -> creeps %.2f\" to (%.0f,%.0f), re-checked gain %.2f [%s] (%.1f ms)" % [
+		unit_name, float(hc.e_stay.value), stay_pairs.size(), shot_stay, (hc.threats_stay as Array).size(),
+		regions.size(), props.size(), rej_txt, survivors.size(), probes_used, best.t.x, best.t.y, str(best.kind),
+		float(best.gain), float(check.moved_in), check.end.x, check.end.y, float(check.gain),
+		_stay_engaged_terms_text(check.terms), ms])
+	return {"dests": dests, "notes": notes, "pick": best, "check": check}
+
+## FIX_HEAVY_CREEP follow-through: is the creep still a creep, and still worth
+## it, on the destinations the mover RETURNED (spiral re-placement, relaxed
+## rungs, anything the screens did not predict)? Every model — attached
+## CHARACTERs carried by the first staged bodyguard model's delta — within 3"
+## by the engine's count (_heavy_creep_moved_inches, whatever
+## FIX_MOVE_TERRAIN_11E is), no Solid overlap (13.06.01), the characters'
+## spots legal, the objective guards against the stay, every [HEAVY] pair the
+## stay had (the engine, on the board as it would stand), and the whole ledger
+## re-priced there beating holding still by HEAVY_CREEP_MIN_GAIN.
+static func _heavy_creep_recheck(hc: Dictionary, dests: Dictionary) -> Dictionary:
+	var out := {"keep": false, "why": "", "gain": 0.0, "terms": {}, "moved_in": 0.0, "end": Vector2.INF,
+		"positions": [], "ev": {}, "n_threats": 0, "oc": 0, "loss_in": 0.0, "gap_in": 0.0, "pairs": {},
+		"elig": {}, "n_pairs": 0, "why_code": "", "reason_suffix": "", "new_ids": [], "area_label": ""}
+	if dests.is_empty():
+		out.why = "no legal placement for every model"
+		return out
+	var members: Array = hc.members
+	var positions := _mfs_positions_from_dests(members, dests)
+	out["positions"] = positions
+	var end := _destinations_centroid(dests)
+	out["end"] = end
+	var moved := _heavy_creep_moved_inches(str(hc.unit_id), members, dests)
+	out["moved_in"] = moved
+	if moved > HEAVY_CREEP_LIMIT_INCHES:
+		out.why = "a model would move %.2f\", more than the %.0f\" [HEAVY] allows" % [moved, HEAVY_CREEP_LIMIT_INCHES]
+		return out
+	if moved <= 0.0:
+		out.why = "no model would move"
+		return out
+	if _mfs_in_solid_feature(hc.tm, positions, hc.exts):
+		out.why = "a model would end through a Solid feature (13.06.01)"
+		return out
+	var obstacles: Array = (hc.char_obstacles as Array).duplicate()
+	for i in range(members.size()):
+		if not members[i].is_char:
+			var m: Dictionary = members[i].model
+			obstacles.append({"position": positions[i], "base_mm": m.get("base_mm", 32),
+				"base_type": m.get("base_type", "circular"), "base_dimensions": m.get("base_dimensions", {}),
+				"rotation": m.get("rotation", 0.0)})
+	if _heavy_creep_char_fail(members, positions, hc.enemies, obstacles):
+		out.why = "an attached CHARACTER would end on a model or within Engagement Range"
+		return out
+	var g := _heavy_creep_guard(hc, positions)
+	out["loss_in"] = float(g.loss_in)
+	if str(g.why) != "":
+		out.why = "objective guard: %s" % str(g.why)
+		return out
+	out["oc"] = int(g.oc)
+	out["gap_in"] = float(g.gap) / PIXELS_PER_INCH
+	var ct := _heavy_creep_terms(hc, g, positions, end)
+	var terms: Dictionary = ct.terms
+	out["ev"] = ct.ev
+	out["n_threats"] = int(ct.n_threats)
+	var pr := _heavy_creep_probe(hc, positions, g.probe)
+	out["pairs"] = pr.pairs
+	out["elig"] = pr.elig
+	out["n_pairs"] = (pr.pairs as Dictionary).size()
+	if not _hc_pairs_kept(hc.pairs_stay, pr.pairs):
+		out.why = "it would lose a [HEAVY] target it has from where it stands"
+		return out
+	_t_add(terms, "hc_lane", get_param("HEAVY_CREEP_LANE_WEIGHT", HEAVY_CREEP_LANE_WEIGHT) * (float(pr.shot) - float(hc.shot_stay)))
+	out["terms"] = terms
+	var gain := _hc_sum(terms)
+	out["gain"] = gain
+	var min_gain := get_param("HEAVY_CREEP_MIN_GAIN", HEAVY_CREEP_MIN_GAIN)
+	if gain < min_gain:
+		out.why = "its gain fell to %.2f (needs %.2f)" % [gain, min_gain]
+		return out
+	out.keep = true
+	return out
+
+## The player-visible move-shape note for a kept creep (Suggest (K) card and
+## the "<unit> move: …" thinking step). "no model moves more than 3\"" is the
+## stable anchor the windowed scenario reads. Every claim comes from the
+## re-check on the returned destinations (`check`).
+static func _heavy_creep_note(hc: Dictionary, check: Dictionary) -> String:
+	var snapshot: Dictionary = hc.snapshot
+	var terms: Dictionary = check.terms
+	var ev: Dictionary = check.ev
+	var obj_id := str(hc.obj_id)
+	var n_models := (hc.members as Array).size()
+	var n_thr := int(check.n_threats)
+	var plural := "" if n_thr == 1 else "s"
+	var clauses: Array = []
+	if float(terms.get("hc_cover", 0.0)) > 0.0:
+		if bool(ev.get("all_hidden", false)) and bool(ev.get("hold_fire_ok", false)) and int(ev.get("n_blind", 0)) > 0:
+			clauses.append("ends Hidden next turn from %d of %d enemy shooter%s that could reach it" % [int(ev.n_blind), n_thr, plural])
+		if bool(ev.get("in_area", false)):
+			var area := str(check.area_label)
+			var inside := ("ends inside the %s" % area) if n_models == 1 else ("ends with all %d models inside the %s" % [n_models, area])
+			clauses.append("%s for the Benefit of Cover (-1 BS) against %d of %d enemy shooter%s that could reach it" % [
+				inside, int(ev.get("n_cov", 0)), n_thr, plural])
+		elif int(ev.get("n_cov", 0)) > 0:
+			clauses.append("ends behind terrain, not fully visible to %d of %d enemy shooter%s that could reach it, for the Benefit of Cover (-1 BS) against them" % [
+				int(ev.n_cov), n_thr, plural])
+	if float(terms.get("hc_objective", 0.0)) > 0.0:
+		clauses.append("puts a model within range of %s (OC %d)" % [obj_id, int(check.oc)])
+	if float(terms.get("hc_lane", 0.0)) > 0.0:
+		var new_ids: Array = check.new_ids
+		var stay_ids: Array = (hc.elig_stay as Dictionary).keys()
+		if new_ids.is_empty():
+			clauses.append("its shot is worth more from there")
+		else:
+			clauses.append("from there it can see %s (holding still it had %s)" % [_hc_names(snapshot, new_ids),
+				"no target" if stay_ids.is_empty() else _hc_names(snapshot, stay_ids)])
+	if float(terms.get("hc_progress", 0.0)) > 0.0:
+		clauses.append("closes %.1f\" on %s" % [maxf(0.0, -float(check.loss_in)), obj_id])
+	var kept_ids: Array = []
+	for k in hc.pairs_stay:
+		var tid := str(k).get_slice("|", 0)
+		if not kept_ids.has(tid):
+			kept_ids.append(tid)
+	if not kept_ids.is_empty():
+		clauses.append("keeps %s in its sights" % _hc_names(snapshot, kept_ids))
+	return "Creeps %.1f\" instead of holding still — no model moves more than 3\", so its [HEAVY] weapons keep +1 to hit (24.16): %s" % [
+		float(check.moved_in), "; ".join(clauses) if not clauses.is_empty() else "its spot is worth more than standing still"]
 
 # =============================================================================
 # FIX_INDIRECT_STATIONARY: REMAIN STATIONARY TO ARM [INDIRECT FIRE] (11e 10.07 / 09.04)

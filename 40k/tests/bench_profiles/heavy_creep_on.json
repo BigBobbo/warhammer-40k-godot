@@ -1,0 +1,9 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Heavy creep ON — opt-in, not shipped",
+	"description": "Enables FIX_HEAVY_CREEP: a unit T7-26 would freeze for its [HEAVY] +1 to hit (_should_hold_for_heavy_bonus, centroid range alone) looks instead for a Normal move of 3\" or less for every model (11e 24.16: [HEAVY] needs the unit unengaged, not set up this turn and no model moved more than 3\" — attached CHARACTERs included, by the engine's own distance) that buys cover (FIX_MOVE_COVER's end-spot value, _mc_eval), its plan objective's range (14.02) or a firing lane (the shot on offer over the targets RulesEngine.get_eligible_targets accepts there), keeps every (target, [HEAVY] weapon) pair the engine allows from where it stands, passes FIX_MOVE_COVER's objective guards and beats holding still by HEAVY_CREEP_MIN_GAIN; the mover is called once at a 3\" cap and its destinations re-checked, else T7-26's REMAIN_STATIONARY is unchanged. A unit set up on the battlefield this turn (disembarked, reserves, Deep Strike) has no bonus to keep and makes its planned move instead. Units with an [INDIRECT FIRE] weapon keep the hold (FIX_INDIRECT_STATIONARY's 10.07 band). Read only on a T7-26 hold, so armies without a [HEAVY] weapon (every 2000-pt bench fixture) play byte-identically with it on: the V2-1 fire gate needs a fixture with [HEAVY] guns (Ork Lootas, the sm11e_* Space Marine saves). NOT the shipped default (ships at 0); this is the arm to load for the fire gate / paired A/B, and what tests/scenarios/sp/ai_heavy_creep.json loads. Fire tag: '[FIX_HEAVY_CREEP] <unit> heavy_hold old=hold new=creep why=<cover|objective|lane|progress> end=(x,y) moved=<in> gain=<pts> ...' or '... new=move why=set_up_this_turn'. Exam: tests/exams/mv10_creep_to_keep_heavy.json.",
+	"parameters": {
+		"FIX_HEAVY_CREEP": 1.0
+	}
+}
