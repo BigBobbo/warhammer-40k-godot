@@ -65,6 +65,7 @@ func _run():
 		GameConstants.edition = 11
 		await test_composite_refusal_keeps_session()
 		await test_deploy_unit_refusal_keeps_session()
+		await test_lifted_leader_updates_coherency_circles()
 		await test_reposition_refuses_solid_piece_and_off_board()
 		await test_combined_infiltrators_needs_every_member()
 		await test_formation_position_reads_model_keywords()
@@ -257,6 +258,29 @@ func test_deploy_unit_refusal_keeps_session() -> void:
 	_assert(int(bb.status) == DEPLOYED and _finalized_tokens(dc, ["U_BURNA_BOYZ_A"]) == 5 and _confirmed == 1 and dc.unit_id == "",
 		"re-Confirm accepted: DEPLOYED, 5 board tokens, session closed")
 	_clear_obstacle("U_CUSTODIAN_GUARD_B")
+	_free_dc(dc)
+
+func test_lifted_leader_updates_coherency_circles() -> void:
+	print("\n--- lifting an attached leader keeps the coherency circles live ---")
+	var phase = await _load()
+	if phase == null:
+		return
+	var dc = _make_dc()
+	dc.begin_deploy("U_LOOTAS_A")
+	dc._on_model_type_selected("bg_U_LOOTAS_A")
+	var mek := Vector2(620.0, 2310.0)
+	_assert(_place(dc, _lootas_two_ranks() + [mek]) == 11 and dc.coherency_circles.size() == 11,
+		"11 models staged, one coherency circle each")
+	var held: Dictionary = dc._get_deployed_model_at_position(mek)
+	_assert(int(held.get("model_index", -1)) == 10, "Shift+click hit-test finds the Big Mek at combined slot 10")
+	dc._start_model_repositioning(held)
+	dc._update_coherency_circles()
+	# The lifted slot's circle is hidden inside the per-circle loop; the old code
+	# indexed the bodyguard's 10-model array with slot 10 and aborted every frame
+	# before reaching it ("Invalid access of index '10'").
+	_assert(dc.is_repositioning() and not dc.coherency_circles[10].visible and dc.coherency_circles[0].visible,
+		"the lifted leader's circle is hidden and the squad's circles stay live (the update ran through)")
+	dc._cancel_model_repositioning()
 	_free_dc(dc)
 
 func test_reposition_refuses_solid_piece_and_off_board() -> void:

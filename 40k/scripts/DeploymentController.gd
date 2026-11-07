@@ -1742,11 +1742,14 @@ func _update_coherency_circles() -> void:
 
 	if repositioning_model and reposition_ghost:
 		ghost_pos = reposition_ghost.position
-		var unit_data = GameState.get_unit(unit_id)
-		ghost_model_data = unit_data["models"][reposition_model_index]
+		# Combined-roster aware (bodyguard models, then the attached characters'):
+		# reading the bodyguard's own models at the lifted slot threw "Invalid
+		# access of index" every frame while an attached LEADER was lifted (its
+		# slot is past the squad's model count), so the circles never updated.
+		ghost_model_data = _reposition_model_data(reposition_model_index)
 		if reposition_ghost.has_method("get_base_rotation"):
 			ghost_rotation = reposition_ghost.get_base_rotation()
-		has_ghost = true
+		has_ghost = not ghost_model_data.is_empty()
 	elif ghost_sprite != null and model_idx < temp_positions.size():
 		ghost_pos = ghost_sprite.position
 		if is_combined_deployment and model_idx < combined_models.size():
