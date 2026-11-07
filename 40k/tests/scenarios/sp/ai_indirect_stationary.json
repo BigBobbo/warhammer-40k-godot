@@ -10,7 +10,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "FIX_INDIRECT_STATIONARY (ships OFF): a unit whose ranged output is mainly [INDIRECT FIRE] Remains Stationary instead of making its planned Normal move when the spotted shot is worth more — 11e 10.07: an [INDIRECT FIRE] attack at a target the unit cannot see gets the target the benefit of cover (13.08) and fails on an unmodified 1-5, but only on 1-3 if the unit Remained Stationary (09.04) and a friendly unit sees the target. Same position as exam mv09: Custodian Guard Beta carries a constructed BS 3+ [BLAST, INDIRECT FIRE] mortar, its only target (Custodian Guard Alpha) is Hidden in area-medium-35 (13.09 as errata'd) more than 21\" away, and our Prosecutors on obj_center see it. With tests/bench_profiles/indirect_stationary_on.json loaded, the real Suggest (K) card for Beta reads 'Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha (Prosecutors can see it ...)' with the 'How this turn's move was shaped' notes (the 1-3 vs 1-5 band, the spotter, the progress given up). Clearing the profile restores the shipped default: Beta's planned Normal move toward obj_home_2. Reloading restores the stay; executing it leaves Beta unmoved with remained_stationary set and the engine's fail band at 1-3. The guard: Custodian Guard Delta, same spotter and target but a BS 5+ lobba (6+ after the indirect cover either way, 02.02.01), is still suggested its Normal move.",
+  "description": "FIX_INDIRECT_STATIONARY (ships OFF): a unit whose ranged output is mainly [INDIRECT FIRE] Remains Stationary instead of making its planned Normal move when the spotted shot is worth more — 11e 10.07: an [INDIRECT FIRE] attack at a target the unit cannot see gets the target the benefit of cover (13.08) and fails on an unmodified 1-5, but only on 1-3 if the unit Remained Stationary (09.04) and a friendly unit sees the target. Same position as exam mv09: Custodian Guard Beta carries a constructed BS 3+ [BLAST, INDIRECT FIRE] mortar, its only target (Custodian Guard Alpha) is Hidden in area-medium-35 (13.09 as errata'd) more than 21\" away, and our Prosecutors on obj_center see it. With tests/bench_profiles/indirect_stationary_on.json loaded, the real Suggest (K) card for Beta reads 'Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha (Prosecutors can see it ...)' with the 'How this turn's move was shaped' notes (the 1-3 vs 1-5 band, the spotter, the progress given up). Clearing the profile restores the shipped default: Beta's planned Normal move toward obj_home_2. Reloading restores the stay; executing it leaves Beta unmoved with remained_stationary set and the engine's fail band at 1-3. Review fix (01.02.04): with the Prosecutors sent to Strategic Reserves the way Acrobatic Escape does (status only, old positions kept, so the engine's sight lines still use them) Beta has no spotter it can count on and is suggested its Normal move; back on the battlefield, the stay returns. The guard: Custodian Guard Delta, same spotter and target but a BS 5+ lobba (6+ after the indirect cover either way, 02.02.01), is still suggested its Normal move.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -139,6 +139,54 @@
       "act": "screenshot",
       "label": "01b_indirect_stationary_closeup",
       "comment": "Beta (no move arrows) west, the Prosecutors on obj_center, Custodian Guard Alpha in area-medium-35"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# REVIEW FIX (01.02.04 as errata'd): a unit in Strategic Reserves is not on\n# the battlefield and sees nothing. Send the Prosecutors there the way\n# Acrobatic Escape does - status only, old positions kept (the engine's\n# sight lines still use them). Beta then has no spotter it can count on:\n# its suggestion is the planned Normal move. Before the fix it stayed and\n# named the Prosecutors as a spotter that 'cannot move this phase'.\nvar pa = GameState.state.units[\"U_PROSECUTORS_A\"]\nif int(pa.get(\"status\", -1)) != GameStateData.UnitStatus.DEPLOYED:\n\treturn false\npa[\"status\"] = GameStateData.UnitStatus.IN_RESERVES\nif not RulesEngine.unit_sight_line(\"U_PROSECUTORS_A\", \"U_CUSTODIAN_GUARD_A_P2\", GameState.state, false).has_los:\n\treturn false  # the premise: their old positions still 'see' Alpha\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\" and not d.has(\"_ai_indirect_hold\") and not str(d.get(\"_ai_description\", \"\")).contains(\"to arm its indirect fire\") and not str(d.get(\"_ai_move_adjustments\", [])).contains(\"Prosecutors can see\")",
+      "equals": true,
+      "comment": "the Prosecutors in Strategic Reserves (old positions kept): no spotter, Beta keeps its Normal move"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Beta moves toward obj\") and not main._ai_suggestion_panel.full_text.contains(\"Prosecutors can see\")",
+      "equals": true,
+      "comment": "the K card: the Normal move, no claim that a unit in reserves sees anything"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.focus_on_world_point(Vector2(740.0, 1190.0), false, Vector2(0.41, 0.5))\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01c_indirect_stationary_spotter_in_reserves",
+      "comment": "the Prosecutors' tokens still stand on obj_center but they are in Strategic Reserves: Beta's K card is its Normal move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Back on the battlefield: the stay, and its spotter, return.\nGameState.state.units[\"U_PROSECUTORS_A\"][\"status\"] = GameStateData.UnitStatus.DEPLOYED\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha (Prosecutors can see it\")",
+      "equals": true
     },
     {
       "act": "execute_script",

@@ -3081,7 +3081,11 @@ const STAY_ENGAGED_FREE_TARGET_WEIGHT: float = 1.0   # × what our other shooter
 # wound, the T7-24 rule), and Remains Stationary when staying wins by
 # INDIRECT_STATIONARY_MIN_MARGIN, its best target there is one it cannot see,
 # the engine's band there really is 1-3, and a RELIABLE friendly unit sees
-# that target (it has acted this phase, is planned to hold, or cannot move).
+# that target (on the battlefield, 01.02.04, and it has acted this phase, is
+# planned to hold, or cannot move). The stay board is priced as only those
+# reliable spotters leave it, and only shots the Shooting phase may take are
+# priced: no [BLAST] attack at a unit engaged with one of ours (17.03 as
+# errata'd; the SHOOT sanitizer's LAST-1 check).
 # Only for a unit whose nominal ranged output is mainly [INDIRECT FIRE]; the
 # flag is read only for units that carry an [INDIRECT FIRE] weapon. [HEAVY]
 # (24.16) is priced as the engine applies it, never changed here (that is
@@ -8018,6 +8022,13 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# screens did not predict) still ends Hidden / in cover and still clears
 			# the objective guards. If it does not, redo the move straight at the
 			# pre-cover target — exactly the move the flag-off AI makes.
+			# Their fire tags ("[FIX_MOVE_COVER] / [FIX_MOVE_FOR_SHOT] ... end spot
+			# old=... new=...") wait in pending_fix_tags and are printed only on the
+			# BEGIN_NORMAL_MOVE return below: a move FIX_INDIRECT_STATIONARY turns
+			# into a hold never reaches its kept spot, so it is not a changed move
+			# (one tag line per changed move). Only where they are printed changes;
+			# play is the same for every flag combination.
+			var pending_fix_tags: Array = []
 			var cover_kept := false
 			var cover_kind := ""  # the re-checked kind: what the note, tag and reason claim
 			if not cover_pick.is_empty():
@@ -8031,7 +8042,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							float(mc_check.gain)])
 					_move_shape_notes.push_front(_move_cover_note(cover_pick, mc_check, assigned_obj_id))
 					var mc_end: Vector2 = mc_check.get("end", cover_pick.end)
-					print("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=(%.0f,%.0f) new=(%.0f,%.0f) kind=%s gain=%.2f loss=%.1f\" blind=%d/%d covered=%d/%d gtg=%d" % [
+					pending_fix_tags.append("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=(%.0f,%.0f) new=(%.0f,%.0f) kind=%s gain=%.2f loss=%.1f\" blind=%d/%d covered=%d/%d gtg=%d" % [
 						unit_name, cover_pick.base_end.x, cover_pick.base_end.y, mc_end.x, mc_end.y,
 						cover_kind, float(mc_check.gain), maxf(0.0, float(mc_check.loss_in)),
 						int(mc_check.n_blind), int(mc_check.n_threats), int(mc_check.n_cov), int(mc_check.n_threats),
@@ -8056,7 +8067,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						_move_shape_notes = cover_notes
 						if not model_destinations.is_empty():
 							var mc_kept_end := _destinations_centroid(model_destinations)
-							print("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=none new=(%.0f,%.0f) kind=unclaimed (the straight move found no legal placement)" % [
+							pending_fix_tags.append("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=none new=(%.0f,%.0f) kind=unclaimed (the straight move found no legal placement)" % [
 								unit_name, mc_kept_end.x, mc_kept_end.y])
 
 			# --- FIX_MOVE_FOR_SHOT: end the move with a shot for the next Shooting phase ---
@@ -8086,7 +8097,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						model_destinations = fs_dests
 						_move_shape_notes.push_front(_move_for_shot_note(shot_pick, fs_check, assigned_obj_id))
 						var fs_end: Vector2 = fs_check.get("end", shot_pick.end)
-						print("AIDecisionMaker: [FIX_MOVE_FOR_SHOT] %s end spot old=no_shot new=%s why=%s end=(%.0f,%.0f) base_end=(%.0f,%.0f) loss=%.1f\" ev=%.2f probes=%d" % [
+						pending_fix_tags.append("AIDecisionMaker: [FIX_MOVE_FOR_SHOT] %s end spot old=no_shot new=%s why=%s end=(%.0f,%.0f) base_end=(%.0f,%.0f) loss=%.1f\" ev=%.2f probes=%d" % [
 							unit_name, str(fs_check.target_id), str(fs_check.why_code), fs_end.x, fs_end.y,
 							shot_pick.base_end.x, shot_pick.base_end.y, maxf(0.0, float(fs_check.loss_in)),
 							float(fs_check.ev), int(shot_pick.probes)])
@@ -8127,6 +8138,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						unit_name, float(ind.stay_score), float(ind.move_score), str(ind.target_id),
 						str(ind.spotter_id), float(ind.ev_stay), float(ind.ev_move)])
 					var ind_notes: Array = (ind.notes as Array).duplicate()
+					if not pending_fix_tags.is_empty():
+						_debug_log_info("INDIRECT_STATIONARY %s: %d batch-1 fire tag line(s) not printed — the move they describe is not made" % [
+							unit_name, pending_fix_tags.size()])
 					if cover_kept or not shot_kept.is_empty():
 						var ind_dropped := "cover" if cover_kept else "shot"
 						_debug_log_info("INDIRECT_STATIONARY %s: the planned %s spot is dropped — any move loses the 1-3 band" % [
@@ -8152,6 +8166,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					}
 
 			if not model_destinations.is_empty():
+				# The batch-1 fire tags, now that this move is the one returned.
+				for tag_line in pending_fix_tags:
+					print(tag_line)
 				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
 				var obj_dist_inches = _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
@@ -15661,7 +15678,9 @@ static func _should_hold_for_heavy_bonus(
 # Stationary instead of making the move the chain settled on? Every rules
 # question is the engine's: RulesEngine.get_eligible_targets (range alone for
 # an [INDIRECT FIRE] weapon; Lone Operative, Psychic Veil and targets engaged
-# with our units applied), preview_attack (10.07's fail band read off the
+# with our units applied), validate_blast_targeting through the SHOOT
+# sanitizer's _ai_blast_target_allowed (17.03 as errata'd: no [BLAST] attack
+# at a unit engaged with ours), preview_attack (10.07's fail band read off the
 # board, the indirect benefit of cover, no hit re-rolls, 13.08 cover per
 # firing model, [HEAVY] 24.16 from the board's flags), _indirect_hit_fail_band_11e
 # and unit_sight_line (13.09 Hidden as errata'd with 13.11.01 Gone to Ground,
@@ -15756,15 +15775,40 @@ static func _indirect_stationary_board(snapshot: Dictionary, unit_id: String, me
 	hypo["units"] = units
 	return hypo
 
+## May the unit's weapon `wid` target `tid` at all? 17.03 as errata'd lets an
+## engaged MONSTER/VEHICLE be the target of ranged attacks "(excluding attacks
+## made with [BLAST] weapons)": get_eligible_targets keeps such a target for
+## every weapon (other weapons may shoot it), and preview_attack prices the
+## shot, but RulesEngine.validate_shoot rejects it and the SHOOT sanitizer
+## drops it (LAST-1) — so the sanitizer's own predicate,
+## _ai_blast_target_allowed, decides here. Judged on the snapshot (the board
+## as this Movement phase has left it so far): the firing unit itself is never
+## counted and a Normal move cannot end in Engagement Range, so the answer is
+## the same for staying and for the move. Cached per evaluation in `cache`
+## ("weapon|target"); a refusal is logged once.
+static func _indirect_blast_ok(unit_id: String, wid: String, tid: String, snapshot: Dictionary,
+		cache: Dictionary) -> bool:
+	var key := "%s|%s" % [wid, tid]
+	if not cache.has(key):
+		var ok := _ai_blast_target_allowed(unit_id, wid, tid, snapshot)
+		cache[key] = ok
+		if not ok:
+			var units: Dictionary = snapshot.get("units", {})
+			_debug_log_info("INDIRECT_STATIONARY %s: [BLAST] %s cannot target %s — it is engaged with one of our units (17.03), so that shot is not priced" % [
+				_dn(units.get(unit_id, {}), unit_id), wid, _dn(units.get(tid, {}), tid)])
+	return bool(cache[key])
+
 ## The formation's best target on `board` next Shooting phase: for each target
 ## the engine accepts there (get_eligible_targets limited to `only_ids`, in
 ## board order), the expected wounds of every weapon it lists for that target
-## (preview_attack's expected_effective_damage; [ONE SHOT] left out), capped
+## (preview_attack's expected_effective_damage; [ONE SHOT] left out, and a
+## [BLAST] weapon at a target it may not shoot, _indirect_blast_ok), capped
 ## at the wounds the target's Attached unit has left, × its points per wound
-## × `w_shot`. A tie keeps the earlier target. {} when nothing is eligible.
+## × `w_shot`. A target no weapon can legally damage is not a candidate. A
+## tie keeps the earlier target. {} when there is none.
 ## Keys: id, name, ev, hp, ppw, value, weapons (names that deal damage).
 static func _indirect_stationary_price(re, unit_id: String, board: Dictionary, only_ids: Dictionary,
-		snapshot: Dictionary, w_shot: float) -> Dictionary:
+		snapshot: Dictionary, w_shot: float, blast_ok: Dictionary) -> Dictionary:
 	var best := {}
 	if only_ids.is_empty():
 		return best
@@ -15778,6 +15822,8 @@ static func _indirect_stationary_price(re, unit_id: String, board: Dictionary, o
 		for wid in elig[tid].get("weapons_in_range", []):
 			if re.is_one_shot_weapon(str(wid), board):
 				continue
+			if not _indirect_blast_ok(unit_id, str(wid), str(tid), snapshot, blast_ok):
+				continue
 			var pa: Dictionary = re.preview_attack(unit_id, str(tid), str(wid), board)
 			var e := maxf(0.0, float(pa.get("expected_effective_damage", 0.0)))
 			if e <= 0.0:
@@ -15786,58 +15832,147 @@ static func _indirect_stationary_price(re, unit_id: String, board: Dictionary, o
 			var wn := str(pa.get("weapon_name", wid))
 			if not wnames.has(wn):
 				wnames.append(wn)
+		if ev <= 0.0:
+			continue
 		var worth := w_shot * minf(ev, float(g.hp)) * float(g.ppw)
 		if best.is_empty() or worth > float(best.value) + 1e-9:
 			best = {"id": str(tid), "name": str(g.name), "ev": ev, "hp": float(g.hp), "ppw": float(g.ppw),
 				"value": worth, "weapons": wnames}
 	return best
 
+## Is the unit off the battlefield (01.02.04 as errata'd: a unit that is
+## embarked or in Strategic Reserves is not on the battlefield, and no other
+## unit is visible to it; nor is a unit not yet deployed)? Some engine paths
+## (Acrobatic Escape and the other end-of-turn redeploys, EVASIVE MANOOVA,
+## GameState.return_aircraft_to_reserves) leave such a unit with its old model
+## positions, so its positions alone do not tell.
+static func _indirect_off_battlefield(u: Dictionary) -> bool:
+	var status = u.get("status", 0)
+	return status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES \
+		or u.get("embarked_in", null) != null
+
+## Why friendly unit `fid` (as `board` has it) will still stand where it
+## stands, on the battlefield, when our Shooting phase comes — the reason the
+## notes quote — or "" when it cannot be counted on as a spotter: not one of
+## `player`'s units, or one of our own Attached unit (`own_ids`); off the
+## battlefield (_indirect_off_battlefield, itself or the bodyguard it is
+## attached to); no positioned alive model; or a unit that has yet to move
+## (it may walk out of sight before the Shooting phase) unless
+## `trust_unmoved`. RELIABLE: it, or the bodyguard it is attached to, has
+## already acted this phase (flags.moved; valid for the active player, as
+## MovementPhase.has_unit_acted_this_phase reads it), is planned to hold, or
+## has no movement action left.
+static func _indirect_spotter_why(fid: String, fu: Dictionary, board: Dictionary, snapshot: Dictionary,
+		player: int, own_ids: Array, assignments: Dictionary, movable_units: Dictionary,
+		trust_unmoved: bool) -> String:
+	if int(fu.get("owner", 0)) != player or fid in own_ids:
+		return ""
+	if _indirect_off_battlefield(fu) or _get_alive_models_with_positions(fu).is_empty():
+		return ""
+	var mover := _attached_unit_target_id(fid, snapshot)
+	var mu: Dictionary = board.get("units", {}).get(mover, fu)
+	if _indirect_off_battlefield(mu):
+		return ""
+	if bool(mu.get("flags", {}).get("moved", false)):
+		return "has already moved"
+	if str(assignments.get(mover, {}).get("action", "")) == "hold":
+		return "is planned to hold"
+	if not movable_units.has(mover):
+		return "cannot move this phase"
+	if trust_unmoved:
+		return "has yet to move"
+	return ""
+
 ## A friendly unit that will still stand where it stands when our Shooting
 ## phase comes, and sees `target_id` on `board` (the stay option): the first
-## of `player`'s units outside our own Attached unit (`own_ids`), with
-## positioned alive models and not embarked (01.02.04), that is RELIABLE —
-## it, or the bodyguard it is attached to, has already acted this phase
-## (flags.moved; valid for the active player, as
-## MovementPhase.has_unit_acted_this_phase reads it), is planned to hold, or
-## has no movement action left — or any such unit with `trust_unmoved`. {}
-## when none: a unit that has yet to move may walk out of sight before the
-## Shooting phase. Keys: id, name, why.
+## of `player`'s units, in board order, that _indirect_spotter_why counts on
+## and whose sight line reaches the target. {} when none. Keys: id, name, why.
 static func _indirect_stationary_spotter(re, target_id: String, board: Dictionary, snapshot: Dictionary,
 		player: int, own_ids: Array, assignments: Dictionary, movable_units: Dictionary,
 		trust_unmoved: bool) -> Dictionary:
 	var units: Dictionary = board.get("units", {})
 	for fid in units:
 		var fu: Dictionary = units[fid]
-		if int(fu.get("owner", 0)) != player or str(fid) in own_ids:
-			continue
-		if fu.get("embarked_in", null) != null or _get_alive_models_with_positions(fu).is_empty():
-			continue
-		var mover := _attached_unit_target_id(str(fid), snapshot)
-		var mu: Dictionary = units.get(mover, fu)
-		var why := ""
-		if bool(mu.get("flags", {}).get("moved", false)):
-			why = "has already moved"
-		elif str(assignments.get(mover, {}).get("action", "")) == "hold":
-			why = "is planned to hold"
-		elif not movable_units.has(mover):
-			why = "cannot move this phase"
-		elif trust_unmoved:
-			why = "has yet to move"
-		else:
+		var why := _indirect_spotter_why(str(fid), fu, board, snapshot, player, own_ids, assignments,
+			movable_units, trust_unmoved)
+		if why == "":
 			continue
 		if bool(re.unit_sight_line(str(fid), target_id, board, false).get("has_los", false)):
 			return {"id": str(fid), "name": _dn(fu, str(fid)), "why": why}
 	return {}
 
+## The stay board as only the spotters we can count on leave it. The engine's
+## fail band (RulesEngine._indirect_hit_fail_band_11e, read by preview_attack)
+## counts every friendly unit's sight line, so a unit that may walk out of
+## sight first, or is not on the battlefield, would arm the stay option's
+## targets — and a target only it sees could outbid one a reliable spotter
+## arms. On a copy, every friendly unit outside our own Attached unit
+## (`own_ids`) that _indirect_spotter_why rejects has its models marked not
+## alive — except a unit within Engagement Range of an enemy unit (by the
+## engine's own predicate, positions as they stand), whose engagement still
+## decides 04.02 / 17.03 / [BLAST] for its enemy (models never block sight
+## lines, so nothing else changes); the spotter search still refuses to name
+## it. Names of the units marked off are appended to `masked`. Copies only.
+static func _indirect_reliable_board(re, board: Dictionary, snapshot: Dictionary, player: int,
+		own_ids: Array, assignments: Dictionary, movable_units: Dictionary, trust_unmoved: bool,
+		enemies: Dictionary, masked: Array) -> Dictionary:
+	var units: Dictionary = board.get("units", {})
+	var out_units := {}
+	var spreads := {}
+	for fid in units:
+		var fu: Dictionary = units[fid]
+		# No positioned alive model: it can neither see nor be engaged — nothing to mark off.
+		if int(fu.get("owner", 0)) != player or str(fid) in own_ids \
+				or _get_alive_models_with_positions(fu).is_empty():
+			continue
+		if _indirect_spotter_why(str(fid), fu, board, snapshot, player, own_ids, assignments,
+				movable_units, trust_unmoved) != "":
+			continue
+		var engaged := false
+		for eid in enemies:
+			var eu: Dictionary = units.get(str(eid), {})
+			if eu.is_empty() or _get_alive_models(eu).is_empty() \
+					or not _stay_engaged_maybe_near(str(fid), str(eid), units, spreads):
+				continue
+			if re.check_units_in_engagement_range(fu, eu, board):
+				engaged = true
+				break
+		if engaged:
+			continue
+		var u2: Dictionary = fu.duplicate()
+		var ms: Array = []
+		for m in fu.get("models", []):
+			var m2: Dictionary = (m as Dictionary).duplicate()
+			m2["alive"] = false
+			ms.append(m2)
+		u2["models"] = ms
+		out_units[str(fid)] = u2
+		masked.append(_dn(fu, str(fid)))
+	if out_units.is_empty():
+		return board
+	var all_units: Dictionary = units.duplicate()
+	for fid in out_units:
+		all_units[fid] = out_units[fid]
+	var hypo: Dictionary = board.duplicate()
+	hypo["units"] = all_units
+	return hypo
+
 ## The candidate prior of one spot: Σ range-checked _estimate_weapon_damage
 ## (no sight line) of every ranged, non-[ONE SHOT] weapon of each
-## [component, component as it would stand there] in `shooters` on `tgt_ev`.
-static func _indirect_prior_damage(shooters: Array, tgt_ev: Dictionary, snapshot: Dictionary) -> float:
+## [component, component as it would stand there] in `shooters` on `tgt_ev`
+## (target `tid`) — a [BLAST] weapon only where it may target it at all
+## (_indirect_blast_ok), so an illegal shot cannot crowd a legal target out of
+## the INDIRECT_STATIONARY_MAX_TARGETS priced.
+static func _indirect_prior_damage(unit_id: String, shooters: Array, tid: String, tgt_ev: Dictionary,
+		snapshot: Dictionary, blast_ok: Dictionary) -> float:
 	var total := 0.0
 	for sh in shooters:
 		for w in (sh[0] as Dictionary).get("meta", {}).get("weapons", []):
 			if str(w.get("type", "")).to_lower() != "ranged" \
 					or AbilityRegistry.has_ability(AbilityRegistry.from_weapon(w), "one_shot"):
+				continue
+			if not _indirect_blast_ok(unit_id, _generate_weapon_id(str(w.get("name", "")), str(w.get("type", ""))),
+					tid, snapshot, blast_ok):
 				continue
 			total += _estimate_weapon_damage(w, tgt_ev, snapshot, sh[1])
 	return total
@@ -15863,7 +15998,8 @@ static func _indirect_top_ids(prior: Dictionary, k: int) -> Dictionary:
 ## phase — its Disembark move, 18.04, was its move type for the phase
 ## (09.02), so it did not Remain Stationary, and the engine never sets the
 ## flag for it — it cannot shoot, or it Advanced: 10.07 eligibility), no
-## target in reach, the stay option's best target is one it can see (a
+## target it may legally damage in reach, the stay option's best target —
+## priced as only reliable spotters leave the board — is one it can see (a
 ## normal shot: nothing to arm), the engine's band there is not the spotted
 ## one, no reliable spotter sees that target, or F002 would hold its fire
 ## there anyway. Otherwise both ledgers on one points scale (stay_terms /
@@ -15919,6 +16055,9 @@ static func _indirect_stationary_evaluate(unit: Dictionary, unit_id: String, sna
 	for comp in _indirect_components(unit, snapshot):
 		shooters_now.append([comp, comp])
 		shooters_mv.append([comp, _mfs_unit_at(comp, members, mv)])
+	# Only shots the Shooting phase may take count: a [BLAST] weapon never
+	# ranks a target it may not shoot (17.03, _indirect_blast_ok).
+	var blast_ok := {}
 	var prior_stay := {}
 	var prior_move := {}
 	for eid in _stay_engaged_enemy_heads(enemies, snapshot):
@@ -15926,20 +16065,33 @@ static func _indirect_stationary_evaluate(unit: Dictionary, unit_id: String, sna
 		if float(g.ppw) <= 0.0:
 			continue
 		var tgt_ev := _mfs_ev_target(eid, snapshot)
-		prior_stay[eid] = _indirect_prior_damage(shooters_now, tgt_ev, snapshot) * float(g.ppw)
-		prior_move[eid] = _indirect_prior_damage(shooters_mv, tgt_ev, snapshot) * float(g.ppw)
+		prior_stay[eid] = _indirect_prior_damage(unit_id, shooters_now, eid, tgt_ev, snapshot, blast_ok) * float(g.ppw)
+		prior_move[eid] = _indirect_prior_damage(unit_id, shooters_mv, eid, tgt_ev, snapshot, blast_ok) * float(g.ppw)
 	var only_stay := _indirect_top_ids(prior_stay, k_max)
 	if only_stay.is_empty():
 		return {}
-	# f) Each option's best target, priced by the engine.
+	# f) Each option's best target, priced by the engine. The stay option is
+	# priced as only the spotters it can count on leave the board
+	# (_indirect_reliable_board): a unit that may walk out of sight first, or
+	# is not on the battlefield, never arms a target there — so a target only
+	# it sees is priced at the unarmed band and cannot outbid one a reliable
+	# spotter arms (and adding such a unit never changes the decision).
+	var trust_unmoved := get_param("INDIRECT_STATIONARY_TRUST_UNMOVED", INDIRECT_STATIONARY_TRUST_UNMOVED) >= 0.5
+	var masked: Array = []
+	stay_b = _indirect_reliable_board(re, stay_b, snapshot, player, own_ids, assignments, movable_units,
+		trust_unmoved, enemies, masked)
+	if not masked.is_empty():
+		var masked_more := "" if masked.size() <= 6 else " (+%d more)" % (masked.size() - 6)
+		_debug_log_info("INDIRECT_STATIONARY %s: the stay option is priced without %d unit(s) as spotters (they may move out of sight first, or are not on the battlefield): %s%s" % [
+			unit_name, masked.size(), ", ".join(PackedStringArray(masked.slice(0, 6))), masked_more])
 	var w_shot := get_param("INDIRECT_STATIONARY_SHOT_WEIGHT", INDIRECT_STATIONARY_SHOT_WEIGHT)
-	var st := _indirect_stationary_price(re, unit_id, stay_b, only_stay, snapshot, w_shot)
+	var st := _indirect_stationary_price(re, unit_id, stay_b, only_stay, snapshot, w_shot, blast_ok)
 	if st.is_empty():
 		_debug_log_info("INDIRECT_STATIONARY %s: no eligible target if it stays — keeps the move" % unit_name)
 		return {}
 	# g) Is there anything to arm? Not when it can see its best target (a
 	# normal shot), nor when the engine's band there is no better than the
-	# unarmed one (no friendly unit sees the target).
+	# unarmed one (no friendly unit it can count on sees the target).
 	if bool(re.unit_sight_line(unit_id, str(st.id), stay_b, false).get("has_los", false)):
 		_debug_log_info("INDIRECT_STATIONARY %s: it can see %s from where it stands — a normal shot, nothing to arm" % [
 			unit_name, str(st.name)])
@@ -15947,15 +16099,14 @@ static func _indirect_stationary_evaluate(unit: Dictionary, unit_id: String, sna
 	var band_stay := int(re._indirect_hit_fail_band_11e(unit_id, str(st.id), stay_b))
 	var band_unarmed := int(re._indirect_hit_fail_band_11e(unit_id, str(st.id), move_b))
 	if band_stay >= band_unarmed:
-		_debug_log_info("INDIRECT_STATIONARY %s: no friendly unit sees %s — staying would still fail on 1-%d" % [
+		_debug_log_info("INDIRECT_STATIONARY %s: no friendly unit it can count on sees %s — staying would still fail on 1-%d" % [
 			unit_name, str(st.name), band_stay])
 		return {}
-	# h) A reliable spotter: one that will still see the target when we shoot.
+	# h) Name the reliable spotter: one that will still see the target when we shoot.
 	var spotter := _indirect_stationary_spotter(re, str(st.id), stay_b, snapshot, player, own_ids,
-		assignments, movable_units,
-		get_param("INDIRECT_STATIONARY_TRUST_UNMOVED", INDIRECT_STATIONARY_TRUST_UNMOVED) >= 0.5)
+		assignments, movable_units, trust_unmoved)
 	if spotter.is_empty():
-		_debug_log_info("INDIRECT_STATIONARY %s: only units that have yet to move can see %s — keeps the move" % [
+		_debug_log_info("INDIRECT_STATIONARY %s: only units it cannot count on can see %s (an engaged unit that has yet to act, or one of its own Attached unit) — keeps the move" % [
 			unit_name, str(st.name)])
 		return {}
 	# i) F002 (hold fire to stay Hidden, 13.09), predicted at both spots.
@@ -15966,7 +16117,7 @@ static func _indirect_stationary_evaluate(unit: Dictionary, unit_id: String, sna
 	# same shot from the new spot (1-5, or a direct shot if the move sees it).
 	var only_move := _indirect_top_ids(prior_move, k_max)
 	only_move[str(st.id)] = true
-	var mvp := _indirect_stationary_price(re, unit_id, move_b, only_move, snapshot, w_shot)
+	var mvp := _indirect_stationary_price(re, unit_id, move_b, only_move, snapshot, w_shot, blast_ok)
 	var move_shot := float(mvp.get("value", 0.0))
 	if not mvp.is_empty() and _mfs_f002_would_hold(unit, members, mv, _destinations_centroid(dests),
 			{"ev": float(mvp.ev), "hp": float(mvp.hp)}, enemies):

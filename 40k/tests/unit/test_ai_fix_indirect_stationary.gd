@@ -26,9 +26,14 @@ extends SceneTree
 # after the indirect cover either way), a target it can see, an objective the
 # move would take (the term decides), it cannot arm (disembarked, cannot
 # shoot), a minority [INDIRECT FIRE] unit, a planned charge / an Advance
-# plan, F002 hold fire; the ledgers sum and price 3x for BS 3+; [HEAVY] is
-# priced as the engine applies it; _finalize_movement_decision stops booking
-# the plan's objective; the batch-1 flags compose with it.
+# plan, F002 hold fire, a [BLAST] shot at an engaged VEHICLE (17.03 as
+# errata'd — the [INDIRECT FIRE]-only control still stays), an unreliable
+# spotter's target never outbids a reliably spotted one, units in Strategic
+# Reserves / not deployed / embarked are no spotters (01.02.04), and the
+# reliable stay board keeps every engaged unit; the ledgers sum and price 3x
+# for BS 3+; [HEAVY] is priced as the engine applies it;
+# _finalize_movement_decision stops booking the plan's objective; the
+# batch-1 flags compose with it, and their fire tags print only with a move.
 #
 # Run with: godot --headless --path . -s tests/unit/test_ai_fix_indirect_stationary.gd
 # (runs once the scene tree is up: the stage reads RulesEngine /
@@ -57,6 +62,12 @@ const HEAVY_MORTAR := {"name": "Heavy mortar", "type": "Ranged", "range": "36", 
 	"strength": "8", "ap": "-2", "damage": "2", "special_rules": "blast, heavy, indirect fire"}
 const PLAIN_MORTAR4 := {"name": "Mortar four", "type": "Ranged", "range": "36", "attacks": "2", "ballistic_skill": "4",
 	"strength": "8", "ap": "-2", "damage": "2", "special_rules": "blast, indirect fire"}
+## The 17.03 control: the same mortar without [BLAST].
+const IND_MORTAR := {"name": "Indirect mortar", "type": "Ranged", "range": "36", "attacks": "2", "ballistic_skill": "3",
+	"strength": "8", "ap": "-2", "damage": "2", "special_rules": "indirect fire"}
+## (f) exam mv05's cover geometry (the FIX_MOVE_COVER test's base case).
+const COVER_OBJ := Vector2(600.0, 1200.0)
+const COVER_HALF := Vector2(140.0, 230.0)
 const MISSILE := {"name": "Hunter missile", "type": "Ranged", "range": "48", "attacks": "1", "ballistic_skill": "3",
 	"strength": "10", "ap": "-2", "damage": "6", "special_rules": "indirect fire, one shot"}
 const SPEAR_R := {"name": "Guardian spear - Ranged", "type": "Ranged", "range": "24", "attacks": "2",
@@ -127,10 +138,15 @@ func _run_tests():
 	test_guard_minority_indirect_moves()
 	test_guard_charge_and_advance_unchanged()
 	test_guard_f002_hold_fire_predicted()
+	test_guard_blast_at_engaged_vehicle()
+	test_guard_unreliable_spotter_never_decides()
+	test_guard_off_battlefield_spotter()
+	test_guard_masking_keeps_engagement()
 	test_ledger_sums_and_ratio()
 	test_heavy_indirect_priced()
 	test_finalize_intent_not_credited()
 	test_composes_with_batch1_flags()
+	test_batch1_tags_wait_for_the_move()
 
 	for k in KNOBS:
 		AIDM._config_overrides.erase(k)
@@ -277,6 +293,62 @@ func _sum(terms: Dictionary) -> float:
 	for k in terms:
 		s += float(terms[k])
 	return s
+
+func _ind_brief(ind: Dictionary) -> String:
+	if ind.is_empty():
+		return "{}"
+	return "stay=%s target=%s spotter=%s (%s) stay=%.1f move=%.1f move_target=%s" % [str(ind.stay), str(ind.target_id),
+		str(ind.spotter_id), str(ind.spotter_why), float(ind.stay_score), float(ind.move_score), str(ind.move_target_id)]
+
+## A Solid wall (a dense feature, 13.11) between the battery and the east.
+func _wall() -> Dictionary:
+	return {"id": "wall", "piece_class": "feature", "type": "wall", "category": "dense", "height_category": "tall",
+		"can_move_through": {"INFANTRY": false, "MONSTER": false, "VEHICLE": false},
+		"polygon": _rect(1000.0, 200.0, 1020.0, 1000.0)}
+
+## The 17.03 board: battery B behind the wall; the enemy VEHICLE T (one 90 mm
+## model, W10, 150 pts: 15 pts per wound) in the open east of it, engaged with
+## our infantry F, which has already acted this phase — a reliable spotter
+## standing right next to it.
+func _engaged_vehicle_board(battery_weapon: Dictionary) -> Dictionary:
+	var snap = _snapshot([_wall()], [_obj(OBJ)])
+	_add(snap, "B", 1, _line(B_X0, B_Y), [battery_weapon, SPEAR_M])
+	_add(snap, "T", 2, [Vector2(1400.0, 600.0)], [SPEAR_M], ["VEHICLE"], 10, 90, 150)
+	var f = _add(snap, "F", 1, [Vector2(1300.0, 548.0), Vector2(1300.0, 600.0), Vector2(1300.0, 652.0)],
+		[BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	f.flags["moved"] = true
+	f.flags["remained_stationary"] = true
+	return snap
+
+## Two Hidden targets: T1 (300 pts, 20 per wound) seen only by S1, which has
+## yet to move; T2 (150 pts, 10 per wound) seen only by S2, which has already
+## moved.
+func _two_target_board() -> Dictionary:
+	var snap = _snapshot([_hide(), _dense_area("hide2", 1250.0, 260.0, 1610.0, 340.0)], [_obj(OBJ)])
+	_add(snap, "B", 1, _line(B_X0, B_Y), [MORTAR, SPEAR_M])
+	_add(snap, "T1", 2, _line(T_X0, T_Y), [SPEAR_M], ["INFANTRY"], 3, 40, 300)
+	_add(snap, "T2", 2, _line(T_X0, 300.0), [SPEAR_M], ["INFANTRY"], 3, 40, 150)
+	_add(snap, "S1", 1, _line(S_X0, S_Y, 4, 55.0), [BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	var s2 = _add(snap, "S2", 1, _line(S_X0, 480.0, 4, 55.0), [BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	s2.flags["moved"] = true
+	return snap
+
+## (f) exam mv05's cover geometry with the squad carrying the mortar: an
+## objective in a dense area FIX_MOVE_COVER ends the move in cover inside, a
+## shooter to the south, and a Hidden 300-pt target T that our S sees.
+func _cover_combo_board() -> Dictionary:
+	var pieces: Array = [
+		_dense_area("area_obj", COVER_OBJ.x - COVER_HALF.x, COVER_OBJ.y - COVER_HALF.y,
+			COVER_OBJ.x + COVER_HALF.x, COVER_OBJ.y + COVER_HALF.y),
+		_dense_area("hide", 1250.0, 1860.0, 1610.0, 1940.0),
+	]
+	var objs: Array = [{"id": "obj_area", "position": COVER_OBJ, "zone": "no_mans_land", "source_pieces": ["area_obj"]}]
+	var snap = _snapshot(pieces, objs)
+	_add(snap, "B", 1, _line(530.0, 850.0), [MORTAR, SPEAR_M])
+	_add(snap, "SHOOTER", 2, _line(540.0, 2010.0), [SPEAR_R, SPEAR_M])
+	_add(snap, "T", 2, _line(1300.0, 1900.0), [SPEAR_M], ["INFANTRY"], 3, 40, 300)
+	_add(snap, "S", 1, _line(900.0, 1700.0, 4, 55.0), [BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	return snap
 
 # --- (a) ON -----------------------------------------------------------------
 
@@ -538,6 +610,164 @@ func test_guard_f002_hold_fire_predicted() -> void:
 	_assert(_evaluate(snap, dests).is_empty(), "F002 at 5.0 would hold its fire to stay Hidden: nothing to arm")
 	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
 
+## Review finding: 17.03 as errata'd lets an engaged MONSTER/VEHICLE be the
+## target of ranged attacks "(excluding attacks made with [BLAST] weapons)".
+## get_eligible_targets keeps it for every weapon and preview_attack prices
+## the shot, but validate_shoot and the SHOOT sanitizer (LAST-1) reject it —
+## the stage once stayed for that shot (22.2 vs 16.8) and then had nothing to
+## fire. The [INDIRECT FIRE]-only control is a legal shot (at -1 to hit).
+func test_guard_blast_at_engaged_vehicle() -> void:
+	print("\n--- (c) guard: a [BLAST] mortar never stays for a shot at an engaged VEHICLE (17.03); an [INDIRECT FIRE]-only one still does ---")
+	var snap = _engaged_vehicle_board(MORTAR)
+	var wid: String = AIDM._generate_weapon_id(str(MORTAR.name), str(MORTAR.type))
+	var elig: Dictionary = re.get_eligible_targets("B", snap, false)
+	_assert(elig.has("T") and wid in elig.get("T", {}).get("weapons_in_range", []),
+		"precondition (engine): get_eligible_targets keeps the engaged VEHICLE for the [BLAST] mortar")
+	_assert(not bool(re.validate_blast_targeting("B", "T", wid, snap).get("valid", true)),
+		"precondition (engine): validate_blast_targeting rejects it (T is engaged with F)")
+	_assert(not bool(re.unit_sight_line("B", "T", snap, false).has_los) and bool(re.unit_sight_line("F", "T", snap, false).has_los),
+		"precondition (engine): B cannot see T past the wall; F can")
+	var dests := _off_dests(snap)
+	_assert(not dests.is_empty(), "flag off: B makes its planned Normal move")
+	_fix(1.0)
+	var ind := _evaluate(snap, dests)
+	_assert(ind.is_empty(), "the stage prices no shot it may not take: {} (got %s)" % _ind_brief(ind))
+	var d_on = _decide(snap)
+	_fix(0.0)
+	var d_off = _decide(snap)
+	_assert(_shape(d_on) == _shape(d_off) and str(d_on.get("type", "")) == "BEGIN_NORMAL_MOVE",
+		"decide(): the flag-off Normal move (got %s)" % str(d_on.get("type", "")))
+	# The control: no [BLAST], so 17.03 lets the engaged VEHICLE be shot.
+	var snap2 = _engaged_vehicle_board(IND_MORTAR)
+	var wid2: String = AIDM._generate_weapon_id(str(IND_MORTAR.name), str(IND_MORTAR.type))
+	_assert(bool(re.validate_blast_targeting("B", "T", wid2, snap2).get("valid", false)),
+		"control precondition (engine): without [BLAST] the shot is not restricted")
+	var dests2 := _off_dests(snap2)
+	_fix(1.0)
+	var ind2 := _evaluate(snap2, dests2)
+	print("  control ledger: %s" % str({"stay": ind2.get("stay_terms"), "move": ind2.get("move_terms"), "ev": [ind2.get("ev_stay"), ind2.get("ev_move")]}))
+	_assert(not ind2.is_empty() and bool(ind2.get("stay", false)) and str(ind2.get("target_id", "")) == "T" \
+			and str(ind2.get("spotter_id", "")) == "F",
+		"control: it stays to arm the legal shot, F the spotter (got %s)" % _ind_brief(ind2))
+	var s2 := float(ind2.get("stay_terms", {}).get("ind_stay_shot", 0.0))
+	var m2 := float(ind2.get("move_terms", {}).get("ind_move_shot", 0.0))
+	_assert(m2 > 0.0 and absf(s2 / m2 - 2.0) < 0.01,
+		"control: the 17.03 -1 to hit leaves the band doubling the hits, not tripling them (1/3 vs 1/6; got %.3f)" % (s2 / m2 if m2 > 0.0 else -1.0))
+	var d2 = _decide(snap2)
+	_assert(str(d2.get("type", "")) == "REMAIN_STATIONARY", "control decide(): REMAIN_STATIONARY (got %s)" % str(d2.get("type", "")))
+	var after: Dictionary = _board_at(snap2, "B", {})
+	after.units["B"].flags["moved"] = true
+	after.units["B"].flags["remained_stationary"] = true
+	var kept: Array = AIDM._sanitize_shoot_assignments("B", [{"weapon_id": wid2, "target_unit_id": "T", "model_ids": []}], after)
+	_assert(kept.size() == 1, "control: the Shooting phase's SHOOT sanitizer keeps the armed shot")
+
+## Review finding: the engine's fail band counts every friendly unit, so on a
+## stay board that kept S1 (planned to move, may walk off) T1 priced armed
+## (100 pts), won, failed the reliability check, and the stage returned {} —
+## hiding T2, which S2 (already moved) arms. The stay board now counts only
+## spotters it can count on: adding an unreliable unit changes nothing.
+func test_guard_unreliable_spotter_never_decides() -> void:
+	print("\n--- (c) guard: a target only an unmoved unit sees cannot hide one a reliable spotter arms ---")
+	var snap = _two_target_board()
+	_assert(not bool(re.unit_sight_line("B", "T1", snap, false).has_los) and not bool(re.unit_sight_line("B", "T2", snap, false).has_los),
+		"precondition (engine): B sees neither target")
+	_assert(bool(re.unit_sight_line("S1", "T1", snap, false).has_los) and not bool(re.unit_sight_line("S1", "T2", snap, false).has_los) \
+			and bool(re.unit_sight_line("S2", "T2", snap, false).has_los) and not bool(re.unit_sight_line("S2", "T1", snap, false).has_los),
+		"precondition (engine): S1 sees only T1, S2 only T2")
+	var dests := _off_dests(snap)
+	var movable := {"B": ["BEGIN_NORMAL_MOVE", "REMAIN_STATIONARY"], "S1": ["BEGIN_NORMAL_MOVE", "REMAIN_STATIONARY"]}
+	var plan := {"S1": {"action": "move", "objective_id": "obj"}}
+	_fix(1.0)
+	var ind := _evaluate(snap, dests, OBJ, movable, plan)
+	var no_s1: Dictionary = snap.duplicate(true)
+	for m in no_s1.units["S1"].models:
+		m["alive"] = false
+	var ind0 := _evaluate(no_s1, dests, OBJ, movable, plan)
+	print("  with S1: %s\n  without: %s" % [_ind_brief(ind), _ind_brief(ind0)])
+	_assert(not ind.is_empty() and bool(ind.stay) and str(ind.target_id) == "T2" and str(ind.spotter_id) == "S2",
+		"S1 unreliable: it stays to arm T2 (S2 has already moved) — not {}")
+	_assert(not ind.is_empty() and absf(float(ind.stay_shot) - 50.0) < 0.01, "T2 armed: 5.0 wounds x 10 pts per wound")
+	_assert(not ind.is_empty() and str(ind.move_target_id) == "T1", "the move option's best shot is T1 at 1-5")
+	_assert(not ind.is_empty() and not ind0.is_empty() and str(ind.target_id) == str(ind0.target_id) \
+			and str(ind.spotter_id) == str(ind0.spotter_id) and absf(float(ind.stay_score) - float(ind0.stay_score)) < 1e-6 \
+			and absf(float(ind.move_score) - float(ind0.move_score)) < 1e-6,
+		"adding the unreliable S1 changes nothing: same target, spotter and ledgers as without it")
+	var ind_h := _evaluate(snap, dests, OBJ, movable, {"S1": {"action": "hold", "objective_id": "obj"}})
+	_assert(not ind_h.is_empty() and bool(ind_h.stay) and str(ind_h.target_id) == "T1" and absf(float(ind_h.stay_shot) - 100.0) < 0.01,
+		"S1 planned to hold (reliable): T1 armed, 100 pts (got %s)" % _ind_brief(ind_h))
+	_knob("INDIRECT_STATIONARY_TRUST_UNMOVED", 1.0)
+	var ind_t := _evaluate(snap, dests, OBJ, movable, plan)
+	AIDM._config_overrides.erase("INDIRECT_STATIONARY_TRUST_UNMOVED")
+	_assert(not ind_t.is_empty() and str(ind_t.target_id) == "T1" and str(ind_t.spotter_why) == "has yet to move",
+		"TRUST_UNMOVED 1.0: S1 counts, T1 armed (got %s)" % _ind_brief(ind_t))
+
+## Review finding: 01.02.04 as errata'd — a unit that is embarked or in
+## Strategic Reserves is not on the battlefield (and no unit is visible to
+## it). Acrobatic Escape and the other redeploys leave such a unit with its
+## old positions, which the engine's sight lines still use; it was accepted as
+## a "cannot move this phase" spotter.
+func test_guard_off_battlefield_spotter() -> void:
+	print("\n--- (c) guard: a unit in Strategic Reserves / not deployed / embarked is no spotter, even with its old positions (01.02.04) ---")
+	var cases := {"in reserves": {"status": GameStateData.UnitStatus.IN_RESERVES},
+		"not deployed": {"status": GameStateData.UnitStatus.UNDEPLOYED},
+		"embarked": {"embarked_in": "RHINO"}}
+	for label in cases:
+		var snap = _board()
+		for k in cases[label]:
+			snap.units["S"][k] = cases[label][k]
+		_assert(bool(re.unit_sight_line("S", "T", snap, false).has_los), "%s: precondition (engine): S's old positions still 'see' T" % label)
+		var dests := _off_dests(snap)
+		_fix(1.0)
+		var ind := _evaluate(snap, dests)
+		_assert(ind.is_empty(), "%s: S is not a spotter -> {} (got %s)" % [label, _ind_brief(ind)])
+		var d_on = _decide(snap)
+		_fix(0.0)
+		var d_off = _decide(snap)
+		_assert(_shape(d_on) == _shape(d_off) and str(d_on.get("type", "")) == "BEGIN_NORMAL_MOVE",
+			"%s: decide() keeps the flag-off Normal move" % label)
+	# A spotter on the battlefield is the one named, even after a unit in
+	# reserves in board order.
+	var snap2 = _board()
+	snap2.units["S"]["status"] = GameStateData.UnitStatus.IN_RESERVES
+	_add(snap2, "S3", 1, _line(S_X0, S_Y + 70.0, 4, 55.0), [BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	_assert(bool(re.unit_sight_line("S3", "T", snap2, false).has_los), "precondition (engine): S3 sees T")
+	var dests2 := _off_dests(snap2)
+	_fix(1.0)
+	var ind2 := _evaluate(snap2, dests2)
+	_assert(not ind2.is_empty() and bool(ind2.stay) and str(ind2.spotter_id) == "S3",
+		"S in reserves first in board order, S3 on the battlefield: S3 is the spotter (got %s)" % _ind_brief(ind2))
+	var d2 = _decide(snap2)
+	_assert(str(d2.get("_ai_description", "")).contains("(S3 can see it") and not str(d2.get("_ai_move_adjustments", [])).contains("S can see T"),
+		"the action line and the note name S3, never the unit in reserves (got %s)" % str(d2.get("_ai_description", "")))
+
+## The reliable stay board marks off only units with no engagement to keep:
+## one within Engagement Range of an enemy still decides 04.02 / 17.03 /
+## [BLAST] for that enemy. Marking U off would make the engaged T look
+## unengaged — an eligible target the Shooting phase may not take.
+func test_guard_masking_keeps_engagement() -> void:
+	print("\n--- (c) guard: a unit the stay board cannot count on is marked off only when it is not engaged ---")
+	var snap = _board()
+	# U: our infantry 0.26" from T, not yet acted (unreliable) — engaged, so T
+	# (INFANTRY) is no legal ranged target (04.02).
+	_add(snap, "U", 1, [Vector2(1300.0, 1433.0), Vector2(1365.0, 1433.0), Vector2(1430.0, 1433.0)], [BOLTGUN, CCW],
+		["INFANTRY"], 1, 32, 45)
+	# S1: our unmoved infantry far from every enemy — unreliable and unengaged.
+	_add(snap, "S1", 1, _line(100.0, 2000.0, 3), [BOLTGUN, CCW])
+	var movable := {"B": ["BEGIN_NORMAL_MOVE", "REMAIN_STATIONARY"], "U": ["BEGIN_FALL_BACK", "REMAIN_STATIONARY"],
+		"S1": ["BEGIN_NORMAL_MOVE", "REMAIN_STATIONARY"]}
+	var plan := {"S1": {"action": "move", "objective_id": "obj"}}
+	_assert(bool(re.check_units_in_engagement_range(snap.units["U"], snap.units["T"], snap)), "precondition (engine): U is engaged with T")
+	_assert(not re.get_eligible_targets("B", snap, false).has("T"), "precondition (engine): T is no eligible target (04.02)")
+	var masked: Array = []
+	var rel: Dictionary = AIDM._indirect_reliable_board(re, snap, snap, 1, ["B"], plan, movable, false,
+		AIDM._get_enemy_units(snap, 1), masked)
+	_assert(masked == ["S1"], "marked off: S1 only — not the engaged U, not the reliable S (got %s)" % str(masked))
+	_assert(not re.get_eligible_targets("B", rel, false).has("T"), "on that board T is still no eligible target (U's engagement kept)")
+	_assert(snap.units["S1"].models[0].alive == true, "the snapshot is never written")
+	var dests := _off_dests(snap)
+	_fix(1.0)
+	_assert(_evaluate(snap, dests, OBJ, movable, plan).is_empty(), "the stage finds no legal target: {}")
+
 # --- (d) the ledger -----------------------------------------------------------
 
 func test_ledger_sums_and_ratio() -> void:
@@ -620,4 +850,38 @@ func test_composes_with_batch1_flags() -> void:
 	var d_lob_off = _decide(lob)
 	_assert(_shape(d_lob_on) == _shape(d_lob_off), "BS 5+ with the batch-1 flags on: this flag changes nothing (their move stands)")
 	for k in ["FIX_MOVE_COVER", "FIX_MOVE_FOR_SHOT", "FIX_MOVE_FOR_CHARGE"]:
+		AIDM._config_overrides.erase(k)
+
+## Review finding: FIX_MOVE_COVER / FIX_MOVE_FOR_SHOT printed their fire tag
+## ("[FIX_MOVE_COVER] ... end spot old=... new=...") when they kept a spot —
+## before this stage — so a move the stage then turned into a hold still
+## counted as a changed move. The tags now wait in pending_fix_tags and print
+## only on the BEGIN_NORMAL_MOVE return. The decisions below are live; the
+## print itself is checked live by this case's stdout (no
+## "[FIX_MOVE_COVER] B end spot" line in the both-on run) and pinned in the
+## source as a regression net — a pin, not a behaviour test.
+func test_batch1_tags_wait_for_the_move() -> void:
+	print("\n--- (f) FIX_MOVE_COVER keeps a cover spot, then this stage stays: the cover fire tag is not printed ---")
+	var snap = _cover_combo_board()
+	_knob("HIDDEN_FORFEIT_PENALTY", 3.0)
+	_knob("FIX_MOVE_COVER", 1.0)
+	_fix(0.0)
+	print("  [cover only: one '[FIX_MOVE_COVER] B end spot' line expected below]")
+	var d_cover = _decide(snap)
+	_assert(str(d_cover.get("type", "")) == "BEGIN_NORMAL_MOVE" and str(d_cover.get("_ai_description", "")).contains("ending in cover"),
+		"FIX_MOVE_COVER alone: the move ends in cover (its tag prints with that move; got %s)" % str(d_cover.get("_ai_description", "")))
+	_fix(1.0)
+	print("  [both on: no '[FIX_MOVE_COVER] B end spot' line expected below]")
+	var d_both = _decide(snap)
+	_assert(str(d_both.get("type", "")) == "REMAIN_STATIONARY" \
+			and str(d_both.get("_ai_move_adjustments", [])).contains("Skips the planned cover spot"),
+		"both on: it stays and says it skips the planned cover spot (got %s)" % _shape(d_both))
+	var src := FileAccess.get_file_as_string(AI_PATH)
+	var i_hold := src.find("\"_ai_indirect_hold\": true,")
+	var i_flush := src.find("for tag_line in pending_fix_tags:")
+	_assert(i_hold > 0 and i_flush > i_hold, "pin: the tags are flushed after the stage's REMAIN_STATIONARY return")
+	for tag in ["[FIX_MOVE_COVER] %s end spot", "[FIX_MOVE_FOR_SHOT] %s end spot"]:
+		_assert(not src.contains("print(\"AIDecisionMaker: " + tag) and src.contains("pending_fix_tags.append(\"AIDecisionMaker: " + tag),
+			"pin: %s goes to pending_fix_tags, not straight to print()" % tag)
+	for k in ["HIDDEN_FORFEIT_PENALTY", "FIX_MOVE_COVER"]:
 		AIDM._config_overrides.erase(k)
