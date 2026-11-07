@@ -1211,7 +1211,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-17"
+   "parent_area_id": "area-large-18"
   },
   {
    "id": "corner-ruin-left-28",
@@ -1256,7 +1256,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-18"
+   "parent_area_id": "area-large-17"
   },
   {
    "id": "corner-short-29",
@@ -1301,7 +1301,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-17"
+   "parent_area_id": "area-large-18"
   },
   {
    "id": "corner-short-30",
@@ -1346,7 +1346,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-18"
+   "parent_area_id": "area-large-17"
   },
   {
    "id": "area-large-31",

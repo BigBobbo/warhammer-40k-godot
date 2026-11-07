@@ -2242,9 +2242,10 @@
     },
     {
       "id": "terrain.layouts_11e",
-      "description": "Official 11e GW terrain layouts converted from the 40kdc dataset (scripts/40kdc/generate-terrain-layouts.mjs) load into the running game with exact transposed polygon geometry (all 45 layouts; windowed scenario drives one end-to-end)",
+      "description": "Official 11e GW terrain layouts converted from the 40kdc dataset (scripts/40kdc/generate-terrain-layouts.mjs) load into the running game with exact transposed polygon geometry (all 45 layouts; windowed scenario drives one end-to-end). Every feature lies within its parent area and each area's category/height is derived from its features (13.01; tests/test_terrain_layout_area_lint.gd over every layout).",
       "scenarios": [
-        "terrain_11e_layouts"
+        "terrain_11e_layouts",
+        "mp:tests/test_terrain_layout_area_lint.gd"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

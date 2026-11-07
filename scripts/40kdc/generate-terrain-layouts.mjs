@@ -167,6 +167,13 @@ export function convertLayout(layout, templates, tplById) {
       floor: rp.floor,
       walls: [],
     };
+    // NOTE: the shipped layouts correct 30 dataset parent_area_ids by geometric
+    // containment (13.01: a feature lies wholly within its area) — 26 were
+    // crossed between mirrored areas and take_and_hold_vs_reconnaissance_1's
+    // home-area ruins pointed at a nearby generator area, which left those home
+    // areas "exposed". A regeneration must re-apply that (and re-derive the
+    // touched areas via areaContents); 40k/tests/test_terrain_layout_area_lint.gd
+    // fails on any feature outside its parent area.
     if (p.parent_area_id) piece.parent_area_id = p.parent_area_id;
     if (p.is_objective || p.objective_role) piece.is_objective = true;
     if (p.objective_role) piece.objective_role = p.objective_role;
