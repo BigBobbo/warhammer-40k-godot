@@ -1,0 +1,188 @@
+{
+  "id": "attached_leader_only_in_range_shoot_11e",
+  "covers": [
+    "RulesEngine.get_eligible_shooter_models",
+    "RulesEngine.filter_eligible_model_ids",
+    "ui.ShootingController.auto_assign_single_target",
+    "phases.ShootingPhase.resolve_attached_unit_target_19_01",
+    "debug_log.no_errors"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "04.02 'each target must be: Visible to the model that has that weapon ... Within range of that weapon' with 01.04.01 (a unit is within a distance if one of its models is) and 19.01 (an Attached unit is one unit). Regression: target eligibility read the whole Attached unit, but the PER-MODEL shooter check (RulesEngine.get_eligible_shooter_models — resolve-time filter, split-fire picker, auto-assign, snap assignments) measured the bodyguard dict alone, so an Attached unit within range only through its leader was offered as a target and then every shooting model was dropped: no attacks. Fixture ork11e_orks_reactive, Shooting phase, P1 Custodes: Custodian Guard Alpha's 24\" spears reach Warboss Alpha (~23\") but no Boy of his Boyz Beta (>24\"). The player clicks the Guard in the shooter list; the Boyz are its target, the spears that reach the Warboss are auto-assigned (real filter), Confirm resolves real attack dice against the Attached unit.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The hot-seat handoff screen eats input; acknowledge it the way the player's [Enter] does.",
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a shooting phase_start window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: Custodian Guard Alpha (24\" Guardian spears) in a row at y=10\"; Warboss Alpha (attached to Boyz Beta) ~23\" away; the Boyz in coherency just behind him, every Boy beyond 24\". Everything else removed from play, the fixture's terrain stashed (restored in cleanup), stale engagement flags cleared, wounds allocated automatically.",
+      "script": "var main = tree.root.get_node(\"Main\")\nTerrainManager.set_meta(\"alo_saved_terrain\", TerrainManager.terrain_features.duplicate(true))\nTerrainManager.terrain_features = []\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nvar units = GameState.state[\"units\"]\nvar keep = [\"U_CUSTODIAN_GUARD_A\", \"U_BOYZ_B\", \"U_WARBOSS_A\"]\nfor uid in units:\n\tif not uid in keep:\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tvar f = units[uid].get(\"flags\", {})\n\tf[\"in_engagement\"] = false\n\tf.erase(\"has_shot\")\n\tf.erase(\"last_shot_idx\")\n\tunits[uid][\"flags\"] = f\nvar px = 40.0\nvar i = 0\nfor m in units[\"U_CUSTODIAN_GUARD_A\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (20.0 + i * 1.8) * px, \"y\": 10.0 * px}\n\t\ti += 1\nvar cg0 = units[\"U_CUSTODIAN_GUARD_A\"][\"models\"][0]\nvar wb = units[\"U_WARBOSS_A\"][\"models\"][0]\nwb[\"position\"] = {\"x\": 20.0 * px, \"y\": 34.6 * px}\nvar d = Measurement.model_to_model_distance_inches(cg0, wb)\nwb[\"position\"] = {\"x\": 20.0 * px, \"y\": (34.6 - (d - 23.0)) * px}\nvar wb_y = float(wb[\"position\"][\"y\"]) / px\nvar j = 0\nfor m in units[\"U_BOYZ_B\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (16.0 + j * 1.4) * px, \"y\": (wb_y + 2.4) * px}\n\t\tj += 1\nSettingsService.set_auto_allocate_wounds(true)\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\nmain._recreate_unit_visuals()\nmain.get_node(\"ShootingController\")._refresh_unit_list(false)\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.55\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(880, 900) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "04.02 / 01.04.01 / 19.01: the Attached unit is within range because its Warboss is, and the PER-MODEL check (resolve-time filter, split-fire picker, snap assignments) now keeps the spears that reach him. Before the fix get_eligible_shooter_models measured the Boyz only: eligible=[] (out_of_range).",
+      "script": "var b = GameState.create_snapshot(false)\nvar wid = \"\"\nvar uw = RulesEngine.get_unit_weapons(\"U_CUSTODIAN_GUARD_A\", b)\nfor mid in uw:\n\tfor w in uw[mid]:\n\t\tif str(RulesEngine.get_weapon_profile(w, b).get(\"type\", \"\")).to_lower() != \"melee\":\n\t\t\twid = str(w)\nvar near_boy = INF\nfor cm in b.units[\"U_CUSTODIAN_GUARD_A\"].models:\n\tif not cm.get(\"alive\", true):\n\t\tcontinue\n\tfor bm in b.units[\"U_BOYZ_B\"].models:\n\t\tif bm.get(\"alive\", true):\n\t\t\tnear_boy = minf(near_boy, Measurement.model_to_model_distance_inches(cm, bm))\nvar wb_d = Measurement.model_to_model_distance_inches(b.units[\"U_CUSTODIAN_GUARD_A\"].models[0], b.units[\"U_WARBOSS_A\"].models[0])\nvar esm = RulesEngine.get_eligible_shooter_models(\"U_CUSTODIAN_GUARD_A\", wid, \"U_BOYZ_B\", b)\nprint(\"[attached_leader_only_in_range_shoot_11e] spear=%s Warboss %.2fin, nearest Boy %.2fin, per-model eligible=%s reasons=%s\" % [wid, wb_d, near_boy, str(esm.eligible), str(esm.reasons)])\nvar ok = wb_d <= 24.0 and near_boy > 24.0 and RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", b).has(\"U_BOYZ_B\") and esm.eligible.size() > 0\nreturn \"ok\" if ok else \"warboss=%.2f boy=%.2f eligible=%s\" % [wb_d, near_boy, str(esm.eligible)]",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Guard's row in the shooter list",
+      "script": "var list = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList\")\nfor i in list.item_count:\n\tif str(list.get_item_metadata(i)) == \"U_CUSTODIAN_GUARD_A\":\n\t\treturn i\nreturn -1",
+      "expect_min": 0
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList",
+      "index": 0,
+      "comment": "Real player input: select Custodian Guard Alpha (the only P1 shooter left)."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "unit_selected_to_shoot window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id",
+      "equals": "U_CUSTODIAN_GUARD_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").eligible_targets.has(\"U_BOYZ_B\")",
+      "equals": true,
+      "comment": "the controller's own target list offers the Attached unit"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The single eligible target was auto-assigned through the SAME per-model filter the resolver uses (_eligible_bearer_slice): the spears within 24\" of the Warboss are declared. Before the fix the filter dropped every bearer and the auto-assign was skipped ('no ... bearer can reach').",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar n = 0\nfor a in p.pending_assignments:\n\tif str(a.get(\"target_unit_id\", \"\")) == \"U_BOYZ_B\":\n\t\tn += a.get(\"model_ids\", []).size()\nprint(\"[attached_leader_only_in_range_shoot_11e] pending assignments: %s\" % str(p.pending_assignments))\nreturn n",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_spears_assigned_through_the_warboss"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "comment": "Real click: Confirm"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "only if a defender reaction is offered"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The spears ROLLED attacks at the Attached unit (before: 'No eligible models in range/LoS' — no dice).",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar rolls = 0\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\" and str(d.get(\"target_unit_id\", \"U_BOYZ_B\")) == \"U_BOYZ_B\":\n\t\trolls += d.get(\"rolls_raw\", d.get(\"rolls\", [])).size()\nprint(\"[attached_leader_only_in_range_shoot_11e] hit dice rolled at the Boyz: %d\" % rolls)\nreturn rolls",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_attacks_resolved_against_the_attached_unit"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "comment": "Complete Shooting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9,
+      "comment": "Complete Shooting closed the Guard's activation; it was the only shooter left, so the game moved on to the Charge phase"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[attached_leader_only_in_range_shoot_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: the fixture's terrain back",
+      "script": "if TerrainManager.has_meta(\"alo_saved_terrain\"):\n\tTerrainManager.terrain_features = TerrainManager.get_meta(\"alo_saved_terrain\")\n\tTerrainManager.remove_meta(\"alo_saved_terrain\")\n\tTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nreturn true",
+      "equals": true
+    }
+  ]
+}

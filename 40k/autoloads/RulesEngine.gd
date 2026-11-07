@@ -6775,12 +6775,17 @@ static func unit_within_weapon_reach(actor_unit_id: String, target_unit_id: Stri
 	if actor_unit.is_empty() or target_unit.is_empty():
 		return false
 	var range_px := Measurement.inches_to_px(range_in)
+	# The whole Attached unit on the target side (06.01 / 19.01), as
+	# get_eligible_targets measures it — a unit whose attached leader alone is
+	# within reach IS a legal target, so it must not be filtered out here.
+	var target_entries := _target_model_entries(target_unit_id, board)
 	for actor_model in actor_unit.get("models", []):
 		if not actor_model.get("alive", true):
 			continue
 		if not _get_model_position(actor_model):
 			continue
-		for target_model in target_unit.get("models", []):
+		for entry in target_entries:
+			var target_model: Dictionary = entry[0]
 			if not target_model.get("alive", true):
 				continue
 			if not _get_model_position(target_model):
@@ -12021,13 +12026,36 @@ static func get_eligible_shooter_models(
 	var is_indirect = has_indirect_fire(weapon_id, board)
 
 	var unit_weapons = get_unit_weapons(actor_unit_id, board)
-	var target_models = target_unit.get("models", [])
 
-	# Pre-compute alive target models so we don't repeat the filter per shooter
+	# The WHOLE Attached unit on the target side (06.01 / 19.01), exactly as
+	# target eligibility measures it (_target_model_entries): an attached
+	# CHARACTER's models count for "within range" AND for "visible", so a model
+	# that can only reach — or only see — the leader still fires at the
+	# Attached unit. This used to read the bodyguard dict alone, so the unit was
+	# offered and validated as a target (_check_target_visibility walks every
+	# component) and then every shooter was dropped here at resolve time, by the
+	# split-fire picker and by build_snap_assignments_11e (a FIRE OVERWATCH paid
+	# 1CP for no attacks). Pre-computed once: [model, component, gate_key] of
+	# every alive target model. The target unit's OWN models keep the legacy
+	# handling (headless fixtures without positions measure from the origin);
+	# an attached character's model that is not on the battlefield is left out.
 	var alive_targets: Array = []
-	for tm in target_models:
-		if tm.get("alive", true):
-			alive_targets.append(tm)
+	for entry in _target_model_entries(target_unit_id, board):
+		var tm: Dictionary = entry[0]
+		if not tm.get("alive", true):
+			continue
+		if not is_same(entry[1], target_unit) and tm.get("position") == null:
+			continue
+		alive_targets.append(entry)
+	# 04.02 "Visible to the model that has that weapon": 13.09 limits a hidden
+	# model's visibility to ENEMY models within its detection range — the same
+	# per-pair gate _check_target_visibility applies, each model judged from its
+	# own component (19.03). Without it a shooter whose only sight line is to a
+	# hidden model beyond its detection range would still fire. Not applied to
+	# [INDIRECT FIRE] (10.07: may target units that are not visible).
+	var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager") \
+		if GameConstants.edition >= 11 and not _same_owner(actor_unit, target_unit) else null
+	var hidden_gates := {}  # gate_key -> TerrainManager.hidden_gate_for (observer-independent)
 
 	for model_id in unit_weapons:
 		# Only consider models that actually carry this weapon
@@ -12057,15 +12085,15 @@ static func get_eligible_shooter_models(
 
 		# Find nearest alive target model by edge-to-edge distance
 		var nearest_inches := INF
-		var nearest_target: Dictionary = {}
-		for tm in alive_targets:
-			var edge_px = Measurement.model_to_model_distance_px(actor_model, tm)
+		var nearest_i := -1
+		for ti in range(alive_targets.size()):
+			var edge_px = Measurement.model_to_model_distance_px(actor_model, alive_targets[ti][0])
 			var edge_inches = Measurement.px_to_inches(edge_px)
 			if edge_inches < nearest_inches:
 				nearest_inches = edge_inches
-				nearest_target = tm
+				nearest_i = ti
 
-		if nearest_target.is_empty():
+		if nearest_i < 0:
 			result.reasons[model_id] = "out_of_range"
 			continue
 
@@ -12084,21 +12112,30 @@ static func get_eligible_shooter_models(
 
 		# Per-model LoS: this specific actor model must see at least one alive
 		# target model (we test against the nearest first since it's likeliest
-		# to be visible; if not, sweep the rest).
-		var target_pos = _get_model_position(nearest_target)
+		# to be visible; if not, sweep the rest). 04.02 FAQ: the model it sees
+		# and the model in range may be different models of the target unit.
+		# A hidden model beyond its detection range is not visible (13.09) —
+		# reported as "no_los" like any other model it cannot see.
 		var has_los := false
-		if target_pos != Vector2.ZERO:
-			has_los = _check_line_of_sight(actor_pos, target_pos, board, actor_model, nearest_target)
-		if not has_los:
-			for tm in alive_targets:
-				if tm == nearest_target:
+		var order: Array = [nearest_i]
+		for ti in range(alive_targets.size()):
+			if ti != nearest_i:
+				order.append(ti)
+		for ti in order:
+			var entry: Array = alive_targets[ti]
+			var tm: Dictionary = entry[0]
+			var tpos = _get_model_position(tm)
+			if tpos == Vector2.ZERO:
+				continue
+			if tm_11e != null:
+				var gate_key: String = entry[2]
+				if not hidden_gates.has(gate_key):
+					hidden_gates[gate_key] = tm_11e.hidden_gate_for(tm, entry[1])
+				if not tm_11e.hidden_gate_allows(hidden_gates[gate_key], tm, actor_model):
 					continue
-				var tpos = _get_model_position(tm)
-				if tpos == Vector2.ZERO:
-					continue
-				if _check_line_of_sight(actor_pos, tpos, board, actor_model, tm):
-					has_los = true
-					break
+			if _check_line_of_sight(actor_pos, tpos, board, actor_model, tm):
+				has_los = true
+				break
 
 		if has_los:
 			result.eligible.append(model_id)
