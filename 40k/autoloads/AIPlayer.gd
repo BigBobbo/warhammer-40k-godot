@@ -4061,12 +4061,10 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 		var positions = AIDecisionMaker._generate_formation_positions(test_center, alive_count, base_mm, placement_bounds)
 		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 
-		# Validate: 9" from enemies and coherent formation
-		var valid = true
-		for pos in positions:
-			if not AIDecisionMaker._is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
-				valid = false
-				break
+		# Validate: ingress stand-off from enemies (GameConstants: 11e >8",
+		# 10e >9"), each model measured with its OWN base as the engine does,
+		# and a coherent formation
+		var valid = AIDecisionMaker._reinforcement_positions_valid(positions, AIDecisionMaker._alive_model_base_mms(unit), base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round)
 		if valid and not AIDecisionMaker._check_formation_coherency(positions, base_mm):
 			valid = false
 		# Engine-exact overlap gate — _resolve_formation_collisions can return

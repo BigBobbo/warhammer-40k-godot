@@ -1048,7 +1048,8 @@ func get_reserves_unit_count(player: int) -> int:
 	return count
 
 func get_enemy_model_positions(player: int) -> Array:
-	"""Get all enemy model positions (for >9 inch distance checks)"""
+	"""Get all enemy model positions (for the edge-to-edge stand-off checks:
+	Scout moves, reinforcements — see GameConstants, 11e >8\" / 10e >9\")"""
 	var positions = []
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]

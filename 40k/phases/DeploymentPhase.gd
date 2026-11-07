@@ -327,8 +327,9 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
 	"""Validate Infiltrators deployment: anywhere on the board, >9" (10e) /
 	>8" (11e, 24.20) from the enemy deployment zone and all enemy models."""
-	# ISS-068 (11e 24.20): 9" -> 8".
-	var infiltrate_min = 8.0 if GameConstants.edition >= 11 else 9.0
+	# ISS-068 (11e 24.20): 9" -> 8". One source of truth (ISS-002), shared
+	# with DeploymentController's placement UI.
+	var infiltrate_min = GameConstants.infiltrators_min_enemy_distance_inches()
 	var errors = []
 
 	# Get model info

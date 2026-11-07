@@ -60,6 +60,16 @@ static func reinforcement_min_enemy_distance_inches() -> float:
 static func infiltrators_min_enemy_distance_inches() -> float:
 	return 8.0 if edition >= 11 else 9.0
 
+## Minimum distance a unit must END a Scout move from all enemy units
+## (edge-to-edge, "more than"). 10e: >9". 11e (24.32 SCOUT MOVE, AFTER
+## MOVING: "more than 8\" horizontally from all enemy units"): >8".
+## Its own accessor (own rule, own errata history), like infiltrators_*.
+## ScoutPhase (the validator), AIDecisionMaker._try_scout_move_with_checks
+## (the AI) and Main's Scout prompts must all read this: the AI kept a
+## hard-coded 9" for the whole of 11e and refused legal 8-9" Scout moves.
+static func scout_min_enemy_distance_inches() -> float:
+	return 8.0 if edition >= 11 else 9.0
+
 
 # ── Unit coherency ──────────────────────────────────────────────────
 ## Horizontal distance to count as "in coherency" with another model

@@ -217,12 +217,13 @@ func test_decide_scout_skips_when_no_objectives():
 		"Should skip scout move when no objectives (got: %s)" % decision.get("type", "none"))
 
 func test_decide_scout_skips_when_enemy_too_close():
-	"""Scout should skip if all moves would violate the >9\" enemy distance rule."""
+	"""Scout should skip if all moves would violate the scout stand-off
+	(GameConstants.scout_min_enemy_distance_inches(): 11e >8\", 10e >9\")."""
 	var snapshot = _create_scout_snapshot(2)
-	# Place scout near enemy — any forward move would bring them <9"
+	# Place scout near enemy — any forward move would bring them inside the stand-off
 	_add_scout_unit(snapshot, "scout_1", 2, Vector2(880, 1620), "Infiltrators")
-	# Enemy is right at 9" away — moving closer would violate
-	# 9" = 360px, plus base radii. Position enemy so scout can't advance at all.
+	# Enemy is ~9" away edge to edge — moving much closer would violate
+	# the stand-off (9" = 360px, plus base radii; 11e uses 8").
 	_add_normal_unit(snapshot, "enemy_1", 1, Vector2(880, 1200), "Ork Boyz")
 
 	var available = [
@@ -505,12 +506,14 @@ func test_enemy_distance_check_9_inches():
 func test_scout_movement_reduces_fraction_when_blocked():
 	"""Scout should try shorter moves when full move is blocked by enemy proximity."""
 	var snapshot = _create_scout_snapshot(2)
-	# Place scout where full 6" move toward objective would violate 9" rule
-	# Scout at y=1700, enemy at y=1200
+	# Place scout where full 6" move toward objective would violate the scout
+	# stand-off (GameConstants.scout_min_enemy_distance_inches(): 11e 24.32 >8",
+	# 10e >9"). Scout at y=1700, enemy at y=1200
 	# Full move toward objective: 6" (240px) -> y=1460
 	# Distance to enemy: 260px = 6.5", edge-to-edge ~5.24" — too close
-	# 50% move (120px) -> y=1580, distance: 380px = 9.5", edge ~8.24" — still too close
-	# 25% move (60px) -> y=1640, distance: 440px = 11", edge ~9.74" — safe!
+	# 50% move (120px) -> y=1580, distance: 380px = 9.5", edge ~8.24" —
+	#   legal at 11e (>8"), too close at 10e (>9")
+	# 25% move (60px) -> y=1640, distance: 440px = 11", edge ~9.74" — safe in both
 	_add_scout_unit(snapshot, "scout_1", 2, Vector2(880, 1700), "Infiltrators")
 	_add_normal_unit(snapshot, "enemy_1", 1, Vector2(880, 1200), "Ork Boyz")
 
@@ -532,8 +535,14 @@ func test_scout_movement_reduces_fraction_when_blocked():
 		var own_radius = (32.0 / 2.0) / 25.4
 		var enemy_radius = (32.0 / 2.0) / 25.4
 		var edge_dist = dist_inches - own_radius - enemy_radius
-		_assert(edge_dist >= 9.0,
-			"Model should maintain >9\" from enemy (edge dist: %.1f\")" % edge_dist)
+		# Edition-aware (P0.2 F1): this used to assert a flat >= 9.0, which
+		# encoded the AI's hard-coded 10e stand-off and hid the 11e bug.
+		var standoff = GameConstants.scout_min_enemy_distance_inches()
+		_assert(edge_dist >= standoff,
+			"Model should end more than the scout stand-off (%.0f\") from enemy (edge dist: %.2f\")" % [standoff, edge_dist])
+		if GameConstants.edition >= 11:
+			_assert(edge_dist < 9.0,
+				"11e: the AI uses the 8-9\" band the old hard-coded 9\" refused (edge dist: %.2f\", expected the 50%% move)" % edge_dist)
 		print("  (Info: Scout moved to y=%.0f, edge distance to enemy: %.1f\")" % [dest_m1[1], edge_dist])
 	else:
 		# It's also acceptable to skip if no fraction works (depends on geometry)

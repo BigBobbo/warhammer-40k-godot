@@ -2432,7 +2432,8 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 					errors.append("%sModel %d: position is off the board" % [g_label, i])
 					continue
 
-				# Must be >9" from all enemy models (edge-to-edge)
+				# Must be more than the ingress stand-off from all enemy models
+				# (edge-to-edge; GameConstants: 11e >8", 10e >9")
 				var model_data = g_models[i] if i < g_models.size() else {}
 				var model_base_mm = model_data.get("base_mm", 32)
 				var model_radius_inches = (model_base_mm / 2.0) / 25.4
@@ -4354,7 +4355,10 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 					errors.append("%sModel %d: position is off the board" % [g_label, i])
 					continue
 
-				# Must be >9" from all enemy models (edge-to-edge)
+				# Legacy (pre-11e) branch — at edition 11 the early return above
+				# hands the whole set-up to IngressMove.validate_setup instead.
+				# Must be more than the ingress stand-off from all enemy models
+				# (edge-to-edge; GameConstants.reinforcement_min_enemy_distance_inches(): 10e >9")
 				var model_data = g_models[i] if i < g_models.size() else {}
 				var model_base_mm = model_data.get("base_mm", 32)
 				var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
@@ -4400,7 +4404,8 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 						else:
 							DebugLogger.info(str("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id))
 
-				# Deep Strike: can be placed anywhere on the board (>9" check already done above)
+				# Deep Strike: can be placed anywhere on the board (the ingress
+				# stand-off check — 10e >9" on this legacy branch — is done above)
 				# No additional restrictions for deep strike placement
 
 				# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers

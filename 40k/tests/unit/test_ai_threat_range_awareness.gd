@@ -162,15 +162,18 @@ func test_calculate_enemy_threat_data_basic():
 func test_calculate_enemy_threat_data_charge_range():
 	print("\n--- test_calculate_enemy_threat_data_charge_range ---")
 	var snapshot = _create_test_snapshot()
-	# M6 unit: charge threat = 6 + 12 + 1 = 19 inches = 760 px
+	# M6 unit: charge threat radius = M + 12 + engagement range
+	# (GameConstants: 11e 6+12+2 = 20" = 800 px; 10e 6+12+1 = 19" = 760 px).
+	# P0.2 / decision D6 keeps the ER term (a centroid geometry allowance —
+	# see _calculate_enemy_threat_data); this pins that no-change decision.
 	_add_unit(snapshot, "enemy1", 1, Vector2(800, 600), "Enemy Marines", 2, 6, 5,
 			["INFANTRY"], _make_melee_weapons())
 	var enemies = _make_enemies(snapshot)
 
 	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
-	var expected_charge_px = (6.0 + 12.0 + 1.0) * 40.0  # 19" * 40 px/inch = 760 px
+	var expected_charge_px = (6.0 + 12.0 + GameConstants.engagement_range_inches()) * 40.0  # 11e 800 px, 10e 760 px
 	_assert_approx(threat_data[0].charge_threat_px, expected_charge_px, 1.0,
-		"M6 unit charge threat range = 19\" (760px)")
+		"M6 unit charge threat range = M + 12 + ER (%.0fpx)" % expected_charge_px)
 
 func test_calculate_enemy_threat_data_shooting_range():
 	print("\n--- test_calculate_enemy_threat_data_shooting_range ---")
@@ -352,23 +355,25 @@ func test_evaluate_position_threat_melee_unit_ignores_charge():
 func test_is_position_in_charge_threat():
 	print("\n--- test_is_position_in_charge_threat ---")
 	var snapshot = _create_test_snapshot()
-	# Enemy at (800, 600), M6, charge threat = 19" = 760px
+	# Enemy models at x=800..960, y=600 (centroid (880, 600)), M6:
+	# charge threat radius = M + 12 + ER = 800px at 11e (760px at 10e)
 	_add_unit(snapshot, "enemy1", 1, Vector2(800, 600), "Enemy", 2, 6, 5,
 			["INFANTRY"], _make_melee_weapons())
 	var enemies = _make_enemies(snapshot)
 	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
 
-	# Position within charge threat (400px away)
+	# Position within charge threat (~408px from the centroid)
 	var in_range = AIDecisionMaker._is_position_in_charge_threat(Vector2(800, 1000), threat_data)
 	_assert(in_range == true, "Position 400px from M6 melee enemy is in charge threat")
 
-	# Position outside charge threat (800px away)
+	# Position outside charge threat (~804px from the centroid)
 	var out_range = AIDecisionMaker._is_position_in_charge_threat(Vector2(800, 1400), threat_data)
 	_assert(out_range == false, "Position 800px from M6 melee enemy is outside charge threat")
 
-	# Position barely outside (770px away, threshold is 760px)
-	var edge = AIDecisionMaker._is_position_in_charge_threat(Vector2(800, 1370), threat_data)
-	_assert(edge == false, "Position 770px from M6 melee enemy is just outside charge threat")
+	# Position barely outside: radius + 10px straight below the centroid
+	# (edition-aware; the old fixed (800, 1370) probe assumed the 10e 760px)
+	var edge = AIDecisionMaker._is_position_in_charge_threat(Vector2(880, 600 + threat_data[0].charge_threat_px + 10.0), threat_data)
+	_assert(edge == false, "Position radius+10px from M6 melee enemy is just outside charge threat")
 
 # =========================================================================
 # TEST: _find_safer_position
@@ -473,14 +478,17 @@ func test_ranged_unit_avoids_charge_danger():
 	var snapshot = _create_test_snapshot()
 
 	# Ranged unit (player 2) far from enemy - currently safe
-	_add_unit(snapshot, "u1", 2, Vector2(880, 1800), "Long Range Squad", 2, 6, 5,
+	_add_unit(snapshot, "u1", 2, Vector2(880, 1700), "Long Range Squad", 2, 6, 5,
 			["INFANTRY"], _make_long_range_weapons())
 
 	# Melee enemy (player 1) in the middle - within 48" shooting range but the
-	# unit is outside charge range of this enemy
-	# Enemy at Y=800, M8: charge threat = 8+12+1 = 21" = 840px
-	# Our unit at Y=1800, distance = 1000px > 840px = safe from charge
-	# If we move 6" (240px) toward obj at Y=1200, we'd be at Y=1560, distance = 760px < 840px = IN charge range
+	# unit is outside charge range of this enemy.
+	# Enemy: 10 models at x=880..1240, y=800 -> centroid (1060, 800). M8:
+	# charge threat radius = 8+12+ER = 22" = 880px at 11e (21" = 840px at 10e).
+	# Start probe (880, 1700): ~918px from that centroid = safe at both editions.
+	# Moving 6" (240px) toward obj at Y=1200 -> (880, 1460): ~684px = IN charge
+	# range at both editions. (The old start Y=1800 / dest Y=1560 assumed the
+	# enemy centroid sat at x=880 and the 10e radius; it read 0.38 at 11e.)
 	_add_unit(snapshot, "enemy1", 1, Vector2(880, 800), "Fast Choppers", 2, 8, 10,
 			["INFANTRY"], _make_melee_weapons(), 4, 1)
 
@@ -488,20 +496,20 @@ func test_ranged_unit_avoids_charge_danger():
 	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
 
 	# Verify our starting position is safe from charge
-	var start_threat = AIDecisionMaker._evaluate_position_threat(Vector2(880, 1800), threat_data, snapshot.units["u1"])
+	var start_threat = AIDecisionMaker._evaluate_position_threat(Vector2(880, 1700), threat_data, snapshot.units["u1"])
 	_assert(start_threat.charge_threat < 0.5,
 		"Starting position is safe from charge threat (%.2f)" % start_threat.charge_threat)
 
 	# Verify that moving 6" toward the center objective would enter charge range
-	var dest = Vector2(880, 1560)  # 6" (240px) toward Y=1200
+	var dest = Vector2(880, 1460)  # 6" (240px) toward Y=1200
 	var dest_threat = AIDecisionMaker._evaluate_position_threat(dest, threat_data, snapshot.units["u1"])
 	_assert(dest_threat.charge_threat >= 0.5,
 		"Destination would be in charge threat range (%.2f)" % dest_threat.charge_threat)
 
 	# Verify the unit has shooting targets at current position (48" range = 1920px,
-	# enemy is at 1000px away = within range)
+	# enemy is ~900px away = within range)
 	var max_wr = AIDecisionMaker._get_max_weapon_range(snapshot.units["u1"])
-	var dist_to_enemy = Vector2(880, 1800).distance_to(Vector2(880, 800))
+	var dist_to_enemy = Vector2(880, 1700).distance_to(Vector2(880, 800))
 	_assert(dist_to_enemy <= max_wr * 40.0,
 		"Enemy is within weapon range at current position (%.0f px <= %.0f px)" %
 		[dist_to_enemy, max_wr * 40.0])
