@@ -13,8 +13,11 @@ extends SceneTree
 #
 # Per config and seat:
 #   * 0 units forced into Strategic Reserves (DeploymentEval.count_forced_reserves),
-#   * 0 placements refused by the phase (GameEventLog "deployment failed (",
-#     no "(retry" action) and 0 FormationBuilder gate rejections,
+#   * 0 deployment actions refused by the phase — counted at the source by
+#     AIPlayer (DeploymentEval.count_rejected_deploy_actions over
+#     AIPlayer.get_deploy_rejections(): first tries, retries, the reserves
+#     fallback), cross-checked by the legacy GameEventLog "deployment failed ("
+#     count and no "(retry" action — and 0 FormationBuilder gate rejections,
 #   * every unit that was deployable when DEPLOYMENT began is on the table or
 #     embarked (declared reserves stay declared),
 #   * DeploymentEval.audit_legality: 0 violations (zone / Infiltrators, walls,
@@ -231,13 +234,19 @@ func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: Str
 	for p in [1, 2]:
 		var e: Dictionary = _latch.eval[p]
 		var forced: int = DE.count_forced_reserves(alog, p)
+		# P0.4: the gate metric is AIPlayer's own record of every refused
+		# deployment-type action (first tries, retries, the reserves fallback);
+		# the legacy game-log count and the "(retry" action-log entries are kept
+		# as cross-checks.
+		var rejected: int = DE.count_rejected_deploy_actions(AI.get_deploy_rejections(), p)
 		var failed: int = DE.count_failed_deploy_attempts(GEL.entries, p)
 		var retries := 0
 		for entry in alog:
 			if int(entry.get("player", 0)) == p and str(entry.get("description", "")).contains("(retry"):
 				retries += 1
 		_check(tag, forced == 0, "P%d: 0 units forced into Strategic Reserves (got %d)" % [p, forced])
-		_check(tag, failed == 0 and retries == 0, "P%d: 0 placements refused by the phase (rejections %d, retries %d)" % [p, failed, retries])
+		_check(tag, rejected == 0 and failed == 0 and retries == 0,
+			"P%d: 0 deployment actions refused by the phase (rejected %d, game-log rejections %d, retries %d)" % [p, rejected, failed, retries])
 		_check(tag, int(e.in_reserves) == int(reserves_at_start[p]),
 			"P%d: no unit added to reserves (in reserves %d, declared %d)" % [p, int(e.in_reserves), int(reserves_at_start[p])])
 		var missing: Array = []

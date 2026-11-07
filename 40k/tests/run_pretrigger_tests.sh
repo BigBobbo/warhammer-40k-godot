@@ -29,6 +29,10 @@
 #   - the 50% reserves caps bind the AI too (attached leaders are counted)
 #   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
+#   - P0 AI deployment: legal-by-construction formations (FormationBuilder),
+#     the end-to-end AI deployment gate, the 11e terrain picker, and the
+#     DeploymentEval metrics + rejected-placement contract (every refused
+#     deployment action is counted at the source by AIPlayer)
 #   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
 #   - Wahapedia 11e codex import (Custodes + Orks): codex characteristics,
@@ -349,6 +353,7 @@ TESTS=(
     "tests/unit/test_formation_builder.gd"
     "tests/unit/test_ai_deployment_e2e.gd"
     "tests/unit/test_ai_deploy_terrain_11e.gd"
+    "tests/unit/test_deployment_eval.gd"
     "tests/unit/test_fixture_boards_current.gd"
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"

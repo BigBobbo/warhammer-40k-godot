@@ -34,6 +34,19 @@ func _append_action_log(entry: Dictionary) -> void:
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
+# P0.4 (docs/AI_DEPLOYMENT_PLAN.md §5.8): every deployment-type action this
+# autoload routes that the game REFUSES, counted at the source — by action type
+# at each route site, never by matching log text — so rewording a message or
+# switching DEPLOY_UNIT -> COMPOSITE_DEPLOY cannot make rejections vanish from
+# the metric. Covers the AI's own decision, its retries, the reserves fallback
+# (capped and past the caps), the max-actions escape and accepted K-card
+# suggestions. Read via get_deploy_rejections(); DeploymentEval
+# .count_rejected_deploy_actions() is the gate metric (scenario, E2E, harness).
+# Same list as GameManager/TurnManager's deployment actions.
+const DEPLOY_ACTION_TYPES: Array = ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "EMBARK_UNITS_DEPLOYMENT",
+	"PLACE_IN_RESERVES", "ATTACH_CHARACTER_DEPLOYMENT"]
+const MAX_DEPLOY_REJECTION_RECORDS: int = 500  # MEM bound; a count at the cap means "at least 500"
+var _deploy_rejections: Array = []  # [{player, action_type, unit_id, source, error, phase}]
 var _failed_reinforcement_unit_ids: Array = []  # Units that failed reinforcement placement — skip to avoid infinite loop
 var _failed_transport_ids: Array = []  # Transports that completed or failed embarkation — skip to avoid re-embarkation
 var _pile_in_retry_units: Array = []  # Units that already had an empty pile-in retry — next failure sends CONSOLIDATE
@@ -268,6 +281,7 @@ func configure(player_types: Dictionary) -> void:
 	_current_phase_actions = 0
 	# P2-92: Reset all transient runtime state on reconfigure
 	_failed_deploy_unit_ids.clear()
+	_deploy_rejections.clear()  # P0.4: per-game, like the action log
 	_failed_reinforcement_unit_ids.clear()
 	_failed_transport_ids.clear()
 	_pile_in_retry_units.clear()
@@ -636,6 +650,7 @@ func reset_runtime_state() -> void:
 	_turn_history.clear()
 	_current_phase_actions = 0
 	_failed_deploy_unit_ids.clear()
+	_deploy_rejections.clear()  # P0.4: per-game, like the action log
 	_failed_reinforcement_unit_ids.clear()
 	_failed_transport_ids.clear()
 	_pile_in_retry_units.clear()
@@ -772,6 +787,53 @@ func get_action_log() -> Array:
 
 func clear_action_log() -> void:
 	_action_log.clear()
+
+# --- P0.4: deployment rejections counted at the source ---
+
+func _note_deploy_result(player: int, action: Dictionary, result, source: String) -> void:
+	"""Record one refused deployment-type action (DEPLOY_ACTION_TYPES). No-op for
+	any other action type and for an accepted action. A missing answer (null
+	result) is a refusal too. source: decision | retry | fallback |
+	fallback_past_caps | max_actions_fallback | accepted_suggestion."""
+	var t := str(action.get("type", ""))
+	if not (t in DEPLOY_ACTION_TYPES):
+		return
+	if result is Dictionary and bool(result.get("success", false)):
+		return
+	var err = "the game did not answer the action"
+	if result is Dictionary:
+		err = result.get("error", result.get("errors", "Unknown error"))
+	var rec := {
+		"player": player,
+		"action_type": t,
+		"unit_id": str(action.get("unit_id", action.get("transport_id", ""))),
+		"source": source,
+		"error": _format_error_concise(err),
+		"phase": int(GameState.get_current_phase()),
+	}
+	_deploy_rejections.append(rec)
+	while _deploy_rejections.size() > MAX_DEPLOY_REJECTION_RECORDS:
+		_deploy_rejections.pop_front()
+	var msg := "[DEPLOY-REJECT] P%d %s for %s refused (%s; %d deployment rejection(s) this game): %s" % [
+		player, t, rec.unit_id, source, get_deploy_rejection_count(0), rec.error]
+	print("AIPlayer: %s" % msg)
+	DebugLogger.warn(msg, rec)
+
+func get_deploy_rejections() -> Array:
+	"""P0.4: every refused deployment-type action routed by AIPlayer since the
+	last configure() / reset_runtime_state() / clear_deploy_rejections()."""
+	return _deploy_rejections.duplicate(true)
+
+func get_deploy_rejection_count(player: int = 0) -> int:
+	"""Refused deployment-type actions for one seat (0 = both seats)."""
+	var n := 0
+	for rec in _deploy_rejections:
+		if player == 0 or int(rec.get("player", 0)) == player:
+			n += 1
+	return n
+
+func clear_deploy_rejections() -> void:
+	_deploy_rejections.clear()
 
 # =============================================================================
 # ON-DEMAND AI SUGGESTION — human-facing hint / AI-reasoning inspector
@@ -1008,6 +1070,7 @@ func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
 	# charge arrows from it).
 	emit_signal("ai_action_taken", player, action, str(action.get("_ai_description", t)))
 	var result = NetworkIntegration.route_action(action)
+	_note_deploy_result(player, action, result, "accepted_suggestion")  # P0.4: AI-built placement, human seat
 	if result == null:
 		return {"success": false, "error": "The game did not answer the action."}
 	if not result.get("success", false):
@@ -2177,7 +2240,8 @@ func _evaluate_and_act() -> void:
 							print("AIPlayer: Max actions fallback — skipping %s (would fail: %s)" % [ft, str(v.get("errors", []))])
 							continue
 					print("AIPlayer: Max actions fallback — routing %s to make progress" % ft)
-					NetworkIntegration.route_action(fa)
+					var fa_result = NetworkIntegration.route_action(fa)
+					_note_deploy_result(int(fa.get("player", acting_player)), fa, fa_result, "max_actions_fallback")
 					_end_ai_thinking()
 					return
 			# Nothing offered can pass validation. Advancing the phase is the last
@@ -2430,6 +2494,7 @@ func _execute_next_action(player: int) -> void:
 	var _t_route := Time.get_ticks_usec()
 	var result = NetworkIntegration.route_action(decision)
 	_perf_usec["route_action"] = int(_perf_usec.get("route_action", 0)) + Time.get_ticks_usec() - _t_route
+	_note_deploy_result(int(decision.get("player", player)), decision, result, "decision")  # P0.4
 
 	if result == null:
 		push_error("AIPlayer: route_action returned null for action: %s" % decision.get("type", "?"))
@@ -3980,6 +4045,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary, rejec
 
 		_current_phase_actions += 1
 		var result = NetworkIntegration.route_action(retry_action)
+		_note_deploy_result(player, retry_action, result, "retry")  # P0.4
 		if result != null and result.get("success", false):
 			print("AIPlayer: Deployment retry %d succeeded for %s" % [attempt + 1, unit_name])
 			_append_action_log({
@@ -4040,6 +4106,7 @@ func _retry_deployment_with_builder(player: int, original_decision: Dictionary, 
 		print("AIPlayer: Deployment retry 1 for %s (%s, %s)" % [unit_name, retry_action.type, str(built.get("template", ""))])
 		_current_phase_actions += 1
 		var result = NetworkIntegration.route_action(retry_action)
+		_note_deploy_result(player, retry_action, result, "retry")  # P0.4
 		if result != null and result.get("success", false):
 			print("AIPlayer: Deployment retry 1 succeeded for %s" % unit_name)
 			_append_action_log({
@@ -4070,6 +4137,7 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 
 	_current_phase_actions += 1
 	var result = NetworkIntegration.route_action(reserves_action)
+	_note_deploy_result(player, reserves_action, result, "fallback")  # P0.4: e.g. the 50% caps refused it
 
 	if result != null and result.get("success", false):
 		print("AIPlayer: Successfully placed %s in strategic reserves" % unit_name)
@@ -4099,6 +4167,7 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		stuck_action["_ai_description"] = "%s placed in reserves past the caps (no legal position)" % unit_name
 		_current_phase_actions += 1
 		var stuck_result = NetworkIntegration.route_action(stuck_action)
+		_note_deploy_result(player, stuck_action, stuck_result, "fallback_past_caps")  # P0.4
 		if stuck_result != null and stuck_result.get("success", false):
 			# D5: past the caps is a rules deviation kept only as the anti-hang last
 			# resort — an ERROR, so the verify_delivery / read_debug_log gates fail.

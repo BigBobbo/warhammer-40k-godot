@@ -11,7 +11,15 @@ exactly as in a player's game. For each run it:
   3. optionally disables hand-authored AI plans (PLANS_ENABLED=0),
   4. waits until DEPLOYMENT ends, immediately disables the AI (so nothing
      moves), and records DeploymentEval metrics for both players plus the
-     forced-reserve and failed-attempt counts.
+     forced-reserve and rejected-action counts.
+
+Rejected placements (P0.4): `rejected_actions` is the gate metric — every
+deployment-type action (DEPLOY_UNIT, COMPOSITE_DEPLOY, EMBARK_UNITS_DEPLOYMENT,
+PLACE_IN_RESERVES, ATTACH_CHARACTER_DEPLOYMENT) AIPlayer routed that the game
+refused, counted at the source (AIPlayer.get_deploy_rejections(), read with
+DeploymentEval.count_rejected_deploy_actions). `failed_attempts` is the legacy
+game-log count of first-try DEPLOY_UNIT / COMPOSITE_DEPLOY rejections, kept so
+runs stay comparable with the P0.0 baseline (298); rejected >= failed always.
 
 Several harnesses can run side by side: pass a distinct --port (with --launch
 the game is started with GODOT_MCP_PORT=<port>).
@@ -124,6 +132,7 @@ gc["player1_type"] = "AI"
 gc["player2_type"] = "AI"
 GameState.state["meta"]["game_config"] = gc
 AIPlayer.clear_action_log()
+AIPlayer.clear_deploy_rejections()
 FormationBuilder.reset_stats()
 AIDecisionMaker.reset_deploy_drop_stats()
 # Fresh event log per run so failed-attempt counts are per-run (dev harness only).
@@ -149,10 +158,12 @@ for p in [1, 2]:
 	var r = DeploymentEval.evaluate(GameState.state, p, {"visibility": %(vis)s, "per_unit": %(rows)s})
 	r["forced_reserves"] = DeploymentEval.count_forced_reserves(alog, p)
 	r["failed_attempts"] = DeploymentEval.count_failed_deploy_attempts(tail, p)
+	r["rejected_actions"] = DeploymentEval.count_rejected_deploy_actions(AIPlayer.get_deploy_rejections(), p)
 	out[str(p)] = r
 out["layout"] = TerrainManager.current_layout
 out["deployment_type"] = GameState.state["meta"].get("deployment_type", "?")
 out["phase_after"] = int(GameState.state["meta"].get("phase", -1))
+out["deploy_rejections"] = AIPlayer.get_deploy_rejections().slice(0, 10)
 # P0.1: the formation builder's own counters and a whole-board legality audit
 # (zone / Infiltrators, walls, board, overlaps both ways, coherency with
 # attached characters judged as one unit — 19.01 + 03.03).
@@ -241,12 +252,12 @@ def main():
                     dds.get("spot_tries", "?"), dds.get("unbuildable", "?")), flush=True)
                 for p in ("1", "2"):
                     m = r[p]
-                    print("%-28s %-20s seed=%-4d P%s forced=%d failed=%d reserves=%d on=%d hideable_multi=%d full_multi=%d leak=%d open=%d home=%s gap=%.1f\"%s" % (
-                        fx, zone, seed, p, m["forced_reserves"], m["failed_attempts"], m["in_reserves"], m["on_table"],
+                    print("%-28s %-20s seed=%-4d P%s forced=%d rejected=%d failed=%d reserves=%d on=%d hideable_multi=%d full_multi=%d leak=%d open=%d home=%s gap=%.1f\"%s" % (
+                        fx, zone, seed, p, m["forced_reserves"], m.get("rejected_actions", -1), m["failed_attempts"], m["in_reserves"], m["on_table"],
                         m["hide_capable_multi"], m["fully_hidden_multi"], m["leakers"], m["open"],
                         m.get("home_objective", {}).get("occupied"), m["min_gap_to_enemy_zone_in"],
                         (" seen=%d" % m["seen_by_enemy_units_any"]) if a.visibility else ""), flush=True)
-    tot = {"forced": 0, "failed": 0, "multi": 0, "full_multi": 0, "leak": 0, "runs": 0,
+    tot = {"forced": 0, "rejected": 0, "failed": 0, "multi": 0, "full_multi": 0, "leak": 0, "runs": 0,
            "audit_violations": 0, "builder_no_legal": 0, "builder_gate_rejections": 0, "builder_max_ms": 0.0,
            "drop_max_ms": 0.0, "drops": 0, "drop_total_ms": 0.0, "home_held": 0, "home_known": 0}
     for r in results:
@@ -271,11 +282,12 @@ def main():
                     tot["home_held"] += 1
             tot["forced"] += m["forced_reserves"]
             tot["failed"] += m["failed_attempts"]
+            tot["rejected"] += int(m.get("rejected_actions", 0))
             tot["multi"] += m["hide_capable_multi"]
             tot["full_multi"] += m["fully_hidden_multi"]
             tot["leak"] += m["leakers"]
-    print("TOTAL runs=%d forced_reserves=%d failed_attempts=%d fully_hidden_multi=%d/%d leakers=%d" % (
-        tot["runs"], tot["forced"], tot["failed"], tot["full_multi"], tot["multi"], tot["leak"]))
+    print("TOTAL runs=%d forced_reserves=%d rejected_actions=%d failed_attempts=%d fully_hidden_multi=%d/%d leakers=%d" % (
+        tot["runs"], tot["forced"], tot["rejected"], tot["failed"], tot["full_multi"], tot["multi"], tot["leak"]))
     print("TOTAL legality audit violations=%d | builder no_legal=%d gate_rejections=%d worst build=%.0f ms" % (
         tot["audit_violations"], tot["builder_no_legal"], tot["builder_gate_rejections"], tot["builder_max_ms"]))
     print("TOTAL drops=%d worst drop (whole decision)=%.0f ms mean=%.0f ms | home objective held %d/%d seat-runs" % (

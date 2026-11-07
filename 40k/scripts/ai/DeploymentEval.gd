@@ -446,9 +446,38 @@ static func _problem(out: Dictionary, text: String) -> void:
 	if out.problems.size() < 20:
 		out.problems.append(text)
 
+# Deployment-type actions — the list AIPlayer.DEPLOY_ACTION_TYPES records
+# (mirrored so this script has no compile-time dependency on the autoload).
+const DEPLOY_ACTION_TYPES: Array = ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "EMBARK_UNITS_DEPLOYMENT",
+	"PLACE_IN_RESERVES", "ATTACH_CHARACTER_DEPLOYMENT"]
+
+static func count_rejected_deploy_actions(rejections: Array, player: int) -> int:
+	"""THE rejected-placement gate metric (P0.4, plan §5.8): every deployment-type
+	action AIPlayer routed that the game refused, as AIPlayer recorded it AT THE
+	SOURCE (AIPlayer.get_deploy_rejections()) — the AI's own decision, every
+	retry, the reserves fallback (capped and past the caps), the max-actions
+	escape and accepted K-card suggestions alike, for every type in
+	DEPLOY_ACTION_TYPES. Counted from structured records, so it does not depend on
+	any log wording. player 0 = both seats."""
+	var n := 0
+	for rec in rejections:
+		if not (rec is Dictionary):
+			continue
+		if player != 0 and int(rec.get("player", 0)) != player:
+			continue
+		if str(rec.get("action_type", "")) in DEPLOY_ACTION_TYPES:
+			n += 1
+	return n
+
 static func count_failed_deploy_attempts(event_entries: Array, player: int) -> int:
-	"""Rejected DEPLOY_UNIT submissions logged by AIPlayer ("P<n>: <unit>
-	deployment failed (<reason>) — retrying" in GameEventLog)."""
+	"""LEGACY game-log metric, kept so new runs stay comparable with the P0.0
+	baseline (docs/ai_deployment_evidence/p0_baseline_harness.md, 298): units
+	whose FIRST DEPLOY_UNIT / COMPOSITE_DEPLOY was refused, read from the line
+	AIPlayer writes to the Game Log for it ("P<n>: <unit> deployment failed
+	(<reason>) — retrying"). It does NOT see refused retries, a refused reserves
+	fallback or a refused PLACE_IN_RESERVES / EMBARK_UNITS_DEPLOYMENT, and it
+	depends on that wording — the gate metric is count_rejected_deploy_actions,
+	which is always >= this one."""
 	var n := 0
 	var prefix := "P%d: " % player  # GameEventLog.add_ai_entry prefix
 	for e in event_entries:
