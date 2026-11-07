@@ -353,7 +353,10 @@ func _run_tests():
 	phase = _phase_with(gs, pm, base_state, fb_units.call(2, true))
 	phase.execute_action({"type": "BEGIN_FALL_BACK", "actor_unit_id": "U_FB", "player": 1, "payload": {"fall_back_mode": "ordered_retreat"}})
 	r = _stage(phase, "U_FB", "m0", "U_FB", Vector2(400, 640))
-	_check("an ENEMY VEHICLE still blocks the same fall-back", not r.get("valid", true) and ERR_MV in r.get("errors", []), str(r))
+	# EA-08: an Ordered Retreat may not move through any enemy model (03.01 /
+	# 09.07), so the crossing gate now refuses it before the MONSTER/VEHICLE one.
+	_check("an ENEMY VEHICLE still blocks the same fall-back (Ordered Retreat: no enemy model may be crossed)",
+		not r.get("valid", true) and (ERR_MV in r.get("errors", []) or _errors_have(r, ["Ordered Retreat cannot move through enemy models"])), str(r))
 	phase = _phase_with(gs, pm, base_state, fb_units.call(1, false))
 	phase.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_FB", "player": 1, "payload": {}})
 	r = _stage(phase, "U_FB", "m0", "U_FB", Vector2(400, 640))
