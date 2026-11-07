@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.5",
+      "date": "2026-11-07",
+      "summary": "Vehicles and monsters can drive through enemy infantry on a Normal Move or Advance (11th-edition rule 17.01).",
+      "changes": [
+        "MONSTER and VEHICLE models can now make a Normal Move or Advance straight through enemy models that are not monsters or vehicles. Before, the move was refused with \"Cannot move through enemy models\". Enemy monsters and vehicles still block them, and the move must still end outside engagement range and not on top of another model.",
+        "In an attached unit only the monster/vehicle models get this: a Mek leading Mek Gunz still cannot walk through enemy models.",
+        "A monster or vehicle that falls back (or makes a surge move) can now pass through friendly units, friendly monsters and vehicles included (17.01 FAQ).",
+        "End This Unit's Move is now refused, with a red message saying how to fix it, when it would carry an attached character you have not moved through enemy models it cannot cross or into engagement range.",
+        "Attached MONSTER/VEHICLE characters (for example a Beastboss on Squigosaur from an army-builder list) can now be dragged; before, every drop was refused."
+      ]
+    },
+    {
       "version": "1.73.4",
       "date": "2026-11-07",
       "summary": "Hidden follow-up fixes: turn order, Fire Overwatch, attached leaders, faster checks, and Reconnaissance home areas now hide units.",
