@@ -1,0 +1,266 @@
+{
+  "id": "ai_indirect_stationary",
+  "covers": [
+    "ai.movement.indirect_stationary",
+    "ai.suggestion.move_shape_notes",
+    "rules.11e.indirect_shooting_10_07",
+    "rules.11e.remain_stationary_09_04"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "FIX_INDIRECT_STATIONARY (ships OFF): a unit whose ranged output is mainly [INDIRECT FIRE] Remains Stationary instead of making its planned Normal move when the spotted shot is worth more — 11e 10.07: an [INDIRECT FIRE] attack at a target the unit cannot see gets the target the benefit of cover (13.08) and fails on an unmodified 1-5, but only on 1-3 if the unit Remained Stationary (09.04) and a friendly unit sees the target. Same position as exam mv09: Custodian Guard Beta carries a constructed BS 3+ [BLAST, INDIRECT FIRE] mortar, its only target (Custodian Guard Alpha) is Hidden in area-medium-35 (13.09 as errata'd) more than 21\" away, and our Prosecutors on obj_center see it. With tests/bench_profiles/indirect_stationary_on.json loaded, the real Suggest (K) card for Beta reads 'Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha (Prosecutors can see it ...)' with the 'How this turn's move was shaped' notes (the 1-3 vs 1-5 band, the spotter, the progress given up). Clearing the profile restores the shipped default: Beta's planned Normal move toward obj_home_2. Reloading restores the stay; executing it leaves Beta unmoved with remained_stationary set and the engine's fail band at 1-3. The guard: Custodian Guard Delta, same spotter and target but a BS 5+ lobba (6+ after the indirect cover either way, 02.02.01), is still suggested its Normal move.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Same position as exam mv09_arm_the_indirect_battery (without the profile\n# line): Custodian Guard Beta with a constructed BS 3+ [BLAST, INDIRECT FIRE]\n# mortar and Delta with a BS 5+ [INDIRECT FIRE] lobba on the west edge, our\n# Prosecutors on obj_center, the enemy Custodian Guard Alpha Hidden in\n# area-medium-35, everyone else parked.\nvar st = GameState.state\nvar mortar = {\"name\": \"Exam mortar\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"2\", \"ballistic_skill\": \"3\", \"strength\": \"8\", \"ap\": \"-2\", \"damage\": \"2\", \"special_rules\": \"blast, indirect fire\", \"abilities\": [{\"id\": \"blast\"}, {\"id\": \"indirect_fire\"}], \"granted_by\": \"exam\"}\nvar lobba = {\"name\": \"Exam lobba\", \"type\": \"Ranged\", \"range\": \"48\", \"attacks\": \"3\", \"ballistic_skill\": \"5\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"blast, indirect fire\", \"abilities\": [{\"id\": \"blast\"}, {\"id\": \"indirect_fire\"}], \"granted_by\": \"exam\"}\nvar arm = {\"U_CUSTODIAN_GUARD_B\": mortar, \"U_CUSTODIAN_GUARD_D\": lobba}\nfor uid in arm:\n\tvar u = st.units[uid]\n\tvar kept = []\n\tfor w in u.meta.weapons:\n\t\tif str(w.get(\"type\", \"\")).to_lower() != \"ranged\":\n\t\t\tkept.append(w)\n\tkept.append(arm[uid])\n\tu.meta.weapons = kept\nvar place = {\n\t\"U_CUSTODIAN_GUARD_B\": [Vector2(60, 870), Vector2(125, 870), Vector2(190, 870), Vector2(92, 935), Vector2(157, 935)],\n\t\"U_CUSTODIAN_GUARD_D\": [Vector2(60, 720), Vector2(125, 720), Vector2(190, 720), Vector2(92, 785), Vector2(157, 785)],\n\t\"U_PROSECUTORS_A\": [Vector2(790, 1340), Vector2(845, 1340), Vector2(790, 1395), Vector2(845, 1395)],\n\t\"U_CUSTODIAN_GUARD_A_P2\": [Vector2(1255, 1385), Vector2(1255, 1450), Vector2(1290, 1515), Vector2(1355, 1515), Vector2(1420, 1515)],\n}\nfor uid in place:\n\tvar k = 0\n\tfor m in st.units[uid].models:\n\t\tm.position = {\"x\": place[uid][k].x, \"y\": place[uid][k].y}\n\t\tk += 1\n\tif st.units[uid].has(\"flags\"):\n\t\tst.units[uid].flags.erase(\"last_shot_idx\")\n\t\tst.units[uid].flags.erase(\"shot_recently\")\nfor uid in st.units:\n\tif place.has(uid):\n\t\tcontinue\n\tvar u = st.units[uid]\n\tvar q = 0\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tif int(u.get(\"owner\", 0)) == 1:\n\t\t\tm.position = {\"x\": 600.0 + 40.0 * float(q % 5), \"y\": 300.0}\n\t\telse:\n\t\t\tm.position = {\"x\": 1500.0 + 40.0 * float(q % 5), \"y\": 2300.0}\n\t\tq += 1\n# Engine premises: Beta cannot see Alpha (Hidden, 13.09), the Prosecutors can.\nreturn not RulesEngine.unit_sight_line(\"U_CUSTODIAN_GUARD_B\", \"U_CUSTODIAN_GUARD_A_P2\", st, false).has_los and RulesEngine.unit_sight_line(\"U_PROSECUTORS_A\", \"U_CUSTODIAN_GUARD_A_P2\", st, false).has_los",
+      "equals": true,
+      "comment": "the exam mv09 position; engine premises: Alpha is Hidden from Beta, the Prosecutors see it"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# FIX_INDIRECT_STATIONARY ships OFF: load the opt-in profile AFTER configure()\n# (configure wipes profiles).\nvar f = FileAccess.open(\"res://tests/bench_profiles/indirect_stationary_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nreturn prof.parameters.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")",
+      "comment": "the K card follows Custodian Guard Beta (card unit focus)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha\")",
+      "equals": true,
+      "comment": "the K card's action line: Beta stays to arm its indirect fire"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"How this turn's move was shaped\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"fail only on an unmodified 1-3 instead of 1-5 (10.07)\")",
+      "equals": true,
+      "comment": "the move note names the 10.07 band"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Prosecutors can see Custodian Guard Alpha\")",
+      "equals": true,
+      "comment": "...and the spotter"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Gives up\") and main._ai_suggestion_panel.full_text.contains(\"of progress toward obj_home_2\")",
+      "equals": true,
+      "comment": "...and what staying gives up"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Engine-level check of the same suggestion: Custodian Guard Beta, a\n# REMAIN_STATIONARY that says it arms its indirect fire, with the hold key.\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"actor_unit_id\", \"\")) == \"U_CUSTODIAN_GUARD_B\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha\") and bool(d.get(\"_ai_indirect_hold\", false))",
+      "equals": true,
+      "comment": "engine-level: REMAIN_STATIONARY for Beta, _ai_indirect_hold set"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_indirect_stationary_on"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Close-up: Beta on the west edge, the Prosecutors on obj_center and the\n# Hidden Custodian Guard Alpha in area-medium-35, framed between the game log\n# and the K card (41% of the width).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(740.0, 1190.0), false, Vector2(0.41, 0.5))\nvar vs = m.get_viewport().get_visible_rect().size\n# focus keeps zoom >= 0.75; two notches out (1.15x each) fit Beta's left edge\n# and Alpha's right edge between the log and the card.\nm.zoom_camera_notch(false, Vector2(vs.x * 0.41, vs.y * 0.5))\nm.zoom_camera_notch(false, Vector2(vs.x * 0.41, vs.y * 0.5))\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_indirect_stationary_closeup",
+      "comment": "Beta (no move arrows) west, the Prosecutors on obj_center, Custodian Guard Alpha in area-medium-35"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: clearing the profile leaves FIX_INDIRECT_STATIONARY\n# at 0 — the planned Normal move, the old description, no hold key.\nAIDecisionMaker.clear_player_profile(1)\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Beta moves toward obj\") and not d.has(\"_ai_indirect_hold\") and not str(d.get(\"_ai_description\", \"\")).contains(\"indirect\")",
+      "equals": true,
+      "comment": "shipped default (flag 0): the planned Normal move, unchanged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Beta moves toward obj\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"to arm its indirect fire\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame Beta and its suggested move (west edge, heading south-east).\ntree.current_scene.focus_on_world_point(Vector2(330.0, 1000.0), false, Vector2(0.41, 0.5))\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_indirect_stationary_off",
+      "comment": "profile cleared: Beta's planned Normal move (its arrows) is back"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ...and reloading the profile restores the stay.\nvar f = FileAccess.open(\"res://tests/bench_profiles/indirect_stationary_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Beta remains stationary to arm its indirect fire at Custodian Guard Alpha\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Execute the stay as the AI would (AIPlayer routes the decision as-is), then\n# ask the ENGINE: Remained Stationary (09.04), every model where it stood, and\n# armed — its hits at Alpha fail only on 1-3 (10.07).\nvar place = {\n\t\"U_CUSTODIAN_GUARD_B\": [Vector2(60, 870), Vector2(125, 870), Vector2(190, 870), Vector2(92, 935), Vector2(157, 935)],\n\t\"U_CUSTODIAN_GUARD_D\": [Vector2(60, 720), Vector2(125, 720), Vector2(190, 720), Vector2(92, 785), Vector2(157, 785)],\n\t\"U_PROSECUTORS_A\": [Vector2(790, 1340), Vector2(845, 1340), Vector2(790, 1395), Vector2(845, 1395)],\n\t\"U_CUSTODIAN_GUARD_A_P2\": [Vector2(1255, 1385), Vector2(1255, 1450), Vector2(1290, 1515), Vector2(1355, 1515), Vector2(1420, 1515)],\n}\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar r = NetworkIntegration.route_action({\"type\": \"REMAIN_STATIONARY\", \"actor_unit_id\": \"U_CUSTODIAN_GUARD_B\", \"player\": 1, \"_ai_description\": str(d.get(\"_ai_description\", \"\"))})\nvar u = GameState.state.units.U_CUSTODIAN_GUARD_B\nvar still = true\nvar k = 0\nfor m in u.models:\n\tvar p = m.get(\"position\")\n\tvar pv = p if p is Vector2 else Vector2(float(p.x), float(p.y))\n\tif pv.distance_to(place.U_CUSTODIAN_GUARD_B[k]) > 1.0:\n\t\tstill = false\n\tk += 1\nreturn r != null and bool(r.get(\"success\", false)) and bool(u.get(\"flags\", {}).get(\"remained_stationary\", false)) and still and RulesEngine._indirect_hit_fail_band_11e(\"U_CUSTODIAN_GUARD_B\", \"U_CUSTODIAN_GUARD_A_P2\", GameState.state) == 3",
+      "equals": true,
+      "comment": "engine truth after the real REMAIN_STATIONARY: unmoved, remained_stationary, band 1-3"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The guard: Delta, same spotter and target but a BS 5+ lobba (6+ after the\n# indirect cover either way, 02.02.01), still makes its planned Normal move.\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_D\")\nreturn str(d.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\" and str(d.get(\"actor_unit_id\", \"\")) == \"U_CUSTODIAN_GUARD_D\" and not str(d.get(\"_ai_description\", \"\")).contains(\"to arm its indirect fire\") and not d.has(\"_ai_indirect_hold\")",
+      "equals": true,
+      "comment": "the guard: Delta's BS 5+ lobba gains nothing from staying"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_D\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript: Delta's card"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Delta moves toward\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"to arm its indirect fire\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame Delta and its suggested move (west edge, heading south), with Beta\n# unmoved just south of it.\ntree.current_scene.focus_on_world_point(Vector2(330.0, 900.0), false, Vector2(0.41, 0.5))\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_indirect_stationary_bs5_moves",
+      "comment": "Delta's K card: the planned Normal move (BS 5+ battery)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(1)\ntree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    }
+  ]
+}

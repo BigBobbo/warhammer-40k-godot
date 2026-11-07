@@ -131,6 +131,11 @@ const TERMS := {
 	"leave_hazard": {"label": "Desperate Escape hazard rolls", "fmt": "pts", "help": "Cost of the mortal wounds a Desperate Escape is expected to cause: one hazard roll per model, failing on 1-2 (06.03). Mandatory when battle-shocked or forced by an enemy rule, or when the way out crosses enemy models and the game does not let an Ordered Retreat move through them."},
 	"leave_shock": {"label": "Desperate Escape battle-shock roll", "fmt": "pts", "help": "Cost of the battle-shock roll a Desperate Escape forces on a unit that is not battle-shocked yet (09.07): a share of its points × the chance to fail it."},
 	"leave_survival": {"label": "Survival check: get out", "fmt": "pts", "help": "Bonus for falling back when the expected Fight-phase damage is half the unit's wounds or more (the survival check)."},
+	# [INDIRECT FIRE] battery: Remain Stationary or make the planned move (FIX_INDIRECT_STATIONARY) — each ledger sums to its score
+	"ind_stay_shot": {"label": "Shot if it stays", "fmt": "pts", "help": "Next Shooting phase's expected wounds on its best target if the unit Remains Stationary — against a target it cannot see that a friendly unit can, its [INDIRECT FIRE] hits fail only on an unmodified 1-3 instead of 1-5 (10.07) — capped at the target's wounds left, × its points per wound."},
+	"ind_move_shot": {"label": "Shot after the move", "fmt": "pts", "help": "The same after the planned move: any move loses the 1-3 band, so an unseen target's hits fail on 1-5 unless the move gives the unit a direct shot."},
+	"ind_move_objective": {"label": "Move takes an objective", "fmt": "pts", "help": "The planned move puts OC on an objective this turn and so improves who controls it (14.02)."},
+	"ind_move_progress": {"label": "Progress toward its objective", "fmt": "pts", "help": "Inches the planned move closes toward its assigned objective's range, × the points per inch."},
 	# Charge — 'no charge' option
 	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP and by faction aggression)."},
 	# Stratagem windows / reactive stratagems

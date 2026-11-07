@@ -3061,6 +3061,42 @@ const STAY_ENGAGED_LEAVE_OBJECTIVE_PTS: float = 25.0 # pts when the fall back pu
 const STAY_ENGAGED_SHOCK_COST_FRAC: float = 0.1      # share of our points × P(fail) for the battle-shock roll a Desperate Escape forces (leave_shock)
 const STAY_ENGAGED_FREE_TARGET_WEIGHT: float = 1.0   # × what our other shooters gain on an engaged non-MONSTER/VEHICLE enemy that only this unit keeps engaged, once falling back makes it a legal target (04.02), over their best other target (leave_free_target)
 
+# FIX_INDIRECT_STATIONARY (OFF-07) — Remain Stationary to arm [INDIRECT FIRE].
+# 10.07 (Indirect shooting): a unit that did not Advance may shoot its
+# [INDIRECT FIRE] weapons at units none of its models can see; each such
+# attack gives the target the benefit of cover (13.08: BS worsened by 1),
+# cannot re-roll its hit roll, and fails on an unmodified 1-5 — unless the
+# unit Remained Stationary this turn (09.04: no model moves at all; even a 1"
+# move, or a 0" Normal move, is not Remaining Stationary) AND one or more
+# friendly units can see the target: then only an unmodified 1-3 fails. BS is
+# never worse than 6+ (02.02.01, commentary), so the band pays only while
+# BS+1 beats 6+: BS 3+ triples its hits, BS 4+ doubles them, BS 5+ gains
+# nothing (every Ork Lobba). The AI never asked: a battery assigned to move
+# walked off its armed spot. With this on, a stage AFTER the mover in the
+# normal-move chain prices next Shooting phase's damage with the engine's
+# own RulesEngine.preview_attack on two hypothetical boards — the unit
+# Remaining Stationary where it stands, and at the destinations the chain
+# settled on — plus what the move buys on the objectives (one it would take
+# this turn, progress toward its own), on one points ledger (points per
+# wound, the T7-24 rule), and Remains Stationary when staying wins by
+# INDIRECT_STATIONARY_MIN_MARGIN, its best target there is one it cannot see,
+# the engine's band there really is 1-3, and a RELIABLE friendly unit sees
+# that target (it has acted this phase, is planned to hold, or cannot move).
+# Only for a unit whose nominal ranged output is mainly [INDIRECT FIRE]; the
+# flag is read only for units that carry an [INDIRECT FIRE] weapon. [HEAVY]
+# (24.16) is priced as the engine applies it, never changed here (that is
+# FIX_HEAVY_CREEP's). Evidence: exam mv09_arm_the_indirect_battery (a BS 3+
+# mortar walked off a spotted shot worth three times the hits). 0 = previous
+# behaviour (byte-identical play). 11e only.
+const FIX_INDIRECT_STATIONARY: float = 0.0
+const INDIRECT_STATIONARY_MIN_SHARE: float = 0.5      # share of the unit's nominal ranged output (bodyguard + attached characters; [ONE SHOT] left out) its [INDIRECT FIRE] weapons must carry
+const INDIRECT_STATIONARY_MIN_MARGIN: float = 5.0     # pts staying must beat moving by; ties keep the move
+const INDIRECT_STATIONARY_SHOT_WEIGHT: float = 1.0    # × expected wounds next Shooting phase (capped at the target's wounds left) × its pts per wound (ind_stay_shot / ind_move_shot)
+const INDIRECT_STATIONARY_OBJECTIVE_PTS: float = 25.0 # pts when the move puts OC on an objective and improves who controls it (ind_move_objective; mirrors STAY_ENGAGED_LEAVE_OBJECTIVE_PTS)
+const INDIRECT_STATIONARY_PROGRESS_PTS: float = 1.0   # pts per inch the move closes toward its assigned objective's range (ind_move_progress)
+const INDIRECT_STATIONARY_MAX_TARGETS: int = 4        # enemy units priced per option, highest prior first (0 = never prices, never fires)
+const INDIRECT_STATIONARY_TRUST_UNMOVED: float = 0.0  # >= 0.5: a friendly unit that has yet to move also counts as a spotter
+
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
 const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
@@ -4314,8 +4350,13 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 	# Prefer the assignment's objective; screens/attacks and units with no plan
 	# entry fall back to the old destination heuristic (nearest objective the
 	# move makes progress toward, within a generous band).
+	# FIX_INDIRECT_STATIONARY: a battery that stays put instead of making its
+	# planned move is not heading for the plan's objective — it is credited
+	# only where the heuristic finds it holding one (the key is set only by
+	# that stage, so flag-off decisions take the old branch).
 	var objective_id = ""
-	if assign_obj_id.begins_with("obj") and assign_action in ["hold", "move", "advance"]:
+	if assign_obj_id.begins_with("obj") and assign_action in ["hold", "move", "advance"] \
+			and not decision.has("_ai_indirect_hold"):
 		objective_id = assign_obj_id
 	else:
 		var assoc_range_px = OBJECTIVE_CONTROL_RANGE_PX if dtype == "REMAIN_STATIONARY" else CHARGE_RANGE_PX
@@ -8054,6 +8095,61 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						_move_shape_notes = fs_base_notes
 						_debug_log_info("MOVE_FOR_SHOT %s: shot spot (%.0f,%.0f) at %s dropped after the move (%s) — keeping the straight move" % [
 							unit_name, shot_pick.end.x, shot_pick.end.y, str(shot_pick.target_name), str(fs_check.get("why", "?"))])
+
+			# --- FIX_INDIRECT_STATIONARY: Remain Stationary to arm [INDIRECT FIRE] (11e 10.07 / 09.04) ---
+			# Judged on the move every stage above settled on (the destinations
+			# about to be returned): a unit whose ranged output is mainly
+			# [INDIRECT FIRE] compares next Shooting phase's damage if it Remains
+			# Stationary (an unseen target with a friendly spotter: its hits fail
+			# on 1-3, not 1-5) with the damage after this move plus what the move
+			# buys on the objectives, and stays when staying wins. A kept cover /
+			# shot spot is then the end of a move the unit no longer makes. Only
+			# the plan's "move" (support moves included) reaches here: no
+			# Advance (10.07: an Advance forfeits indirect shooting anyway), no
+			# planned charge, no rollout override. Off: the pure boolean terms
+			# come first, so a unit with no [INDIRECT FIRE] weapon never reads
+			# the flag.
+			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types and assignment_action == "move" \
+					and charge_intent.is_empty() and ro_move.is_empty() and not model_destinations.is_empty() \
+					and _unit_has_indirect_weapon(unit, snapshot) \
+					and get_param("FIX_INDIRECT_STATIONARY", FIX_INDIRECT_STATIONARY) >= 0.5 \
+					and GameConstants.edition >= 11:
+				var ind := _indirect_stationary_evaluate(unit, unit_id, snapshot, centroid, target_pos,
+					str(assigned_obj_id), model_destinations, objectives, enemies, player, movable_units, assignments)
+				if not ind.is_empty():
+					_debug_log_info("INDIRECT_STATIONARY ledger %s: stay %.1f (%s) | move %.1f (%s) | margin %.1f (min %.1f) target %s spotter %s -> %s" % [
+						unit_name, float(ind.stay_score), _stay_engaged_terms_text(ind.stay_terms),
+						float(ind.move_score), _stay_engaged_terms_text(ind.move_terms), float(ind.margin),
+						float(ind.min_margin), str(ind.target_name), str(ind.spotter_name),
+						"stay" if bool(ind.stay) else "move"])
+				if not ind.is_empty() and bool(ind.stay):
+					print("AIDecisionMaker: [FIX_INDIRECT_STATIONARY] %s move_choice old=move new=stay stay=%.1f move=%.1f target=%s spotter=%s ev=%.2f/%.2f" % [
+						unit_name, float(ind.stay_score), float(ind.move_score), str(ind.target_id),
+						str(ind.spotter_id), float(ind.ev_stay), float(ind.ev_move)])
+					var ind_notes: Array = (ind.notes as Array).duplicate()
+					if cover_kept or not shot_kept.is_empty():
+						var ind_dropped := "cover" if cover_kept else "shot"
+						_debug_log_info("INDIRECT_STATIONARY %s: the planned %s spot is dropped — any move loses the 1-3 band" % [
+							unit_name, ind_dropped])
+						ind_notes.append("Skips the planned %s spot: any move loses the 1-3 band" % ind_dropped)
+					_add_thinking_step("%s: stays put to arm its indirect fire — staying %.1f pts (%s) vs moving %.1f pts (%s)" % [
+						unit_name, float(ind.stay_score), _stay_engaged_terms_text(ind.stay_terms),
+						float(ind.move_score), _stay_engaged_terms_text(ind.move_terms)])
+					for n in ind_notes:
+						_add_thinking_step("%s move: %s" % [unit_name, n])
+					var ind_obj_txt := ""
+					if target_pos != Vector2.INF and str(assigned_obj_id) != "":
+						ind_obj_txt = "; %s %.1f\" away" % [str(assigned_obj_id), _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH]
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s remains stationary to arm its indirect fire at %s (%s can see it — hits fail on 1-%d, not 1-%d; staying %.1f pts vs moving %.1f%s)" % [
+							unit_name, str(ind.target_name), str(ind.spotter_name), int(ind.band_stay),
+							int(ind.band_unarmed), float(ind.stay_score), float(ind.move_score), ind_obj_txt],
+						"_ai_move_adjustments": ind_notes.duplicate(),
+						# _finalize_movement_decision: the plan's objective is not booked as incoming OC.
+						"_ai_indirect_hold": true,
+					}
 
 			if not model_destinations.is_empty():
 				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
@@ -15556,6 +15652,410 @@ static func _should_hold_for_heavy_bonus(
 			w_data.name, w_data.attacks, w_data.bs, max(2, w_data.bs - 1),
 			w_data.hit_improvement * 100.0])
 	return true
+
+# =============================================================================
+# FIX_INDIRECT_STATIONARY: REMAIN STATIONARY TO ARM [INDIRECT FIRE] (11e 10.07 / 09.04)
+# =============================================================================
+# The stage at the end of the normal-move chain (_select_movement_action):
+# should a unit whose ranged output is mainly [INDIRECT FIRE] Remain
+# Stationary instead of making the move the chain settled on? Every rules
+# question is the engine's: RulesEngine.get_eligible_targets (range alone for
+# an [INDIRECT FIRE] weapon; Lone Operative, Psychic Veil and targets engaged
+# with our units applied), preview_attack (10.07's fail band read off the
+# board, the indirect benefit of cover, no hit re-rolls, 13.08 cover per
+# firing model, [HEAVY] 24.16 from the board's flags), _indirect_hit_fail_band_11e
+# and unit_sight_line (13.09 Hidden as errata'd with 13.11.01 Gone to Ground,
+# 13.10 / 13.11 lines). Both options are hypothetical boards built from the
+# snapshot (_move_for_shot_board: shallow copies, the unit and its attached
+# characters moved, unengaged) carrying the flags the Movement phase would
+# set (MovementPhase._remain_stationary_changes / the move confirm). No
+# static state.
+
+## The units that shoot as this unit: the bodyguard, then each alive attached
+## CHARACTER (the units _move_cover_members moves with it).
+static func _indirect_components(unit: Dictionary, snapshot: Dictionary) -> Array:
+	var out: Array = [unit]
+	var units: Dictionary = snapshot.get("units", {})
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		var cu: Dictionary = units.get(str(cid), {})
+		if not cu.is_empty() and not _get_alive_models(cu).is_empty():
+			out.append(cu)
+	return out
+
+## A ranged [INDIRECT FIRE] weapon (24.19) that is not [ONE SHOT].
+static func _is_indirect_weapon(w: Dictionary) -> bool:
+	if str(w.get("type", "")).to_lower() != "ranged":
+		return false
+	var abil: Array = AbilityRegistry.from_weapon(w)
+	return AbilityRegistry.has_ability(abil, "indirect_fire") and not AbilityRegistry.has_ability(abil, "one_shot")
+
+## Does the unit (or an attached character) carry a reusable [INDIRECT FIRE]
+## weapon? Pure — no parameter reads: the stage's last gate term before its
+## flag, so a unit without one never reads FIX_INDIRECT_STATIONARY.
+static func _unit_has_indirect_weapon(unit: Dictionary, snapshot: Dictionary) -> bool:
+	for u in _indirect_components(unit, snapshot):
+		for w in u.get("meta", {}).get("weapons", []):
+			if _is_indirect_weapon(w):
+				return true
+	return false
+
+## Share of the unit's nominal ranged output its [INDIRECT FIRE] weapons
+## carry: Σ average attacks × carriers × average damage × P(hit at its BS)
+## ([TORRENT]: P = 1) over the bodyguard and its attached characters, [ONE
+## SHOT] weapons left out of both sides. 0 with no ranged output.
+static func _indirect_battery_share(unit: Dictionary, snapshot: Dictionary) -> float:
+	var total := 0.0
+	var ind := 0.0
+	for u in _indirect_components(unit, snapshot):
+		for w in u.get("meta", {}).get("weapons", []):
+			if str(w.get("type", "")).to_lower() != "ranged":
+				continue
+			var abil: Array = AbilityRegistry.from_weapon(w)
+			if AbilityRegistry.has_ability(abil, "one_shot"):
+				continue
+			var a = w.get("attacks", "1")
+			var d = w.get("damage", "1")
+			var bs_s := str(w.get("ballistic_skill", "4"))
+			var p_hit := 1.0 if AbilityRegistry.has_ability(abil, "torrent") \
+				else _hit_probability(int(bs_s) if bs_s.is_valid_int() else 4)
+			var nominal := _parse_average_damage(str(a if a != null else "1")) * float(_weapon_carrier_count(u, w)) \
+				* _parse_average_damage(str(d if d != null else "1")) * p_hit
+			total += nominal
+			if AbilityRegistry.has_ability(abil, "indirect_fire"):
+				ind += nominal
+	return ind / total if total > 0.0 else 0.0
+
+## The board our next Shooting phase would see for one option: the formation
+## at `positions` (_move_for_shot_board) with the flags the Movement phase
+## would leave — moved; Remained Stationary or not (09.04; the attached
+## characters too, as _remain_stationary_changes propagates it);
+## moved_max_inches on the bodyguard (24.16 [HEAVY]: 0 when stationary, else
+## the longest model move); unengaged. Copies only: the snapshot is never
+## written.
+static func _indirect_stationary_board(snapshot: Dictionary, unit_id: String, members: Array,
+		positions: Array, stationary: bool, moved_in: float) -> Dictionary:
+	var hypo: Dictionary = _move_for_shot_board(snapshot, unit_id, members, positions).duplicate()
+	var units: Dictionary = hypo.get("units", {}).duplicate()
+	var ids: Array = [unit_id]
+	for mb in members:
+		var cid := str(mb.unit.get("id", ""))
+		if bool(mb.is_char) and cid != "" and not ids.has(cid):
+			ids.append(cid)
+	for id in ids:
+		if not units.has(id):
+			continue
+		var u2: Dictionary = (units[id] as Dictionary).duplicate()
+		var f: Dictionary = u2.get("flags", {}).duplicate()
+		f["moved"] = true
+		f["remained_stationary"] = stationary
+		f["in_engagement"] = false
+		if id == unit_id:
+			f["moved_max_inches"] = 0.0 if stationary else maxf(moved_in, 0.0)
+		u2["flags"] = f
+		units[id] = u2
+	hypo["units"] = units
+	return hypo
+
+## The formation's best target on `board` next Shooting phase: for each target
+## the engine accepts there (get_eligible_targets limited to `only_ids`, in
+## board order), the expected wounds of every weapon it lists for that target
+## (preview_attack's expected_effective_damage; [ONE SHOT] left out), capped
+## at the wounds the target's Attached unit has left, × its points per wound
+## × `w_shot`. A tie keeps the earlier target. {} when nothing is eligible.
+## Keys: id, name, ev, hp, ppw, value, weapons (names that deal damage).
+static func _indirect_stationary_price(re, unit_id: String, board: Dictionary, only_ids: Dictionary,
+		snapshot: Dictionary, w_shot: float) -> Dictionary:
+	var best := {}
+	if only_ids.is_empty():
+		return best
+	var elig: Dictionary = re.get_eligible_targets(unit_id, board, false, only_ids)
+	for tid in elig:
+		var g := _stay_engaged_group(str(tid), snapshot)
+		if float(g.ppw) <= 0.0 or float(g.hp) <= 0.0:
+			continue
+		var ev := 0.0
+		var wnames: Array = []
+		for wid in elig[tid].get("weapons_in_range", []):
+			if re.is_one_shot_weapon(str(wid), board):
+				continue
+			var pa: Dictionary = re.preview_attack(unit_id, str(tid), str(wid), board)
+			var e := maxf(0.0, float(pa.get("expected_effective_damage", 0.0)))
+			if e <= 0.0:
+				continue
+			ev += e
+			var wn := str(pa.get("weapon_name", wid))
+			if not wnames.has(wn):
+				wnames.append(wn)
+		var worth := w_shot * minf(ev, float(g.hp)) * float(g.ppw)
+		if best.is_empty() or worth > float(best.value) + 1e-9:
+			best = {"id": str(tid), "name": str(g.name), "ev": ev, "hp": float(g.hp), "ppw": float(g.ppw),
+				"value": worth, "weapons": wnames}
+	return best
+
+## A friendly unit that will still stand where it stands when our Shooting
+## phase comes, and sees `target_id` on `board` (the stay option): the first
+## of `player`'s units outside our own Attached unit (`own_ids`), with
+## positioned alive models and not embarked (01.02.04), that is RELIABLE —
+## it, or the bodyguard it is attached to, has already acted this phase
+## (flags.moved; valid for the active player, as
+## MovementPhase.has_unit_acted_this_phase reads it), is planned to hold, or
+## has no movement action left — or any such unit with `trust_unmoved`. {}
+## when none: a unit that has yet to move may walk out of sight before the
+## Shooting phase. Keys: id, name, why.
+static func _indirect_stationary_spotter(re, target_id: String, board: Dictionary, snapshot: Dictionary,
+		player: int, own_ids: Array, assignments: Dictionary, movable_units: Dictionary,
+		trust_unmoved: bool) -> Dictionary:
+	var units: Dictionary = board.get("units", {})
+	for fid in units:
+		var fu: Dictionary = units[fid]
+		if int(fu.get("owner", 0)) != player or str(fid) in own_ids:
+			continue
+		if fu.get("embarked_in", null) != null or _get_alive_models_with_positions(fu).is_empty():
+			continue
+		var mover := _attached_unit_target_id(str(fid), snapshot)
+		var mu: Dictionary = units.get(mover, fu)
+		var why := ""
+		if bool(mu.get("flags", {}).get("moved", false)):
+			why = "has already moved"
+		elif str(assignments.get(mover, {}).get("action", "")) == "hold":
+			why = "is planned to hold"
+		elif not movable_units.has(mover):
+			why = "cannot move this phase"
+		elif trust_unmoved:
+			why = "has yet to move"
+		else:
+			continue
+		if bool(re.unit_sight_line(str(fid), target_id, board, false).get("has_los", false)):
+			return {"id": str(fid), "name": _dn(fu, str(fid)), "why": why}
+	return {}
+
+## The candidate prior of one spot: Σ range-checked _estimate_weapon_damage
+## (no sight line) of every ranged, non-[ONE SHOT] weapon of each
+## [component, component as it would stand there] in `shooters` on `tgt_ev`.
+static func _indirect_prior_damage(shooters: Array, tgt_ev: Dictionary, snapshot: Dictionary) -> float:
+	var total := 0.0
+	for sh in shooters:
+		for w in (sh[0] as Dictionary).get("meta", {}).get("weapons", []):
+			if str(w.get("type", "")).to_lower() != "ranged" \
+					or AbilityRegistry.has_ability(AbilityRegistry.from_weapon(w), "one_shot"):
+				continue
+			total += _estimate_weapon_damage(w, tgt_ev, snapshot, sh[1])
+	return total
+
+## The `k` ids with the highest positive prior, as a set; ties by id.
+static func _indirect_top_ids(prior: Dictionary, k: int) -> Dictionary:
+	var ids: Array = []
+	for eid in prior:
+		if float(prior[eid]) > 0.0:
+			ids.append(str(eid))
+	ids.sort_custom(func(a, b):
+		if absf(float(prior[a]) - float(prior[b])) > 1e-9:
+			return float(prior[a]) > float(prior[b])
+		return a < b)
+	var out := {}
+	for i in range(mini(k, ids.size())):
+		out[ids[i]] = true
+	return out
+
+## FIX_INDIRECT_STATIONARY: Remain Stationary, or make the move the chain
+## settled on (`dests`)? {} when there is nothing to price: not a battery
+## (INDIRECT_STATIONARY_MIN_SHARE), it cannot arm (it disembarked this
+## phase — its Disembark move, 18.04, was its move type for the phase
+## (09.02), so it did not Remain Stationary, and the engine never sets the
+## flag for it — it cannot shoot, or it Advanced: 10.07 eligibility), no
+## target in reach, the stay option's best target is one it can see (a
+## normal shot: nothing to arm), the engine's band there is not the spotted
+## one, no reliable spotter sees that target, or F002 would hold its fire
+## there anyway. Otherwise both ledgers on one points scale (stay_terms /
+## move_terms, each summing to its score) and stay = stay_score − move_score
+## ≥ INDIRECT_STATIONARY_MIN_MARGIN, with the facts the notes, the action
+## line and the fire tag quote.
+static func _indirect_stationary_evaluate(unit: Dictionary, unit_id: String, snapshot: Dictionary,
+		centroid: Vector2, target_pos: Vector2, obj_id: String, dests: Dictionary, objectives: Array,
+		enemies: Dictionary, player: int, movable_units: Dictionary, assignments: Dictionary) -> Dictionary:
+	var re = _rules_engine()
+	if re == null or not re.has_method("preview_attack") or not re.has_method("_indirect_hit_fail_band_11e"):
+		return {}
+	var unit_name := _dn(unit, unit_id)
+	# a) A battery: [INDIRECT FIRE] carries most of its ranged output.
+	var share := _indirect_battery_share(unit, snapshot)
+	var min_share := get_param("INDIRECT_STATIONARY_MIN_SHARE", INDIRECT_STATIONARY_MIN_SHARE)
+	if share < min_share:
+		_debug_log_info("INDIRECT_STATIONARY %s: not a battery — [INDIRECT FIRE] is %.0f%% of its ranged output (needs %.0f%%)" % [
+			unit_name, share * 100.0, min_share * 100.0])
+		return {}
+	# b) Can it arm at all?
+	var uflags: Dictionary = unit.get("flags", {})
+	if bool(unit.get("disembarked_this_phase", false)) or bool(uflags.get("cannot_shoot", false)) \
+			or bool(uflags.get("advanced", false)):
+		return {}
+	var k_max := get_param_int("INDIRECT_STATIONARY_MAX_TARGETS", INDIRECT_STATIONARY_MAX_TARGETS)
+	if k_max <= 0:
+		return {}
+	# c) Where every member stands now and after the move; d) the two boards.
+	var members := _move_cover_members(unit, snapshot)
+	if members.is_empty():
+		return {}
+	var cur: Array = []
+	for mb in members:
+		cur.append(mb.orig)
+	var mv := _mfs_positions_from_dests(members, dests)
+	var moved_in := _destinations_max_move_inches(_get_alive_models_with_positions(unit), dests)
+	var stay_b := _indirect_stationary_board(snapshot, unit_id, members, cur, true, 0.0)
+	var move_b := _indirect_stationary_board(snapshot, unit_id, members, mv, false, moved_in)
+	var own_ids: Array = [unit_id]
+	for mb in members:
+		var cid := str(mb.unit.get("id", ""))
+		if bool(mb.is_char) and cid != "" and not own_ids.has(cid):
+			own_ids.append(cid)
+	# e) Candidate targets per option: enemy units (an Attached unit counts
+	# once, 19.01) the unit's guns reach from that option's spot, by a cheap
+	# prior — range-checked expected damage (_estimate_weapon_damage, no sight
+	# line) × points per wound — the INDIRECT_STATIONARY_MAX_TARGETS best of
+	# each, ties by id. Ranked per spot, so targets only the move brings into
+	# range can never crowd the stay option's targets out of its pricing.
+	var shooters_now: Array = []
+	var shooters_mv: Array = []
+	for comp in _indirect_components(unit, snapshot):
+		shooters_now.append([comp, comp])
+		shooters_mv.append([comp, _mfs_unit_at(comp, members, mv)])
+	var prior_stay := {}
+	var prior_move := {}
+	for eid in _stay_engaged_enemy_heads(enemies, snapshot):
+		var g := _stay_engaged_group(eid, snapshot)
+		if float(g.ppw) <= 0.0:
+			continue
+		var tgt_ev := _mfs_ev_target(eid, snapshot)
+		prior_stay[eid] = _indirect_prior_damage(shooters_now, tgt_ev, snapshot) * float(g.ppw)
+		prior_move[eid] = _indirect_prior_damage(shooters_mv, tgt_ev, snapshot) * float(g.ppw)
+	var only_stay := _indirect_top_ids(prior_stay, k_max)
+	if only_stay.is_empty():
+		return {}
+	# f) Each option's best target, priced by the engine.
+	var w_shot := get_param("INDIRECT_STATIONARY_SHOT_WEIGHT", INDIRECT_STATIONARY_SHOT_WEIGHT)
+	var st := _indirect_stationary_price(re, unit_id, stay_b, only_stay, snapshot, w_shot)
+	if st.is_empty():
+		_debug_log_info("INDIRECT_STATIONARY %s: no eligible target if it stays — keeps the move" % unit_name)
+		return {}
+	# g) Is there anything to arm? Not when it can see its best target (a
+	# normal shot), nor when the engine's band there is no better than the
+	# unarmed one (no friendly unit sees the target).
+	if bool(re.unit_sight_line(unit_id, str(st.id), stay_b, false).get("has_los", false)):
+		_debug_log_info("INDIRECT_STATIONARY %s: it can see %s from where it stands — a normal shot, nothing to arm" % [
+			unit_name, str(st.name)])
+		return {}
+	var band_stay := int(re._indirect_hit_fail_band_11e(unit_id, str(st.id), stay_b))
+	var band_unarmed := int(re._indirect_hit_fail_band_11e(unit_id, str(st.id), move_b))
+	if band_stay >= band_unarmed:
+		_debug_log_info("INDIRECT_STATIONARY %s: no friendly unit sees %s — staying would still fail on 1-%d" % [
+			unit_name, str(st.name), band_stay])
+		return {}
+	# h) A reliable spotter: one that will still see the target when we shoot.
+	var spotter := _indirect_stationary_spotter(re, str(st.id), stay_b, snapshot, player, own_ids,
+		assignments, movable_units,
+		get_param("INDIRECT_STATIONARY_TRUST_UNMOVED", INDIRECT_STATIONARY_TRUST_UNMOVED) >= 0.5)
+	if spotter.is_empty():
+		_debug_log_info("INDIRECT_STATIONARY %s: only units that have yet to move can see %s — keeps the move" % [
+			unit_name, str(st.name)])
+		return {}
+	# i) F002 (hold fire to stay Hidden, 13.09), predicted at both spots.
+	if _mfs_f002_would_hold(unit, members, cur, centroid, {"ev": float(st.ev), "hp": float(st.hp)}, enemies):
+		_debug_log_info("INDIRECT_STATIONARY %s: it would hold its fire at its spot to stay Hidden — nothing to arm" % unit_name)
+		return {}
+	# The move option is always priced on the stay option's target too: the
+	# same shot from the new spot (1-5, or a direct shot if the move sees it).
+	var only_move := _indirect_top_ids(prior_move, k_max)
+	only_move[str(st.id)] = true
+	var mvp := _indirect_stationary_price(re, unit_id, move_b, only_move, snapshot, w_shot)
+	var move_shot := float(mvp.get("value", 0.0))
+	if not mvp.is_empty() and _mfs_f002_would_hold(unit, members, mv, _destinations_centroid(dests),
+			{"ev": float(mvp.ev), "hp": float(mvp.hp)}, enemies):
+		move_shot = 0.0
+	# j) What the move buys on the objectives this turn (14.02): an objective
+	# it would put OC on and so improve who controls it; progress (inches)
+	# toward its own objective's range.
+	var friendly_units := _get_units_for_player(snapshot, player)
+	var obj_val := 0.0
+	var obj_taken := ""
+	for op in objectives:
+		var oc_now := _mfs_oc_in_range(unit, unit_id, snapshot, members, cur, op)
+		var oc_aft := _mfs_oc_in_range(unit, unit_id, snapshot, members, mv, op)
+		if oc_aft <= oc_now:
+			continue
+		var f_oc := 0
+		for fid in friendly_units:
+			if str(fid) in own_ids:
+				continue
+			f_oc += _unit_oc_at_position(op, str(fid), friendly_units[fid], friendly_units)
+		var e_oc := _get_oc_at_position(op, enemies, player, false)
+		if signi(f_oc + oc_aft - e_oc) > signi(f_oc + oc_now - e_oc):
+			obj_val = get_param("INDIRECT_STATIONARY_OBJECTIVE_PTS", INDIRECT_STATIONARY_OBJECTIVE_PTS)
+			obj_taken = _objective_id_at(snapshot, op)
+			break
+	var progress_in := 0.0
+	if target_pos != Vector2.INF:
+		var gap_now := _unit_gap_to_objective_px(unit, target_pos)
+		var gap_aft := _unit_gap_to_objective_px(_move_cover_probe_unit(unit, members, mv), target_pos)
+		progress_in = maxf(0.0, gap_now - gap_aft) / PIXELS_PER_INCH
+	# k) The ledgers.
+	var stay_terms := {}
+	var stay_score := 0.0
+	stay_score += _t_add(stay_terms, "ind_stay_shot", float(st.value))
+	var move_terms := {}
+	var move_score := 0.0
+	move_score += _t_add(move_terms, "ind_move_shot", move_shot)
+	move_score += _t_add(move_terms, "ind_move_objective", obj_val)
+	move_score += _t_add(move_terms, "ind_move_progress",
+		get_param("INDIRECT_STATIONARY_PROGRESS_PTS", INDIRECT_STATIONARY_PROGRESS_PTS) * progress_in)
+	var min_margin := get_param("INDIRECT_STATIONARY_MIN_MARGIN", INDIRECT_STATIONARY_MIN_MARGIN)
+	var margin := stay_score - move_score
+	var band_move := "none"
+	if not mvp.is_empty():
+		band_move = "direct" if bool(re.unit_sight_line(unit_id, str(mvp.id), move_b, false).get("has_los", false)) \
+			else "1-%d" % int(re._indirect_hit_fail_band_11e(unit_id, str(mvp.id), move_b))
+	var out := {
+		"stay": margin >= min_margin,
+		"stay_score": stay_score, "move_score": move_score,
+		"stay_terms": stay_terms, "move_terms": move_terms,
+		"margin": margin, "min_margin": min_margin,
+		"target_id": str(st.id), "target_name": str(st.name),
+		"spotter_id": str(spotter.id), "spotter_name": str(spotter.name), "spotter_why": str(spotter.why),
+		"ev_stay": float(st.ev), "stay_shot": float(st.value), "hp": float(st.hp), "ppw": float(st.ppw),
+		"weapons": st.weapons, "band_stay": band_stay, "band_unarmed": band_unarmed,
+		"move_target_id": str(mvp.get("id", "")), "move_target_name": str(mvp.get("name", "")),
+		"ev_move": float(mvp.get("ev", 0.0)), "move_shot": move_shot, "band_move": band_move,
+		"obj_id": obj_id, "obj_val": obj_val, "obj_taken": obj_taken,
+		"progress_in": progress_in, "progress_pts": float(move_terms.get("ind_move_progress", 0.0)),
+		"share": share,
+	}
+	out["notes"] = _indirect_stationary_notes(out)
+	return out
+
+## The "How this turn's move was shaped" notes for a battery that stays put.
+static func _indirect_stationary_notes(ind: Dictionary) -> Array:
+	var notes: Array = []
+	var wl: Array = ind.get("weapons", [])
+	var weapons_txt := ", ".join(PackedStringArray(wl)) if not wl.is_empty() else "[INDIRECT FIRE] weapons"
+	var after := ""
+	if str(ind.move_target_id) == "":
+		after = "no eligible target at all after the move"
+	elif str(ind.move_target_id) == str(ind.target_id):
+		after = "%.1f (%.1f pts)%s after the move" % [float(ind.ev_move), float(ind.move_shot),
+			" from a direct shot" if str(ind.band_move) == "direct" else ""]
+	else:
+		after = "%.1f on %s (%.1f pts) after the move" % [float(ind.ev_move), str(ind.move_target_name),
+			float(ind.move_shot)]
+	notes.append("Remains stationary to arm its %s: %s can see %s, so its [INDIRECT FIRE] hits fail only on an unmodified 1-%d instead of 1-%d (10.07) — an expected %.1f wounds (%.1f pts) next Shooting phase instead of %s" % [
+		weapons_txt, str(ind.spotter_name), str(ind.target_name), int(ind.band_stay), int(ind.band_unarmed),
+		float(ind.ev_stay), float(ind.stay_shot), after])
+	var obj_name := str(ind.obj_id) if str(ind.obj_id) != "" else "its objective"
+	if float(ind.obj_val) > 0.0:
+		notes.append("Gives up taking %s this turn (%.0f pts): the armed shot is worth more" % [
+			str(ind.obj_taken) if str(ind.obj_taken) != "" else "an objective", float(ind.obj_val)])
+	elif float(ind.progress_in) > 0.05:
+		notes.append("Gives up %.1f\" of progress toward %s (%.1f pts); the move would not have taken an objective this turn" % [
+			float(ind.progress_in), obj_name, float(ind.progress_pts)])
+	return notes
 
 # =============================================================================
 # T7-30: HALF-RANGE WEAPON ANALYSIS (SHOOT-6)

@@ -11740,13 +11740,14 @@
     },
     {
       "id": "ai.suggestion.move_shape_notes",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader, ai_stay_engaged.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader, ai_stay_engaged, ai_indirect_stationary.",
       "scenarios": [
         "ai_move_cover",
         "ai_move_shape_telemon_gantry",
         "ai_move_for_charge",
         "ai_move_for_charge_leader",
-        "ai_stay_engaged"
+        "ai_stay_engaged",
+        "ai_indirect_stationary"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11935,6 +11936,36 @@
       "scenarios": [
         "ea10_attached_carry_and_fall_back_11e",
         "mp:tests/test_ea10_mv_moves_through_enemy_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.movement.indirect_stationary",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_indirect_stationary.",
+      "scenarios": [
+        "ai_indirect_stationary"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.indirect_shooting_10_07",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_indirect_stationary.",
+      "scenarios": [
+        "ai_indirect_stationary"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.remain_stationary_09_04",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_indirect_stationary.",
+      "scenarios": [
+        "ai_indirect_stationary"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

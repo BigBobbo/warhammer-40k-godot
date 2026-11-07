@@ -1,0 +1,9 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Indirect battery stays put ON — opt-in, not shipped",
+	"description": "Enables FIX_INDIRECT_STATIONARY: a unit whose nominal ranged output is mainly [INDIRECT FIRE] (INDIRECT_STATIONARY_MIN_SHARE) and whose plan is a Normal move compares, after the mover has settled the move, next Shooting phase's damage if it Remains Stationary with the damage after that move plus what the move buys on the objectives, on one points ledger (points per wound, the T7-24 rule), and Remains Stationary when staying wins by INDIRECT_STATIONARY_MIN_MARGIN. 11e 10.07: an [INDIRECT FIRE] attack at a target the unit cannot see gives it the benefit of cover (13.08), cannot re-roll the hit roll and fails on an unmodified 1-5 — only 1-3 if the unit Remained Stationary this turn (09.04) and a friendly unit can see the target. Prices with the engine's own RulesEngine.preview_attack on both hypothetical boards (so BS is clamped at 6+, 02.02.01: a BS 5+ battery gains nothing and never stays) and only stays when its best target is unseen, the engine's band there really is 1-3, and a RELIABLE friendly unit sees that target (it has acted this phase, is planned to hold, or cannot move; INDIRECT_STATIONARY_TRUST_UNMOVED). Read only for units that carry an [INDIRECT FIRE] weapon, so armies without one (every 2000-pt bench fixture) play byte-identically with it on: the V2-1 fire gate needs a fixture with real artillery. NOT the shipped default (ships at 0); this is the arm to load for the fire gate / paired A/B, and what tests/scenarios/sp/ai_indirect_stationary.json loads. Fire tag: '[FIX_INDIRECT_STATIONARY] <unit> move_choice old=move new=stay stay=<pts> move=<pts> target=<id> spotter=<id> ev=<stay>/<move>'. Exam: tests/exams/mv09_arm_the_indirect_battery.json.",
+	"parameters": {
+		"FIX_INDIRECT_STATIONARY": 1.0
+	}
+}
