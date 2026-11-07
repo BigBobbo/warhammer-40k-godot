@@ -1,0 +1,153 @@
+{
+  "id": "ai_hidden_after_overwatch_11e",
+  "covers": [
+    "ai.shooting.hidden_forfeit",
+    "ai.shooting.hold_fire_record",
+    "rules.11e.hidden_13_09",
+    "autoloads.TerrainManager.is_model_hidden_at",
+    "ui.GameLogPanel.ai_thinking_cards",
+    "ui.AISuggestionBreakdownPanel.glossary"
+  ],
+  "fixture": "audit_383_battleshock_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "13.09 HIDDEN counts ranged attacks made 'during this turn or during the previous turn', and FIRE OVERWATCH (15.08) is snap shooting (15.09: 'shoots as described in Making Attacks') at the end of the OPPONENT's Movement phase, so its 13.09 shot record carries the opponent's turn. A unit that overwatched in the enemy's last turn is therefore NOT Hidden in its own turn, but IS Hidden in the enemy's next turn if it holds fire now. The AI's F002 hold-fire price used to read only 'Hidden now', priced that unit at 0 and shot its next-turn Hidden away for a chip shot. Board: ai_hidden_awareness_11e's (Player 1's Shield-Captain in the dense terrain area at (260,750), the Ork Battlewagon 10 inches away as its only target), set to battle round 2, with the shot record the engine's FIRE OVERWATCH writes in Player 2's battle-round-1 turn (HiddenShotRecord.stamp_diffs at play-order index 3 — the writer MovementPhase._snap_finish calls; tests/unit/test_ai_hidden_predictions_11e.gd drives the real window path). Asserts: (a) the ENGINE says not Hidden now and Hidden at index 5 (TerrainManager.is_model_hidden_at); (b) F002 prices the forfeit above 0; (c) the PLAYER PATH: a real click on 'Suggest (K)' writes the AI's reasoning into the game log — it holds fire 'to be Hidden in the enemy's next turn' — and the K breakdown's hold-fire record carries 'Cost of losing Hidden' with the corrected glossary tooltip; (d) CONTROLS: the same unit with a shot record from THIS turn shoots (nothing left to sell), and the shipped defaults (profile cleared) shoot. Loads tests/bench_profiles/yt_findings_on.json: the Hidden weights ship OFF.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ai_hidden_awareness_11e's board: every OTHER unit parked in the far corner,\n# the Shield-Captain in the dense area at (260,750), the Battlewagon 10\" away\n# as its only legal target (a chip shot into a T12 hull).\nfor uid in GameState.state[\"units\"]:\n\tif uid == \"U_SHIELD_CAPTAIN_A\" or uid == \"U_BATTLEWAGON_G\":\n\t\tcontinue\n\tvar u = GameState.state[\"units\"][uid]\n\tvar k = 0\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tm[\"position\"] = {\"x\": 1650.0 + float(k % 5) * 45.0, \"y\": 1980.0 + float(k / 5) * 45.0}\n\t\tk += 1\nvar sc = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nfor m in sc[\"models\"]:\n\tm[\"position\"] = {\"x\": 260.0, \"y\": 750.0}\nsc[\"flags\"] = {}\nvar bw = GameState.state[\"units\"][\"U_BATTLEWAGON_G\"]\nfor m in bw[\"models\"]:\n\tm[\"position\"] = {\"x\": 260.0, \"y\": 1150.0}\n# Battle round 2, Player 1 first: Player 1's turn is play-order index 4.\nGameState.state[\"meta\"][\"first_turn_player\"] = 1\nGameState.state[\"meta\"][\"battle_round\"] = 2\nGameState.state[\"meta\"][\"active_player\"] = 1\n# The shot record a FIRE OVERWATCH writes in Player 2's battle-round-1 turn\n# (index 3): the engine's own writer, HiddenShotRecord.stamp_diffs, applied\n# with the turn counter at that turn.\nvar HSR = load(\"res://scripts/rules/HiddenShotRecord.gd\")\nGameState.state[\"meta\"][\"battle_round\"] = 1\nGameState.state[\"meta\"][\"active_player\"] = 2\nPhaseManager.apply_state_changes(HSR.stamp_diffs(\"U_SHIELD_CAPTAIN_A\"))\nGameState.state[\"meta\"][\"battle_round\"] = 2\nGameState.state[\"meta\"][\"active_player\"] = 1\nreturn int(sc[\"flags\"].get(\"last_shot_idx\", -1)) == 3 and int(GameState.get_player_turn_index()) == 4",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._update_round_indicator()",
+      "comment": "the HUD shows battle round 2"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Hidden weights ship OFF (neutral): load the profile that turns them on.\nvar f = FileAccess.open(\"res://tests/bench_profiles/yt_findings_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nAIDecisionMaker._current_player = 1\nreturn int(prof[\"parameters\"].size())",
+      "expect_min": 5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ENGINE: the overwatch in the opponent's last turn still counts this turn.\nvar tm = tree.root.get_node_or_null(\"TerrainManager\")\nvar u = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nfor m in u[\"models\"]:\n\tif m.get(\"alive\", true) and tm.is_model_hidden(m, u):\n\t\treturn \"hidden now\"\nreturn \"not hidden now\"",
+      "equals": "not hidden now"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ENGINE: ... and no longer counts in the enemy's next turn (index 5).\nvar tm = tree.root.get_node_or_null(\"TerrainManager\")\nvar u = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tif m.get(\"alive\", true) and tm.is_model_hidden_at(m, u, int(GameState.get_player_turn_index()) + 1):\n\t\tn += 1\nreturn n",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar u = snap[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar enemies = AIDecisionMaker._get_shootable_enemy_units(snap, 1)\nreturn AIDecisionMaker._hidden_forfeit_cost(u, enemies, snap)",
+      "expect_min": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shield_captain_after_overwatch_last_turn"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.clear()"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Suggest (K)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.has_ai_entry_containing_any([\"holds fire to be Hidden in the enemy's next turn\"])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Cost of losing Hidden\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"Hold fire — Hidden next turn\")",
+      "equals": true,
+      "comment": "the hold-fire option is worded for what it keeps"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A real '▸ details' click on every option (the panel's own link handler,\n# toggle_section), then the text the panel now shows: the hover tooltip of\n# 'Cost of losing Hidden' is the corrected glossary help.\nvar p = tree.root.get_node_or_null(\"Main\")._ai_suggestion_panel\nvar built = p.build_breakdown(p._decision, p._meta, {}, true)\nvar rx = RegEx.new()\nrx.compile(\"\\\\[url=(opt:[0-9]+:[0-9]+)\\\\]\")\nvar keys = []\nfor m in rx.search_all(str(built.bbcode)):\n\tvar k = m.get_string(1)\n\tif not k in keys:\n\t\tkeys.append(k)\nfor k in keys:\n\tif not bool(p._expanded.get(k, false)):\n\t\tp.toggle_section(k)\nvar now = p.build_breakdown(p._decision, p._meta, p._expanded, false)\nreturn keys.size() > 0 and str(now.bbcode).contains(\"hands the enemy's next turn a target\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_suggest_holds_fire_to_be_hidden_next_turn"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_game_log_hold_fire_reasoning",
+      "region": [
+        0,
+        105,
+        460,
+        700
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.reset_caches()\nvar snap = GameState.create_snapshot()\nvar d = AIDecisionMaker.decide(8, snap, [{\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\"}], 1)\nvar f = FileAccess.open(\"user://hidden_after_overwatch.txt\", FileAccess.WRITE)\nf.store_line(\"overwatched last turn -> type=%s desc=%s\" % [str(d.get(\"type\", \"?\")), str(d.get(\"_ai_description\", \"\"))])\nf.close()\nreturn str(d.get(\"_ai_description\", \"\")).contains(\"holds fire to be Hidden next turn\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# CONTROL: a shot record from THIS turn (index 4) counts next turn too —\n# nothing left to sell, so the same chip shot is taken.\nAIDecisionMaker.reset_caches()\nvar snap = GameState.create_snapshot()\nsnap[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"flags\"][\"last_shot_idx\"] = int(GameState.get_player_turn_index())\nvar d = AIDecisionMaker.decide(8, snap, [{\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\"}], 1)\nreturn str(d.get(\"type\", \"?\"))",
+      "equals": "SHOOT"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: the profile cleared, the same decision shoots.\nAIDecisionMaker.clear_player_profile(1)\nAIDecisionMaker.reset_caches()\nvar snap = GameState.create_snapshot()\nvar d = AIDecisionMaker.decide(8, snap, [{\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\"}], 1)\nreturn str(d.get(\"type\", \"?\"))",
+      "equals": "SHOOT"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_board_end_state"
+    }
+  ]
+}

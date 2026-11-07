@@ -2764,7 +2764,8 @@
       "id": "ui.GameLogPanel.ai_thinking_cards",
       "description": "GameLogPanel renders AI thinking blocks as collapsible cards during a live AI movement phase (asserted via GameEventLog entry counts + screenshots in the battle-plan integrity scenario).",
       "scenarios": [
-        "ai_battle_plan_log_integrity"
+        "ai_battle_plan_log_integrity",
+        "ai_hidden_after_overwatch_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -11773,10 +11774,11 @@
     },
     {
       "id": "rules.11e.hidden_13_09",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e.",
       "scenarios": [
         "ai_hidden_awareness_11e",
-        "ai_move_cover"
+        "ai_move_cover",
+        "ai_hidden_after_overwatch_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11794,10 +11796,11 @@
     },
     {
       "id": "ai.shooting.hidden_forfeit",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e.",
       "scenarios": [
         "ai_hidden_awareness_11e",
-        "ai_move_cover"
+        "ai_move_cover",
+        "ai_hidden_after_overwatch_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -12164,6 +12167,37 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: attached_leader_only_in_range_shoot_11e.",
       "scenarios": [
         "attached_leader_only_in_range_shoot_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.shooting.hold_fire_record",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e, ai_hidden_awareness_11e.",
+      "scenarios": [
+        "ai_hidden_after_overwatch_11e",
+        "ai_hidden_awareness_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "autoloads.TerrainManager.is_model_hidden_at",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e.",
+      "scenarios": [
+        "ai_hidden_after_overwatch_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.AISuggestionBreakdownPanel.glossary",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e.",
+      "scenarios": [
+        "ai_hidden_after_overwatch_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

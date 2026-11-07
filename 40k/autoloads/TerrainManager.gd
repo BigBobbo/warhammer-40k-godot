@@ -1077,6 +1077,20 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 ## detection range — 15" unless otherwise stated
 ## (GameConstants.hidden_detection_range_inches()).
 func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
+	return is_model_hidden_at(model, unit, _hidden_turn_index())
+
+## is_model_hidden for the play-order turn `turn_idx` (GameState
+## .get_player_turn_index's numbering) instead of the live one: the shot half
+## of 13.09 ("this turn or the previous turn") is read against that turn, the
+## terrain and keyword halves against the board as it stands. A prediction
+## about the opponent's NEXT turn passes the live index + 1: with no stamp at
+## that turn yet, that is exactly "Hidden then if the unit makes no ranged
+## attacks before it" — a FIRE OVERWATCH in the opponent's last turn (stamp
+## live - 1) is gone by then, a shot this turn (stamp live) is not.
+## HiddenShotRecord.NO_TURN honours only the legacy shot_recently flag, as the
+## live check does without a GameState. Effects with a duration of their own
+## (Burna Bomb's cannot_be_hidden) are read as they stand now.
+func is_model_hidden_at(model: Dictionary, unit: Dictionary, turn_idx: int) -> bool:
 	if GameConstants.edition < 11:
 		return false
 	# WP-O6 BURNA BOMB (Codex: Orks 11e, Burna-bommer): "That enemy unit cannot
@@ -1101,7 +1115,7 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	# (HiddenShotRecord). The plain shot_recently flag is honoured
 	# unconditionally (headless tests and effect code set it directly,
 	# without a live battle-round counter).
-	if HiddenShotRecord.shot_this_or_previous_turn(unit, _hidden_turn_index()):
+	if HiddenShotRecord.shot_this_or_previous_turn(unit, turn_idx):
 		return false
 	# 13.09 (errata): "within a terrain area that contains one or more
 	# light/dense terrain features". Within = any part of the base (01.04);
@@ -1133,7 +1147,11 @@ func _hidden_turn_index() -> int:
 ## attacks a rule says do not prevent it from being hidden (Designer's Note:
 ## such units cannot go to ground).
 func can_go_to_ground(unit: Dictionary) -> bool:
-	return not HiddenShotRecord.attacked_this_or_previous_turn(unit, _hidden_turn_index())
+	return can_go_to_ground_at(unit, _hidden_turn_index())
+
+## can_go_to_ground for the play-order turn `turn_idx` (see is_model_hidden_at).
+func can_go_to_ground_at(unit: Dictionary, turn_idx: int) -> bool:
+	return not HiddenShotRecord.attacked_this_or_previous_turn(unit, turn_idx)
 
 ## 13.09 (errata): terrain categories whose areas can make
 ## INFANTRY/BEASTS/SWARM models hidden — light or dense; exposed never does.
@@ -1186,7 +1204,13 @@ func hidden_gate_allows(gate: Dictionary, model: Dictionary, observer_model: Dic
 ##     even ones that "do not prevent it from being hidden" (13.11.01).
 ##   ▪ floor: modifiers never take detection range below 9".
 func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> float:
-	var b := detection_range_bounds_inches(unit)
+	return detection_range_inches_for_at(model, unit, observer_model, _hidden_turn_index())
+
+## detection_range_inches_for in the play-order turn `turn_idx`: Gone to
+## Ground's shot condition (13.11.01) is read against that turn (see
+## is_model_hidden_at); the sight lines against the board as it stands.
+func detection_range_inches_for_at(model: Dictionary, unit: Dictionary, observer_model: Dictionary, turn_idx: int) -> float:
+	var b := detection_range_bounds_inches_at(unit, turn_idx)
 	if bool(b.can_go_to_ground) and _obscured_by_dense_11e(observer_model, model):
 		return float(b.lo)
 	return float(b.hi)
@@ -1211,6 +1235,11 @@ func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_mo
 ##     within the identified terrain feature).
 ## Every modifier depends on the unit only, never on the observer.
 func detection_range_bounds_inches(unit: Dictionary) -> Dictionary:
+	return detection_range_bounds_inches_at(unit, _hidden_turn_index())
+
+## detection_range_bounds_inches in the play-order turn `turn_idx`: only
+## can_go_to_ground depends on the turn (see is_model_hidden_at).
+func detection_range_bounds_inches_at(unit: Dictionary, turn_idx: int) -> Dictionary:
 	var base := detection_range_base_inches(unit)
 	var bonuses := _detection_range_bonuses(unit)
 	var floor_in := GameConstants.detection_range_floor_inches()
@@ -1218,7 +1247,7 @@ func detection_range_bounds_inches(unit: Dictionary) -> Dictionary:
 	for bonus in bonuses:
 		hi_raw += bonus
 	var hi := maxf(hi_raw, floor_in)
-	var gtg := can_go_to_ground(unit)
+	var gtg := can_go_to_ground_at(unit, turn_idx)
 	var lo := hi
 	if gtg:
 		var lo_raw: float = base

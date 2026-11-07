@@ -781,6 +781,11 @@ func test_guard_legacy_nudge_screened() -> void:
 		_assert(not AIDM._mc_cover_nudge_would_rotate(c, pick.pos, ["INFANTRY"], snap.board.terrain_features, enemy_c, unit),
 			"the picked target is one the nudge leaves alone")
 
+## F002 holds fire only while holding fire keeps the unit untargetable: every
+## model of it Hidden in the enemy's next turn (06.01 — one visible model makes
+## the unit a target; 19.01). The prediction (_mfs_f002_would_hold) asks
+## exactly that, so a spot that leaves a model outside the ruin is a shot F002
+## really takes, and one that hides all of them for a chip shot is not.
 func test_guard_f002_hold_fire_predicted() -> void:
 	print("\n--- (c) guard: F002 would hold fire at a Hidden spot for a chip shot — no claim ---")
 	_fix(1.0)
@@ -789,18 +794,34 @@ func test_guard_f002_hold_fire_predicted() -> void:
 	var pick0 = _pick(snap)
 	_assert(not pick0.is_empty(), "F002 off: the spot is found")
 	_knob("HIDDEN_FORFEIT_PENALTY", 3.0)
+	var unit: Dictionary = snap.units["CG"]
+	var enemies: Dictionary = AIDM._get_enemy_units(snap, 1)
+	var members: Array = AIDM._move_cover_members(unit, snap)
+	var c: Vector2 = AIDM._get_unit_centroid(unit)
+	var chip := {"ev": 1.0, "hp": 15.0}  # 0.67 of a 10-point kill: below the 3.0 forfeit
+	# Every model inside the ruin (x 460-740, y 970-1430): F002 holds there.
+	var inside: Array = AIDM._move_cover_shift(members, Vector2(600.0, 1150.0) - c)
+	var at_in: Dictionary = _board_at(snap, "CG", _translated_dests(unit, Vector2(600.0, 1150.0) - c))
+	var cost_in: float = AIDM._hidden_forfeit_cost(at_in.units["CG"], enemies, at_in)
+	_assert(cost_in > 0.0 and AIDM._mfs_f002_would_hold(unit, members, inside, Vector2(600.0, 1150.0), chip, enemies, snap),
+		"every model Hidden next turn, a chip shot: F002 prices the forfeit (%.2f) and the prediction holds fire" % cost_in)
+	# One model past the ruin's east edge: the unit is visible, F002 shoots.
+	var one_out: Array = inside.duplicate()
+	one_out[members.size() - 1] = Vector2(800.0, 1150.0)
+	var d_out: Dictionary = _translated_dests(unit, Vector2(600.0, 1150.0) - c)
+	d_out[str(members[members.size() - 1].model.id)] = [800.0, 1150.0]
+	var at_out: Dictionary = _board_at(snap, "CG", d_out)
+	var cost_out: float = AIDM._hidden_forfeit_cost(at_out.units["CG"], enemies, at_out)
+	_assert(cost_out == 0.0 and not AIDM._mfs_f002_would_hold(unit, members, one_out, Vector2(600.0, 1150.0), chip, enemies, snap),
+		"one model outside: holding fire buys nothing (forfeit %.2f) and the prediction lets it shoot" % cost_out)
 	var diag := {}
 	var pick3 = _pick(snap, "CG", OBJ, diag)
 	print("  F002 3.0: pick %s; diag rej=%s" % [str(pick3.get("end", "none")), str(diag.get("rej"))])
-	_assert(int(diag.get("rej", {}).get("f002", 0)) >= 1, "F002 3.0: a shot spot is rejected because F002 would hold fire there")
 	if not pick3.is_empty():
-		var unit: Dictionary = snap.units["CG"]
 		var pd := _pick_dests(snap, "CG", pick3)
-		var any_hidden := false
-		for m in _board_at(snap, "CG", pd).units["CG"].models:
-			if tm.is_model_hidden(m, unit):
-				any_hidden = true
-		_assert(not any_hidden, "any spot kept with F002 on leaves the unit un-Hidden (F002 shoots there)")
+		var at_pick: Dictionary = _board_at(snap, "CG", pd)
+		var cost_pick: float = AIDM._hidden_forfeit_cost(at_pick.units["CG"], enemies, at_pick)
+		_assert(cost_pick == 0.0, "any spot kept with F002 on is one where F002 shoots (forfeit there %.2f == 0)" % cost_pick)
 	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
 
 func test_guard_cover_spot_wins() -> void:

@@ -20,6 +20,10 @@ static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
 
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
+# 13.09 shot record: the play-order turn index the Hidden predictions are asked
+# for (current_turn_index, NO_TURN). Safe to preload: no autoload references
+# (scripts/rules/HiddenShotRecord.gd says so; TerrainManager preloads it too).
+const HiddenShotRecordScript = preload("res://scripts/rules/HiddenShotRecord.gd")
 # Codex: Orks (11e) stratagem dispatcher (AI hints for window offers) — loaded
 # on first use (_ork_codex()): a const preload pulled the dispatcher, and
 # through OrkCodexCommon GameState.gd, into every `godot -s` compile of this
@@ -2634,19 +2638,22 @@ const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
 # (4.0) so it is a real pull but cannot outbid an objective (WEIGHT_UNCONTROLLED_OBJ
 # is 11.0+); it is also scaled down by how little immunity the position buys.
 const WEIGHT_HIDDEN_GAINED: float = 0.0        # off; corpus-suggested 4.0
-# F002 — shooting surrenders Hidden for this turn AND the next, so pulling the
-# trigger is a two-turn commitment to being shootable. Subtracted from a
-# currently-Hidden unit's shooting score so it still fires when the damage is
-# real but declines chip shots. Zero once Hidden is already lost.
+# F002 — ranged attacks count against Hidden this turn AND the next (13.09), so
+# pulling the trigger hands the enemy's next turn a target. Weighed against a
+# unit's shot when every model of it would be Hidden in that turn if it holds
+# fire, so it still fires when the damage is real but declines chip shots.
+# Zero once the unit shot this turn, or when it would not be Hidden then
+# anyway.
 const HIDDEN_FORFEIT_PENALTY: float = 0.0      # off; corpus-suggested 3.0
 # F002's currency: the shot a unit has on offer is worth this many points per
 # target it would remove outright (min(damage / remaining wounds, 1) per
 # target, comparable to SCREEN_SCORE_BASE). Shared with FIX_MOVE_COVER's
 # hold-fire prediction so the two can never drift apart.
 const HIDDEN_FULL_KILL_WORTH: float = 10.0
-# F003 — an enemy that fired last turn but not this one is on a timer: it will
-# be Hidden (and possibly untargetable) on its next turn. Modest multiplier so
-# it breaks ties rather than overriding threat.
+# F003 — an enemy standing in light or dense terrain whose last ranged attacks
+# will no longer count in its next turn (it fired in its own last turn, or not
+# at all) is on a timer: it will be Hidden (and possibly untargetable) on its
+# next turn. Modest multiplier so it breaks ties rather than overriding threat.
 const HIDDEN_WINDOW_BONUS: float = 1.0         # off (neutral multiplier); corpus-suggested 1.25
 
 # F009 — how hard the AI plays for battle-shock as objective denial. Scales
@@ -2681,6 +2688,15 @@ const BATTLE_SHOCK_DENIAL_WEIGHT: float = 0.0  # off; corpus-suggested 1.0
 # M, its per-model cap). On a full-length move the straight end lies ON that
 # circle, so a terrain fit beside it is pulled back onto the disc and re-fitted
 # (the mover would clamp a target past the cap radially, out of the area).
+# Hidden is judged for the enemy's NEXT turn, the one those shooters shoot in
+# (TerrainManager.is_model_hidden_at / detection_range_inches_for_at at
+# GameState.get_player_turn_index() + 1): 13.09 counts ranged attacks made in
+# "this turn or the previous turn", and FIRE OVERWATCH / snap shooting stamps
+# the opponent's turn, so a unit that overwatched in the enemy's last turn is
+# Hidden again next turn if it holds fire now, and one that shot this turn is
+# not. Every model of the Attached unit counts (06.01 / 19.01), a leader
+# linked only by his own attached_to back-pointer too — where he stands, since
+# the mover leaves him there.
 # Hidden is only credited when it survives our own shooting phase: the unit
 # has no target in range, or F002 (HIDDEN_FORFEIT_PENALTY > 0) would hold fire
 # there — the shot on offer, valued in F002's own currency (each ranged weapon
@@ -19317,12 +19333,16 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var target_summary = "; ".join(desc_parts) if not desc_parts.is_empty() else "targets"
 
 		# --- F002: HOLD FIRE TO KEEP HIDDEN (11e 13.09) ---
-		# Shooting forfeits Hidden for this turn AND the next, so pulling the
-		# trigger sells two turns of untargetability. Price that against what
-		# the shot actually buys: a unit that cannot meaningfully hurt anything
-		# should stay invisible instead. The cost is zero once Hidden is already
-		# gone (unit shot this turn) or when the position hides us from nobody.
-		var hidden_cost = _hidden_forfeit_cost(unit, enemies)
+		# Ranged attacks made now count against Hidden this turn AND the next,
+		# so pulling the trigger hands the enemy's next turn a target. Price
+		# that against what the shot actually buys: a unit that cannot
+		# meaningfully hurt anything should stay invisible instead. The cost is
+		# what holding fire keeps — every model of the Attached unit Hidden in
+		# the enemy's next turn — so it is zero once the unit shot THIS turn,
+		# when it would not be Hidden next turn anyway, or when the position
+		# hides it from nobody; a FIRE OVERWATCH in the enemy's last turn no
+		# longer counts by then, so it does not zero the cost.
+		var hidden_cost = _hidden_forfeit_cost(unit, enemies, snapshot)
 		if hidden_cost > 0.0:
 			# Value the shooting in the same currency as the penalty: fraction
 			# of a target's health bar removed, summed over targets.
@@ -19338,9 +19358,13 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			# entirely. Record it as the two-way choice it actually is, whichever
 			# way it falls, so the Hidden-value term is measurable offline.
 			var hold_round = int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+			# Hidden now, or only from the enemy's next turn on (its last ranged
+			# attacks — e.g. a FIRE OVERWATCH in the enemy's turn — still count
+			# this turn, 13.09): the same hold, worded for what it keeps.
+			var hidden_now := _unit_is_currently_hidden(unit, snapshot)
 			_add_decision_record("hold_fire", selected_unit_id, unit_name, [
 				{
-					"description": "Hold fire — stay Hidden",
+					"description": "Hold fire — stay Hidden" if hidden_now else "Hold fire — Hidden next turn",
 					"score": hidden_cost,
 					"score_breakdown": {
 						"hidden_forfeit_cost": hidden_cost,
@@ -19362,14 +19386,19 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				{"phase": "shooting", "round": hold_round,
 					"targets_considered": target_damage.size()})
 			if shoot_worth < hidden_cost:
-				print("AIDecisionMaker: [F002-HIDDEN] %s holds fire — shot worth %.1f < %.1f cost of surrendering Hidden (%s)" % [
-					unit_name, shoot_worth, hidden_cost, target_summary])
-				_add_thinking_step("%s stays Hidden: shooting would give up the Hidden rule for this turn and the next, and the only shot on offer is %s — not worth being targetable for two turns." % [
-					unit_name, target_summary])
+				print("AIDecisionMaker: [F002-HIDDEN] %s holds fire — shot worth %.1f < %.1f cost of surrendering Hidden%s (%s)" % [
+					unit_name, shoot_worth, hidden_cost, "" if hidden_now else " next turn", target_summary])
+				if hidden_now:
+					_add_thinking_step("%s stays Hidden: shooting would give up the Hidden rule for this turn and the next, and the only shot on offer is %s — not worth being targetable for two turns." % [
+						unit_name, target_summary])
+				else:
+					_add_thinking_step("%s holds fire to be Hidden in the enemy's next turn: its ranged attacks last turn still count this turn, and shooting now would cost it next turn's Hidden too — the only shot on offer is %s, not worth being targetable then." % [
+						unit_name, target_summary])
 				return {
 					"type": "SKIP_UNIT",
 					"actor_unit_id": selected_unit_id,
-					"_ai_description": "%s holds fire to stay Hidden (shot worth %.1f < %.1f)" % [
+					"_ai_description": ("%s holds fire to stay Hidden (shot worth %.1f < %.1f)" if hidden_now
+						else "%s holds fire to be Hidden next turn (shot worth %.1f < %.1f)") % [
 						unit_name, shoot_worth, hidden_cost]
 				}
 
@@ -20386,10 +20415,12 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 
 	# --- F003: SHOOT IT WHILE THE WINDOW IS OPEN (11e 13.09) ---
 	# Availability is otherwise treated as binary and permanent. An enemy that
-	# qualifies for Hidden, is standing in a light/dense terrain area and has not
-	# fired this turn will be untargetable beyond its detection range on its
-	# next turn — a target that is legal now and illegal later.
-	if _target_regains_hidden_soon(target_unit):
+	# qualifies for Hidden, is standing in a light/dense terrain area and made
+	# no ranged attacks this turn will be Hidden — untargetable beyond its
+	# detection range — in its next turn if it holds fire (attacks in its own
+	# last turn no longer count then): a target that is legal now and may be
+	# illegal later.
+	if _target_regains_hidden_soon(target_unit, snapshot):
 		var hw = get_param("HIDDEN_WINDOW_BONUS", HIDDEN_WINDOW_BONUS)
 		if hw != 1.0:
 			value = _t_mul(terms, "tv_regains_hidden", value, hw)
@@ -31034,9 +31065,87 @@ static func _screen_spacing_px(snapshot: Dictionary, player: int) -> float:
 # 11e HIDDEN AWARENESS (13.09) — findings F001 / F002 / F003
 # =============================================================================
 # Thin AI-side wrappers over TerrainManager's existing 13.09 implementation.
-# Nothing here re-derives the rule: is_model_hidden() is the single source of
-# truth, so keyword eligibility, the dense-terrain-area test and the
-# "no ranged attacks this turn or last turn" flag stay in one place.
+# Nothing here re-derives the rule: is_model_hidden() / is_model_hidden_at()
+# are the single source of truth, so keyword eligibility, the light/dense-area
+# test and the "no ranged attacks this turn or last turn" record stay in one
+# place.
+# WHICH TURN: 13.09's shot condition is about turns, and FIRE OVERWATCH / snap
+# shooting and the other out-of-phase "your unit shoots" paths stamp the shot
+# record in the OPPONENT's turn (HiddenShotRecord). So "Hidden now" is not
+# "Hidden in the enemy's next turn if it holds fire": a unit that overwatched
+# in the enemy's last turn (stamp = live - 1) is not Hidden now and is Hidden
+# next turn; one that shot this turn (stamp = live) is Hidden in neither. The
+# predictions about where to end a move (F001, FIX_MOVE_COVER) and what
+# shooting gives up (F002), or when an enemy turns Hidden (F003), ask the engine
+# about the turn they are for — _hidden_next_turn_index().
+# WHICH MODELS: 06.01 "If one or more models in a unit are visible ... that unit
+# is visible" and 19.01 "An attached unit is a single unit for all rules
+# purposes" — the engine's target side walks every model of every component of
+# an Attached unit, both link directions (RulesEngine._target_model_entries), so
+# Hidden protects a unit only while EVERY one of those models is Hidden
+# (_unit_hidden_at), each judged on its own component's keywords (19.03).
+
+## The play-order turn the AI's Hidden predictions are about: the opponent's
+## next turn (GameState.get_player_turn_index() + 1), when the unit's own
+## shooting this turn has been decided — the assumption that it makes no more
+## ranged attacks before then is what hold-fire (F002) and FIX_MOVE_COVER's
+## hold_fire_ok decide. HiddenShotRecord.NO_TURN without a GameState (only the
+## legacy shot_recently flag counts, as in the live check).
+static func _hidden_next_turn_index() -> int:
+	var cur: int = HiddenShotRecordScript.current_turn_index()
+	return cur if cur == HiddenShotRecordScript.NO_TURN else cur + 1
+
+## The live play-order turn index (TerrainManager.is_model_hidden's).
+static func _hidden_live_turn_index() -> int:
+	return HiddenShotRecordScript.current_turn_index()
+
+## The component unit dicts of the Attached unit `unit` heads, head first —
+## both link directions (each attached character's attached_to back-pointer and
+## the head's attachment_data.attached_characters), through the engine's own
+## RulesEngine.attached_unit_component_ids; a head with no alive models heads
+## nothing (19.05), as RulesEngine._target_model_entries. Without the engine
+## the forward list. `snapshot` resolves the components; without one (or an
+## id), the unit alone.
+static func _attached_unit_components(unit: Dictionary, snapshot: Dictionary) -> Array:
+	var uid := str(unit.get("id", ""))
+	var units: Dictionary = snapshot.get("units", {})
+	if uid == "" or units.is_empty() or _get_alive_models(unit).is_empty():
+		return [unit]
+	var ids: Array = []
+	var re = _rules_engine()
+	if re != null and re.has_method("attached_unit_component_ids"):
+		ids = re.attached_unit_component_ids(uid, snapshot)
+	else:
+		ids = [uid]
+		for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+			if units.has(str(cid)) and not str(cid) in ids:
+				ids.append(str(cid))
+	var out: Array = [unit]
+	for cid in ids:
+		if str(cid) == uid:
+			continue
+		var cu: Dictionary = units.get(str(cid), {})
+		if not cu.is_empty():
+			out.append(cu)
+	return out
+
+## Is EVERY alive, placed model of the Attached unit `unit` heads Hidden in
+## play-order turn `turn_idx` (TerrainManager.is_model_hidden_at), each judged
+## on its own component (19.03)? 06.01: one visible model makes the whole unit
+## visible, so anything less protects nothing. False without models.
+static func _unit_hidden_at(unit: Dictionary, snapshot: Dictionary, turn_idx: int) -> bool:
+	if not _unit_hidden_eligible(unit):
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("is_model_hidden_at"):
+		return false
+	var n := 0
+	for comp in _attached_unit_components(unit, snapshot):
+		for m in _get_alive_models_with_positions(comp):
+			n += 1
+			if not tm.is_model_hidden_at(m, comp, turn_idx):
+				return false
+	return n > 0
 
 ## True when the unit's keywords could ever qualify for Hidden (13.09).
 ## Cheap pre-filter so the terrain work is skipped for VEHICLES/MONSTERS.
@@ -31053,38 +31162,32 @@ static func _unit_base_mm(unit: Dictionary) -> int:
 			return int(m.get("base_mm", 32))
 	return 32
 
-## Would a model of this unit standing at `pos` be Hidden?
+## Would a model of this unit standing at `pos` be Hidden in the enemy's next
+## turn (the turn a move's end spot is for — _hidden_next_turn_index)?
 ## Builds a probe model — TerrainManager.pieces_model_within_of() reads only
 ## `position` and `base_mm`, so a synthesised dict is a faithful stand-in for
 ## "if I moved here". The unit dict is passed through untouched, so the
-## keyword and shot-history halves of 13.09 are evaluated against real state.
+## keyword and shot-history halves of 13.09 are evaluated against real state:
+## a FIRE OVERWATCH in the enemy's last turn no longer counts next turn, a shot
+## this turn still does.
 static func _position_would_be_hidden(unit: Dictionary, pos: Vector2, base_mm: int = -1) -> bool:
 	if not _unit_hidden_eligible(unit):
 		return false
 	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden"):
+	if tm == null or not tm.has_method("is_model_hidden_at"):
 		return false
 	var probe := {
 		"position": pos,
 		"base_mm": (base_mm if base_mm > 0 else _unit_base_mm(unit)),
 		"alive": true,
 	}
-	return tm.is_model_hidden(probe, unit)
+	return tm.is_model_hidden_at(probe, unit, _hidden_next_turn_index())
 
-## Is the unit Hidden right now (any alive model)? Used by F002 to know
-## whether there is anything left to surrender by shooting.
-static func _unit_is_currently_hidden(unit: Dictionary) -> bool:
-	if not _unit_hidden_eligible(unit):
-		return false
-	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden"):
-		return false
-	for m in unit.get("models", []):
-		if not m.get("alive", true):
-			continue
-		if tm.is_model_hidden(m, unit):
-			return true
-	return false
+## Is the unit Hidden right now — every model of the whole Attached unit
+## (_unit_hidden_at at the live turn)? One visible model, an attached leader's
+## included, makes the unit a target (06.01, 19.01).
+static func _unit_is_currently_hidden(unit: Dictionary, snapshot: Dictionary = {}) -> bool:
+	return _unit_hidden_at(unit, snapshot, _hidden_live_turn_index())
 
 ## How much immunity is a Hidden position at `pos` actually worth?
 ## Returns the fraction (0..1) of enemy units that could NOT target the unit
@@ -31132,17 +31235,30 @@ static func _hidden_gain_value(unit: Dictionary, dest: Vector2, enemies: Diction
 		return 0.0
 	return w * frac
 
-## F002 — the price of pulling the trigger while Hidden. Shooting forfeits
-## Hidden for this turn AND the next, so this is a two-turn cost, scaled by
-## how much untargetability is being sold.
-static func _hidden_forfeit_cost(shooter_unit: Dictionary, enemies: Dictionary) -> float:
+## F002 — the price of pulling the trigger while Hidden. Ranged attacks made
+## this turn count against Hidden this turn AND the next (13.09), so shooting
+## now hands the enemy's next turn — the one whose shooting Hidden is about —
+## a target: the cost is what holding fire keeps there, every model of the
+## whole Attached unit Hidden in that turn (_unit_hidden_at at
+## _hidden_next_turn_index()), scaled by how much untargetability is being sold.
+## 0 when the unit already shot THIS turn (that stamp counts next turn too) or
+## would not be Hidden next turn anyway. A FIRE OVERWATCH in the enemy's last
+## turn does not count next turn, so it leaves the cost standing. `snapshot`
+## resolves the Attached unit's components (without one, the unit alone).
+static func _hidden_forfeit_cost(shooter_unit: Dictionary, enemies: Dictionary, snapshot: Dictionary = {}) -> float:
+	return _hidden_forfeit_cost_at(shooter_unit, enemies, snapshot, _hidden_next_turn_index())
+
+## F002's currency for ranged attacks that would forfeit Hidden in play-order
+## turn `turn_idx`: HIDDEN_FORFEIT_PENALTY x the share of enemy shooters the
+## unit's position hides it from, when every model of the Attached unit would
+## be Hidden in that turn if it holds fire; else 0. The legacy shot_recently
+## flag needs no check of its own: HiddenShotRecord counts it at every turn.
+static func _hidden_forfeit_cost_at(shooter_unit: Dictionary, enemies: Dictionary, snapshot: Dictionary,
+		turn_idx: int) -> float:
 	var p = get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY)
 	if p <= 0.0:
 		return 0.0
-	# Already shot this turn → Hidden is gone anyway, nothing left to sell.
-	if shooter_unit.get("flags", {}).get("shot_recently", false):
-		return 0.0
-	if not _unit_is_currently_hidden(shooter_unit):
+	if not _unit_hidden_at(shooter_unit, snapshot, turn_idx):
 		return 0.0
 	var c = _get_unit_centroid(shooter_unit)
 	if c == Vector2.INF:
@@ -31152,25 +31268,28 @@ static func _hidden_forfeit_cost(shooter_unit: Dictionary, enemies: Dictionary) 
 		return 0.0
 	return p * frac
 
-## F003 — is this enemy about to regain Hidden? It qualifies on keywords, is
-## standing in a light or dense terrain area (13.09 errata), and has not fired this turn, so on its
-## next turn it may simply be untargetable. Shoot it while the window is open.
-static func _target_regains_hidden_soon(target_unit: Dictionary) -> bool:
+## F003 — will this enemy be Hidden in its next turn (_hidden_next_turn_index)
+## if it holds fire? A hidden unit in 01.02.07's sense — at least one model of
+## the Attached unit it heads Hidden then (light or dense terrain area, 13.09
+## errata; eligible keywords), its last ranged attacks no longer counting by
+## then: a FIRE OVERWATCH or shot in its own last turn is gone, one THIS turn
+## (e.g. overwatching our move) is not. It is a target now; in its next turn it
+## may be untargetable beyond its detection range — shoot it while the window
+## is open. The legacy shot_recently flag counts at every turn
+## (HiddenShotRecord).
+static func _target_regains_hidden_soon(target_unit: Dictionary, snapshot: Dictionary = {}) -> bool:
 	if not _unit_hidden_eligible(target_unit):
 		return false
-	if target_unit.get("flags", {}).get("shot_recently", false):
-		return false
 	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden"):
+	if tm == null or not tm.has_method("is_model_hidden_at"):
 		return false
-	# is_model_hidden already answers "would be Hidden given current shot
-	# history"; a unit that is Hidden *now* is the same window, and one that
-	# fired this turn is excluded by the flag check above.
-	for m in target_unit.get("models", []):
-		if not m.get("alive", true):
-			continue
-		if tm.is_model_hidden(m, target_unit):
-			return true
+	var nxt := _hidden_next_turn_index()
+	for comp in _attached_unit_components(target_unit, snapshot):
+		for m in comp.get("models", []):
+			if not m.get("alive", true):
+				continue
+			if tm.is_model_hidden_at(m, comp, nxt):
+				return true
 	return false
 
 # =============================================================================
@@ -31188,23 +31307,41 @@ static func _target_regains_hidden_soon(target_unit: Dictionary) -> bool:
 ## position plus every alive model of each attached character (the engine
 ## moves those by the first bodyguard model's delta at CONFIRM,
 ## MovementPhase._move_attached_characters). The formation is translated
-## rigidly from the bodyguard centroid, as the mover does.
-static func _move_cover_members(unit: Dictionary, snapshot: Dictionary) -> Array:
+## rigidly from the bodyguard centroid, as the mover does. `moves` is false
+## only for a leader linked by his own attached_to back-pointer alone
+## (with_back_links): the engine's target side counts him (both link
+## directions, RulesEngine._target_model_entries — 06.01 / 19.01), but the
+## mover carries only the forward attached_characters list at CONFIRM and
+## refuses to move a unit with attached_to set, so he is judged where he
+## stands. FIX_MOVE_COVER asks for those (its Hidden / cover claims are about
+## the whole unit); without with_back_links the forward list alone, as before.
+static func _move_cover_members(unit: Dictionary, snapshot: Dictionary, with_back_links: bool = false) -> Array:
 	var out: Array = []
 	for m in _get_alive_models_with_positions(unit):
-		out.append({"model": m, "unit": unit, "is_char": false, "orig": _get_model_position(m)})
+		out.append({"model": m, "unit": unit, "is_char": false, "orig": _get_model_position(m), "moves": true})
 	var units: Dictionary = snapshot.get("units", {})
+	var fwd := {}
 	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		fwd[str(cid)] = true
 		var cu: Dictionary = units.get(str(cid), {})
 		for m in _get_alive_models_with_positions(cu):
-			out.append({"model": m, "unit": cu, "is_char": true, "orig": _get_model_position(m)})
+			out.append({"model": m, "unit": cu, "is_char": true, "orig": _get_model_position(m), "moves": true})
+	if with_back_links:
+		var uid := str(unit.get("id", ""))
+		for comp in _attached_unit_components(unit, snapshot):
+			var cid := str(comp.get("id", ""))
+			if cid == uid or fwd.has(cid):
+				continue
+			for m in _get_alive_models_with_positions(comp):
+				out.append({"model": m, "unit": comp, "is_char": true, "orig": _get_model_position(m), "moves": false})
 	return out
 
-## Every member's spot after translating the formation by `delta`.
+## Every member's spot after translating the formation by `delta` (a member
+## the mover does not carry — `moves` false — stays where it stands).
 static func _move_cover_shift(members: Array, delta: Vector2) -> Array:
 	var out: Array = []
 	for mb in members:
-		out.append(mb.orig + delta)
+		out.append(mb.orig + delta if bool(mb.get("moves", true)) else mb.orig)
 	return out
 
 ## A copy of the bodyguard whose alive models stand at `positions` (aligned
@@ -31543,9 +31680,13 @@ static func _mc_has_target_in_range(members: Array, positions: Array, max_wr: fl
 	return false
 
 ## The value of the formation standing at `positions` (aligned with
-## `members`) against `threats` — the engine's predicates only:
-##   all_hidden   every member passes TerrainManager.is_model_hidden (13.09,
-##                errata: light or dense area; its own unit's shot history);
+## `members`) against `threats` — the engine's predicates only, asked for the
+## enemy's NEXT turn (_hidden_next_turn_index: the turn those shooters shoot
+## in, the unit holding fire until then — hold_fire_ok below):
+##   all_hidden   every member passes TerrainManager.is_model_hidden_at (13.09,
+##                errata: light or dense area; its own unit's shot history,
+##                so a FIRE OVERWATCH in the enemy's last turn no longer counts
+##                and a shot this turn still does);
 ##   in_area      unit_has_cover_11e(probe, {}) (every bodyguard CENTRE in a
 ##                terrain area, or STEALTH) and every attached character's
 ##                centre in one too (13.08 first bullet: holds against any
@@ -31559,9 +31700,10 @@ static func _mc_has_target_in_range(members: Array, positions: Array, max_wr: fl
 ##                means no Hidden credit;
 ##   blind(e)     every enemy model, after its M, stays beyond every member's
 ##                detection range — base + datasheet modifiers, Gone to
-##                Ground's -3" behind dense walls (judged from where the
-##                shooter stands now; at most MOVE_COVER_MAX_GTG_CHECKS engine
-##                calls per pass, the rest counted as visible), floor 9";
+##                Ground's -3" behind dense walls (13.11.01's shot condition
+##                read for the next turn too; judged from where the shooter
+##                stands now; at most MOVE_COVER_MAX_GTG_CHECKS engine calls per
+##                pass, the rest counted as visible), floor 9";
 ##                never for an [INDIRECT FIRE] shooter (10.07);
 ##   covered(e)   in_area, or (full) every model not fully visible to e's
 ##                nearest model through terrain (13.08 second bullet).
@@ -31589,10 +31731,11 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 	var p: Vector2 = ctx.get("p", Vector2.INF)
 	if p == Vector2.INF:
 		p = _get_unit_centroid(probe_bg)
-	# 13.09 Hidden: every member, judged on its own unit.
+	# 13.09 Hidden in the enemy's next turn: every member, judged on its own unit.
+	var h_idx := _hidden_next_turn_index()
 	var all_hidden := true
 	for i in range(members.size()):
-		if not tm.is_model_hidden(probes[i], members[i].unit):
+		if not tm.is_model_hidden_at(probes[i], members[i].unit, h_idx):
 			all_hidden = false
 			break
 	# 13.08 first bullet: every model's centre within a terrain area.
@@ -31633,7 +31776,7 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 	var n_gtg := 0
 	if all_hidden:
 		var bg_uid := str(unit.get("id", ""))
-		det_cache[bg_uid] = float(tm.detection_range_inches_for(probes[0], members[0].unit, {}))
+		det_cache[bg_uid] = float(tm.detection_range_inches_for_at(probes[0], members[0].unit, {}, h_idx))
 		res["det_in"] = det_cache[bg_uid]
 	for k in range(threats.size()):
 		var e: Dictionary = threats[k]
@@ -31653,7 +31796,7 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 					var d_in: float = (o.pos.distance_to(positions[i]) - float(o.r) - float(mr[i])) / PIXELS_PER_INCH - float(e.reach_in)
 					var uid_m := str(members[i].unit.get("id", ""))
 					if not det_cache.has(uid_m):
-						det_cache[uid_m] = float(tm.detection_range_inches_for(probes[i], members[i].unit, {}))
+						det_cache[uid_m] = float(tm.detection_range_inches_for_at(probes[i], members[i].unit, {}, h_idx))
 					var det_base: float = det_cache[uid_m]
 					if d_in > det_base:
 						continue  # out of reach even without Gone to Ground
@@ -31673,7 +31816,7 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 						break
 					budget["n"] = int(budget.get("n", 0)) + 1
 					var i_w: int = int(wp[1])
-					if float(wp[0]) <= float(tm.detection_range_inches_for(probes[i_w], members[i_w].unit, wp[2].model)):
+					if float(wp[0]) <= float(tm.detection_range_inches_for_at(probes[i_w], members[i_w].unit, wp[2].model, h_idx)):
 						blind = false
 						break
 					e_gtg = true
@@ -31877,7 +32020,7 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 		move_target: Vector2, target_pos: Vector2, move_inches: float, enemies: Dictionary,
 		threat_data: Array, objectives: Array, max_wr: float, has_ranged: bool, diag: Dictionary = {}) -> Dictionary:
 	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden") or not tm.has_method("unit_has_cover_11e") \
+	if tm == null or not tm.has_method("is_model_hidden_at") or not tm.has_method("unit_has_cover_11e") \
 			or centroid == Vector2.INF or move_inches <= 0.0:
 		return {}
 	var t0 := Time.get_ticks_usec()
@@ -31889,20 +32032,24 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 	# Half a pixel inside the cap, so float error never trips the cap screen.
 	var reach_px := cap_px - 0.5
 	var base_end := _projected_move_end(centroid, move_target, move_inches * 0.95)
-	var members := _move_cover_members(unit, snapshot)
+	var members := _move_cover_members(unit, snapshot, true)
 	if members.is_empty():
 		return {}
+	# The fitted formation is what the move carries; a leader it leaves where
+	# he stands (`moves` false) shapes no fit but is judged in every claim.
 	var offsets: Array = []
 	var r_min := INF
 	var spread := 0.0
 	var all_eligible := true
 	for mb in members:
+		if not _unit_hidden_eligible(mb.unit):
+			all_eligible = false
+		if not bool(mb.get("moves", true)):
+			continue
 		offsets.append(mb.orig - centroid)
 		var r := _mc_radius_px(mb.model)
 		r_min = minf(r_min, r)
 		spread = maxf(spread, (mb.orig - centroid).length() + r)
-		if not _unit_hidden_eligible(mb.unit):
-			all_eligible = false
 	var base_positions := _move_cover_shift(members, base_end - centroid)
 	var threat_cache := {}
 	var threats := _move_cover_threats(members, base_positions, enemies, threat_cache)
@@ -32148,7 +32295,7 @@ static func _move_cover_recheck(unit: Dictionary, snapshot: Dictionary, pick: Di
 	var positions: Array = []
 	for mb in members:
 		if mb.is_char:
-			positions.append(mb.orig + char_delta)
+			positions.append(mb.orig + char_delta if bool(mb.get("moves", true)) else mb.orig)
 			continue
 		var mid := str(mb.model.get("id", ""))
 		var dv := _mc_dest_vec(dests.get(mid, null)) if dests.has(mid) else Vector2.INF
@@ -32210,7 +32357,10 @@ static func _move_cover_recheck(unit: Dictionary, snapshot: Dictionary, pick: Di
 ## the returned destinations (`check`): its kind and its count of the
 ## shooters that could reach the unit there.
 static func _move_cover_note(pick: Dictionary, check: Dictionary, obj_id: String) -> String:
-	var n_models := (pick.members as Array).size()
+	var n_models := 0  # the models the move carries (a back-pointer-only leader stays put)
+	for mb in pick.members:
+		if bool(mb.get("moves", true)):
+			n_models += 1
 	var n := int(check.get("n_threats", pick.n_threats))
 	var plural := "" if n == 1 else "s"
 	var loss := float(check.loss_in)
@@ -32251,9 +32401,9 @@ static func _move_cover_plan_value(unit: Dictionary, snapshot: Dictionary, centr
 	if w <= 0.0 or centroid == Vector2.INF or dest == Vector2.INF:
 		return 0.0
 	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden") or not tm.has_method("unit_has_cover_11e"):
+	if tm == null or not tm.has_method("is_model_hidden_at") or not tm.has_method("unit_has_cover_11e"):
 		return 0.0
-	var members := _move_cover_members(unit, snapshot)
+	var members := _move_cover_members(unit, snapshot, true)
 	if members.is_empty():
 		return 0.0
 	var positions := _move_cover_shift(members, dest - centroid)
@@ -32340,7 +32490,7 @@ static func _mfs_positions_from_dests(members: Array, dests: Dictionary) -> Arra
 	var positions: Array = []
 	for mb in members:
 		if mb.is_char:
-			positions.append(mb.orig + char_delta)
+			positions.append(mb.orig + char_delta if bool(mb.get("moves", true)) else mb.orig)
 			continue
 		var mid := str(mb.model.get("id", ""))
 		var dv := _mc_dest_vec(dests[mid]) if dests.has(mid) else Vector2.INF
@@ -32721,31 +32871,38 @@ static func _mfs_could_beat(ub: float, sv: Dictionary, cur: Dictionary, base_end
 
 ## F002's verdict at the spot, predicted: would the unit hold fire there to
 ## keep Hidden (13.09) rather than take the shot? Mirrors the hold-fire test
-## in the shooting decision — HIDDEN_FORFEIT_PENALTY > 0, not already shot, a
-## bodyguard model Hidden there (_unit_is_currently_hidden), cost = penalty x
+## in the shooting decision (_hidden_forfeit_cost) — HIDDEN_FORFEIT_PENALTY >
+## 0, every model of the Attached unit Hidden in the enemy's next turn
+## (_hidden_next_turn_index: a shot this turn rules it out, a FIRE OVERWATCH in
+## the enemy's last turn does not) — the members where they would stand, any
+## other component (a leader linked only by his attached_to back-pointer,
+## which the mover leaves behind) where it stands — cost = penalty x
 ## _hidden_immunity_fraction over the shootable enemies, and the shot worth
 ## HIDDEN_FULL_KILL_WORTH x min(damage / remaining wounds, 1) — valued on the
 ## best single target. F002 sums over the targets its plan picks, so this can
 ## predict a hold F002 would not make: it only ever withholds a claim.
 static func _mfs_f002_would_hold(unit: Dictionary, members: Array, positions: Array, p: Vector2,
-		best: Dictionary, enemies: Dictionary) -> bool:
+		best: Dictionary, enemies: Dictionary, snapshot: Dictionary = {}) -> bool:
 	var pen := get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY)
-	if pen <= 0.0 or bool(unit.get("flags", {}).get("shot_recently", false)) or not _unit_hidden_eligible(unit):
+	if pen <= 0.0 or not _unit_hidden_eligible(unit) or members.is_empty():
 		return false
 	var tm = _terrain_manager()
-	if tm == null or not tm.has_method("is_model_hidden"):
+	if tm == null or not tm.has_method("is_model_hidden_at"):
 		return false
-	var hidden := false
+	var h_idx := _hidden_next_turn_index()
+	var placed := {}  # "<unit id>#<model id>" of every member already judged at its spot
 	for i in range(members.size()):
-		if members[i].is_char:
-			continue
 		var m2: Dictionary = members[i].model.duplicate()
 		m2["position"] = positions[i]
-		if tm.is_model_hidden(m2, unit):
-			hidden = true
-			break
-	if not hidden:
-		return false
+		if not tm.is_model_hidden_at(m2, members[i].unit, h_idx):
+			return false
+		placed["%s#%s" % [str(members[i].unit.get("id", "")), str(members[i].model.get("id", ""))]] = true
+	for comp in _attached_unit_components(unit, snapshot):
+		for m in _get_alive_models_with_positions(comp):
+			if placed.has("%s#%s" % [str(comp.get("id", "")), str(m.get("id", ""))]):
+				continue
+			if not tm.is_model_hidden_at(m, comp, h_idx):
+				return false
 	var cost := pen * _hidden_immunity_fraction(unit, p, _mc_shootable(enemies))
 	var hp := float(best.get("hp", 0.0))
 	if cost <= 0.0 or hp <= 0.0:
@@ -33142,7 +33299,7 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 		if float(best.ev) < min_ev:
 			rej.ev += 1
 			continue
-		if _mfs_f002_would_hold(unit, members, sv.positions, sv.p, best, enemies):
+		if _mfs_f002_would_hold(unit, members, sv.positions, sv.p, best, enemies, snapshot):
 			rej.f002 += 1  # F002 would hold fire there to stay Hidden: no shot after all
 			continue
 		sv["best"] = best
@@ -33275,7 +33432,7 @@ static func _move_for_shot_recheck(unit: Dictionary, unit_id: String, snapshot: 
 	if float(best.ev) < get_param("MOVE_FOR_SHOT_MIN_EV", MOVE_FOR_SHOT_MIN_EV):
 		out.why = "expected damage %.2f there" % float(best.ev)
 		return out
-	if _mfs_f002_would_hold(unit, members, positions, end, best, enemies):
+	if _mfs_f002_would_hold(unit, members, positions, end, best, enemies, snapshot):
 		out.why = "F002 would hold fire there to stay Hidden"
 		return out
 	out["target_id"] = str(best.id)
