@@ -32,7 +32,7 @@
     },
     {
       "act": "execute_script",
-      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})"
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})"
     },
     {
       "act": "execute_script",
