@@ -39,6 +39,13 @@ extends SceneTree
 #      F002 prices 0 and F001 credits nothing. F003 asks "Hidden in its next
 #      turn": an enemy that fired in its own last turn (not Hidden now) and one
 #      that never fired are; one that fired THIS turn is not.
+#   C. AI2 — the AI's FIRE OVERWATCH decision prices the Hidden forfeit in
+#      F002's currency when F002 is on: a Hidden unit declines a snap shot
+#      worth less than the Hidden it would hand the opponent's Shooting phase,
+#      still takes a worthwhile one, declines too when the knob is the deciding
+#      seat's own profile (the window is answered in the opponent's turn), and
+#      plays exactly as before at HIDDEN_FORFEIT_PENALTY 0 (the shipped
+#      default). Real MovementPhase path, the AI deciding the window.
 #   D. AI3 — F002 holds fire only while every model of the Attached unit is
 #      Hidden: a leader standing outside the terrain (forward link, or linked
 #      only by its own attached_to back-pointer), or one bodyguard model
@@ -425,6 +432,124 @@ func _section_prev_turn_overwatch() -> void:
 		not AIDM._target_regains_hidden_soon(snap_ow.units["U_MEGANOBZ_A"], snap_ow))
 	_clear_knobs()
 
+# --- C ------------------------------------------------------------------------
+
+## Probe 2's board (tests/test_fire_overwatch_15_08_11e.gd case (j) plus a light
+## area): Player 1 active (index 4), Player 2's Boyz B + attached Warboss A
+## Hidden in a light terrain area, Custodian Guard A 6" away (the snap target,
+## within the Boyz' detection range), Custodian Guard B ~19" south (beyond it).
+## Returns the AI's window answer as the real window applied it.
+func _overwatch_ai_case(save: int, penalty: float, via_seat_profile: bool = false) -> Dictionary:
+	var out := {}
+	if not _load_fixture(["U_CUSTODIAN_GUARD_A", "U_CUSTODIAN_GUARD_B", "U_GRETCHIN_C", "U_BOYZ_B", "U_WARBOSS_A"]):
+		return out
+	_set_turn(2, 1)
+	_place("U_CUSTODIAN_GUARD_A", 8.0, 20.0)
+	_place("U_GRETCHIN_C", 30.0, 50.0, 1.4)
+	_place("U_BOYZ_B", 6.0, 26.0, 1.4)
+	_place("U_WARBOSS_A", 22.0, 26.0)
+	_place("U_CUSTODIAN_GUARD_B", 8.0, 45.0)
+	var cg: Dictionary = GS.state.units["U_CUSTODIAN_GUARD_A"]
+	cg.meta.stats["toughness"] = 3
+	cg.meta.stats["save"] = save
+	cg.meta.stats["invuln"] = 0
+	for m in cg.models:
+		m["invuln"] = 0
+	_set_terrain([_light_area(4.0, 24.0, 25.0, 28.0)])
+	_clear_knobs()
+	AIDM.clear_all_profiles()
+	if penalty > 0.0 and via_seat_profile:
+		# The bench way: the opt-in arm is Player 2's profile, and the window is
+		# answered in Player 1's turn, after Player 1's own decisions.
+		AIDM.load_player_profile(2, {"parameters": {"HIDDEN_FORFEIT_PENALTY": penalty, "FIX_MOVE_COVER": 1.0}})
+	elif penalty > 0.0:
+		_knob("HIDDEN_FORFEIT_PENALTY", penalty)
+		_knob("FIX_MOVE_COVER", 1.0)
+	var before_b := _n_hidden_live(GS.state.units["U_BOYZ_B"])
+	var before_w := _n_hidden_live(GS.state.units["U_WARBOSS_A"])
+	out["hidden_before"] = before_b[0] == before_b[1] and before_w[0] == before_w[1] and before_b[1] > 0
+	var snap: Dictionary = GS.create_snapshot()
+	out["dmg"] = AIDM._snap_expected_damage_11e("U_BOYZ_B", "U_CUSTODIAN_GUARD_A", snap)
+	out["kt"] = AIDM._calculate_kill_threshold(snap.units["U_CUSTODIAN_GUARD_A"])
+	# What overwatching now sells: Hidden in THIS turn's coming Shooting phase
+	# (priced as Player 2, the seat whose knob it is).
+	AIDM._current_player = 2
+	out["forfeit"] = AIDM._hidden_forfeit_cost_at(snap.units["U_BOYZ_B"], AIDM._get_shootable_enemy_units(snap, 2), snap,
+		int(GS.get_player_turn_index()))
+	AIDM._current_player = 1  # the active seat, as after Player 1's own decisions
+	# The decision function on the window's own offer shape (StratagemManager:
+	# one target per eligible shooter, its snap targets as the secondary options).
+	var offer := {"stratagem_id": "fire_overwatch_11e", "name": "FIRE OVERWATCH", "cp_cost": 1,
+		"targets": [{"unit_id": "U_BOYZ_B", "secondary": {"options": [{"id": "U_CUSTODIAN_GUARD_A"}]}}]}
+	# Why the decision reads the knob as the deciding seat: with the active
+	# seat current, a seat profile is invisible to get_param.
+	out["knob_as_active_seat"] = AIDM.get_param("HIDDEN_FORFEIT_PENALTY", 0.0)
+	out["direct"] = AIDM._decide_fire_overwatch_window_11e(offer, 6)
+	AIP.enabled = true
+	AIP.ai_players = {1: false, 2: true}
+	AIP._game_performance[2] = {"cp_spent": 0, "units_lost": 0, "units_killed": 0, "objectives_per_round": {}, "key_moments": []}
+	_reset_ai()
+	AIDM._current_player = 1  # the active seat, as after Player 1's own decisions
+	var phase = _movement()
+	phase.execute_action({"type": "END_MOVEMENT", "player": 1})
+	AIP.enabled = false
+	AIP.ai_players = {1: false, 2: false}
+	AIDM.clear_all_profiles()
+	out["cp2"] = int(GS.state.players["2"]["cp"])
+	out["stamped"] = GS.state.units["U_BOYZ_B"].get("flags", {}).has("last_shot_idx")
+	var after_b := _n_hidden_live(GS.state.units["U_BOYZ_B"])
+	out["hidden_after"] = after_b[0] == after_b[1] and after_b[1] > 0
+	out["cg_b_targets"] = RE.get_eligible_targets("U_CUSTODIAN_GUARD_B", GS.state).keys()
+	_clear_knobs()
+	return out
+
+func _section_overwatch_forfeit() -> void:
+	print("\n-- C. AI2: the AI's FIRE OVERWATCH prices the Hidden forfeit when F002 is on --")
+	var a := _overwatch_ai_case(5, 3.0)
+	if a.is_empty():
+		_check("fixture loaded", false)
+		return
+	var worth_a: float = minf(float(a.dmg) / maxf(float(a.kt), 0.001), 1.0) * float(AIDM.HIDDEN_FULL_KILL_WORTH)
+	print("  case Sv5, F002 3.0: dmg=%.2f kt=%.1f worth=%.2f forfeit=%.2f cp2=%d stamped=%s hidden %s->%s targets=%s" % [
+		float(a.dmg), float(a.kt), worth_a, float(a.forfeit), int(a.cp2), str(a.stamped), str(a.hidden_before),
+		str(a.hidden_after), str(a.cg_b_targets)])
+	_check("setup: the Boyz and their Warboss start Hidden; the snap shot clears FO_11E_MIN_EXPECTED_DAMAGE (%.2f >= %.1f)" % [
+		float(a.dmg), float(AIDM.FO_11E_MIN_EXPECTED_DAMAGE)], bool(a.hidden_before) and float(a.dmg) >= float(AIDM.FO_11E_MIN_EXPECTED_DAMAGE))
+	_check("setup: the snap shot is worth less than the Hidden it would forfeit (%.2f < %.2f)" % [worth_a, float(a.forfeit)],
+		float(a.forfeit) > 0.0 and worth_a < float(a.forfeit))
+	var da: Dictionary = a.direct
+	_check("F002 on: the decision declines the pair and says why (use=%s; %s)" % [str(da.get("use", "?")), str(da.get("considered", []))],
+		not bool(da.get("use", true)) and str(da.get("considered", [])).contains("Hidden"))
+	_check("F002 on: the AI declines the overwatch in the real window (P2 CP stays 6, got %d; no shot record)" % int(a.cp2),
+		int(a.cp2) == 6 and not bool(a.stamped))
+	_check("... the Boyz are still Hidden for Player 1's Shooting phase", bool(a.hidden_after))
+	_check("... and Custodian Guard B (beyond 15\") still cannot target them (engine: %s)" % str(a.cg_b_targets),
+		not "U_BOYZ_B" in a.cg_b_targets)
+
+	var b := _overwatch_ai_case(7, 3.0)
+	var worth_b: float = minf(float(b.dmg) / maxf(float(b.kt), 0.001), 1.0) * float(AIDM.HIDDEN_FULL_KILL_WORTH)
+	print("  case Sv7, F002 3.0: dmg=%.2f kt=%.1f worth=%.2f forfeit=%.2f cp2=%d stamped=%s" % [
+		float(b.dmg), float(b.kt), worth_b, float(b.forfeit), int(b.cp2), str(b.stamped)])
+	_check("F002 on, a snap shot worth more than the forfeit (%.2f >= %.2f): the AI still overwatches (CP 6 -> %d)" % [
+		worth_b, float(b.forfeit), int(b.cp2)], worth_b >= float(b.forfeit) and int(b.cp2) == 5 and bool(b.stamped)
+		and bool(b.direct.get("use", false)))
+
+	var a2 := _overwatch_ai_case(5, 3.0, true)
+	print("  case Sv5, F002 3.0 in Player 2's profile, Player 1 the active seat: forfeit=%.2f cp2=%d stamped=%s direct use=%s" % [
+		float(a2.forfeit), int(a2.cp2), str(a2.stamped), str(a2.direct.get("use", "?"))])
+	_check("setup: with Player 1 the current seat, get_param does not see Player 2's profile (reads %.1f)" % float(a2.knob_as_active_seat),
+		float(a2.knob_as_active_seat) == 0.0)
+	_check("F002 from the deciding seat's own profile (the window is answered in the opponent's turn): it declines too (CP %d)" % int(a2.cp2),
+		float(a2.forfeit) > 0.0 and int(a2.cp2) == 6 and not bool(a2.stamped) and not bool(a2.direct.get("use", true)))
+
+	var c := _overwatch_ai_case(5, 0.0)
+	print("  case Sv5, shipped defaults: dmg=%.2f forfeit=%.2f cp2=%d stamped=%s" % [float(c.dmg), float(c.forfeit), int(c.cp2), str(c.stamped)])
+	_check("shipped defaults (HIDDEN_FORFEIT_PENALTY 0): the same chip shot is taken exactly as before (CP 6 -> %d)" % int(c.cp2),
+		float(c.forfeit) == 0.0 and int(c.cp2) == 5 and bool(c.stamped) and bool(c.direct.get("use", false)))
+	var dc: Dictionary = c.direct
+	_check("shipped defaults: no Hidden line among the considered pairs (%s)" % str(dc.get("considered", [])),
+		not str(dc.get("considered", [])).contains("Hidden"))
+
 # --- D ------------------------------------------------------------------------
 
 func _attached_board(leader_inside: bool, boy_outside: bool, back_pointer_only: bool) -> void:
@@ -544,6 +669,7 @@ func _run() -> void:
 	GameConstants.edition = 11
 	_section_engine_helpers()
 	_section_prev_turn_overwatch()
+	_section_overwatch_forfeit()
 	_section_attached_f002()
 	_section_back_pointer_leader()
 	_clear_knobs()

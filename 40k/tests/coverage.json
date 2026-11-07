@@ -11774,11 +11774,12 @@
     },
     {
       "id": "rules.11e.hidden_13_09",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e, ai_overwatch_keeps_hidden_11e.",
       "scenarios": [
         "ai_hidden_awareness_11e",
         "ai_move_cover",
-        "ai_hidden_after_overwatch_11e"
+        "ai_hidden_after_overwatch_11e",
+        "ai_overwatch_keeps_hidden_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11796,11 +11797,12 @@
     },
     {
       "id": "ai.shooting.hidden_forfeit",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e, ai_overwatch_keeps_hidden_11e.",
       "scenarios": [
         "ai_hidden_awareness_11e",
         "ai_move_cover",
-        "ai_hidden_after_overwatch_11e"
+        "ai_hidden_after_overwatch_11e",
+        "ai_overwatch_keeps_hidden_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -12198,6 +12200,35 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e.",
       "scenarios": [
         "ai_hidden_after_overwatch_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.suggestion.reactive_window",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_overwatch_keeps_hidden_11e, ai_suggestion_fire_overwatch, ai_suggestion_heroic_intervention, ai_suggestion_reactive_window, ai_suggestion_stratagem_window.",
+      "scenarios": [
+        "ai_overwatch_keeps_hidden_11e",
+        "ai_suggestion_fire_overwatch",
+        "ai_suggestion_heroic_intervention",
+        "ai_suggestion_reactive_window",
+        "ai_suggestion_stratagem_window"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "stratagem.core.fire_overwatch_11e",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_overwatch_keeps_hidden_11e, fire_overwatch_ai_snap_toast_11e, fire_overwatch_decline_11e, fire_overwatch_end_of_movement_11e, fire_overwatch_skip_toggle_auto_decline_11e, shadow_masters_after_fire_overwatch_11e.",
+      "scenarios": [
+        "ai_overwatch_keeps_hidden_11e",
+        "fire_overwatch_ai_snap_toast_11e",
+        "fire_overwatch_decline_11e",
+        "fire_overwatch_end_of_movement_11e",
+        "fire_overwatch_skip_toggle_auto_decline_11e",
+        "shadow_masters_after_fire_overwatch_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

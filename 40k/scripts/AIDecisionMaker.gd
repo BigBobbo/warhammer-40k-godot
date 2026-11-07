@@ -2643,7 +2643,8 @@ const WEIGHT_HIDDEN_GAINED: float = 0.0        # off; corpus-suggested 4.0
 # unit's shot when every model of it would be Hidden in that turn if it holds
 # fire, so it still fires when the damage is real but declines chip shots.
 # Zero once the unit shot this turn, or when it would not be Hidden then
-# anyway.
+# anyway. With it on, the AI's FIRE OVERWATCH prices the same forfeit for the
+# opponent's Shooting phase.
 const HIDDEN_FORFEIT_PENALTY: float = 0.0      # off; corpus-suggested 3.0
 # F002's currency: the shot a unit has on offer is worth this many points per
 # target it would remove outright (min(damage / remaining wounds, 1) per
@@ -2703,7 +2704,9 @@ const BATTLE_SHOCK_DENIAL_WEIGHT: float = 0.0  # off; corpus-suggested 1.0
 # on its best target, an upper bound on F002's figure), is worth less than the
 # Hidden it would forfeit. F002 shoots anything better than a chip shot, so a
 # unit with a real target is credited cover, never Hidden. Pair it with
-# HIDDEN_FORFEIT_PENALTY (tests/bench_profiles/move_cover_on.json).
+# HIDDEN_FORFEIT_PENALTY (tests/bench_profiles/move_cover_on.json): with F002
+# on, the AI's FIRE OVERWATCH in the enemy's turn prices the same forfeit, so a
+# chip snap shot does not throw the Hidden away before their Shooting phase.
 # Shooters: every enemy unit that can reach the spot next turn (its M plus max
 # range) — at the spot or at the straight end — is in the share and in the
 # player note's "of N"; the MOVE_COVER_MAX_SHOOTERS heaviest also get the
@@ -29790,6 +29793,16 @@ static func _snap_expected_damage_11e(shooter_id: String, target_id: String, boa
 ## the best (shooter, snap target) pair by expected damage, used only when the
 ## AI keeps a CP in hand (CP >= 2, like evaluate_fire_overwatch), the shot is
 ## worth >= FO_11E_MIN_EXPECTED_DAMAGE and the target >= FO_11E_MIN_TARGET_VALUE.
+## F002 (HIDDEN_FORFEIT_PENALTY > 0): snap shooting is ranged attacks (15.09
+## "shoots as described in Making Attacks (04)"), so a Hidden shooter that
+## overwatches is not Hidden in the opponent's Shooting phase that follows
+## (13.09; HiddenShotRecord stamps this turn). A pair whose snap shot is worth
+## less than that — F002's own currency: HIDDEN_FULL_KILL_WORTH x min(damage /
+## the target's remaining wounds, 1) against _hidden_forfeit_cost_at THIS turn
+## (every model of the Attached unit Hidden now, x the share of the
+## opponent's shooters it hides from) — is skipped, so the AI does not hand
+## the opponent the target it moved or held fire to deny. At the shipped 0
+## nothing changes.
 static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int) -> Dictionary:
 	var out := {"use": false, "score": 0.0, "target_unit_id": "", "secondary_id": "", "considered": []}
 	var fo_name := str(offer.get("name", "FIRE OVERWATCH"))
@@ -29801,17 +29814,52 @@ static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int) -> Dic
 		return out
 	var board: Dictionary = gs.create_snapshot()
 	var units: Dictionary = board.get("units", {})
+	# F002 is the DECIDING seat's knob: this window is answered in the
+	# opponent's turn, while _current_player (whose profile get_param reads)
+	# still names the active seat. Read it, and price the forfeit, as the seat
+	# whose units these are (restored right after: nothing else here changes).
+	var decider := 0
+	for t0 in offer.get("targets", []):
+		var u0: Dictionary = units.get(str(t0.get("unit_id", "")), {})
+		if not u0.is_empty():
+			decider = int(u0.get("owner", 0))
+			break
+	var seat_before := _current_player
+	if decider > 0:
+		_current_player = decider
+	var hide_on := get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY) > 0.0
+	_current_player = seat_before
+	var forfeit_of := {}  # shooter id -> F002 forfeit of overwatching now
 	for t in offer.get("targets", []):
 		var shooter_id := str(t.get("unit_id", ""))
 		var sec = t.get("secondary", {})
 		if typeof(sec) != TYPE_DICTIONARY:
 			continue
+		var forfeit := 0.0
+		if hide_on:
+			if not forfeit_of.has(shooter_id):
+				# The Attached unit the shooter is part of (19.01: one unit, one
+				# shot record — HiddenShotRecord stamps every component).
+				var su: Dictionary = units.get(_attached_unit_target_id(shooter_id, board), units.get(shooter_id, {}))
+				if decider > 0:
+					_current_player = decider
+				forfeit_of[shooter_id] = 0.0 if su.is_empty() else _hidden_forfeit_cost_at(su,
+					_get_shootable_enemy_units(board, int(su.get("owner", 0))), board, _hidden_live_turn_index())
+				_current_player = seat_before
+			forfeit = float(forfeit_of[shooter_id])
 		for opt in sec.get("options", []):
 			var enemy_id := str(opt.get("id", ""))
 			var dmg := _snap_expected_damage_11e(shooter_id, enemy_id, board)
 			var value := _estimate_unit_value(units.get(enemy_id, {}))
 			out.considered.append("%s: %s -> %s: %.2f expected damage on 6s (target value %.1f; need %.1f / %.1f)" % [
 				fo_name, shooter_id, enemy_id, dmg, value, FO_11E_MIN_EXPECTED_DAMAGE, FO_11E_MIN_TARGET_VALUE])
+			if forfeit > 0.0:
+				var hp := _calculate_kill_threshold(units.get(enemy_id, {}))
+				var worth := HIDDEN_FULL_KILL_WORTH * minf(dmg / hp, 1.0) if hp > 0.0 else 0.0
+				if worth < forfeit:
+					out.considered.append("%s: %s holds fire to stay Hidden for the opponent's Shooting phase (snap shot at %s worth %.1f < %.1f Hidden forfeit)" % [
+						fo_name, shooter_id, enemy_id, worth, forfeit])
+					continue
 			if dmg >= FO_11E_MIN_EXPECTED_DAMAGE and value >= FO_11E_MIN_TARGET_VALUE and dmg > float(out.score):
 				out.score = dmg
 				out.target_unit_id = shooter_id
@@ -31077,7 +31125,9 @@ static func _screen_spacing_px(snapshot: Dictionary, player: int) -> float:
 # next turn; one that shot this turn (stamp = live) is Hidden in neither. The
 # predictions about where to end a move (F001, FIX_MOVE_COVER) and what
 # shooting gives up (F002), or when an enemy turns Hidden (F003), ask the engine
-# about the turn they are for — _hidden_next_turn_index().
+# about the turn they are for — _hidden_next_turn_index() — and only the
+# overwatch forfeit (the opponent's Shooting phase is THIS turn's) asks about
+# the live one.
 # WHICH MODELS: 06.01 "If one or more models in a unit are visible ... that unit
 # is visible" and 19.01 "An attached unit is a single unit for all rules
 # purposes" — the engine's target side walks every model of every component of

@@ -1,0 +1,68 @@
+{
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "id": "ai_overwatch_keeps_hidden_11e",
+  "covers": [
+    "ai.suggestion.reactive_window",
+    "ai.shooting.hidden_forfeit",
+    "stratagem.core.fire_overwatch_11e",
+    "rules.11e.hidden_13_09"
+  ],
+  "description": "The AI's FIRE OVERWATCH answer prices the Hidden it would hand the opponent (13.09 + 15.08/15.09: snap shooting is ranged attacks, and a unit that made ranged attacks this turn is not Hidden in the opponent's Shooting phase that follows). Fixture ork11e_orks_reactive (P1 Custodes active, battle round 2): the Flash Gitz stand in a LIGHT terrain area (13.09 errata: light or dense hides) that every Ork-side model of theirs is within, so they are Hidden from the Custodes beyond their 15\" detection range. The Ork player unticks 'Skip Overwatch' with a real click, the Custodes player ends the Movement phase with the phase button, the movement_phase_end window opens for Player 2, and K asks the AI what Player 2 should do. With F002 on (tests/bench_profiles/move_cover_on.json: HIDDEN_FORFEIT_PENALTY 3.0) the AI's notes say the Flash Gitz hold fire to stay Hidden for the opponent's Shooting phase (snap shot worth less than the Hidden forfeit); with the shipped defaults the same window has no Hidden line (nothing changes at HIDDEN_FORFEIT_PENALTY 0). Setup of the window copied from ai_suggestion_fire_overwatch.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 1.0},
+    {"act": "expect_phase", "equals": 7},
+    {"act": "expect_state", "path": "meta.active_player", "equals": 1},
+    {"act": "expect_state", "path": "meta.battle_round", "equals": 2},
+    {"act": "execute_script", "script": "return GameConstants.edition", "equals": 11, "multiline": true},
+    {"act": "execute_script", "multiline": true, "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()", "equals": false},
+    {"act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch", "timeout_s": 2.0},
+    {"act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch"},
+    {"act": "wait_frames", "frames": 3},
+    {"act": "expect_node_property", "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch", "property": "button_pressed", "equals": false, "comment": "the real click turned Skip Overwatch OFF"},
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A LIGHT terrain area round the Flash Gitz, 1\" past every base: every model\n# within it (13.09: within = any part of the base), so they are Hidden.\nvar fg = GameState.state[\"units\"][\"U_FLASH_GITZ_A\"]\nfg[\"flags\"] = {}\nvar lo = Vector2(INF, INF)\nvar hi = Vector2(-INF, -INF)\nfor m in fg[\"models\"]:\n\tif not m.get(\"alive\", true) or m.get(\"position\") == null:\n\t\tcontinue\n\tvar p = Vector2(float(m.position.x), float(m.position.y))\n\tlo = Vector2(min(lo.x, p.x), min(lo.y, p.y))\n\thi = Vector2(max(hi.x, p.x), max(hi.y, p.y))\nvar pad = 60.0\nvar poly = PackedVector2Array([Vector2(lo.x - pad, lo.y - pad), Vector2(hi.x + pad, lo.y - pad), Vector2(hi.x + pad, hi.y + pad), Vector2(lo.x - pad, hi.y + pad)])\nvar area = {\"id\": \"fg_light_area\", \"piece_class\": \"area\", \"type\": \"woods\", \"category\": \"light\", \"height_category\": \"low\", \"polygon\": poly, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": true, \"MONSTER\": true}}\nTerrainManager.terrain_features.append(area)\nGameState.state[\"board\"][\"terrain_features\"] = TerrainManager.terrain_features.duplicate(true)\nRulesEngine.clear_los_memo()\nvar n = 0\nvar t = 0\nfor m in fg[\"models\"]:\n\tif m.get(\"alive\", true) and m.get(\"position\") != null:\n\t\tt += 1\n\t\tif TerrainManager.is_model_hidden(m, fg):\n\t\t\tn += 1\nreturn n == t and t > 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# F002 (opt-in arm) prices what overwatching now would sell: Hidden in THIS\n# turn's coming Shooting phase, x the share of Custodes shooters beyond 15\".\nvar f = FileAccess.open(\"res://tests/bench_profiles/move_cover_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(2, prof)\nAIDecisionMaker._current_player = 2\nvar snap = GameState.create_snapshot()\nreturn AIDecisionMaker._hidden_forfeit_cost_at(snap.units.U_FLASH_GITZ_A, AIDecisionMaker._get_shootable_enemy_units(snap, 2), snap, int(GameState.get_player_turn_index()))",
+      "expect_min": 0.1
+    },
+    {"act": "click_node", "node": "/root/Main/PhaseActionButton"},
+    {"act": "wait_seconds", "seconds": 0.6},
+    {"act": "execute_script", "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible", "equals": true},
+    {"act": "execute_script", "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"},
+    {"act": "wait_seconds", "seconds": 1.2},
+    {"act": "expect_phase", "equals": 7, "comment": "the Movement phase waits for the end-of-phase window"},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0},
+    {"act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "movement_phase_end"},
+    {"act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2, "comment": "offered to the NON-active player only"},
+    {"act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_FLASH_GITZ_A", "comment": "the Hidden Flash Gitz are offered FIRE OVERWATCH"},
+    {"act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"},
+    {"act": "execute_script", "multiline": true, "script": "# configure() clears profiles: the opt-in arm again, for Player 2.\nvar f = FileAccess.open(\"res://tests/bench_profiles/move_cover_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(2, prof)\nreturn true", "equals": true},
+    {"act": "execute_script", "script": "main.refresh_ai_suggestion_button()"},
+    {"act": "execute_script", "script": "AIPlayer.clear_action_log()"},
+    {"act": "simulate_key", "keycode": "K", "comment": "K while the defender's dialog (modal) is open"},
+    {"act": "wait_frames", "frames": 6},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()", "equals": true},
+    {"act": "execute_script", "script": "AIPlayer.last_suggestion_meta.get(\"player\", 0)", "equals": 2, "comment": "answered for the window owner"},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"STRATAGEM WINDOW\")", "equals": true},
+    {"act": "execute_script", "script": "main._ai_suggestion_panel.full_text.contains(\"U_FLASH_GITZ_A holds fire to stay Hidden for the opponent's Shooting phase\")", "equals": true, "comment": "the AI's notes: the snap shot is worth less than the Hidden forfeit"},
+    {"act": "execute_script", "script": "AIPlayer.get_action_log().size()", "equals": 0, "comment": "a suggestion, not an action"},
+    {"act": "screenshot", "label": "01_overwatch_card_keeps_hidden"},
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: the profile cleared, the same window has no Hidden line.\nAIDecisionMaker.clear_player_profile(2)\nvar w = PhaseManager.get_current_phase_instance().get_pending_stratagem_window()\nvar offer = {}\nfor o in w.get(\"offers\", []):\n\tif str(o.get(\"stratagem_id\", \"\")) == \"fire_overwatch_11e\":\n\t\toffer = o\nif offer.is_empty():\n\treturn \"no offer\"\nvar fo = AIDecisionMaker._decide_fire_overwatch_window_11e(offer, int(GameState.state[\"players\"][\"2\"][\"cp\"]))\nreturn str(fo.get(\"considered\", [])).contains(\"Hidden\")",
+      "equals": false
+    },
+    {"act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "movement_phase_end", "comment": "the window is still open: K only suggested"}
+  ]
+}
