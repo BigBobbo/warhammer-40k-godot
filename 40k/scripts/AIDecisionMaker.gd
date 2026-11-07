@@ -8410,11 +8410,11 @@ static func scout_staging_order(destinations: Dictionary, origin_positions: Dict
 	for i in range(ids.size()):
 		var mid = ids[i]
 		var has_origin: bool = origins.has(mid)
-		keyed.append({"id": mid, "has": has_origin, "i": i,
+		keyed.append({"id": mid, "known": has_origin, "i": i,
 			"proj": (origins[mid] as Vector2).dot(move) if has_origin else 0.0})
 	keyed.sort_custom(func(a, b):
-		if a.has != b.has:
-			return a.has
+		if a.known != b.known:
+			return a.known
 		if a.proj != b.proj:
 			return a.proj > b.proj
 		return a.i < b.i)
