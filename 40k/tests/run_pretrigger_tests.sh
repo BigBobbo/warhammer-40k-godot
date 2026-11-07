@@ -35,8 +35,9 @@
 #     deployment action is counted at the source by AIPlayer)
 #   - P0 terrain data: every shipped layout folds into contiguous 13.01
 #     terrain-area groups, no feature stands in another group's area, and every
-#     area's category / height / traits match its features (the CI net for
-#     tools/check_terrain_layouts.py)
+#     area's category / height / traits match its features (the parent, group
+#     and area-aggregate rules of tools/check_terrain_layouts.py, which no CI
+#     job runs)
 #   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
 #   - Wahapedia 11e codex import (Custodes + Orks): codex characteristics,

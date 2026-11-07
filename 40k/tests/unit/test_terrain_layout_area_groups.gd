@@ -21,9 +21,9 @@ extends SceneTree
 #     mirrored twin (6.5-45" apart), merging separate areas into one group.
 # tools/check_terrain_layouts.py is the offline checker / fixer (and also
 # checks each area's generator-derived category/height/traits); no CI job runs
-# it, so THIS test is the CI net for its error checks. It pins the same
-# invariant through the ENGINE (load_terrain_layout + build_area_group_map +
-# Geometry2D) and pins the player-visible effects:
+# it, so this test carries its parent, group and area-aggregate rules into CI.
+# It pins the same invariant through the ENGINE (load_terrain_layout +
+# build_area_group_map + Geometry2D) and pins the player-visible effects:
 #   A. all layouts: parent within 0.5" (checker parent-far), and a feature that
 #      straddles its parent (centroid outside it or < 50% inside it) does not
 #      stand in an area of ANOTHER engine group -- the area holding >= 50% of

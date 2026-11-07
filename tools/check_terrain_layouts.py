@@ -95,7 +95,7 @@ BOARD_W, BOARD_H = 44.0, 60.0   # portrait 11e board (point mirror centre 22,30)
 CATEGORY_RANK = {"exposed": 0, "light": 1, "dense": 2}
 ERROR_CHECKS = ("parent-missing", "parent-not-area", "parent-far", "parent-wrong-area",
                 "link-split", "group-split", "area-aggregate")
-FIX_PASSES = 4          # --fix: repair passes per file (converges in <= 3)
+FIX_PASSES = 4          # --fix: max repair passes per file (a relabel can need a 2nd)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DIR = os.path.join(REPO, "40k", "terrain_layouts")
