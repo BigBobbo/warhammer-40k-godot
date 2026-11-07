@@ -140,6 +140,25 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 		if model_positions[i] != null and not (model_positions[i] is Vector2):
 			model_positions[i] = _coerce_deploy_pos(model_positions[i])
 
+	# RC7 (P0.1, docs/AI_DEPLOYMENT_PLAN.md): every ALIVE model must be given a
+	# position. An empty or partial model_positions used to validate, and the
+	# unit was then marked DEPLOYED with null model positions — "on the table"
+	# with its models nowhere. No player path sends a partial placement (the
+	# Confirm button only appears once every model is placed, Main.gd:10049;
+	# GameManager.build_test_deploy_action fills every model; every scenario
+	# dispatch sends one position per model), so this only closes the gap for
+	# scripted / AI actions. A dead model may stay null.
+	if not unit.is_empty():
+		var unplaced: Array = []
+		var unit_models_rc7: Array = unit.get("models", [])
+		for i in range(unit_models_rc7.size()):
+			var m_rc7 = unit_models_rc7[i]
+			if m_rc7 is Dictionary and m_rc7.get("alive", true) and (i >= model_positions.size() or model_positions[i] == null):
+				unplaced.append(str(m_rc7.get("id", i)))
+		if not unplaced.is_empty():
+			errors.append("Every alive model must be given a position (%d of %d have none: %s)" % [
+				unplaced.size(), unit_models_rc7.size(), ", ".join(unplaced)])
+
 	var unit_owner = unit.get("owner", 0)
 	var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
 	var deployment_zone = get_deployment_zone_for_player(unit_owner)
@@ -267,10 +286,122 @@ func _validate_composite_deploy_action(action: Dictionary) -> Dictionary:
 			for err in attach_validation.errors:
 				errors.append("Attach: " + err)
 
-	# combined_char_data doesn't need separate validation — positions are player-placed
-	# and the characters are part of the combined deployment
+	# P0.1 / D1: the attached CHARACTER models set up with the bodyguard are
+	# validated like any other model (they used to skip validation entirely —
+	# "positions are player-placed" — and the AI now sends them too).
+	if action.has("combined_char_data"):
+		errors.append_array(_validate_combined_char_data(action, get_unit(str(action.get("unit_id", "")))))
 
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_combined_char_data(action: Dictionary, bodyguard: Dictionary) -> Array:
+	"""P0.1 / D1: validate COMPOSITE_DEPLOY.combined_char_data, the attached
+	CHARACTER models set up together with their bodyguard (19.01: an attached
+	unit is a single unit). Returns the error list ([] = legal).
+
+	  * each listed character is attached to this bodyguard (or attached by this
+	    same action's attach_data) and still UNDEPLOYED;
+	  * every alive model of it is listed exactly once;
+	  * each model passes the same per-model rules as the bodyguard, judged with
+	    the CHARACTER's own unit (its keywords for walls / solid features, its
+	    vehicle-collision override). Infiltrators (24.20) only when every model
+	    of the attached unit has the ability — bodyguard and characters;
+	  * no character model overlaps the bodyguard's proposed models or another
+	    character, tested both ways (CircularBase vs a non-circle is a sampled,
+	    asymmetric test);
+	  * bodyguard + characters are in coherency as ONE unit (03.03), via the same
+	    AttackSequence.check_unit_coherency every phase uses."""
+	var errors: Array = []
+	var ccd = action.get("combined_char_data", {})
+	if not (ccd is Dictionary):
+		return ["combined_char_data must be a Dictionary of character id -> model entries"]
+	if ccd.is_empty() or bodyguard.is_empty():
+		return errors
+	var bg_id := str(action.get("unit_id", ""))
+	var attached: Array = []
+	var ad = bodyguard.get("attachment_data", {})
+	if ad is Dictionary:
+		attached = ad.get("attached_characters", []).duplicate()
+	var attach_data = action.get("attach_data", {})
+	if attach_data is Dictionary:
+		attached.append_array(attach_data.get("character_ids", []))
+	var owner := int(bodyguard.get("owner", 0))
+	var zone := get_deployment_zone_for_player(owner)
+	var merged_infil: bool = GameState.unit_has_infiltrators(bg_id)
+	for cid in ccd:
+		if not GameState.unit_has_infiltrators(str(cid)):
+			merged_infil = false
+	# The bodyguard as proposed by this action.
+	var merged: Array = []
+	var bg_models: Array = bodyguard.get("models", [])
+	var mp: Array = action.get("model_positions", [])
+	var mr: Array = action.get("model_rotations", [])
+	for i in range(mini(mp.size(), bg_models.size())):
+		if mp[i] == null:
+			continue
+		var bm: Dictionary = bg_models[i].duplicate()
+		bm["position"] = _coerce_deploy_pos(mp[i])
+		bm["rotation"] = float(mr[i]) if i < mr.size() and mr[i] != null else 0.0
+		bm["alive"] = true
+		merged.append(bm)
+	for cid in ccd:
+		var c := str(cid)
+		if not (c in attached):
+			errors.append("Character %s is not attached to %s" % [c, bg_id])
+			continue
+		var cu: Dictionary = get_unit(c)
+		if cu.is_empty():
+			errors.append("Character %s not found" % c)
+			continue
+		if int(cu.get("status", 0)) != GameStateData.UnitStatus.UNDEPLOYED:
+			errors.append("Character %s is not undeployed" % c)
+			continue
+		var entries = ccd[cid]
+		if not (entries is Array):
+			errors.append("Character %s: model entries must be an Array" % c)
+			continue
+		var cmodels: Array = cu.get("models", [])
+		var seen := {}
+		for entry in entries:
+			if not (entry is Dictionary):
+				errors.append("Character %s: malformed model entry" % c)
+				continue
+			var idx := int(entry.get("model_idx", -1))
+			if idx < 0 or idx >= cmodels.size():
+				errors.append("Character %s model index %d out of range" % [c, idx])
+				continue
+			if seen.has(idx):
+				errors.append("Character %s model %d is listed twice" % [c, idx])
+				continue
+			seen[idx] = true
+			var pos := Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0)))
+			var rot := float(entry.get("rotation", 0.0)) if entry.get("rotation", null) != null else 0.0
+			var v: Dictionary = _validate_infiltrators_position(pos, cu, idx, owner, rot) if merged_infil \
+				else _validate_model_position(pos, cu, idx, zone, rot)
+			for e in v.get("errors", []):
+				errors.append("Character %s model %d: %s" % [c, idx, e])
+			var cm: Dictionary = cmodels[idx].duplicate()
+			cm["position"] = pos
+			cm["rotation"] = rot
+			cm["alive"] = true
+			var cs = Measurement.create_base_shape(cm)
+			for o in merged:
+				var os = Measurement.create_base_shape(o)
+				if cs.overlaps_with(os, pos, rot, o.position, float(o.rotation)) \
+						or os.overlaps_with(cs, o.position, float(o.rotation), pos, rot):
+					errors.append("Character %s model %d overlaps a model of its attached unit" % [c, idx])
+					break
+			merged.append(cm)
+		for ci in range(cmodels.size()):
+			if cmodels[ci] is Dictionary and cmodels[ci].get("alive", true) and not seen.has(ci):
+				errors.append("Character %s model %d has no position" % [c, ci])
+	if merged.size() > 1:
+		var coherency = AttackSequence.check_unit_coherency({"models": merged})
+		if not coherency.get("coherent", true):
+			var offenders: Array = coherency.get("offenders", [])
+			log_phase_message("Attached-unit coherency failed for %s: %d model(s) out of coherency (%s)" % [bg_id, offenders.size(), ", ".join(offenders)])
+			errors.append("Attached unit coherency broken (19.01 + 03.03): the bodyguard and its attached characters must be within 2\" of another model and 9\" of every model as one unit (%d model(s) out of coherency)." % offenders.size())
+	return errors
 
 func _coerce_deploy_pos(p) -> Vector2:
 	# Position payloads arrive as Vector2 (local UI / ENet RPC), {"x":,"y":}

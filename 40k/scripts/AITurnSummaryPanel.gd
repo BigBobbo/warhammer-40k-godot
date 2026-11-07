@@ -156,7 +156,7 @@ func _count_action_categories(actions: Array) -> Dictionary:
 func _categorize_action(action_type: String) -> String:
 	"""Map action types to readable summary categories (matches AIPlayer._categorize_action)."""
 	match action_type:
-		"DEPLOY_UNIT":
+		"DEPLOY_UNIT", "COMPOSITE_DEPLOY":
 			return "units_deployed"
 		"REMAIN_STATIONARY":
 			return "units_stationary"

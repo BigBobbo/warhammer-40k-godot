@@ -103,7 +103,7 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 	var ai_desc = action.get("_ai_description", "")
 
 	match action_type:
-		"DEPLOY_UNIT":
+		"DEPLOY_UNIT", "COMPOSITE_DEPLOY":
 			if ai_desc != "":
 				return prefix + ai_desc
 			return prefix + "Deployed %s%s" % [unit_name, _model_suffix(unit_id)]

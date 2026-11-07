@@ -2711,7 +2711,7 @@ func _on_ai_suggestion_unit_focus(unit_id: String) -> void:
 # does not flip to "confirm move" / "apply saves" under the player.
 const AI_CARD_PICK_TYPES := ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY",
 	"PLACE_REINFORCEMENT", "SELECT_SHOOTER", "DECLARE_CHARGE", "SKIP_CHARGE", "SELECT_FIGHTER",
-	"DEPLOY_UNIT", "BEGIN_SCOUT_MOVE"]
+	"DEPLOY_UNIT", "COMPOSITE_DEPLOY", "BEGIN_SCOUT_MOVE"]
 const AI_CARD_BUSY_TYPES := ["CONFIRM_UNIT_MOVE", "CONFIRM_SCOUT_MOVE", "APPLY_SAVES", "CONTINUE_SEQUENCE",
 	"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "CHARGE_ROLL", "APPLY_CHARGE_MOVE", "COMPLETE_UNIT_CHARGE",
 	"USE_COMMAND_REROLL", "ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "ASSIGN_ATTACKS", "APPLY_MELEE_SAVES",
@@ -10323,8 +10323,9 @@ func _on_phase_action_for_deployment_log(result: Dictionary) -> void:
 	"""P2-40: Handle deployment actions via GameManager.result_applied — show camera pan, toast, and log entry"""
 	var action_type = result.get("action_type", "")
 
-	# Only care about deployment-related actions
-	if action_type != "DEPLOY_UNIT":
+	# Only care about deployment-related actions (P0.1: an attached unit is set
+	# up with COMPOSITE_DEPLOY — the AI now uses it too)
+	if action_type != "DEPLOY_UNIT" and action_type != "COMPOSITE_DEPLOY":
 		return
 
 	# Only during deployment phase

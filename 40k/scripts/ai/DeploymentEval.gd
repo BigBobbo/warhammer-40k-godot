@@ -258,6 +258,194 @@ static func count_forced_reserves(action_log: Array, player: int) -> int:
 			n += 1
 	return n
 
+const OVERLAP_PREFILTER_PX: float = 400.0   # 10": no two bases in the game touch from further apart
+
+static func positions_digest(state: Dictionary) -> String:
+	"""md5 over every unit's status, embarked_in, attached_to and every model's
+	position / rotation, in unit-id order (0.1 px / 0.01 rad). Two equal
+	digests = nothing on the board moved, appeared, embarked, attached or
+	changed status in between."""
+	var units: Dictionary = state.get("units", {})
+	var ids: Array = units.keys()
+	ids.sort()
+	var parts := PackedStringArray()
+	for uid in ids:
+		var u: Dictionary = units[uid]
+		var s := "%s:%d:%s:%s:" % [str(uid), int(u.get("status", STATUS_UNDEPLOYED)),
+			str(u.get("embarked_in", "")), str(u.get("attached_to", ""))]
+		for m in u.get("models", []):
+			var p := _vec(m.get("position", null)) if m is Dictionary else Vector2.INF
+			if p == Vector2.INF:
+				s += "_;"
+			else:
+				s += "%.1f,%.1f,%.2f;" % [p.x, p.y, float(m.get("rotation", 0.0))]
+		parts.append(s)
+	return "|".join(parts).md5_text()
+
+static func _audit_units(state: Dictionary, player: int) -> Array:
+	"""On-table units (DeploymentEval.is_on_table: not undeployed, not in
+	reserves, not embarked, at least one alive placed model) of `player`
+	(0 = both). Embarked units have no table position and are not audited."""
+	var out: Array = []
+	var units: Dictionary = state.get("units", {})
+	for uid in units:
+		var u: Dictionary = units[uid]
+		if player != 0 and int(u.get("owner", 0)) != player:
+			continue
+		if is_on_table(u):
+			out.append(str(uid))
+	out.sort()
+	return out
+
+static func _placed_copy(m: Dictionary) -> Dictionary:
+	var mm: Dictionary = m.duplicate()
+	mm["position"] = _vec(m.get("position", null))
+	return mm
+
+static func audit_legality(state: Dictionary, player: int = 0) -> Dictionary:
+	"""Whole-board set-up legality after deployment, read-only. player = 0
+	audits both sides. Checks every alive, placed model of every on-table unit
+	(embarked / undeployed / reserve units are skipped) with the engine's own
+	predicates — the ones DeploymentPhase validates a set-up with:
+	  zone      Measurement.shape_wholly_in_polygon in the owner's zone — EXCEPT
+	            for a unit with Infiltrators, which is judged as the phase judges
+	            it (24.20, edition-aware distance from GameConstants): centre on
+	            the battlefield, more than 8" (edge to edge, base_mm circle as in
+	            the phase) from the enemy deployment zone and every enemy model.
+	            An attached character counts as an Infiltrator only if it AND its
+	            bodyguard have the ability (19.01 + 24.20);
+	  wall      Measurement.model_overlaps_any_wall(model, its OWN unit's keywords);
+	  board     Measurement.model_outside_board;
+	  overlap   BaseShape.overlaps_with for every pair of models — within one
+	            unit (the phase's intra-unit check, attached characters included)
+	            and between units — tested in BOTH directions. That is stricter
+	            than the phase, which tests only the newly placed model against
+	            the existing one (and CircularBase vs a non-circle is a sampled,
+	            asymmetric test). Pairs involving a unit the
+	            SettingsService.unit_skips_collision override exempts are skipped,
+	            as the phase skips them;
+	  coherency AttackSequence.check_unit_coherency per coherency group
+	            (AttackSequence.coherency_group_ids: an attached unit — bodyguard
+	            plus characters — is judged as ONE unit, 19.01 + 03.03).
+	Returns {models, zone, infiltrators, wall, board, overlap_pairs,
+	incoherent_units, violations, problems (first 20, human-readable)}."""
+	var meas = _autoload("Measurement")
+	var gs = _autoload("GameState")
+	var settings = _autoload("SettingsService")
+	var out := {"models": 0, "zone": 0, "infiltrators": 0, "wall": 0, "board": 0, "overlap_pairs": 0,
+		"incoherent_units": 0, "violations": 0, "problems": []}
+	if meas == null:
+		out["violations"] = -1
+		out["problems"].append("Measurement autoload unavailable")
+		return out
+	var units: Dictionary = state.get("units", {})
+	var audited := _audit_units(state, player)
+	var infil_min: float = GameConstants.infiltrators_min_enemy_distance_inches()
+	var entries: Array = []   # {uid, idx, model, shape, skip}
+	for uid in audited:
+		var u: Dictionary = units[uid]
+		var owner := int(u.get("owner", 0))
+		var poly := zone_polygon_px(state, owner)
+		var kws: Array = u.get("meta", {}).get("keywords", [])
+		var infil: bool = gs != null and gs.has_method("unit_has_infiltrators") and gs.unit_has_infiltrators(uid)
+		var at = u.get("attached_to", null)
+		if infil and at != null and str(at) != "":
+			infil = gs.unit_has_infiltrators(str(at))
+		var skip: bool = settings != null and settings.has_method("unit_skips_collision") and settings.unit_skips_collision(uid)
+		var models: Array = u.get("models", [])
+		for i in range(models.size()):
+			var raw = models[i]
+			if not (raw is Dictionary) or not raw.get("alive", true) or _vec(raw.get("position", null)) == Vector2.INF:
+				continue
+			var m := _placed_copy(raw)
+			var pos: Vector2 = m.position
+			var rot := float(m.get("rotation", 0.0))
+			out.models += 1
+			if infil:
+				var why := _infiltrator_problem(state, owner, m, infil_min)
+				if why != "":
+					out.infiltrators += 1
+					_problem(out, "%s m%d (Infiltrators) %s" % [uid, i, why])
+			elif poly.size() >= 3 and not meas.shape_wholly_in_polygon(pos, m, rot, poly):
+				out.zone += 1
+				_problem(out, "%s m%d not wholly within the P%d zone" % [uid, i, owner])
+			if meas.model_overlaps_any_wall(m, kws):
+				out.wall += 1
+				_problem(out, "%s m%d overlaps a wall / solid feature" % [uid, i])
+			if meas.model_outside_board(pos, m):
+				out.board += 1
+				_problem(out, "%s m%d off the board" % [uid, i])
+			entries.append({"uid": uid, "idx": i, "model": m, "shape": meas.create_base_shape(m), "skip": skip})
+	for i in range(entries.size()):
+		var a: Dictionary = entries[i]
+		for j in range(i + 1, entries.size()):
+			var b: Dictionary = entries[j]
+			if a.skip or b.skip:
+				continue
+			var pa: Vector2 = a.model.position
+			var pb: Vector2 = b.model.position
+			if pa.distance_to(pb) > OVERLAP_PREFILTER_PX:
+				continue
+			var ra := float(a.model.get("rotation", 0.0))
+			var rb := float(b.model.get("rotation", 0.0))
+			if a.shape.overlaps_with(b.shape, pa, ra, pb, rb) or b.shape.overlaps_with(a.shape, pb, rb, pa, ra):
+				out.overlap_pairs += 1
+				_problem(out, "%s m%d overlaps %s m%d" % [a.uid, a.idx, b.uid, b.idx])
+	var judged := {}
+	for uid in audited:
+		var group: Array = AttackSequence.coherency_group_ids(uid, units)
+		var key := ",".join(group)
+		if judged.has(key):
+			continue
+		judged[key] = true
+		var models: Array = []
+		for gid in group:
+			if not units.has(gid) or not is_on_table(units[gid]):
+				continue
+			for raw in units[gid].get("models", []):
+				if raw is Dictionary and raw.get("alive", true) and _vec(raw.get("position", null)) != Vector2.INF:
+					models.append(_placed_copy(raw))
+		if models.size() < 2:
+			continue
+		if not AttackSequence.check_unit_coherency({"models": models}).get("coherent", true):
+			out.incoherent_units += 1
+			_problem(out, "%s out of coherency%s" % [key, " (attached unit judged as one, 19.01)" if group.size() > 1 else ""])
+	out["violations"] = int(out.zone) + int(out.infiltrators) + int(out.wall) + int(out.board) \
+		+ int(out.overlap_pairs) + int(out.incoherent_units)
+	return out
+
+static func _infiltrator_problem(state: Dictionary, owner: int, m: Dictionary, min_in: float) -> String:
+	"""DeploymentPhase._validate_infiltrators_position (24.20) — "" when legal."""
+	var pos: Vector2 = m.position
+	var size: Dictionary = state.get("board", {}).get("size", {})
+	var w := float(size.get("width", 44)) * PX_PER_INCH
+	var h := float(size.get("height", 60)) * PX_PER_INCH
+	if pos.x < 0.0 or pos.x > w or pos.y < 0.0 or pos.y > h:
+		return "is not on the battlefield"
+	var r_in := (float(m.get("base_mm", 32)) / 2.0) / 25.4
+	var ez := zone_polygon_px(state, 3 - owner)
+	if ez.size() >= 3:
+		if Geometry2D.is_point_in_polygon(pos, ez):
+			return "is inside the enemy deployment zone"
+		var best := INF
+		for i in range(ez.size()):
+			best = minf(best, pos.distance_to(Geometry2D.get_closest_point_to_segment(pos, ez[i], ez[(i + 1) % ez.size()])))
+		if best / PX_PER_INCH - r_in < min_in:
+			return "is %.1f\" from the enemy deployment zone (needs more than %.0f\")" % [best / PX_PER_INCH - r_in, min_in]
+	for uid in state.get("units", {}):
+		var e: Dictionary = state.units[uid]
+		if int(e.get("owner", 0)) == owner or not is_on_table(e):
+			continue
+		for em in alive_placed_models(e):
+			var d := pos.distance_to(_vec(em.get("position"))) / PX_PER_INCH - r_in - (float(em.get("base_mm", 32)) / 2.0) / 25.4
+			if d < min_in:
+				return "is %.1f\" from enemy model %s m (needs more than %.0f\")" % [d, str(uid), min_in]
+	return ""
+
+static func _problem(out: Dictionary, text: String) -> void:
+	if out.problems.size() < 20:
+		out.problems.append(text)
+
 static func count_failed_deploy_attempts(event_entries: Array, player: int) -> int:
 	"""Rejected DEPLOY_UNIT submissions logged by AIPlayer ("P<n>: <unit>
 	deployment failed (<reason>) — retrying" in GameEventLog)."""

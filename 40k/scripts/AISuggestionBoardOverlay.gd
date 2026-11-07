@@ -272,6 +272,17 @@ func _collect_moves(decision: Dictionary) -> void:
 		for i in range(mini(positions.size(), models.size())):
 			var rot := float(rots[i]) if rots is Array and i < rots.size() and rots[i] != null else 0.0
 			_add_move(models[i], _to_vec(positions[i]), rot)
+		# P0.1: attached characters set up with the unit (COMPOSITE_DEPLOY).
+		var ccd = decision.get("combined_char_data", {})
+		if ccd is Dictionary:
+			for cid in ccd:
+				var cu: Dictionary = GameState.get_unit(str(cid))
+				var cmodels: Array = cu.get("models", [])
+				for entry in ccd[cid]:
+					var idx := int(entry.get("model_idx", -1))
+					if idx >= 0 and idx < cmodels.size():
+						_add_move(cmodels[idx], Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0))),
+							float(entry.get("rotation", 0.0)) if entry.get("rotation", null) != null else 0.0)
 
 
 func _chosen_point(decision: Dictionary) -> Dictionary:

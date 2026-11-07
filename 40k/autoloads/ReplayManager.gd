@@ -516,7 +516,7 @@ func _build_event_description(action_type: String, action_data: Dictionary, resu
 	var unit_name = _get_unit_name(unit_id)
 
 	match action_type:
-		"DEPLOY_UNIT":
+		"DEPLOY_UNIT", "COMPOSITE_DEPLOY":
 			return prefix + "Deployed %s" % unit_name
 		"CONFIRM_UNIT_MOVE":
 			return prefix + "%s moved" % unit_name

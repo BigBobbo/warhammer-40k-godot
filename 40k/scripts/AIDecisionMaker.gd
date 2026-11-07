@@ -867,7 +867,28 @@ static func _plan_positions_legal(positions: Array, unit: Dictionary, player: in
 		zone_poly: PackedVector2Array, deployed_models: Array,
 		base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
 	"""Pre-validate a planned placement against everything DeploymentPhase will
-	check, so a plan can never produce an illegal deployment action."""
+	check, so a plan can never produce an illegal deployment action.
+
+	P0.1: delegates to FormationBuilder.placement_errors (the phase's rules plus
+	the reverse-direction overlap test for mixed shapes), rotation 0, with the
+	caller's zone polygon (fewer than 3 points = no zone check, defer to the
+	phase) and already-deployed models. DEPLOY_FORMATION_BUILDER = 0 keeps the
+	pre-P0.1 check below."""
+	if _formation_builder_active():
+		var rotations: Array = []
+		for i in range(positions.size()):
+			rotations.append(0.0)
+		var errs: Array = _FormationBuilderScript.placement_errors(snapshot, player, str(unit.get("id", "")),
+			positions, rotations, {}, {"unit": unit, "zone_poly": zone_poly, "obstacles": deployed_models,
+				"check_unit_level": false, "include_characters": false})
+		return errs.is_empty()
+	return _plan_positions_legal_legacy(positions, unit, player, snapshot, zone_poly, deployed_models,
+		base_mm, base_type, base_dimensions)
+
+static func _plan_positions_legal_legacy(positions: Array, unit: Dictionary, player: int, snapshot: Dictionary,
+		zone_poly: PackedVector2Array, deployed_models: Array,
+		base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
+	"""The pre-P0.1 plan legality check (DEPLOY_FORMATION_BUILDER = 0)."""
 	var models: Array = unit.get("models", [])
 	if positions.size() != models.size():
 		return false
@@ -941,6 +962,9 @@ static func _plan_deployment_action(plan: Dictionary, unit_id: String, unit: Dic
 			"Plan '%s' covers %s with fewer positions than it has models — using the formula" % [plan_name, unit_id])
 		return {}
 
+	if _formation_builder_active():
+		return _plan_deployment_action_p01(plan_name, placement, unit_id, unit, player, snapshot, positions)
+
 	var first_model: Dictionary = models[0]
 	var base_mm: int = int(first_model.get("base_mm", 32))
 	var base_type: String = str(first_model.get("base_type", "circular"))
@@ -994,6 +1018,93 @@ static func _plan_deployment_action(plan: Dictionary, unit_id: String, unit: Dic
 		"model_rotations": rotations,
 		"_ai_description": "Deployed %s from plan '%s'%s" % [unit_name, plan_name, " (repaired)" if repaired else ""]
 	}
+
+static func _plan_deployment_action_p01(plan_name: String, placement: Dictionary, unit_id: String,
+		unit: Dictionary, player: int, snapshot: Dictionary, positions: Array) -> Dictionary:
+	"""P0.1 plan placement: legal as authored -> used as is (rotation 0), with
+	the unit's UNDEPLOYED attached characters placed beside it
+	(FormationBuilder.attach_satellites, sent as COMPOSITE_DEPLOY). Otherwise —
+	or when no character slot fits — repaired by the builder: the plan's own
+	shape tried first at every anchor nearest its centroid, then the standard
+	blocks. Returns {} (formula fallback) only when even that finds nothing."""
+	var models: Array = unit.get("models", [])
+	# Index-aligned with unit.models: a dead model gets no position.
+	for i in range(mini(positions.size(), models.size())):
+		if models[i] is Dictionary and not models[i].get("alive", true):
+			positions[i] = null
+	var rotations: Array = []
+	for i in range(positions.size()):
+		rotations.append(0.0)
+	var ccd := {}
+	var repaired := false
+	var repair := ""
+	var formation := {}
+	var errs: Array = _FormationBuilderScript.final_check(snapshot, player, unit_id, positions, rotations)
+	if errs.is_empty():
+		var sat: Dictionary = _FormationBuilderScript.attach_satellites(snapshot, player, unit_id, positions, rotations, _formation_opts())
+		if bool(sat.get("ok", false)):
+			ccd = sat.get("combined_char_data", {})
+		else:
+			errs = ["no legal spot beside the placement for the attached character(s): %s" % str(sat.get("reason", ""))]
+	if not errs.is_empty():
+		var plan_centre := Vector2.ZERO
+		var plan_n := 0
+		for pp in positions:
+			if pp != null:
+				plan_centre += pp
+				plan_n += 1
+		plan_centre /= float(maxi(1, plan_n))
+		var offsets: Array = []
+		for pp in positions:
+			offsets.append(null if pp == null else (pp as Vector2) - plan_centre)
+		var built := _build_formation(snapshot, player, unit_id, plan_centre, {"preferred_offsets": offsets})
+		formation = _formation_context(built)
+		if not bool(built.get("ok", false)):
+			_plan_log_once("%d:%s:illegal" % [player, unit_id],
+				"Plan '%s' placement for %s did not validate (%s) and repair failed — using the formula" % [
+					plan_name, unit_id, "; ".join(errs)])
+			return {}
+		positions = built.model_positions
+		rotations = built.model_rotations
+		ccd = built.get("combined_char_data", {})
+		repaired = true
+		repair = "%s (%s)" % [str(built.get("template", "")), "; ".join(errs).left(160)]
+
+	var unit_name := _dn(unit, unit_id)
+	var centroid := Vector2.ZERO
+	var n := 0
+	for p in positions:
+		if p != null:
+			centroid += p
+			n += 1
+	centroid /= float(maxi(1, n))
+	var record_ctx := {"phase": "deployment", "source": "plan:%s" % plan_name,
+		"plan_unit": str(placement.get("unit", unit_id)),
+		"seat_mirrored": player != 1, "repaired": repaired, "repair": repair,
+		"unit_pos": [centroid.x, centroid.y]}
+	if not formation.is_empty():
+		record_ctx["formation"] = formation
+	_record_choice("deployment", unit_id, unit_name, [{
+		"description": "plan '%s' placement (%.0f, %.0f)" % [plan_name, centroid.x, centroid.y],
+		"score": 1.0, "key": "0", "pos": [centroid.x, centroid.y],
+		"score_breakdown": {"plan": 1.0}}], "0", record_ctx)
+
+	_plan_log("Player %d deploying %s from plan '%s'%s%s%s" % [
+		player, unit_id, plan_name,
+		" (seat-2 mirrored)" if player != 1 else "",
+		" (repaired: %s)" % repair if repaired else "",
+		" with %s" % ", ".join(ccd.keys()) if not ccd.is_empty() else ""])
+
+	var action := {
+		"type": "COMPOSITE_DEPLOY" if not ccd.is_empty() else "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": positions,
+		"model_rotations": rotations,
+		"_ai_description": "Deployed %s from plan '%s'%s" % [unit_name, plan_name, " (repaired)" if repaired else ""]
+	}
+	if not ccd.is_empty():
+		action["combined_char_data"] = ccd
+	return action
 
 # --- Formations consumption (PM-2b) -----------------------------------------
 
@@ -5032,6 +5143,122 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 # DEPLOYMENT PHASE
 # =============================================================================
 
+# P0.1 (docs/AI_DEPLOYMENT_PLAN.md §5.8 / §7 P0): legal-by-construction set-up
+# formations. The formula below still decides WHERE a unit wants to be;
+# FormationBuilder finds the nearest legal set-up for every model — and for the
+# unit's attached characters, which the AI now places itself (COMPOSITE_DEPLOY,
+# combined_char_data) instead of leaving them to the phase's P1-66 ring search.
+# DEPLOY_FORMATION_BUILDER = 0 is the kill switch: it restores the pre-P0.1
+# formula tail, plan legality / repair and AIPlayer retry exactly (A/B only).
+const DEPLOY_FORMATION_BUILDER: float = 1.0
+const DEPLOY_FORMATION_MAX_EVALS: int = 80000     # anchor x block evaluations per drop
+const DEPLOY_FORMATION_MAX_FRESH: int = 16000     # fresh per-position checks per drop
+const DEPLOY_FORMATION_SAT_VARIANTS: int = 10     # attached-character slot variants per rotation combination
+const DEPLOY_FORMATION_GROW_SEEDS: int = 60       # growth-fallback seeds
+const _FormationBuilderScript = preload("res://scripts/ai/FormationBuilder.gd")
+
+static func formation_builder_enabled() -> bool:
+	"""P0.1 kill switch (get_param DEPLOY_FORMATION_BUILDER, default 1)."""
+	return get_param("DEPLOY_FORMATION_BUILDER", DEPLOY_FORMATION_BUILDER) >= 0.5
+
+static func _formation_builder_active() -> bool:
+	"""The builder needs the engine's exact predicates (Measurement). A bare
+	`godot -s` script that calls the AI before the autoloads exist gets the
+	pre-P0.1 path, which tolerated a missing Measurement; a game never does."""
+	return formation_builder_enabled() and _measurement() != null
+
+static func _formation_opts(extra: Dictionary = {}) -> Dictionary:
+	var opts := {
+		"max_evals": get_param_int("DEPLOY_FORMATION_MAX_EVALS", DEPLOY_FORMATION_MAX_EVALS),
+		"max_fresh": get_param_int("DEPLOY_FORMATION_MAX_FRESH", DEPLOY_FORMATION_MAX_FRESH),
+		"sat_variants": get_param_int("DEPLOY_FORMATION_SAT_VARIANTS", DEPLOY_FORMATION_SAT_VARIANTS),
+		"grow_seeds": get_param_int("DEPLOY_FORMATION_GROW_SEEDS", DEPLOY_FORMATION_GROW_SEEDS),
+	}
+	for k in extra:
+		opts[k] = extra[k]
+	return opts
+
+static func _formation_warn(msg: String) -> void:
+	push_warning(msg)
+	print("AIDecisionMaker: %s" % msg)
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		var dl = main.root.get_node_or_null("DebugLogger")
+		if dl and dl.has_method("warn"):
+			dl.warn(msg, {})
+
+static func _build_formation(snapshot: Dictionary, player: int, unit_id: String, desired: Vector2, extra_opts: Dictionary = {}) -> Dictionary:
+	"""FormationBuilder.build_deployment with the get_param budgets, plus the
+	one-line-per-drop [FORMATION] log (stdout and the debug log file)."""
+	var built: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, desired, _formation_opts(extra_opts))
+	var unit_name := _dn(snapshot.get("units", {}).get(unit_id, {}), unit_id)
+	if bool(built.get("ok", false)):
+		var chars := ""
+		if not (built.get("combined_char_data", {}) as Dictionary).is_empty():
+			chars = " +%s" % ",".join((built.combined_char_data as Dictionary).keys())
+		var msg := "[FORMATION] %s%s: %s d=%.1f\" evals=%d fresh=%d %.1fms" % [unit_name, chars, str(built.get("template", "")),
+			float(built.get("displacement_px", 0.0)) / PIXELS_PER_INCH, int(built.get("evals", 0)), int(built.get("fresh", 0)),
+			float(built.get("us", 0)) / 1000.0]
+		print("AIDecisionMaker: %s" % msg)
+		_debug_log_info(msg)
+	else:
+		_formation_warn("[FORMATION] DEFECT: no legal set-up found for %s (P%d): %s (evals=%d fresh=%d %.1fms)" % [
+			unit_name, player, str(built.get("reason", "")), int(built.get("evals", 0)), int(built.get("fresh", 0)),
+			float(built.get("us", 0)) / 1000.0])
+	return built
+
+static func _formation_context(built: Dictionary) -> Dictionary:
+	return {"ok": bool(built.get("ok", false)), "template": str(built.get("template", "")),
+		"displacement_in": snappedf(float(built.get("displacement_px", 0.0)) / PIXELS_PER_INCH, 0.01),
+		"grown": bool(built.get("grown", false)), "evals": int(built.get("evals", 0)),
+		"fresh": int(built.get("fresh", 0)), "ms": snappedf(float(built.get("us", 0)) / 1000.0, 0.1),
+		"characters": (built.get("combined_char_data", {}) as Dictionary).keys(),
+		"reason": str(built.get("reason", ""))}
+
+static func _attach_formation_context(unit_id: String, built: Dictionary) -> void:
+	"""Add context.formation to this unit's deployment decision record."""
+	for i in range(_decision_records.size() - 1, -1, -1):
+		var rec = _decision_records[i]
+		if rec is Dictionary and str(rec.get("decision_type", "")) == "deployment" and str(rec.get("unit_id", "")) == unit_id:
+			var ctx: Dictionary = rec.get("context", {})
+			ctx["formation"] = _formation_context(built)
+			rec["context"] = ctx
+			return
+
+static func _no_legal_formation_marker(unit_id: String, unit_name: String, reason: String) -> Dictionary:
+	"""Returned when no legal set-up exists anywhere in the zone. NEVER routed:
+	AIPlayer sends the unit to Strategic Reserves instead (an empty DEPLOY_UNIT
+	would otherwise validate and leave the unit DEPLOYED with no positions —
+	RC7, now also refused by the phase). The description is what a suggestion
+	card shows, so it says what happened rather than claiming a deployment."""
+	return {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": [],
+		"model_rotations": [],
+		"_ai_no_legal_formation": true,
+		"_ai_formation_reason": reason,
+		"_ai_description": "No legal set-up for %s anywhere in the deployment zone" % unit_name,
+	}
+
+static func _formula_formation_action(snapshot: Dictionary, player: int, unit_id: String, unit_name: String,
+		unit_role: String, best_pos: Vector2, col_index: int, depth_row: int) -> Dictionary:
+	"""P0.1 formula tail: the nearest legal set-up around best_pos."""
+	var built := _build_formation(snapshot, player, unit_id, best_pos)
+	_attach_formation_context(unit_id, built)
+	if not bool(built.get("ok", false)):
+		return _no_legal_formation_marker(unit_id, unit_name, str(built.get("reason", "")))
+	var action := {
+		"type": str(built.get("action_type", "DEPLOY_UNIT")),
+		"unit_id": unit_id,
+		"model_positions": built.model_positions,
+		"model_rotations": built.model_rotations,
+		"_ai_description": "Deployed %s (%s, col %d, row %d)" % [unit_name, unit_role, col_index + 1, depth_row + 1]
+	}
+	if not (built.get("combined_char_data", {}) as Dictionary).is_empty():
+		action["combined_char_data"] = built.combined_char_data
+	return action
+
 static func _build_deploy_order(snapshot: Dictionary, deploy_actions: Array, first_uid: String, plan_name: String) -> Dictionary:
 	"""UNIT-ORDER: units still to deploy — the AI's pick first, then the army list."""
 	var units: Dictionary = snapshot.get("units", {})
@@ -5280,6 +5507,11 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 				"source": "formula_fallback" if not plan_name.is_empty() else "formula",
 				"plan": plan_name,
 				"unit_pos": [best_pos.x, best_pos.y]})
+
+	# P0.1: the nearest LEGAL set-up around best_pos (FormationBuilder). The tail
+	# below it is the pre-P0.1 path, kept only for DEPLOY_FORMATION_BUILDER = 0.
+	if _formation_builder_active():
+		return _formula_formation_action(snapshot, player, unit_id, unit_name, unit_role, best_pos, col_index, depth_row)
 
 	# Generate formation positions
 	var models = unit.get("models", [])

@@ -991,6 +991,9 @@ func accept_suggestion(decision: Dictionary) -> Dictionary:
 func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
 	var t := str(action.get("type", ""))
 	var unit_id := str(action.get("actor_unit_id", action.get("unit_id", "")))
+	# P0.1: "no legal set-up" is a finding, not an action — never route it.
+	if bool(action.get("_ai_no_legal_formation", false)):
+		return {"success": false, "error": "No legal set-up for %s anywhere in the deployment zone" % _get_unit_name(unit_id)}
 	# A move the player already began (card says "move in progress"): the BEGIN
 	# is done — clear anything they staged and place the AI's plan instead.
 	if bool(action.get("_ai_in_progress_move", false)) and action.has("_ai_model_destinations"):
@@ -1012,8 +1015,9 @@ func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
 		return {"success": false, "error": _format_error_concise(err)}
 
 	# Follow-ups the AI's own turn runs after a successful action.
-	if t in ["DEPLOY_UNIT", "PLACE_REINFORCEMENT"] and unit_id != "":
+	if t in ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "PLACE_REINFORCEMENT"] and unit_id != "":
 		emit_signal("ai_unit_deployed", player, unit_id)
+		_emit_deployed_characters(player, action)
 	elif t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and action.has("_ai_model_destinations"):
 		if result.get("awaiting_reroll", false) or result.has("stratagem_window_opened"):
 			# Paused for the player's Command Re-roll / an opponent window —
@@ -2368,6 +2372,20 @@ func _execute_next_action(player: int) -> void:
 		if _decision_batches_total % 50 == 0:
 			export_decision_log(false)
 
+	# P0.1: the decision maker found no legal set-up for this unit anywhere in
+	# the zone. The marker is never routed (an empty DEPLOY_UNIT is refused by
+	# the phase, RC7) — the unit goes to Strategic Reserves, logged as a defect.
+	if bool(decision.get("_ai_no_legal_formation", false)):
+		var nlf_unit_id := str(decision.get("unit_id", ""))
+		var nlf_name := _get_unit_name(nlf_unit_id)
+		var nlf_reason := str(decision.get("_ai_formation_reason", ""))
+		print("AIPlayer: [FORMATION] no legal set-up for %s (P%d): %s" % [nlf_name, player, nlf_reason])
+		_log_ai_event(player, "%s: no legal set-up anywhere in the deployment zone" % nlf_name)
+		_current_phase_actions += 1
+		if nlf_unit_id != "":
+			_fallback_to_reserves(player, nlf_unit_id, nlf_name)
+		return
+
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
 	_append_action_log({
@@ -2465,11 +2483,12 @@ func _execute_next_action(player: int) -> void:
 					print("AIPlayer: fallback END_FIGHT rejected (%s) — re-evaluating" % str(end_fight_result.get("error", end_fight_result.get("errors", "?"))))
 					_request_evaluation()
 
-		# Handle failed deployment specifically
-		elif decision.get("type") == "DEPLOY_UNIT":
+		# Handle failed deployment specifically (P0.1: an attached unit is set up
+		# with COMPOSITE_DEPLOY, which gets exactly the same handling).
+		elif decision.get("type") in ["DEPLOY_UNIT", "COMPOSITE_DEPLOY"]:
 			var deploy_unit_name = _get_unit_name(decision.get("unit_id", ""))
 			_log_ai_event(player, "%s deployment failed (%s) — retrying" % [deploy_unit_name, _format_error_concise(error_msg)])
-			_handle_failed_deployment(player, decision)
+			_handle_failed_deployment(player, decision, _format_error_concise(error_msg))
 
 		# Handle failed charge move — skip the charge so the game can continue
 		elif decision.get("type") in ["APPLY_CHARGE_MOVE", "APPLY_HEROIC_INTERVENTION_MOVE"]:
@@ -2691,11 +2710,12 @@ func _execute_next_action(player: int) -> void:
 				print("AIPlayer: Transport %s embarkation succeeded, marking as done" % transport_id)
 
 		# Emit signal for successful deployments so Main.gd can create visuals
-		if decision.get("type") == "DEPLOY_UNIT":
+		if decision.get("type") in ["DEPLOY_UNIT", "COMPOSITE_DEPLOY"]:
 			var deployed_unit_id = decision.get("unit_id", "")
 			if deployed_unit_id != "":
 				print("AIPlayer: Emitting ai_unit_deployed for %s (player %d)" % [deployed_unit_id, player])
 				emit_signal("ai_unit_deployed", player, deployed_unit_id)
+				_emit_deployed_characters(player, decision)
 
 		# T7-16: Emit signal for reinforcement arrivals so Main.gd creates visuals
 		elif decision.get("type") == "PLACE_REINFORCEMENT":
@@ -3197,7 +3217,7 @@ func _track_action_for_summary(player: int, action_type: String, phase: int) -> 
 func _categorize_action(action_type: String) -> String:
 	"""Map action types to readable summary categories."""
 	match action_type:
-		"DEPLOY_UNIT":
+		"DEPLOY_UNIT", "COMPOSITE_DEPLOY":
 			return "units_deployed"
 		"REMAIN_STATIONARY":
 			return "units_stationary"
@@ -3807,7 +3827,7 @@ func _humanize_action_type(action_type: String) -> String:
 		"BEGIN_FALL_BACK": return "fall back"
 		"REMAIN_STATIONARY": return "hold"
 		"CONFIRM_UNIT_MOVE": return "confirm move"
-		"DEPLOY_UNIT": return "deploy"
+		"DEPLOY_UNIT", "COMPOSITE_DEPLOY": return "deploy"
 		"END_DEPLOYMENT": return "end deployment"
 		"END_MOVEMENT": return "end movement"
 		"END_SHOOTING": return "end shooting"
@@ -3852,11 +3872,28 @@ func _format_error_concise(error) -> String:
 
 # --- Deployment retry logic ---
 
-func _handle_failed_deployment(player: int, original_decision: Dictionary) -> void:
+func _emit_deployed_characters(player: int, action: Dictionary) -> void:
+	"""P0.1: attached characters set up WITH their bodyguard (COMPOSITE_DEPLOY
+	combined_char_data) get their tokens immediately, like the bodyguard."""
+	var ccd = action.get("combined_char_data", {})
+	if not (ccd is Dictionary):
+		return
+	for char_id in ccd:
+		var cu = GameState.get_unit(str(char_id))
+		if cu is Dictionary and not cu.is_empty() and int(cu.get("status", 0)) == GameStateData.UnitStatus.DEPLOYED:
+			print("AIPlayer: Emitting ai_unit_deployed for attached character %s (player %d)" % [char_id, player])
+			emit_signal("ai_unit_deployed", player, str(char_id))
+
+func _handle_failed_deployment(player: int, original_decision: Dictionary, reject_msg: String = "") -> void:
 	var unit_id = original_decision.get("unit_id", "")
 	if unit_id == "":
 		return
 
+	if AIDecisionMaker.formation_builder_enabled():
+		_retry_deployment_with_builder(player, original_decision, reject_msg)
+		return
+
+	# --- DEPLOY_FORMATION_BUILDER = 0: the pre-P0.1 random-centre retry, unchanged ---
 	var snapshot = GameState.create_snapshot(false)
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -3961,6 +3998,64 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 	# All retries failed — fallback to reserves
 	_fallback_to_reserves(player, unit_id, unit_name)
 
+func _retry_deployment_with_builder(player: int, original_decision: Dictionary, reject_msg: String) -> void:
+	"""P0.1: the phase refused a placement the formation builder had already
+	checked with the same rules — a defect, logged as one. One retry: the
+	builder again, from the live state, with the refused placement excluded;
+	then Strategic Reserves (D5)."""
+	var unit_id := str(original_decision.get("unit_id", ""))
+	var unit_name := _get_unit_name(unit_id)
+	var defect := "[FORMATION] DEFECT: the phase rejected a %s placement for %s (P%d): %s" % [
+		str(original_decision.get("type", "DEPLOY_UNIT")), unit_name, player, reject_msg]
+	push_error(defect)
+	print("AIPlayer: %s" % defect)
+	DebugLogger.error(defect, {"unit_id": unit_id, "player": player})
+	var snapshot = GameState.create_snapshot(false)
+	if snapshot.get("units", {}).get(unit_id, {}).is_empty():
+		return
+	var rejected: Array = original_decision.get("model_positions", [])
+	var centre := Vector2.ZERO
+	var n := 0
+	for p in rejected:
+		if p != null:
+			centre += Vector2(float(p.x), float(p.y)) if p is Vector2 else Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+			n += 1
+	if n > 0:
+		centre /= float(n)
+	else:
+		var zb: Dictionary = AIDecisionMaker._get_deployment_zone_bounds(snapshot, player)
+		centre = Vector2((zb.min_x + zb.max_x) * 0.5, (zb.min_y + zb.max_y) * 0.5)
+	var built: Dictionary = AIDecisionMaker._build_formation(snapshot, player, unit_id, centre, {"exclude_positions": [rejected]})
+	if bool(built.get("ok", false)):
+		var retry_action := {
+			"type": str(built.get("action_type", "DEPLOY_UNIT")),
+			"unit_id": unit_id,
+			"model_positions": built.model_positions,
+			"model_rotations": built.model_rotations,
+			"player": player,
+			"_ai_description": "Deployed %s (retry 1)" % unit_name
+		}
+		if not (built.get("combined_char_data", {}) as Dictionary).is_empty():
+			retry_action["combined_char_data"] = built.combined_char_data
+		print("AIPlayer: Deployment retry 1 for %s (%s, %s)" % [unit_name, retry_action.type, str(built.get("template", ""))])
+		_current_phase_actions += 1
+		var result = NetworkIntegration.route_action(retry_action)
+		if result != null and result.get("success", false):
+			print("AIPlayer: Deployment retry 1 succeeded for %s" % unit_name)
+			_append_action_log({
+				"phase": GameState.get_current_phase(),
+				"action_type": retry_action.type,
+				"description": "Deployed %s (retry 1)" % unit_name,
+				"player": player
+			})
+			print("AIPlayer: Emitting ai_unit_deployed for %s (player %d) after retry" % [unit_id, player])
+			emit_signal("ai_unit_deployed", player, unit_id)
+			_emit_deployed_characters(player, retry_action)
+			return
+		var retry_err = "" if result == null else result.get("error", result.get("errors", ""))
+		print("AIPlayer: Deployment retry 1 failed for %s: %s" % [unit_name, str(retry_err)])
+	_fallback_to_reserves(player, unit_id, unit_name)
+
 func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> void:
 	print("AIPlayer: All deployment retries failed for %s, placing in reserves" % unit_name)
 	_log_ai_event(player, "%s deployment failed after retries — placed in Strategic Reserves" % unit_name)
@@ -3978,6 +4073,12 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 
 	if result != null and result.get("success", false):
 		print("AIPlayer: Successfully placed %s in strategic reserves" % unit_name)
+		# D5: a forced reserve within the caps is a defect worth seeing, but
+		# rules-legal — a warning (DeploymentEval.count_forced_reserves counts it
+		# from the "(fallback)" action-log description below).
+		var forced := "[FORMATION] DEFECT forced reserve: %s (P%d) had no legal set-up and was placed in Strategic Reserves (fallback)" % [unit_name, player]
+		push_warning(forced)
+		DebugLogger.warn(forced, {"unit_id": unit_id, "player": player})
 		_append_action_log({
 			"phase": GameState.get_current_phase(),
 			"action_type": "PLACE_IN_RESERVES",
@@ -3999,6 +4100,11 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		_current_phase_actions += 1
 		var stuck_result = NetworkIntegration.route_action(stuck_action)
 		if stuck_result != null and stuck_result.get("success", false):
+			# D5: past the caps is a rules deviation kept only as the anti-hang last
+			# resort — an ERROR, so the verify_delivery / read_debug_log gates fail.
+			var stuck := "[FORMATION] DEFECT: %s (P%d) had no legal set-up and the reserves caps were full — placed in reserves past the caps (no legal position) so deployment can finish" % [unit_name, player]
+			push_error(stuck)
+			DebugLogger.error(stuck, {"unit_id": unit_id, "player": player})
 			_log_ai_event(player, "%s could not be set up anywhere and the reserves limits were full — placed in Strategic Reserves past the limits so deployment can finish" % unit_name)
 			_append_action_log({
 				"phase": GameState.get_current_phase(),
