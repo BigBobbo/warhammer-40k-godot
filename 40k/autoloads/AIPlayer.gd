@@ -3090,12 +3090,20 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 				elif pos is Vector2:
 					origin_positions[mid] = pos
 
-	# Stage each model's destination using SET_SCOUT_MODEL_DEST
+	# Stage each model's destination using SET_SCOUT_MODEL_DEST, FRONT-FIRST
+	# (descending origin . move): the engine checks each staged model against
+	# its unstaged siblings' ORIGINAL positions, so staging in model order made
+	# a short move toward later-ordered models refuse the models behind and
+	# confirm a split unit. See AIDecisionMaker.scout_staging_order.
 	var staged_count = 0
 	var failed_count = 0
 	var failure_reasons = []
+	var staging_order: Array = AIDecisionMaker.scout_staging_order(destinations, origin_positions)
+	var order_msg := "Scout staging order for %s (front-first along the move): %s" % [unit_id, str(staging_order)]
+	print("AIPlayer: %s" % order_msg)
+	DebugLogger.info(order_msg, {"unit_id": unit_id, "player": player})
 
-	for model_id in destinations:
+	for model_id in staging_order:
 		var dest = destinations[model_id]
 		var stage_action = {
 			"type": "SET_SCOUT_MODEL_DEST",
@@ -3117,6 +3125,10 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
 			failure_reasons.append(error_msg)
 			print("AIPlayer: Failed to stage scout model %s: %s" % [model_id, error_msg])
+			# The plan was built to pass these validators, so a refusal is an
+			# AI/engine mismatch worth keeping in the debug log file.
+			DebugLogger.warn("AI scout plan refused by the engine: %s model %s: %s" % [unit_id, model_id, str(error_msg)],
+				{"unit_id": unit_id, "model_id": model_id, "player": player})
 
 	# Confirm the scout move (even if some models failed — partial moves are valid)
 	if staged_count > 0:

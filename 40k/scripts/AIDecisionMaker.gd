@@ -8216,19 +8216,22 @@ static func _compute_scout_movement(
 
 static func _try_scout_move_with_checks(
 	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
-	unit: Dictionary, deployed_models: Array, base_mm: int,
+	unit: Dictionary, deployed_models: Array, base_mm: float,
 	base_type: String, base_dimensions: Dictionary,
 	original_positions: Dictionary = {}, move_cap_px: float = 0.0
 ) -> Dictionary:
 	"""Try moving all models by move_vector, checking the scout stand-off
 	(24.32 AFTER MOVING: more than GameConstants.scout_min_enemy_distance_inches()
 	from all enemy units — 11e >8\", 10e >9\") and model overlap.
-	Each model is measured with ITS OWN base (base_mm radius for the stand-off,
-	base shape for overlap), exactly as the engine measures it in
+	Each model is measured with ITS OWN base (the untruncated float base_mm
+	radius for the stand-off — 28.5mm stays 28.5 — and the base shape for
+	overlap), exactly as the engine measures it in
 	ScoutPhase._validate_set_scout_model_dest / _validate_confirm_scout_move.
 	The base_mm / base_type / base_dimensions arguments are only the fallback for
 	a model dict that carries none. Returns model_id -> [x, y] destinations, or
-	empty dict if invalid."""
+	empty dict if invalid. AIPlayer stages the result front-first
+	(scout_staging_order), because the engine checks each staged model against
+	its unstaged siblings' ORIGINAL positions, which this plan does not."""
 	# P0.2 F1: the rule's own value, not a hard-coded 9" (which made the AI
 	# refuse every legal 8-9" Scout end at 11e).
 	var scout_standoff_in: float = GameConstants.scout_min_enemy_distance_inches()
@@ -8251,10 +8254,17 @@ static func _try_scout_move_with_checks(
 		# (e.g. Wolf Scouts: a 32mm model first, 60mm-oval wolves after it) by
 		# models[0]'s radius put the larger bases 0.55" inside the stand-off
 		# and the engine rejected them.
-		var m_base_mm: int = int(model.get("base_mm", base_mm))
+		# The stand-off radius is measured with the UNTRUNCATED base, as
+		# ScoutPhase measures it (model.get("base_mm") as a float): int() read a
+		# 28.5mm Scout Squad base as 28mm, 0.0098" short, so an end the AI
+		# measured at 8.000-8.0098" (10e: 9.000-9.0098") was refused by the
+		# engine and the partial move then failed coherency at confirm. The
+		# int copy is only for the overlap / collision APIs that take an int.
+		var m_base_mm_f: float = float(model.get("base_mm", base_mm))
+		var m_base_mm: int = int(m_base_mm_f)
 		var m_base_type: String = str(model.get("base_type", base_type))
 		var m_base_dims: Dictionary = model.get("base_dimensions", base_dimensions)
-		var own_radius_inches = (m_base_mm / 2.0) / 25.4
+		var own_radius_inches: float = (m_base_mm_f / 2.0) / 25.4
 
 		# Clamp to board bounds with margin
 		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
@@ -8359,6 +8369,67 @@ static func _resolve_scout_collision(
 
 		return candidate
 
+	return Vector2.INF
+
+## The order in which AIPlayer._execute_ai_scout_movement stages a Scout plan's
+## destinations (SET_SCOUT_MODEL_DEST, one model at a time): FRONT-FIRST, i.e.
+## by descending projection of each model's origin onto the move vector.
+## ScoutPhase._validate_set_scout_model_dest checks every staged model against
+## its UNSTAGED siblings at their ORIGINAL positions, which the plan
+## (_try_scout_move_with_checks) never considers. Staged in model order, a move
+## shorter than the block's row pitch toward models later in the list
+## (FormationBuilder blocks are row-major with rows running +y, so the top-zone
+## seat scouting +y; a 25% move of Scouts 6" is exactly one 1.5" pitch) had its
+## earlier models refused ("Model cannot overlap with another model in this
+## unit"), and the partial move that was confirmed split the unit.
+## Front-first, a rigid translation v can never land a model on an unmoved
+## sibling: with a staged before b, dot(a - b, v) >= 0, so
+## |a + v - b|^2 = |a - b|^2 + 2 dot(a - b, v) + |v|^2 >= |a - b|^2 — no closer
+## than the two (non-overlapping) origins already were.
+## The move vector is the mean origin-to-destination displacement (the common
+## vector of a rigid translation). Equal projections keep model order; ids with
+## no origin go last, in model order; no movement keeps model order.
+## origin_positions: model_id -> Vector2 (or {x, y} / [x, y]).
+static func scout_staging_order(destinations: Dictionary, origin_positions: Dictionary) -> Array:
+	var ids: Array = destinations.keys()
+	var origins := {}
+	var move := Vector2.ZERO
+	var n := 0
+	for mid in ids:
+		var o: Vector2 = _scout_order_vec(origin_positions.get(mid, null))
+		var d: Vector2 = _scout_order_vec(destinations[mid])
+		if o == Vector2.INF or d == Vector2.INF:
+			continue
+		origins[mid] = o
+		move += d - o
+		n += 1
+	if n == 0 or move.length_squared() < 1e-6:
+		return ids
+	move /= float(n)
+	var keyed: Array = []
+	for i in range(ids.size()):
+		var mid = ids[i]
+		var has_origin: bool = origins.has(mid)
+		keyed.append({"id": mid, "has": has_origin, "i": i,
+			"proj": (origins[mid] as Vector2).dot(move) if has_origin else 0.0})
+	keyed.sort_custom(func(a, b):
+		if a.has != b.has:
+			return a.has
+		if a.proj != b.proj:
+			return a.proj > b.proj
+		return a.i < b.i)
+	var out: Array = []
+	for k in keyed:
+		out.append(k.id)
+	return out
+
+static func _scout_order_vec(p) -> Vector2:
+	if p is Vector2:
+		return p
+	if p is Dictionary and p.has("x") and p.has("y"):
+		return Vector2(float(p.x), float(p.y))
+	if p is Array and p.size() >= 2:
+		return Vector2(float(p[0]), float(p[1]))
 	return Vector2.INF
 
 # =============================================================================
@@ -10459,12 +10530,15 @@ static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, de
 			})
 	return positions
 
-static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
+static func _is_valid_reinforcement_position(pos: Vector2, base_mm: float,
 		enemy_model_positions: Array, reserve_type: String,
 		placement_bounds: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> bool:
 	"""Validate a single model position for reinforcement placement.
-	base_mm is THIS model's own base (use _reinforcement_positions_valid for a
-	whole formation). The engine gate it mirrors: at 11e
+	base_mm is THIS model's own base, untruncated (a typed int read a 28.5mm
+	base as 28mm: 0.0098" looser than the float-based 11e Rapid Ingress
+	validator and the 10e legacy branch; against IngressMove, which truncates
+	both bases, the float is slightly stricter, which is safe). Use
+	_reinforcement_positions_valid for a whole formation. The engine gate it mirrors: at 11e
 	IngressMove.validate_setup (MovementPhase._validate_place_reinforcement
 	returns early into it); at 10e the legacy MovementPhase branch.
 	Known gaps vs that gate (pre-existing, not P0.2): the Strategic Reserves 6\"
@@ -10531,11 +10605,13 @@ static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 ## P0.2: base_mm of each ALIVE model, in model order — parallel to the
 ## formation positions the reserve-arrival paths build (the k-th position goes
 ## to the k-th alive model; see their full_positions assembly).
+## Floats, not ints: int() truncated a 28.5mm base to 28mm (see
+## _is_valid_reinforcement_position).
 static func _alive_model_base_mms(unit: Dictionary) -> Array:
 	var out: Array = []
 	for m in unit.get("models", []):
 		if m.get("alive", true):
-			out.append(int(m.get("base_mm", 32)))
+			out.append(float(m.get("base_mm", 32)))
 	return out
 
 ## P0.2: true when EVERY formation position passes
@@ -10547,11 +10623,11 @@ static func _alive_model_base_mms(unit: Dictionary) -> Array:
 ## 60mm ovals; Wardens of Ultramar: 28.5mm then 40mm) could clear the AI gate
 ## and still be rejected by the engine — a risk the 11e 8" stand-off (1" less
 ## slack than the old 9" pre-filter) makes more likely.
-static func _reinforcement_positions_valid(model_positions: Array, alive_base_mms: Array, fallback_base_mm: int,
+static func _reinforcement_positions_valid(model_positions: Array, alive_base_mms: Array, fallback_base_mm: float,
 		enemy_model_positions: Array, reserve_type: String, placement_bounds: Dictionary,
 		snapshot: Dictionary, player: int, battle_round: int) -> bool:
 	for k in range(model_positions.size()):
-		var k_base: int = int(alive_base_mms[k]) if k < alive_base_mms.size() else fallback_base_mm
+		var k_base: float = float(alive_base_mms[k]) if k < alive_base_mms.size() else fallback_base_mm
 		if not _is_valid_reinforcement_position(model_positions[k], k_base, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
 			return false
 	return true
