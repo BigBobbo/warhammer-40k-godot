@@ -23,6 +23,7 @@ const P_MOV := 7
 
 var passed := 0
 var failed := 0
+var _completed := false  # set by the last line of _run(): an aborted run (script error) counts as a failure
 var GS = null
 var SM = null
 var RE = null
@@ -44,6 +45,9 @@ func _check(label: String, cond: bool, detail: String = "") -> void:
 func _initialize() -> void:
 	await create_timer(0.3).timeout
 	_run()
+	if not _completed:
+		failed += 1
+		print("  FAIL: the run aborted before its last check (see the SCRIPT ERROR above)")
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)
 
@@ -193,3 +197,4 @@ func _run() -> void:
 	_section_author_of_the_codex()
 	TM.terrain_features = prev_terrain
 	GameConstants.edition = 10
+	_completed = true

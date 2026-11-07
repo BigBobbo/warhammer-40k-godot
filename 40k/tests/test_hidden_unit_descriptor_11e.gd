@@ -26,6 +26,7 @@ const GRETS := "U_GRETCHIN_C"
 
 var passed := 0
 var failed := 0
+var _completed := false  # set by the last line of _run(): an aborted run (script error) counts as a failure
 var GS = null
 var PM = null
 var RE = null
@@ -45,6 +46,9 @@ func _check(label: String, cond: bool, detail: String = "") -> void:
 func _initialize() -> void:
 	await create_timer(0.3).timeout
 	await _run()
+	if not _completed:
+		failed += 1
+		print("  FAIL: the run aborted before its last check (see the SCRIPT ERROR above)")
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)
 
@@ -165,3 +169,4 @@ func _run() -> void:
 		str(GS.state.units[LT_PHOBOS].get("flags", {})))
 	_check("... so it is not a hidden unit (no component has a hidden model)", not D.unit_is_hidden(GS.state.units[INFIL]) and not CA.unit_is_hidden(INFIL))
 	TM.terrain_features = prev_terrain
+	_completed = true
