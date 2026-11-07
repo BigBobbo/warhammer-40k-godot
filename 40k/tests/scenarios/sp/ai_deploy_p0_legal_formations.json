@@ -1,0 +1,138 @@
+{
+  "id": "ai_deploy_p0_legal_formations",
+  "covers": ["ai.deployment.no_forced_reserves", "ai.deployment.legal_formations_by_construction", "ai.deployment.attached_leaders_composite_deploy", "scripts.ai.DeploymentEval.forced_reserves", "scripts.ai.DeploymentEval.rejected_deploy_actions", "autoloads.AIPlayer.deployment_rejections_counted_at_source", "autoloads.AIPlayer.deployment_fallback_respects_caps", "phases.DeploymentPhase.composite_deploy_character_validation", "ui.ReservesBadge.hidden_when_nothing_in_reserves"],
+  "fixture": "mirror_orks_2000_predeploy",
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "P0 deployment gate (docs/AI_DEPLOYMENT_PLAN.md 5.8 / 7 P0). The AI deploys BOTH seats of the 2000-pt Ork mirror (17 v 17: oval Warbiker/Deffkopta/Wartrike bases, a TITANIC Stompa) on the crucible_of_battle triangle with plans OFF, each Deffkilla Wartrike leading a 6-bike Warbikers unit (attached as Declare Battle Formations leaves them, the pairs the shipped orks_recon_stomps_crucible plan uses), and must put every unit on the table: 0 forced Strategic Reserves (pre-fix baseline: 2-6 per Ork seat, up to 695 pts, 36/36 harness runs); 0 refused deployment actions of any type, counted at the source by AIPlayer (first tries, retries, the reserves fallback); per seat on the table + embarked == 17 with 0 in reserves and 0 undeployed; each leader set up with its unit in one COMPOSITE_DEPLOY; and a whole-board legality audit with 0 violations using the phase's own predicates. A phase_changed hook armed before the AI starts switches both AI seats off the instant DEPLOYMENT ends and latches the deployment-end board, so the assertions are timing-independent even though the AI would otherwise play on into round 1; the last step disconnects it and restores the seats. UI evidence: every model on the table has exactly one token, the Reserves badge is hidden and the reserves rails list nothing, the game waits at the first-turn roll-off, and the final screenshot shows the deployed board.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The fixture really is a full, empty Ork mirror on the crucible triangle with\n# NO declared reserves and no attached leaders yet - so any unit in reserves\n# after deployment was forced there.\nvar und = {1: 0, 2: 0}\nvar res = 0\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tvar s = int(u.get(\"status\", 0))\n\tif s == 0:\n\t\tund[int(u.owner)] += 1\n\telif s == 7:\n\t\tres += 1\nprint(\"SCENARIO ai_deploy_p0 precondition: undeployed P1=%d P2=%d reserves=%d zone=%s\" % [und[1], und[2], res, str(GameState.state.meta.get(\"deployment_type\", \"?\"))])\nreturn \"%d|%d|%d|%s\" % [und[1], und[2], res, str(GameState.state.meta.get(\"deployment_type\", \"?\"))]",
+      "equals": "17|17|0|crucible_of_battle"
+    },
+    {
+      "act": "screenshot",
+      "label": "00_empty_board_before_ai_deploys"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# P0 gate: both seats AI, plans off, attached leaders, and a stop-at-end-of-\n# deployment hook. PhaseManager emits phase_changed SYNCHRONOUSLY inside the\n# action that places the last unit (BasePhase.execute_action -> phase_completed\n# -> PhaseManager.transition_to_phase -> phase_changed), i.e. before the AI can\n# take any post-deployment action. The hook switches both AI seats off right\n# there and latches the deployment-end measurements, so every assertion below\n# reads the board exactly as deployment left it - independent of frame timing.\nfor k in [\"ai_deploy_p0_latch\", \"ai_deploy_p0_hook\", \"ai_deploy_p0_saved\"]:\n\tif GameState.has_meta(k):\n\t\tGameState.remove_meta(k)\n# Saved for the cleanup step: the seats, speeds and game_config as found.\nvar gc0 = GameState.state[\"meta\"].get(\"game_config\", null)\nGameState.set_meta(\"ai_deploy_p0_saved\", {\"ai_players\": AIPlayer.ai_players.duplicate(), \"enabled\": AIPlayer.enabled,\n\t\"game_config\": gc0.duplicate(true) if gc0 is Dictionary else null, \"had_game_config\": GameState.state[\"meta\"].has(\"game_config\"),\n\t\"speed_preset\": AIPlayer._ai_speed_preset, \"spectator_index\": AIPlayer._spectator_speed_index})\n# Attached leaders as Declare Battle Formations leaves them (19.01; the same\n# pairs the shipped orks_recon_stomps_crucible plan attaches): each Deffkilla\n# Wartrike leads a 6-bike Warbikers unit, so the AI must set each pair up\n# together in ONE COMPOSITE_DEPLOY (combined_char_data).\nvar pairs = {\"U_DEFFKILLA_WARTRIKE_A\": \"U_WARBIKERS_C\", \"U_DEFFKILLA_WARTRIKE_B\": \"U_WARBIKERS_D\"}\nvar attached = 0\nfor cid0 in pairs:\n\tfor sfx in [\"\", \"_P2\"]:\n\t\tvar cid = str(cid0) + sfx\n\t\tvar bid = str(pairs[cid0]) + sfx\n\t\tvar bg = GameState.state.units[bid]\n\t\tvar ad = bg.get(\"attachment_data\", {})\n\t\tif ad == null:\n\t\t\tad = {}\n\t\tvar lst = ad.get(\"attached_characters\", [])\n\t\tif not (cid in lst):\n\t\t\tlst.append(cid)\n\t\tad[\"attached_characters\"] = lst\n\t\tbg[\"attachment_data\"] = ad\n\t\tGameState.state.units[cid][\"attached_to\"] = bid\n\t\tattached += 1\nvar hook = func(new_phase):\n\tif int(new_phase) == 1 or GameState.has_meta(\"ai_deploy_p0_latch\"):\n\t\treturn\n\tAIPlayer.ai_players = {1: false, 2: false}\n\tvar latch = {\"phase\": int(new_phase), \"digest\": DeploymentEval.positions_digest(GameState.state)}\n\tvar audit = DeploymentEval.audit_legality(GameState.state)\n\tlatch[\"violations\"] = int(audit.get(\"violations\", -1))\n\tlatch[\"problems\"] = audit.get(\"problems\", [])\n\tfor p in [1, 2]:\n\t\tvar e = DeploymentEval.evaluate(GameState.state, p, {})\n\t\t# Set up = on the table OR legally embarked; nothing in reserves or left over.\n\t\tlatch[\"p%d\" % p] = \"%d/%d/%d\" % [int(e.on_table) + int(e.embarked), int(e.in_reserves), int(e.undeployed)]\n\t\tlatch[\"rejected_p%d\" % p] = DeploymentEval.count_rejected_deploy_actions(AIPlayer.get_deploy_rejections(), p)\n\tGameState.set_meta(\"ai_deploy_p0_latch\", latch)\n\tprint(\"SCENARIO ai_deploy_p0 latch: %s\" % JSON.stringify(latch))\nPhaseManager.phase_changed.connect(hook)\nGameState.set_meta(\"ai_deploy_p0_hook\", hook)\n# Engine human-gates read game_config.playerN_type (default HUMAN), so the\n# seats must be AI there too, not only in AIPlayer (AIBenchmarkRunner.gd).\nvar gc = GameState.state[\"meta\"].get(\"game_config\", {})\nif gc == null:\n\tgc = {}\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIDecisionMaker.set_ai_seed(7)\n# configure() also starts the game's deployment-rejection count at 0.\nAIPlayer.configure({1: \"AI\", 2: \"AI\"})\n# AFTER configure(): it clears plans and profiles.\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0.0\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer.set_spectator_speed_index(4)\nprint(\"SCENARIO ai_deploy_p0 armed: %d attached leaders, rejections %d\" % [attached, AIPlayer.get_deploy_rejection_count(0)])\nreturn \"%s|%s|%s|%d|%d\" % [str(AIPlayer.is_spectator_mode()), str(AIDecisionMaker.plans_enabled()), str(PhaseManager.phase_changed.is_connected(hook)), attached, AIPlayer.get_deploy_rejection_count(0)]",
+      "equals": "true|false|true|4|0"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.has_meta(\"ai_deploy_p0_latch\")",
+      "equals": true,
+      "timeout_s": 240.0,
+      "poll_s": 1.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Deployment ended, the AI stopped there, and nothing moved afterwards: the\n# game waits at the first-turn roll-off (REDEPLOYMENT auto-skips - no unit in\n# this fixture can redeploy) with both AI seats off and the board digest\n# (positions, statuses, embarks, attachments) equal to the one latched the\n# instant deployment ended.\nvar latch = GameState.get_meta(\"ai_deploy_p0_latch\", {})\nvar moved = DeploymentEval.positions_digest(GameState.state) != str(latch.get(\"digest\", \"\"))\nvar ai_on = AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2)\nprint(\"SCENARIO ai_deploy_p0 stop: latched_phase=%s phase_now=%d ai_on=%s moved=%s\" % [str(latch.get(\"phase\", \"?\")), GameState.get_current_phase(), str(ai_on), str(moved)])\nreturn \"%d|%s|%s\" % [GameState.get_current_phase(), str(ai_on), str(moved)]",
+      "equals": "13|false|false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Units the AI dumped into Strategic Reserves because no legal set-up was\n# found (AIPlayer._fallback_to_reserves; capped or past the caps). Read from\n# the AI action log, which is complete by now and never trimmed this early.\nvar n = DeploymentEval.count_forced_reserves(AIPlayer.get_action_log(), 1)\nprint(\"SCENARIO ai_deploy_p0 forced_reserves P1 = %d\" % n)\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Units the AI dumped into Strategic Reserves because no legal set-up was\n# found (AIPlayer._fallback_to_reserves; capped or past the caps). Read from\n# the AI action log, which is complete by now and never trimmed this early.\nvar n = DeploymentEval.count_forced_reserves(AIPlayer.get_action_log(), 2)\nprint(\"SCENARIO ai_deploy_p0 forced_reserves P2 = %d\" % n)\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Legal by construction: the phase never refused ANY deployment action the AI\n# sent - counted at the source by AIPlayer for every deployment action type\n# (DEPLOY_UNIT, COMPOSITE_DEPLOY, EMBARK_UNITS_DEPLOYMENT, PLACE_IN_RESERVES,\n# ATTACH_CHARACTER_DEPLOYMENT) and every route (first try, retry, reserves\n# fallback) - plus the legacy Game Log count of first-try rejections.\nvar recs = AIPlayer.get_deploy_rejections()\nvar a = DeploymentEval.count_rejected_deploy_actions(recs, 1)\nvar b = DeploymentEval.count_rejected_deploy_actions(recs, 2)\nvar la = DeploymentEval.count_failed_deploy_attempts(GameEventLog.entries, 1)\nvar lb = DeploymentEval.count_failed_deploy_attempts(GameEventLog.entries, 2)\nprint(\"SCENARIO ai_deploy_p0 rejected P1=%d P2=%d (legacy game log P1=%d P2=%d) %s\" % [a, b, la, lb, str(recs)])\nreturn \"%d|%d|%d|%d\" % [a, b, la, lb]",
+      "equals": "0|0|0|0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Per seat at the instant deployment ended: (on the table + embarked) /\n# in reserves / still undeployed. 17 units a side, none in reserves, none left.\nvar latch = GameState.get_meta(\"ai_deploy_p0_latch\", {})\nprint(\"SCENARIO ai_deploy_p0 table: P1=%s P2=%s\" % [str(latch.get(\"p1\", \"?\")), str(latch.get(\"p2\", \"?\"))])\nreturn \"%s|%s\" % [str(latch.get(\"p1\", \"?\")), str(latch.get(\"p2\", \"?\"))]",
+      "equals": "17/0/0|17/0/0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every on-table model is legal by the phase's own predicates (zone, walls,\n# board edge, no overlaps in either direction, coherency with each attached\n# leader judged as part of its unit) - at deployment end (latched) and now.\nvar latch = GameState.get_meta(\"ai_deploy_p0_latch\", {})\nvar now = DeploymentEval.audit_legality(GameState.state)\nprint(\"SCENARIO ai_deploy_p0 audit: latched=%s %s now=%s %s\" % [str(latch.get(\"violations\", \"?\")), str(latch.get(\"problems\", [])), str(now.violations), str(now.problems)])\nreturn \"%s|%d\" % [str(latch.get(\"violations\", \"?\")), int(now.violations)]",
+      "equals": "0|0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 19.01: each attached Wartrike was set up WITH its Warbikers in one\n# COMPOSITE_DEPLOY (combined_char_data placed by the formation builder), and\n# is on the table now.\nvar comp = {1: 0, 2: 0}\nfor e in AIPlayer.get_action_log():\n\tif str(e.get(\"action_type\", \"\")) == \"COMPOSITE_DEPLOY\":\n\t\tvar pl = int(e.get(\"player\", 0))\n\t\tcomp[pl] = int(comp.get(pl, 0)) + 1\nvar placed = 0\nfor cid in [\"U_DEFFKILLA_WARTRIKE_A\", \"U_DEFFKILLA_WARTRIKE_B\", \"U_DEFFKILLA_WARTRIKE_A_P2\", \"U_DEFFKILLA_WARTRIKE_B_P2\"]:\n\tvar cu = GameState.state.units[cid]\n\tif int(cu.get(\"status\", 0)) == 2 and DeploymentEval.is_on_table(cu):\n\t\tplaced += 1\nprint(\"SCENARIO ai_deploy_p0 attached: COMPOSITE_DEPLOY P1=%d P2=%d, leaders on the table %d/4\" % [comp[1], comp[2], placed])\nreturn \"%d|%d|%d\" % [comp[1], comp[2], placed]",
+      "equals": "2|2|4"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# UI: every model on the table (a DEPLOYED, non-embarked unit) is drawn\n# exactly once on the board - attached leaders included.\nvar tl = tree.current_scene.get_node_or_null(\"BoardRoot/TokenLayer\")\nif tl == null:\n\treturn \"no TokenLayer\"\nvar drawn = {}\nfor c in tl.get_children():\n\tif c.has_meta(\"unit_id\") and c.has_meta(\"model_id\"):\n\t\tvar k = str(c.get_meta(\"unit_id\"))\n\t\tdrawn[k] = int(drawn.get(k, 0)) + 1\nvar bad = []\nvar checked = 0\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"status\", 0)) != 2:\n\t\tcontinue\n\tvar emb = u.get(\"embarked_in\", null)\n\tif emb != null and str(emb) != \"\":\n\t\tcontinue\n\tchecked += 1\n\tvar n = 0\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"alive\", true) and m.get(\"position\", null) != null:\n\t\t\tn += 1\n\tif int(drawn.get(uid, 0)) != n:\n\t\tbad.append(\"%s %d/%d\" % [uid, int(drawn.get(uid, 0)), n])\nprint(\"SCENARIO ai_deploy_p0 tokens: %d units checked, mismatches %s\" % [checked, str(bad)])\nreturn (\"ok %d\" % checked) if bad.is_empty() else \", \".join(bad)",
+      "equals": "ok 34"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/ReservesBadge",
+      "property": "visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# UI: the off-board reserves rails list nothing for either player (in the\n# pre-fix baseline they listed 4-5 Ork units a side). Only the id lists are\n# asserted: whether a rail is drawn also depends on gutter width and zoom.\nvar tray = tree.current_scene.get_node_or_null(\"ReservesTray\")\nif tray == null:\n\treturn \"no ReservesTray\"\nvar a = tray.visible_unit_ids_for(1)\nvar b = tray.visible_unit_ids_for(2)\nprint(\"SCENARIO ai_deploy_p0 tray: P1=%s P2=%s\" % [str(a), str(b)])\nreturn \"%d|%d\" % [a.size(), b.size()]",
+      "equals": "0|0"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/RollOffDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_done_first_turn_rolloff"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Screenshot hygiene only: put the first-turn roll-off dialog away so the\n# whole deployed board is visible. hide() has no game effect (RollOffDialog\n# ignores close requests; nothing is rolled).\nvar d = tree.current_scene.get_node_or_null(\"RollOffDialog\")\nif d != null:\n\td.hide()\nreturn d != null",
+      "equals": true
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "F"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_deployed_board_all_units_on_table"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Hygiene: disconnect the stop hook, drop the scenario's meta, and put the AI\n# seats, AI speeds, game_config seat types and the plans override back as the\n# scenario found them.\nvar h = GameState.get_meta(\"ai_deploy_p0_hook\", null)\nvar was_connected = h != null and PhaseManager.phase_changed.is_connected(h)\nif was_connected:\n\tPhaseManager.phase_changed.disconnect(h)\nvar saved = GameState.get_meta(\"ai_deploy_p0_saved\", {})\nif not saved.is_empty():\n\tif bool(saved.get(\"had_game_config\", false)) and saved.get(\"game_config\", null) is Dictionary:\n\t\tGameState.state[\"meta\"][\"game_config\"] = saved.get(\"game_config\")\n\telse:\n\t\tGameState.state[\"meta\"].erase(\"game_config\")\n\tvar seats = saved.get(\"ai_players\", {})\n\tAIPlayer.configure({1: \"AI\" if bool(seats.get(1, false)) else \"HUMAN\", 2: \"AI\" if bool(seats.get(2, false)) else \"HUMAN\"})\n\tAIPlayer.enabled = bool(saved.get(\"enabled\", false))\n\tAIPlayer.set_ai_speed_preset(int(saved.get(\"speed_preset\", 1)))\n\tAIPlayer.set_spectator_speed_index(int(saved.get(\"spectator_index\", 2)))\nAIDecisionMaker._config_overrides.erase(\"PLANS_ENABLED\")\nfor k in [\"ai_deploy_p0_latch\", \"ai_deploy_p0_hook\", \"ai_deploy_p0_saved\"]:\n\tif GameState.has_meta(k):\n\t\tGameState.remove_meta(k)\nvar still = h != null and PhaseManager.phase_changed.is_connected(h)\nvar ai_on = AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2)\nprint(\"SCENARIO ai_deploy_p0 cleanup: hook was connected=%s still=%s ai_on=%s\" % [str(was_connected), str(still), str(ai_on)])\nreturn \"%s|%s|%s|%s|%s\" % [str(was_connected), str(still), str(GameState.has_meta(\"ai_deploy_p0_latch\")), str(AIDecisionMaker._config_overrides.has(\"PLANS_ENABLED\")), str(ai_on)]",
+      "equals": "true|false|false|false|false"
+    }
+  ]
+}

@@ -286,6 +286,32 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"WeaponOrderDialog\")\nreturn d.is_resolving", "multiline": true, "equals": true }
   ```
 
+- `wait_for_script`: poll a statement-mode snippet (always compiled as
+  `multiline`) every `poll_s` seconds (default 1.0, min 0.1) until it meets
+  its expectation (`equals` / `not_equals` / `exists` / `expect_min` /
+  `expect_max`; with none, any truthy result) or `timeout_s` (default 60)
+  elapses. Use it to wait on a long in-game process — `await` inside an
+  `execute_script` snippet does NOT wait (the step gets a
+  GDScriptFunctionState back immediately).
+  ```json
+  { "act": "wait_for_script", "script": "return PlanSimulator.is_running()", "equals": false, "timeout_s": 600, "poll_s": 2.0 }
+  ```
+
+- **Recipe — stop the AI exactly at a phase boundary** (a poll alone cannot:
+  the AI keeps playing between polls). `PhaseManager.phase_changed` fires
+  SYNCHRONOUSLY inside the action that completes the phase, before the AI can
+  act again, so in an `execute_script` step armed before the AI starts,
+  connect a lambda that (1) sets `AIPlayer.ai_players = {1: false, 2: false}`
+  (NOT `AIPlayer.enabled = false`, which leaves a stale "AI is thinking"
+  banner) and (2) latches what you want to assert into
+  `GameState.set_meta("<id>_latch", {...})`; keep the lambda in
+  `GameState.set_meta("<id>_hook", hook)` so a later step can disconnect it.
+  Then `wait_for_script` on `GameState.has_meta("<id>_latch")`, read anything
+  that is logged after the routed action returns (e.g. AIPlayer's reserves
+  fallback entry) in a LATER step, and finish with a cleanup step that
+  disconnects the hook, removes the meta and restores the AI seats /
+  overrides. Worked example: `sp/ai_deploy_p0_legal_formations.json`.
+
 - `expect_state`: assert against `GameState.state` via dot-separated path.
   ```json
   { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.fights_first", "equals": true }
