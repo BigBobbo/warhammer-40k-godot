@@ -95,13 +95,25 @@ autoloads are reachable by name. Return a value and declare `equals`,
 `expect_min` or `expect_max`. A compile error or a runtime error is a FAILED
 exam, never a skipped one — an exam that cannot run has not passed.
 
-Two rules learned the expensive way:
+Three rules learned the expensive way:
 
 1. **Assert the decision, not the dice.** `unit U ends movement within control
    range of obj_center` is a decision. `unit U killed the Battlewagon` is a
    dice roll wearing a decision's clothes, and it will flake.
 2. **No exam may reward degenerate play.** If an exam can be passed by an AI
    that does nothing else, it is measuring the wrong thing.
+3. **Measure with the engine, against the fixture you actually load.** `mv01`
+   and `mv03` hard-coded `obj_nml_1` at (400, 880) and a 3" centre-to-centre
+   radius. The fixture was rebuilt on 2026-08-21 (38cbaa3) and mirrored on
+   2026-10-25 (6f07340), which put `obj_nml_1` at (1500, 750) inside a ruin
+   (in range once a base touches the area, 14.02), and both exams went on
+   grading a squad 28" from the objective. Find objectives in
+   `GameState.state.board.objectives`, measure with
+   `MissionManager.model_in_objective_range` /
+   `model_gap_to_objective_range_px`, and open with a **precondition**
+   assertion that re-checks the position's premises on the engine (see `mv01`,
+   `mv06`), so a fixture change fails the exam loudly instead of quietly
+   testing something else.
 
 ## Determinism (EXAM-DET-1, 2026-11-07)
 
