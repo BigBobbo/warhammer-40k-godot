@@ -11774,12 +11774,13 @@
     },
     {
       "id": "rules.11e.hidden_13_09",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e, ai_overwatch_keeps_hidden_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_move_cover, ai_hidden_after_overwatch_11e, ai_overwatch_keeps_hidden_11e, ai_hidden_term_tooltips_11e.",
       "scenarios": [
         "ai_hidden_awareness_11e",
         "ai_move_cover",
         "ai_hidden_after_overwatch_11e",
-        "ai_overwatch_keeps_hidden_11e"
+        "ai_overwatch_keeps_hidden_11e",
+        "ai_hidden_term_tooltips_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -12187,9 +12188,10 @@
     },
     {
       "id": "autoloads.TerrainManager.is_model_hidden_at",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e, ai_hidden_term_tooltips_11e.",
       "scenarios": [
-        "ai_hidden_after_overwatch_11e"
+        "ai_hidden_after_overwatch_11e",
+        "ai_hidden_term_tooltips_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -12197,9 +12199,31 @@
     },
     {
       "id": "ui.AISuggestionBreakdownPanel.glossary",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_after_overwatch_11e, ai_hidden_term_tooltips_11e.",
       "scenarios": [
-        "ai_hidden_after_overwatch_11e"
+        "ai_hidden_after_overwatch_11e",
+        "ai_hidden_term_tooltips_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.movement.hidden_seeking",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_awareness_11e, ai_hidden_term_tooltips_11e.",
+      "scenarios": [
+        "ai_hidden_awareness_11e",
+        "ai_hidden_term_tooltips_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.shooting.target_regains_hidden",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_hidden_term_tooltips_11e.",
+      "scenarios": [
+        "ai_hidden_term_tooltips_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

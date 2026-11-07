@@ -1,0 +1,274 @@
+{
+  "id": "ai_hidden_term_tooltips_11e",
+  "covers": [
+    "ui.AISuggestionBreakdownPanel.glossary",
+    "ai.movement.hidden_seeking",
+    "ai.shooting.target_regains_hidden",
+    "rules.11e.hidden_13_09",
+    "autoloads.TerrainManager.is_model_hidden_at"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "The Suggest (K) card's tooltips for the two Hidden terms whose glossary help was rewritten to ask about the enemy's NEXT turn (13.09: ranged attacks 'during this turn or during the previous turn'; light OR dense terrain per the errata): 'Stays Hidden' (hidden_gain, F001: 'Bonus for ending where the unit will be Hidden in the enemy's next turn (in light or dense terrain, and its last shots no longer count by then).') and 'About to regain Hidden' (tv_regains_hidden, F003: 'It will be Hidden in its next turn (in light or dense terrain, its last shots no longer counting by then) - shoot it while it can still be targeted.'). Board: ai_move_cover's (exam mv05's position: Custodian Guard B 2.2\" north of obj_nml_1's dense ruin area-large-2, P2's Custodian Guard A far south, everyone else parked), with tests/bench_profiles/yt_findings_on.json loaded (the Hidden weights ship OFF). (a) MOVEMENT: the engine says the approach end in the ruin is Hidden next turn; a real click on Suggest (K), the squad focused, shows a movement record pricing 'Stays Hidden'; every option's details opened through the panel's own toggle; the card's bbcode carries 'Stays Hidden' as a [hint] whose tooltip is the rewritten help; screenshot; control: the profile cleared, no such part. (b) SHOOTING: P2's Prosecutors moved into area-large-2 ~9\" south of the squad with the shot record of their own last turn (index cur - 1): the engine says not Hidden now, Hidden at cur + 1, and an eligible target; K shows the squad SHOOT with the Prosecutors' Target priority made of the x1.25 'About to regain Hidden' part, its tooltip the rewritten help; screenshot; controls: a shot record from THIS turn (still counting next turn) and the shipped defaults give no such part.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ai_move_cover's board (exam mv05's position): Custodian Guard B in a line\n# 2.2\" north of obj_nml_1's dense ruin (area-large-2), P2's Custodian Guard A\n# in the open far south, every other unit parked in the corners.\nvar st = GameState.state\nvar g = st.units.U_CUSTODIAN_GUARD_B\nvar k = 0\nfor m in g.models:\n\tm.position = {\"x\": 1430.0 + float(k) * 65.0, \"y\": 400.0}\n\tk += 1\nif g.has(\"flags\"):\n\tg.flags.erase(\"last_shot_idx\")\n\tg.flags.erase(\"shot_recently\")\nvar s = st.units.U_CUSTODIAN_GUARD_A_P2\nvar j = 0\nfor m in s.models:\n\tm.position = {\"x\": 1440.0 + float(j) * 65.0, \"y\": 1560.0}\n\tj += 1\nvar p1 = 0\nvar p2 = 0\nfor uid in st.units:\n\tif uid == \"U_CUSTODIAN_GUARD_B\" or uid == \"U_CUSTODIAN_GUARD_A_P2\":\n\t\tcontinue\n\tvar u = st.units[uid]\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tif int(u.get(\"owner\", 0)) == 1:\n\t\t\tm.position = {\"x\": 50.0 + 70.0 * float(p1 % 6), \"y\": 50.0 + 70.0 * float(p1 / 6)}\n\t\t\tp1 += 1\n\t\telse:\n\t\t\tm.position = {\"x\": 1300.0 + 70.0 * float(p2 % 6), \"y\": 2320.0 - 70.0 * float(p2 / 6)}\n\t\t\tp2 += 1\nreturn TerrainManager.area_at(Vector2(1500.0, 750.0)).get(\"id\", \"\")",
+      "equals": "area-large-2",
+      "comment": "exam mv05's position; obj_nml_1's marker sits in area-large-2 (layout drift guard)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Hidden weights ship OFF (neutral): load the opt-in profile that turns\n# them on (WEIGHT_HIDDEN_GAINED 4.0, HIDDEN_WINDOW_BONUS 1.25), AFTER\n# configure() (configure wipes profiles).\nvar f = FileAccess.open(\"res://tests/bench_profiles/yt_findings_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nreturn float(prof.parameters.get(\"WEIGHT_HIDDEN_GAINED\", 0.0)) * 10.0 + float(prof.parameters.get(\"HIDDEN_WINDOW_BONUS\", 1.0))",
+      "equals": 41.25
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ENGINE: the squad's approach end inside the ruin is Hidden in the\n# enemy's next turn (13.09; a probe model at obj_nml_1's marker).\nvar u = GameState.state.units.U_CUSTODIAN_GUARD_B\nvar probe = u.models[0].duplicate(true)\nprobe[\"position\"] = {\"x\": 1500.0, \"y\": 750.0}\nreturn TerrainManager.is_model_hidden_at(probe, u, int(GameState.get_player_turn_index()) + 1)",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")",
+      "comment": "what clicking the squad in the card's move order does"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d_best = tree.current_scene._ai_suggestion_panel._decision\nvar best = 0.0\nfor r in d_best.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"score_breakdown\", {})\n\t\tif bd is Dictionary and bd.has(\"hidden_gain\"):\n\t\t\tbest = maxf(best, float(bd[\"hidden_gain\"]))\nreturn best",
+      "expect_min": 0.5,
+      "comment": "the card's movement record prices ending Hidden (4.0 x the share of enemy guns it hides from)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every option's '▸ details' link, through the panel's own handler\n# (toggle_section, what clicking the link calls), then the text it now shows:\n# 'Stays Hidden' is a hover tooltip ([hint]) carrying the rewritten glossary help.\nvar p = tree.current_scene._ai_suggestion_panel\nvar built = p.build_breakdown(p._decision, p._meta, {}, true)\nvar rx = RegEx.new()\nrx.compile(\"\\\\[url=(opt:[0-9]+:[0-9]+)\\\\]\")\nvar keys = []\nfor m in rx.search_all(str(built.bbcode)):\n\tvar key = m.get_string(1)\n\tif not key in keys:\n\t\tkeys.append(key)\nfor key in keys:\n\tif not bool(p._expanded.get(key, false)):\n\t\tp.toggle_section(key)\nvar now = p.build_breakdown(p._decision, p._meta, p._expanded, false)\nvar help = AIReasoningGlossary.help(\"hidden_gain\")\nvar want = \"[hint=\\\"\" + help.replace(\"\\\"\", \"'\").replace(\"]\", \")\").replace(\"[\", \"(\") + \"\\\"]Stays Hidden[/hint]\"\nreturn keys.size() > 0 and help.contains(\"will be Hidden in the enemy's next turn (in light or dense terrain, and its last shots no longer count by then)\") and str(now.bbcode).contains(want) and p.breakdown_text.contains(\"Stays Hidden\")",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Bring the 'Stays Hidden' row into view in the card (the card keeps its scroll\n# position across a re-render, so this runs after the toggles settled).\nvar p = tree.current_scene._ai_suggestion_panel\nvar lines = str(p.build_breakdown(p._decision, p._meta, p._expanded, false).bbcode).split(\"\\n\")\nvar idx = -1\nfor i in range(lines.size()):\n\tif lines[i].contains(\"]Stays Hidden[/hint]\"):\n\t\tidx = i\n\t\tbreak\nif idx >= 0:\n\tp._rich.scroll_to_paragraph(maxi(idx - 3, 0))\nreturn idx",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_movement_stays_hidden_term"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Hover 'Stays Hidden' in the live card: find the point whose tooltip is the\n# glossary help (RichTextLabel.get_tooltip answers the [hint] under a point),\n# then warp the cursor there and send a motion event, as the runner's hover\n# acts do, so the tooltip opens for the screenshot.\nvar p = tree.current_scene._ai_suggestion_panel\nvar rich = p._rich\nvar want = AIReasoningGlossary.help(\"hidden_gain\").replace(\"\\\"\", \"'\").replace(\"]\", \")\").replace(\"[\", \"(\")\nvar hit = Vector2(-1, -1)\nvar y = 4.0\nwhile y < rich.size.y and hit.x < 0.0:\n\tvar x = 4.0\n\twhile x < rich.size.x:\n\t\tif str(rich.get_tooltip(Vector2(x, y))) == want:\n\t\t\thit = Vector2(x + 8.0, y)\n\t\t\tbreak\n\t\tx += 6.0\n\ty += 6.0\nif hit.x < 0.0:\n\treturn \"no point of the card shows that tooltip\"\nvar gp = (rich.get_global_rect().position + hit).round()\nInput.warp_mouse(gp)\nvar mm = InputEventMouseMotion.new()\nmm.position = gp\nmm.global_position = gp\nmm.relative = Vector2(1, 0)\nInput.parse_input_event(mm)\nreturn str(rich.get_tooltip(hit)) == want",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_movement_stays_hidden_tooltip",
+      "comment": "the rewritten help open as the hover tooltip of 'Stays Hidden'"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: the profile cleared, the same card has no\n# 'Stays Hidden' part (WEIGHT_HIDDEN_GAINED ships 0) — the term is the\n# profile, nothing else. Then the profile is re-loaded for (b).\nAIDecisionMaker.clear_player_profile(1)\nvar d_off = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar off = 0.0\nfor r in d_off.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"score_breakdown\", {})\n\t\tif bd is Dictionary and bd.has(\"hidden_gain\"):\n\t\t\toff = maxf(off, float(bd[\"hidden_gain\"]))\nvar f = FileAccess.open(\"res://tests/bench_profiles/yt_findings_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nvar d_on = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar on = 0.0\nfor r in d_on.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"score_breakdown\", {})\n\t\tif bd is Dictionary and bd.has(\"hidden_gain\"):\n\t\t\ton = maxf(on, float(bd[\"hidden_gain\"]))\nreturn off == 0.0 and on > 0.0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.close()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_node(\"ShootingController\").active_shooter_id)",
+      "equals": "",
+      "comment": "nobody armed on phase entry"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The SHOOTING case: P2's Prosecutors (INFANTRY) inside area-large-2, ~9\"\n# south of the squad, with the 13.09 shot record of a ranged attack in THEIR\n# last turn (play-order index cur - 1, the stamp every ranged-attack path\n# writes): a target now (that shot still counts this turn), Hidden again in\n# their next turn (cur + 1) if they hold fire — F003's 'About to regain Hidden'.\nvar st = GameState.state\nvar pr = st.units.U_PROSECUTORS_A_P2\nvar k = 0\nfor m in pr.models:\n\tm.position = {\"x\": 1440.0 + 50.0 * float(k), \"y\": 700.0}\n\tk += 1\nif not pr.has(\"flags\"):\n\tpr[\"flags\"] = {}\npr.flags.erase(\"shot_recently\")\npr.flags[\"last_shot_idx\"] = int(GameState.get_player_turn_index()) - 1\nvar inside = 0\nfor m in pr.models:\n\tif TerrainManager.area_at(Vector2(float(m.position.x), float(m.position.y))).get(\"id\", \"\") == \"area-large-2\":\n\t\tinside += 1\nreturn inside",
+      "expect_min": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ENGINE truth (not the AI's opinion): not Hidden now, Hidden at the next\n# play-order turn, and an eligible target of the squad now.\nvar pr = GameState.state.units.U_PROSECUTORS_A_P2\nvar cur = int(GameState.get_player_turn_index())\nvar now_h = 0\nvar next_h = 0\nfor m in pr.models:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif TerrainManager.is_model_hidden(m, pr):\n\t\tnow_h += 1\n\tif TerrainManager.is_model_hidden_at(m, pr, cur + 1):\n\t\tnext_h += 1\nvar elig = RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(), true)\nreturn now_h == 0 and next_h >= 1 and elig.has(\"U_PROSECUTORS_A_P2\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"type\", \"\"))",
+      "equals": "SHOOT",
+      "comment": "the squad stands in the open (not Hidden): F002 has nothing to keep, it shoots"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d_best = tree.current_scene._ai_suggestion_panel._decision\nvar best = 0.0\nfor r in d_best.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"sub_breakdowns\", {}).get(\"target_value\", {})\n\t\tif bd is Dictionary and bd.has(\"tv_regains_hidden\"):\n\t\t\tbest = maxf(best, float(bd[\"tv_regains_hidden\"]))\nreturn best",
+      "expect_min": 0.05,
+      "comment": "the Prosecutors' target priority carries the x1.25 'regains Hidden' part"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every option's '▸ details' link, through the panel's own handler\n# (toggle_section, what clicking the link calls), then the text it now shows:\n# 'About to regain Hidden' is a hover tooltip ([hint]) carrying the rewritten glossary help.\nvar p = tree.current_scene._ai_suggestion_panel\nvar built = p.build_breakdown(p._decision, p._meta, {}, true)\nvar rx = RegEx.new()\nrx.compile(\"\\\\[url=(opt:[0-9]+:[0-9]+)\\\\]\")\nvar keys = []\nfor m in rx.search_all(str(built.bbcode)):\n\tvar key = m.get_string(1)\n\tif not key in keys:\n\t\tkeys.append(key)\nfor key in keys:\n\tif not bool(p._expanded.get(key, false)):\n\t\tp.toggle_section(key)\nvar now = p.build_breakdown(p._decision, p._meta, p._expanded, false)\nvar help = AIReasoningGlossary.help(\"tv_regains_hidden\")\nvar want = \"[hint=\\\"\" + help.replace(\"\\\"\", \"'\").replace(\"]\", \")\").replace(\"[\", \"(\") + \"\\\"]About to regain Hidden[/hint]\"\nreturn keys.size() > 0 and help.contains(\"It will be Hidden in its next turn (in light or dense terrain, its last shots no longer counting by then)\") and str(now.bbcode).contains(want) and p.breakdown_text.contains(\"About to regain Hidden\")",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Bring the 'About to regain Hidden' row into view in the card (the card keeps its scroll\n# position across a re-render, so this runs after the toggles settled).\nvar p = tree.current_scene._ai_suggestion_panel\nvar lines = str(p.build_breakdown(p._decision, p._meta, p._expanded, false).bbcode).split(\"\\n\")\nvar idx = -1\nfor i in range(lines.size()):\n\tif lines[i].contains(\"]About to regain Hidden[/hint]\"):\n\t\tidx = i\n\t\tbreak\nif idx >= 0:\n\tp._rich.scroll_to_paragraph(maxi(idx - 3, 0))\nreturn idx",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_shooting_about_to_regain_hidden_term"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Hover 'About to regain Hidden' in the live card: find the point whose tooltip is the\n# glossary help (RichTextLabel.get_tooltip answers the [hint] under a point),\n# then warp the cursor there and send a motion event, as the runner's hover\n# acts do, so the tooltip opens for the screenshot.\nvar p = tree.current_scene._ai_suggestion_panel\nvar rich = p._rich\nvar want = AIReasoningGlossary.help(\"tv_regains_hidden\").replace(\"\\\"\", \"'\").replace(\"]\", \")\").replace(\"[\", \"(\")\nvar hit = Vector2(-1, -1)\nvar y = 4.0\nwhile y < rich.size.y and hit.x < 0.0:\n\tvar x = 4.0\n\twhile x < rich.size.x:\n\t\tif str(rich.get_tooltip(Vector2(x, y))) == want:\n\t\t\thit = Vector2(x + 8.0, y)\n\t\t\tbreak\n\t\tx += 6.0\n\ty += 6.0\nif hit.x < 0.0:\n\treturn \"no point of the card shows that tooltip\"\nvar gp = (rich.get_global_rect().position + hit).round()\nInput.warp_mouse(gp)\nvar mm = InputEventMouseMotion.new()\nmm.position = gp\nmm.global_position = gp\nmm.relative = Vector2(1, 0)\nInput.parse_input_event(mm)\nreturn str(rich.get_tooltip(hit)) == want",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_shooting_about_to_regain_hidden_tooltip",
+      "comment": "the rewritten help open as the hover tooltip of 'About to regain Hidden'"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# CONTROL: a shot record from THIS turn (index cur) still counts in their\n# next turn, so they will NOT regain Hidden then: no such part.\nvar pr = GameState.state.units.U_PROSECUTORS_A_P2\nvar keep = int(pr.flags.last_shot_idx)\npr.flags[\"last_shot_idx\"] = int(GameState.get_player_turn_index())\nvar d_this_turn = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar this_turn = 0.0\nfor r in d_this_turn.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"sub_breakdowns\", {}).get(\"target_value\", {})\n\t\tif bd is Dictionary and bd.has(\"tv_regains_hidden\"):\n\t\t\tthis_turn = maxf(this_turn, float(bd[\"tv_regains_hidden\"]))\npr.flags[\"last_shot_idx\"] = keep\nreturn this_turn",
+      "equals": 0.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: the profile cleared (HIDDEN_WINDOW_BONUS ships\n# 1.0), the same target carries no 'regains Hidden' part.\nAIDecisionMaker.clear_player_profile(1)\nvar d_best = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar best = 0.0\nfor r in d_best.get(\"_ai_decision_records\", []):\n\tfor c in r.get(\"candidates\", []):\n\t\tvar bd = c.get(\"sub_breakdowns\", {}).get(\"target_value\", {})\n\t\tif bd is Dictionary and bd.has(\"tv_regains_hidden\"):\n\t\t\tbest = maxf(best, float(bd[\"tv_regains_hidden\"]))\nreturn best",
+      "equals": 0.0
+    }
+  ]
+}
