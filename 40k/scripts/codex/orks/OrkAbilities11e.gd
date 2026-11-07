@@ -533,9 +533,22 @@ static func _highest_toughness(unit_id: String) -> int:
 			best = maxi(best, int(mt) if mt != null else unit_t)
 	return best
 
-## 13.09: a unit counts as hidden while every one of its alive models is
-## hidden (ruling — "hidden" is defined per model).
+## 01.02.07 DESCRIBING UNITS (official rules commentary): "For such descriptors
+## to apply to a unit, that unit must have at least one model in that unit that
+## meets that descriptor ... A hidden unit would be a unit that has a model in it
+## that is hidden." 13.09 defines hidden per model, so "a hidden unit" (Nowhere
+## to Hide "attacks that target a hidden unit", the Found 'Em! preference) is a
+## unit — every component of an Attached unit — with at least one alive, placed
+## hidden model.
 static func unit_is_hidden(unit_id: String) -> bool:
+	return _hidden_models(unit_id, false)
+
+## "If EACH model in this unit is hidden" (Kunnin' Infiltrator): every alive,
+## placed model of every component is hidden (and there is at least one).
+static func every_model_hidden(unit_id: String) -> bool:
+	return _hidden_models(unit_id, true)
+
+static func _hidden_models(unit_id: String, need_every: bool) -> bool:
 	var tm = Common.autoload("TerrainManager")
 	if tm == null or not tm.has_method("is_model_hidden"):
 		return false
@@ -545,8 +558,11 @@ static func unit_is_hidden(unit_id: String) -> bool:
 		for m in u.get("models", []):
 			if not m.get("alive", true) or m.get("position", null) == null:
 				continue
-			any = true
-			if not tm.is_model_hidden(m, u):
+			if tm.is_model_hidden(m, u):
+				if not need_every:
+					return true
+				any = true
+			elif need_every:
 				return false
 	return any
 
@@ -1668,7 +1684,8 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				var hid := head_id(str(uid))
 				if _engaged(hid):
 					continue
-				if slug == "kunnin_infiltrator" and not unit_is_hidden(hid):
+				# "if EACH model in this unit is hidden and unengaged"
+				if slug == "kunnin_infiltrator" and not every_model_hidden(hid):
 					continue
 				out.append(_entry(hid))
 			return out

@@ -485,22 +485,22 @@ static func _check(csv: String, player: int, target_unit_id: String, window_id: 
 	return {"ok": true, "reason": ""}
 
 
-## 13.09 (Ork ruling, OrkAbilities11e.unit_is_hidden): a unit is hidden while
-## every alive model of every component is hidden.
+## 01.02.07 DESCRIBING UNITS (official rules commentary): "A hidden unit would
+## be a unit that has a model in it that is hidden." STRIKE FROM THE SHADOWS
+## ("when a friendly hidden Phobos unit is selected to attack") uses that
+## descriptor: at least one alive, placed model of any component is hidden.
 static func unit_is_hidden(unit_id: String) -> bool:
 	var tm = Common.autoload("TerrainManager")
 	if tm == null or not tm.has_method("is_model_hidden"):
 		return false
-	var any := false
 	for gid in Common.attached_group_ids(unit_id):
 		var u := Common.unit(str(gid))
 		for m in u.get("models", []):
 			if not m.get("alive", true) or m.get("position", null) == null:
 				continue
-			any = true
-			if not tm.is_model_hidden(m, u):
-				return false
-	return any
+			if tm.is_model_hidden(m, u):
+				return true
+	return false
 
 
 # ===========================================================================

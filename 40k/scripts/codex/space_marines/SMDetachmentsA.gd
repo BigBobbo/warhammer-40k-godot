@@ -257,21 +257,23 @@ static func group_disembarked_this_turn(u: Dictionary) -> bool:
 			return true
 	return false
 
-## 13.09: a unit is hidden while every one of its alive, placed models is
-## hidden (the Ork Kunnin' Infiltrator ruling).
+## 01.02.07 DESCRIBING UNITS (official rules commentary): "A hidden unit would
+## be a unit that has a model in it that is hidden." Venator Omni-auspex
+## ("attacks that target a hidden unit"), Vanguard Ambushers ("if a friendly
+## Phobos unit is hidden") and the Auspex AI / option label all use that
+## descriptor: at least one alive, placed model of any component is hidden
+## (13.09 defines hidden per model).
 static func unit_is_hidden(u: Dictionary) -> bool:
 	var tm = Common.autoload("TerrainManager")
 	if tm == null or not tm.has_method("is_model_hidden") or u.is_empty():
 		return false
-	var any := false
 	for gu in group_units(u):
 		for m in gu.get("models", []):
 			if not m.get("alive", true) or m.get("position", null) == null:
 				continue
-			any = true
-			if not tm.is_model_hidden(m, gu):
-				return false
-	return any
+			if tm.is_model_hidden(m, gu):
+				return true
+	return false
 
 static func _visible(from_id: String, to_id: String) -> bool:
 	var re = Common.rules()
@@ -1059,13 +1061,13 @@ static func ai_decide(_player: int, _window_id: String, offers: Array, _ctx: Dic
 						return {"use": true, "stratagem_id": sid, "target_unit_id": str(tt.unit_id), "context": {"variant_id": d}, "name": "DAMOCLES-CLASS UPLINK"}
 	return {}
 
-## Would the unit be hidden if its shot did not count? (INFANTRY / BEASTS /
-## SWARM in a light/dense terrain area — every alive model.)
+## Would the unit be a hidden unit if its shot did not count? (INFANTRY /
+## BEASTS / SWARM in a light/dense terrain area — at least one alive model, the
+## 01.02.07 "hidden unit" descriptor: the waiver keeps every such model hidden.)
 static func _could_be_hidden(unit_id: String) -> bool:
 	var tm = Common.autoload("TerrainManager")
 	if tm == null or not tm.has_method("is_model_hidden"):
 		return false
-	var any := false
 	for gid in Common.attached_group_ids(unit_id):
 		var gu: Dictionary = Common.unit(str(gid)).duplicate(true)
 		var f: Dictionary = gu.get("flags", {})
@@ -1075,10 +1077,9 @@ static func _could_be_hidden(unit_id: String) -> bool:
 		for m in gu.get("models", []):
 			if not m.get("alive", true) or m.get("position", null) == null:
 				continue
-			any = true
-			if not tm.is_model_hidden(m, gu):
-				return false
-	return any
+			if tm.is_model_hidden(m, gu):
+				return true
+	return false
 
 static func _move_reaches_objective(unit_id: String, inches: float) -> bool:
 	if Common.group_in_range_of_any_objective(unit_id):
