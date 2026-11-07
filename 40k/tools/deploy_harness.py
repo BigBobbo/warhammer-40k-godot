@@ -249,6 +249,7 @@ def run_one(fixture, zone, seed, plans, vis, rows, timeout_s, attach="", cold=Tr
     res = script(MEASURE_TMPL % {"ev_start": int(info.get("ev_start", 0)), "vis": "true" if vis else "false",
                                  "rows": "true" if rows else "false"}, timeout=900)
     res["seconds"] = round(time.time() - t0, 1)
+    res["attached"] = info.get("attached", 0)
     return res
 
 
@@ -304,7 +305,7 @@ def main():
                 print("%-28s %-20s seed=%-4d per-drop max: evals=%s (%s) fresh=%s (%s) growth=%s (%s) builds=%s | %s caches, attached=%s" % (
                     fx, zone, seed, dds.get("max_evals", "?"), dds.get("max_evals_unit", ""), dds.get("max_fresh", "?"),
                     dds.get("max_fresh_unit", ""), dds.get("max_grow_work", "?"), dds.get("max_grow_work_unit", ""),
-                    dds.get("max_builds", "?"), r.get("caches", "?"), r.get("info", {}).get("attached", "?") if isinstance(r.get("info"), dict) else "?"), flush=True)
+                    dds.get("max_builds", "?"), r.get("caches", "?"), r.get("attached", "?")), flush=True)
                 for p in ("1", "2"):
                     m = r[p]
                     print("%-28s %-20s seed=%-4d P%s forced=%d rejected=%d failed=%d reserves=%d on=%d hideable_multi=%d full_multi=%d leak=%d open=%d home=%s gap=%.1f\"%s" % (
