@@ -2816,18 +2816,21 @@
     },
     {
       "id": "autoloads/TerrainManager.gd:is_model_hidden",
-      "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a dense feature (any part of base), unit hasn't shot this or last turn. Group-aware so a model on one linked boundary half counts the whole area's dense pieces.",
+      "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a light or dense feature (13.09 errata; any part of base), unit hasn't made ranged attacks this or last turn. Group-aware so a model on one linked boundary half counts the whole area's pieces. A codex 'hidden unit' has at least one hidden model (01.02.07).",
       "scenarios": [
-        "los_terrain_area_11e_far"
+        "los_terrain_area_11e_far",
+        "mp:tests/test_hidden_unit_descriptor_11e.gd"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
       "id": "autoloads/TerrainManager.gd:hidden_model_visible_to",
-      "description": "13.09 visibility gate: a hidden model is only visible to observers within its detection range (15\" default, Gone-to-Ground/datasheet modified). Gone-to-Ground no longer penalises for dense pieces of the target's own area.",
+      "description": "13.09 visibility gate: a hidden model is only visible to ENEMY observers within its detection range (15\" default, Gone-to-Ground/datasheet modified; friendly observers are not gated). Gone-to-Ground no longer penalises for dense pieces of the target's own area. Answered distance-first (detection_range_bounds_inches), identical to the per-pair formula.",
       "scenarios": [
-        "los_terrain_area_11e_far"
+        "los_terrain_area_11e_far",
+        "mp:tests/test_hidden_gate_equivalence_11e.gd",
+        "mp:tests/test_hidden_friendly_observer_11e.gd"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -7068,7 +7071,9 @@
       "id": "scripts/LoSDebugVisual.gd",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: los_overlay_l_key.",
       "scenarios": [
-        "los_overlay_l_key"
+        "los_overlay_l_key",
+        "hidden_light_terrain_errata_11e",
+        "mp:tests/test_hidden_label_11e.gd"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8926,7 +8931,9 @@
       "id": "RulesEngine.explain_target_ineligibility",
       "description": "Structured form of get_target_ineligibility_reason: the same prose plus a stable code (out_of_range / no_los / hidden / embarked / lone_operative / friendly_engagement / ...). reason == \"\" now agrees with get_eligible_targets membership on every gate, including embarked units (18.01) and Lone Operative ranges other than 12\", both of which the prose version used to report as targetable.",
       "scenarios": [
-        "los_overlay_targetable_vs_visible"
+        "los_overlay_targetable_vs_visible",
+        "mp:tests/test_hidden_attached_target_11e.gd",
+        "mp:tests/test_hidden_label_11e.gd"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
