@@ -7170,7 +7170,7 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 	{ranked, below_bar, dropped_lateral, dense_polys, n_slots, n_inside,
 	n_behind, detection_in}."""
 	var out := {"ranked": [], "below_bar": [], "dropped_lateral": 0, "dense_polys": [], "n_slots": 0,
-		"n_inside": 0, "n_behind": 0, "detection_in": GameConstants.hidden_detection_range_inches()}
+		"n_inside": 0, "n_behind": 0, "n_detected": 0, "detection_in": GameConstants.hidden_detection_range_inches()}
 	var tm = _terrain_manager()
 	if tm == null:
 		return out
@@ -7233,6 +7233,8 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 			for i in range(positions.size()):
 				gap = minf(gap, _dist_point_polygon_px(positions[i], enemy_poly) - float(slots[i].r_out))
 			var detected := gap <= det_px
+			if detected:
+				out.n_detected += 1
 			var f := _frame_forwardness(frame, c)
 			var terms := {}
 			var fit := _deploy_terrain_fit_11e(role, "dense", "inside", 1.0, f, detected)

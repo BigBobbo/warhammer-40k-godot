@@ -57,6 +57,7 @@ const DROP_BUDGET_MS := 1200.0   # D10: <= ~1.2 s worst case per drop
 
 var pass_count := 0
 var fail_count := 0
+var _load_ok_after_probe := true
 var GS
 var PM
 var SL
@@ -615,6 +616,52 @@ func _test_cross_parented_features_do_not_move_anchors() -> void:
 			if far:
 				cross += 1
 	print("  cross-parented feature polygons (> 10\" from their own area): %d" % cross)
+	# The corner-short-9..12 groups named by the review: every behind anchor of
+	# theirs lies within the AREA footprint + the formation reach R + the
+	# clearance + half the area's width (the lateral offsets), whatever their
+	# far-away features say.
+	var corner_groups := {}
+	for g in groups:
+		for pid in g.ids:
+			for k in [9, 10, 11, 12]:
+				if str(pid) == "corner-short-%d" % k:
+					corner_groups[str(g.key)] = g
+	print("  groups holding corner-short-9..12: %s" % str(corner_groups.keys()))
+	_check(not corner_groups.is_empty(), "take_and_hold_mirror_1: the corner-short-9..12 groups exist (%s)" % str(corner_groups.keys()))
+	var clear_px := AIDecisionMaker.DEPLOY_11E_BEHIND_CLEARANCE_IN * 40.0
+	for spec in [["U_STOMPA_A", 2], ["U_WARBIKERS_C", 2], ["U_PROSECUTORS_A", 1]]:
+		var info := _pick_for(str(spec[0]), int(spec[1]))
+		var slots: Array = FB.model_slots(info.snapshot, int(spec[1]), str(spec[0])).slots
+		var r := 0.0
+		for sl in slots:
+			r = maxf(r, float(sl.r_out))
+		var n := slots.size()
+		var cols := mini(5, maxi(1, n))
+		var rows := int(ceil(float(n) / float(cols)))
+		var R := maxf(r, float(maxi(cols, rows)) * (2.0 * r + 10.0) * 0.5)
+		var ok := true
+		var seen := 0
+		for cd in (info.pick.ranked as Array) + (info.pick.below_bar as Array):
+			if str(cd.rel) != "behind" or not corner_groups.has(str(cd.key)):
+				continue
+			seen += 1
+			var g: Dictionary = corner_groups[str(cd.key)]
+			var lat: Vector2 = info.frame.lat
+			var c0 := Vector2.ZERO
+			for ap in g.area_polys:
+				c0 += AIDecisionMaker._polygon_centroid_px(ap)
+			c0 /= float((g.area_polys as Array).size())
+			var wl := 0.0
+			for ap in g.area_polys:
+				for v in ap:
+					wl = maxf(wl, absf(((v as Vector2) - c0).dot(lat)))
+			var d := INF
+			for ap in g.area_polys:
+				d = minf(d, AIDecisionMaker._dist_point_polygon_px(cd.anchor, ap))
+			if d > R + clear_px + wl * 0.5 + 1.0:
+				ok = false
+				print("  %s: anchor %s is %.1f\" from %s (bound %.1f\")" % [str(spec[0]), str(cd.anchor), d / 40.0, str(cd.key), (R + clear_px + wl * 0.5) / 40.0])
+		_check(ok, "%s: the corner-short groups' %d behind anchors stay within area + R + clearance" % [str(spec[0]), seen])
 	for spec in [["U_STOMPA_A", 2], ["U_WARBIKERS_C", 2], ["U_ALLARUS_CUSTODIANS_A", 1]]:
 		var info := _pick_for(str(spec[0]), int(spec[1]))
 		var by: Dictionary = {}
@@ -665,6 +712,28 @@ func _test_inside_fill_hidden_and_legal() -> void:
 	var errs: Array = FB.final_check(info.snapshot, 1, "U_ALLARUS_CUSTODIANS_A", pos, b.model_rotations, b.get("combined_char_data", {}))
 	_check(errs.is_empty(), "the phase's own validation accepts it (%s)" % str(errs))
 	_check(str(b.template) == "seed" and (pos[0] as Vector2) == (top.fill[0] as Vector2), "the pocket fill went through verbatim as the builder's seed (template %s)" % str(b.template))
+	# 13.09 detection range: put the enemy zone 10" in front of that pocket.
+	# The same spot is then inside detection range: no deploy_hidden, and the
+	# terrain term drops to COVER only (Allarus = durable ranged: 2.5, not 3.5).
+	var fr: Dictionary = (info.frame as Dictionary).duplicate()
+	var fwd: Vector2 = fr.fwd
+	var lat: Vector2 = fr.lat
+	var c: Vector2 = (top.anchor as Vector2) + fwd * 400.0
+	fr["enemy_poly"] = PackedVector2Array([c - lat * 400.0, c + lat * 400.0, c + lat * 400.0 + fwd * 160.0, c - lat * 400.0 + fwd * 160.0])
+	var zb: Dictionary = AIDecisionMaker._get_deployment_zone_bounds(info.snapshot, 1)
+	var pick2: Dictionary = AIDecisionMaker._find_terrain_spot_11e(fr.inner, info.role, info.unit, "U_ALLARUS_CUSTODIANS_A",
+		info.snapshot.board.terrain_features, zb, fr, AIDecisionMaker._get_objectives(info.snapshot), info.snapshot, 1)
+	var near: Dictionary = {}
+	for cd in (pick2.ranked as Array) + (pick2.below_bar as Array):
+		if str(cd.rel) == "inside" and str(cd.key) == str(top.key):
+			near = cd
+	_check(not near.is_empty() and bool(near.get("detected", false)), "with the enemy zone 10\" away the pocket is within detection range (%d such spots)" % int(pick2.get("n_detected", 0)))
+	if not near.is_empty():
+		var t: Dictionary = near.terms
+		_check(float(t.get("deploy_hidden", -1.0)) == 0.0 and is_equal_approx(float(t.get("deploy_terrain", 0.0)), 2.5),
+			"... it books no Hidden points and only the 13.08 cover weight (deploy_hidden %.1f, deploy_terrain %.2f)" % [float(t.get("deploy_hidden", -1.0)), float(t.get("deploy_terrain", 0.0))])
+		var label := AIDecisionMaker._deploy_spot_label(near, near.anchor, 5, 15.0)
+		_check(label.find("within 15\" of the enemy zone") >= 0, "... and its K-card text says so ('%s')" % label)
 
 func _test_behind_spots_for_non_hide_units() -> void:
 	print("\n-- non-hide-capable units: behind spots only --")
@@ -915,6 +984,24 @@ func _test_perf_budget_orks() -> void:
 	print("\n-- per-drop time, Ork mirror on Search and Destroy (both seats) --")
 	if not await _load("mirror_orks_2000_predeploy", "search_and_destroy", 11):
 		return
+	# Before anything is deployed: the 13.09 detection-range rule on the map
+	# whose zones are closest (12.7"). Every inside spot within 15" of the enemy
+	# zone has deploy_hidden 0 and no LoS-block weight.
+	var detected := 0
+	var det_ok := true
+	for uid in ["U_GRETCHIN_A", "U_STORMBOYZ_A", "U_GRETCHIN_A_P2", "U_STORMBOYZ_A_P2"]:
+		if not GS.state.units.has(uid):
+			continue
+		var pl := int(GS.state.units[uid].owner)
+		var info := _pick_for(uid, pl)
+		detected += int(info.pick.get("n_detected", 0))
+		for cd in (info.pick.ranked as Array) + (info.pick.below_bar as Array):
+			if str(cd.rel) == "inside" and bool(cd.get("detected", false)):
+				if float((cd.terms as Dictionary).get("deploy_hidden", 0.0)) != 0.0:
+					det_ok = false
+	print("  S&D: %d inside spots within detection range of the enemy zone (Gretchin / Stormboyz, both seats)" % detected)
+	_check(det_ok, "S&D: inside spots within detection range carry no Hidden points (%d such spots generated)" % detected)
+	_load_ok_after_probe = await _load("mirror_orks_2000_predeploy", "search_and_destroy", 11)
 	var run := await _deploy_all()
 	var ms: Array = []
 	var worst := ""
@@ -935,6 +1022,17 @@ func _test_perf_budget_orks() -> void:
 	var t1 := _hide_tally(1)
 	var t2 := _hide_tally(2)
 	_check(int(t1.leak) == 0 and int(t2.leak) == 0, "no partly Hidden unit (S&D: zones 12.7\" apart — Hidden is not worth points within 15\")")
+	# 13.09 detection range: listed inside spots within 15" of the enemy zone
+	# carry no Hidden points (they are offered for 13.08 cover only).
+	var near_spots := 0
+	var near_without_bonus := true
+	for dr in run.drops:
+		for c in (dr.record as Dictionary).get("candidates", []):
+			if str(c.get("description", "")).find("of the enemy zone") >= 0:
+				near_spots += 1
+				if float((c.get("score_breakdown", {}) as Dictionary).get("deploy_hidden", 0.0)) != 0.0:
+					near_without_bonus = false
+	_check(near_without_bonus, "S&D: no listed inside spot within detection range of the enemy zone books Hidden points (%d listed)" % near_spots)
 
 func _test_bw_load_attached_leaders_and_transport() -> void:
 	print("\n-- bw_load_deploy_pretrigger: attached Big Meks + a Battlewagon with embarked Gretchin --")
