@@ -2639,6 +2639,11 @@ const WEIGHT_HIDDEN_GAINED: float = 0.0        # off; corpus-suggested 4.0
 # currently-Hidden unit's shooting score so it still fires when the damage is
 # real but declines chip shots. Zero once Hidden is already lost.
 const HIDDEN_FORFEIT_PENALTY: float = 0.0      # off; corpus-suggested 3.0
+# F002's currency: the shot a unit has on offer is worth this many points per
+# target it would remove outright (min(damage / remaining wounds, 1) per
+# target, comparable to SCREEN_SCORE_BASE). Shared with FIX_MOVE_COVER's
+# hold-fire prediction so the two can never drift apart.
+const HIDDEN_FULL_KILL_WORTH: float = 10.0
 # F003 — an enemy that fired last turn but not this one is on a timer: it will
 # be Hidden (and possibly untargetable) on its next turn. Modest multiplier so
 # it breaks ties rather than overriding threat.
@@ -2666,19 +2671,34 @@ const BATTLE_SHOCK_DENIAL_WEIGHT: float = 0.0  # off; corpus-suggested 1.0
 # Two parts: a target-shaping stage in the normal-move chain (the unit keeps
 # its objective, only the end spot changes; re-checked on the destinations
 # the mover actually returns) and a small plan prior ("cover_gain") next to
-# F001's hidden_gain.
+# F001's hidden_gain — the prior ships at 0 even inside the opt-in arm (see
+# MOVE_COVER_PLAN_WEIGHT below).
 # Evidence: exam mv05 (Custodes mirror) — the straight approach onto
 # obj_nml_1's ruin leaves the 5th Custodian Guard outside it (4 of 5 Hidden,
 # so 06.01 makes the whole unit targetable); a 1.4" shift west hides all five
 # and puts every centre in the ruin at no cost to the objective.
-# Hidden is only credited when it survives our own shooting phase: F002
-# (HIDDEN_FORFEIT_PENALTY > 0) can hold fire there, or the unit has no target.
-# Pair it with HIDDEN_FORFEIT_PENALTY (tests/bench_profiles/move_cover_on.json).
+# Reach: spots are searched on the disc the mover can actually reach (0.95 x
+# M, its per-model cap). On a full-length move the straight end lies ON that
+# circle, so a terrain fit beside it is pulled back onto the disc and re-fitted
+# (the mover would clamp a target past the cap radially, out of the area).
+# Hidden is only credited when it survives our own shooting phase: the unit
+# has no target in range, or F002 (HIDDEN_FORFEIT_PENALTY > 0) would hold fire
+# there — the shot on offer, valued in F002's own currency (each ranged weapon
+# on its best target, an upper bound on F002's figure), is worth less than the
+# Hidden it would forfeit. F002 shoots anything better than a chip shot, so a
+# unit with a real target is credited cover, never Hidden. Pair it with
+# HIDDEN_FORFEIT_PENALTY (tests/bench_profiles/move_cover_on.json).
+# Shooters: every enemy unit that can reach the spot next turn (its M plus max
+# range) — at the spot or at the straight end — is in the share and in the
+# player note's "of N"; the MOVE_COVER_MAX_SHOOTERS heaviest also get the
+# sight-line checks (Gone to Ground, not fully visible), the rest only the
+# distance test (no Gone-to-Ground credit) and in-area cover.
 # Approximations: the enemy move is a straight M (no Advance, no terrain);
 # Gone to Ground is judged from the shooter's CURRENT spot; the nearest enemy
 # model stands in for 13.08's per-attacking-model cover test; TORRENT /
 # [IGNORES COVER] / PSYCHIC / [INDIRECT FIRE] are read from the weapon's
-# ability list.
+# ability list; the hold-fire estimate has no sight-line test (it can only
+# over-value the shot, so it can only withhold Hidden credit).
 # 0 = previous behaviour (byte-identical play): the flag is the first term of
 # every gate. Shipped OFF until the paired evaluator clears it.
 const FIX_MOVE_COVER: float = 0.0              # 1 = search a Hidden / cover end spot for normal moves
@@ -2689,9 +2709,19 @@ const MOVE_COVER_NFV_FACTOR: float = 0.5       # share of COVER_WEIGHT when cove
 const MOVE_COVER_LOSS_WEIGHT: float = 1.0      # pts per inch of objective progress lost
 const MOVE_COVER_THREAT_WEIGHT: float = 1.0    # pts per point of _evaluate_position_threat increase
 const MOVE_COVER_MIN_GAIN: float = 0.5         # net pts a spot must beat the straight end by
-const MOVE_COVER_PLAN_WEIGHT: float = 0.5      # plan prior: share of the spot value at estimated_dest
+# Plan prior ("cover_gain", share of the cheap spot value at estimated_dest):
+# 0 = off, and it ships 0 even when FIX_MOVE_COVER is on. It moves the GLOBAL
+# greedy assignment — the P1 keeper pick (best_elsewhere), the P2 OC-need
+# capture and the OBJ-ASSIGN-1 swaps all compare scores ACROSS units — so the
+# units whose assignment it changes need not be the units whose own top choice
+# it flips, and no per-unit test can name them for the fire count. An exact
+# count needs the assignment passes re-run without the term (twice the plan
+# cost, and every other fix's plan-side tag printed twice). Until that exists,
+# set it > 0 only for exploratory runs: it has no [FIX_MOVE_COVER] tag (the
+# "MOVE_COVER plan prior" debug line says what it touched).
+const MOVE_COVER_PLAN_WEIGHT: float = 0.0
 const MOVE_COVER_FAN_INCHES: float = 2.0       # radius of the heading fan round the straight end
-const MOVE_COVER_MAX_SHOOTERS: int = 4         # threatening enemy units priced per move (by shot volume)
+const MOVE_COVER_MAX_SHOOTERS: int = 4         # reaching shooters (heaviest first) given sight-line checks per spot
 const MOVE_COVER_MAX_CANDIDATES: int = 12      # spots given the full engine-predicate evaluation
 const MOVE_COVER_FAN_HEADINGS: int = 8         # headings in the fan (0 = terrain-area spots only)
 const MOVE_COVER_MAX_GTG_CHECKS: int = 64      # Gone-to-Ground detection calls per move search (each pass)
@@ -7696,16 +7726,22 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# the objective guards. If it does not, redo the move straight at the
 			# pre-cover target — exactly the move the flag-off AI makes.
 			var cover_kept := false
+			var cover_kind := ""  # the re-checked kind: what the note, tag and reason claim
 			if not cover_pick.is_empty():
 				var mc_check := _move_cover_recheck(unit, snapshot, cover_pick, model_destinations, target_pos,
 					enemies, threat_data, max_weapon_range_inches, has_ranged_weapons)
 				if bool(mc_check.get("keep", false)):
+					cover_kind = str(mc_check.get("kind", cover_pick.kind))
+					if str(cover_pick.kind) == "hidden" and cover_kind != "hidden":
+						_debug_log_info("MOVE_COVER %s: the returned destinations are not Hidden from any shooter that can reach them (blind %d/%d, hold fire %s) — kept as a cover spot (gain %.2f)" % [
+							unit_name, int(mc_check.n_blind), int(mc_check.n_threats), str(mc_check.get("hold_fire_ok", false)),
+							float(mc_check.gain)])
 					_move_shape_notes.push_front(_move_cover_note(cover_pick, mc_check, assigned_obj_id))
 					var mc_end: Vector2 = mc_check.get("end", cover_pick.end)
 					print("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=(%.0f,%.0f) new=(%.0f,%.0f) kind=%s gain=%.2f loss=%.1f\" blind=%d/%d covered=%d/%d gtg=%d" % [
 						unit_name, cover_pick.base_end.x, cover_pick.base_end.y, mc_end.x, mc_end.y,
-						str(cover_pick.kind), float(mc_check.gain), maxf(0.0, float(mc_check.loss_in)),
-						int(mc_check.n_blind), int(cover_pick.n_threats), int(mc_check.n_cov), int(cover_pick.n_threats),
+						cover_kind, float(mc_check.gain), maxf(0.0, float(mc_check.loss_in)),
+						int(mc_check.n_blind), int(mc_check.n_threats), int(mc_check.n_cov), int(mc_check.n_threats),
 						int(mc_check.n_gtg)])
 					cover_kept = true
 				else:
@@ -7737,7 +7773,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				if charge_steer_centroid != Vector2.INF:
 					reason = "%s, steering toward charge target %s" % [reason, charge_steer_name]
 				if cover_kept:
-					if str(cover_pick.kind) == "hidden":
+					if cover_kind == "hidden":
 						reason = "%s, ending Hidden in the %s" % [reason, str(cover_pick.area_label)]
 					else:
 						reason = "%s, ending in cover" % reason
@@ -10022,8 +10058,10 @@ static func _assign_units_to_objectives(
 			", ".join(incoming_names[inc_obj_id])])
 
 	# FIX_MOVE_COVER: the plan prior "cover_gain" (read once per plan; off = no
-	# further reads, no term).
-	var mc_on: bool = get_param("FIX_MOVE_COVER", FIX_MOVE_COVER) >= 0.5 and GameConstants.edition >= 11
+	# further reads, no term). MOVE_COVER_PLAN_WEIGHT ships 0 even with the flag
+	# on — see its note: the prior's effect on the assignment cannot be tagged.
+	var mc_on: bool = get_param("FIX_MOVE_COVER", FIX_MOVE_COVER) >= 0.5 and GameConstants.edition >= 11 \
+			and get_param("MOVE_COVER_PLAN_WEIGHT", MOVE_COVER_PLAN_WEIGHT) > 0.0
 
 	# Build all (unit, objective) candidate pairs with scores
 	var candidates = []
@@ -10727,10 +10765,12 @@ static func _assign_units_to_objectives(
 			if oar_gap_in >= 0.0:
 				candidates[-1]["obj_gap_in"] = oar_gap_in  # OBJ-AREA-REACH: _capture_arrival's gap
 
-	# FIX_MOVE_COVER: plan-side fire count — one line per unit whose top-scored
-	# objective changes because of cover_gain (what the prior actually moves).
+	# FIX_MOVE_COVER: what the plan prior touched, as a debug line — NOT a fire
+	# tag. The greedy passes below compare scores across units, so the units
+	# whose assignment cover_gain changes need not be the ones whose own top
+	# choice it flips (MOVE_COVER_PLAN_WEIGHT's note).
 	if mc_on:
-		_move_cover_log_plan_flips(candidates, snapshot)
+		_move_cover_log_plan_prior(candidates, snapshot)
 
 	# Sort by score (highest first)
 	candidates.sort_custom(func(a, b): return a.score > b.score)
@@ -16920,7 +16960,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				var hp_t = float(target_hp.get(tid, 0.0))
 				if hp_t > 0.0:
 					shoot_worth += minf(float(target_damage[tid]) / hp_t, 1.0)
-			shoot_worth *= 10.0  # a full kill is worth 10, comparable to SCREEN_SCORE_BASE
+			shoot_worth *= HIDDEN_FULL_KILL_WORTH  # a full kill is worth 10, comparable to SCREEN_SCORE_BASE
 			# A1 (audit F-04): the hold-fire branch returned before any record was
 			# emitted, so the most interesting shooting decision class — the one
 			# where the AI declines a shot on purpose — was absent from the data
@@ -28905,6 +28945,43 @@ static func _mc_fit(offsets: Array, start: Vector2, poly: PackedVector2Array) ->
 			return Vector2.INF
 	return c
 
+## _mc_fit held to the disc the move can reach (centre `c`, radius `r_px`).
+## The ladder clamps every model to its per-model cap along its own heading,
+## so a rigid target past the cap lands at c + dir x cap — usually back out of
+## the area a fit made from the straight end pushed the formation into. On a
+## full-length move the straight end lies ON that circle, so every fit beside
+## or ahead of it starts out of reach: alternate the fit with that radial
+## clamp (alternating projections onto the two sets, which settle in a few
+## rounds wherever they overlap) until the formation is inside `poly` at a
+## point within reach. The fit itself when it is already within reach;
+## Vector2.INF when the area cannot be entered this move. `stats` counts the
+## fits pulled onto the disc ("pulled") and the areas out of reach
+## ("unreach").
+static func _mc_fit_disc(offsets: Array, start: Vector2, poly: PackedVector2Array, c: Vector2, r_px: float,
+		stats: Dictionary) -> Vector2:
+	var x := start
+	for it in range(12):
+		var f := _mc_fit(offsets, x, poly)
+		if f == Vector2.INF:
+			if it > 0:
+				stats["unreach"] = int(stats.get("unreach", 0)) + 1
+			return Vector2.INF
+		if c.distance_to(f) <= r_px:
+			if it > 0:
+				stats["pulled"] = int(stats.get("pulled", 0)) + 1
+			return f
+		x = c + (f - c).normalized() * r_px
+		var inside := true
+		for off in offsets:
+			if not Geometry2D.is_point_in_polygon(x + off, poly):
+				inside = false
+				break
+		if inside:
+			stats["pulled"] = int(stats.get("pulled", 0)) + 1
+			return x
+	stats["unreach"] = int(stats.get("unreach", 0)) + 1
+	return Vector2.INF
+
 ## The terrain AREAS the formation could reach this move (13.01: an "area"
 ## piece, a legacy piece, or a feature standing on its own), each with:
 ##   cover_poly  — shrunk 4 px: every model CENTRE inside it is "within" the
@@ -28946,66 +29023,133 @@ static func _move_cover_regions(tm, centroid: Vector2, reach_px: float, r_min: f
 		})
 	return out
 
-## Enemy units that can shoot the unit next turn if it stands at `positions`:
-## any of their models within (its M + max weapon range) of a member, edge to
-## edge — the enemy moves before it shoots (straight M, no Advance). Weighted
-## by raw shot volume (_unit_ranged_shot_volume's convention); w_cov leaves
-## out weapons that ignore the Benefit of Cover (TORRENT, [IGNORES COVER],
-## PSYCHIC — the exemptions RulesEngine applies); indirect = an [INDIRECT FIRE]
-## weapon, which can target a unit it cannot see (10.07), so Hidden never
-## blinds that shooter. The get_param_int(MOVE_COVER_MAX_SHOOTERS) heaviest
-## are kept.
-static func _move_cover_threats(members: Array, positions: Array, enemies: Dictionary) -> Array:
+## One enemy unit as a potential shooter next turn — the position-free half
+## of _move_cover_threats: its models (position, collision radius), its
+## straight move, max weapon range and shot volume. Weighted by raw shot
+## volume (_unit_ranged_shot_volume's convention); w_cov leaves out weapons
+## that ignore the Benefit of Cover (TORRENT, [IGNORES COVER], PSYCHIC — the
+## exemptions RulesEngine applies); indirect = an [INDIRECT FIRE] weapon, which
+## can target a unit it cannot see (10.07), so Hidden never blinds that
+## shooter. {} when it cannot shoot next turn at all.
+static func _mc_threat_info(e: Dictionary, eid: String) -> Dictionary:
+	var status = e.get("status", 0)
+	if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+		return {}
+	if not _unit_has_ranged_weapons(e):
+		return {}
+	var range_in := _get_max_weapon_range(e)
+	if range_in <= 0.0:
+		return {}
+	var emodels: Array = []
+	for om in _get_alive_models_with_positions(e):
+		emodels.append({"model": om, "pos": _get_model_position(om), "r": _mc_radius_px(om)})
+	if emodels.is_empty():
+		return {}
+	var w_all := 0.0
+	var w_cov := 0.0
+	var indirect := false
+	var alive := float(maxi(_get_alive_models(e).size(), 1))
+	for w in e.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() != "ranged":
+			continue
+		var a = w.get("attacks", "1")
+		var shots := _parse_average_damage(str(a if a != null else "1")) * alive
+		var abil: Array = AbilityRegistry.from_weapon(w)
+		w_all += shots
+		if not (AbilityRegistry.has_ability(abil, "torrent") or AbilityRegistry.has_ability(abil, "ignores_cover") \
+				or AbilityRegistry.has_ability(abil, "psychic")):
+			w_cov += shots
+		if AbilityRegistry.has_ability(abil, "indirect_fire"):
+			indirect = true
+	if w_all <= 0.0:
+		return {}
+	return {"id": eid, "name": _dn(e, eid), "models": emodels,
+		"reach_in": float(e.get("meta", {}).get("stats", {}).get("move", 6)),
+		"range_in": range_in, "w_all": w_all, "w_cov": w_cov, "indirect": indirect}
+
+## EVERY enemy unit that can shoot the unit next turn if it stands at
+## `positions`: any of its models within (its M + max weapon range) of a
+## member, edge to edge — the enemy moves before it shoots (straight M, no
+## Advance). Heaviest shot volume first: _mc_eval gives the sight-line checks
+## to the MOVE_COVER_MAX_SHOOTERS heaviest, but the share and the player
+## note's "of N" count them all. `cache` (eid -> _mc_threat_info) is shared by
+## the calls of one search.
+static func _move_cover_threats(members: Array, positions: Array, enemies: Dictionary, cache: Dictionary = {}) -> Array:
 	var mr: Array = []
 	for mb in members:
 		mr.append(_mc_radius_px(mb.model))
 	var out: Array = []
 	for eid in enemies:
-		var e: Dictionary = enemies[eid]
-		var status = e.get("status", 0)
-		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+		var key := str(eid)
+		if not cache.has(key):
+			cache[key] = _mc_threat_info(enemies[eid], key)
+		var info: Dictionary = cache[key]
+		if info.is_empty():
 			continue
-		if not _unit_has_ranged_weapons(e):
-			continue
-		var range_in := _get_max_weapon_range(e)
-		if range_in <= 0.0:
-			continue
-		var reach_in := float(e.get("meta", {}).get("stats", {}).get("move", 6))
-		var emodels: Array = []
 		var nearest_in := INF
-		for om in _get_alive_models_with_positions(e):
-			var op := _get_model_position(om)
-			var orr := _mc_radius_px(om)
-			emodels.append({"model": om, "pos": op, "r": orr})
+		for o in info.models:
 			for i in range(positions.size()):
-				nearest_in = minf(nearest_in, (op.distance_to(positions[i]) - orr - float(mr[i])) / PIXELS_PER_INCH)
-		if emodels.is_empty() or nearest_in - reach_in > range_in:
+				nearest_in = minf(nearest_in, (o.pos.distance_to(positions[i]) - float(o.r) - float(mr[i])) / PIXELS_PER_INCH)
+		if nearest_in - float(info.reach_in) > float(info.range_in):
 			continue
-		var w_all := 0.0
-		var w_cov := 0.0
-		var indirect := false
-		var alive := float(maxi(_get_alive_models(e).size(), 1))
-		for w in e.get("meta", {}).get("weapons", []):
-			if str(w.get("type", "")).to_lower() != "ranged":
-				continue
-			var a = w.get("attacks", "1")
-			var shots := _parse_average_damage(str(a if a != null else "1")) * alive
-			var abil: Array = AbilityRegistry.from_weapon(w)
-			w_all += shots
-			if not (AbilityRegistry.has_ability(abil, "torrent") or AbilityRegistry.has_ability(abil, "ignores_cover") \
-					or AbilityRegistry.has_ability(abil, "psychic")):
-				w_cov += shots
-			if AbilityRegistry.has_ability(abil, "indirect_fire"):
-				indirect = true
-		if w_all <= 0.0:
-			continue
-		out.append({"id": str(eid), "name": _dn(e, str(eid)), "models": emodels, "reach_in": reach_in,
-			"range_in": range_in, "nearest_in": nearest_in, "w_all": w_all, "w_cov": w_cov, "indirect": indirect})
+		var entry: Dictionary = info.duplicate()  # shallow: the model list is shared, read-only
+		entry["nearest_in"] = nearest_in
+		out.append(entry)
 	out.sort_custom(func(a, b): return float(a.w_all) > float(b.w_all))
-	var keep := get_param_int("MOVE_COVER_MAX_SHOOTERS", MOVE_COVER_MAX_SHOOTERS)
-	if keep >= 0 and out.size() > keep:
-		out.resize(keep)
 	return out
+
+## The shooters of two threat lists (a spot's and the straight end's), each
+## enemy unit once, heaviest first: a spot is judged against every shooter
+## that can reach it AND every one the straight move had to face.
+static func _mc_threat_union(a: Array, b: Array) -> Array:
+	var seen := {}
+	var out: Array = []
+	for e in a + b:
+		if seen.has(str(e.id)):
+			continue
+		seen[str(e.id)] = true
+		out.append(e)
+	out.sort_custom(func(x, y): return float(x.w_all) > float(y.w_all))
+	return out
+
+## The enemy units the shooting phase can pick as targets: attached
+## CHARACTERS are shot through their bodyguard (19.02), exactly as
+## _get_shootable_enemy_units filters them for F002.
+static func _mc_shootable(enemies: Dictionary) -> Dictionary:
+	var out := {}
+	for eid in enemies:
+		if enemies[eid].get("attached_to", null) != null:
+			continue
+		out[eid] = enemies[eid]
+	return out
+
+## F002's worth of the shot the unit would have in its own shooting phase
+## from `probe` (the bodyguard standing at the spot), as an UPPER bound: every
+## ranged weapon on its best target, min(_estimate_weapon_damage / remaining
+## wounds, 1) per weapon, summed, x HIDDEN_FULL_KILL_WORTH. F002 sums
+## min(damage on a target / its wounds, 1) over the targets its assignment
+## actually picks (each weapon on one of them, sight lines checked), which can
+## only be smaller — so "worth < forfeit" here means F002 holds fire there.
+## Our enemies do not move between our movement and shooting phases.
+static func _mc_shoot_worth(unit: Dictionary, probe: Dictionary, targets: Dictionary, snapshot: Dictionary) -> float:
+	var hp := {}
+	var total := 0.0
+	for w in unit.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() != "ranged":
+			continue
+		var best := 0.0
+		for tid in targets:
+			var t: Dictionary = targets[tid]
+			var status = t.get("status", 0)
+			if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+				continue
+			if not hp.has(tid):
+				hp[tid] = _calculate_kill_threshold(t)
+			if float(hp[tid]) <= 0.0:
+				continue
+			best = maxf(best, minf(_estimate_weapon_damage(w, t, snapshot, probe) / float(hp[tid]), 1.0))
+		total += best
+	return total * HIDDEN_FULL_KILL_WORTH
 
 ## Does any enemy stand within `max_wr` (edge to edge) of the formation at
 ## `positions`? The unit would have a shooting target, so it would shoot its
@@ -29036,8 +29180,12 @@ static func _mc_has_target_in_range(members: Array, positions: Array, max_wr: fl
 ##                centre in one too (13.08 first bullet: holds against any
 ##                attacker, even after the unit shoots);
 ##   hold_fire_ok Hidden survives our own shooting phase: no ranged weapons,
-##                no enemy within range, or F002 (HIDDEN_FORFEIT_PENALTY > 0,
-##                _hidden_immunity_fraction > 0) will price the forfeit;
+##                no enemy within range, or F002 holds fire there — the shot
+##                on offer (_mc_shoot_worth, an upper bound on F002's figure)
+##                is worth less than the forfeit it prices
+##                (HIDDEN_FORFEIT_PENALTY x _hidden_immunity_fraction). F002
+##                shoots anything better than a chip shot, so a real target
+##                means no Hidden credit;
 ##   blind(e)     every enemy model, after its M, stays beyond every member's
 ##                detection range — base + datasheet modifiers, Gone to
 ##                Ground's -3" behind dense walls (judged from where the
@@ -29046,6 +29194,10 @@ static func _mc_has_target_in_range(members: Array, positions: Array, max_wr: fl
 ##                never for an [INDIRECT FIRE] shooter (10.07);
 ##   covered(e)   in_area, or (full) every model not fully visible to e's
 ##                nearest model through terrain (13.08 second bullet).
+## `threats` is every reaching shooter, heaviest first; only the
+## MOVE_COVER_MAX_SHOOTERS heaviest get the sight-line calls (Gone to Ground,
+## not fully visible) — the rest are judged on distance and in-area cover
+## alone, so they are never credited more than they really give.
 ## value = HIDDEN_WEIGHT x blinded share + COVER_WEIGHT x covered share of the
 ## threatening shot volume (not-fully-visible cover at NFV_FACTOR). full =
 ## false (the plan prior) skips every sight-line call.
@@ -29079,13 +29231,22 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 			if members[i].is_char and (not _unit_hidden_eligible(members[i].unit) or tm.area_at(positions[i]).is_empty()):
 				in_area = false
 				break
-	# Does the Hidden survive our own shooting phase?
+	# Does the Hidden survive our own shooting phase? Only where F002 would
+	# decline the shot on offer (its own test, on its own enemy list).
+	var skip_hidden := bool(ctx.get("skip_hidden", false))
 	var hold_fire_ok := true
 	if bool(ctx.get("has_ranged", false)) \
 			and _mc_has_target_in_range(members, positions, float(ctx.get("max_wr", 0.0)), ctx.get("enemies", {})):
-		hold_fire_ok = get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY) > 0.0 \
-				and _hidden_immunity_fraction(unit, p, ctx.get("enemies", {})) > 0.0
-	var skip_hidden := bool(ctx.get("skip_hidden", false))
+		hold_fire_ok = false
+		if all_hidden and not skip_hidden:
+			if not ctx.has("shootable"):
+				ctx["shootable"] = _mc_shootable(ctx.get("enemies", {}))
+			var shootable: Dictionary = ctx["shootable"]
+			var forfeit := get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY) \
+					* _hidden_immunity_fraction(unit, p, shootable)
+			if forfeit > 0.0:
+				hold_fire_ok = _mc_shoot_worth(unit, probe_bg, shootable, ctx.get("snapshot", {})) < forfeit
+	var priced_n := get_param_int("MOVE_COVER_MAX_SHOOTERS", MOVE_COVER_MAX_SHOOTERS)
 	var gtg_cap := get_param_int("MOVE_COVER_MAX_GTG_CHECKS", MOVE_COVER_MAX_GTG_CHECKS)
 	var budget: Dictionary = ctx.get("gtg_budget", {"n": 0})
 	var gtg_cut := GameConstants.gone_to_ground_penalty_inches()
@@ -29103,8 +29264,12 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 		var bg_uid := str(unit.get("id", ""))
 		det_cache[bg_uid] = float(tm.detection_range_inches_for(probes[0], members[0].unit, {}))
 		res["det_in"] = det_cache[bg_uid]
-	for e in threats:
+	for k in range(threats.size()):
+		var e: Dictionary = threats[k]
 		w_total += float(e.w_all)
+		# Sight-line calls only for the heaviest shooters (and never in the
+		# cheap plan-prior pass); every shooter gets the distance test.
+		var priced: bool = full and (priced_n < 0 or k < priced_n)
 		# --- blind: no model of e, after its move, gets within detection range
 		var blind: bool = all_hidden and hold_fire_ok and not bool(e.indirect) and not skip_hidden
 		var e_gtg := false
@@ -29132,7 +29297,7 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 			if blind and not window.is_empty():
 				window.sort_custom(func(a, b): return float(a[0]) < float(b[0]))
 				for wp in window:
-					if not full or int(budget.get("n", 0)) >= gtg_cap:
+					if not priced or int(budget.get("n", 0)) >= gtg_cap:
 						blind = false  # unpriced pairs count as visible (no credit)
 						break
 					budget["n"] = int(budget.get("n", 0)) + 1
@@ -29153,7 +29318,7 @@ static func _mc_eval(tm, unit: Dictionary, members: Array, positions: Array, thr
 		if in_area:
 			n_cov += 1
 			w_cov_in += float(e.w_cov)
-		elif full:
+		elif priced:
 			var near: Dictionary = {}
 			var near_d := INF
 			for o in e.models:
@@ -29303,16 +29468,17 @@ static func _mc_place_fail(unit: Dictionary, delta: Vector2, enemies: Dictionary
 		return "coherency"
 	return ""
 
-static func _mc_add_prop(props: Array, pos: Vector2, region: Dictionary, base_end: Vector2) -> void:
+static func _mc_add_prop(props: Array, pos: Vector2, region: Dictionary, base_end: Vector2) -> bool:
 	if pos == Vector2.INF:
-		return
+		return false
 	var dedupe_px := 0.5 * PIXELS_PER_INCH
 	if pos.distance_to(base_end) < dedupe_px:
-		return  # that is the straight move itself
+		return false  # that is the straight move itself
 	for pr in props:
 		if pos.distance_to(pr.pos) < dedupe_px:
-			return
+			return false
 	props.append({"pos": pos, "region": region})
+	return true
 
 ## Better candidate: higher gain; ties to in-area cover, then less progress
 ## lost, then nearer the straight end.
@@ -29333,9 +29499,9 @@ static func _mc_better(a: Dictionary, b: Dictionary, base_end: Vector2) -> bool:
 ## shooters that can reach it next turn, or {} to make the straight move.
 ## Returned "pos" is the target to hand the mover; "end" is where the mover
 ## will actually put the centroid (threat dodge and cap included). `diag`, if
-## passed, is filled with the search's counts (threats, proposals, rejections
-## by screen, evaluated, best gain) — the same numbers the MOVE_COVER debug
-## line logs, for tests.
+## passed, is filled with the search's counts (threats, proposals, proposals
+## pulled onto the reachable disc, rejections by screen, evaluated, best gain)
+## — the same numbers the MOVE_COVER debug line logs, for tests.
 static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictionary, centroid: Vector2,
 		move_target: Vector2, target_pos: Vector2, move_inches: float, enemies: Dictionary,
 		threat_data: Array, objectives: Array, max_wr: float, has_ranged: bool, diag: Dictionary = {}) -> Dictionary:
@@ -29347,6 +29513,10 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 	var unit_name := _dn(unit, unit_id)
 	var move_px := move_inches * PIXELS_PER_INCH
 	var cap_px := move_px * 0.95  # the placement ladder's per-model cap (safe_move_px)
+	# Proposals live on the disc the move can reach: the ladder clamps a target
+	# past the cap radially, so a spot outside it is never where the unit ends.
+	# Half a pixel inside the cap, so float error never trips the cap screen.
+	var reach_px := cap_px - 0.5
 	var base_end := _projected_move_end(centroid, move_target, move_inches * 0.95)
 	var members := _move_cover_members(unit, snapshot)
 	if members.is_empty():
@@ -29363,14 +29533,16 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 		if not _unit_hidden_eligible(mb.unit):
 			all_eligible = false
 	var base_positions := _move_cover_shift(members, base_end - centroid)
-	var threats := _move_cover_threats(members, base_positions, enemies)
+	var threat_cache := {}
+	var threats := _move_cover_threats(members, base_positions, enemies, threat_cache)
 	diag["threats"] = threats.size()
 	if threats.is_empty():
 		_debug_log_info("MOVE_COVER %s: no enemy can shoot it next turn — straight move (%.1f ms)" % [
 			unit_name, float(Time.get_ticks_usec() - t0) / 1000.0])
 		return {}
 	var gtg_budget := {"n": 0}
-	var ctx := {"enemies": enemies, "has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": gtg_budget, "p": base_end}
+	var ctx := {"enemies": enemies, "shootable": _mc_shootable(enemies), "snapshot": snapshot,
+		"has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": gtg_budget, "p": base_end}
 	var e_base := _mc_eval(tm, unit, members, base_positions, threats, ctx, true)
 	var probe_base := _move_cover_probe_unit(unit, members, base_positions)
 	var base_gap := _unit_gap_to_objective_px(probe_base, target_pos)
@@ -29393,23 +29565,37 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 		threat_c += ec / float(maxi(e.models.size(), 1)) * float(e.w_all)
 		threat_w += float(e.w_all)
 	threat_c /= maxf(threat_w, 0.001)
+	# Every fit is held to the reachable disc: on a full-length move the
+	# straight end sits on its edge, so a fit beside it is pulled back onto the
+	# disc and re-fitted rather than thrown away (_mc_fit_disc).
+	var fit_stats := {"pulled": 0, "unreach": 0}
 	var props: Array = []
 	for rg in regions:
-		_mc_add_prop(props, _mc_fit(offsets, base_end, rg.cover_poly), rg, base_end)
+		_mc_add_prop(props, _mc_fit_disc(offsets, base_end, rg.cover_poly, centroid, reach_px, fit_stats), rg, base_end)
 		if rg.hidden_ok and all_eligible:
-			_mc_add_prop(props, _mc_fit(offsets, base_end, rg.hidden_poly), rg, base_end)
+			_mc_add_prop(props, _mc_fit_disc(offsets, base_end, rg.hidden_poly, centroid, reach_px, fit_stats), rg, base_end)
 			# The side of the area away from the shooters: its dense walls are
 			# what Gone to Ground (13.11.01) needs between them and the unit.
 			var a := _mc_vertex_centroid(rg.poly)
 			var u := (a - threat_c).normalized()
 			var depth := _mc_ray_depth(a, u, rg.hidden_poly) if u != Vector2.ZERO else 0.0
 			if depth > 0.0:
-				_mc_add_prop(props, _mc_fit(offsets, a + u * depth * 0.5, rg.hidden_poly), rg, base_end)
+				_mc_add_prop(props, _mc_fit_disc(offsets, a + u * depth * 0.5, rg.hidden_poly, centroid, reach_px, fit_stats),
+					rg, base_end)
 	var n_fan := get_param_int("MOVE_COVER_FAN_HEADINGS", MOVE_COVER_FAN_HEADINGS)
 	var fan_px := get_param("MOVE_COVER_FAN_INCHES", MOVE_COVER_FAN_INCHES) * PIXELS_PER_INCH
 	if fan_px > 0.0:
 		for k in range(maxi(n_fan, 0)):
-			_mc_add_prop(props, base_end + Vector2.from_angle(TAU * float(k) / float(n_fan)) * fan_px, {}, base_end)
+			var q: Vector2 = base_end + Vector2.from_angle(TAU * float(k) / float(n_fan)) * fan_px
+			var pulled := false
+			if centroid.distance_to(q) > reach_px:
+				# Past the cap the ladder would clamp it onto the disc anyway: offer
+				# that point (on a full-length move the fan's forward half becomes
+				# a slide along the arc).
+				q = centroid + (q - centroid).normalized() * reach_px
+				pulled = true
+			if _mc_add_prop(props, q, {}, base_end) and pulled:
+				fit_stats["pulled"] = int(fit_stats.pulled) + 1
 	props.sort_custom(func(a, b): return Vector2(a.pos).distance_to(base_end) < Vector2(b.pos).distance_to(base_end))
 
 	# --- cheap rejections, each the mirror of a generator stage that would
@@ -29477,17 +29663,22 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 			continue
 		survivors.append({"t": t, "p": p, "positions": positions, "loss_in": loss_in, "region": pr.region})
 
-	# --- full evaluation of the survivors, nearest the straight end first
+	# --- full evaluation of the survivors, nearest the straight end first,
+	# each against every shooter that can reach IT plus the straight end's (a
+	# spot can bring a short-ranged unit into reach that the straight end had
+	# not).
 	var loss_w := get_param("MOVE_COVER_LOSS_WEIGHT", MOVE_COVER_LOSS_WEIGHT)
 	var threat_wt := get_param("MOVE_COVER_THREAT_WEIGHT", MOVE_COVER_THREAT_WEIGHT)
 	var best := {}
 	for sv in survivors:
 		ctx["p"] = sv.p
-		var ev := _mc_eval(tm, unit, members, sv.positions, threats, ctx, true)
+		var sv_threats := _mc_threat_union(threats, _move_cover_threats(members, sv.positions, enemies, threat_cache))
+		var ev := _mc_eval(tm, unit, members, sv.positions, sv_threats, ctx, true)
 		var thr := 0.0
 		if not threat_data.is_empty():
 			thr = float(_evaluate_position_threat(sv.p, threat_data, unit).total_threat)
 		sv["eval"] = ev
+		sv["threats"] = sv_threats
 		sv["threat"] = thr
 		sv["gain"] = float(ev.value) - float(e_base.value) - loss_w * maxf(0.0, float(sv.loss_in)) \
 				- threat_wt * maxf(0.0, thr - base_threat)
@@ -29500,14 +29691,16 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 	diag["threats"] = threats.size()
 	diag["regions"] = regions.size()
 	diag["proposals"] = props.size()
+	diag["pulled"] = int(fit_stats.pulled)
+	diag["unreach"] = int(fit_stats.unreach)
 	diag["rej"] = rej
 	diag["evaluated"] = survivors.size()
 	diag["base_value"] = float(e_base.value)
 	diag["best_gain"] = float(best.gain) if not best.is_empty() else -INF
 	if best.is_empty() or float(best.gain) < min_gain:
-		_debug_log_info("MOVE_COVER %s: threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d base=%.2f best_gain=%s — straight move (%.1f ms)" % [
-			unit_name, threats.size(), regions.size(), props.size(), rej_txt, survivors.size(), float(e_base.value),
-			("%.2f" % float(best.gain)) if not best.is_empty() else "none", ms])
+		_debug_log_info("MOVE_COVER %s: threats=%d regions=%d proposals=%d pulled_in=%d out_of_reach=%d rejected{%s} evaluated=%d base=%.2f best_gain=%s — straight move (%.1f ms)" % [
+			unit_name, threats.size(), regions.size(), props.size(), int(fit_stats.pulled), int(fit_stats.unreach), rej_txt,
+			survivors.size(), float(e_base.value), ("%.2f" % float(best.gain)) if not best.is_empty() else "none", ms])
 		return {}
 	var ev_b: Dictionary = best.eval
 	var kind := "hidden" if (bool(ev_b.all_hidden) and bool(ev_b.hold_fire_ok) and int(ev_b.n_blind) > 0) else "cover"
@@ -29520,14 +29713,16 @@ static func _pick_cover_spot(unit: Dictionary, unit_id: String, snapshot: Dictio
 				label += " on %s" % obj_id
 		else:
 			label = "terrain"
-	_debug_log_info("MOVE_COVER %s: threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d best=(%.0f,%.0f) kind=%s gain=%.2f value=%.2f base=%.2f loss=%.1f gtg_checks=%d (%.1f ms)" % [
-		unit_name, threats.size(), regions.size(), props.size(), rej_txt, survivors.size(), best.p.x, best.p.y,
-		kind, float(best.gain), float(ev_b.value), float(e_base.value), float(best.loss_in), int(gtg_budget.n), ms])
+	var best_threats: Array = best.threats
+	_debug_log_info("MOVE_COVER %s: threats=%d regions=%d proposals=%d pulled_in=%d out_of_reach=%d rejected{%s} evaluated=%d best=(%.0f,%.0f) kind=%s gain=%.2f value=%.2f base=%.2f loss=%.1f shooters=%d gtg_checks=%d (%.1f ms)" % [
+		unit_name, threats.size(), regions.size(), props.size(), int(fit_stats.pulled), int(fit_stats.unreach), rej_txt,
+		survivors.size(), best.p.x, best.p.y, kind, float(best.gain), float(ev_b.value), float(e_base.value),
+		float(best.loss_in), best_threats.size(), int(gtg_budget.n), ms])
 	return {
 		"pos": best.t, "end": best.p, "base_end": base_end, "kind": kind, "in_area": bool(ev_b.in_area),
 		"gain": float(best.gain), "value": float(ev_b.value), "base_value": float(e_base.value),
 		"loss_in": float(best.loss_in), "base_gap": base_gap, "base_in_range": base_in_range,
-		"base_threat": base_threat, "threats": threats, "n_threats": threats.size(),
+		"base_threat": base_threat, "threats": best_threats, "base_threats": threats, "n_threats": best_threats.size(),
 		"n_blind": int(ev_b.n_blind), "n_cov": int(ev_b.n_cov), "n_nfv": int(ev_b.n_nfv), "n_gtg": int(ev_b.n_gtg),
 		"det_in": float(ev_b.det_in), "area_label": label, "members": members, "move_px": move_px,
 		"has_ranged": has_ranged, "max_wr": max_wr,
@@ -29543,13 +29738,20 @@ static func _mc_dest_vec(d) -> Vector2:
 ## FIX_MOVE_COVER follow-through: is the spot still worth it on the
 ## destinations the mover RETURNED? Rebuilds every member's end spot
 ## (attached characters by the first bodyguard model's delta, as the engine
-## moves them), re-runs the objective guards and the full evaluation, and
-## keeps the spot only if it still beats the straight end by MIN_GAIN — and,
-## for a Hidden spot, every model still ends Hidden.
+## moves them), re-runs the objective guards and the full evaluation —
+## against every shooter that can reach those destinations plus the straight
+## end's — and keeps the spot only if it still beats the straight end by
+## MIN_GAIN, and, for a Hidden spot, every model still ends Hidden. "kind" is
+## re-derived from that evaluation (hidden only while every model is Hidden,
+## F002 would hold fire and at least one shooter is blinded): a spot that
+## stays in the terrain but is no longer Hidden from anyone is kept as cover
+## when its cover alone still pays, and every claim about it (note, reason,
+## fire tag) follows this kind, not the prediction's.
 static func _move_cover_recheck(unit: Dictionary, snapshot: Dictionary, pick: Dictionary, dests: Dictionary,
 		target_pos: Vector2, enemies: Dictionary, threat_data: Array, max_wr: float, has_ranged: bool) -> Dictionary:
 	var out := {"keep": false, "why": "", "why_text": "it was no longer worth the detour", "gain": 0.0, "loss_in": 0.0,
 		"n_blind": 0, "n_cov": 0, "n_nfv": 0, "n_gtg": 0, "in_area": false, "all_hidden": false,
+		"hold_fire_ok": false, "kind": str(pick.get("kind", "cover")), "n_threats": int(pick.get("n_threats", 0)),
 		"det_in": float(pick.get("det_in", GameConstants.hidden_detection_range_inches())), "end": pick.get("end", Vector2.INF)}
 	if dests.is_empty():
 		out.why = "no legal placement"
@@ -29601,16 +29803,21 @@ static func _move_cover_recheck(unit: Dictionary, snapshot: Dictionary, pick: Di
 		out.why = "control range"
 		out.why_text = "no model would have been within range of the objective"
 		return out
-	var ctx := {"enemies": enemies, "has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": {"n": 0}, "p": end}
-	var ev := _mc_eval(tm, unit, members, positions, pick.threats, ctx, true)
+	var threats: Array = _mc_threat_union(pick.get("base_threats", pick.get("threats", [])),
+		_move_cover_threats(members, positions, enemies))
+	var ctx := {"enemies": enemies, "shootable": _mc_shootable(enemies), "snapshot": snapshot,
+		"has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": {"n": 0}, "p": end}
+	var ev := _mc_eval(tm, unit, members, positions, threats, ctx, true)
 	var thr := 0.0
 	if not threat_data.is_empty() and end != Vector2.INF:
 		thr = float(_evaluate_position_threat(end, threat_data, unit).total_threat)
 	var gain: float = float(ev.value) - float(pick.base_value) \
 			- get_param("MOVE_COVER_LOSS_WEIGHT", MOVE_COVER_LOSS_WEIGHT) * maxf(0.0, loss_in) \
 			- get_param("MOVE_COVER_THREAT_WEIGHT", MOVE_COVER_THREAT_WEIGHT) * maxf(0.0, thr - float(pick.base_threat))
-	for k in ["n_blind", "n_cov", "n_nfv", "n_gtg", "in_area", "all_hidden"]:
+	for k in ["n_blind", "n_cov", "n_nfv", "n_gtg", "in_area", "all_hidden", "hold_fire_ok"]:
 		out[k] = ev[k]
+	out["n_threats"] = threats.size()
+	out["kind"] = "hidden" if (bool(ev.all_hidden) and bool(ev.hold_fire_ok) and int(ev.n_blind) > 0) else "cover"
 	if bool(ev.all_hidden):
 		out["det_in"] = float(ev.det_in)
 	out["gain"] = gain
@@ -29628,19 +29835,22 @@ static func _move_cover_recheck(unit: Dictionary, snapshot: Dictionary, pick: Di
 
 ## The player-visible move-shape note for a kept spot (Suggest (K) card and
 ## the "<unit> move: …" thinking step). "Hidden next turn from" is the stable
-## anchor the windowed scenario reads.
+## anchor the windowed scenario reads. Every claim comes from the re-check on
+## the returned destinations (`check`): its kind and its count of the
+## shooters that could reach the unit there.
 static func _move_cover_note(pick: Dictionary, check: Dictionary, obj_id: String) -> String:
 	var n_models := (pick.members as Array).size()
-	var n := int(pick.n_threats)
+	var n := int(check.get("n_threats", pick.n_threats))
 	var plural := "" if n == 1 else "s"
 	var loss := float(check.loss_in)
 	var cost := "at no cost to objective progress" if loss <= 0.05 \
 			else "for %.1f\" less progress toward %s" % [loss, obj_id]
 	var area := str(pick.area_label)
-	if str(pick.kind) == "hidden":
+	var inside := ("Ends inside the %s" % area) if n_models == 1 else ("Ends with all %d models inside the %s" % [n_models, area])
+	if str(check.get("kind", pick.kind)) == "hidden":
 		var det := float(check.det_in)
-		var where := ("Ends with all %d models inside the %s" % [n_models, area]) if bool(check.in_area) \
-				else ("Ends with every model's base in the %s" % area)
+		var where := inside if bool(check.in_area) \
+				else (("Ends with its base in the %s" % area) if n_models == 1 else ("Ends with every model's base in the %s" % area))
 		var gtg := ""
 		if int(check.n_gtg) > 0:
 			gtg = "; dense walls cut it to %.0f\" against %d of them" % [
@@ -29649,19 +29859,21 @@ static func _move_cover_note(pick: Dictionary, check: Dictionary, obj_id: String
 		var cov := ""
 		if int(check.n_cov) > 0:
 			cov = ", and in cover (-1 BS) against %d of them" % int(check.n_cov)
-		var none := "it cannot" if int(check.n_blind) == 1 else "none of them can"
+		var nb := int(check.n_blind)
+		var none := "it cannot" if nb == 1 else ("none of them can" if nb >= n else "those %d cannot" % nb)
 		return "%s: Hidden next turn from %d of %d enemy shooter%s that could reach it (%s get within the unit's %.0f\" detection range%s)%s — %s" % [
-			where, int(check.n_blind), n, plural, none, det, gtg, cov, cost]
+			where, nb, n, plural, none, det, gtg, cov, cost]
 	if bool(check.in_area):
-		return "Ends with all %d models inside the %s for the Benefit of Cover (-1 BS) against %d of %d enemy shooter%s that could reach it — %s" % [
-			n_models, area, int(check.n_cov), n, plural, cost]
+		return "%s for the Benefit of Cover (-1 BS) against %d of %d enemy shooter%s that could reach it — %s" % [
+			inside, int(check.n_cov), n, plural, cost]
 	return "Ends behind terrain: not fully visible to %d of %d enemy shooter%s that could reach it, so it has the Benefit of Cover (-1 BS) against them — %s" % [
 		int(check.n_cov), n, plural, cost]
 
 ## FIX_MOVE_COVER plan prior: the cheap value (in-area cover, distance-only
 ## blindness, no sight lines) of the formation standing at `dest`, x
-## MOVE_COVER_PLAN_WEIGHT. Its Hidden half is dropped while F001
-## (WEIGHT_HIDDEN_GAINED > 0) already prices Hidden at the same spot.
+## MOVE_COVER_PLAN_WEIGHT (0 = off, the v1 setting — see its note). Its Hidden
+## half is dropped while F001 (WEIGHT_HIDDEN_GAINED > 0) already prices Hidden
+## at the same spot.
 static func _move_cover_plan_value(unit: Dictionary, snapshot: Dictionary, centroid: Vector2, dest: Vector2,
 		enemies: Dictionary, has_ranged: bool, max_wr: float) -> float:
 	var w := get_param("MOVE_COVER_PLAN_WEIGHT", MOVE_COVER_PLAN_WEIGHT)
@@ -29677,27 +29889,42 @@ static func _move_cover_plan_value(unit: Dictionary, snapshot: Dictionary, centr
 	var threats := _move_cover_threats(members, positions, enemies)
 	if threats.is_empty():
 		return 0.0
-	var ctx := {"enemies": enemies, "has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": {"n": 0}, "p": dest,
+	var ctx := {"enemies": enemies, "shootable": _mc_shootable(enemies), "snapshot": snapshot,
+		"has_ranged": has_ranged, "max_wr": max_wr, "gtg_budget": {"n": 0}, "p": dest,
 		"skip_hidden": get_param("WEIGHT_HIDDEN_GAINED", WEIGHT_HIDDEN_GAINED) > 0.0}
 	return w * float(_mc_eval(tm, unit, members, positions, threats, ctx, false).value)
 
-## Plan-side fire count: one line per unit whose top-scored objective changes
-## because of cover_gain.
-static func _move_cover_log_plan_flips(candidates: Array, snapshot: Dictionary) -> void:
+## The plan prior's debug line — NOT a [FIX_MOVE_COVER] fire tag: how many
+## candidates carry cover_gain and the units whose OWN top-scored objective it
+## flips. That is not an assignment count: the greedy passes (P1 keeper
+## best_elsewhere, P2 OC-need capture, OBJ-ASSIGN-1 swaps) compare scores
+## ACROSS units, so the units whose assignment the prior changes need not be
+## these (MOVE_COVER_PLAN_WEIGHT's note).
+static func _move_cover_log_plan_prior(candidates: Array, snapshot: Dictionary) -> void:
 	var top := {}
 	var top_off := {}
+	var n_terms := 0
+	var total := 0.0
 	for c in candidates:
 		var uid := str(c.get("unit_id", ""))
+		var g := float(c.get("score_terms", {}).get("cover_gain", 0.0))
+		if g > 0.0:
+			n_terms += 1
+			total += g
 		var s := float(c.get("score", 0.0))
-		var s_off := s - float(c.get("score_terms", {}).get("cover_gain", 0.0))
+		var s_off := s - g
 		if not top.has(uid) or s > float(top[uid][1]):
 			top[uid] = [str(c.get("objective_id", "")), s]
 		if not top_off.has(uid) or s_off > float(top_off[uid][1]):
 			top_off[uid] = [str(c.get("objective_id", "")), s_off]
+	if n_terms == 0:
+		return
+	var flips := PackedStringArray()
 	for uid in top:
 		if top_off.has(uid) and str(top[uid][0]) != str(top_off[uid][0]):
-			print("AIDecisionMaker: [FIX_MOVE_COVER] %s plan top objective old=%s new=%s" % [
-				_dn(snapshot.get("units", {}).get(uid, {}), uid), str(top_off[uid][0]), str(top[uid][0])])
+			flips.append("%s %s->%s" % [_dn(snapshot.get("units", {}).get(uid, {}), uid), str(top_off[uid][0]), str(top[uid][0])])
+	_debug_log_info("MOVE_COVER plan prior: %d of %d candidates carry cover_gain (total %.2f); own top objective flipped for %d unit(s)%s — not an assignment count" % [
+		n_terms, candidates.size(), total, flips.size(), (": " + ", ".join(flips)) if not flips.is_empty() else ""])
 
 # =============================================================================
 # OVERWATCH EXPOSURE (finding F004)

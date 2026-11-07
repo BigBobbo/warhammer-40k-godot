@@ -11,7 +11,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "FIX_MOVE_COVER (ships OFF): a normal move toward the plan objective ends Hidden (11e 13.09 as errata'd) or in cover (13.08) from the enemy shooters that can reach it next turn. Same position as exam mv05: U_CUSTODIAN_GUARD_B in a line 2.2\" north of obj_nml_1's dense ruin (area-large-2), the only enemy shooter in reach 23\" away in the open, everyone else parked far away. With tests/bench_profiles/move_cover_on.json loaded, clicking the real Suggest (K) button and focusing the squad shows the card's 'How this turn's move was shaped' line 'Ends with all 5 models inside the ruins ... Hidden next turn from 1 of 1 enemy shooter ...', the action still 'moves toward obj_nml_1', and all 5 planned destinations are Hidden (engine is_model_hidden). Clearing the profile restores the shipped default: no note, the straight move with only 4 of 5 Hidden. Reloading restores the spot; executing it through AIPlayer stages and confirms the move and the engine reports all 5 live models Hidden and on the objective. F002 cooperation: in the shooting phase the Hidden squad declines the chip shot (SKIP_UNIT) instead of shooting its Hidden away; with the profile cleared it shoots (control).",
+  "description": "FIX_MOVE_COVER (ships OFF): a normal move toward the plan objective ends Hidden (11e 13.09 as errata'd) or in cover (13.08) from the enemy shooters that can reach it next turn. Same position as exam mv05: U_CUSTODIAN_GUARD_B in a line 2.2\" north of obj_nml_1's dense ruin (area-large-2), the only enemy shooter in reach 23\" away in the open, everyone else parked far away. With tests/bench_profiles/move_cover_on.json loaded, clicking the real Suggest (K) button and focusing the squad shows the card's 'How this turn's move was shaped' line 'Ends with all 5 models inside the ruins ... Hidden next turn from 1 of 1 enemy shooter ...', the action still 'moves toward obj_nml_1', and all 5 planned destinations are Hidden (engine is_model_hidden). Clearing the profile restores the shipped default: no note, the straight move with only 4 of 5 Hidden. Reloading restores the spot. With a worthwhile target in range (P2's Prosecutors parked inside the spears' 24\") the card claims only the Benefit of Cover, never Hidden — the squad would shoot it in its own phase and lose Hidden (F002 declines chip shots only); putting them back restores the Hidden claim; executing it through AIPlayer stages and confirms the move and the engine reports all 5 live models Hidden and on the objective. F002 cooperation: in the shooting phase the Hidden squad declines the chip shot (SKIP_UNIT) instead of shooting its Hidden away; with the profile cleared it shoots (control).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -171,6 +171,69 @@
       "multiline": true,
       "script": "# ...and reloading the profile restores the spot.\nvar f = FileAccess.open(\"res://tests/bench_profiles/move_cover_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar u = GameState.state.units.U_CUSTODIAN_GUARD_B\nvar dests = d.get(\"_ai_model_destinations\", {})\nvar n = 0\nfor m in u.models:\n\tif not m.get(\"alive\", true) or not dests.has(m.id):\n\t\tcontinue\n\tvar probe = m.duplicate(true)\n\tprobe[\"position\"] = {\"x\": float(dests[m.id][0]), \"y\": float(dests[m.id][1])}\n\tif TerrainManager.is_model_hidden(probe, u):\n\t\tn += 1\nreturn n == 5 and str(d.get(\"_ai_move_adjustments\", [])).contains(\"Hidden next turn from\")",
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# REVIEW FIX (Hidden only where F002 holds fire): with a WORTHWHILE target in\n# range the squad would shoot in its own phase (F002 only declines chip\n# shots) and lose Hidden for the enemy's turn (13.09), so the card must claim\n# cover, not Hidden. Park P2's Prosecutors (4 x T3 W1) ~21\" south of the\n# ruin: inside the spears' 24\" (and able to reach the squad next turn).\nvar pr = GameState.state.units.U_PROSECUTORS_A_P2\nvar saved = []\nfor m in pr.models:\n\tsaved.append(m.position)\nAIPlayer.set_meta(\"mc_scn_saved_prosecutors\", saved)\nvar k = 0\nfor m in pr.models:\n\tm.position = {\"x\": 1300.0 + 65.0 * float(k), \"y\": 1450.0}\n\tk += 1\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar notes = str(d.get(\"_ai_move_adjustments\", []))\nvar desc = str(d.get(\"_ai_description\", \"\"))\nreturn (not notes.contains(\"Hidden next turn\")) and notes.contains(\"for the Benefit of Cover (-1 BS) against 2 of 2\") and desc.contains(\"moves toward obj_nml_1\") and not desc.contains(\"ending Hidden\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"for the Benefit of Cover\") and not main._ai_suggestion_panel.full_text.contains(\"Hidden next turn from\")",
+      "equals": true,
+      "comment": "the real card: cover, not Hidden, with a worthwhile target in range"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame the ruin AND the parked Prosecutors (the target in range), left of the K card.\nvar m = tree.current_scene\nm.reset_camera()\nm.focus_on_world_point(Vector2(1450.0, 1000.0), false, Vector2(0.33, 0.5))\nvar vs = m.get_viewport().get_visible_rect().size\nm.zoom_camera_notch(true, Vector2(vs.x * 0.33, vs.y * 0.5))\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "04_move_cover_worthwhile_target_cover_only",
+      "comment": "Prosecutors parked inside the spears' range: the card claims the Benefit of Cover, no Hidden"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Put the Prosecutors back exactly where they were parked: the Hidden claim\n# (chip shot only) returns, so the execution below is the original case.\nvar pr = GameState.state.units.U_PROSECUTORS_A_P2\nvar saved = AIPlayer.get_meta(\"mc_scn_saved_prosecutors\")\nfor i in range(pr.models.size()):\n\tpr.models[i].position = saved[i]\nAIPlayer.remove_meta(\"mc_scn_saved_prosecutors\")\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"_ai_move_adjustments\", [])).contains(\"Hidden next turn from 1 of 1\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
     },
     {
       "act": "execute_script",
