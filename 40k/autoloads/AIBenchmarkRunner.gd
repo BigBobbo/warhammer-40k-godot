@@ -82,10 +82,16 @@ var _exam_stopped: bool = false
 var _exam_stop: Dictionary = {}
 var _exam_start_round: int = 0
 var _exam_max_actions: int = 400
+var _exam_stop_wall_msec: int = 0
 # EXAM-DET-1: provenance stamped into the exam result, so a verdict always says
 # which board it was graded on (see _ensure_fixture_in_user_saves).
 var _fixture_sha256: String = ""
 var _fixture_note: String = ""
+# The other per-machine input the AI reads: AIDecisionMaker layers
+# user://ai_config.json (e.g. exported by the AI Gameplay Visualizer) over the
+# shipped res://data/ai_config.json in EVERY run on that machine. Not changed
+# here, but stamped, so a result graded under such an override says so.
+var _user_ai_config_sha256: String = ""
 
 var _start_ticks: int = 0
 var _last_progress_ticks: int = 0
@@ -310,7 +316,13 @@ func _exam_result_base(verdict: String, passed: int, failed: int) -> Dictionary:
 		"stopped": _exam_stop,
 		"fixture": {"name": _fixture, "path": _fixture_path(), "sha256": _fixture_sha256,
 			"note": _fixture_note},
+		"user_ai_config_sha256": _user_ai_config_sha256,
 		"git_sha": _git_sha,
+		# Wall clock of the exam phase (informational: how near the TIMEOUT cap
+		# a loaded box ran). Deliberately NOT in the trace, which must be
+		# byte-identical run to run.
+		"phase_wall_seconds": snappedf(float(_exam_stop_wall_msec) / 1000.0, 0.1),
+		"max_seconds": _max_seconds,
 	}
 
 func _write_exam_result(out: Dictionary) -> void:
@@ -447,8 +459,9 @@ func _exam_stop_ai(reason: String) -> void:
 		"actions": acted,
 		"decision_batches": batches,
 	}
-	print("[AIExam] %s after %d actions — AI stopped (%d decision batches)" % [
-		reason, acted, batches])
+	_exam_stop_wall_msec = Time.get_ticks_msec() - _start_ticks
+	print("[AIExam] %s after %d actions — AI stopped at %.1fs of the %.0fs cap (%d decision batches)" % [
+		reason, acted, float(_exam_stop_wall_msec) / 1000.0, _max_seconds, batches])
 
 ## A wall-clock overrun is not a verdict. Grading a half-played phase made the
 ## result depend on how fast the box was, so a timeout grades nothing: it writes
@@ -473,6 +486,10 @@ func _kick_off() -> void:
 	_ensure_fixture_in_user_saves()
 	_fixture_sha256 = _sha256_of(_fixture_path())
 	print("[AIBench] fixture %s sha256=%s (%s; %s)" % [_fixture, _fixture_sha256, _fixture_path(), _fixture_note])
+	_user_ai_config_sha256 = _sha256_of("user://ai_config.json")
+	if _user_ai_config_sha256 != "":
+		print("[AIBench] WARNING: %s overrides AI parameters for every run in this user dir (sha256 %s) — results are not comparable with a clean one" % [
+			ProjectSettings.globalize_path("user://ai_config.json"), _user_ai_config_sha256.left(16)])
 	var save_mgr = get_node_or_null("/root/SaveLoadManager")
 	if save_mgr == null or not save_mgr.load_game(_fixture):
 		_finish_with_error("fixture load failed: %s" % _fixture)
