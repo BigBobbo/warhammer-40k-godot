@@ -139,8 +139,14 @@ func _draw() -> void:
 		# Only the amber lines get text: green needs no excuse, and red already
 		# says "terrain" with the block marker. Labelling everything would bury
 		# the board the same way full-strength red lines used to.
-		if verdict == VERDICT_VISIBLE and str(ol.get("reason", "")) != "":
-			_draw_reason_label(ol["from"], ol["to"], str(ol["reason"]), oc)
+		# Exception — HIDDEN (13.09): the red line is a detection-range refusal,
+		# often with NO terrain blocker on it (a light area the target stands in
+		# never blocks its own sight lines), so without text the player cannot
+		# tell why the unit is off-limits. Label it with the rules engine's prose.
+		var _label_red_hidden := verdict == VERDICT_BLOCKED and str(ol.get("reason_code", "")) == "hidden"
+		if (verdict == VERDICT_VISIBLE or _label_red_hidden) and str(ol.get("reason", "")) != "":
+			var _txt := str(ol.get("label", ""))
+			_draw_reason_label(ol["from"], ol["to"], _txt if _txt != "" else str(ol["reason"]), oc)
 
 	# Draw all LoS lines
 	for los_data in los_lines:
@@ -586,6 +592,8 @@ func _unit_pair_sight_line(src_id: String, tgt_id: String, src: Dictionary, tgt:
 
 	var verdict := ""
 	var reason := ""
+	var reason_code := ""
+	var label := ""
 	# How many nearest model pairs the sight-line hunt may try. Only the line
 	# ART depends on it (see RulesEngine.unit_sight_line) — the colour comes
 	# from the eligibility verdict — so it stays small enough that sweeping the
@@ -600,6 +608,12 @@ func _unit_pair_sight_line(src_id: String, tgt_id: String, src: Dictionary, tgt:
 		elif want_reason:
 			var why := RulesEngine.explain_target_ineligibility(src_id, tgt_id, board)
 			reason = why.reason
+			reason_code = str(why.code)
+			if reason_code == "hidden" and why.has("detection_in"):
+				# Full prose overruns OVERVIEW_REASON_MAX_CHARS before the numbers;
+				# the board label leads with what the player needs.
+				label = "Hidden: only visible within %d\" (closest %.1f\")" % [
+					int(round(float(why.detection_in))), float(why.get("closest_in", 0.0))]
 			if why.code == "no_los" or why.code == "hidden":
 				# The rules engine already proved no model pair can see this
 				# unit. Skip the hunt entirely and just draw the nearest pair's
@@ -627,6 +641,8 @@ func _unit_pair_sight_line(src_id: String, tgt_id: String, src: Dictionary, tgt:
 		# therefore always carries a block_at when one could be resolved.
 		"is_clear": verdict != VERDICT_BLOCKED,
 		"verdict": verdict,
+		"reason_code": reason_code,
+		"label": label,
 		"reason": reason,
 		"src": src_id,
 		"tgt": tgt_id,
@@ -760,6 +776,22 @@ func visualize_enhanced_los(shooter_model: Dictionary, target_model: Dictionary,
 
 		print("[LoSDebugVisual] Enhanced LoS: BLOCKED by %s" % str(result.blocking_terrain))
 
+	queue_redraw()
+
+## 13.09 HIDDEN: this target model is hidden and the shooter model is outside
+## its detection range, so the pair is NOT visible regardless of terrain. Draw a
+## plain red line (there is no terrain blocker to mark) instead of the
+## terrain-only verdict, which would paint a clear corridor green.
+func visualize_hidden_beyond_detection(shooter_model: Dictionary, target_model: Dictionary) -> void:
+	if not debug_enabled:
+		return
+	var a := _get_model_position_from_dict(shooter_model)
+	var b := _get_model_position_from_dict(target_model)
+	if a == Vector2.ZERO or b == Vector2.ZERO:
+		return
+	add_los_line(a, b, LOS_COLOR_BLOCKED)
+	_draw_base_outline(shooter_model, Color.RED)
+	_draw_base_outline(target_model, Color.RED)
 	queue_redraw()
 
 # Draw shape-aware base outline to show sampling area

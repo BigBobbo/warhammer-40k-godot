@@ -1,0 +1,192 @@
+{
+  "id": "hidden_light_terrain_errata_11e",
+  "covers": [
+    "autoloads/TerrainManager.gd",
+    "autoloads.TerrainManager.is_model_hidden",
+    "autoloads.TerrainManager.category_allows_hidden",
+    "autoloads/RulesEngine.gd",
+    "RulesEngine.explain_target_ineligibility",
+    "scripts/LoSDebugVisual.gd",
+    "rules.hidden.light_terrain_errata_13_09"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "13.09 HIDDEN errata ('Change to First Bullet Point', wahapedia): INFANTRY/BEASTS/SWARM within a terrain area containing LIGHT or dense terrain features are hidden; the launch text (and this engine until now) said dense only. Live shooting path: Boyz Gamma ~17.6\" from a Custodian Guard are a legal target in the open; a barricade (light) area under them makes them hidden, the target list drops them, and holding L with the shooter armed draws a red line labelled 'Hidden: only visible within 15\" (closest ...)'. Controls: closing inside 15\" restores the target; an exposed crater never hides.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The hot-seat handoff screen is a full-screen CanvasLayer that eats input; acknowledge it the way the player's [Enter] does before driving anything.",
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nvar units = GameState.state[\"units\"]\nvar keep = {\"U_CUSTODIAN_GUARD_B\": [Vector2(480, 2000), 45.0], \"U_BOYZ_K\": [Vector2(480, 1240), -45.0]}\nfor uid in units:\n\tif keep.has(uid):\n\t\tvar c = keep[uid][0]\n\t\tvar step = keep[uid][1]\n\t\tvar i = 0\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tif not m.get(\"alive\", true):\n\t\t\t\tcontinue\n\t\t\tm[\"position\"] = {\"x\": c.x, \"y\": c.y + i * step}\n\t\t\ti += 1\n\t\tunits[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\n\t\tunits[uid].get(\"flags\", {}).erase(\"last_shot_idx\")\n\t\tunits[uid].get(\"flags\", {}).erase(\"shot_recently\")\n\telse:\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\nTerrainManager.set_meta(\"hid_saved_terrain\", TerrainManager.terrain_features.duplicate(true))\nTerrainManager.terrain_features = []\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nmain._recreate_unit_visuals()\nmain.get_node(\"ShootingController\")._refresh_unit_list(false)\nreturn \"ok\"",
+      "comment": "Setup: one Custodian Guard (24\" Guardian spear) and Boyz Gamma (INFANTRY) ~19\" apart (centres) at board x=12\"; everything else removed from play. The board's own terrain is stashed and cleared for the run (restored in cleanup) so the injected area is the ONLY thing that can explain a refusal — with the fixture terrain in place a dense ruin beside the corridor triggers Gone to Ground (12\"), which is correct but muddies the evidence. Shot stamps cleared so only terrain decides Hidden.",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Frame both units so the on-board label is readable in the screenshots.",
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.7\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(480, 1440) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(false)).has(\"U_BOYZ_K\")",
+      "comment": "Control, no terrain: ~17.6\" edge-to-edge is inside the spear's range and nothing hides the Boyz, so they ARE a legal target.",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_open_ground_boyz_targetable"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = []\nvar ys = []\nfor m in GameState.get_unit(\"U_BOYZ_K\")[\"models\"]:\n\tif m.get(\"alive\", true):\n\t\txs.append(float(m[\"position\"][\"x\"]))\n\t\tys.append(float(m[\"position\"][\"y\"]))\nvar pad = 60.0\nvar x0 = xs.min() - pad\nvar x1 = xs.max() + pad\nvar y0 = ys.min() - pad\nvar y1 = ys.max() + pad\nTerrainManager.terrain_features.append({\"id\": \"hid_light_area\", \"type\": \"barricade\", \"height_category\": \"low\", \"polygon\": PackedVector2Array([Vector2(x0, y0), Vector2(x1, y0), Vector2(x1, y1), Vector2(x0, y1)])})\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nreturn TerrainManager.category_of(TerrainManager.terrain_features.back())",
+      "comment": "Put a BARRICADE terrain area (LIGHT category, 13.04) under every Boyz model.",
+      "equals": "light"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_BOYZ_K\")\nvar n = 0\nfor m in u[\"models\"]:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif not TerrainManager.is_model_hidden(m, u):\n\t\treturn \"model %s NOT hidden\" % str(m.get(\"id\", \"?\"))\n\tn += 1\nreturn n > 0",
+      "comment": "13.09 as amended by the errata: INFANTRY within a terrain area containing LIGHT terrain features are hidden. Before this fix only DENSE qualified, so this returned 'model ... NOT hidden'.",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var why = RulesEngine.explain_target_ineligibility(\"U_CUSTODIAN_GUARD_B\", \"U_BOYZ_K\", GameState.create_snapshot(false))\nprint(\"[hidden_light_terrain_errata_11e] explain: %s\" % str(why))\nreturn \"%s|%s|%s\" % [why.code, str(why.reason.contains(\"Hidden (in light/dense terrain\")), str(int(round(float(why.get(\"detection_in\", -1.0)))))]",
+      "comment": "The rules engine refuses the Boyz for HIDDEN (not range, not LoS): beyond the 15\" detection range, and the prose names light/dense terrain.",
+      "equals": "hidden|true|15"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(false)).has(\"U_BOYZ_K\")",
+      "comment": "...so the target list really excludes them.",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Guard the hard-coded row index below against fixture drift.",
+      "script": "var list = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList\")\nif list.item_count < 1 or not list.get_item_text(0).begins_with(\"Custodian Guard\"):\n\treturn \"row 0 is not Custodian Guard\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList",
+      "index": 0,
+      "comment": "Real player input: select the Custodian Guard in the shooter list."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.t32_synthesize_l(true)",
+      "equals": true,
+      "comment": "Hold L (the LoS overlay key) with the shooter armed: ineligible enemies get a reason line."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nfor ol in lv.overview_lines:\n\tif ol[\"tgt\"] == \"U_BOYZ_K\":\n\t\tprint(\"[hidden_light_terrain_errata_11e] overlay line: verdict=%s code=%s label=%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), ol.get(\"label\", \"\")])\n\t\treturn \"%s|%s|%s\" % [ol[\"verdict\"], ol.get(\"reason_code\", \"\"), str(str(ol.get(\"label\", \"\")).begins_with(\"Hidden: only visible within 15\\\"\"))]\nreturn \"no line\"",
+      "comment": "The Boyz line is RED (blocked) with reason code 'hidden' and a short on-board label leading with the 15\" detection range (red lines were previously unlabelled, so the player could not tell why).",
+      "equals": "blocked|hidden|true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The per-model sight-line fan (drawn for every enemy when the shooter has no eligible targets) must not paint the hidden Boyz green: terrain alone is clear, but beyond detection range they are not visible. Before this fix every pair was drawn green next to the red 'Hidden' label.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nvar green = 0\nvar red = 0\nfor l in lv.los_lines:\n\tif l[\"color\"] == Color.GREEN:\n\t\tgreen += 1\n\telif l[\"color\"] == Color.RED:\n\t\tred += 1\nprint(\"[hidden_light_terrain_errata_11e] fan lines: green=%d red=%d\" % [green, red])\nreturn \"%d|%s\" % [green, str(red > 0)]",
+      "equals": "0|true"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_light_terrain_hidden_reason_label"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.t32_synthesize_l(false)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var g = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"]\nvar i = 0\nfor m in g[\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": 480.0, \"y\": 1700.0 + i * 45.0}\n\t\ti += 1\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"ok\"",
+      "comment": "Close to ~10\" edge-to-edge: inside the 15\" detection range a hidden unit is visible again.",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(false)).has(\"U_BOYZ_K\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_within_15in_detection_targetable"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var g = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"]\nvar i = 0\nfor m in g[\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": 480.0, \"y\": 2000.0 + i * 45.0}\n\t\ti += 1\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"ok\"",
+      "comment": "Back out to ~17.6\".",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.terrain_features.back()[\"type\"] = \"crater\"\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nvar u = GameState.get_unit(\"U_BOYZ_K\")\nreturn \"%s|%s\" % [TerrainManager.category_of(TerrainManager.terrain_features.back()), str(TerrainManager.is_model_hidden(u[\"models\"][0], u))]",
+      "comment": "Control: an EXPOSED area (crater, 13.03) never hides.",
+      "equals": "exposed|false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(false)).has(\"U_BOYZ_K\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_exposed_terrain_never_hides"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var saved = TerrainManager.get_meta(\"hid_saved_terrain\", [])\nTerrainManager.terrain_features = saved\nTerrainManager.remove_meta(\"hid_saved_terrain\")\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nvar lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.hide_overview()\nreturn \"%d|%d\" % [lv.overview_lines.size(), int(TerrainManager.terrain_features.size() > 0)]",
+      "comment": "Cleanup: restore the fixture's terrain and clear the overlay.",
+      "equals": "0|1"
+    }
+  ]
+}

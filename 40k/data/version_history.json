@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.3",
+      "date": "2026-11-07",
+      "summary": "Hidden now works in light terrain too, matching the official 11th-edition errata.",
+      "changes": [
+        "Infantry, Beasts and Swarm units in a terrain area with light terrain (barricades, walls, statuary) are now Hidden — before, only dense terrain counted. Enemies can only see and shoot them from within 15\" until they fire.",
+        "Holding L while picking a target now labels Hidden enemy units on the board, e.g. \"Hidden: only visible within 15\" (closest 17.6\")\", instead of drawing an unexplained red line.",
+        "The AI's Hidden-aware choices (where to stand, what to shoot first) follow the corrected rule automatically."
+      ]
+    },
+    {
       "version": "1.73.2",
       "date": "2026-11-05",
       "summary": "Rotating the board keeps unit labels and round tokens readable.",

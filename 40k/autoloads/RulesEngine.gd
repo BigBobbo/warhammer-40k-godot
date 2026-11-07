@@ -7458,7 +7458,12 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 		return _ineligible("out_of_range", "%s is out of range" % target_name)
 	if not any_in_los:
 		if any_hidden_blocked:
-			return _ineligible("hidden", "%s is Hidden (dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist])
+			var hid := _ineligible("hidden", "%s is Hidden (in light/dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist])
+			# Structured numbers for compact UI labels (LoS overlay), so callers
+			# need not parse the prose.
+			hid["detection_in"] = hidden_det_range
+			hid["closest_in"] = hidden_min_dist
+			return hid
 		return _ineligible("no_los", "No line of sight to %s — terrain blocks every sight line" % target_name)
 
 	return {"reason": "", "code": ""}

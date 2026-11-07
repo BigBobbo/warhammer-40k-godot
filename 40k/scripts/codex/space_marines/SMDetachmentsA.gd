@@ -1018,7 +1018,7 @@ static func use_rule_offer(player: int, sid: String, target_unit_id: String, ctx
 ##    while engaged (once per battle).
 ##  - Combined Deployment: always — the most expensive enemy unit hit.
 ##  - Shadow Masters: "stay hidden" when the unit stands where it can be
-##    hidden (an INFANTRY model in dense terrain); otherwise declined.
+##    hidden (an INFANTRY model in light/dense terrain); otherwise declined.
 ##  - Execute and Redeploy: when the unit is out of range of every objective
 ##    and a 6" move reaches one (the engine's reactive-move solver).
 ##  - Auspex Triangulation Shrines: the most expensive candidate, a hidden one first.
@@ -1064,7 +1064,7 @@ static func ai_decide(_player: int, _window_id: String, offers: Array, _ctx: Dic
 	return {}
 
 ## Would the unit be hidden if its shot did not count? (INFANTRY / BEASTS /
-## SWARM in a dense terrain area — every alive model.)
+## SWARM in a light/dense terrain area — every alive model.)
 static func _could_be_hidden(unit_id: String) -> bool:
 	var tm = Common.autoload("TerrainManager")
 	if tm == null or not tm.has_method("is_model_hidden"):

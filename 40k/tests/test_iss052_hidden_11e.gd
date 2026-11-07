@@ -1,8 +1,9 @@
 extends SceneTree
 
 # ISS-052 (step 1): the 11e HIDDEN rule (13.09) — INFANTRY/BEASTS/SWARM in
-# a dense-containing terrain area that haven't shot recently are visible
-# only within 15" detection range. Edition-gated (no effect at 10e).
+# a light- or dense-containing terrain area (13.09 errata; the launch text
+# said dense only) that haven't shot recently are visible only within 15"
+# detection range. Edition-gated (no effect at 10e).
 #
 # Usage: godot --headless --path . -s tests/test_iss052_hidden_11e.gd
 
@@ -170,6 +171,31 @@ func _run_tests():
 		tm.is_model_hidden(in_ruin, {"meta": {"keywords": ["INFANTRY"]}, "flags": {"last_shot_idx": 5}}))
 	gs.state["meta"]["battle_round"] = prev_round
 	gs.state["meta"]["active_player"] = prev_active
+
+	print("\n-- 13.09 errata: LIGHT terrain areas also hide (launch text said dense only) --")
+	GameConstants.edition = 11
+	tm.terrain_features = [
+		{"id": "barricade", "type": "barricade", "polygon": _rect(400, 400, 200, 200), "height_category": "low"},
+		{"id": "crater2", "type": "crater", "polygon": _rect(900, 400, 100, 100), "height_category": "low"},
+	]
+	_check("barricade derives to the LIGHT category", tm.category_of(tm.terrain_features[0]) == "light")
+	_check("category_allows_hidden: light yes, dense yes, exposed no",
+		tm.category_allows_hidden("light") and tm.category_allows_hidden("dense") and not tm.category_allows_hidden("exposed"))
+	_check("INFANTRY in a LIGHT area is hidden (13.09 errata)", tm.is_model_hidden(in_ruin, infantry))
+	_check("BEASTS in a LIGHT area is hidden", tm.is_model_hidden(in_ruin, {"meta": {"keywords": ["BEASTS"]}, "flags": {}}))
+	_check("SWARM in a LIGHT area is hidden", tm.is_model_hidden(in_ruin, {"meta": {"keywords": ["SWARM"]}, "flags": {}}))
+	_check("VEHICLE in a LIGHT area is still not hidden", not tm.is_model_hidden(in_ruin, vehicle))
+	_check("INFANTRY in a LIGHT area that shot recently is not hidden", not tm.is_model_hidden(in_ruin, infantry_shot))
+	_check("EXPOSED area (crater) still never hides", not tm.is_model_hidden(in_crater, infantry))
+	_check("light-hidden model visible within 15\" detection", tm.hidden_model_visible_to(in_ruin, infantry, near_observer))
+	_check("light-hidden model NOT visible beyond 15\" detection", not tm.hidden_model_visible_to(in_ruin, infantry, far_observer))
+	# Gone to Ground (13.11.01) still needs an intervening DENSE feature.
+	tm.terrain_features.append({"id": "light_strip", "type": "barricade", "polygon": _rect(650, 400, 20, 60), "height_category": "low"})
+	_check("intervening LIGHT strip: no Gone to Ground (detection stays 15\")",
+		tm.detection_range_inches_for(in_ruin, infantry, near_observer) == 15.0)
+	tm.terrain_features.append({"id": "dense_strip", "type": "ruins", "polygon": _rect(700, 400, 20, 60), "height_category": "tall"})
+	_check("intervening DENSE strip: Gone to Ground applies to a light-hidden model (12\")",
+		tm.detection_range_inches_for(in_ruin, infantry, near_observer) == 12.0)
 
 	GameConstants.edition = 10
 	tm.terrain_features = prev

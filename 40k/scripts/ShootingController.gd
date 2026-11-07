@@ -2403,6 +2403,8 @@ func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 		return
 
 	var board = GameState.create_snapshot(false)
+	var tm = get_node_or_null("/root/TerrainManager")
+	var hidden_pairs := 0
 
 	# Use enhanced LoS visualization for each model pair
 	for shooter_model in shooter_unit.get("models", []):
@@ -2413,8 +2415,20 @@ func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 			if not target_model.get("alive", true):
 				continue
 
+			# 13.09 HIDDEN: a hidden target model outside this shooter model's
+			# detection range is NOT visible, however clear the terrain is. The
+			# terrain-only check below would paint that pair green and contradict
+			# the target list (more common since light terrain hides too).
+			if tm != null and tm.has_method("hidden_model_visible_to") \
+					and not tm.hidden_model_visible_to(target_model, target_unit, shooter_model):
+				los_debug_visual.visualize_hidden_beyond_detection(shooter_model, target_model)
+				hidden_pairs += 1
+				continue
+
 			# Enhanced LoS visualization shows base-aware sight lines
 			los_debug_visual.visualize_enhanced_los(shooter_model, target_model, board)
+	if hidden_pairs > 0:
+		print("[ShootingController] LoS fan: %d model pair(s) %s -> %s drawn red — target hidden beyond detection range" % [hidden_pairs, shooter_id, target_id])
 
 	print("[ShootingController] Enhanced LoS visualization: %s → %s" % [shooter_id, target_id])
 

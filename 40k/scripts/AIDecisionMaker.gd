@@ -17840,7 +17840,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 
 	# --- F003: SHOOT IT WHILE THE WINDOW IS OPEN (11e 13.09) ---
 	# Availability is otherwise treated as binary and permanent. An enemy that
-	# qualifies for Hidden, is standing in a dense terrain area and has not
+	# qualifies for Hidden, is standing in a light/dense terrain area and has not
 	# fired this turn will be untargetable beyond its detection range on its
 	# next turn — a target that is legal now and illegal later.
 	if _target_regains_hidden_soon(target_unit):

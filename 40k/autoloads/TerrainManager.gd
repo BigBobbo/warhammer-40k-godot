@@ -989,7 +989,9 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 
 ## ISS-052 (step 1) — 13.09 HIDDEN. A model is hidden while:
 ##   ▪ it has the INFANTRY/BEASTS/SWARM keyword AND is within a terrain
-##     area that contains one or more DENSE terrain features, and
+##     area that contains one or more LIGHT or DENSE terrain features
+##     (13.09 errata "Change to First Bullet Point" — the launch text said
+##     dense only; see docs/rules/40k_11th_edition_errata_faq_commentary.md), and
 ##   ▪ its unit made no ranged attacks this turn or the previous turn
 ##     (tracked via the unit flag `shot_recently`, maintained by the
 ##     shooting phase when ISS-048 lands; callers pass the unit).
@@ -1025,10 +1027,11 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
 		if cur_idx - last_shot_idx < 2:
 			return false
-	# 13.09: "within a terrain area that contains one or more dense terrain
-	# features". Within = any part of the base (01.04); the area is the whole
-	# piece GROUP (boundary halves + parented features), and it qualifies if
-	# ANY piece of that group is dense-category.
+	# 13.09 (errata): "within a terrain area that contains one or more
+	# light/dense terrain features". Within = any part of the base (01.04);
+	# the area is the whole piece GROUP (boundary halves + parented features),
+	# and it qualifies if ANY piece of that group is light- or dense-category.
+	# Exposed-only areas (craters, debris) never hide.
 	var within = pieces_model_within(model)
 	if within.is_empty():
 		return false
@@ -1037,9 +1040,14 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	for piece in within:
 		groups[group_map.get(str(piece.get("id", "")), "")] = true
 	for piece in terrain_features:
-		if groups.has(group_map.get(str(piece.get("id", "")), "?")) and category_of(piece) == CATEGORY_DENSE:
+		if groups.has(group_map.get(str(piece.get("id", "")), "?")) and category_allows_hidden(category_of(piece)):
 			return true
 	return false
+
+## 13.09 (errata): terrain categories whose areas can make
+## INFANTRY/BEASTS/SWARM models hidden — light or dense; exposed never does.
+static func category_allows_hidden(cat: String) -> bool:
+	return cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE
 
 ## Visibility gate for hidden models: visible only when the observer is
 ## within the detection range (13.09), as refined per observer by
