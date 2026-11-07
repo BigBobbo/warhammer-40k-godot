@@ -37,6 +37,24 @@ extends SceneTree
 # a dense feature taller than 2" still blocks; FIX_MOVE_TERRAIN_11E = 0
 # restores the old plan.
 #
+# What each contrast rests on (2026-11 review). The COST contrasts here — the
+# Wartrike leaving the light ruin corner-short-21 (off 1.4" / on 7.4") and the
+# Warbikers' m6 crossing the light ruin corner-short-9 (+4") — rest on the
+# engine's current model of LIGHT terrain: for a non-INFANTRY unit a light
+# feature's height is a climb (the charge cost's "climb down" when leaving it)
+# and light pieces are difficult ground. That model is a tracked engine
+# deviation (rules audit TER-02), NOT 13.06 — "All models can move horizontally
+# and vertically through exposed and light terrain features" — so a TER-02 fix
+# flattens these the way bd9392c flattened the area contrast; their messages say
+# so. The remaining charge-cost / engine disagreements the flag reconciles are
+# engine-model choices too (the charge cost's "climb down", its exemption of a
+# dense piece a charge ends in), not 13.06. The seat checks (cross-seat and
+# AIPlayer.recompute_destinations_for_cap) therefore use a contrast that
+# survives TER-02: the 13.06 PATH GATE. Off, every terrain piece blocks a
+# VEHICLE's path, so a Trukk heading west across the light terrain area
+# area-medium-8 detours; on, only dense features over 2" block, so it drives
+# straight (test_light_area_does_not_block_vehicle pins the gate itself).
+#
 # Seat: the fix acts only on a unit of the seat the AI decides for (unit owner
 # == _current_player; decide() sets it). AIPlayer re-plans a rolled Advance
 # (recompute_destinations_for_cap, AIPlayer.gd:1699) and a failed staging
@@ -60,6 +78,11 @@ const IN_AREA_13 := Vector2(980, 1950)
 const IN_LIGHT_RUIN_21 := Vector2(1172.5, 2096)
 const OBJ_NML_2 := Vector2(260, 1650)
 const OBJ_CENTER := Vector2(880, 1200)
+# East of area-medium-8 (light terrain area, x 10-16", y 47-51", with the light
+# corner features corner-short-9 / -11): a Trukk here heading west crosses it.
+const EAST_OF_AREA_8 := Vector2(700, 1960)
+const WEST_OF_AREA_8 := Vector2(300, 1960)
+const TER02 := " [engine model of LIGHT terrain, rules audit TER-02 — not 13.06; update this check when TER-02 lands]"
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -199,9 +222,16 @@ func _wartrike() -> Dictionary:
 	return _unit("U_WARTRIKE_T", ["CHARACTER", "MOUNTED", "ORKS", "SPEED FREEKS"], 12.0, [IN_AREA_13])
 
 ## The same Wartrike standing in the light ruin corner-short-21 (a FEATURE:
-## its height is a climb; the area around it is not).
+## its height is a climb in the engine's current light-terrain model, TER-02;
+## the area around it is not).
 func _ruin_trike() -> Dictionary:
 	return _unit("U_WARTRIKE_T", ["CHARACTER", "MOUNTED", "ORKS", "SPEED FREEKS"], 12.0, [IN_LIGHT_RUIN_21])
+
+## A Trukk (VEHICLE, M12, 90mm) east of the light terrain area area-medium-8 —
+## the seat checks' contrast: the 13.06 path gate (off: every piece blocks a
+## VEHICLE; on: only dense features over 2"), which TER-02 does not touch.
+func _gate_trukk() -> Dictionary:
+	return _unit("U_TRUKK_T", ["ORKS", "TRANSPORT", "VEHICLE"], 12.0, [EAST_OF_AREA_8], 90)
 
 func test_bike_leaving_light_ruin_moves_full_distance() -> void:
 	print("\n--- Wartrike (MOUNTED, M12) leaves the light ruin corner-short-21 toward obj_nml_2, FIX = 1 ---")
@@ -213,14 +243,14 @@ func test_bike_leaving_light_ruin_moves_full_distance() -> void:
 	# Engine: 2" difficult ground for the ruin + 2" for the area; stepping down
 	# off the ruin is free (ascent only). The AI caps the move at 95% of M
 	# (11.4") less the terrain cost -> 7.4".
-	_assert(p.max_raw >= 7.0, "the bike plans at least 7\" (95%% of M - 4\" difficult ground), got %.2f\"" % p.max_raw)
+	_assert(p.max_raw >= 7.0, "the bike plans at least 7\" (95%% of M - 4\" difficult ground), got %.2f\"%s" % [p.max_raw, TER02])
 	_assert(p.engine_ok, "every staged model passes MovementPhase validation (raw + movement terrain penalty <= M) %s" % p.worst)
 
 func test_param_zero_restores_charge_cost() -> void:
 	print("\n--- same move, FIX = 0 (old charge cost: the ruin's 6\" climb down + 2\" + the area's 2\") ---")
 	var p = _plan(_ruin_trike(), OBJ_NML_2, 0.0)
 	print("  planned %.2f\"" % p.max_raw)
-	_assert(p.max_raw > 0.0 and p.max_raw <= 2.5, "off: the old plan is cut to about 1.4\" (11.4\" - 10\"; got %.2f\")" % p.max_raw)
+	_assert(p.max_raw > 0.0 and p.max_raw <= 2.5, "off: the old plan is cut to about 1.4\" (11.4\" - 10\"; got %.2f\")%s" % [p.max_raw, TER02])
 
 ## Guard (bd9392c): a terrain AREA's open ground is no climb for either cost
 ## (get_height_inches(area) = 0), so the fixture this test used before — the
@@ -285,23 +315,23 @@ func test_infantry_unchanged() -> void:
 ## must stay in P2's seat: the P1 unit plans its FIX = 0 move, the P2 unit the
 ## fix-on move.
 func test_profile_fix_stays_in_its_seat() -> void:
-	print("\n--- cross-seat: P2 profile FIX = 1, _current_player = 2; a P1 and a P2 Wartrike leave the light ruin corner-short-21 ---")
-	var p1_trike := _ruin_trike()
-	p1_trike["owner"] = 1
-	var p2_trike := _ruin_trike()
+	print("\n--- cross-seat: P2 profile FIX = 1, _current_player = 2; a P1 and a P2 Trukk head west across the light area area-medium-8 (path-gate contrast) ---")
+	var p1_trukk := _gate_trukk()
+	p1_trukk["owner"] = 1
+	var p2_trukk := _gate_trukk()
 	# References (global config), each unit planned for its own seat.
-	var p1_off := _plan(p1_trike, OBJ_NML_2, 0.0)
-	var p1_on := _plan(p1_trike, OBJ_NML_2, 1.0)
-	var p2_off := _plan(p2_trike, OBJ_NML_2, 0.0)
-	var p2_on := _plan(p2_trike, OBJ_NML_2, 1.0)
+	var p1_off := _plan(p1_trukk, WEST_OF_AREA_8, 0.0)
+	var p1_on := _plan(p1_trukk, WEST_OF_AREA_8, 1.0)
+	var p2_off := _plan(p2_trukk, WEST_OF_AREA_8, 0.0)
+	var p2_on := _plan(p2_trukk, WEST_OF_AREA_8, 1.0)
 	_assert(str(p1_on.dests) != str(p1_off.dests) and str(p2_on.dests) != str(p2_off.dests),
-		"the fix changes this move in its own seat (P1 off %.2f\" / on %.2f\", P2 off %.2f\" / on %.2f\")" % [
-		p1_off.max_raw, p1_on.max_raw, p2_off.max_raw, p2_on.max_raw])
+		"the fix changes this move in its own seat (P1 off %s / on %s, P2 off %s / on %s)" % [
+		str(p1_off.dests), str(p1_on.dests), str(p2_off.dests), str(p2_on.dests)])
 	# Bench state: no global override, FIX = 1 only in P2's profile, HEAD deciding for P2.
 	AIDM._config_overrides.erase("FIX_MOVE_TERRAIN_11E")
 	AIDM.load_player_profile(2, {"parameters": {"FIX_MOVE_TERRAIN_11E": 1.0}})
-	var p1_cross := _plan_for_seat(p1_trike, OBJ_NML_2, 2)
-	var p2_cross := _plan_for_seat(p2_trike, OBJ_NML_2, 2)
+	var p1_cross := _plan_for_seat(p1_trukk, WEST_OF_AREA_8, 2)
+	var p2_cross := _plan_for_seat(p2_trukk, WEST_OF_AREA_8, 2)
 	AIDM.clear_player_profile(2)
 	print("  while P2 decides: P1 unit %.2f\" (off %.2f\", on %.2f\") | P2 unit %.2f\" (off %.2f\", on %.2f\")" % [
 		p1_cross.max_raw, p1_off.max_raw, p1_on.max_raw, p2_cross.max_raw, p2_off.max_raw, p2_on.max_raw])
@@ -320,16 +350,18 @@ func test_aiplayer_recompute_stays_in_its_seat() -> void:
 	if ai == null or not ai.has_method("recompute_destinations_for_cap"):
 		return
 	for seat_owner in [1, 2]:
-		var trike := _ruin_trike()
-		trike["owner"] = seat_owner
-		# The pre-roll plan (FIX = 0, own seat) gives the heading the re-plan keeps.
-		var pre := _plan(trike, OBJ_NML_2, 0.0)
-		var decision := {"type": "BEGIN_ADVANCE", "actor_unit_id": trike.id, "_ai_model_destinations": pre.dests}
-		var off := _recompute(ai, trike, decision, 0.0, seat_owner)
-		var on := _recompute(ai, trike, decision, 1.0, seat_owner)
+		var trukk := _gate_trukk()
+		trukk["owner"] = seat_owner
+		# The pre-roll plan gives the heading the re-plan keeps: the FIX = 1 plan
+		# (own seat) drives straight across the light area, so the re-plan's
+		# 13.06 path gate decides it (off: every piece blocks a VEHICLE -> detour).
+		var pre := _plan(trukk, WEST_OF_AREA_8, 1.0)
+		var decision := {"type": "BEGIN_ADVANCE", "actor_unit_id": trukk.id, "_ai_model_destinations": pre.dests}
+		var off := _recompute(ai, trukk, decision, 0.0, seat_owner)
+		var on := _recompute(ai, trukk, decision, 1.0, seat_owner)
 		AIDM._config_overrides.erase("FIX_MOVE_TERRAIN_11E")
 		AIDM.load_player_profile(2, {"parameters": {"FIX_MOVE_TERRAIN_11E": 1.0}})
-		var cross := _recompute(ai, trike, decision, -1.0, 2)
+		var cross := _recompute(ai, trukk, decision, -1.0, 2)
 		AIDM.clear_player_profile(2)
 		print("  P%d unit: off %s | on %s | while P2 decides with its profile %s" % [seat_owner, str(off), str(on), str(cross)])
 		_assert(not off.is_empty() and not on.is_empty() and str(on) != str(off),
@@ -418,8 +450,8 @@ func test_bench_fixture_stompa_moves_pass_engine_validation() -> void:
 			new_moved += 1
 		if uid == "U_WARBIKERS_D" and not rej_off.is_empty() and _crosses_piece(unit, off, "corner-short-9"):
 			feature_crossing_rejected = true
-	_assert(old_bad > 0, "off: the old plans include moves the engine rejects (%d)" % old_bad)
-	_assert(feature_crossing_rejected, "off: the rejected Warbikers spot crosses the light ruin corner-short-9 (a feature, priced by neither the placement step nor the old cap)")
+	_assert(old_bad > 0, "off: the old plans include moves the engine rejects (%d)%s" % [old_bad, TER02])
+	_assert(feature_crossing_rejected, "off: the rejected Warbikers spot crosses the light ruin corner-short-9 (a feature, priced by neither the placement step nor the old cap)" + TER02)
 	_assert(new_bad == 0, "on: every planned move passes the engine's terrain cost and 13.06 gate (%d rejected)" % new_bad)
 	_assert(new_moved == moves.size(), "on: every move is planned (%d/%d)" % [new_moved, moves.size()])
 
