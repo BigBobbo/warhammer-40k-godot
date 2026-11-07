@@ -1,0 +1,540 @@
+[
+ {
+  "c_in": [
+   3.1,
+   13.2
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_A",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 35.9,
+  "p": 1,
+  "pts": 80,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 37.0
+ },
+ {
+  "c_in": [
+   28.9,
+   51.4
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_A_P2",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 34.3,
+  "p": 2,
+  "pts": 80,
+  "role": "character",
+  "seen_by": 2,
+  "to_enemy_dz_in": 33.9
+ },
+ {
+  "c_in": [
+   17.3,
+   3.7
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_B",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 35.9,
+  "p": 1,
+  "pts": 85,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 36.8
+ },
+ {
+  "c_in": [
+   18.8,
+   56.9
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_B_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 35.9,
+  "p": 2,
+  "pts": 85,
+  "role": "character",
+  "seen_by": 2,
+  "to_enemy_dz_in": 32.8
+ },
+ {
+  "id": "U_DEFFKOPTAS_A",
+  "name": "Deffkoptas",
+  "p": 1,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_DEFFKOPTAS_A_P2",
+  "name": "Deffkoptas",
+  "p": 2,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_DEFFKOPTAS_B",
+  "name": "Deffkoptas",
+  "p": 1,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_DEFFKOPTAS_B_P2",
+  "name": "Deffkoptas",
+  "p": 2,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   23.9,
+   5.0
+  ],
+  "hidden": 2,
+  "id": "U_GRETCHIN_A",
+  "in_area": 2,
+  "in_dense": 2,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 33.6,
+  "p": 1,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 4,
+  "to_enemy_dz_in": 29.6
+ },
+ {
+  "c_in": [
+   40.2,
+   49.0
+  ],
+  "hidden": 0,
+  "id": "U_GRETCHIN_A_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 35.8,
+  "p": 2,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 35.9
+ },
+ {
+  "c_in": [
+   14.2,
+   7.5
+  ],
+  "hidden": 6,
+  "id": "U_GRETCHIN_B",
+  "in_area": 6,
+  "in_dense": 6,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 33.1,
+  "p": 1,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 1,
+  "to_enemy_dz_in": 32.1
+ },
+ {
+  "c_in": [
+   34.4,
+   53.6
+  ],
+  "hidden": 0,
+  "id": "U_GRETCHIN_B_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 38.5,
+  "p": 2,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 2,
+  "to_enemy_dz_in": 36.9
+ },
+ {
+  "c_in": [
+   10.8,
+   10.5
+  ],
+  "hidden": 0,
+  "id": "U_MEK_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 1,
+  "name": "Mek",
+  "nearest_enemy_in": 35.1,
+  "p": 1,
+  "pts": 45,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 34.9
+ },
+ {
+  "c_in": [
+   31.8,
+   40.1
+  ],
+  "hidden": 0,
+  "id": "U_MEK_A_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 1,
+  "name": "Mek",
+  "nearest_enemy_in": 26.5,
+  "p": 2,
+  "pts": 45,
+  "role": "character",
+  "seen_by": 2,
+  "to_enemy_dz_in": 26.3
+ },
+ {
+  "c_in": [
+   3.7,
+   5.2
+  ],
+  "hidden": 0,
+  "id": "U_STOMPA_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Stompa",
+  "nearest_enemy_in": 40.7,
+  "p": 1,
+  "pts": 600,
+  "role": "anti_tank",
+  "seen_by": 0,
+  "to_enemy_dz_in": 43.2
+ },
+ {
+  "c_in": [
+   24.7,
+   56.3
+  ],
+  "hidden": 0,
+  "id": "U_STOMPA_A_P2",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Stompa",
+  "nearest_enemy_in": 36.8,
+  "p": 2,
+  "pts": 600,
+  "role": "anti_tank",
+  "seen_by": 0,
+  "to_enemy_dz_in": 35.7
+ },
+ {
+  "c_in": [
+   11.2,
+   4.5
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 39.4,
+  "p": 1,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 38.8
+ },
+ {
+  "c_in": [
+   12.2,
+   55.6
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_A_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 35.0,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 27.2
+ },
+ {
+  "c_in": [
+   32.3,
+   4.1
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_B",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 34.8,
+  "p": 1,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 27.3
+ },
+ {
+  "c_in": [
+   11.7,
+   58.4
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_B_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 37.7,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 29.7
+ },
+ {
+  "c_in": [
+   29.6,
+   2.2
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_C",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 36.7,
+  "p": 1,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 4,
+  "to_enemy_dz_in": 30.0
+ },
+ {
+  "c_in": [
+   34.7,
+   45.3
+  ],
+  "hidden": 5,
+  "id": "U_STORMBOYZ_C_P2",
+  "in_area": 5,
+  "in_dense": 5,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 31.3,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 30.4
+ },
+ {
+  "c_in": [
+   18.9,
+   14.2
+  ],
+  "hidden": 4,
+  "id": "U_STORMBOYZ_D",
+  "in_area": 4,
+  "in_dense": 4,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 26.5,
+  "p": 1,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 25.5
+ },
+ {
+  "c_in": [
+   41.0,
+   54.3
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_D_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 41.7,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 41.3
+ },
+ {
+  "c_in": [
+   4.3,
+   18.6
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 3,
+  "name": "Warbikers",
+  "nearest_enemy_in": 30.5,
+  "p": 1,
+  "pts": 60,
+  "role": "durable_shooter",
+  "seen_by": 0,
+  "to_enemy_dz_in": 30.1
+ },
+ {
+  "c_in": [
+   40.8,
+   42.5
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_A_P2",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 3,
+  "name": "Warbikers",
+  "nearest_enemy_in": 30.6,
+  "p": 2,
+  "pts": 60,
+  "role": "durable_shooter",
+  "seen_by": 0,
+  "to_enemy_dz_in": 31.7
+ },
+ {
+  "id": "U_WARBIKERS_B",
+  "name": "Warbikers",
+  "p": 1,
+  "pts": 60,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   35.5,
+   56.9
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_B_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 3,
+  "name": "Warbikers",
+  "nearest_enemy_in": 41.9,
+  "p": 2,
+  "pts": 60,
+  "role": "durable_shooter",
+  "seen_by": 2,
+  "to_enemy_dz_in": 40.4
+ },
+ {
+  "id": "U_WARBIKERS_C",
+  "name": "Warbikers",
+  "p": 1,
+  "pts": 120,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_WARBIKERS_C_P2",
+  "name": "Warbikers",
+  "p": 2,
+  "pts": 120,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_WARBIKERS_D",
+  "name": "Warbikers",
+  "p": 1,
+  "pts": 120,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_WARBIKERS_D_P2",
+  "name": "Warbikers",
+  "p": 2,
+  "pts": 120,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   23.6,
+   10.5
+  ],
+  "hidden": 0,
+  "id": "U_WAZDAKKA_GUTSMEK_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Wazdakka Gutsmek",
+  "nearest_enemy_in": 27.9,
+  "p": 1,
+  "pts": 175,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 27.6
+ },
+ {
+  "c_in": [
+   20.6,
+   49.9
+  ],
+  "hidden": 0,
+  "id": "U_WAZDAKKA_GUTSMEK_A_P2",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Wazdakka Gutsmek",
+  "nearest_enemy_in": 30.5,
+  "p": 2,
+  "pts": 175,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 28.1
+ }
+]

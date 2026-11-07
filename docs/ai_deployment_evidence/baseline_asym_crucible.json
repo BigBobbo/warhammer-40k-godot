@@ -1,0 +1,474 @@
+[
+ {
+  "c_in": [
+   18.9,
+   6.6
+  ],
+  "hidden": 4,
+  "id": "U_ALLARUS_CUSTODIANS_A",
+  "in_area": 4,
+  "in_dense": 4,
+  "inf": true,
+  "models": 5,
+  "name": "Allarus Custodians",
+  "nearest_enemy_in": 32.3,
+  "p": 1,
+  "pts": 275,
+  "role": "durable_shooter",
+  "seen_by": 0,
+  "to_enemy_dz_in": 31.4
+ },
+ {
+  "c_in": [
+   21.4,
+   9.3
+  ],
+  "hidden": 1,
+  "id": "U_BLADE_CHAMPION_A",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": true,
+  "models": 1,
+  "name": "Blade Champion",
+  "nearest_enemy_in": 30.3,
+  "p": 1,
+  "pts": 110,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 29.8
+ },
+ {
+  "c_in": [
+   6.3,
+   5.0
+  ],
+  "hidden": 0,
+  "id": "U_BLADE_CHAMPION_B",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 1,
+  "name": "Blade Champion",
+  "nearest_enemy_in": 42.6,
+  "p": 1,
+  "pts": 125,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 41.9
+ },
+ {
+  "c_in": [
+   19.2,
+   12.9
+  ],
+  "hidden": 1,
+  "id": "U_BLADE_CHAMPION_C",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": true,
+  "models": 1,
+  "name": "Blade Champion",
+  "nearest_enemy_in": 28.4,
+  "p": 1,
+  "pts": 125,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 28.1
+ },
+ {
+  "c_in": [
+   23.7,
+   9.9
+  ],
+  "hidden": 2,
+  "id": "U_CUSTODIAN_GUARD_A",
+  "in_area": 3,
+  "in_dense": 2,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 28.1,
+  "p": 1,
+  "pts": 215,
+  "role": "melee",
+  "seen_by": 3,
+  "to_enemy_dz_in": 26.7
+ },
+ {
+  "c_in": [
+   14.8,
+   2.5
+  ],
+  "hidden": 0,
+  "id": "U_CUSTODIAN_GUARD_B",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 37.8,
+  "p": 1,
+  "pts": 215,
+  "role": "melee",
+  "seen_by": 1,
+  "to_enemy_dz_in": 37.1
+ },
+ {
+  "c_in": [
+   4.5,
+   9.1
+  ],
+  "hidden": 0,
+  "id": "U_CUSTODIAN_GUARD_C",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 38.4,
+  "p": 1,
+  "pts": 215,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 37.5
+ },
+ {
+  "c_in": [
+   18.1,
+   12.5
+  ],
+  "hidden": 4,
+  "id": "U_CUSTODIAN_GUARD_D",
+  "in_area": 4,
+  "in_dense": 4,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 26.2,
+  "p": 1,
+  "pts": 225,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 25.9
+ },
+ {
+  "c_in": [
+   3.9,
+   16.2
+  ],
+  "hidden": 3,
+  "id": "U_CUSTODIAN_GUARD_E",
+  "in_area": 3,
+  "in_dense": 3,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 32.7,
+  "p": 1,
+  "pts": 225,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 32.1
+ },
+ {
+  "c_in": [
+   11.4,
+   10.1
+  ],
+  "hidden": 2,
+  "id": "U_CUSTODIAN_GUARD_F",
+  "in_area": 2,
+  "in_dense": 2,
+  "inf": true,
+  "models": 5,
+  "name": "Custodian Guard",
+  "nearest_enemy_in": 32.7,
+  "p": 1,
+  "pts": 225,
+  "role": "melee",
+  "seen_by": 1,
+  "to_enemy_dz_in": 32.4
+ },
+ {
+  "c_in": [
+   20.0,
+   49.9
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 31.2,
+  "p": 2,
+  "pts": 80,
+  "role": "character",
+  "seen_by": 2,
+  "to_enemy_dz_in": 27.7
+ },
+ {
+  "c_in": [
+   26.4,
+   48.2
+  ],
+  "hidden": 0,
+  "id": "U_DEFFKILLA_WARTRIKE_B",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Deffkilla Wartrike",
+  "nearest_enemy_in": 30.5,
+  "p": 2,
+  "pts": 85,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 30.0
+ },
+ {
+  "id": "U_DEFFKOPTAS_A",
+  "name": "Deffkoptas",
+  "p": 2,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_DEFFKOPTAS_B",
+  "name": "Deffkoptas",
+  "p": 2,
+  "pts": 140,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   37.9,
+   45.5
+  ],
+  "hidden": 10,
+  "id": "U_GRETCHIN_A",
+  "in_area": 10,
+  "in_dense": 10,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 32.1,
+  "p": 2,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 31.8
+ },
+ {
+  "c_in": [
+   22.3,
+   56.8
+  ],
+  "hidden": 0,
+  "id": "U_GRETCHIN_B",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 11,
+  "name": "Gretchin",
+  "nearest_enemy_in": 39.5,
+  "p": 2,
+  "pts": 45,
+  "role": "melee",
+  "seen_by": 0,
+  "to_enemy_dz_in": 32.4
+ },
+ {
+  "c_in": [
+   29.5,
+   55.0
+  ],
+  "hidden": 0,
+  "id": "U_MEK_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 1,
+  "name": "Mek",
+  "nearest_enemy_in": 40.0,
+  "p": 2,
+  "pts": 45,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 37.3
+ },
+ {
+  "c_in": [
+   1.9,
+   14.8
+  ],
+  "hidden": 2,
+  "id": "U_PROSECUTORS_A",
+  "in_area": 2,
+  "in_dense": 2,
+  "inf": true,
+  "models": 4,
+  "name": "Prosecutors",
+  "nearest_enemy_in": 34.7,
+  "p": 1,
+  "pts": 45,
+  "role": "fragile_shooter",
+  "seen_by": 0,
+  "to_enemy_dz_in": 34.8
+ },
+ {
+  "c_in": [
+   37.5,
+   40.0
+  ],
+  "hidden": 0,
+  "id": "U_STOMPA_A",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": false,
+  "models": 1,
+  "name": "Stompa",
+  "nearest_enemy_in": 26.2,
+  "p": 2,
+  "pts": 600,
+  "role": "anti_tank",
+  "seen_by": 0,
+  "to_enemy_dz_in": 29.4
+ },
+ {
+  "c_in": [
+   16.0,
+   54.7
+  ],
+  "hidden": 0,
+  "id": "U_STORMBOYZ_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 37.2,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 2,
+  "to_enemy_dz_in": 28.3
+ },
+ {
+  "c_in": [
+   33.0,
+   54.0
+  ],
+  "hidden": 1,
+  "id": "U_STORMBOYZ_B",
+  "in_area": 1,
+  "in_dense": 1,
+  "inf": true,
+  "models": 5,
+  "name": "Stormboyz",
+  "nearest_enemy_in": 39.3,
+  "p": 2,
+  "pts": 65,
+  "role": "melee",
+  "seen_by": 1,
+  "to_enemy_dz_in": 36.9
+ },
+ {
+  "id": "U_STORMBOYZ_C",
+  "name": "Stormboyz",
+  "p": 2,
+  "pts": 65,
+  "status": "RESERVES"
+ },
+ {
+  "id": "U_STORMBOYZ_D",
+  "name": "Stormboyz",
+  "p": 2,
+  "pts": 65,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   40.0,
+   56.0
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 3,
+  "name": "Warbikers",
+  "nearest_enemy_in": 43.3,
+  "p": 2,
+  "pts": 60,
+  "role": "durable_shooter",
+  "seen_by": 0,
+  "to_enemy_dz_in": 43.0
+ },
+ {
+  "c_in": [
+   34.5,
+   56.5
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_B",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 3,
+  "name": "Warbikers",
+  "nearest_enemy_in": 41.7,
+  "p": 2,
+  "pts": 60,
+  "role": "durable_shooter",
+  "seen_by": 1,
+  "to_enemy_dz_in": 40.3
+ },
+ {
+  "c_in": [
+   33.5,
+   51.0
+  ],
+  "hidden": 0,
+  "id": "U_WARBIKERS_C",
+  "in_area": 2,
+  "in_dense": 2,
+  "inf": false,
+  "models": 6,
+  "name": "Warbikers",
+  "nearest_enemy_in": 35.3,
+  "p": 2,
+  "pts": 120,
+  "role": "durable_shooter",
+  "seen_by": 1,
+  "to_enemy_dz_in": 33.8
+ },
+ {
+  "id": "U_WARBIKERS_D",
+  "name": "Warbikers",
+  "p": 2,
+  "pts": 120,
+  "status": "RESERVES"
+ },
+ {
+  "c_in": [
+   40.9,
+   52.4
+  ],
+  "hidden": 0,
+  "id": "U_WAZDAKKA_GUTSMEK_A",
+  "in_area": 0,
+  "in_dense": 0,
+  "inf": false,
+  "models": 1,
+  "name": "Wazdakka Gutsmek",
+  "nearest_enemy_in": 40.1,
+  "p": 2,
+  "pts": 175,
+  "role": "character",
+  "seen_by": 0,
+  "to_enemy_dz_in": 41.5
+ }
+]
