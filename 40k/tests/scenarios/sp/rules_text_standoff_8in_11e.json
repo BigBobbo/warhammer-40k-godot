@@ -148,7 +148,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m._deep_strike_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m._deep_strike_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nprint(\"[F3-SCENARIO] '%s' label drawn at board (%.1f, %.1f)\" % [v._last_label_text, p.x, p.y])\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
       "equals": "framed"
     },
     {
@@ -274,7 +274,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m.deployment_controller.infiltrator_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m.deployment_controller.infiltrator_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nprint(\"[F3-SCENARIO] '%s' label drawn at board (%.1f, %.1f)\" % [v._last_label_text, p.x, p.y])\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
       "equals": "framed"
     },
     {
