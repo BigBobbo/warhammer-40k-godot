@@ -12,6 +12,7 @@ Evidence: `docs/ai_deployment_evidence/` (live screenshots, live-data maps, raw 
   - Multi-model infantry units fully Hidden at the end of deployment: **0 of 8** (Custodes, formula) · **0 of 6 and 1 of 6** (Ork mirror, formula on both sides).
   - "Leakers" — infantry partly in a ruin, so the unit stays targetable: **6 of 8** multi-model Custodes units.
   - **9 Ork units (1,100 pts) were dumped into Strategic Reserves** because the formation generator produced illegal placements (oval bike bases overlapping, coherency, walls). These were never a reserves decision.
+  - The same pattern holds on a second map (Hammer & Anvil zones, Custodes mirror): 3/8 and 0/8 fully Hidden, with 4 and 6 leakers.
 - **Core idea of the fix — "Stage → Strike":** for every unit, first decide **where it wants to be on turn 1–2** (its *job destination*). Then deploy it at the **safest legal staging spot that can still reach that destination in one move**.
   - "Safest" is measured against **where the enemy can be after *their* first move**, not where they stand now.
   - The score is the expected value across **both turn orders**.
@@ -23,7 +24,7 @@ Evidence: `docs/ai_deployment_evidence/` (live screenshots, live-data maps, raw 
   - With the existing fast line test in `VisionMapOverlay._line_blocked_11e_fast` it took **157 ms** (7 µs per line). A 9-point version projects to ≈1.4 s.
   - Offline per-layout tables are a further option: there are only 45 official layouts.
   - Result on this board: **53/165 cells are true LoS shadows** from every turn-1-reachable enemy point.
-  - **All 29 dense cells keep infantry Hidden.** The formula used almost none of them.
+  - **All 29 dense cells keep infantry Hidden.** The formula only half-used them, leaving units with a few models inside and the rest outside.
 - **Build order:**
   - P0: fix legality, the 11e terrain-scorer bugs and metrics.
   - P1: battlefield read.
@@ -84,6 +85,13 @@ Method:
 | | P2 Ork plan | 12 | 5 | 0 | 2 | 3 | 5 (1 forced) |
 | Ork mirror, plans OFF | P1 formula | 12 | 7 | **0** | 3 | 4 | **5 forced (580 pts)** |
 | | P2 formula | 13 | 7 | 1 | 0 | 6 | **4 forced (520 pts)** |
+| Custodes mirror, plans OFF, **Hammer & Anvil zones** (same terrain layout) | P1 formula | 11 | 11 | 3 of 8 multi-model | 4 | 1 (+ 2 chars) | 0 |
+| | P2 formula | 11 | 11 | **0 of 8** multi-model | **6** | 2 (+ 1 char) | 0 |
+
+Hammer & Anvil detail:
+- Front units sit 24.9–25.5" from the enemy zone, i.e. right on the front edge of an 18"-deep zone with a 24" gap.
+- 4–5 units per side were already visible to ≥1 deployed enemy unit before anyone moved.
+- No forced reserves here: Custodes are all round-based infantry.
 
 Further observations:
 - The mirror run logged **14 rejected DEPLOY_UNIT attempts**. Causes: oval Warbiker/Deffkopta bases overlapping inside the grid, 9" coherency envelope breaks, overlapping walls, and "not wholly within zone" on the triangular map.
@@ -526,6 +534,7 @@ Do P0 first regardless: (b) alone returns about a third of an Ork army to the ta
 |---|---|
 | `baseline_ingame_orks_mirror_formula.jpg` | Live screenshot after formula deployment (plans off). Note the log: "deployment failed after retries — placed in Strategic Reserves". |
 | `baseline_ingame_asym_custodes_formula_vs_ork_plan.jpg` | Live screenshot. Custodes (formula) packed into the top-left; Orks (plan "Recon Stomps on Crucible"). |
+| `baseline_ingame_custodes_mirror_hammer_anvil.jpg` | Live screenshot: both Custodes armies in front-edge "col/row" lines across 18"-deep zones (zones swapped to Hammer & Anvil on the same layout) |
 | `baseline_hidden_map_orks_mirror.png` | Rendered from live state: per-unit Hidden status (green / yellow / red / purple) |
 | `proposed_exposure_field_p1.png` | Rendered from a live computation: P1-zone cells × enemy T1-reachable points (`model_visible_11e`) |
 | `baseline_*_crucible.json` | Per-unit raw rows (role, models in area/dense/Hidden, distance to enemy zone, seen-by count) |
