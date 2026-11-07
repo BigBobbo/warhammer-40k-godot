@@ -87,9 +87,23 @@ func _build_ui() -> void:
 	main_container.add_child(timer_container)
 	main_container.add_child(HSeparator.new())
 
+	# WP-G2: every row carries its own cost (Swift Ruin -1 CP) and how the unit
+	# arrives (Codex: Orks DEFF FROM THE SHADOWS: free, no stratagem).
+	var all_deff := not eligible_units.is_empty()
+	var uniform_cost := true
+	for ui in eligible_units:
+		if str(ui.get("via", "rapid_ingress")) != "deff_from_the_shadows":
+			all_deff = false
+		if _row_cost(ui) != 1:
+			uniform_cost = false
+
 	# Header
 	var header = Label.new()
+	header.name = "Header"
 	header.text = "RAPID INGRESS"
+	if all_deff:
+		header.text = "DEFF FROM THE SHADOWS"
+		title = "Deff from the Shadows - Player %d" % player
 	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.DODGER_BLUE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -100,6 +114,8 @@ func _build_ui() -> void:
 	subheader.text = "Core - Strategic Ploy Stratagem"
 	if GameConstants.edition >= 11:
 		subheader.text = "Core Stratagem (15.07)"  # 11e cards carry no Strategic Ploy category
+	if all_deff:
+		subheader.text = "Datasheet ability (Boss Snikrot) — no CP"
 	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -109,8 +125,13 @@ func _build_ui() -> void:
 
 	# CP info
 	var cp_label = Label.new()
+	cp_label.name = "CostLabel"
 	var current_cp = StratagemManager.get_player_cp(player)
 	cp_label.text = "Cost: 1 CP (You have %d CP)" % current_cp
+	if all_deff:
+		cp_label.text = "Cost: no CP (You have %d CP)" % current_cp
+	elif not uniform_cost:
+		cp_label.text = "Cost: shown on each unit (You have %d CP)" % current_cp
 	cp_label.add_theme_font_size_override("font_size", 18)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -163,12 +184,23 @@ func _build_ui() -> void:
 
 		var use_button = Button.new()
 		use_button.name = "Use_%s" % str(unit_info.unit_id).validate_node_name()
-		use_button.text = "Arrive (1 CP)"
+		use_button.text = "Arrive (%d CP)" % _row_cost(unit_info)
+		if str(unit_info.get("via", "rapid_ingress")) == "deff_from_the_shadows":
+			use_button.text = "Arrive (free)"
 		use_button.custom_minimum_size = Vector2(170, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))
 		unit_container.add_child(use_button)
 
 		unit_list.add_child(unit_container)
+		# WP-G2: why this row differs (Swift Ruin -1 CP / Deff from the Shadows).
+		if str(unit_info.get("note", "")) != "":
+			var note_label = Label.new()
+			note_label.name = "Note_%s" % str(unit_info.unit_id).validate_node_name()
+			note_label.text = "    " + str(unit_info.note)
+			note_label.add_theme_font_size_override("font_size", 15)
+			note_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+			note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			unit_list.add_child(note_label)
 
 	scroll.add_child(unit_list)
 	main_container.add_child(scroll)
@@ -198,6 +230,10 @@ func _build_ui() -> void:
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+## WP-G2: a row's CP cost (rows built before WP-G2 carry none: 1 CP).
+func _row_cost(unit_info: Dictionary) -> int:
+	return int(unit_info.get("cp_cost", 1))
 
 func _start_countdown() -> void:
 	_seconds_remaining = COUNTDOWN_SECONDS

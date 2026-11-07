@@ -1,0 +1,107 @@
+{
+ "id": "cus11e_g2_swift_ruin",
+ "covers": [
+  "codex.custodes.datasheet_abilities.swift_ruin",
+  "scripts.codex.custodes.CustodesAbilities",
+  "scripts.codex.EndOfMovementArrivals11e",
+  "stratagem.core.rapid_ingress_11e",
+  "dialogs.RapidIngressDialog"
+ ],
+ "description": "WP-G2 Codex: Adeptus Custodes (11e) SWIFT RUIN (Venatari with Verutum Lances) offered to a human through the end-of-Movement RAPID INGRESS prompt. Fixture cus11e_g2_swift_ruin: battle round 2, P1 (Orks) is active; the Venatari and a Witchseeker Squad are in P2's strategic reserves. P1 ends the Movement phase with the phase button; the prompt opens for PLAYER 2 with the Venatari at 'Arrive (0 CP)' (Swift Ruin: -1 CP, noted on the row) and the Witchseekers at 'Arrive (1 CP)'. A real click brings the Venatari in at 0 CP (three real board clicks along the left edge + Confirm); the prompt opens AGAIN — Swift Ruin's use does not prevent other uses — and a real click brings the Witchseekers in for 1 CP (five board clicks along the right edge + Confirm): two RAPID INGRESS uses in one phase, 1 CP in all.",
+ "fixture": "cus11e_g2_swift_ruin",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {"act": "wait_seconds", "seconds": 1.0},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+   "equals": true,
+   "comment": "movement_phase_start windows (not under test) are declined"
+  },
+  {"act": "wait_seconds", "seconds": 0.4},
+  {"act": "expect_phase", "equals": 7},
+  {"act": "expect_state", "path": "meta.active_player", "equals": 1},
+  {"act": "expect_state", "path": "units.U_VENATARI_VL_A.status", "equals": 7},
+  {"act": "expect_state", "path": "units.U_WITCHSEEKERS_A.status", "equals": 7},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+   "equals": false
+  },
+  {"act": "click_node", "node": "/root/Main/PhaseActionButton"},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "execute_script", "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible", "equals": true},
+  {"act": "execute_script", "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_phase_property", "property": "_rapid_ingress_player", "equals": 2},
+  {"act": "expect_node_visible", "node": "/root/RapidIngressDialog", "timeout_s": 3.0},
+  {
+   "act": "expect_node_property",
+   "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_VENATARI_VL_A/Use_U_VENATARI_VL_A",
+   "property": "text",
+   "equals": "Arrive (0 CP)",
+   "comment": "Swift Ruin: that use is -1 CP"
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"RapidIngressDialog/Content/UnitScroll/UnitList/Note_U_VENATARI_VL_A\").text.contains(\"Swift Ruin\")",
+   "equals": true
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_A/Use_U_WITCHSEEKERS_A",
+   "property": "text",
+   "equals": "Arrive (1 CP)"
+  },
+  {"act": "screenshot", "label": "01_swift_ruin_rapid_ingress_offer"},
+  {"act": "click_node", "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_VENATARI_VL_A/Use_U_VENATARI_VL_A"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_cp", "player": 2, "delta_from_start": 0, "comment": "the Swift Ruin use costs 0 CP"},
+  {"act": "expect_phase_property", "property": "_rapid_ingress_unit_id", "equals": "U_VENATARI_VL_A"},
+  {"act": "click_board_at", "x": 48.0, "y": 1120.0},
+  {"act": "click_board_at", "x": 48.0, "y": 1200.0},
+  {"act": "click_board_at", "x": 48.0, "y": 1280.0},
+  {"act": "wait_seconds", "seconds": 0.5},
+  {"act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton", "timeout_s": 2.0},
+  {"act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"},
+  {"act": "wait_seconds", "seconds": 1.2},
+  {"act": "expect_state", "path": "units.U_VENATARI_VL_A.status", "equals": 2, "comment": "the Venatari arrived"},
+  {"act": "expect_phase", "equals": 7, "comment": "the phase holds: the prompt is offered again"},
+  {"act": "expect_phase_property", "property": "_awaiting_rapid_ingress", "equals": true},
+  {"act": "expect_node_visible", "node": "/root/RapidIngressDialog", "timeout_s": 3.0},
+  {
+   "act": "expect_node_property",
+   "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_A/Use_U_WITCHSEEKERS_A",
+   "property": "text",
+   "equals": "Arrive (1 CP)",
+   "comment": "Swift Ruin's use did not prevent a Rapid Ingress on another unit this phase"
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node_or_null(\"RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_VENATARI_VL_A\") == null",
+   "equals": true
+  },
+  {"act": "screenshot", "label": "02_swift_ruin_second_rapid_ingress_offer"},
+  {"act": "click_node", "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_A/Use_U_WITCHSEEKERS_A"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_cp", "player": 2, "delta_from_start": -1},
+  {"act": "click_board_at", "x": 1712.0, "y": 1040.0},
+  {"act": "click_board_at", "x": 1712.0, "y": 1104.0},
+  {"act": "click_board_at", "x": 1712.0, "y": 1168.0},
+  {"act": "click_board_at", "x": 1712.0, "y": 1232.0},
+  {"act": "click_board_at", "x": 1712.0, "y": 1296.0},
+  {"act": "wait_seconds", "seconds": 0.5},
+  {"act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton", "timeout_s": 2.0},
+  {"act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"},
+  {"act": "wait_seconds", "seconds": 1.2},
+  {"act": "expect_state", "path": "units.U_WITCHSEEKERS_A.status", "equals": 2, "comment": "two RAPID INGRESS uses this phase"},
+  {"act": "expect_cp", "player": 2, "delta_from_start": -1, "comment": "1 CP in all (Swift Ruin's use was free)"},
+  {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Swift Ruin\")", "expect_min": 1},
+  {"act": "screenshot", "label": "03_swift_ruin_both_arrived"}
+ ]
+}

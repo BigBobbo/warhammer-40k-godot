@@ -1,0 +1,129 @@
+{
+ "id": "cus11e_g2_assault_vehicle",
+ "covers": [
+  "codex.custodes.datasheet_abilities.assault_vehicle",
+  "scripts.codex.custodes.CustodesAbilities",
+  "scripts.codex.ShockDisembark11e",
+  "scripts.DisembarkDialog",
+  "transport.shock_disembark"
+ ],
+ "description": "WP-G2 Codex: Adeptus Custodes (11e) ASSAULT VEHICLE (Coronus Grav-Carrier) through the real UI. Fixture cus11e_g2_assault_vehicle: P2 (Custodes) is active, the Custodian Guard are embarked in the Coronus. Real clicks select the Coronus, pick 'Advance' and 'Confirm Movement Mode'; the Coronus is dragged 4\" and a real click on 'End This Unit's Move' ends the advance move. The Guard's unit-list row now reads 'Click to Disembark' (18.04 would bar an advanced transport); a real click opens the Disembark dialog, which names the ASSAULT VEHICLE shock disembark (rapid mode: 3\", no charge) with its OK button enabled. A real click on Disembark and three real board clicks set the Guard up wholly within 3\" of the hull: they are on the battlefield and not eligible to declare a charge.",
+ "fixture": "cus11e_g2_assault_vehicle",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {"act": "wait_seconds", "seconds": 1.0},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+   "equals": true,
+   "comment": "movement_phase_start windows (not under test) are declined"
+  },
+  {"act": "wait_seconds", "seconds": 0.4},
+  {"act": "expect_phase", "equals": 7},
+  {"act": "expect_state", "path": "meta.active_player", "equals": 2},
+  {"act": "expect_state", "path": "units.U_GUARD_A.embarked_in", "equals": "U_CORONUS_A"},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+   "equals": false
+  },
+  {"act": "click_unit", "unit_id": "U_CORONUS_A"},
+  {"act": "wait_seconds", "seconds": 0.8},
+  {"act": "click_if_visible", "node": "/root/DisembarkDialog/VBox/Buttons/CancelButton"},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name) == \"DisembarkDialog\":\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+   "equals": true,
+   "comment": "a pre-move disembark prompt for the loaded Coronus, if any — not under test"
+  },
+  {"act": "wait_seconds", "seconds": 0.4},
+  {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton"},
+  {"act": "wait_seconds", "seconds": 0.5},
+  {"act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_CORONUS_A"},
+  {"act": "click_node", "button_text": "Advance"},
+  {"act": "wait_frames", "frames": 3},
+  {"act": "click_node", "button_text": "Confirm Movement Mode"},
+  {"act": "wait_seconds", "seconds": 0.8},
+  {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton"},
+  {"act": "wait_seconds", "seconds": 0.5},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.get(\"_awaiting_reroll_decision\"):\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_COMMAND_REROLL\", \"actor_unit_id\": \"U_CORONUS_A\", \"player\": 2})\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name).begins_with(\"CommandReroll\"):\n\t\tc.hide()\n\t\tc.queue_free()\nreturn bool(GameState.get_unit(\"U_CORONUS_A\").flags.get(\"advanced\", false))",
+   "equals": true,
+   "comment": "the advance roll's Command Re-roll prompt (if offered) is declined; the Coronus is advancing"
+  },
+  {"act": "wait_seconds", "seconds": 0.5},
+  {"act": "execute_script", "script": "GameState.get_unit(\"U_CORONUS_A\").flags.get(\"moved\", false)", "equals": false, "comment": "the advance has not ended yet"},
+  {"act": "drag_board", "from_x": 480.0, "from_y": 1718.11, "to_x": 480.0, "to_y": 1558.11},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "click_node", "button_text": "End This Unit's Move"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton"},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton"},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "expect_state", "path": "units.U_CORONUS_A.flags.advanced", "equals": true},
+  {"act": "expect_state", "path": "units.U_CORONUS_A.flags.moved", "equals": true, "comment": "the advance move ended"},
+  {
+   "act": "execute_script",
+   "script": "float(GameState.get_unit(\"U_CORONUS_A\").models[0].position.y) < 1600.0",
+   "equals": true,
+   "comment": "the Coronus moved up the board"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.movement_controller.unit_list\nvar out := []\nfor i in range(ul.get_item_count()):\n\tout.append(\"%d=%s:%s\" % [i, str(ul.get_item_metadata(i)), ul.get_item_text(i)])\nprint(\"[wp-g2] movement unit list: \", out)\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_GUARD_A\":\n\t\treturn ul.get_item_text(i).contains(\"Click to Disembark\")\nreturn false",
+   "equals": true,
+   "comment": "the Guard can disembark even though the Coronus advanced (18.04 lifted by ASSAULT VEHICLE)"
+  },
+  {
+   "act": "execute_script",
+   "script": "str(main.movement_controller.unit_list.get_item_metadata(1))",
+   "equals": "U_GUARD_A",
+   "comment": "row 1 of the movement list is the embarked Guard"
+  },
+  {"act": "click_item_list", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList", "index": 1},
+  {"act": "wait_seconds", "seconds": 0.8},
+  {"act": "expect_node_visible", "node": "/root/DisembarkDialog", "timeout_s": 3.0},
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"DisembarkDialog\").dialog_text.contains(\"ASSAULT VEHICLE — Shock Disembark\")",
+   "equals": true,
+   "comment": "the dialog names the shock disembark (rapid mode) instead of 'Cannot disembark'"
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"DisembarkDialog\").get_ok_button().disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var D = load(\"res://scripts/rules/movetypes/MoveTypes.gd\")\nreturn D.get_type(\"disembark\").select_mode(\"U_GUARD_A\", GameState.state).mode",
+   "equals": "rapid"
+  },
+  {"act": "screenshot", "label": "01_assault_vehicle_shock_disembark_prompt"},
+  {"act": "click_node", "button_text": "Disembark", "emit_pressed": true},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "click_board_at", "x": 410.0, "y": 1398.0},
+  {"act": "click_board_at", "x": 480.0, "y": 1398.0},
+  {"act": "click_board_at", "x": 550.0, "y": 1398.0},
+  {"act": "wait_seconds", "seconds": 1.2},
+  {"act": "expect_state", "path": "units.U_GUARD_A.embarked_in", "equals": null, "comment": "the Guard disembarked"},
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_GUARD_A\").models[0].position != null",
+   "equals": true
+  },
+  {"act": "expect_state", "path": "units.U_GUARD_A.flags.cannot_charge", "equals": true, "comment": "shock disembark = rapid mode: not eligible to declare a charge this turn"},
+  {"act": "screenshot", "label": "02_assault_vehicle_guard_disembarked"}
+ ]
+}

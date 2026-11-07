@@ -2176,28 +2176,12 @@ func _continue_end_movement_rapid_ingress(changes: Array) -> Dictionary:
 
 	# T4-7: Check for Rapid Ingress opportunity for the non-active player
 	var defending_player = 2 if current_player == 1 else 1
-	var battle_round = GameState.get_battle_round()
 
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager and battle_round >= 2:
-		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
-		if strat_check.can_use:
-			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
-			if not ri_eligible.is_empty():
-				_awaiting_rapid_ingress = true
-				_rapid_ingress_player = defending_player
-				_rapid_ingress_eligible_units = ri_eligible
-				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
-				DebugLogger.info(str("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()]))
-
-				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
-
-				var result = create_result(true, changes)
-				result["trigger_rapid_ingress"] = true
-				result["awaiting_rapid_ingress"] = true
-				result["rapid_ingress_player"] = defending_player
-				result["rapid_ingress_eligible_units"] = ri_eligible
-				return result
+	# WP-G2: the rows (per-unit Rapid Ingress check + cost — Swift Ruin -1 CP —
+	# and Codex: Orks Deff from the Shadows' free arrival, battle round 1 too).
+	var ri_eligible: Array = _end_of_movement_arrivals().offer_rows(defending_player, _get_rapid_ingress_eligible_units(defending_player))
+	if not ri_eligible.is_empty():
+		return _offer_rapid_ingress(defending_player, ri_eligible, changes)
 
 	log_phase_message("Ending Movement Phase (post-abilities) - emitting phase_completed signal")
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
@@ -2205,6 +2189,31 @@ func _continue_end_movement_rapid_ingress(changes: Array) -> Dictionary:
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
 	return end_result
 
+
+## WP-G2: Swift Ruin / Deff from the Shadows rows of the end-of-Movement prompt (EndOfMovementArrivals11e.gd).
+static func _end_of_movement_arrivals():
+	return load("res://scripts/codex/EndOfMovementArrivals11e.gd")
+
+## T4-7 / 15.07: hold the phase for `player`'s end-of-Movement RAPID INGRESS
+## prompt (human dialog / AI evaluation / network mirror read the result keys).
+## deferred_signal: the re-offer after an arrival is emitted once the placement
+## action has returned (Main and AIPlayer finish that arrival first).
+func _offer_rapid_ingress(player: int, rows: Array, changes: Array, deferred_signal: bool = false) -> Dictionary:
+	_awaiting_rapid_ingress = true
+	_rapid_ingress_player = player
+	_rapid_ingress_eligible_units = rows
+	log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [player, rows.size()])
+	DebugLogger.info(str("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [player, rows.size()]))
+	if deferred_signal:
+		call_deferred("emit_signal", "rapid_ingress_opportunity", player, rows)
+	else:
+		emit_signal("rapid_ingress_opportunity", player, rows)
+	var result = create_result(true, changes)
+	result["trigger_rapid_ingress"] = true
+	result["awaiting_rapid_ingress"] = true
+	result["rapid_ingress_player"] = player
+	result["rapid_ingress_eligible_units"] = rows
+	return result
 
 func _get_unit_center(unit: Dictionary) -> Variant:
 	"""Get the center position of a unit's alive models. Returns null if no positioned models."""
@@ -2304,13 +2313,12 @@ func _validate_use_rapid_ingress(action: Dictionary) -> Dictionary:
 
 	var player = action.get("player", _rapid_ingress_player)
 
-	# Validate through StratagemManager
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
-		var check = strat_manager.can_use_stratagem(player, "rapid_ingress")
-		if not check.can_use:
-			errors.append(check.reason)
-			return {"valid": false, "errors": errors}
+	# Validate through StratagemManager (WP-G2: per unit — Swift Ruin's exemption;
+	# a Deff from the Shadows row is no stratagem use).
+	var check = _end_of_movement_arrivals().use_check(player, unit_id, _rapid_ingress_eligible_units)
+	if not check.can_use:
+		errors.append(check.reason)
+		return {"valid": false, "errors": errors}
 
 	# Validate the unit is in reserves and belongs to the player
 	var unit = get_unit(unit_id)
@@ -2385,7 +2393,7 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 		return {"valid": false, "errors": errors}
 
 	var battle_round = GameState.get_battle_round()
-	if battle_round < 2:
+	if battle_round < 2 and not _end_of_movement_arrivals().round_one_allowed(unit_id):  # WP-G2 Deff from the Shadows: first battle round onwards
 		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
 		return {"valid": false, "errors": errors}
 
@@ -2537,7 +2545,8 @@ func _process_use_rapid_ingress(action: Dictionary) -> Dictionary:
 	# Use the stratagem via StratagemManager (deducts CP, records usage)
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
-		var strat_result = strat_manager.use_stratagem(player, "rapid_ingress", unit_id)
+		# WP-G2: the stratagem (CP / Swift Ruin), or Deff from the Shadows (free).
+		var strat_result = _end_of_movement_arrivals().use(player, unit_id, _rapid_ingress_eligible_units)
 		if not strat_result.success:
 			return create_result(false, [], "Failed to use Rapid Ingress: %s" % strat_result.get("error", "unknown"))
 
@@ -2709,6 +2718,12 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		var result = create_result(true, changes)
 		result.merge(ow_result.result_extra)
 		return result
+
+	# WP-G2 SWIFT RUIN / DEFF FROM THE SHADOWS: another arrival may still be made
+	# this phase (a Swift Ruin use does not block other units; Deff is no stratagem).
+	var ri_more: Array = _end_of_movement_arrivals().offer_rows(player, _get_rapid_ingress_eligible_units(player))
+	if not ri_more.is_empty():
+		return _offer_rapid_ingress(player, ri_more, changes, true)
 
 	# Now actually end the movement phase
 	log_phase_message("Ending Movement Phase (after Rapid Ingress placement) - emitting phase_completed signal")
@@ -5980,10 +5995,10 @@ func _ork11e_followup_gate(action: Dictionary) -> Dictionary:
 		if t in ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK", "SKIP_ASSAULT_DISEMBARK"] and ad_uid in remaining:
 			var ad_owner := int(_ork11e_assault_disembark.get("player", 0))
 			if action.has("player") and int(action.get("player", 0)) != ad_owner:
-				return {"valid": false, "errors": ["Player %d makes this READIED BRAWLERS assault disembark, not Player %d" % [
-					ad_owner, int(action.get("player", 0))]]}
+				return {"valid": false, "errors": ["Player %d makes this %s disembark, not Player %d" % [
+					ad_owner, str(_ork11e_assault_disembark.get("source", "READIED BRAWLERS")), int(action.get("player", 0))]]}
 			return {}
-		var ad_msg := "Finish READIED BRAWLERS first: assault disembark (or stay embarked) with %s" % ", ".join(PackedStringArray(remaining))
+		var ad_msg := "Finish %s first: disembark (or stay embarked) with %s" % [str(_ork11e_assault_disembark.get("source", "READIED BRAWLERS")), ", ".join(PackedStringArray(remaining))]
 		return {"valid": false, "errors": [ad_msg]}
 	return {}
 
@@ -6634,8 +6649,10 @@ func _ork11e_begin_assault_disembark(player: int, followup: Dictionary) -> bool:
 		_window_sync_diffs.append_array(ai_diffs)
 		call_deferred("_ork11e_refresh_board_visuals")
 		return false
-	_ork11e_assault_disembark = {"player": player, "transport_id": transport_id, "remaining": units.duplicate()}
-	log_phase_message("READIED BRAWLERS: Player %d may assault disembark %s from %s" % [player, str(units), transport_id])
+	# (WP-G2 Pilin' Out reuses this follow-up with source "Pilin' Out" — the rapid mode, DisembarkMove.select_mode.)
+	_ork11e_assault_disembark = {"player": player, "transport_id": transport_id, "remaining": units.duplicate(),
+		"source": str(followup.get("source", "READIED BRAWLERS"))}
+	log_phase_message("%s: Player %d may disembark %s from %s" % [str(followup.get("source", "READIED BRAWLERS")), player, str(units), transport_id])
 	emit_signal("ork11e_assault_disembark_requested", player, transport_id, str(units[0]))
 	return true
 
@@ -6783,6 +6800,7 @@ func _ork11e_readied_brawlers_off(transport_id: String) -> Array:
 		t.get("flags", {}).erase(Ork11eMovement.FLAG_READIED_BRAWLERS)
 	var off: Array = [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
 	off.append_array(_sm11e_abilities_a().assault_disembark_off_diffs(transport_id))  # WP-M4a Assault Ramp / Aerial Assault / Drop Pod: the grant is spent
+	off.append_array(OrkAbilities11eScript.pilin_out_off_diffs(transport_id))  # WP-G2 Pilin' Out (Trukk): the rapid-disembark grant is spent
 	return off
 
 ## CONFIRM_DISEMBARK tail: when the READIED BRAWLERS follow-up is running,

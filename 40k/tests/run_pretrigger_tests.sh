@@ -331,6 +331,7 @@ TESTS=(
     "tests/test_ork_enhancements_11e.gd"
     "tests/test_codex11e_g1_redeploy.gd"
     "tests/test_codex11e_g4_combat.gd"  # WP-G4: Advanced Firepower; Big'ed Bossbunka (Raucous Occupants, Fortification, Ramshackle Cover)
+    "tests/test_codex11e_g2_reserves_transports.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"

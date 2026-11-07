@@ -109,6 +109,7 @@ func preview_cp_cost(player: int, stratagem_id: String, target_unit_id: String =
 	if not stratagems.has(sid):
 		return 0
 	var cost := _base_cp_cost(stratagems[sid], {})
+	cost = maxi(0, cost - (1 if CustodesAbilities.swift_ruin_applies(player, stratagems[sid], target_unit_id) else 0))  # WP-G2 SWIFT RUIN (Venatari): -1 CP shown in the Rapid Ingress prompt
 	cost = maxi(0, cost + int(_cus11e_stratagem_override(player, sid, target_unit_id).get("cost_delta", 0)))
 	cost = maxi(0, cost - int(_sw11e_cp_discount(player, sid, target_unit_id).get("discount", 0)))
 	cost = maxi(0, cost - int(load("res://scripts/codex/space_marines/SMDetachmentsB.gd").stratagem_cp_discount(player, sid, target_unit_id).get("discount", 0)))  # WP-M2b Laurels of Vigilance

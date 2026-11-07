@@ -1,0 +1,75 @@
+{
+ "id": "ork11e_g2_deff_from_the_shadows",
+ "covers": [
+  "codex.orks.datasheet_abilities.deff_from_the_shadows",
+  "scripts.codex.orks.OrkAbilities11e",
+  "scripts.codex.EndOfMovementArrivals11e",
+  "dialogs.RapidIngressDialog",
+  "phases.MovementPhase._process_place_rapid_ingress_reinforcement"
+ ],
+ "description": "WP-G2 Codex: Orks (11e) DEFF FROM THE SHADOWS (Boss Snikrot, first battle round onwards) through the real UI. Fixture ork11e_g2_deff_shadows: battle round 1, P2 (Custodes) is active, Boss Snikrot is in P1's strategic reserves. P2 ends the Movement phase with the phase button: the end-of-Movement prompt opens for PLAYER 1 even in battle round 1 (RAPID INGRESS itself cannot be used then), headed DEFF FROM THE SHADOWS with a free 'Arrive (free)' row. A real click on it spends no CP and starts the ingress set-up; a real board click sets Snikrot up wholly within 6\" of the left battlefield edge, more than 8\" from every enemy and outside P2's deployment zone, and a real click on Confirm completes the ingress move.",
+ "fixture": "ork11e_g2_deff_shadows",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {"act": "wait_seconds", "seconds": 1.0},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tif str(w.get(\"window_id\", \"\")) != \"movement_phase_start\":\n\t\tbreak\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn p != null and not p.has_pending_stratagem_window()",
+   "equals": true,
+   "comment": "movement_phase_start windows (not under test) are declined"
+  },
+  {"act": "wait_seconds", "seconds": 0.4},
+  {"act": "expect_phase", "equals": 7},
+  {"act": "expect_state", "path": "meta.active_player", "equals": 2},
+  {"act": "expect_state", "path": "meta.battle_round", "equals": 1},
+  {"act": "expect_state", "path": "units.U_BOSS_SNIKROT_A.status", "equals": 7},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+   "equals": false
+  },
+  {"act": "click_node", "node": "/root/Main/PhaseActionButton"},
+  {"act": "wait_seconds", "seconds": 0.6},
+  {"act": "execute_script", "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible", "equals": true},
+  {"act": "execute_script", "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_phase", "equals": 7, "comment": "the phase waits for the Ork player's decision"},
+  {"act": "expect_phase_property", "property": "_rapid_ingress_player", "equals": 1},
+  {"act": "expect_node_visible", "node": "/root/RapidIngressDialog", "timeout_s": 3.0},
+  {"act": "execute_script", "script": "tree.root.get_node(\"RapidIngressDialog/Content/Header\").text", "equals": "DEFF FROM THE SHADOWS"},
+  {
+   "act": "expect_node_property",
+   "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_BOSS_SNIKROT_A/Use_U_BOSS_SNIKROT_A",
+   "property": "text",
+   "equals": "Arrive (free)"
+  },
+  {"act": "screenshot", "label": "01_deff_from_the_shadows_round1_offer"},
+  {"act": "click_node", "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_BOSS_SNIKROT_A/Use_U_BOSS_SNIKROT_A"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_cp", "player": 1, "delta_from_start": 0, "comment": "Deff from the Shadows costs no CP"},
+  {"act": "expect_phase_property", "property": "_rapid_ingress_unit_id", "equals": "U_BOSS_SNIKROT_A"},
+  {"act": "execute_script", "script": "main.deployment_controller.is_placing() and main.deployment_controller.is_reinforcement_mode", "equals": true},
+  {"act": "click_board_at", "x": 40.0, "y": 1200.0, "comment": "left edge, mid-board: wholly within 6\" of an edge, > 8\" from the enemy, outside P2's deployment zone"},
+  {"act": "wait_seconds", "seconds": 0.5},
+  {"act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton", "timeout_s": 2.0},
+  {"act": "screenshot", "label": "02_deff_from_the_shadows_setup"},
+  {"act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"},
+  {"act": "wait_seconds", "seconds": 1.0},
+  {"act": "expect_state", "path": "units.U_BOSS_SNIKROT_A.status", "equals": 2, "comment": "DEPLOYED by the ingress move in battle round 1"},
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var p = GameState.get_unit(\"U_BOSS_SNIKROT_A\").models[0].position\nreturn absf(float(p.x) - 40.0) < 2.0 and absf(float(p.y) - 1200.0) < 2.0",
+   "equals": true,
+   "comment": "set up where the player clicked"
+  },
+  {"act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Deff from the Shadows\")", "expect_min": 1},
+  {"act": "expect_cp", "player": 1, "delta_from_start": 0},
+  {"act": "screenshot", "label": "03_deff_from_the_shadows_arrived"}
+ ]
+}

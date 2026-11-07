@@ -20,7 +20,10 @@ extends RefCounted
 ##                      re-rolls, advance-and-charge (Assault Dropship)
 ##   StratagemManager   activated abilities ride the stratagem-window framework
 ##                      (window_offers / "cus11e_ab_*" ids routed to use()),
-##                      SWIFT RUIN's Rapid Ingress exemption + -1 CP
+##                      SWIFT RUIN's Rapid Ingress exemption + -1 CP (WP-G2: the
+##                      per-unit row of the end-of-Movement prompt,
+##                      EndOfMovementArrivals11e.gd)
+##   ShockDisembark11e  ASSAULT VEHICLE's shock disembark (WP-G2)
 ##   AIDecisionMaker    ai_score() for those offers (synchronous: a window never
 ##                      waits on the AI)
 ##   PhaseManager       on_phase_transition() — flag expiry
@@ -880,6 +883,31 @@ static func swift_ruin_record(player: int) -> void:
 	Common.apply_diffs([d])
 	Common.log_info("CustodesAbilities: Swift Ruin — Rapid Ingress -1 CP, not counted against the once-per-phase limit (P%d)" % player)
 	_event_log(player, "Swift Ruin: this RAPID INGRESS is -1 CP and does not count against its once-per-phase limit")
+
+## WP-G2 SWIFT RUIN, end-of-Movement RAPID INGRESS prompt: the note shown on
+## the Venatari's row when this use would be the Swift Ruin one, else "".
+static func swift_ruin_row_note(player: int, unit_id: String) -> String:
+	var sm = Common.autoload("StratagemManager")
+	if sm == null or not sm.has_method("get_stratagem"):
+		return ""
+	var strat: Dictionary = sm.get_stratagem("rapid_ingress_11e")
+	return "Swift Ruin: -1 CP, does not use up this phase's Rapid Ingress" if swift_ruin_applies(player, strat, unit_id) else ""
+
+## WP-G2 ASSAULT VEHICLE (Coronus Grav-Carrier, Anathema Psykana Rhino): "In
+## your Movement phase, when this unit ends an advance move, units embarked
+## within this unit can make a shock disembark move." The core rules define no
+## shock disembark move: it is the rapid disembark mode with the 18.04
+## advanced-transport bar lifted (the WP-M4b Rapid Disembarkation ruling) —
+## 3" set-up, not eligible to declare a charge. True once the transport's
+## advance move has ENDED (flags.moved is set when the move is confirmed),
+## in its owner's own Movement phase. Read by ShockDisembark11e.gd.
+static func transport_allows_shock_disembark(transport: Dictionary) -> bool:
+	if not _edition_11() or transport.is_empty() or not has(transport, "assault_vehicle"):
+		return false
+	if _phase() != PH_MOVEMENT or int(transport.get("owner", 0)) != Common.active_player():
+		return false
+	var f: Dictionary = transport.get("flags", {})
+	return bool(f.get("advanced", false)) and bool(f.get("moved", false)) and not bool(f.get("fell_back", false))
 
 ## Sweeping Advance: "if this unit was eligible to fight this phase" — it was
 ## engaged or had charged at the start of the Fight phase (F_FIGHT_ELIGIBLE),

@@ -736,16 +736,21 @@ func _section_repulsor_suspensor() -> void:
 
 
 # ---------------------------------------------------------------------------
-# 14. Assault Vehicle — not implemented (no shock disembark move in the rules)
+# 14. Assault Vehicle — WP-G2: the shock disembark move = the rapid disembark
+# mode with the advanced-transport bar lifted (full coverage:
+# tests/test_codex11e_g2_reserves_transports.gd)
 # ---------------------------------------------------------------------------
 func _section_assault_vehicle() -> void:
-	print("\n-- 14. Assault Vehicle (not implemented) --")
+	print("\n-- 14. Assault Vehicle (WP-G2: shock disembark after an advance) --")
 	_fresh(P_MOV)
 	_place("U_CORONUS_A", 20, 40)
 	var c := {"phase": "movement", "unit_id": "U_CORONUS_A", "window_id": "unit_ended_advance_move"}
-	_check("no ability card at the end of an advance move (documented gap)", CA.window_offers(1, "unit_ended_advance_move", c).is_empty())
-	_check("ABILITY_EFFECTS row says it is not implemented", str(UAM.ABILITY_EFFECTS.get("Assault Vehicle", {}).get("description", "")).contains("not implemented"))
-	_check("... and is_ability_implemented says so", not UAM.is_ability_implemented("Assault Vehicle"))
+	_check("no ability card at the end of an advance move (it lifts the disembark bar instead)", CA.window_offers(1, "unit_ended_advance_move", c).is_empty())
+	_check("ABILITY_EFFECTS row: implemented (WP-G2)", UAM.is_ability_implemented("Assault Vehicle"))
+	_check("not before the Coronus advanced", not CA.transport_allows_shock_disembark(_u("U_CORONUS_A")))
+	_flags("U_CORONUS_A")["advanced"] = true
+	_flags("U_CORONUS_A")["moved"] = true
+	_check("after the Coronus ended an advance move: shock disembark", CA.transport_allows_shock_disembark(_u("U_CORONUS_A")))
 
 
 # ---------------------------------------------------------------------------

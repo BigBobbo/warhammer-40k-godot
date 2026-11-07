@@ -321,8 +321,10 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "%s arrived via Rapid Ingress%s" % [
-				_attached_unit_label(unit_id, unit_name), _attached_model_suffix(unit_id)]
+			# WP-G2: Codex: Orks DEFF FROM THE SHADOWS arrives through the same prompt (no stratagem).
+			var ri_via := "Deff from the Shadows" if load("res://scripts/codex/orks/OrkAbilities11e.gd").deff_from_the_shadows_arriving(str(unit_id)) else "Rapid Ingress"
+			return prefix + "%s arrived via %s%s" % [
+				_attached_unit_label(unit_id, unit_name), ri_via, _attached_model_suffix(unit_id)]
 		"DECLARE_RESERVES", "PLACE_IN_RESERVES", "SEND_TO_STRATEGIC_RESERVES":
 			if ai_desc != "":
 				return prefix + ai_desc
