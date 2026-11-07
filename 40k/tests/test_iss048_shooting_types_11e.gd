@@ -12,6 +12,21 @@ extends SceneTree
 #    re-rolls; snap = unmodified 6s only
 #  - ModifierStack: 10.06 M/V -1 and 17.03 engaged-M/V-target -1 replace
 #    10e's Big Guns Never Tire (gated < 11) and feed both resolve paths
+#  - snap shooting's "one VISIBLE enemy unit" (15.09) honours 13.09 Hidden
+#
+# Live terrain: the fixture boards carry their own terrain_features, but the
+# 13.09 Hidden gate (RulesEngine.unit_sight_line -> TerrainManager
+# .hidden_gate_for) reads the LIVE TerrainManager layout — in a real game the
+# two are the same list (GameState snapshots copy TerrainManager's). The
+# default layout (take_and_hold_mirror_1) has the light terrain area
+# area-short-line-40 (with the light feature pipe-42) at (4-10", 28-30"), so
+# U_FOE at (400,1200) px = (10", 30") stood in it. Since the 13.09 errata
+# (light OR dense terrain hides, dc9d3b0) that foe was hidden and 20" away —
+# outside its 15" detection range — so snap shooting refused it as not visible
+# (correctly, 15.09) and "visible unengaged target within 24\" allowed" failed.
+# The run now clears the live layout (restored at the end) so every check sees
+# only the fixture's terrain, and the Hidden case is checked on purpose with a
+# light terrain area built in the live layout.
 #
 # Usage: godot --headless --path . -s tests/test_iss048_shooting_types_11e.gd
 
@@ -87,6 +102,13 @@ func _run_tests():
 	print("\n=== test_iss048_shooting_types_11e ===\n")
 	var rules = root.get_node_or_null("RulesEngine")
 	_check("RulesEngine present", rules != null)
+	# Every check is judged on the fixture's own terrain: clear the live layout
+	# the 13.09 Hidden gate reads (see the header), restore it before quitting.
+	var tm = root.get_node_or_null("TerrainManager")
+	_check("TerrainManager present", tm != null)
+	var live_terrain: Array = tm.terrain_features if tm != null else []
+	if tm != null:
+		tm.terrain_features = []
 
 	print("-- registry + eligibility matrix (10.02/10.04-10.07) --")
 	GameConstants.edition = 10
@@ -168,8 +190,28 @@ func _run_tests():
 		not snap.target_allowed("U_SQUAD", "U_FOE_FAR", _profile(rules, "Boltgun", board), board).allowed)
 	var sb = _board()
 	sb.units["U_FOE"].models[0].position = {"x": 400, "y": 1200}  # unengaged, ~20"
+	var snap_open: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sb), sb)
 	_check("snap: visible unengaged target within 24\" allowed",
-		snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sb), sb).allowed)
+		snap_open.allowed, str(snap_open))
+
+	# 15.09 "one VISIBLE enemy unit" + 13.09 (errata): an INFANTRY model within a
+	# terrain area that contains a light/dense feature is hidden, and visible only
+	# to enemy models within its 15" detection range. The gate reads the live
+	# TerrainManager layout, so the light area is built there.
+	if tm != null:
+		tm.terrain_features = _light_area_live("snap_light", Vector2(400, 1200))
+		var snap_hidden: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sb), sb)
+		_check("snap: the same foe in a light terrain area (hidden, 13.09) and 20\" away (beyond its 15\" detection range) is not visible -> refused",
+			not snap_hidden.allowed and str(snap_hidden.get("reason", "")) == "target not visible (15.09)", str(snap_hidden))
+		var sn = _board()
+		sn.units["U_FOE"].models[0].position = {"x": 400, "y": 900}  # unengaged, ~11" edge-to-edge
+		tm.terrain_features = _light_area_live("snap_light_near", Vector2(400, 900))
+		_check("setup: that foe is hidden (light terrain area, 13.09)",
+			tm.is_model_hidden(sn.units["U_FOE"].models[0], sn.units["U_FOE"]))
+		var snap_near: Dictionary = snap.target_allowed("U_SQUAD", "U_FOE", _profile(rules, "Boltgun", sn), sn)
+		_check("snap: a hidden foe within its 15\" detection range is visible -> allowed",
+			snap_near.allowed, str(snap_near))
+		tm.terrain_features = []
 
 	print("\n-- ModifierStack integration (replaces BGNT at 11e) --")
 	var mb = _board({}, {"x": 540, "y": 400})
@@ -195,8 +237,29 @@ func _run_tests():
 		stack.entries.is_empty())
 
 	GameConstants.edition = 10
+	if tm != null:
+		tm.terrain_features = live_terrain
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
+
+## A 4" x 4" terrain AREA centred on `center_px` holding one light feature (a
+## 2" x 2" ruin), as TerrainManager's 11e layouts build them: the area is the
+## 13.09 "terrain area that contains one or more light/dense terrain features".
+func _light_area_live(id: String, center_px: Vector2) -> Array:
+	var ppi := 40.0
+	var sq = func(half_in: float) -> PackedVector2Array:
+		var h := half_in * ppi
+		return PackedVector2Array([center_px + Vector2(-h, -h), center_px + Vector2(h, -h),
+			center_px + Vector2(h, h), center_px + Vector2(-h, h)])
+	return [
+		{"id": id + "_area", "type": "ruins", "piece_class": "area", "category": "light",
+			"height_category": "medium", "polygon": sq.call(2.0), "walls": [], "traits": [],
+			"can_move_through": {"INFANTRY": true, "VEHICLE": false, "MONSTER": false}},
+		{"id": id + "_ruin", "type": "ruins", "piece_class": "feature", "category": "light",
+			"height_category": "medium", "polygon": sq.call(1.0), "walls": [], "traits": [],
+			"parent_area_id": id + "_area",
+			"can_move_through": {"INFANTRY": true, "VEHICLE": false, "MONSTER": false}},
+	]
 
 ## Board where the squad is unengaged but the enemy TANK is engaged (with
 ## the friendly tank moved next to it).
