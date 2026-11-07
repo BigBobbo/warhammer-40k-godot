@@ -158,6 +158,16 @@ full machine-readable decision log to `user://ai_decision_log.json`.
 | `MOVE_COVER_MAX_CANDIDATES` | 12 | (int) Spots that pass the cheap screens and get the full engine-predicate evaluation, nearest the straight end first |
 | `MOVE_COVER_FAN_HEADINGS` | 8 | (int) Headings in the fan (0 = terrain-area spots only) |
 | `MOVE_COVER_MAX_GTG_CHECKS` | 64 | (int) Gone-to-Ground (13.11.01, -3" detection behind dense walls) engine checks per search; pairs past the budget count as visible (no credit) |
+| `FIX_MOVE_FOR_SHOT` | 0 | Behaviour switch (on at ≥ 0.5): a unit with ranged weapons making a normal move toward its plan objective, whose returned destinations leave it with no eligible ranged target (11e 04.02 — the engine's own `RulesEngine.get_eligible_targets` on a hypothetical board: range, 13.10/13.11 sight lines, 13.09 Hidden detection with Gone to Ground, Lone Operative, Psychic Veil), re-aims the same move at a spot that has one (a sight line round terrain, inside a Hidden target's detection range, into weapon range) and keeps it only if the destinations the mover returns still do; otherwise the flag-off move stands. Same objective and plan action; never for an Advance or a planned charge; a kept `FIX_MOVE_COVER` spot wins. Fire tag: one `[FIX_MOVE_FOR_SHOT] <unit> end spot old=no_shot new=<target> …` line per changed move. 0 = previous behaviour. Opt-in: `40k/tests/bench_profiles/move_for_shot_on.json`; exam `mv06_move_for_a_shot` |
+| `MOVE_FOR_SHOT_MAX_LOSS_INCHES` | 3.0 | Most objective progress (gap to its range, terrain-area aware) a shot spot may give up vs the flag-off destinations; the spot also may not add a turn-to-reach or lose control range (checked at selection and again on the returned destinations) |
+| `MOVE_FOR_SHOT_LOSS_TIE_INCHES` | 0.5 | Shot spots within this much of the least loss count as tied; the tie goes to the higher expected damage, then nearest the straight end |
+| `MOVE_FOR_SHOT_MIN_EV` | 0.1 | Expected damage (sum of `_estimate_weapon_damage` over the best eligible target's in-range weapons, fired from the spot) a spot needs to count — no zero-damage "shots" |
+| `MOVE_FOR_SHOT_RING_INCHES` | 2.0 | Radius of the 8-heading sidestep ring round the straight end (0 = no ring) |
+| `MOVE_FOR_SHOT_FAN_STEP_DEG` | 22.5 | Heading step of the -90..+90° fan round the move's aim, at full and 0.75 length (0 = no fan) |
+| `MOVE_FOR_SHOT_STEP_MARGIN_INCHES` | 0.5 | How far inside the binding gate (weapon range, a Hidden model's detection range with and without Gone to Ground, Lone Operative range, Psychic Veil 18") an aimed closing step goes |
+| `MOVE_FOR_SHOT_PROBES` | 8 | (int) Engine eligibility calls per search, besides the trigger and the re-check (0 = never probes, so never fires); once a shot is found, a spot that could not beat it even with every weapon firing is not probed |
+| `MOVE_FOR_SHOT_MAX_TARGETS` | 3 | (int) Reachable enemy units aimed at and probed per spot — most reachable from the straight end first, then the most valuable |
+| `MOVE_FOR_SHOT_MAX_PAIR_CHECKS` | 1600 | (int) Cost cap: (bodyguard model × target model) pairs within reach the probes may hand the engine, summed over the search; a probe that would pass it is skipped (-1 = no cap). Never binds on Custodes; caps Ork mob-vs-mob at about 4 probes |
 
 ### Multi-phase planning (movement → shooting → charge)
 

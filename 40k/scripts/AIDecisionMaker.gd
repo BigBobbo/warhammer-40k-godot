@@ -2727,6 +2727,66 @@ const MOVE_COVER_FAN_HEADINGS: int = 8         # headings in the fan (0 = terrai
 const MOVE_COVER_MAX_GTG_CHECKS: int = 64      # Gone-to-Ground detection calls per move search (each pass)
 
 # =============================================================================
+# FIX_MOVE_FOR_SHOT — end a normal move with a shot for the next Shooting phase
+# =============================================================================
+# What: a unit with ranged weapons making a normal move toward its plan
+# objective, whose move as planned would leave it with NO eligible ranged
+# target (11e 04.02: each target must be visible to the firing model (06.01),
+# within the weapon's range, and the firer unengaged), angles or adjusts the
+# end spot so that at least one enemy unit is an eligible target in its
+# Shooting phase: a sight line round obscuring terrain (13.10) or a Solid
+# feature (13.11), a step inside a Hidden target's detection range (13.09 as
+# errata'd: light or dense area; Gone to Ground 13.11.01), into weapon range,
+# or within Lone Operative / Psychic Veil range. The enemy does not move
+# between our Movement and Shooting phases, so the end spot decides the shot.
+# The only rules oracle is the engine's own RulesEngine.get_eligible_targets on
+# a hypothetical board (nothing about visibility is re-derived here); the
+# objective progress it may give up is bounded (MOVE_FOR_SHOT_MAX_LOSS_INCHES,
+# no extra turn, no lost control range) and ties go to the most expected
+# damage.
+# Where: a target-shaping stage in the normal-move chain that runs AFTER the
+# mover's first call and the FIX_MOVE_COVER follow-through, so the trigger is
+# judged on the destinations the mover really returned; the stage asks the
+# mover once more toward its pick and re-asks the engine on what comes back —
+# when the shot (or a guard) is lost there, the flag-off destinations are kept
+# unchanged. A kept FIX_MOVE_COVER spot always wins. Never for an Advance
+# (10.04 / 10.05: only [ASSAULT] weapons after an Advance — the stage only
+# shapes plan action "move" in the BEGIN_NORMAL_MOVE branch) or a unit with a
+# planned charge. Never a spot that ends any base through a Solid feature:
+# 13.06.01 (commentary) forbids it, but the engine lets INFANTRY do it and then
+# draws sight lines from the part that pokes through.
+# Evidence: exam mv06 (Custodes mirror) — the straight move onto obj_center's
+# ruin ends with every line to the only enemy in range blocked by the ruin's
+# inner Solid wall or a dense area (the engine says no_los from there and from
+# the start); a 22.5 degree re-angle onto the same objective sees it, at no
+# cost to objective progress.
+# Approximations: the engine's per-weapon visibility needs ONE target model
+# both in range of and visible to the same firing model, stricter than FAQ
+# 04.02 (so the stage can miss an FAQ-legal shot, never plans an illegal one);
+# the expected-damage tie-break reads datasheet range (no Ork Dakka bonus);
+# the F002 hold-fire prediction values the best single target; exposure to
+# the target's own guns is not priced (only the generator's distance-based
+# threat dodge, predicted).
+# 0 = previous behaviour (byte-identical play): the flag is read once and is
+# the first term of the gate. Shipped OFF until the paired evaluator clears it.
+const FIX_MOVE_FOR_SHOT: float = 0.0               # 1 = re-aim a blind normal move so a ranged weapon has a target
+const MOVE_FOR_SHOT_MAX_LOSS_INCHES: float = 3.0   # objective progress (gap to its range) a shot spot may give up
+const MOVE_FOR_SHOT_LOSS_TIE_INCHES: float = 0.5   # spots within this of the least loss tie; the tie goes to expected damage
+const MOVE_FOR_SHOT_MIN_EV: float = 0.1            # expected damage on the best eligible target a spot needs to count
+const MOVE_FOR_SHOT_RING_INCHES: float = 2.0       # radius of the 8-heading sidestep ring round the straight end (0 = none)
+const MOVE_FOR_SHOT_FAN_STEP_DEG: float = 22.5     # heading step of the -90..+90 degree fan round the move's aim (0 = none)
+const MOVE_FOR_SHOT_STEP_MARGIN_INCHES: float = 0.5  # how far inside a binding range / detection gate an aimed step goes
+const MOVE_FOR_SHOT_PROBES: int = 8                # engine eligibility calls per search (0 = never probes, never fires)
+const MOVE_FOR_SHOT_MAX_TARGETS: int = 3           # most reachable enemy units aimed at and probed per spot
+const MOVE_FOR_SHOT_MAX_PAIR_CHECKS: int = 1600    # model pairs within reach the probes may hand the engine (<0 = no cap)
+# Fan lengths, as a share of min(0.95 x M, distance to the aim). A plain Array
+# const (not a profile knob), like CHARGE_BLEND_WEIGHTS.
+const MOVE_FOR_SHOT_FAN_LENGTHS: Array = [1.0, 0.75]
+# Slack (inches) on the distance pre-filter, which is only a necessary
+# condition: a pair this close to its gate is still handed to the engine.
+const MOVE_FOR_SHOT_REACH_SLACK_INCHES: float = 0.05
+
+# =============================================================================
 # OVERWATCH EXPOSURE (corpus finding F004)
 # =============================================================================
 # 11e moved Fire Overwatch to the end of the opponent's Movement phase; this
@@ -7691,6 +7751,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				if not cover_pick.is_empty():
 					move_target = cover_pick.pos
 
+			# FIX_MOVE_FOR_SHOT: read once, before the mover, so a kept shot spot can
+			# restart the move-shape notes from here. Off: this read is all it does.
+			var fs_flag: bool = get_param("FIX_MOVE_FOR_SHOT", FIX_MOVE_FOR_SHOT) >= 0.5
+			var fs_pre_notes: Array = _move_shape_notes.duplicate() if fs_flag else []
+
 			var model_destinations = _compute_movement_toward_target(
 				unit, unit_id, move_target, move_inches, snapshot, enemies,
 				max_weapon_range_inches, threat_data, objectives
@@ -7766,6 +7831,43 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							print("AIDecisionMaker: [FIX_MOVE_COVER] %s end spot old=none new=(%.0f,%.0f) kind=unclaimed (the straight move found no legal placement)" % [
 								unit_name, mc_kept_end.x, mc_kept_end.y])
 
+			# --- FIX_MOVE_FOR_SHOT: end the move with a shot for the next Shooting phase ---
+			# Judged on the destinations the mover just returned: when they leave the
+			# unit with no eligible ranged target (the engine's own
+			# get_eligible_targets), re-aim the same move — same objective, same plan
+			# action, bounded progress loss — at a spot the engine says has one, and
+			# keep it only if the destinations that come back still do. Otherwise the
+			# flag-off destinations stand unchanged. A kept cover spot wins; never for
+			# an Advance (only "move" reaches here) or a planned charge.
+			var shot_kept := {}
+			if fs_flag and GameConstants.edition >= 11 and charge_intent.is_empty() \
+					and assignment_action == "move" and not cover_kept and has_ranged_weapons \
+					and not model_destinations.is_empty() and target_pos != Vector2.INF \
+					and pre_cover_target != Vector2.INF:
+				var shot_pick := _pick_shot_spot(unit, unit_id, snapshot, centroid, pre_cover_target, target_pos,
+					move_inches, model_destinations, enemies, threat_data, objectives, max_weapon_range_inches, player)
+				if not shot_pick.is_empty():
+					var fs_base_notes: Array = _move_shape_notes.duplicate()
+					_move_shape_notes = fs_pre_notes.duplicate()
+					var fs_dests = _compute_movement_toward_target(
+						unit, unit_id, shot_pick.pos, move_inches, snapshot, enemies,
+						max_weapon_range_inches, threat_data, objectives
+					)
+					var fs_check := _move_for_shot_recheck(unit, unit_id, snapshot, shot_pick, fs_dests, target_pos, enemies)
+					if bool(fs_check.get("keep", false)):
+						model_destinations = fs_dests
+						_move_shape_notes.push_front(_move_for_shot_note(shot_pick, fs_check, assigned_obj_id))
+						var fs_end: Vector2 = fs_check.get("end", shot_pick.end)
+						print("AIDecisionMaker: [FIX_MOVE_FOR_SHOT] %s end spot old=no_shot new=%s why=%s end=(%.0f,%.0f) base_end=(%.0f,%.0f) loss=%.1f\" ev=%.2f probes=%d" % [
+							unit_name, str(fs_check.target_id), str(fs_check.why_code), fs_end.x, fs_end.y,
+							shot_pick.base_end.x, shot_pick.base_end.y, maxf(0.0, float(fs_check.loss_in)),
+							float(fs_check.ev), int(shot_pick.probes)])
+						shot_kept = fs_check
+					else:
+						_move_shape_notes = fs_base_notes
+						_debug_log_info("MOVE_FOR_SHOT %s: shot spot (%.0f,%.0f) at %s dropped after the move (%s) — keeping the straight move" % [
+							unit_name, shot_pick.end.x, shot_pick.end.y, str(shot_pick.target_name), str(fs_check.get("why", "?"))])
+
 			if not model_destinations.is_empty():
 				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
 				var obj_dist_inches = _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
@@ -7777,6 +7879,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						reason = "%s, ending Hidden in the %s" % [reason, str(cover_pick.area_label)]
 					else:
 						reason = "%s, ending in cover" % reason
+				if not shot_kept.is_empty():
+					reason = "%s, for a shot at %s" % [reason, str(shot_kept.get("target_name", ""))]
 				print("AIDecisionMaker: %s moving toward %s (%s, M: %.0f\")" % [unit_name, assigned_obj_id, reason, move_inches])
 				var moved_in := _destinations_max_move_inches(_get_alive_models_with_positions(unit), model_destinations)
 				if moved_in >= 0.0 and moved_in < move_inches - 0.5 and obj_dist_inches > moved_in + 0.5 and not _move_shape_notes.is_empty():
@@ -29925,6 +30029,887 @@ static func _move_cover_log_plan_prior(candidates: Array, snapshot: Dictionary) 
 			flips.append("%s %s->%s" % [_dn(snapshot.get("units", {}).get(uid, {}), uid), str(top_off[uid][0]), str(top[uid][0])])
 	_debug_log_info("MOVE_COVER plan prior: %d of %d candidates carry cover_gain (total %.2f); own top objective flipped for %d unit(s)%s — not an assignment count" % [
 		n_terms, candidates.size(), total, flips.size(), (": " + ", ".join(flips)) if not flips.is_empty() else ""])
+
+# =============================================================================
+# FIX_MOVE_FOR_SHOT — end a normal move with a shot for the next Shooting phase
+# =============================================================================
+# The end-spot search behind the normal-move stage in _select_movement_action.
+# "Would this unit have an eligible ranged target if it stood here?" is only
+# ever answered by RulesEngine.get_eligible_targets on a shallow hypothetical
+# board — range, the 11e line rules, the Hidden detection gate with Gone to
+# Ground, Lone Operative, Psychic Veil, Hunter profiles, targets engaged with
+# friendlies. The geometry below is a necessary-condition pre-filter, and
+# TerrainManager.model_visible_11e on one model pair only orders the probes. Every generator
+# stage that would bend a spot is screened with the FIX_MOVE_COVER mirrors, and
+# _move_for_shot_recheck re-asks the engine on the destinations the mover
+# actually returns. No static state.
+
+# Psychic Veil: the unit can only be targeted by ranged attacks from within
+# 18" (RulesEngine.get_eligible_targets).
+const MOVE_FOR_SHOT_VEIL_INCHES: float = 18.0
+
+## Where each member (_move_cover_members) stands after `dests`, aligned with
+## `members`: bodyguard models at their destinations (unchanged when absent),
+## attached characters moved by the first staged bodyguard model's delta — as
+## the engine moves them at CONFIRM (MovementPhase._move_attached_characters).
+static func _mfs_positions_from_dests(members: Array, dests: Dictionary) -> Array:
+	var char_delta := Vector2.INF
+	for mid in dests:
+		for mb in members:
+			if not mb.is_char and str(mb.model.get("id", "")) == str(mid):
+				var dv := _mc_dest_vec(dests[mid])
+				if dv != Vector2.INF:
+					char_delta = dv - mb.orig
+				break
+		if char_delta != Vector2.INF:
+			break
+	if char_delta == Vector2.INF:
+		char_delta = Vector2.ZERO
+	var positions: Array = []
+	for mb in members:
+		if mb.is_char:
+			positions.append(mb.orig + char_delta)
+			continue
+		var mid := str(mb.model.get("id", ""))
+		var dv := _mc_dest_vec(dests[mid]) if dests.has(mid) else Vector2.INF
+		positions.append(dv if dv != Vector2.INF else mb.orig)
+	return positions
+
+## A shallow copy of `u` whose alive models that are members of THIS unit
+## stand at `positions` (aligned with `members`). Members are matched by their
+## owning unit first: attached-character and bodyguard model ids clash ("m1").
+static func _mfs_unit_at(u: Dictionary, members: Array, positions: Array) -> Dictionary:
+	var uid := str(u.get("id", ""))
+	var by_id := {}
+	for i in range(members.size()):
+		var mu: Dictionary = members[i].unit
+		if is_same(mu, u) or (uid != "" and str(mu.get("id", "")) == uid):
+			by_id[str(members[i].model.get("id", ""))] = positions[i]
+	var probe: Dictionary = u.duplicate()
+	var models: Array = []
+	for m in u.get("models", []):
+		var mid := str(m.get("id", ""))
+		if m.get("alive", true) and by_id.has(mid):
+			var m2: Dictionary = m.duplicate()
+			m2["position"] = by_id[mid]
+			models.append(m2)
+		else:
+			models.append(m)
+	probe["models"] = models
+	return probe
+
+## The board our Shooting phase would see with the formation at `positions`:
+## shallow copies (terrain keeps its identity, so the line-of-sight memo epoch
+## is unaffected), the unit and each attached character moved, and the unit's
+## in_engagement flag cleared — get_eligible_targets reads it, the shooting
+## phase refreshes it on entry, and a normal move never ends in Engagement
+## Range (the pattern of RulesEngine._snap_board_unengaged).
+static func _move_for_shot_board(snapshot: Dictionary, unit_id: String, members: Array, positions: Array) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {}).duplicate()
+	if not units.has(unit_id):
+		return snapshot
+	var u2 := _mfs_unit_at(units[unit_id], members, positions)
+	var flags: Dictionary = u2.get("flags", {}).duplicate()
+	flags["in_engagement"] = false
+	u2["flags"] = flags
+	units[unit_id] = u2
+	var done := {unit_id: true}
+	for mb in members:
+		if not mb.is_char:
+			continue
+		var cid := str(mb.unit.get("id", ""))
+		if cid == "" or done.has(cid) or not units.has(cid):
+			continue
+		done[cid] = true
+		units[cid] = _mfs_unit_at(units[cid], members, positions)
+	var hypo: Dictionary = snapshot.duplicate()
+	hypo["units"] = units
+	return hypo
+
+## Circumscribed base radius (px): exact for round bases, Measurement's
+## base_extent_px otherwise — an edge distance built from it never over-states
+## the real one, so the distance pre-filter stays a necessary test.
+static func _mfs_extent_px(model: Dictionary) -> float:
+	if str(model.get("base_type", "circular")) == "circular":
+		return _mc_radius_px(model)
+	var meas = _measurement()
+	if meas != null and meas.has_method("base_extent_px"):
+		return float(meas.base_extent_px(model))
+	return _mc_radius_px(model)
+
+## 13.06.01 (commentary, which wins over the launch text): a model cannot end
+## a move with any part of it through any enclosed part of a Solid feature
+## (13.11 — dense features) at ground level, "so protruding elements of models
+## cannot be used to circumvent the visibility restrictions of the Solid
+## rule". The engine lets INFANTRY / BEASTS / SWARM / MOBILE end overlapping
+## one (TerrainManager's 13.06 traversal), its sight lines start from every
+## point of the base, and they ignore a feature a model's centre is inside —
+## so a base poking through a wall sees past it. The stage never claims a shot
+## that rests on that: true when any member's base (circumscribed, `exts`)
+## overlaps a dense feature's footprint (piece_class "feature"; terrain areas
+## and legacy whole-ruin pieces are where models do stand). The flag-off
+## mover's own overlaps are not this stage's to judge.
+static func _mfs_in_solid_feature(tm, positions: Array, exts: Array) -> bool:
+	for piece in tm.terrain_features:
+		if str(piece.get("piece_class", "")) != "feature" or str(tm.category_of(piece)) != "dense":
+			continue
+		var poly := _mc_pack_polygon(piece.get("polygon", PackedVector2Array()))
+		if poly.size() < 3:
+			continue
+		for i in range(positions.size()):
+			var pos: Vector2 = positions[i]
+			# Touching is fine; half a pixel of float slack.
+			if Geometry2D.is_point_in_polygon(pos, poly) \
+					or pos.distance_to(_mc_closest_on_polygon(pos, poly)) < float(exts[i]) - 0.5:
+				return true
+	return false
+
+## One enemy unit as a possible target, position-free (it does not move
+## before our Shooting phase): its alive models (centre, circumscribed radius,
+## Hidden now — 13.09 as errata'd, the engine's is_model_hidden), the
+## detection range a Hidden model has against any observer at most (det_hi:
+## base + datasheet modifiers; the empty observer skips Gone to Ground) and at
+## least (det_lo: Gone to Ground's -3", floor 9"), the Lone Operative range
+## when it shields the unit (24.24: standalone only) and Psychic Veil.
+## with_hidden = false skips the Hidden facts (every model read as not
+## Hidden): the distance test is then only more permissive, still a necessary
+## condition — enough for the trigger, which most moves pass.
+static func _mfs_target_facts(re, tm, e: Dictionary, eid: String, with_hidden: bool = true) -> Dictionary:
+	var models: Array = []
+	var first_hidden: Dictionary = {}
+	for om in _get_alive_models_with_positions(e):
+		var hid: bool = with_hidden and bool(tm.is_model_hidden(om, e))
+		models.append({"pos": _get_model_position(om), "r": _mfs_extent_px(om), "hidden": hid, "model": om})
+		if hid and first_hidden.is_empty():
+			first_hidden = om
+	if models.is_empty():
+		return {}
+	var det_hi := INF
+	var det_lo := INF
+	if not first_hidden.is_empty():
+		det_hi = float(tm.detection_range_inches_for(first_hidden, e, {}))
+		det_lo = maxf(det_hi - GameConstants.gone_to_ground_penalty_inches(), GameConstants.detection_range_floor_inches())
+	var lo_range := INF
+	if re.has_lone_operative(e) and e.get("attached_to", null) == null \
+			and (e.get("attachment_data", {}).get("attached_characters", []) as Array).is_empty():
+		lo_range = float(re.get_lone_operative_range(e))
+	return {"id": eid, "name": _dn(e, eid), "models": models, "det_hi": det_hi, "det_lo": det_lo,
+		"lo_range": lo_range, "veil": bool(e.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false))}
+
+## The distance half of the targeting rules (04.02 range; 13.09 detection
+## range for a Hidden model; 24.24 Lone Operative; Psychic Veil) as a
+## NECESSARY condition for the formation's BODYGUARD models standing at
+## `positions` — the engine measures range and sight from bodyguard models
+## only. Pure geometry on circumscribed bases (never stricter than the engine):
+## ok = false means the engine cannot accept the target there; true means it
+## may. Also: pairs (bodyguard x target model pairs within weapon reach — what
+## a probe hands to line of sight), shortfall_in (how much closer the unit
+## must get), near_i / near_j (the pair nearest its range or detection gate —
+## the aimed steps' line), min_i / min_j / min_edge_in (the closest pair,
+## which Lone Operative and Psychic Veil measure).
+static func _mfs_reach(members: Array, exts: Array, positions: Array, facts: Dictionary, reach_in: float) -> Dictionary:
+	var pairs := 0
+	var best_slack := INF
+	var near_i := -1
+	var near_j := -1
+	var min_edge := INF
+	var min_i := -1
+	var min_j := -1
+	var tmods: Array = facts.models
+	var det_hi := float(facts.det_hi)
+	for i in range(members.size()):
+		if members[i].is_char:
+			continue
+		var a: Vector2 = positions[i]
+		var ra := float(exts[i])
+		for j in range(tmods.size()):
+			var tmj: Dictionary = tmods[j]
+			var edge: float = (a.distance_to(tmj.pos) - ra - float(tmj.r)) / PIXELS_PER_INCH
+			if edge < min_edge:
+				min_edge = edge
+				min_i = i
+				min_j = j
+			if edge <= reach_in + MOVE_FOR_SHOT_REACH_SLACK_INCHES:
+				pairs += 1
+			var gate: float = minf(reach_in, det_hi) if bool(tmj.hidden) else reach_in
+			if edge - gate < best_slack:
+				best_slack = edge - gate
+				near_i = i
+				near_j = j
+	var short_lo := maxf(0.0, min_edge - float(facts.lo_range)) if float(facts.lo_range) < INF else 0.0
+	var short_veil := maxf(0.0, min_edge - MOVE_FOR_SHOT_VEIL_INCHES) if bool(facts.veil) else 0.0
+	var shortfall := maxf(maxf(0.0, best_slack), maxf(short_lo, short_veil))
+	return {"ok": near_i >= 0 and shortfall <= MOVE_FOR_SHOT_REACH_SLACK_INCHES, "pairs": pairs,
+		"shortfall_in": shortfall, "near_i": near_i, "near_j": near_j,
+		"min_i": min_i, "min_j": min_j, "min_edge_in": min_edge}
+
+## Add a proposal (the target point to hand the mover) unless it repeats one
+## within 0.5" or the straight end itself. A point past the reachable disc is
+## pulled onto it first: the ladder clamps every model to its per-model cap
+## along its heading, so that is where such a target would end anyway.
+static func _mfs_add_prop(props: Array, q: Vector2, kind: String, base_end: Vector2, centroid: Vector2,
+		reach_px: float, stats: Dictionary) -> bool:
+	if not q.is_finite():
+		return false
+	var was_pulled := false
+	if centroid.distance_to(q) > reach_px:
+		q = centroid + (q - centroid).normalized() * reach_px
+		was_pulled = true
+	var dedupe_px := 0.5 * PIXELS_PER_INCH
+	if q.distance_to(base_end) < dedupe_px:
+		return false  # that is the straight move itself
+	for pr in props:
+		if q.distance_to(pr.t) < dedupe_px:
+			return false
+	props.append({"t": q, "kind": kind, "idx": props.size()})
+	if was_pulled:
+		stats["pulled"] = int(stats.get("pulled", 0)) + 1
+	return true
+
+## Expected damage of the formation at `positions` on each engine-eligible
+## target (`elig`, get_eligible_targets' answer there), the best kept: the sum
+## of _estimate_weapon_damage over the target's weapons_in_range, each weapon
+## fired by its own bearer (the bodyguard, else an attached character) moved
+## to the spot — _estimate_weapon_damage reads the shooter's model positions
+## for range and its carrier count. {id, name, ev, hp (remaining wounds)}.
+static func _mfs_best_target(unit: Dictionary, snapshot: Dictionary, members: Array, positions: Array,
+		elig: Dictionary) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {})
+	var bg_probe := _mfs_unit_at(unit, members, positions)
+	var char_probes := {}
+	var best := {"id": "", "name": "", "ev": -1.0, "hp": 0.0}
+	for tid in elig:
+		var tgt: Dictionary = units.get(tid, {})
+		if tgt.is_empty():
+			continue
+		var ev := 0.0
+		for wid in elig[tid].get("weapons_in_range", []):
+			var w := _ai_weapon_dict(unit, str(wid))
+			var shooter: Dictionary = bg_probe
+			if w.is_empty():
+				for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+					var cu: Dictionary = units.get(str(cid), {})
+					w = _ai_weapon_dict(cu, str(wid))
+					if not w.is_empty():
+						if not char_probes.has(str(cid)):
+							char_probes[str(cid)] = _mfs_unit_at(cu, members, positions)
+						shooter = char_probes[str(cid)]
+						break
+			if w.is_empty():
+				continue
+			ev += _estimate_weapon_damage(w, tgt, snapshot, shooter)
+		if ev > float(best.ev):
+			best = {"id": str(tid), "name": _dn(tgt, str(tid)), "ev": ev, "hp": _calculate_kill_threshold(tgt)}
+	return best
+
+## An upper bound on _mfs_best_target's ev for the formation at `positions`
+## over the targets in `only`: every ranged weapon of the unit and of its
+## attached characters, as if each could fire at each target (an engine
+## answer's weapons_in_range is a subset; _estimate_weapon_damage is never
+## negative). Lets the probe loop skip a spot that cannot beat the pick
+## without asking the engine.
+static func _mfs_ev_upper_bound(unit: Dictionary, snapshot: Dictionary, members: Array, positions: Array,
+		only: Dictionary) -> float:
+	var units: Dictionary = snapshot.get("units", {})
+	var shooters: Array = [[unit, _mfs_unit_at(unit, members, positions)]]
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		var cu: Dictionary = units.get(str(cid), {})
+		if not cu.is_empty():
+			shooters.append([cu, _mfs_unit_at(cu, members, positions)])
+	var ub := 0.0
+	for tid in only:
+		var tgt: Dictionary = units.get(tid, {})
+		if tgt.is_empty():
+			continue
+		var ev := 0.0
+		for sh in shooters:
+			for w in (sh[0] as Dictionary).get("meta", {}).get("weapons", []):
+				if str(w.get("type", "")).to_lower() == "ranged":
+					ev += _estimate_weapon_damage(w, tgt, snapshot, sh[1])
+		ub = maxf(ub, ev)
+	return ub
+
+## Could a spot whose expected damage is at most `ub` still be picked over
+## `cur` (a shot at no less loss)? Only if it might deal more, or tie it and
+## stand nearer the straight end (then the earlier proposal) — _mfs_better's
+## order.
+static func _mfs_could_beat(ub: float, sv: Dictionary, cur: Dictionary, base_end: Vector2) -> bool:
+	var tie := 1e-6
+	var ce := float(cur.best.ev)
+	if ub > ce + tie:
+		return true
+	if ub < ce - tie:
+		return false
+	var ds: float = Vector2(sv.p).distance_to(base_end)
+	var dc: float = Vector2(cur.p).distance_to(base_end)
+	if absf(ds - dc) > tie:
+		return ds < dc
+	return int(sv.idx) < int(cur.idx)
+
+## F002's verdict at the spot, predicted: would the unit hold fire there to
+## keep Hidden (13.09) rather than take the shot? Mirrors the hold-fire test
+## in the shooting decision — HIDDEN_FORFEIT_PENALTY > 0, not already shot, a
+## bodyguard model Hidden there (_unit_is_currently_hidden), cost = penalty x
+## _hidden_immunity_fraction over the shootable enemies, and the shot worth
+## HIDDEN_FULL_KILL_WORTH x min(damage / remaining wounds, 1) — valued on the
+## best single target. F002 sums over the targets its plan picks, so this can
+## predict a hold F002 would not make: it only ever withholds a claim.
+static func _mfs_f002_would_hold(unit: Dictionary, members: Array, positions: Array, p: Vector2,
+		best: Dictionary, enemies: Dictionary) -> bool:
+	var pen := get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY)
+	if pen <= 0.0 or bool(unit.get("flags", {}).get("shot_recently", false)) or not _unit_hidden_eligible(unit):
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("is_model_hidden"):
+		return false
+	var hidden := false
+	for i in range(members.size()):
+		if members[i].is_char:
+			continue
+		var m2: Dictionary = members[i].model.duplicate()
+		m2["position"] = positions[i]
+		if tm.is_model_hidden(m2, unit):
+			hidden = true
+			break
+	if not hidden:
+		return false
+	var cost := pen * _hidden_immunity_fraction(unit, p, _mc_shootable(enemies))
+	var hp := float(best.get("hp", 0.0))
+	if cost <= 0.0 or hp <= 0.0:
+		return false
+	return HIDDEN_FULL_KILL_WORTH * minf(float(best.get("ev", 0.0)) / hp, 1.0) < cost
+
+## Better shot spot: more expected damage on its best target, then nearer the
+## straight end, then the earlier proposal.
+static func _mfs_better(a: Dictionary, b: Dictionary, base_end: Vector2) -> bool:
+	var tie := 1e-6
+	var ea := float(a.best.ev)
+	var eb := float(b.best.ev)
+	if ea > eb + tie:
+		return true
+	if ea < eb - tie:
+		return false
+	var da: float = Vector2(a.p).distance_to(base_end)
+	var db: float = Vector2(b.p).distance_to(base_end)
+	if absf(da - db) > tie:
+		return da < db
+	return int(a.idx) < int(b.idx)
+
+## FIX_MOVE_FOR_SHOT stage: when the destinations the move returned
+## (`base_dests`) leave the unit with no eligible ranged target, the best spot
+## that gives it one — or {} to keep the straight move. Proposals: a heading
+## fan round the move's aim (`aim`, the target the flag-off move was given;
+## -90..+90 degrees, full and 0.75 length), a sidestep ring round the straight
+## end, and aimed closing steps for the gate each reachable target is short of
+## (weapon range, a Hidden model's detection range with and without Gone to
+## Ground, Lone Operative, Psychic Veil). Each is screened against the
+## generator stages that would bend it (path, climb cost, legacy cover nudge,
+## range clamp, the predicted threat dodge, placement), the objective guards
+## (MOVE_FOR_SHOT_MAX_LOSS_INCHES, no extra turn, no lost control range) and
+## 13.06.01 (no base ending through a Solid feature, _mfs_in_solid_feature);
+## the distance pre-filter (_mfs_reach) drops spots no target can be reached
+## from, and at most MOVE_FOR_SHOT_PROBES survivors — a clear
+## TerrainManager line on the nearest pair first, then least loss, then
+## nearest the straight end — are asked of the engine, within
+## MOVE_FOR_SHOT_MAX_PAIR_CHECKS model pairs; once a shot is found, a spot
+## that could not beat it even with every weapon firing is not asked. Pick: least
+## loss; spots within MOVE_FOR_SHOT_LOSS_TIE_INCHES of it tie and go to the
+## most expected damage, then nearest the straight end. "pos" is the target to
+## hand the mover, "end" where it will put the centroid. `diag` gets the
+## search's counts (the MOVE_FOR_SHOT debug line's numbers), for tests.
+static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Dictionary, centroid: Vector2,
+		aim: Vector2, target_pos: Vector2, move_inches: float, base_dests: Dictionary, enemies: Dictionary,
+		threat_data: Array, objectives: Array, max_wr: float, player: int, diag: Dictionary = {}) -> Dictionary:
+	var re = _rules_engine()
+	var tm = _terrain_manager()
+	if re == null or tm == null or not re.has_method("get_eligible_targets") or not tm.has_method("is_model_hidden") \
+			or centroid == Vector2.INF or move_inches <= 0.0 or base_dests.is_empty():
+		return {}
+	var t0 := Time.get_ticks_usec()
+	var unit_name := _dn(unit, unit_id)
+	var move_px := move_inches * PIXELS_PER_INCH
+	var cap_px := move_px * 0.95  # the placement ladder's per-model cap (safe_move_px)
+	# Proposals stay half a pixel inside the cap, so float error never trips
+	# the cap screen.
+	var reach_px := cap_px - 0.5
+
+	# --- baseline: where the move really ends (attached characters included)
+	var members := _move_cover_members(unit, snapshot)
+	if members.is_empty():
+		return {}
+	var exts: Array = []
+	for mb in members:
+		exts.append(_mfs_extent_px(mb.model))
+	var base_positions := _mfs_positions_from_dests(members, base_dests)
+	var base_end := _destinations_centroid(base_dests)
+	if base_end == Vector2.INF:
+		return {}
+	var base_probe := _mfs_unit_at(unit, members, base_positions)
+	var base_gap := _unit_gap_to_objective_px(base_probe, target_pos)
+	var base_in_range := _unit_has_model_in_control_range(base_probe, target_pos)
+	var reach_in := float(re.max_ranged_weapon_range_inches(unit_id, snapshot))
+	diag["reach_in"] = reach_in
+	if reach_in <= 0.0:
+		return {}
+
+	# --- the enemy units it could target from anywhere this move can reach
+	var units: Dictionary = snapshot.get("units", {})
+	var owner := int(unit.get("owner", player))
+	var now_positions := _move_cover_shift(members, Vector2.ZERO)
+	var facts := {}
+	for eid in enemies:
+		var e: Dictionary = enemies[eid]
+		var key := str(eid)
+		var status = e.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if e.get("attached_to", null) != null or e.get("embarked_in", null) != null:
+			continue  # shot through its bodyguard (19.02) / not on the battlefield (18.01)
+		var emods := _get_alive_models_with_positions(e)
+		if emods.is_empty():
+			continue
+		var near_now := INF
+		for om in emods:
+			var op := _get_model_position(om)
+			var orr := _mfs_extent_px(om)
+			for i in range(members.size()):
+				if not members[i].is_char:
+					near_now = minf(near_now, (Vector2(now_positions[i]).distance_to(op) - float(exts[i]) - orr) / PIXELS_PER_INCH)
+		if near_now > reach_in + move_inches + MOVE_FOR_SHOT_REACH_SLACK_INCHES:
+			continue
+		if not re.is_monster_or_vehicle(e) and re._is_target_in_friendly_engagement(key, unit_id, owner, units, snapshot):
+			continue  # 04.02: not while in Engagement Range of a friendly unit (MONSTER / VEHICLE excepted)
+		var fct := _mfs_target_facts(re, tm, e, key, false)
+		if not fct.is_empty():
+			facts[key] = fct
+	diag["reachable"] = facts.size()
+	if facts.is_empty():
+		_debug_log_info("MOVE_FOR_SHOT %s: no enemy within %.0f\" + its %.0f\" move — straight move (%.1f ms)" % [
+			unit_name, reach_in, move_inches, float(Time.get_ticks_usec() - t0) / 1000.0])
+		return {}
+
+	# --- trigger: does the straight move already have an eligible target?
+	# (Distance pre-filter without the Hidden facts — more permissive, still
+	# necessary — then one engine call.)
+	var base_board := _move_for_shot_board(snapshot, unit_id, members, base_positions)
+	var base_ids := {}
+	for key in facts:
+		if bool(_mfs_reach(members, exts, base_positions, facts[key], reach_in).ok):
+			base_ids[key] = true
+	diag["base_candidates"] = base_ids.size()
+	if not base_ids.is_empty() and not re.get_eligible_targets(unit_id, base_board, true, base_ids).is_empty():
+		diag["base_has_shot"] = true
+		_debug_log_info("MOVE_FOR_SHOT %s: the straight move already has an eligible target — unchanged (%.1f ms)" % [
+			unit_name, float(Time.get_ticks_usec() - t0) / 1000.0])
+		return {}
+	diag["base_has_shot"] = false
+	# It has none: now the Hidden facts (13.09 detection gates), for the
+	# distance pre-filter and the aimed steps.
+	var base_reach := {}
+	for key in facts:
+		var fct_h := _mfs_target_facts(re, tm, enemies[key], key)
+		if not fct_h.is_empty():
+			facts[key] = fct_h
+		base_reach[key] = _mfs_reach(members, exts, base_positions, facts[key], reach_in)
+	var t_trig := Time.get_ticks_usec()
+
+	# --- the targets to aim at: most reachable from the straight end first,
+	# then the most valuable to remove
+	var order: Array = facts.keys()
+	var tval := {}
+	for key in order:
+		tval[key] = _calculate_target_value(units.get(key, enemies.get(key, {})), snapshot, player)
+	order.sort_custom(func(a, b):
+		var sa := float(base_reach[a].shortfall_in)
+		var sb := float(base_reach[b].shortfall_in)
+		if absf(sa - sb) > 1e-6:
+			return sa < sb
+		if absf(float(tval[a]) - float(tval[b])) > 1e-6:
+			return float(tval[a]) > float(tval[b])
+		return str(a) < str(b)
+	)
+	var top: Array = order.slice(0, maxi(get_param_int("MOVE_FOR_SHOT_MAX_TARGETS", MOVE_FOR_SHOT_MAX_TARGETS), 0))
+	var top_ids := {}
+	for key in top:
+		top_ids[key] = true
+	diag["targets"] = top.duplicate()
+	if top.is_empty():
+		return {}
+
+	# --- proposals: the fan round the move's aim, the ring round the straight
+	# end, and aimed closing steps for the gate each target is short of
+	var props: Array = []
+	var stats := {"pulled": 0}
+	var axis := aim - centroid
+	if axis.length() < 1.0:
+		axis = base_end - centroid
+	var fan_step := get_param("MOVE_FOR_SHOT_FAN_STEP_DEG", MOVE_FOR_SHOT_FAN_STEP_DEG)
+	if axis.length() >= 1.0 and fan_step > 0.0:
+		var fan_len := minf(reach_px, axis.length())
+		var n_side := int(floor(90.0 / fan_step + 0.0001))
+		for k in range(-n_side, n_side + 1):
+			var dir := axis.normalized().rotated(deg_to_rad(float(k) * fan_step))
+			for fl in MOVE_FOR_SHOT_FAN_LENGTHS:
+				_mfs_add_prop(props, centroid + dir * fan_len * float(fl), "fan", base_end, centroid, reach_px, stats)
+	var ring_px := get_param("MOVE_FOR_SHOT_RING_INCHES", MOVE_FOR_SHOT_RING_INCHES) * PIXELS_PER_INCH
+	if ring_px > 0.0:
+		for k in range(8):
+			_mfs_add_prop(props, base_end + Vector2.from_angle(TAU * float(k) / 8.0) * ring_px, "ring",
+				base_end, centroid, reach_px, stats)
+	var margin_in := get_param("MOVE_FOR_SHOT_STEP_MARGIN_INCHES", MOVE_FOR_SHOT_STEP_MARGIN_INCHES)
+	for key in top:
+		var tf: Dictionary = facts[key]
+		var br: Dictionary = base_reach[key]
+		var gates: Array = []  # [gate inches, member index, target model index, label]
+		if int(br.near_i) >= 0:
+			gates.append([reach_in, int(br.near_i), int(br.near_j), "range"])
+			if bool(tf.models[int(br.near_j)].hidden):
+				gates.append([float(tf.det_hi), int(br.near_i), int(br.near_j), "detection"])
+				gates.append([float(tf.det_lo), int(br.near_i), int(br.near_j), "detection_gtg"])
+		if int(br.min_i) >= 0:
+			if float(tf.lo_range) < INF:
+				gates.append([float(tf.lo_range), int(br.min_i), int(br.min_j), "lone_operative"])
+			if bool(tf.veil):
+				gates.append([MOVE_FOR_SHOT_VEIL_INCHES, int(br.min_i), int(br.min_j), "psychic_veil"])
+		for g in gates:
+			var a: Vector2 = base_positions[int(g[1])]
+			var b: Vector2 = tf.models[int(g[2])].pos
+			if a.distance_to(b) < 1.0:
+				continue
+			var edge := (a.distance_to(b) - float(exts[int(g[1])]) - float(tf.models[int(g[2])].r)) / PIXELS_PER_INCH
+			var short_in := edge - float(g[0])
+			if short_in <= 0.0:
+				continue
+			_mfs_add_prop(props, base_end + (b - a).normalized() * (short_in + margin_in) * PIXELS_PER_INCH,
+				"step:%s" % str(g[3]), base_end, centroid, reach_px, stats)
+	diag["proposals"] = props.size()
+	diag["pulled"] = int(stats.pulled)
+
+	# --- screens: each the mirror of a generator stage that would bend the
+	# target (so the target that is sent is the move that comes back), the
+	# objective guards, the distance pre-filter, then placement
+	var snap_terrain: Array = snapshot.get("board", {}).get("terrain_features", [])
+	var kw: Array = unit.get("meta", {}).get("keywords", [])
+	var fly := "FLY" in kw
+	var bg_models := _get_alive_models_with_positions(unit)
+	var lead: Dictionary = bg_models[0] if not bg_models.is_empty() else {}
+	var lead_bm := int(lead.get("base_mm", 0))
+	var enemy_centroids: Array = []
+	for eid in enemies:
+		var ecen := _get_unit_centroid(enemies[eid])
+		if ecen != Vector2.INF:
+			enemy_centroids.append(ecen)
+	var deployed: Array = []
+	var mv_models: Array = []
+	var place_ready := false
+	var max_loss := get_param("MOVE_FOR_SHOT_MAX_LOSS_INCHES", MOVE_FOR_SHOT_MAX_LOSS_INCHES)
+	var rej := {"cap": 0, "path": 0, "penalty": 0, "nudge": 0, "clamp": 0, "loss": 0, "turns": 0, "control": 0,
+		"solid": 0, "reach": 0, "place": 0, "dominated": 0, "budget": 0, "no_shot": 0, "ev": 0, "f002": 0}
+	var survivors: Array = []
+	for pr in props:
+		var t: Vector2 = pr.t
+		if centroid.distance_to(t) > cap_px:
+			rej.cap += 1
+			continue
+		if _move_path_blocked(centroid, t, kw, snap_terrain, unit) \
+				or (lead_bm > 0 and _path_blocked_by_solid_terrain_direct(centroid, t, lead_bm,
+					str(lead.get("base_type", "circular")), lead.get("base_dimensions", {}), kw)):
+			rej.path += 1
+			continue
+		if not fly and _normal_move_terrain_penalty(centroid, t, false, kw, unit) > 0.0:
+			rej.penalty += 1
+			continue
+		if _mc_cover_nudge_would_rotate(centroid, t, kw, snap_terrain, enemy_centroids, unit):
+			rej.nudge += 1  # the legacy cover nudge would turn it 15-30 degrees
+			continue
+		if max_wr > 0.0 and _range_clamp_would_bite(centroid, t, max_wr, enemies):
+			rej.clamp += 1
+			continue
+		# The threat dodge, predicted with the generator's own inputs; then the
+		# ladder's per-model cap.
+		var p := t
+		if not threat_data.is_empty():
+			p = _find_safer_position(centroid, t, move_px, threat_data, unit, objectives, enemies, true)
+		if centroid.distance_to(p) > cap_px:
+			p = centroid + (p - centroid).normalized() * cap_px
+		var positions := _move_cover_shift(members, p - centroid)
+		var probe := _mfs_unit_at(unit, members, positions)
+		var gap := _unit_gap_to_objective_px(probe, target_pos)
+		var loss_in: float = (gap - base_gap) / PIXELS_PER_INCH if gap != INF and base_gap != INF else 0.0
+		if gap == INF or loss_in > max_loss:
+			rej.loss += 1
+			continue
+		if base_gap > 0.0 and base_gap != INF and ceil(gap / move_px) > ceil(base_gap / move_px):
+			rej.turns += 1
+			continue
+		if base_in_range and not _unit_has_model_in_control_range(probe, target_pos):
+			rej.control += 1
+			continue
+		if _mfs_in_solid_feature(tm, positions, exts):
+			rej.solid += 1  # 13.06.01: a base would end through a Solid feature
+			continue
+		var only := {}
+		var pairs_c := 0
+		var lead_key := ""
+		for key in top:
+			var r := _mfs_reach(members, exts, positions, facts[key], reach_in)
+			if bool(r.ok):
+				only[key] = r
+				pairs_c += int(r.pairs)
+				if lead_key == "":
+					lead_key = str(key)
+		if only.is_empty():
+			rej.reach += 1
+			continue
+		if not place_ready:
+			deployed = _get_deployed_models_excluding_unit(snapshot, unit_id)
+			mv_models = [] if fly else _get_monster_vehicle_models(snapshot, unit_id)
+			place_ready = true
+		if _mc_place_fail(unit, p - centroid, enemies, deployed, mv_models, cap_px) != "":
+			rej.place += 1
+			continue
+		# Probe-order hint only (never a rejection): can the lead target's
+		# nearest qualifying pair see each other on TerrainManager's 11e lines
+		# (13.10 areas + 13.11 Solid features, centre to base — one pair, a
+		# fraction of an engine probe's base-to-base sweep)?
+		var lr: Dictionary = only[lead_key]
+		var hint := 0
+		if int(lr.near_i) >= 0:
+			var obs: Dictionary = members[int(lr.near_i)].model.duplicate()
+			obs["position"] = positions[int(lr.near_i)]
+			hint = 1 if tm.model_visible_11e(obs, facts[lead_key].models[int(lr.near_j)].model) else 0
+		var only_ids := {}
+		for key in only:
+			only_ids[key] = true
+		survivors.append({"t": t, "p": p, "positions": positions, "loss_in": loss_in, "only": only_ids,
+			"pairs": pairs_c, "hint": hint, "idx": int(pr.idx), "kind": str(pr.kind)})
+
+	var t_scr := Time.get_ticks_usec()
+	# --- the probes: a clear line on the hint first, then least loss, then
+	# nearest the straight end; the engine decides
+	survivors.sort_custom(func(a, b):
+		if int(a.hint) != int(b.hint):
+			return int(a.hint) > int(b.hint)
+		if absf(float(a.loss_in) - float(b.loss_in)) > 1e-6:
+			return float(a.loss_in) < float(b.loss_in)
+		var da: float = Vector2(a.p).distance_to(base_end)
+		var db: float = Vector2(b.p).distance_to(base_end)
+		if absf(da - db) > 1e-6:
+			return da < db
+		return int(a.idx) < int(b.idx)
+	)
+	var probe_cap := maxi(get_param_int("MOVE_FOR_SHOT_PROBES", MOVE_FOR_SHOT_PROBES), 0)
+	var pair_cap := get_param_int("MOVE_FOR_SHOT_MAX_PAIR_CHECKS", MOVE_FOR_SHOT_MAX_PAIR_CHECKS)
+	var tie_in := get_param("MOVE_FOR_SHOT_LOSS_TIE_INCHES", MOVE_FOR_SHOT_LOSS_TIE_INCHES)
+	var min_ev := get_param("MOVE_FOR_SHOT_MIN_EV", MOVE_FOR_SHOT_MIN_EV)
+	var probes := 0
+	var pairs_spent := 0
+	var shots: Array = []
+	var best_loss := INF
+	var cur_pick := {}  # the pick so far (least loss, then the tie rule)
+	for sv in survivors:
+		if probes >= probe_cap:
+			break
+		if not shots.is_empty() and float(sv.loss_in) > best_loss + tie_in:
+			continue
+		# A spot that cannot lower the least loss is only worth an engine call
+		# if it could still win the tie: skip it when even every weapon firing
+		# (no sight lines) cannot beat the pick so far.
+		if not cur_pick.is_empty() and float(sv.loss_in) >= best_loss - 1e-6 \
+				and not _mfs_could_beat(_mfs_ev_upper_bound(unit, snapshot, members, sv.positions, sv.only), sv,
+					cur_pick, base_end):
+			rej.dominated += 1
+			continue
+		if pair_cap >= 0 and pairs_spent + int(sv.pairs) > pair_cap:
+			rej.budget += 1
+			continue
+		probes += 1
+		pairs_spent += int(sv.pairs)
+		var elig: Dictionary = re.get_eligible_targets(unit_id,
+			_move_for_shot_board(snapshot, unit_id, members, sv.positions), false, sv.only)
+		if elig.is_empty():
+			rej.no_shot += 1
+			continue
+		var best := _mfs_best_target(unit, snapshot, members, sv.positions, elig)
+		if float(best.ev) < min_ev:
+			rej.ev += 1
+			continue
+		if _mfs_f002_would_hold(unit, members, sv.positions, sv.p, best, enemies):
+			rej.f002 += 1  # F002 would hold fire there to stay Hidden: no shot after all
+			continue
+		sv["best"] = best
+		sv["n_elig"] = elig.size()
+		shots.append(sv)
+		best_loss = minf(best_loss, float(sv.loss_in))
+		cur_pick = {}
+		for sh in shots:
+			if float(sh.loss_in) <= best_loss + tie_in and (cur_pick.is_empty() or _mfs_better(sh, cur_pick, base_end)):
+				cur_pick = sh
+	var pick := {}
+	for sv in shots:
+		if float(sv.loss_in) > best_loss + tie_in:
+			continue
+		if pick.is_empty() or _mfs_better(sv, pick, base_end):
+			pick = sv
+	var t_prb := Time.get_ticks_usec()
+	var ms := float(t_prb - t0) / 1000.0
+	var ms_txt := "%.1f ms: trigger %.1f, proposals+screens %.1f, probes %.1f" % [ms, float(t_trig - t0) / 1000.0,
+		float(t_scr - t_trig) / 1000.0, float(t_prb - t_scr) / 1000.0]
+	var rej_parts := PackedStringArray()
+	for k in rej:
+		rej_parts.append("%s=%d" % [k, int(rej[k])])
+	var rej_txt := ",".join(rej_parts)
+	diag["rej"] = rej
+	diag["survivors"] = survivors.size()
+	diag["probed"] = probes
+	diag["pairs"] = pairs_spent
+	diag["shots"] = shots.size()
+	if pick.is_empty():
+		_debug_log_info("MOVE_FOR_SHOT %s: reachable=%d targets=%s proposals=%d pulled_in=%d rejected{%s} survivors=%d probed=%d pairs=%d shots=0 — straight move (%s)" % [
+			unit_name, facts.size(), str(top), props.size(), int(stats.pulled), rej_txt, survivors.size(), probes,
+			pairs_spent, ms_txt])
+		return {}
+	var tgt_id := str(pick.best.id)
+	var why: Dictionary = re.explain_target_ineligibility(unit_id, tgt_id, base_board)
+	var base_edge_in := float(base_reach[tgt_id].min_edge_in) if base_reach.has(tgt_id) else -1.0
+	diag["best"] = pick.p
+	diag["why_code"] = str(why.get("code", ""))
+	_debug_log_info("MOVE_FOR_SHOT %s: reachable=%d targets=%s proposals=%d pulled_in=%d rejected{%s} survivors=%d probed=%d pairs=%d shots=%d best=(%.0f,%.0f) via %s target=%s why=%s ev=%.2f loss=%.1f (%s; why %.1f)" % [
+		unit_name, facts.size(), str(top), props.size(), int(stats.pulled), rej_txt, survivors.size(), probes,
+		pairs_spent, shots.size(), pick.p.x, pick.p.y, str(pick.kind), tgt_id, str(why.get("code", "")),
+		float(pick.best.ev), float(pick.loss_in), ms_txt, float(Time.get_ticks_usec() - t_prb) / 1000.0])
+	return {
+		"pos": pick.t, "end": pick.p, "base_end": base_end, "centroid": centroid, "base_gap": base_gap,
+		"base_in_range": base_in_range, "loss_in": float(pick.loss_in), "target_id": tgt_id,
+		"target_name": str(pick.best.name), "ev": float(pick.best.ev), "n_elig": int(pick.n_elig),
+		"why_code": str(why.get("code", "")), "why": why, "base_edge_in": base_edge_in, "kind": str(pick.kind),
+		"members": members, "move_px": move_px, "target_ids": top_ids, "probes": probes, "reach_in": reach_in,
+		"facts": facts, "base_reach": base_reach, "base_board": base_board,
+	}
+
+## FIX_MOVE_FOR_SHOT follow-through: does the move the mover RETURNED toward
+## the pick still have the shot? Rebuilds every member's end spot (attached
+## characters by the first bodyguard model's delta), re-runs the objective
+## guards against the flag-off destinations and asks the engine again
+## (get_eligible_targets over the targets the search aimed at); the best
+## target must still be worth MOVE_FOR_SHOT_MIN_EV and survive the F002
+## prediction. Every claim the note, the reason and the fire tag make comes
+## from here.
+static func _move_for_shot_recheck(unit: Dictionary, unit_id: String, snapshot: Dictionary, pick: Dictionary,
+		dests: Dictionary, target_pos: Vector2, enemies: Dictionary) -> Dictionary:
+	var out := {"keep": false, "why": "", "target_id": "", "target_name": "", "ev": 0.0, "loss_in": 0.0,
+		"n_targets": 0, "end": pick.get("end", Vector2.INF), "why_code": str(pick.get("why_code", "")),
+		"why_info": pick.get("why", {}), "base_edge_in": float(pick.get("base_edge_in", -1.0))}
+	if dests.is_empty():
+		out.why = "no legal placement"
+		return out
+	var re = _rules_engine()
+	if re == null:
+		out.why = "no RulesEngine"
+		return out
+	var members: Array = pick.members
+	var positions := _mfs_positions_from_dests(members, dests)
+	var end := _destinations_centroid(dests)
+	out["end"] = end
+	var probe := _mfs_unit_at(unit, members, positions)
+	var base_gap := float(pick.base_gap)
+	var gap := _unit_gap_to_objective_px(probe, target_pos)
+	var loss_in: float = (gap - base_gap) / PIXELS_PER_INCH if gap != INF and base_gap != INF else 0.0
+	out["loss_in"] = loss_in
+	var move_px := float(pick.get("move_px", 0.0))
+	if gap == INF or loss_in > get_param("MOVE_FOR_SHOT_MAX_LOSS_INCHES", MOVE_FOR_SHOT_MAX_LOSS_INCHES):
+		out.why = "it would cost %.1f\" of objective progress" % loss_in
+		return out
+	if base_gap > 0.0 and base_gap != INF and move_px > 0.0 and ceil(gap / move_px) > ceil(base_gap / move_px):
+		out.why = "it would add a turn to reach the objective"
+		return out
+	if bool(pick.base_in_range) and not _unit_has_model_in_control_range(probe, target_pos):
+		out.why = "no model would be within range of the objective"
+		return out
+	var tm = _terrain_manager()
+	var exts: Array = []
+	for mb in members:
+		exts.append(_mfs_extent_px(mb.model))
+	if tm != null and _mfs_in_solid_feature(tm, positions, exts):
+		out.why = "a model would end through a Solid feature (13.06.01)"
+		return out
+	var elig: Dictionary = re.get_eligible_targets(unit_id, _move_for_shot_board(snapshot, unit_id, members, positions),
+		false, pick.target_ids)
+	out["n_targets"] = elig.size()
+	if elig.is_empty():
+		out.why = "the mover's adjustments lost every target"
+		return out
+	var best := _mfs_best_target(unit, snapshot, members, positions, elig)
+	if float(best.ev) < get_param("MOVE_FOR_SHOT_MIN_EV", MOVE_FOR_SHOT_MIN_EV):
+		out.why = "expected damage %.2f there" % float(best.ev)
+		return out
+	if _mfs_f002_would_hold(unit, members, positions, end, best, enemies):
+		out.why = "F002 would hold fire there to stay Hidden"
+		return out
+	out["target_id"] = str(best.id)
+	out["target_name"] = str(best.name)
+	out["ev"] = float(best.ev)
+	if str(best.id) != str(pick.target_id):
+		# The returned move's best target is another one: say why the straight
+		# move had no shot at THAT target.
+		var why: Dictionary = re.explain_target_ineligibility(unit_id, str(best.id), pick.base_board)
+		out["why_code"] = str(why.get("code", ""))
+		out["why_info"] = why
+		var br: Dictionary = pick.base_reach.get(str(best.id), {})
+		out["base_edge_in"] = float(br.get("min_edge_in", -1.0))
+	out.keep = true
+	return out
+
+## The player-visible move-shape note for a kept shot spot (Suggest (K) card
+## and the "<unit> move: ..." thinking step). "for a shot next phase" is the
+## stable anchor tests read. Every claim comes from the re-check on the
+## returned destinations (`check`) and from the engine's own reason the
+## straight move had no shot at that target.
+static func _move_for_shot_note(pick: Dictionary, check: Dictionary, obj_id: String) -> String:
+	var c: Vector2 = pick.centroid
+	var base_end: Vector2 = pick.base_end
+	var end: Vector2 = check.get("end", pick.end)
+	var v0: Vector2 = base_end - c
+	var v1: Vector2 = end - c
+	var ang := rad_to_deg(absf(v0.angle_to(v1))) if v0.length() > 1.0 and v1.length() > 1.0 else 0.0
+	var turn := ""
+	if ang >= 5.0:
+		turn = "Angled %.0f° off its straight line" % ang
+	else:
+		var dl := (v1.length() - v0.length()) / PIXELS_PER_INCH
+		if dl <= -0.05:
+			turn = "Stopped %.1f\" short of its straight move" % -dl
+		elif dl >= 0.05:
+			turn = "Went %.1f\" further than its straight move" % dl
+		else:
+			turn = "Shifted %.1f\" off its straight move" % (end.distance_to(base_end) / PIXELS_PER_INCH)
+	var tname := str(check.get("target_name", pick.target_name))
+	var tid := str(check.get("target_id", pick.target_id))
+	var info: Dictionary = check.get("why_info", {})
+	var reach_in := float(pick.reach_in)
+	var base_edge := float(check.get("base_edge_in", -1.0))
+	var why := "%s becomes an eligible target" % tname
+	match str(check.get("why_code", "")):
+		"no_los":
+			why = "%s is in sight there (from the straight move toward %s, terrain blocked every line of sight to it)" % [tname, obj_id]
+		"out_of_range":
+			if base_edge > reach_in:
+				why = "%s is within %.0f\" there (the straight move would have ended %.1f\" out of range)" % [
+					tname, reach_in, base_edge - reach_in]
+			else:
+				why = "%s is within range there (the straight move would have ended out of range)" % tname
+		"hidden":
+			why = "it gets inside %s's %.0f\" detection range (Hidden in terrain; the straight move would have ended %.1f\" away)" % [
+				tname, float(info.get("detection_in", 0.0)), float(info.get("closest_in", base_edge))]
+		"lone_operative":
+			var fct: Dictionary = pick.get("facts", {}).get(tid, {})
+			why = "it gets within %.0f\" of %s (Lone Operative)" % [float(fct.get("lo_range", 12.0)), tname]
+		"psychic_veil":
+			why = "it gets within %.0f\" of %s (Psychic Veil)" % [MOVE_FOR_SHOT_VEIL_INCHES, tname]
+	var loss := float(check.get("loss_in", pick.loss_in))
+	var cost := "at no cost to objective progress" if loss <= 0.05 \
+			else "for %.1f\" less progress toward %s" % [loss, obj_id]
+	return "%s for a shot next phase: %s — %s" % [turn, why, cost]
 
 # =============================================================================
 # OVERWATCH EXPOSURE (finding F004)

@@ -1,0 +1,185 @@
+{
+  "id": "mv06_move_for_a_shot",
+  "covers": [
+    "ai.movement.move_for_shot",
+    "rules.11e.select_targets_04_02",
+    "rules.11e.obscuring_13_10",
+    "rules.11e.solid_13_11"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "phase": 7,
+  "player": 1,
+  "seed": 4248,
+  "owner": "FIX_MOVE_FOR_SHOT (movement: move so a ranged weapon has a shot next phase — OFF-01/OFF-03/OFF-04)",
+  "rationale": "11e 04.02 (Select Targets): every ranged target must be visible to the firing model (06.01: a line of sight to any part of one of its models) and within the weapon's range, and the enemy does not move between our Movement and Shooting phases, so where the move ends decides whether the unit shoots at all. 13.10: a sight line crossing a light or dense terrain area is blocked unless either model is within that area; 13.11: a dense feature (Solid) blocks ground-level lines through it. Here U_CUSTODIAN_GUARD_B (5 x 40 mm, M6, guardian spears 24\") stands 2.2\" north of obj_center's Center ruin and U_CUSTODIAN_GUARD_A_P2 is the only enemy within its 24\" plus its move (19\" edge to edge, 23.9\" centroid to centroid, beyond the 20\" charge-plan reach). The straight approach onto the ruin (4.2\" south, onto y 1048.5) ends with every line to the target blocked by the ruin's inner Solid wall (corner-ruin-balanced-left-45) or by area-medium-35 (dense area, neither model within it): the engine answers no_los, and it does from the start too (asserts 2-3 check this on the engine, so the exam cannot drift into passing by layout). Angling the same move 22.5 degrees east ends with every model still on obj_center (the same OC, no extra turn, no progress lost) and the target visible: ten guardian-spear shots instead of none. A Normal move, not an Advance (10.04 / 10.05: only [ASSAULT] weapons may fire after advancing). An AI that walks into a blind spot when a free peek exists throws its Shooting phase away. Asserts 5-9 stop a pass by abandoning the objective, standing still, advancing or an illegal move.",
+  "setup": [
+    "var st = GameState.state",
+    "# Behaviour under test ships OFF: switch it on for player 1 only. Loaded",
+    "# inline (not from the bench profile) so the exam names exactly the knob",
+    "# it depends on.",
+    "AIDecisionMaker.load_player_profile(1, {\"parameters\": {\"FIX_MOVE_FOR_SHOT\": 1.0}})",
+    "# The squad: a line 65 px apart at y 880, the bases 2.2\" north of the Center",
+    "# ruin's top edge (y 1000) — obj_center's hosting area.",
+    "var g = st.units.U_CUSTODIAN_GUARD_B",
+    "var k = 0",
+    "for m in g.models:",
+    "\tm.position = {\"x\": 690.0 + float(k) * 65.0, \"y\": 880.0}",
+    "\tk += 1",
+    "if g.has(\"flags\"):",
+    "\tg.flags.erase(\"last_shot_idx\")",
+    "\tg.flags.erase(\"shot_recently\")",
+    "# The only enemy in reach: a line at y 1640 in the open, south of",
+    "# area-medium-35 and north of area-long-line-27; 23.9\" centroid to centroid",
+    "# from the squad (beyond the 20\" charge-plan and chase reach) and 19\" edge to",
+    "# edge (inside the guardian spear's 24\").",
+    "var s = st.units.U_CUSTODIAN_GUARD_A_P2",
+    "var j = 0",
+    "for m in s.models:",
+    "\tm.position = {\"x\": 1270.0 + float(j) * 65.0, \"y\": 1640.0}",
+    "\tj += 1",
+    "# Park everyone else, stacked per unit: player 1 inside obj_home_1's ruin",
+    "# (area-large-14) so the home objective is held and does not pull the squad;",
+    "# player 2 in the south-east corner, over 31\" from every spot the squad can",
+    "# reach (out of range, no threat).",
+    "for uid in st.units:",
+    "\tif uid == \"U_CUSTODIAN_GUARD_B\" or uid == \"U_CUSTODIAN_GUARD_A_P2\":",
+    "\t\tcontinue",
+    "\tvar u = st.units[uid]",
+    "\tvar q = 0",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 600.0 + 40.0 * float(q % 5), \"y\": 300.0}",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1500.0 + 40.0 * float(q % 6), \"y\": 2300.0 - 40.0 * float(q / 6)}",
+    "\t\tq += 1",
+    "return TerrainManager.area_at(Vector2(880.0, 1200.0)).get(\"id\", \"\")"
+  ],
+  "assert": [
+    {
+      "name": "fixture sanity: obj_center's marker sits in the Center ruin",
+      "script": "return TerrainManager.area_at(Vector2(880.0, 1200.0)).get(\"id\", \"\").begins_with(\"area-trapezoid-4\")",
+      "equals": true
+    },
+    {
+      "name": "precondition: the straight move toward obj_center (4.2\" south, y 1048.5) has no eligible target (13.10 / 13.11 block every line)",
+      "script": [
+        "# Engine precondition, independent of the AI: no eligible target from here.",
+        "var snap = GameState.create_snapshot()",
+        "var u = snap.units.U_CUSTODIAN_GUARD_B",
+        "var k = 0",
+        "for m in u.models:",
+        "\tm.position = Vector2(690.0 + 65.0 * float(k), 1048.5)",
+        "\tk += 1",
+        "if not u.has(\"flags\"):",
+        "\tu[\"flags\"] = {}",
+        "u.flags[\"in_engagement\"] = false",
+        "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", snap, true).size()"
+      ],
+      "expect_max": 0
+    },
+    {
+      "name": "precondition: nor does the start position",
+      "script": [
+        "# Engine precondition, independent of the AI: no eligible target from here.",
+        "var snap = GameState.create_snapshot()",
+        "var u = snap.units.U_CUSTODIAN_GUARD_B",
+        "var k = 0",
+        "for m in u.models:",
+        "\tm.position = Vector2(690.0 + 65.0 * float(k), 880.0)",
+        "\tk += 1",
+        "if not u.has(\"flags\"):",
+        "\tu[\"flags\"] = {}",
+        "u.flags[\"in_engagement\"] = false",
+        "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", snap, true).size()"
+      ],
+      "expect_max": 0
+    },
+    {
+      "name": "U_CUSTODIAN_GUARD_B ends with U_CUSTODIAN_GUARD_A_P2 an eligible target for its Shooting phase (04.02, 06.01)",
+      "script": [
+        "var snap = GameState.create_snapshot()",
+        "var u = snap.units.U_CUSTODIAN_GUARD_B",
+        "if not u.has(\"flags\"):",
+        "\tu[\"flags\"] = {}",
+        "u.flags[\"in_engagement\"] = false",
+        "return RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", snap, false, {\"U_CUSTODIAN_GUARD_A_P2\": true}).has(\"U_CUSTODIAN_GUARD_A_P2\")"
+      ],
+      "equals": true
+    },
+    {
+      "name": "guard: it still takes obj_center (14.02, a model within the hosting area)",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var obj = {}",
+        "for o in GameState.state.board.objectives:",
+        "\tif str(o.get(\"id\", \"\")) == \"obj_center\":",
+        "\t\tobj = o",
+        "if obj.is_empty():",
+        "\treturn -1",
+        "var n = 0",
+        "for m in u.models:",
+        "\tif m.get(\"alive\", true) and MissionManager.model_in_objective_range(m, obj):",
+        "\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    },
+    {
+      "name": "guard: it moved (alive-model centroid at least 3\" from where it started)",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var sum = Vector2.ZERO",
+        "var n = 0",
+        "for m in u.models:",
+        "\tif not m.get(\"alive\", true):",
+        "\t\tcontinue",
+        "\tvar p = m.position",
+        "\tsum += Vector2(float(p.x), float(p.y)) if not (p is Vector2) else p",
+        "\tn += 1",
+        "if n == 0:",
+        "\treturn 0.0",
+        "return (sum / float(n)).distance_to(Vector2(820.0, 880.0)) / 40.0"
+      ],
+      "expect_min": 3.0
+    },
+    {
+      "name": "guard: no model moved more than its 6\" Move",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var worst = 0.0",
+        "for k in range(u.models.size()):",
+        "\tvar p = u.models[k].position",
+        "\tvar v = Vector2(float(p.x), float(p.y)) if not (p is Vector2) else p",
+        "\tworst = max(worst, v.distance_to(Vector2(690.0 + 65.0 * float(k), 880.0)) / 40.0)",
+        "return worst"
+      ],
+      "expect_max": 6.0
+    },
+    {
+      "name": "guard: it made a Normal move, not an Advance (10.04: an Advance forfeits non-[ASSAULT] shooting)",
+      "script": "return not bool(GameState.state.units.U_CUSTODIAN_GUARD_B.get(\"flags\", {}).get(\"advanced\", false))",
+      "equals": true
+    },
+    {
+      "name": "the move was a recorded movement decision naming obj_center",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_B\":",
+        "\t\t\tcontinue",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"movement\":",
+        "\t\t\tcontinue",
+        "\t\tvar c = r.get(\"candidates\", [])",
+        "\t\tvar ci = int(r.get(\"chosen_index\", -1))",
+        "\t\tif ci >= 0 and ci < c.size() and str(c[ci].get(\"description\", \"\")).find(\"obj_center\") >= 0:",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

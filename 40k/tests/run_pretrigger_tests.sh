@@ -344,6 +344,7 @@ TESTS=(
     "tests/unit/test_reserves_half_army_cap.gd"
     "tests/unit/test_ai_plan_earmarks.gd"
     "tests/unit/test_ai_fix_move_cover.gd"
+    "tests/unit/test_ai_fix_move_for_shot.gd"
     "tests/unit/test_plan_roundtrip.gd"
     "tests/unit/test_plan_coherency_editions.gd"
     "tests/unit/test_deployment_zone_polygon_guard.gd"

@@ -1,0 +1,9 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Move for a shot ON — opt-in, not shipped",
+	"description": "Enables FIX_MOVE_FOR_SHOT: a unit with ranged weapons making a normal move toward its plan objective, whose move as planned would leave it with no eligible ranged target (11e 04.02: visible, in range, unengaged — the engine's own RulesEngine.get_eligible_targets on a hypothetical board), angles or adjusts the end spot so at least one enemy is an eligible target in its Shooting phase: a sight line round obscuring terrain (13.10) or a Solid feature (13.11), a step inside a Hidden target's detection range (13.09 as errata'd, Gone to Ground 13.11.01), into weapon range, or within Lone Operative / Psychic Veil range. Same objective and plan action; at most MOVE_FOR_SHOT_MAX_LOSS_INCHES of objective progress given up, never an extra turn, never lost control range; ties go to the most expected damage. Re-checked on the destinations the mover returns (the flag-off move is kept when the shot is lost). Never for an Advance or a planned charge; a kept FIX_MOVE_COVER spot wins when both are on. F002 (HIDDEN_FORFEIT_PENALTY) is left at its shipped 0 in this arm. NOT the shipped default (ships at 0); this is the arm to load for the fire gate / paired A/B, and what tests/scenarios/sp/ai_move_for_shot.json loads. Fire tag: '[FIX_MOVE_FOR_SHOT] <unit> end spot old=no_shot new=<target>'. Exam: tests/exams/mv06_move_for_a_shot.json.",
+	"parameters": {
+		"FIX_MOVE_FOR_SHOT": 1.0
+	}
+}

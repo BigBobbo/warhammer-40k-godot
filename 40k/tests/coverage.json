@@ -11780,6 +11780,46 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.movement.move_for_shot",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot.",
+      "scenarios": [
+        "ai_move_for_shot"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.obscuring_13_10",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot.",
+      "scenarios": [
+        "ai_move_for_shot"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.select_targets_04_02",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot.",
+      "scenarios": [
+        "ai_move_for_shot"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.solid_13_11",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot.",
+      "scenarios": [
+        "ai_move_for_shot"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }
