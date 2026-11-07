@@ -7152,7 +7152,8 @@ static func _deploy_terrain_fit_11e(role: String, category: String, relation: St
 		if category == "dense" and not detected:
 			fit_score += w.y
 	else:
-		fit_score += (w.x + w.y) * clampf(shadow_share, 0.0, 1.0)
+		var share := clampf(shadow_share, 0.0, 1.0)
+		fit_score += (w.x + w.y) * share
 	if role == "melee":
 		fit_score += get_param("DEPLOY_TERRAIN_FORWARD_WEIGHT", DEPLOY_TERRAIN_FORWARD_WEIGHT) * forwardness
 	return fit_score
@@ -7492,6 +7493,23 @@ static func _deploy_big_units_with_room(snapshot: Dictionary, player: int, unit_
 	var obstacles: Array = []
 	var placed := _deploy_obstacle_circles(snapshot)
 	var key := _deploy_board_key(snapshot, player, frame)
+	# A player's first drop starts a new deployment: forget what an earlier game
+	# on the same board left here, so the result never depends on it.
+	var mine_down := false
+	for uid in units:
+		var u = units[uid]
+		if not (u is Dictionary) or int(u.get("owner", 0)) != player or int(u.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for m in u.get("models", []):
+			if m is Dictionary and m.get("position", null) != null:
+				mine_down = true   # embarked units are DEPLOYED with no positions
+				break
+		if mine_down:
+			break
+	if not mine_down:
+		for ck in _deploy_room_cache.keys():
+			if str(ck).begins_with(key + "|"):
+				_deploy_room_cache.erase(ck)
 	for bu in bigs.slice(0, 3):
 		var ck := key + "|" + str(bu.unit_id)
 		var cached: Array = _deploy_room_cache.get(ck, [])

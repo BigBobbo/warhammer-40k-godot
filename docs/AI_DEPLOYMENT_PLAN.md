@@ -123,6 +123,7 @@ Details for G6:
 - The fragile_shooter cover and LoS weights are swapped (:5617-5620).
 - anti_tank has no scoring branch.
 - `is_top_zone` (:5189) is true for both players on Dawn of War and Sweeping Engagement, because both zones touch y=0, so "front" is wrong on 2 of the 6 maps.
+- **Implemented (P0.3):** `FIX_DEPLOY_FRAME` (zone frame: forward = own zone toward the enemy zone, polygon clamp, chord through non-convex zones) and `FIX_DEPLOY_TERRAIN_11E` (spots from terrain AREA groups — geometry from area polygons only, so wall features parented to a far-away area cannot move anchors; inside dense pockets for INFANTRY/BEASTS/SWARM with every model including attached characters inside and Hidden by the engine's predicate; behind light/dense areas for everyone, searched in the strip behind the area and re-checked for shadow; no Hidden bonus within detection range of the enemy zone; a terrain spot that would leave a still-undeployed big model no legal set-up is refused; the K-card record is written from the final positions and always lists ≥2 options with chosen = best eligible). Both default 1; at 0 each restores the previous behaviour exactly (verified: identical boards and action logs). Count budgets per drop (`DEPLOY_11E_*`, docs/AI_TUNING.md). Tests: `tests/unit/test_ai_deploy_terrain_11e.gd`.
 
 ---
 

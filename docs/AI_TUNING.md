@@ -342,19 +342,91 @@ from 78%.
 
 ### Deployment — terrain preference by role
 
+11e meaning (with `FIX_DEPLOY_TERRAIN_11E` = 1): **COVER** = the unit is
+protected by the terrain area — wholly inside it (13.08 benefit of cover) or
+behind it. **LOS_BLOCK** = sight is blocked — Hidden inside a dense area
+beyond the enemy's detection range (13.09), or obscured behind a light or
+dense area (13.10, scaled by the share of enemy-front sight lines the area
+blocks). The legacy picker (edition 10, or the flag at 0) adds COVER when a
+piece grants cover and LOS_BLOCK when it blocks line of sight.
+
 | Parameter | Default | Meaning |
 |---|---|---|
-| `DEPLOY_TERRAIN_CHAR_COVER` | 2 | deployment terrain, character: piece grants cover |
-| `DEPLOY_TERRAIN_CHAR_LOS_BLOCK` | 5 | deployment terrain, character: piece blocks line of sight |
-| `DEPLOY_TERRAIN_DURABLE_COVER` | 2.5 | deployment terrain, durable ranged: cover |
-| `DEPLOY_TERRAIN_DURABLE_LOS_BLOCK` | 1 | deployment terrain, durable ranged: LoS blocker |
-| `DEPLOY_TERRAIN_FORWARD_WEIGHT` | 2 | deployment terrain, melee: weight on how far forward the piece is |
-| `DEPLOY_TERRAIN_FRAGILE_COVER` | 3.5 | deployment terrain, fragile shooter: cover |
-| `DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK` | 3 | deployment terrain, fragile shooter: LoS blocker |
-| `DEPLOY_TERRAIN_MELEE_COVER` | 1.5 | deployment terrain, melee: cover |
-| `DEPLOY_TERRAIN_MELEE_LOS_BLOCK` | 4 | deployment terrain, melee: LoS blocker to advance behind |
-| `DEPLOY_TERRAIN_SCREEN_COVER` | 2 | deployment terrain, screen: cover |
-| `DEPLOY_TERRAIN_SCREEN_LOS_BLOCK` | 1.5 | deployment terrain, screen: LoS blocker |
+| `DEPLOY_TERRAIN_CHAR_COVER` | 2 | character: protected by the area (inside it or behind it) |
+| `DEPLOY_TERRAIN_CHAR_LOS_BLOCK` | 5 | character: sight blocked (Hidden inside dense / obscured behind) |
+| `DEPLOY_TERRAIN_DURABLE_COVER` | 2.5 | durable ranged: protected by the area |
+| `DEPLOY_TERRAIN_DURABLE_LOS_BLOCK` | 1 | durable ranged: sight blocked |
+| `DEPLOY_TERRAIN_FORWARD_WEIGHT` | 2 | melee: weight on how far forward the spot is (toward the enemy zone) |
+| `DEPLOY_TERRAIN_FRAGILE_COVER` | 3.5 | fragile shooter: protected by the area |
+| `DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK` | 3 | fragile shooter: sight blocked |
+| `DEPLOY_TERRAIN_MELEE_COVER` | 1.5 | melee: protected by the area |
+| `DEPLOY_TERRAIN_MELEE_LOS_BLOCK` | 4 | melee: sight blocked (advance unseen) |
+| `DEPLOY_TERRAIN_SCREEN_COVER` | 2 | screen / general: protected by the area |
+| `DEPLOY_TERRAIN_SCREEN_LOS_BLOCK` | 1.5 | screen / general: sight blocked |
+| `DEPLOY_TERRAIN_ANTITANK_COVER` | 2.5 | anti-tank: protected by the area (= durable ranged, the role these units had before T-108; before P0.3 anti_tank had no arm and scored 0) |
+| `DEPLOY_TERRAIN_ANTITANK_LOS_BLOCK` | 1 | anti-tank: sight blocked (= durable ranged) |
+
+Before P0.3 the fragile_shooter weights were applied the wrong way round
+(COVER on LoS blockers, LOS_BLOCK on cover); `FIX_DEPLOY_TERRAIN_11E` = 0
+keeps that bug for A/B. **Ratchet note:** the role weights must stay compound
+`cover_score += get_param(...)` / `los_score += get_param(...)` lines
+(`_deploy_role_terrain_weights`); routing them through a helper without those
+lines drops the tunable count and fails `tools/ai_lab/ratchet_check.py`.
+
+### Deployment — 11e terrain and zone frame (P0.3)
+
+Two kill switches, both default 1 (correctness fixes; 0 restores the
+previous behaviour exactly, for A/B — measured: identical deployed boards and
+action logs on Crucible, Dawn of War and Sweeping Engagement):
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `FIX_DEPLOY_FRAME` | 1 | "Forward" is from the own zone toward the enemy zone (polygon centroids), for the column baseline, counter-deployment, the terrain pickers' behind side, the melee forward bonus and the depth bonus; spots are clamped into the zone polygon. 0 = the old `is_top_zone` axis, which pointed down the board for both seats on Dawn of War and Sweeping Engagement. |
+| `FIX_DEPLOY_TERRAIN_11E` | 1 | At edition 11: spots from terrain AREAS — inside dense pockets for INFANTRY / BEASTS / SWARM (every model, attached characters included, Hidden by the engine's 13.09 predicate), behind light / dense areas for everyone — each built as a legal formation or skipped; the record is written from the final positions; fragile swap fixed; anti_tank arm. 0 = the old next-to-piece picker and record. |
+
+Scoring (all additive, `sum(terms) == score`):
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DEPLOY_11E_HIDDEN_BONUS` | 2 | `deploy_hidden`: inside a dense area with every model Hidden, beyond detection range of the enemy zone |
+| `DEPLOY_TERRAIN_MIN_SCORE` | 1 | a terrain spot must score at least this, else the column-layout spot (the old literal 1.0) |
+| `DEPLOY_TERRAIN_OBJECTIVE_WEIGHT` | 1 | `deploy_objectives`: per objective within 10", this × (1 − distance / 10") |
+| `DEPLOY_TERRAIN_DEPTH_MELEE` | 1.5 | `deploy_depth`, melee: this × forwardness (1 = the zone's front edge) |
+| `DEPLOY_TERRAIN_DEPTH_FRAGILE` | 1 | `deploy_depth`, character / fragile shooter: this × (1 − forwardness) |
+| `DEPLOY_TERRAIN_DRIFT_PER_INCH` | 0.2 | `deploy_drift`: −this per inch from the column-layout spot (= the old −1 per 200 px) |
+| `DEPLOY_TERRAIN_MAX_LATERAL_DRIFT` | 0.4 | spots further across the zone (along its lateral axis) than this share of its width are dropped |
+| `DEPLOY_11E_MIN_SHADOW` | 0.25 | a behind spot must block at least this share of the enemy-front sight lines |
+| `DEPLOY_11E_SHADOW_SAMPLES` | 8 | (int) enemy-front points sampled per behind spot; 0 = assume full shadow (no line-of-sight calls) |
+| `DEPLOY_11E_BEHIND_REACH_IN` | 3 | areas with a vertex within this of the own zone give behind spots |
+| `DEPLOY_11E_BEHIND_CLEARANCE_IN` | 1 | gap between an area's back edge and the formation's reach |
+| `DEPLOY_11E_BEHIND_MAX_SHIFT_IN` | 2 | a behind formation built further than this from its anchor must still pass the shadow check |
+| `DEPLOY_11E_BASELINE_AVOID_SHIFT_IN` | 4 | column spot for a hide-capable unit: first kept out of every dense area within this, so it is never partly Hidden |
+| `DEPLOY_11E_BIG_BASE_IN` | 2 | (bounding radius) a still-undeployed unit with a model this large must keep a legal set-up — a terrain spot that would take its last one is refused (Stompa, Battlewagons, Wartrikes, Wazdakka) |
+
+Detection range (13.09): a pocket within the unit's detection range (15"
+unless a datasheet says otherwise) of the enemy deployment zone can be seen
+by an enemy model set up at that zone's edge, so it gets no
+`DEPLOY_11E_HIDDEN_BONUS` and no LOS_BLOCK weight — only COVER (13.08).
+On the shipped maps only Search and Destroy (zones 12.7" apart) has such
+pockets; Sweeping Engagement's zones are 16" apart.
+
+Work budgets — counts, never wall-clock, no RNG (deterministic on any
+machine). Per drop: at most `DEPLOY_11E_MAX_BUILD_TRIES` spots are built,
+each within `DEPLOY_11E_BUILD_MAX_EVALS` evaluations / `_MAX_FRESH` fresh
+checks, all of them (plus room probes and the avoid-dense column try)
+within `DEPLOY_11E_DROP_MAX_EVALS` / `_DROP_MAX_FRESH`; spots past a budget
+are listed as "not tried". Then the unconstrained P0.1 build at the column
+spot keeps its own `DEPLOY_FORMATION_*` budgets.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DEPLOY_11E_MAX_BUILD_TRIES` | 12 | (int) terrain spots built per drop |
+| `DEPLOY_11E_BUILD_MAX_EVALS` | 8000 | (int) builder evaluations per spot |
+| `DEPLOY_11E_BUILD_MAX_FRESH` | 3000 | (int) builder fresh checks per spot |
+| `DEPLOY_11E_DROP_MAX_EVALS` | 24000 | (int) builder evaluations per drop (spots + room probes + avoid-dense try) |
+| `DEPLOY_11E_DROP_MAX_FRESH` | 10000 | (int) builder fresh checks per drop (same) |
+| `DEPLOY_11E_ROOM_CHECKS` | 3 | (int) room-left re-probes per drop |
+| `DEPLOY_11E_ROOM_CHECK_EVALS` | 3000 | (int) evaluations per room-left probe |
 
 ### Deployment — scout objective choice
 

@@ -125,6 +125,7 @@ gc["player2_type"] = "AI"
 GameState.state["meta"]["game_config"] = gc
 AIPlayer.clear_action_log()
 FormationBuilder.reset_stats()
+AIDecisionMaker.reset_deploy_drop_stats()
 # Fresh event log per run so failed-attempt counts are per-run (dev harness only).
 GameEventLog.entries.clear()
 tree.change_scene_to_file("res://scenes/Main.tscn")
@@ -156,6 +157,9 @@ out["phase_after"] = int(GameState.state["meta"].get("phase", -1))
 # (zone / Infiltrators, walls, board, overlaps both ways, coherency with
 # attached characters judged as one unit — 19.01 + 03.03).
 out["formation_builder"] = FormationBuilder.stats()
+# P0.3: whole-decision time per drop (every build of the drop included) and
+# the 11e picker's outcomes (inside / behind / column spot).
+out["deploy_drops"] = AIDecisionMaker.deploy_drop_stats()
 var audit = DeploymentEval.audit_legality(GameState.state)
 out["audit"] = {"violations": audit.violations, "models": audit.models, "zone": audit.zone,
 	"infiltrators": audit.infiltrators, "wall": audit.wall, "board": audit.board,
@@ -225,10 +229,16 @@ def main():
                     continue
                 fbs = r.get("formation_builder", {})
                 au = r.get("audit", {})
+                dds = r.get("deploy_drops", {})
                 print("%-28s %-20s seed=%-4d builder builds=%s no_legal=%s gate_rej=%s max=%.0fms (%s) | audit violations=%s %s" % (
                     fx, zone, seed, fbs.get("builds", "?"), fbs.get("no_legal", "?"), fbs.get("gate_rejections", "?"),
                     float(fbs.get("max_us", 0)) / 1000.0, fbs.get("max_unit", ""), au.get("violations", "?"),
                     au.get("problems", [])[:3]), flush=True)
+                print("%-28s %-20s seed=%-4d drops=%s worst drop=%.0fms (%s) mean=%.0fms | picks inside=%s behind=%s column=%s | spot builds=%s unbuildable=%s" % (
+                    fx, zone, seed, dds.get("drops", "?"), float(dds.get("max_us", 0)) / 1000.0, dds.get("max_unit", ""),
+                    float(dds.get("total_us", 0)) / 1000.0 / max(1, int(dds.get("drops", 0) or 1)),
+                    dds.get("inside", "?"), dds.get("behind", "?"), dds.get("baseline", "?"),
+                    dds.get("spot_tries", "?"), dds.get("unbuildable", "?")), flush=True)
                 for p in ("1", "2"):
                     m = r[p]
                     print("%-28s %-20s seed=%-4d P%s forced=%d failed=%d reserves=%d on=%d hideable_multi=%d full_multi=%d leak=%d open=%d home=%s gap=%.1f\"%s" % (
@@ -237,7 +247,8 @@ def main():
                         m.get("home_objective", {}).get("occupied"), m["min_gap_to_enemy_zone_in"],
                         (" seen=%d" % m["seen_by_enemy_units_any"]) if a.visibility else ""), flush=True)
     tot = {"forced": 0, "failed": 0, "multi": 0, "full_multi": 0, "leak": 0, "runs": 0,
-           "audit_violations": 0, "builder_no_legal": 0, "builder_gate_rejections": 0, "builder_max_ms": 0.0}
+           "audit_violations": 0, "builder_no_legal": 0, "builder_gate_rejections": 0, "builder_max_ms": 0.0,
+           "drop_max_ms": 0.0, "drops": 0, "drop_total_ms": 0.0, "home_held": 0, "home_known": 0}
     for r in results:
         if "error" in r:
             continue
@@ -247,8 +258,17 @@ def main():
         tot["builder_no_legal"] += int(fbs.get("no_legal", 0))
         tot["builder_gate_rejections"] += int(fbs.get("gate_rejections", 0))
         tot["builder_max_ms"] = max(tot["builder_max_ms"], float(fbs.get("max_us", 0)) / 1000.0)
+        dds = r.get("deploy_drops", {})
+        tot["drop_max_ms"] = max(tot["drop_max_ms"], float(dds.get("max_us", 0)) / 1000.0)
+        tot["drops"] += int(dds.get("drops", 0))
+        tot["drop_total_ms"] += float(dds.get("total_us", 0)) / 1000.0
         for p in ("1", "2"):
             m = r[p]
+            ho = m.get("home_objective", {})
+            if ho.get("known"):
+                tot["home_known"] += 1
+                if ho.get("occupied"):
+                    tot["home_held"] += 1
             tot["forced"] += m["forced_reserves"]
             tot["failed"] += m["failed_attempts"]
             tot["multi"] += m["hide_capable_multi"]
@@ -256,8 +276,10 @@ def main():
             tot["leak"] += m["leakers"]
     print("TOTAL runs=%d forced_reserves=%d failed_attempts=%d fully_hidden_multi=%d/%d leakers=%d" % (
         tot["runs"], tot["forced"], tot["failed"], tot["full_multi"], tot["multi"], tot["leak"]))
-    print("TOTAL legality audit violations=%d | builder no_legal=%d gate_rejections=%d worst drop=%.0f ms" % (
+    print("TOTAL legality audit violations=%d | builder no_legal=%d gate_rejections=%d worst build=%.0f ms" % (
         tot["audit_violations"], tot["builder_no_legal"], tot["builder_gate_rejections"], tot["builder_max_ms"]))
+    print("TOTAL drops=%d worst drop (whole decision)=%.0f ms mean=%.0f ms | home objective held %d/%d seat-runs" % (
+        tot["drops"], tot["drop_max_ms"], tot["drop_total_ms"] / max(1, tot["drops"]), tot["home_held"], tot["home_known"]))
     if a.out:
         with open(a.out, "w") as fh:
             json.dump({"results": results, "totals": tot}, fh, indent=1)
