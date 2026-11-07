@@ -136,3 +136,88 @@ static func waive_this_turn_diffs(unit_id: String, board: Dictionary = {}) -> Ar
 		if f.has(F_LEGACY):
 			out.append({"op": "remove", "path": "units.%s.flags.%s" % [str(cid), F_LEGACY]})
 	return out
+
+# --- save compatibility -------------------------------------------------------
+
+## The Attached units of a save's (or board's) units dict: {head_id: [head_id,
+## component ids...]} for every unit that heads one — BOTH link directions, as
+## RulesEngine.attached_unit_component_ids (saves exist where only one side was
+## written). Plain dictionary walk: the StateSerializer migration runs before
+## the autoloads' board helpers can be trusted with raw save data.
+static func attached_groups(units: Dictionary) -> Dictionary:
+	var groups := {}
+	for uid in units:
+		var u = units[uid]
+		if not u is Dictionary:
+			continue
+		var ad = u.get("attachment_data", {})
+		if not ad is Dictionary:
+			continue
+		for cid in ad.get("attached_characters", []):
+			var c := str(cid)
+			if c == str(uid) or not units.has(c):
+				continue
+			if not groups.has(str(uid)):
+				groups[str(uid)] = [str(uid)]
+			if not c in groups[str(uid)]:
+				groups[str(uid)].append(c)
+	for uid in units:
+		var u = units[uid]
+		if not u is Dictionary:
+			continue
+		var bp = u.get("attached_to", null)
+		if bp == null or str(bp) == "" or str(bp) == str(uid) or not units.has(str(bp)):
+			continue
+		var h := str(bp)
+		if not groups.has(h):
+			groups[h] = [h]
+		if not str(uid) in groups[h]:
+			groups[h].append(str(uid))
+	return groups
+
+## Save compatibility (StateSerializer 1.3.0 -> 1.4.0): saves written before
+## this record existed stamped only the component that was the active shooter
+## (the bodyguard dict), so an attached CHARACTER carried no record. With the
+## 01.02.07 any-model "hidden unit" helpers that leader then read as hidden in
+## terrain, and the whole Attached unit as a "hidden unit", for up to two turns
+## after the load although it had just shot. 19.01 — one unit, one record: every
+## component gets the record of the component that shot most recently (its
+## last_shot_idx, and prev_shot_idx / last_ranged_attack_idx when present), and
+## shot_recently when any component has it. Idempotent; mutates `units` in
+## place. Returns the number of component records written.
+static func unify_attached_records(units: Dictionary) -> int:
+	var written := 0
+	var groups := attached_groups(units)
+	for head in groups:
+		var holder: Dictionary = {}
+		var best := NEVER
+		var legacy := false
+		for cid in groups[head]:
+			var f = units[cid].get("flags", {})
+			if not f is Dictionary:
+				continue
+			if bool(f.get(F_LEGACY, false)):
+				legacy = true
+			if f.has(F_LAST) and int(f[F_LAST]) > best:
+				best = int(f[F_LAST])
+				holder = f
+		if holder.is_empty() and not legacy:
+			continue
+		for cid in groups[head]:
+			var u: Dictionary = units[cid]
+			if not u.get("flags", null) is Dictionary:
+				u["flags"] = {}
+			var f: Dictionary = u["flags"]
+			var changed := false
+			if not holder.is_empty() and not is_same(f, holder) and int(f.get(F_LAST, NEVER)) < best:
+				f[F_LAST] = best
+				for k in [F_PREV, F_ATTACK]:
+					if holder.has(k):
+						f[k] = holder[k]
+				changed = true
+			if legacy and not bool(f.get(F_LEGACY, false)):
+				f[F_LEGACY] = true
+				changed = true
+			if changed:
+				written += 1
+	return written

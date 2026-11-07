@@ -19,7 +19,12 @@ signal serialization_error(error: String)
 #          dispatch spellings (Da Jump (Psychic) -> Da Jump, Ramshackle but
 #          Rugged -> Ramshackle) — mirrors ArmyListManager.ABILITY_NAME_CANON
 #          so saves made from the renamed rosters regain their mechanics
-const CURRENT_VERSION = "1.3.0"
+# 1.4.0 - 13.09 Hidden shot record (scripts/rules/HiddenShotRecord.gd): every
+#          component of an Attached unit carries flags.last_shot_idx (older
+#          saves stamped only the shooting bodyguard dict, so an attached
+#          leader read as hidden after loading)
+const CURRENT_VERSION = "1.4.0"
+const HiddenShotRecordScript = preload("res://scripts/rules/HiddenShotRecord.gd")
 const MINIMUM_MIGRATABLE_VERSION = "1.0.0"
 
 # Migration registry: maps source_version -> { "target": next_version, "migrate": Callable }
@@ -61,6 +66,10 @@ func _register_migrations() -> void:
 	_migrations["1.2.0"] = {
 		"target": "1.3.0",
 		"migrate": _migrate_1_2_0_to_1_3_0
+	}
+	_migrations["1.3.0"] = {
+		"target": "1.4.0",
+		"migrate": _migrate_1_3_0_to_1_4_0
 	}
 
 func migrate_save_data(data: Dictionary) -> Dictionary:
@@ -268,6 +277,21 @@ func _migrate_1_2_0_to_1_3_0(data: Dictionary) -> Dictionary:
 					ability["name"] = canon
 					renamed += 1
 	print("StateSerializer: _migrate_1_2_0_to_1_3_0: canonicalized %d ability names" % renamed)
+	return data
+
+func _migrate_1_3_0_to_1_4_0(data: Dictionary) -> Dictionary:
+	# 13.09 HIDDEN shot record. Saves written before HiddenShotRecord stamped
+	# only the active shooter — an Attached unit's bodyguard dict — so its
+	# attached CHARACTER had no flags.last_shot_idx; with the 01.02.07 any-model
+	# "hidden unit" helpers that leader read as hidden in terrain (and the whole
+	# unit as a hidden unit: Nowhere to Hide, Venator Omni-auspex, STRIKE FROM
+	# THE SHADOWS) for up to two turns after loading. Every component now gets
+	# the record of the component that shot most recently (19.01).
+	var units = data.get("units", {})
+	if not units is Dictionary:
+		return data
+	var unified: int = HiddenShotRecordScript.unify_attached_records(units)
+	print("StateSerializer: _migrate_1_3_0_to_1_4_0: shot record copied to %d attached-unit component(s)" % unified)
 	return data
 
 # Main serialization methods
