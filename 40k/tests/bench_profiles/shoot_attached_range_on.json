@@ -1,0 +1,9 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Shoot the Attached unit in range ON — opt-in, not shipped",
+	"description": "Enables FIX_SHOOT_ATTACHED_RANGE: the shooting phase's damage and score estimates (the focus-fire damage matrix, the fallback scorer, the target summary, F002's shot worth and FIX_MOVE_COVER's hold-fire bound) and the engaged-pistol filter measure the range to an enemy Attached unit across every model of it — the bodyguard's and each attached CHARACTER's, both link directions — exactly the list the engine's range check walks (RulesEngine._target_model_entries). 11e 04.02: a target must be within range of the weapon; 01.04.01 (errata commentary): a unit is within a distance if one or more of its models are; 19.01: an attached unit is a single unit for all rules purposes. So an Attached unit that only its leader puts within range is shot instead of skipped as 'no valid targets in range'. Half range (RAPID FIRE / MELTA) reads the same distance. NOT the shipped default (ships at 0); this is the arm to load for the fire gate / paired A/B. Fire tag: '[FIX_SHOOT_ATTACHED_RANGE] <shooter> -> <target> ... range old=... new=...'. Exam: tests/exams/sh03_shoot_the_leader_in_range.json.",
+	"parameters": {
+		"FIX_SHOOT_ATTACHED_RANGE": 1.0
+	}
+}

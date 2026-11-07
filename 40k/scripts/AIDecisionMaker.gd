@@ -2896,6 +2896,35 @@ const MOVE_FOR_CHARGE_DECLARE_RANGE_INCHES: float = 12.0
 const MOVE_FOR_CHARGE_MAX_ROLL: int = 12
 
 # =============================================================================
+# FIX_SHOOT_ATTACHED_RANGE — a shot is in range of the whole Attached unit (11e 04.02 / 19.01)
+# =============================================================================
+# What: the shooting phase's damage and score estimates (_estimate_weapon_damage,
+# _score_shooting_target — the focus-fire damage matrix, the fallback scorer,
+# the target summary, F002's shot worth and FIX_MOVE_COVER's hold-fire bound
+# all go through them) and the T7-48 engaged-pistol filter measure the range
+# to an enemy Attached unit across EVERY model of it — the bodyguard's, then
+# each attached CHARACTER's, both link directions (_attached_unit_components:
+# RulesEngine.attached_unit_component_ids, the list the engine's own range /
+# sight-line checks walk through RulesEngine._target_model_entries). 04.02:
+# each target must be "within range of that weapon"; 01.04.01 (errata
+# commentary): "A unit is within a specified distance if one or more of its
+# models are within that distance"; 19.01: "An attached unit is a single unit
+# for all rules purposes". Half range (RAPID FIRE, MELTA) is read off the same
+# distance. Toughness / save stay the bodyguard dict's.
+# Evidence: exam sh03 (ork11e_orks_reactive) — Custodian Guard A's spears reach
+# the Warboss attached to Boyz B (23" away) but no Boy (25"+): the engine lists
+# the Boyz as an eligible target with the spears in range, yet every estimate
+# measured to the Boyz' own models said 0 and the unit skipped "no valid
+# targets in range", throwing its Shooting phase away.
+# Fire tag: one "[FIX_SHOOT_ATTACHED_RANGE] <shooter> -> <target> ..." line per
+# estimate where the whole-unit distance moves the answer across the gate the
+# caller compares it with (weapon range, engagement range) or across half range
+# for a RAPID FIRE / MELTA weapon. 0 = previous behaviour (the flag is the first
+# test; the distance and every estimate are unchanged). Shipped OFF until the
+# paired evaluator clears it. Opt-in: tests/bench_profiles/shoot_attached_range_on.json.
+const FIX_SHOOT_ATTACHED_RANGE: float = 0.0        # 1 = measure a shot to every model of the target's Attached unit
+
+# =============================================================================
 # OVERWATCH EXPOSURE (corpus finding F004)
 # =============================================================================
 # 11e moved Fire Overwatch to the end of the opponent's Movement phase; this
@@ -19248,7 +19277,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			fallback_enemies = {}
 			for enemy_id in enemies:
 				var enemy = enemies[enemy_id]
-				var er_dist = _get_closest_model_distance_inches(unit, enemy)
+				var er_dist = _shot_target_distance_inches(unit, enemy, snapshot, 1.0)
 				if er_dist <= 1.0:
 					fallback_enemies[enemy_id] = enemy
 			if fallback_enemies.is_empty():
@@ -19755,8 +19784,9 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var enemy = enemies[enemy_id]
 
 			# T7-48: Pistol weapons from engaged units can only target enemies in engagement range
+			# (FIX_SHOOT_ATTACHED_RANGE: an enemy Attached unit's leader counts, 19.01)
 			if weapon_in_engagement and _is_weapon_dict_pistol(weapon):
-				var er_dist = _get_closest_model_distance_inches(shooter_unit, enemy)
+				var er_dist = _shot_target_distance_inches(shooter_unit, enemy, snapshot, 1.0)
 				if er_dist > 1.0:
 					dmg_row[enemy_id] = 0.0
 					continue
@@ -20567,11 +20597,11 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	Similar to _score_shooting_target but returns raw expected damage without bonuses,
 	and checks range. Includes weapon keyword modifiers (SHOOT-5).
 	"""
-	# Range check
+	# Range check (FIX_SHOOT_ATTACHED_RANGE: to the whole Attached unit, 19.01)
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
 	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _shot_target_distance_inches(shooter_unit, target_unit, snapshot, weapon_range_inches, weapon)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
@@ -22273,6 +22303,46 @@ static func _unit_has_melee_weapons(unit: Dictionary) -> bool:
 		if w.get("type", "").to_lower() == "melee":
 			return true
 	return false
+
+## FIX_SHOOT_ATTACHED_RANGE: the edge distance (inches) from `shooter_unit` to
+## the enemy unit a shot is aimed at. Off (the shipped 0): to `target_unit`'s
+## own models, as before. On: to every model of the Attached unit it heads —
+## its own, then each attached CHARACTER's, both link directions
+## (_attached_unit_components, as RulesEngine._target_model_entries) — the
+## nearest one decides (01.04.01, 19.01). `gate_inches` is the distance the
+## caller compares the answer with (a weapon's range, engagement range);
+## `weapon`, when given, is also checked for half range (RAPID FIRE / MELTA).
+## The fire tag prints once per call where the whole-unit distance moves the
+## answer across either.
+static func _shot_target_distance_inches(shooter_unit: Dictionary, target_unit: Dictionary, snapshot: Dictionary,
+		gate_inches: float, weapon: Dictionary = {}) -> float:
+	var d_own := _get_closest_model_distance_inches(shooter_unit, target_unit)
+	if get_param("FIX_SHOOT_ATTACHED_RANGE", FIX_SHOOT_ATTACHED_RANGE) < 0.5:
+		return d_own
+	var comps := _attached_unit_components(target_unit, snapshot)
+	if comps.size() < 2:
+		return d_own
+	var d := d_own
+	var via := ""
+	for i in range(1, comps.size()):
+		var dc := _get_closest_model_distance_inches(shooter_unit, comps[i])
+		if dc < d:
+			d = dc
+			via = _dn(comps[i], str(comps[i].get("id", "")))
+	if d >= d_own:
+		return d_own
+	var gate_flip := gate_inches > 0.0 and (d_own > gate_inches) != (d > gate_inches)
+	var half_flip := false
+	if not gate_flip and not weapon.is_empty() and gate_inches > 0.0:
+		var sr := str(weapon.get("special_rules", "")).to_lower()
+		if _parse_rapid_fire_value(sr) > 0 or _parse_melta_value(sr) > 0:
+			half_flip = (d_own <= gate_inches / 2.0) != (d <= gate_inches / 2.0)
+	if gate_flip or half_flip:
+		print("AIDecisionMaker: [FIX_SHOOT_ATTACHED_RANGE] %s -> %s%s range old=%.1f\" new=%.1f\" (via %s) gate=%.1f\"%s" % [
+			_dn(shooter_unit, str(shooter_unit.get("id", ""))), _dn(target_unit, str(target_unit.get("id", ""))),
+			(" " + str(weapon.get("name", ""))) if not weapon.is_empty() else "", d_own, d, via, gate_inches,
+			" (half range)" if half_flip else ""])
+	return d
 
 static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dictionary) -> float:
 	"""Get the minimum edge-to-edge distance in inches between any two models of two units.
@@ -27914,11 +27984,12 @@ static func _parse_sustained_hits_value(special_rules_lower: String) -> float:
 	return 0.0
 
 static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
-	# --- Range check: score 0 for out-of-range targets ---
+	# --- Range check: score 0 for out-of-range targets (FIX_SHOOT_ATTACHED_RANGE:
+	# to the whole Attached unit, 19.01) ---
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
 	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _shot_target_distance_inches(shooter_unit, target_unit, snapshot, weapon_range_inches, weapon)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
