@@ -385,20 +385,32 @@ growth fallback; the result is checked with the live
 never wall-clock, and there is no RNG, so the same board gives the same
 formation on any machine.
 
+Growth (when no block fits): seeds are ranked by FREE ROOM — the legal cells
+for the unit's first model within a disc as large as the unit's whole
+footprint (at least 3") — roomiest first, ties nearest the chosen spot, so a
+crowded zone still finds open ground far from the spot. A unit led by a
+character bigger than its own models (a 150 mm Wartrike) tries three growth
+plans in turn (seed a bodyguard model with the character next to it, seed
+the character, characters last); if that character has no legal cell at all
+the growth stops at once. Template legality (overlaps and coherency of every
+block / attached-character variant) is outside the count budgets but bounded
+per unit signature and cached, so the first build of a unit type in a session
+is slower than later ones at the same counts and the same result.
+
 | Parameter | Default | Meaning |
 |---|---|---|
 | `DEPLOY_FORMATION_BUILDER` | 1 | Kill switch (correctness fix, ships ON). 0 restores the pre-P0.1 formula tail, plan legality / repair and AIPlayer retry exactly — for A/B only; at 0 the AI again sends formations the phase refuses and falls back to Strategic Reserves. |
 | `DEPLOY_FORMATION_MAX_EVALS` | 80000 | (int) anchor × block evaluations per drop |
 | `DEPLOY_FORMATION_MAX_FRESH` | 16000 | (int) fresh per-position legality checks per drop (cached results do not count) |
 | `DEPLOY_FORMATION_SAT_VARIANTS` | 10 | (int) attached-character slot variants tried per rotation combination |
-| `DEPLOY_FORMATION_GROW_SEEDS` | 60 | (int) seeds for the model-by-model growth fallback |
-| `DEPLOY_FORMATION_MAX_GROW_WORK` | 400000 | (int) growth-fallback work units (about 1 µs each) |
+| `DEPLOY_FORMATION_GROW_SEEDS` | 120 | (int) seeds for the model-by-model growth fallback, all growth plans together |
+| `DEPLOY_FORMATION_MAX_GROW_WORK` | 800000 | (int) growth-fallback work units (about 1 µs each; a seed of a 7-model attached unit costs ~3-7k, of a 22-model one ~15-30k) |
 
-A unit with no legal set-up anywhere in the zone goes to Strategic Reserves
-within the 50% caps (`[FORMATION] DEFECT forced reserve`, a warning); only
-if the caps refuse it too is it placed past them so deployment can finish
-(an ERROR — decision D5 in docs/AI_DEPLOYMENT_PLAN.md §10). Neither fired in
-the P0 measurements.
+A unit for which no legal set-up was FOUND (within these budgets — not proof
+that none exists) goes to Strategic Reserves within the 50% caps
+(`[FORMATION] DEFECT forced reserve`, a warning); only if the caps refuse it
+too is it placed past them so deployment can finish (an ERROR — decision D5
+in docs/AI_DEPLOYMENT_PLAN.md §10).
 
 ### Deployment — 11e terrain and zone frame (P0.3)
 
@@ -428,7 +440,7 @@ Scoring (all additive, `sum(terms) == score`):
 | `DEPLOY_11E_BEHIND_CLEARANCE_IN` | 1 | gap between an area's back edge and the formation's reach |
 | `DEPLOY_11E_BEHIND_MAX_SHIFT_IN` | 2 | a behind formation built further than this from its anchor must still pass the shadow check |
 | `DEPLOY_11E_BASELINE_AVOID_SHIFT_IN` | 4 | column spot for a hide-capable unit: first kept out of every dense area within this, so it is never partly Hidden |
-| `DEPLOY_11E_BIG_BASE_IN` | 2 | (bounding radius) a still-undeployed unit with a model this large must keep a legal set-up — a terrain spot that would take its last one is refused (Stompa, Battlewagons, Wartrikes, Wazdakka) |
+| `DEPLOY_11E_BIG_BASE_IN` | 2 | (bounding radius) a still-undeployed unit with a model of its OWN this large (Stompa, Battlewagons, Wazdakka, an unattached Wartrike) must keep a legal set-up: a terrain spot that would take its last one is refused, and the column spot is first built with the known set-ups of all such units as obstacles (the unconstrained build only if that finds nothing). An attached unit is not sized by its characters: protecting Wartrike-led Warbikers that way fragmented crowded zones (measured: one more forced reserve in the 45-layout sweep). |
 
 Detection range (13.09): a pocket within the unit's detection range (15"
 unless a datasheet says otherwise) of the enemy deployment zone can be seen
@@ -441,9 +453,20 @@ Work budgets — counts, never wall-clock, no RNG (deterministic on any
 machine). Per drop: at most `DEPLOY_11E_MAX_BUILD_TRIES` spots are built,
 each within `DEPLOY_11E_BUILD_MAX_EVALS` evaluations / `_MAX_FRESH` fresh
 checks, all of them (plus room probes and the avoid-dense column try)
-within `DEPLOY_11E_DROP_MAX_EVALS` / `_DROP_MAX_FRESH`; spots past a budget
-are listed as "not tried". Then the unconstrained P0.1 build at the column
-spot keeps its own `DEPLOY_FORMATION_*` budgets.
+within `DEPLOY_11E_DROP_MAX_EVALS` / `_DROP_MAX_FRESH`. Then at most two
+column-spot builds with the `DEPLOY_FORMATION_*` budgets each (growth
+included): the room-guarded one and, only if it finds nothing, the
+unconstrained last resort. `AIDecisionMaker.deploy_drop_count_bound()` is
+that sum (evaluations, fresh checks, growth work); `deploy_drop_stats()`
+records the largest counts one drop used, and the tests assert them.
+
+The K card words a spot that was not used by its reason: "not tried" (the
+drop's budget was spent before it), "no legal set-up found within the build
+budget" (its own build ran out), "the build budget ran out checking room for
+X", "it would take the last legal set-up of X", "only part of the unit would
+be Hidden", "the nearest legal set-up is out of the area's shadow", and only a
+spot where nothing fitted says "no legal set-up fits there" — the only kind
+counted as unbuildable.
 
 | Parameter | Default | Meaning |
 |---|---|---|

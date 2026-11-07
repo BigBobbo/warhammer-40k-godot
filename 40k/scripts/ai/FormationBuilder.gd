@@ -204,8 +204,8 @@ static func model_slots(snapshot: Dictionary, player: int, unit_id: String, opts
 static func attach_satellites(snapshot: Dictionary, player: int, unit_id: String, positions: Array, rotations: Array, opts: Dictionary = {}) -> Dictionary:
 	"""Fixed bodyguard positions (e.g. a plan placement already checked with
 	placement_errors) -> legal positions for the unit's UNDEPLOYED attached
-	characters. Returns {ok, reason, combined_char_data}; ok with an empty
-	combined_char_data when there is nothing to attach."""
+	characters. Returns {ok, reason, combined_char_data, gate_rejections}; ok
+	with an empty combined_char_data when there is nothing to attach."""
 	var ctx := _make_ctx(snapshot, player, unit_id, opts)
 	if not ctx.get("error", "").is_empty():
 		return {"ok": false, "reason": str(ctx.error), "combined_char_data": {}}
@@ -251,12 +251,12 @@ static func attach_satellites(snapshot: Dictionary, player: int, unit_id: String
 		cand.rotations = rotations.duplicate()
 		var g := _gate(ctx, cand)
 		if g.ok:
-			return {"ok": true, "reason": "", "combined_char_data": cand.ccd, "template": t.name}
+			return {"ok": true, "reason": "", "combined_char_data": cand.ccd, "template": t.name, "gate_rejections": ctx.gate_rejections}
 		# L2-3: the header's contract — a position-level refusal excludes the
 		# candidate at most MAX_GATE_REJECTIONS times (each one is a DEFECT).
 		if g.unit_level or ctx.gate_rejections >= MAX_GATE_REJECTIONS:
-			return {"ok": false, "reason": "refused: %s" % "; ".join(g.errors), "combined_char_data": {}}
-	return {"ok": false, "reason": "no satellite slot fits beside the fixed placement", "combined_char_data": {}}
+			return {"ok": false, "reason": "refused: %s" % "; ".join(g.errors), "combined_char_data": {}, "gate_rejections": ctx.gate_rejections}
+	return {"ok": false, "reason": "no satellite slot fits beside the fixed placement", "combined_char_data": {}, "gate_rejections": ctx.gate_rejections}
 
 static func placement_errors(snapshot: Dictionary, player: int, unit_id: String, positions: Array, rotations: Array, combined_char_data: Dictionary = {}, opts: Dictionary = {}) -> Array:
 	"""Every reason DeploymentPhase would refuse this placement, plus the

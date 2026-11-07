@@ -24,7 +24,14 @@ extends SceneTree
 #     growth succeeds (grown) and is phase-legal;
 #  H. a legacy pixel-`vertices` zone; Infiltrators kept more than 8" away;
 #  I. a unit-level refusal (AIRCRAFT, 23.01) through the LIVE phase gate
-#     aborts at once (no position search, no DEFECT).
+#     aborts at once (no position search, no DEFECT);
+#  K. L2-2: in a crowded zone where no block fits, growth seeds ranked by free
+#     room find the open ground far from the desired spot (the reviewer's
+#     Sweeping Engagement case: 20 Boyz led by a 150 mm Wartrike + 40 mm boss,
+#     and by a 40 mm + 32 mm pair) at the DEFAULT budgets, phase-legal;
+#  L. L2-3: attach_satellites stops after MAX_GATE_REJECTIONS refusals;
+#  M. L2-1: a satellite variant's cheap legality check (character pairs +
+#     merged coherency only) gives the full check's verdict for every variant.
 #
 # Run with: godot --headless --path . -s tests/unit/test_formation_builder.gd
 
@@ -87,6 +94,9 @@ func _run():
 		test_legacy_zone_and_infiltrators()
 		test_unit_level_gate_abort()   # leaves the live phase in DEPLOYMENT
 		test_aiplayer_retry_and_marker()
+		test_attach_satellites_gate_cap()   # needs the live DEPLOYMENT phase
+		test_variant_check_equivalence()
+		test_crowded_growth_finds_open_ground()
 		print("\nTotal %d ms; builder stats %s" % [Time.get_ticks_msec() - t0, str(FB.stats())])
 		GameConstants.edition = 11
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
@@ -509,7 +519,8 @@ func test_unit_level_gate_abort() -> void:
 	var st: Dictionary = FB.stats()
 	_assert(not res.ok and str(res.reason).find("AIRCRAFT") >= 0 and int(res.gate_rejections) == 0 and int(st.gate_rejections) == 0,
 		"the live DeploymentPhase gate refuses AIRCRAFT: ok=false, no DEFECT rejection counted ('%s')" % str(res.reason).left(90))
-	_assert(int(res.evals) <= 2 and ms < 1000, "…at once: %d evaluation(s), %d ms" % [int(res.evals), ms])
+	# By count (L6-2); the wall clock only as a generous hang guard.
+	_assert(int(res.evals) <= 2 and ms < 5000, "…at once: %d evaluation(s) (%d ms)" % [int(res.evals), ms])
 	var fake: Dictionary = snap.duplicate(true)
 	fake.units["U_GRETCHIN_A"]["status"] = 7   # not the live state -> placement_errors judges it
 	var r2: Dictionary = FB.build_deployment(fake, 1, uid, _zone_point(1, 0.5, 0.5))
@@ -554,3 +565,90 @@ func test_aiplayer_retry_and_marker() -> void:
 	_assert(not out.get("success", true) and str(out.get("error", "")).contains("No legal set-up")
 		and int(GS.state.units["U_STORMBOYZ_A"].status) == 0,
 		"accepting a 'no legal set-up' suggestion is refused and changes nothing ('%s')" % str(out.get("error", "")))
+
+# --- L. attach_satellites: at most MAX_GATE_REJECTIONS refusals (L2-3) ----------
+
+func test_attach_satellites_gate_cap() -> void:
+	print("\n--- L. attach_satellites stops after MAX_GATE_REJECTIONS gate refusals (L2-3) ---")
+	var pm = root.get_node("PhaseManager")
+	_board("hammer_anvil")
+	_add_unit("T_MOB", 1, _circles(10, 32), ["INFANTRY", "ORKS"], {"attachment_data": {"attached_characters": ["T_NOB"]}})
+	_add_unit("T_NOB", 1, _circles(1, 40), ["CHARACTER", "INFANTRY", "ORKS"], {"attached_to": "T_MOB"})
+	pm.transition_to_phase(1)
+	GS.set_active_player(1)
+	var bg: Dictionary = FB.build_deployment(GS.create_snapshot(false), 1, "T_MOB", _zone_point(1, 0.5, 0.5), {"include_characters": false})
+	_assert(bg.ok, "CONTROL: the bodyguard alone builds (%s)" % str(bg.get("template", bg.get("reason", ""))))
+	if not bg.ok:
+		return
+	var snap: Dictionary = GS.create_snapshot(false)
+	var r0: Dictionary = FB.attach_satellites(snap, 1, "T_MOB", bg.model_positions, bg.model_rotations, {})
+	_assert(r0.ok and int(r0.get("gate_rejections", -1)) == 0, "CONTROL: the 40 mm character attaches beside the fixed placement (%s)" % str(r0.get("template", r0.reason)))
+	# Force a builder / phase divergence: the LIVE character grows to 400 mm
+	# while the snapshot keeps 40 mm (positions and statuses unchanged, so the
+	# snapshot is still judged live and the live phase gates every candidate).
+	GS.state.units["T_NOB"].models[0]["base_mm"] = 400
+	var live: bool = FB._snapshot_is_live(snap, GS.state)
+	var r1: Dictionary = FB.attach_satellites(snap, 1, "T_MOB", bg.model_positions, bg.model_rotations, {})
+	GS.state.units["T_NOB"].models[0]["base_mm"] = 40
+	_assert(live and not r1.ok and str(r1.reason).begins_with("refused") and int(r1.get("gate_rejections", -1)) == FB.MAX_GATE_REJECTIONS,
+		"a diverging phase refuses: stops after %d refusals (got %d), reason '%s'" % [FB.MAX_GATE_REJECTIONS, int(r1.get("gate_rejections", -1)), str(r1.reason).left(60)])
+	GS.state.units.erase("T_MOB")
+	GS.state.units.erase("T_NOB")
+
+# --- M. satellite variants: cheap check == full check (L2-1) -------------------------
+
+func test_variant_check_equivalence() -> void:
+	print("\n--- M. a satellite variant's cheap legality check gives the full check's verdict (L2-1) ---")
+	_board("fixture")
+	var checked := 0
+	var legal := 0
+	var same := true
+	for uid in ["U_WARBIKERS_D", "U_WARBIKERS_D_P2"]:
+		var p := 1 if not uid.ends_with("_P2") else 2
+		var ctx: Dictionary = FB._make_ctx(GS.create_snapshot(false), p, uid, {})
+		for blk in FB._blocks(ctx):
+			for t in blk.variants:
+				var cheap: bool = FB._template_legal(ctx, t, ctx.n_all, true)
+				var full: bool = FB._template_legal(ctx, t, ctx.n_all)
+				checked += 1
+				if full:
+					legal += 1
+				if cheap != full:
+					same = false
+					print("  %s %s: cheap %s, full %s" % [uid, str(t.name), str(cheap), str(full)])
+	_assert(same and checked > 0 and legal > 0 and legal < checked,
+		"6 bikes + a 150 mm Wartrike: %d variants, %d legal — the same verdict both ways" % [checked, legal])
+
+# --- K. crowded zone: growth finds the open ground (L2-2) ---------------------------
+
+func test_crowded_growth_finds_open_ground() -> void:
+	print("\n--- K. a crowded zone: growth seeds ranked by free room find the open ground (L2-2) ---")
+	for lead in ["trike", "small"]:
+		_board("sweeping_engagement")
+		var chars: Array = ["T_TRIKE", "T_BOSS"] if lead == "trike" else ["T_BOSS", "T_PAINBOY"]
+		_add_unit("T_BOYZ", 1, _circles(20, 32), ["INFANTRY", "ORKS"], {"attachment_data": {"attached_characters": chars}})
+		if lead == "trike":
+			_add_unit("T_TRIKE", 1, [{"base_mm": 150, "base_type": "oval", "base_dimensions": {"length": 95.0, "width": 150.0}}],
+				["CHARACTER", "MOUNTED", "ORKS"], {"attached_to": "T_BOYZ"})
+		else:
+			_add_unit("T_PAINBOY", 1, _circles(1, 32), ["CHARACTER", "INFANTRY", "ORKS"], {"attached_to": "T_BOYZ"})
+		_add_unit("T_BOSS", 1, _circles(1, 40), ["CHARACTER", "INFANTRY", "ORKS"], {"attached_to": "T_BOYZ"})
+		# Crowd P1's zone the way the reviewer did: every other P1 unit at the
+		# zone centre, nearest legal set-up.
+		var n := 0
+		for uid in GS.state.units.keys():
+			var u: Dictionary = GS.state.units[uid]
+			if str(uid).begins_with("T_") or int(u.get("owner", 0)) != 1 or u.get("attached_to", null) != null or int(u.get("status", 0)) != 0:
+				continue
+			var res: Dictionary = FB.build_deployment(GS.create_snapshot(false), 1, uid, _zone_point(1, 0.5, 0.5))
+			if res.ok and _apply(uid, res, 1):
+				n += 1
+		var desired := _zone_point(1, 0.5, 0.5)
+		FB.clear_caches()
+		var built: Dictionary = FB.build_deployment(GS.create_snapshot(false), 1, "T_BOYZ", desired, AIDecisionMaker._formation_opts())
+		var errs := _judge("T_BOYZ", 1, built)
+		_assert(built.ok and errs.is_empty() and (built.combined_char_data as Dictionary).size() == 2,
+			"%s: %d units crowd the zone, no block fits; the default build still sets up all 22 models, phase-legal (%s, %.1f\" from the spot, growth work %d)%s" % [
+				lead, n, str(built.get("template", "")), float(built.get("displacement_px", 0.0)) / 40.0,
+				int(built.get("grow_work", 0)), "" if errs.is_empty() else " — %s" % str(errs).left(160)])
+

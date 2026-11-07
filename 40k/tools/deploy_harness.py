@@ -7,8 +7,12 @@ the real DeploymentPhase, AIPlayer retry/fallback path and AIDecisionMaker run
 exactly as in a player's game. For each run it:
   1. loads a `tests/saves/*_predeploy` fixture (both seats AI),
   2. optionally swaps the deployment map AND loads a terrain layout that the
-     11e index recommends for that map (objectives re-derived from the layout),
-  3. optionally disables hand-authored AI plans (PLANS_ENABLED=0),
+     11e index recommends for that map — or the one named as layout@map —
+     (objectives re-derived from the layout),
+  3. optionally disables hand-authored AI plans (PLANS_ENABLED=0) and
+     optionally attaches leaders as Declare Battle Formations would (--attach
+     gate: the windowed gate's pairs, each Deffkilla Wartrike leading a
+     6-bike Warbikers unit, both seats — C-2),
   4. waits until DEPLOYMENT ends, immediately disables the AI (so nothing
      moves), and records DeploymentEval metrics for both players plus the
      forced-reserve and rejected-action counts.
@@ -21,6 +25,12 @@ DeploymentEval.count_rejected_deploy_actions). `failed_attempts` is the legacy
 game-log count of first-try DEPLOY_UNIT / COMPOSITE_DEPLOY rejections, kept so
 runs stay comparable with the P0.0 baseline (298); rejected >= failed always.
 
+Cold caches (L2-1): every run starts with FormationBuilder.clear_caches(), so
+the per-drop times are what the first game of a session pays (the block /
+variant legality caches are filled per unit signature); --warm-caches keeps
+them across runs. Per-drop WORK is reported as counts too (the largest
+evaluations / fresh checks / growth work of any one drop — D10 / C-3).
+
 Several harnesses can run side by side: pass a distinct --port (with --launch
 the game is started with GODOT_MCP_PORT=<port>).
 
@@ -29,6 +39,8 @@ Usage (game must be running with the bridge, or pass --launch):
       --fixtures mirror_orks_2000_predeploy asym_2000_predeploy \
       --zones fixture hammer_anvil dawn_of_war --seeds 7 11 --plans off \
       --out /tmp/deploy_baseline.json
+  python3 40k/tools/deploy_harness.py --launch --port 9400 --attach gate \
+      --zones search_and_destroy disruption_vs_reconnaissance_3@search_and_destroy
 
 Exit code 0 always (it is a measurement tool); read the summary table.
 """
@@ -41,6 +53,12 @@ import sys
 import time
 
 HOST, PORT = "127.0.0.1", 9080
+
+# --attach presets: CHARACTER -> bodyguard, applied to both seats (a second
+# seat's copy of a unit is keyed <id>_P2).
+ATTACH_PRESETS = {
+    "gate": {"U_DEFFKILLA_WARTRIKE_A": "U_WARBIKERS_C", "U_DEFFKILLA_WARTRIKE_B": "U_WARBIKERS_D"},
+}
 
 # Deployment map -> a terrain layout whose 11e index entry recommends it.
 LAYOUT_FOR_ZONE = {
@@ -114,6 +132,25 @@ GameConstants.edition = 11
 RulesEngine.set_test_seed(%(seed)d)
 var zone = "%(zone)s"
 var layout = "%(layout)s"
+var pairs = %(pairs)s
+var attached = 0
+for cid0 in pairs:
+	for sfx in ["", "_P2"]:
+		var cid = str(cid0) + sfx
+		var bid = str(pairs[cid0]) + sfx
+		if not GameState.state.units.has(cid) or not GameState.state.units.has(bid):
+			continue
+		var bg = GameState.state.units[bid]
+		var ad = bg.get("attachment_data", {})
+		if ad == null:
+			ad = {}
+		var lst = ad.get("attached_characters", [])
+		if not (cid in lst):
+			lst.append(cid)
+		ad["attached_characters"] = lst
+		bg["attachment_data"] = ad
+		GameState.state.units[cid]["attached_to"] = bid
+		attached += 1
 if zone != "fixture":
 	TerrainManager.load_terrain_layout(layout)
 	GameState.state["board"]["terrain_layout"] = layout
@@ -134,11 +171,13 @@ GameState.state["meta"]["game_config"] = gc
 AIPlayer.clear_action_log()
 AIPlayer.clear_deploy_rejections()
 FormationBuilder.reset_stats()
+if %(cold)s:
+	FormationBuilder.clear_caches()
 AIDecisionMaker.reset_deploy_drop_stats()
 # Fresh event log per run so failed-attempt counts are per-run (dev harness only).
 GameEventLog.entries.clear()
 tree.change_scene_to_file("res://scenes/Main.tscn")
-return {"ok": true, "ev_start": 0, "layout": TerrainManager.current_layout, "deployment_type": GameState.state["meta"].get("deployment_type", "?")}
+return {"ok": true, "ev_start": 0, "layout": TerrainManager.current_layout, "deployment_type": GameState.state["meta"].get("deployment_type", "?"), "attached": attached}
 '''
 
 POLL = r'''
@@ -179,10 +218,16 @@ return out
 '''
 
 
-def run_one(fixture, zone, seed, plans, vis, rows, timeout_s):
-    layout = LAYOUT_FOR_ZONE.get(zone, "") if zone != "fixture" else ""
+def run_one(fixture, zone, seed, plans, vis, rows, timeout_s, attach="", cold=True):
+    layout = ""
+    if "@" in zone:
+        layout, zone = zone.split("@", 1)
+    elif zone != "fixture":
+        layout = LAYOUT_FOR_ZONE.get(zone, "")
+    pairs = ATTACH_PRESETS.get(attach, {})
     info = script(LOAD_TMPL % {"plans": "1.0" if plans else "0.0", "fixture": fixture, "seed": seed,
-                               "zone": zone, "layout": layout})
+                               "zone": zone, "layout": layout, "pairs": json.dumps(pairs),
+                               "cold": "true" if cold else "false"})
     if not info or not info.get("ok"):
         return {"error": "load failed", "info": info}
     # Re-enable AI only now the scene switch is queued; Main's reconfigure
@@ -219,6 +264,10 @@ def main():
     ap.add_argument("--timeout", type=float, default=240.0)
     ap.add_argument("--out", default="")
     ap.add_argument("--port", type=int, default=9080, help="GodotMCP runtime port (launch sets GODOT_MCP_PORT)")
+    ap.add_argument("--attach", choices=["none"] + sorted(ATTACH_PRESETS.keys()), default="none",
+                    help="attach leaders before deployment (gate = the windowed gate's Wartrike pairs)")
+    ap.add_argument("--warm-caches", action="store_true",
+                    help="keep FormationBuilder's legality caches across runs (default: cleared per run, cold)")
     a = ap.parse_args()
     global PORT
     PORT = a.port
@@ -232,8 +281,10 @@ def main():
     for fx in a.fixtures:
         for zone in a.zones:
             for seed in a.seeds:
-                r = run_one(fx, zone, seed, a.plans == "on", a.visibility, a.rows, a.timeout)
-                r.update({"fixture": fx, "zone": zone, "seed": seed, "plans": a.plans})
+                r = run_one(fx, zone, seed, a.plans == "on", a.visibility, a.rows, a.timeout,
+                            "" if a.attach == "none" else a.attach, not a.warm_caches)
+                r.update({"fixture": fx, "zone": zone, "seed": seed, "plans": a.plans, "attach": a.attach,
+                          "caches": "warm" if a.warm_caches else "cold"})
                 results.append(r)
                 if "error" in r:
                     print("%-28s %-20s seed=%-4d ERROR %s" % (fx, zone, seed, r["error"]), flush=True)
@@ -250,6 +301,10 @@ def main():
                     float(dds.get("total_us", 0)) / 1000.0 / max(1, int(dds.get("drops", 0) or 1)),
                     dds.get("inside", "?"), dds.get("behind", "?"), dds.get("baseline", "?"),
                     dds.get("spot_tries", "?"), dds.get("unbuildable", "?")), flush=True)
+                print("%-28s %-20s seed=%-4d per-drop max: evals=%s (%s) fresh=%s (%s) growth=%s (%s) builds=%s | %s caches, attached=%s" % (
+                    fx, zone, seed, dds.get("max_evals", "?"), dds.get("max_evals_unit", ""), dds.get("max_fresh", "?"),
+                    dds.get("max_fresh_unit", ""), dds.get("max_grow_work", "?"), dds.get("max_grow_work_unit", ""),
+                    dds.get("max_builds", "?"), r.get("caches", "?"), r.get("info", {}).get("attached", "?") if isinstance(r.get("info"), dict) else "?"), flush=True)
                 for p in ("1", "2"):
                     m = r[p]
                     print("%-28s %-20s seed=%-4d P%s forced=%d rejected=%d failed=%d reserves=%d on=%d hideable_multi=%d full_multi=%d leak=%d open=%d home=%s gap=%.1f\"%s" % (
@@ -259,7 +314,8 @@ def main():
                         (" seen=%d" % m["seen_by_enemy_units_any"]) if a.visibility else ""), flush=True)
     tot = {"forced": 0, "rejected": 0, "failed": 0, "multi": 0, "full_multi": 0, "leak": 0, "runs": 0,
            "audit_violations": 0, "builder_no_legal": 0, "builder_gate_rejections": 0, "builder_max_ms": 0.0,
-           "drop_max_ms": 0.0, "drops": 0, "drop_total_ms": 0.0, "home_held": 0, "home_known": 0}
+           "drop_max_ms": 0.0, "drops": 0, "drop_total_ms": 0.0, "home_held": 0, "home_known": 0,
+           "drop_max_evals": 0, "drop_max_fresh": 0, "drop_max_grow_work": 0}
     for r in results:
         if "error" in r:
             continue
@@ -273,6 +329,8 @@ def main():
         tot["drop_max_ms"] = max(tot["drop_max_ms"], float(dds.get("max_us", 0)) / 1000.0)
         tot["drops"] += int(dds.get("drops", 0))
         tot["drop_total_ms"] += float(dds.get("total_us", 0)) / 1000.0
+        for k in ("evals", "fresh", "grow_work"):
+            tot["drop_max_" + k] = max(tot["drop_max_" + k], int(dds.get("max_" + k, 0)))
         for p in ("1", "2"):
             m = r[p]
             ho = m.get("home_objective", {})
@@ -292,6 +350,8 @@ def main():
         tot["audit_violations"], tot["builder_no_legal"], tot["builder_gate_rejections"], tot["builder_max_ms"]))
     print("TOTAL drops=%d worst drop (whole decision)=%.0f ms mean=%.0f ms | home objective held %d/%d seat-runs" % (
         tot["drops"], tot["drop_max_ms"], tot["drop_total_ms"] / max(1, tot["drops"]), tot["home_held"], tot["home_known"]))
+    print("TOTAL worst per-drop work: evals=%d fresh=%d growth=%d (%s caches)" % (
+        tot["drop_max_evals"], tot["drop_max_fresh"], tot["drop_max_grow_work"], "warm" if a.warm_caches else "cold"))
     if a.out:
         with open(a.out, "w") as fh:
             json.dump({"results": results, "totals": tot}, fh, indent=1)

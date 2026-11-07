@@ -24,11 +24,20 @@ extends SceneTree
 #     board, overlaps both ways, coherency with attached units merged);
 #   * with attachments: every attached character was set up WITH its bodyguard
 #     (COMPOSITE_DEPLOY) and its attached unit is coherent as one unit.
-# Plus: the first config replayed gives the identical board (determinism).
+# Plus: the first config replayed gives the identical board (determinism; the
+# reference is CONFIGS[0]'s own digest — a replay that cannot run is a FAIL).
 #
-# Budget: each config must finish deployment within PER_CONFIG_TIMEOUT_MS and
-# the file stays under ~150 s (tests/run_pretrigger_tests.sh kills a file at
-# 180 s); a config that times out is NAMED before the next one starts.
+# Attached leaders (C-2): the gate scenario's pairs (each Deffkilla Wartrike
+# leads a 6-bike Warbikers unit, both seats) on the harness's Search and
+# Destroy layout and on the layouts where they used to be forced into reserves
+# (growth seeds only near the spot, L2-2) or took Wazdakka's last set-up (the
+# unguarded column spot, C-1); and the L2-2 regression army — 20 Boyz led by a
+# 40 mm + a 32 mm character in place of three P1 units.
+#
+# Wall clock: PER_CONFIG_TIMEOUT_MS is a generous HANG guard (a config that
+# times out is NAMED before the next one starts); the file stays well under
+# tests/run_pretrigger_tests.sh's 180 s kill (FILE_BUDGET_MS). Work per drop is
+# asserted by counts in test_ai_deploy_terrain_11e.gd.
 #
 # Run with: godot --headless --path . -s tests/unit/test_ai_deployment_e2e.gd
 
@@ -41,18 +50,27 @@ const LAYOUT_FOR_ZONE := {   # tools/deploy_harness.py LAYOUT_FOR_ZONE
 	"tipping_point": "disruption_vs_disruption_2",
 }
 const CONFIGS := [
-	# [fixture, zone ("fixture" = keep the save's own board), seed, edition, note]
-	["mirror_orks_2000_predeploy", "fixture", 7, 11, "crucible triangle, 6-bike ovals, Stompa"],
-	["mirror_orks_2000_predeploy", "hammer_anvil", 7, 11, "rectangular 18\" strips"],
-	["mirror_orks_2000_predeploy", "dawn_of_war", 7, 11, "long-edge strips"],
-	["mirror_orks_2000_predeploy", "search_and_destroy", 7, 11, "concave L-shaped quarters"],
-	["mirror_orks_2000_predeploy", "sweeping_engagement", 7, 11, "stepped zones"],
-	["asym_2000_predeploy", "fixture", 7, 11, "Custodes vs Orks, round + oval bases"],
-	["mirror_orks_2000_predeploy", "fixture", 7, 10, "edition 10 (2 neighbours at 7+, no envelope)"],
-	["bw_load_deploy_pretrigger", "fixture", 7, 11, "attached Big Meks + Battlewagon carrying Gretchin"],
+	# [fixture, zone ("fixture" = keep the save's own board; "layout@zone" = that
+	#  terrain layout on that map), seed, edition, note, setup ("" / "gate" /
+	#  "boyz_small")]
+	["mirror_orks_2000_predeploy", "fixture", 7, 11, "crucible triangle, 6-bike ovals, Stompa", ""],
+	["mirror_orks_2000_predeploy", "hammer_anvil", 7, 11, "rectangular 18\" strips", ""],
+	["mirror_orks_2000_predeploy", "dawn_of_war", 7, 11, "long-edge strips", ""],
+	["mirror_orks_2000_predeploy", "search_and_destroy", 7, 11, "concave L-shaped quarters", ""],
+	["mirror_orks_2000_predeploy", "sweeping_engagement", 7, 11, "stepped zones", ""],
+	["asym_2000_predeploy", "fixture", 7, 11, "Custodes vs Orks, round + oval bases", ""],
+	["mirror_orks_2000_predeploy", "fixture", 7, 10, "edition 10 (2 neighbours at 7+, no envelope)", ""],
+	["bw_load_deploy_pretrigger", "fixture", 7, 11, "attached Big Meks + Battlewagon carrying Gretchin", ""],
+	["mirror_orks_2000_predeploy", "search_and_destroy", 7, 11, "Wartrikes leading Warbikers (C-2: grown set-ups, L2-2)", "gate"],
+	["mirror_orks_2000_predeploy", "disruption_vs_reconnaissance_3@search_and_destroy", 7, 11, "Wartrikes leading Warbikers (C-1: Wazdakka keeps its room)", "gate"],
+	["mirror_orks_2000_predeploy", "reconnaissance_vs_reconnaissance_2@crucible_of_battle", 7, 11, "Wartrikes leading Warbikers (L2-2 growth)", "gate"],
+	["mirror_orks_2000_predeploy", "tipping_point", 7, 11, "20 Boyz + 40 mm / 32 mm leaders (L2-2)", "boyz_small"],
+	["mirror_orks_2000_predeploy", "sweeping_engagement", 7, 11, "20 Boyz + 40 mm / 32 mm leaders (L2-2)", "boyz_small"],
 ]
-const PER_CONFIG_TIMEOUT_MS := 16000
-const FILE_BUDGET_MS := 140000
+# The gate scenario's attachments (ai_deploy_p0_legal_formations), both seats.
+const GATE_PAIRS := {"U_DEFFKILLA_WARTRIKE_A": "U_WARBIKERS_C", "U_DEFFKILLA_WARTRIKE_B": "U_WARBIKERS_D"}
+const PER_CONFIG_TIMEOUT_MS := 45000   # a hang guard, not a speed assertion
+const FILE_BUDGET_MS := 150000
 const TIME_SCALE := 8.0          # AI pacing only; decisions do not depend on it
 
 var DE
@@ -92,21 +110,24 @@ func _run():
 	else:
 		PM.phase_changed.connect(_on_phase_changed)
 		var first_digest := ""
-		for c in CONFIGS:
+		for i in range(CONFIGS.size()):
+			var c: Array = CONFIGS[i]
 			if Time.get_ticks_msec() - _t_file > FILE_BUDGET_MS:
 				_assert(false, "[%s/%s ed%d] not run: the file budget of %d s is spent" % [c[0], c[1], int(c[3]), FILE_BUDGET_MS / 1000])
 				continue
-			var d: String = await _run_config(str(c[0]), str(c[1]), int(c[2]), int(c[3]), str(c[4]))
-			if first_digest == "":
-				first_digest = d
+			var d: String = await _run_config(str(c[0]), str(c[1]), int(c[2]), int(c[3]), str(c[4]), str(c[5]))
+			if i == 0:
+				first_digest = d   # L6-8: the reference is CONFIGS[0]'s own board, or nothing
 		# Determinism: the first config again, same seed -> the same board.
-		if first_digest != "" and Time.get_ticks_msec() - _t_file < FILE_BUDGET_MS - PER_CONFIG_TIMEOUT_MS:
-			var c0: Array = CONFIGS[0]
-			var again: String = await _run_config(str(c0[0]), str(c0[1]), int(c0[2]), int(c0[3]), "determinism replay")
+		var c0: Array = CONFIGS[0]
+		if first_digest == "":
+			_assert(false, "determinism: CONFIGS[0] (%s/%s) produced no board to replay" % [c0[0], c0[1]])
+		elif Time.get_ticks_msec() - _t_file > FILE_BUDGET_MS:
+			_assert(false, "determinism replay not run: the file budget of %d s is spent" % (FILE_BUDGET_MS / 1000))
+		else:
+			var again: String = await _run_config(str(c0[0]), str(c0[1]), int(c0[2]), int(c0[3]), "determinism replay", str(c0[5]))
 			_assert(again != "" and again == first_digest,
 				"same fixture + seed reproduces the same deployed board (%s vs %s)" % [again.substr(0, 8), first_digest.substr(0, 8)])
-		else:
-			print("NOTE: determinism replay skipped (first config failed or the file budget is nearly spent)")
 		print("E2E total %d ms" % (Time.get_ticks_msec() - _t_file))
 	Engine.time_scale = 1.0
 	GameConstants.edition = 11
@@ -129,11 +150,18 @@ func _check(tag: String, condition: bool, message: String) -> void:
 	if not condition and not (tag in _failed_configs):
 		_failed_configs.append(tag)
 
-func _setup_board(zone: String) -> void:
-	if zone == "fixture":
+func _setup_board(zone_spec: String) -> void:
+	if zone_spec == "fixture":
 		return
-	TMN.load_terrain_layout(LAYOUT_FOR_ZONE[zone])
-	GS.state["board"]["terrain_layout"] = LAYOUT_FOR_ZONE[zone]
+	var zone := zone_spec
+	var layout := ""
+	if zone_spec.contains("@"):
+		layout = zone_spec.split("@")[0]
+		zone = zone_spec.split("@")[1]
+	else:
+		layout = LAYOUT_FOR_ZONE[zone]
+	TMN.load_terrain_layout(layout)
+	GS.state["board"]["terrain_layout"] = layout
 	var zs = DeploymentZoneData.get_zones(zone)
 	var dz: Array = []
 	for i in range(zs.size()):
@@ -173,8 +201,60 @@ func _attached_bodyguards() -> Array:
 				break
 	return out
 
-func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: String) -> String:
-	var tag := "%s/%s/s%d/ed%d" % [fix, zone, seed_v, edition]
+func _attach_pairs(pairs: Dictionary) -> int:
+	"""Attach each CHARACTER to its bodyguard as Declare Battle Formations
+	leaves them (19.01), on both seats (a second seat's copy is keyed _P2)."""
+	var n := 0
+	for cid0 in pairs:
+		for sfx in ["", "_P2"]:
+			var cid: String = str(cid0) + str(sfx)
+			var bid: String = str(pairs[cid0]) + str(sfx)
+			if not GS.state.units.has(cid) or not GS.state.units.has(bid):
+				continue
+			var bg: Dictionary = GS.state.units[bid]
+			var ad = bg.get("attachment_data", {})
+			if ad == null:
+				ad = {}
+			var lst: Array = ad.get("attached_characters", [])
+			if not (cid in lst):
+				lst.append(cid)
+			ad["attached_characters"] = lst
+			bg["attachment_data"] = ad
+			GS.state.units[cid]["attached_to"] = bid
+			n += 1
+	return n
+
+func _add_unit(uid: String, owner: int, n: int, base_mm: int, keywords: Array, extra: Dictionary = {}) -> void:
+	var ms: Array = []
+	for i in range(n):
+		ms.append({"id": "m%d" % (i + 1), "alive": true, "position": null, "rotation": 0.0, "wounds": 1, "current_wounds": 1,
+			"base_mm": base_mm, "base_type": "circular"})
+	var u := {"id": uid, "owner": owner, "status": 0, "models": ms, "flags": {},
+		"meta": {"name": uid, "keywords": keywords, "abilities": [], "points": 50,
+			"stats": {"move": 6, "toughness": 5, "save": 5, "wounds": 1, "leadership": 7, "objective_control": 2}, "weapons": []}}
+	for k in extra:
+		u[k] = extra[k]
+	GS.state.units[uid] = u
+
+func _apply_setup(setup: String) -> String:
+	"""Config setup on top of the fixture. "gate": the gate's attached
+	Wartrikes. "boyz_small" (L2-2 regression, the reviewer's verifier probe
+	v_ai_flow3 V_SWAP=1 V_LEADER=small): P1 drops Wazdakka Gutsmek and
+	Stormboyz Gamma / Delta for 20 Boyz (32 mm) led by a 40 mm and a 32 mm
+	CHARACTER. Returns a note for the log."""
+	if setup == "gate":
+		return "%d attached Wartrikes" % _attach_pairs(GATE_PAIRS)
+	if setup == "boyz_small":
+		for rid in ["U_WAZDAKKA_GUTSMEK_A", "U_STORMBOYZ_C", "U_STORMBOYZ_D"]:
+			GS.state.units.erase(rid)
+		_add_unit("T_BOYZ", 1, 20, 32, ["INFANTRY", "ORKS"], {"attachment_data": {"attached_characters": ["T_BOSS", "T_PAINBOY"]}})
+		_add_unit("T_BOSS", 1, 1, 40, ["CHARACTER", "INFANTRY", "ORKS"], {"attached_to": "T_BOYZ"})
+		_add_unit("T_PAINBOY", 1, 1, 32, ["CHARACTER", "INFANTRY", "ORKS"], {"attached_to": "T_BOYZ"})
+		return "20 Boyz + 40 mm / 32 mm leaders for P1"
+	return ""
+
+func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: String, setup: String = "") -> String:
+	var tag := "%s/%s/s%d/ed%d%s" % [fix, zone, seed_v, edition, "" if setup == "" else "/" + setup]
 	print("\n-- %s (%s) --" % [tag, note])
 	var t_cfg := Time.get_ticks_msec()
 	_latch = {}
@@ -186,6 +266,9 @@ func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: Str
 		return ""
 	GameConstants.edition = edition
 	_setup_board(zone)
+	var setup_note := _apply_setup(setup)
+	if setup_note != "":
+		print("  setup: %s" % setup_note)
 	var gc = GS.state["meta"].get("game_config", {})
 	if gc == null:
 		gc = {}
@@ -196,6 +279,7 @@ func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: Str
 	AIDecisionMaker.set_ai_seed(seed_v)
 	GEL.clear()
 	FB.reset_stats()
+	AIDecisionMaker.reset_deploy_drop_stats()
 	var expect := _deployable_at_start()
 	var attached_bgs := _attached_bodyguards()
 	var reserves_at_start := {1: 0, 2: 0}
@@ -279,7 +363,10 @@ func _run_config(fix: String, zone: String, seed_v: int, edition: int, note: Str
 				placed_with, attached_bgs.size(), n_comp])
 	var audit: Dictionary = _latch.audit
 	_check(tag, int(audit.violations) == 0, "legality audit: 0 violations over %d models (got %d: %s)" % [int(audit.models), int(audit.violations), str(audit.problems)])
-	print("  %s: config %d ms (latch eval+audit %d ms); builder %s" % [tag, Time.get_ticks_msec() - t_cfg, int(_latch.eval_ms), str(stats)])
+	var dd: Dictionary = _latch.get("drop_stats", {})
+	print("  %s: config %d ms (latch eval+audit %d ms); builder %s; worst drop %.0f ms (%s), per-drop max evals %d fresh %d growth %d" % [
+		tag, Time.get_ticks_msec() - t_cfg, int(_latch.eval_ms), str(stats), float(dd.get("max_us", 0)) / 1000.0, str(dd.get("max_unit", "")),
+		int(dd.get("max_evals", 0)), int(dd.get("max_fresh", 0)), int(dd.get("max_grow_work", 0))])
 	GameConstants.edition = 11
 	return str(_latch.digest)
 
@@ -293,4 +380,4 @@ func _on_phase_changed(new_phase) -> void:
 	for p in [1, 2]:
 		ev[p] = DE.evaluate(GS.state, p, {})
 	_latch = {"eval": ev, "audit": DE.audit_legality(GS.state), "digest": DE.positions_digest(GS.state),
-		"fb_stats": FB.stats(), "phase": int(new_phase), "eval_ms": Time.get_ticks_msec() - t}
+		"fb_stats": FB.stats(), "drop_stats": AIDecisionMaker.deploy_drop_stats(), "phase": int(new_phase), "eval_ms": Time.get_ticks_msec() - t}
