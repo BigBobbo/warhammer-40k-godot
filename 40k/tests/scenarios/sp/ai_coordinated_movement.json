@@ -13,7 +13,7 @@
   "description": "COORD gate: P2 (Orks, AI at Hard) plays Command then Movement live. Asserts (a) the once-per-phase army-wide 'Movement plan' battle-plan block reaches GameEventLog with per-unit role lines (OC annotations), (b) per-unit decision reasoning ('[movement]: chose ... / rejected ...') is narrated as each unit acts rather than flooding every action, (c) the multi-phase plan builds for P2 at Hard (per-player plan cache, COORD-1), (d) the log panel renders the AI cards. Screenshots capture the left log panel with the plan visible.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
     { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(2)" },
     { "act": "execute_script", "script": "GameEventLog.clear()" },
     { "act": "execute_script", "script": "GameState.set_active_player(2)" },

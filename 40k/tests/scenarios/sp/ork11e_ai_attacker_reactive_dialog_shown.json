@@ -34,7 +34,7 @@
       "act": "execute_script",
       "multiline": true,
       "comment": "setup privileges (see description)",
-      "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Runt Swarm\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nPhaseManager.get_current_phase_instance()._window_suppressed[\"2:enemy_ended_move\"] = true\nvar gc = GameState.state.meta.get(\"game_config\", {})\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"HUMAN\"\nGameState.state.meta[\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"HUMAN\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._request_evaluation()\nreturn AIPlayer.enabled and AIPlayer.is_ai_player(1) and not AIPlayer.is_ai_player(2)",
+      "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Runt Swarm\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nPhaseManager.get_current_phase_instance()._window_suppressed[\"2:enemy_ended_move\"] = true\nvar gc = GameState.state.meta.get(\"game_config\", {})\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"HUMAN\"\nGameState.state.meta[\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"HUMAN\"})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._request_evaluation()\nreturn AIPlayer.enabled and AIPlayer.is_ai_player(1) and not AIPlayer.is_ai_player(2)",
       "equals": true
     },
     {

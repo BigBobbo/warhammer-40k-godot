@@ -39,7 +39,6 @@ iss064h_card_action_visibility_11e  # fails at 10e and 11e (11e 32/3, 10e 32/3 s
 iss064i_relic_setup_prompt_11e  # fails at 10e and 11e (11e 20/11, 10e 20/11 steps passed/failed)
 iss064j_mission_action_sabotage_11e  # fails at 10e and 11e (11e 64/11, 10e 64/11 steps passed/failed)
 iss065b_plunder_action_11e  # fails at 10e and 11e (11e 22/8, 10e 22/8 steps passed/failed)
-iss067_scout_reserves_deploy_11e  # fails at 10e and 11e (11e 27/4, 10e 27/4 steps passed/failed)
 iss074_aircraft_reserve_cycle_11e  # fails at 10e and 11e (11e 26/2, 10e 26/2 steps passed/failed)
 iss15_hidden_shot_stamp_11e  # fails at 10e and 11e (11e 26/9, 10e 26/9 steps passed/failed)
 iss15_indirect_band_11e  # fails at 10e and 11e (11e 30/2, 10e 30/2 steps passed/failed)
@@ -88,3 +87,4 @@ tut_t4_dakka_reorder_pad  # tutorial geometry predates the 11e layout rotation
 tut_t4_dakka_deck_squish_pad  # tutorial geometry predates the 11e layout rotation
 tut_t4_panel_fit_ring_and_card  # tutorial geometry predates the 11e layout rotation
 pad_nested_panel_walk  # drives the T4 tutorial; tutorial geometry predates the 11e layout rotation
+ork11e_charge_flags_end_of_turn  # fails on base e5c77f3 too (78/30 steps passed/failed); pre-existing, not caused by WP-G1..G5

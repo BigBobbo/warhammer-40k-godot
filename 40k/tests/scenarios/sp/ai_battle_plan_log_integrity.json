@@ -17,7 +17,7 @@
     },
     {
       "act": "execute_script",
-      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"}, {2: 2})"
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})"
     },
     {
       "act": "execute_script",
