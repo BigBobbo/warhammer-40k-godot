@@ -141,6 +141,20 @@ func _run_tests():
 	_check("TITANIC VEHICLE normal move through enemy INFANTRY is legal (17.01 covers every M/V model)", _both_valid(r), str(r))
 	r = _case(gs, pm, base_state, ["Vehicle"], 100, ["INFANTRY"], _screen(780), 32, far)
 	_check("the MONSTER/VEHICLE keyword test is case-insensitive ('Vehicle')", _both_valid(r), str(r))
+	# Executed end to end: stage the drop, then CONFIRM_UNIT_MOVE (End This
+	# Unit's Move) — the VEHICLE ends on the far side of the screen.
+	var ex_phase = _phase_with(gs, pm, base_state, {
+		"U_MOVER": _unit("U_MOVER", 1, ["VEHICLE"], [Vector2(400, 1000)], 100),
+		"U_SCREEN": _unit("U_SCREEN", 2, ["INFANTRY"], _screen(780), 32, 6.0)})
+	ex_phase.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_MOVER", "player": 1, "payload": {}})
+	var ex_stage: Dictionary = ex_phase.execute_action({"type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_MOVER", "player": 1,
+		"payload": {"model_id": "m0", "dest": [far.x, far.y], "rotation": 0.0}})
+	var ex_confirm: Dictionary = ex_phase.execute_action({"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_MOVER", "player": 1, "payload": {}})
+	var ex_pos = gs.state.get("units", {}).get("U_MOVER", {}).get("models", [{}])[0].get("position", {})
+	var ex_at: Vector2 = ex_pos if ex_pos is Vector2 else (Vector2(float(ex_pos.get("x", 0.0)), float(ex_pos.get("y", 0.0))) if ex_pos is Dictionary else Vector2.ZERO)
+	_check("a staged VEHICLE move through the screen confirms and ends past it (STAGE_MODEL_MOVE + CONFIRM_UNIT_MOVE executed)",
+		ex_stage.get("success", false) and ex_confirm.get("success", false) and ex_at.distance_to(far) < 0.5,
+		"stage=%s confirm=%s at=%s" % [str(ex_stage.get("success")), str(ex_confirm.get("success", ex_confirm.get("errors"))), str(ex_at)])
 
 	print("\n-- controls: what 17.01 does NOT allow --")
 	r = _case(gs, pm, base_state, ["INFANTRY"], 32, ["INFANTRY"], _screen(780), 32, far)
