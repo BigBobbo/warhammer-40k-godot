@@ -49,8 +49,10 @@ var _pulse_time: float = 0.0
 var _is_active: bool = false
 var _default_font: Font = null
 ## The label text the last _draw() actually drew on the board ("" until a label
-## is drawn), so windowed scenarios can assert what the player sees.
+## is drawn) and where (this node's local = board px; Vector2.INF until drawn),
+## so windowed scenarios can assert — and frame — what the player sees.
 var _last_label_text: String = ""
+var _last_label_pos: Vector2 = Vector2.INF
 
 func _ready() -> void:
 	z_index = -4  # Same layer as InfiltratorExclusionVisual
@@ -364,6 +366,7 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 		outward = -perpendicular
 
 	var label_pos = midpoint + outward * 14
+	_last_label_pos = label_pos
 
 	var text_size = _default_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE)
 	var bg_rect = Rect2(

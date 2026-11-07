@@ -1,0 +1,354 @@
+{
+  "id": "rules_text_standoff_8in_11e",
+  "covers": [
+    "ui.phase_banner.deployment_infiltrators_8in",
+    "ui.InfiltratorExclusionVisual.label_8in",
+    "ui.DeepStrikeExclusionVisual.label_8in",
+    "ui.ReservesPanel.deep_strike_hint_8in",
+    "ui.settings.placement_clamp_8in"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "edition": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "L4-4: the 11e enemy stand-off for Infiltrators (24.20) and for reserves / Deep Strike arrivals (20.04 / 24.09) is 8\", and the engine enforces 8\", but player-facing text kept the 10e 9\". Each is checked where it renders, through the real UI: (1) the Reserves panel (opened with its P keybinding) describes a Deep Strike arrival as 'more than 8\" horizontally from enemy models'; (2) arming the Kommandos' Deep Strike placement from the Movement phase unit list draws the exclusion bubbles with the label '8\" exclusion' (it said '9\" exclusion' on 8\" bubbles); (3) entering the Deployment phase shows the phase banner whose rules brief says Infiltrators deploy '>8\" from the enemy deployment zone and enemy units' (captured with a direct frame grab: the runner's screenshot act hides this banner); (4) clicking the Kommandos (Infiltrators) in the deployment list draws the exclusion boundary labelled '8\" exclusion'; (5) Settings > Controls names the 8\" exclusion zone in the placement-clamp option and its help. The drawn label text is read from what the visual last drew (_last_label_text); for the captures the camera is framed on it and the cursor parked away (exclusion clamp briefly off so the ghost follows the cursor, then back on). No ERROR in the debug log. Fixture ri_pretrigger (Movement phase, battle round 2, P2 Orks to act); the Kommandos are switched to Deep Strike for parts 1-2 and back to undeployed for parts 3-4.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true",
+      "equals": true,
+      "comment": "the Orks' Weirdboy is offered Da Jump at the start of their Movement phase - not under test, declined (as deep_strike_exclusion_clamp)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_active_player()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameConstants.reinforcement_min_enemy_distance_inches()",
+      "equals": 8.0,
+      "comment": "11e 20.04 / 24.09: the stand-off the engine enforces"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameConstants.infiltrators_min_enemy_distance_inches()",
+      "equals": 8.0,
+      "comment": "11e 24.20"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nDebugLogger._flush_buffer()\nvar lf = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar lines := 0\nwhile lf != null and not lf.eof_reached():\n\tlf.get_line()\n\tlines += 1\nmain.set_meta(\"f3_log_mark\", lines)\nreturn lines > 0",
+      "equals": true,
+      "comment": "mark the debug log so the last step can check for ERROR lines from here on"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Arrive by Deep Strike (as deep_strike_exclusion_clamp does), so the reserves UI\n# and the placement both take the Deep Strike branch.\nGameState.state.units.U_KOMMANDOS_H.reserve_type = \"deep_strike\"\nreturn str(GameState.state.units.U_KOMMANDOS_H.reserve_type)",
+      "equals": "deep_strike"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "P",
+      "comment": "toggle_reserves_panel (default P), the real keybinding"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/ReservesPanel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = tree.root.get_node_or_null(\"Main/ReservesPanel\")\nvar row = p.get_row(2, \"U_KOMMANDOS_H\")\nif row == null:\n\treturn \"no Kommandos row\"\nvar h = row.find_child(\"Hint\", true, false)\nreturn str(h.text) if h != null else \"no Hint label\"",
+      "equals": "Arrives anywhere more than 8\" horizontally from enemy models.",
+      "comment": "ReservesData.type_hint(deep_strike) as the panel renders it (was 'more than 9\"')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The panel lists richest first; scroll the Kommandos row into view for the capture.\nvar p = tree.root.get_node_or_null(\"Main/ReservesPanel\")\nvar row = p.get_row(2, \"U_KOMMANDOS_H\")\nvar sc = row.get_parent()\nwhile sc != null and not (sc is ScrollContainer):\n\tsc = sc.get_parent()\nif sc == null:\n\treturn false\nsc.ensure_control_visible(row)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_reserves_panel_deep_strike_hint_8in"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "P"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"Main/ReservesPanel\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar list = m.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_KOMMANDOS_H\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "select the Kommandos' reinforcement row (the signal a click on it emits, as deep_strike_exclusion_clamp)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_placing()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reinforcement_placement_type",
+      "equals": "deep_strike"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var v = tree.root.get_node(\"Main\")._deep_strike_exclusion_visual\nif v == null or not is_instance_valid(v):\n\treturn \"no Deep Strike exclusion visual\"\nreturn \"%s|%s\" % [str(v.is_visible_in_tree()), str(v._last_label_text)]",
+      "equals": "true|8\" exclusion",
+      "comment": "the label the bubbles drew on the board, from GameConstants like their 8\" radius (was the literal '9\" exclusion')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m._deep_strike_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
+      "equals": "framed"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var v = tree.root.get_node(\"Main\")._deep_strike_exclusion_visual\nreturn str(v._last_label_text)",
+      "equals": "8\" exclusion",
+      "comment": "still the drawn label after the re-frame (redrawn every frame)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_deep_strike_bubbles_label_8in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_placement_clamp_to_exclusion(true)\nreturn SettingsService.placement_clamp_to_exclusion",
+      "equals": true,
+      "comment": "the shipped default back on (it was off only to park the ghost for the capture)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nif dc.is_placing():\n\tdc.reset_unit()\nreturn dc.is_placing()",
+      "equals": false,
+      "comment": "end the placement session"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Kommandos (Infiltrators) back to undeployed, so the Deployment phase has\n# a unit to place (as iss068_infiltrators_8in_11e does).\nvar u = GameState.state.units.U_KOMMANDOS_H\nu[\"status\"] = GameStateData.UnitStatus.UNDEPLOYED\nu[\"reserve_type\"] = null\nif u.has(\"flags\"):\n\tu.flags.erase(\"in_reserves\")\nfor pm in u.models:\n\tpm.position = null\nreturn int(u.status)",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(1)"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var b = tree.root.get_node_or_null(\"Main/PhaseTransitionBanner\")\nreturn b != null and b.visible and b.modulate.a > 0.95",
+      "equals": true,
+      "timeout_s": 6.0,
+      "poll_s": 0.1,
+      "comment": "the banner Main shows on every phase change, fully faded in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Found by its text, not its node name, so the same check runs on code that\n# predates the RulesBriefLabel name.\nvar b = tree.root.get_node_or_null(\"Main/PhaseTransitionBanner\")\nfor l in b.find_children(\"*\", \"Label\", true, false):\n\tif str(l.text).begins_with(\"Alternate placing units\"):\n\t\treturn str(l.text)\nreturn \"no Deployment rules brief on the banner\"",
+      "equals": "Alternate placing units in your deployment zone. Infiltrators deploy anywhere >8\" from the enemy deployment zone and enemy units.",
+      "comment": "11e 24.20 (was 'Infiltrators deploy anywhere >9\" from enemies.')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The runner's screenshot act hides the PhaseTransitionBanner (capture hygiene),\n# so grab this frame directly while the banner is up.\nvar b = tree.root.get_node_or_null(\"Main/PhaseTransitionBanner\")\nif b == null or not b.visible:\n\treturn \"banner already gone\"\nvar img = tree.root.get_viewport().get_texture().get_image()\nDirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(\"user://test_results/scenarios\"))\nvar path = ProjectSettings.globalize_path(\"user://test_results/scenarios/rules_text_standoff_8in_11e_03_deployment_banner_infiltrators_8in.png\")\nprint(\"[F3-SCENARIO] banner capture: \", path)\nreturn \"saved\" if img.save_png(path) == OK else \"save failed\"",
+      "equals": "saved"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/PhaseTransitionBanner/RulesBriefLabel\").text.contains(\">8\\\"\")",
+      "equals": true
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var b = tree.root.get_node_or_null(\"Main/PhaseTransitionBanner\")\nreturn b != null and not b.visible",
+      "equals": true,
+      "timeout_s": 6.0,
+      "poll_s": 0.2,
+      "comment": "let the banner finish so it does not cover the board"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_unit_list()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar ids := []\nfor i in range(m.unit_list.item_count):\n\tids.append(str(m.unit_list.get_item_metadata(i)))\nprint(\"[F3-SCENARIO] deployment list: \", ids)\nreturn ids.find(\"U_KOMMANDOS_H\")",
+      "equals": 0
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_infiltrators_mode",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var v = tree.root.get_node(\"Main\").deployment_controller.infiltrator_exclusion_visual\nif v == null or not is_instance_valid(v):\n\treturn \"no Infiltrators exclusion visual\"\nreturn \"%s|%s\" % [str(v.is_visible_in_tree()), str(v._last_label_text)]",
+      "equals": "true|8\" exclusion",
+      "comment": "the label on the boundary drawn 8\" out from the enemy zone (was the literal '9\" exclusion')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar v = m.deployment_controller.infiltrator_exclusion_visual\nif v == null or not is_instance_valid(v) or v._last_label_pos == Vector2.INF:\n\treturn \"no label drawn\"\nvar board = m.get_node(\"BoardRoot\")\nvar p: Vector2 = board.to_local(v.to_global(v._last_label_pos))\nm.view_zoom = 1.6\nm.view_offset = p - Vector2(650.0, 380.0) / 1.6\nm.update_view_transform()\nSettingsService.set_placement_clamp_to_exclusion(false)\nvar cursor := Vector2(1300.0, 900.0)\nInput.warp_mouse(cursor)\nvar motion := InputEventMouseMotion.new()\nmotion.position = cursor\nmotion.global_position = cursor\nInput.parse_input_event(motion)\nreturn \"framed\"",
+      "equals": "framed"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "04_infiltrators_exclusion_label_8in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_placement_clamp_to_exclusion(true)\nreturn SettingsService.placement_clamp_to_exclusion",
+      "equals": true,
+      "comment": "the shipped default back on (it was off only to park the ghost for the capture)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._open_settings_menu()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._tab_buttons[3].text",
+      "equals": "Controls"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._on_tab_pressed(3)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._placement_clamp_checkbox.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._placement_clamp_checkbox.text",
+      "equals": "Hold Deep Strike placement outside the 8\" exclusion zone"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sm = tree.root.get_node(\"Main\")._settings_menu\nfor l in sm.find_children(\"*\", \"Label\", true, false):\n\tif str(l.text).begins_with(\"On: aiming a Deep Strike\"):\n\t\treturn str(l.text).contains(\"inside the 8\\\" enemy exclusion zone\") and not str(l.text).contains(\"9\\\"\")\nreturn \"no placement-clamp help label\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Bring the option into view for the capture.\nvar sm = tree.root.get_node(\"Main\")._settings_menu\nvar cb = sm._placement_clamp_checkbox\nvar sc = cb.get_parent()\nwhile sc != null and not (sc is ScrollContainer):\n\tsc = sc.get_parent()\nif sc != null:\n\tsc.ensure_control_visible(cb)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "05_settings_placement_clamp_8in"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.root.get_node(\"Main\")\nDebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_real_log_file_path(), FileAccess.READ)\nvar mark := int(main.get_meta(\"f3_log_mark\", 0))\nvar i := 0\nvar n := 0\nwhile f != null and not f.eof_reached():\n\tvar l := f.get_line()\n\ti += 1\n\tif i > mark and l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tprint(\"[F3-SCENARIO] debug-log ERROR: \", l)\nreturn n",
+      "equals": 0,
+      "comment": "clean debug log since the mark: no ERROR line"
+    }
+  ]
+}
