@@ -11740,10 +11740,12 @@
     },
     {
       "id": "ai.suggestion.move_shape_notes",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader.",
       "scenarios": [
         "ai_move_cover",
-        "ai_move_shape_telemon_gantry"
+        "ai_move_shape_telemon_gantry",
+        "ai_move_for_charge",
+        "ai_move_for_charge_leader"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11823,9 +11825,10 @@
     },
     {
       "id": "ai.movement.move_for_charge",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_charge.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_charge, ai_move_for_charge_leader.",
       "scenarios": [
-        "ai_move_for_charge"
+        "ai_move_for_charge",
+        "ai_move_for_charge_leader"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

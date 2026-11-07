@@ -2830,6 +2830,14 @@ const MOVE_FOR_SHOT_REACH_SLACK_INCHES: float = 0.05
 # Evidence: exam mv07 (Custodes mirror) — the flag-off attack move ends 5.9"
 # from the target's nearest model (a 6+, 72%); the edge-aimed spot ends 4.5"
 # away (a 5+, 83%), the best the 6" move allows.
+# The lane's lead is always a BODYGUARD model: the AI's own charge move
+# (_compute_charge_move) plans only the bodyguard's models and the engine moves
+# an attached leader by their delta afterwards, so a leader can make a target
+# selectable (within 12" and within the roll, measured from the whole Attached
+# unit) but never carries the move, and it stands where the Normal move left
+# it while the bodyguard charges (the charge move's bases go round it). An
+# AIRCRAFT is priced as a target only for a FLYING charger (23.04) and never
+# blocks a lane (23.02: models can be moved through AIRCRAFT models).
 # Approximations: the lane is the lead model's straight line to a contact
 # point on the MOVE_FOR_CHARGE_LANE_PAIRS nearest pairs (the real charge move
 # can route round what this calls blocked; it is stricter than the engine's
@@ -31238,7 +31246,8 @@ static func _move_for_shot_note(pick: Dictionary, check: Dictionary, obj_id: Str
 # _move_cover_members) to the target unit's own models
 # (RulesEngine._charge_min_distance_to_target_rules), within 12" and within the
 # (modified, never above 12) 2D6 roll (_charge_roll_needed's two terms) — and
-# along a clean lane into engagement range (_mfc_lane). Every generator stage
+# along a clean lane into engagement range led by a bodyguard model, the only
+# models the AI's charge move moves (_mfc_lane). Every generator stage
 # that would bend a spot is screened with the FIX_MOVE_COVER mirrors (as
 # FIX_MOVE_FOR_SHOT does), and _move_for_charge_recheck re-prices the
 # destinations the mover actually returns. Print-free helpers only: never
@@ -31284,11 +31293,13 @@ static func _mfc_edge_px(ma: Dictionary, a: Vector2, mb: Dictionary, b: Vector2)
 	return maxf(0.0, a.distance_to(b) - ra - rb)
 
 ## What every lane on this board shares, built once per search: every enemy
-## model on the battlefield ({pos, r, unit_id, name, model_id, model}), the
-## obstacles a charger's base may not end on (every other unit's models — the
-## unit's own attached characters move with it), the unit's keywords and the
-## mini context _cm_in_er reads (Measurement, TerrainManager for
-## barricade-aware engagement range, 2").
+## model on the battlefield ({pos, r, unit_id, name, model_id, model, aircraft
+## — 23.02: models can be moved through AIRCRAFT models}), the obstacles a
+## charger's base may not end on (every other unit's models; the unit's own
+## attached characters are left out here — they move with the formation, and
+## _mfc_lane adds them where they stand while the bodyguard charges), the unit's
+## keywords and the mini context _cm_in_er reads (Measurement, TerrainManager
+## for barricade-aware engagement range, 2").
 static func _mfc_lane_ctx(unit: Dictionary, unit_id: String, snapshot: Dictionary, enemies: Dictionary) -> Dictionary:
 	var own := {unit_id: true}
 	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
@@ -31302,9 +31313,10 @@ static func _mfc_lane_ctx(unit: Dictionary, unit_id: String, snapshot: Dictionar
 		var e: Dictionary = enemies[eid]
 		if e.get("embarked_in", null) != null:
 			continue  # not on the battlefield (18.01)
+		var is_aircraft: bool = "AIRCRAFT" in e.get("meta", {}).get("keywords", [])
 		for m in _get_alive_models_with_positions(e):
 			enemy_models.append({"pos": _get_model_position(m), "r": _mfc_radius_px(m), "unit_id": str(eid),
-				"name": _dn(e, str(eid)), "model_id": str(m.get("id", "")), "model": m})
+				"name": _dn(e, str(eid)), "model_id": str(m.get("id", "")), "model": m, "aircraft": is_aircraft})
 	var kw: Array = unit.get("meta", {}).get("keywords", [])
 	return {"enemy_models": enemy_models, "obstacles": obstacles, "kw": kw, "fly": "FLY" in kw,
 		"er_ctx": {"meas": _measurement(), "tmgr": _terrain_manager(), "er_in": GameConstants.engagement_range_inches()}}
@@ -31314,13 +31326,15 @@ static func _mfc_lane_ctx(unit: Dictionary, unit_id: String, snapshot: Dictionar
 ## the unit now is within 12" + M (11.02: no Normal move brings a farther one
 ## within 12"). An attached CHARACTER is charged through its bodyguard (the
 ## engine selects the bodyguard unit); embarked units are not on the
-## battlefield. Each target: {id, name, group (its Attached unit's ids — being
-## engaged with an attached leader is being engaged with the target), models
-## [{pos, model}] — the target unit's own, as the engine measures a charge —
-## v (CHARGE_MELEE_DAMAGE_WEIGHT x the unit's expected melee damage on it,
-## floored at MOVE_FOR_CHARGE_MIN_TARGET_VALUE), h (the same for what it deals
-## back)}. Plus v_ref (the best v), the visible +N bonus and whether a free
-## re-roll is priced (FIX_CHARGE_REROLL_ODDS on and the engine offers one —
+## battlefield; an AIRCRAFT can be selected only by a FLYING charger (23.04,
+## _mfc_may_select — so for any other charger it is never a target, the planned
+## one included). Each target: {id, name, group (its Attached unit's ids —
+## being engaged with an attached leader is being engaged with the target),
+## models [{pos, model}] — the target unit's own, as the engine measures a
+## charge — v (CHARGE_MELEE_DAMAGE_WEIGHT x the unit's expected melee damage on
+## it, floored at MOVE_FOR_CHARGE_MIN_TARGET_VALUE), h (the same for what it
+## deals back)}. Plus v_ref (the best v), the visible +N bonus and whether a
+## free re-roll is priced (FIX_CHARGE_REROLL_ODDS on and the engine offers one —
 ## as the charge phase prices it; a Command Re-roll never is).
 static func _mfc_target_facts(unit: Dictionary, snapshot: Dictionary, enemies: Dictionary, members: Array,
 		plan_tid: String, move_inches: float) -> Dictionary:
@@ -31334,6 +31348,8 @@ static func _mfc_target_facts(unit: Dictionary, snapshot: Dictionary, enemies: D
 			continue
 		var e: Dictionary = enemies[eid]
 		if e.get("attached_to", null) != null or e.get("embarked_in", null) != null:
+			continue
+		if not _mfc_may_select(unit, e):
 			continue
 		var g := INF
 		for em in _get_alive_models_with_positions(e):
@@ -31356,7 +31372,7 @@ static func _mfc_target_facts(unit: Dictionary, snapshot: Dictionary, enemies: D
 	var v_ref := 0.0
 	for tid in ids:
 		var e: Dictionary = enemies.get(tid, {})
-		if e.is_empty():
+		if e.is_empty() or not _mfc_may_select(unit, e):
 			continue
 		var models: Array = []
 		for em in _get_alive_models_with_positions(e):
@@ -31373,13 +31389,24 @@ static func _mfc_target_facts(unit: Dictionary, snapshot: Dictionary, enemies: D
 	var reroll: bool = get_param("FIX_CHARGE_REROLL_ODDS", FIX_CHARGE_REROLL_ODDS) >= 0.5 and _charge_has_free_reroll(unit)
 	return {"targets": targets, "v_ref": v_ref, "bonus": _mfc_charge_bonus(unit), "reroll": reroll, "plan_id": plan_tid}
 
+## 23.04: only FLYING units can select AIRCRAFT units as a charge target. The
+## engine's own test (RulesEngine.charge_targets_within_12 /
+## ChargePhase._get_eligible_targets_for_unit): FLY among the charging unit's
+## keywords, AIRCRAFT among the target's.
+static func _mfc_may_select(charger: Dictionary, target: Dictionary) -> bool:
+	if not ("AIRCRAFT" in target.get("meta", {}).get("keywords", [])):
+		return true
+	return "FLY" in charger.get("meta", {}).get("keywords", [])
+
 ## Can a charge from the formation at `positions` reach `tgt`, and on what
 ## roll? 11.04: the target must be within 12" and within the roll — the closest
-## pair of models (`gap`) — and the move must be able to end engaged with it.
-## Of the MOVE_FOR_CHARGE_LANE_PAIRS closest (our model, target model) pairs,
-## nearest first, the first CLEAN one carries the price: its lead model goes
-## straight to a contact point MOVE_FOR_CHARGE_CONTACT_INSET_INCHES inside
-## engagement range of that target model, and the lane is blocked when
+## pair of models (`gap`, over the whole Attached unit, as the engine selects
+## targets: RulesEngine.charge_unit_models) — and the move must be able to end
+## engaged with it. Of the MOVE_FOR_CHARGE_LANE_PAIRS closest (BODYGUARD model,
+## target model) pairs, nearest first, the first CLEAN one carries the price:
+## its lead model goes straight to a contact point
+## MOVE_FOR_CHARGE_CONTACT_INSET_INCHES inside engagement range of that target
+## model, and the lane is blocked when
 ##  (i)   an enemy model other than that one lies across the path (03.01: a
 ##        base cannot be moved through enemy models — the engine's charge
 ##        validator has no such check, so this is the stricter reading);
@@ -31389,23 +31416,51 @@ static func _mfc_target_facts(unit: Dictionary, snapshot: Dictionary, enemies: D
 ##  (iii) there is no room for the base there (another model, or a wall);
 ##  (iv)  the path crosses a dense feature the unit's keywords cannot cross
 ##        (13.06; INFANTRY / BEASTS / SWARM / MOBILE pass).
+## An attached CHARACTER never leads a lane: the AI's own charge move
+## (_compute_charge_move) plans the bodyguard's models only, the engine's
+## validator counts only the paths it is sent, and the leader is moved by the
+## bodyguard's delta after it (ChargePhase._charge_attached_character_changes).
+## So a leader counts for `gap` (it can make a target selectable) but not for
+## the move, and it stands where the Normal move left it while the bodyguard
+## charges — the charge move treats it as an obstacle. A contact point its base
+## covers is replaced by the cheapest clean end point the charge move itself
+## would try (_cm_best_candidate): straight on at a smaller gap, past the
+## leader, or round the target model's base at its 20 ring angles — priced on
+## that longer move (`detour`). That pair still carries the price even when a
+## farther pair's straight lane would be cheaper: the charge move places the
+## nearest model first and keeps the others in coherency with it, so the
+## farther lane is not one it can be counted on to take (conservative: the
+## stage may under-claim here, never over-claim).
 ## The roll needed is max(gap, the lane pair's edge - ER + its terrain
 ## penalty) less ChargeMove11e's inclusive tolerance — _charge_roll_needed's two
 ## terms, the first measured on the closest pair, the climb on the lane (centre
 ## to centre, as _evaluate_best_charge prices it). Returns {blocked: false,
-## need, gap, edge, pen, pair [i, j], contact, why (why a nearer pair's lane was
-## blocked, "" if none)} or {blocked: true, gap, why}.
+## need, gap, gap_char (an attached character's model is the closest), edge,
+## pen, move_in (the move half of the need: edge - ER, or the detour's move),
+## detour, pair [i, j], contact, why (why a nearer pair's lane was blocked, ""
+## if none)} or {blocked: true, gap, gap_char, why}.
 static func _mfc_lane(ctx: Dictionary, members: Array, positions: Array, tgt: Dictionary) -> Dictionary:
 	var n_keep := maxi(get_param_int("MOVE_FOR_CHARGE_LANE_PAIRS", MOVE_FOR_CHARGE_LANE_PAIRS), 1)
-	var kept: Array = []  # [edge px, member index, target model index], ascending
+	var kept: Array = []  # [edge px, member index, target model index], ascending — bodyguard models only
 	var gap_px := INF
+	var gap_char := false
+	var chars: Array = []  # our attached characters' models where they stand (still, while the bodyguard charges)
 	var tmods: Array = tgt.models
 	for i in range(members.size()):
 		var a: Vector2 = positions[i]
 		var ma: Dictionary = members[i].model
+		var is_char := bool(members[i].is_char)
+		if is_char:
+			var cm: Dictionary = ma.duplicate()
+			cm["position"] = a
+			chars.append(cm)
 		for j in range(tmods.size()):
 			var e_px := _mfc_edge_px(ma, a, tmods[j].model, tmods[j].pos)
-			gap_px = minf(gap_px, e_px)
+			if e_px < gap_px:
+				gap_px = e_px
+				gap_char = is_char
+			if is_char:
+				continue  # the AI's charge move never moves it (see above)
 			if kept.size() >= n_keep and e_px >= float(kept[kept.size() - 1][0]):
 				continue
 			var at := kept.size()
@@ -31417,15 +31472,14 @@ static func _mfc_lane(ctx: Dictionary, members: Array, positions: Array, tgt: Di
 			if kept.size() > n_keep:
 				kept.pop_back()
 	if kept.is_empty():
-		return {"blocked": true, "gap": INF, "why": "it has no models to charge"}
+		return {"blocked": true, "gap": INF, "gap_char": false, "why": "it has no models to charge"}
 	var gap_in := gap_px / PIXELS_PER_INCH
 	var tol := ChargeMove11e.WITHIN_TOLERANCE_INCHES
 	if gap_in > MOVE_FOR_CHARGE_DECLARE_RANGE_INCHES + tol:
-		return {"blocked": true, "gap": gap_in, "why": "it is more than 12\" away"}
-	var er_ctx: Dictionary = ctx.er_ctx
-	var er_in := float(er_ctx.er_in)
-	var er_scan_px := (maxf(er_in, GameConstants.barricade_engagement_range_inches()) + 0.5) * PIXELS_PER_INCH
+		return {"blocked": true, "gap": gap_in, "gap_char": gap_char, "why": "it is more than 12\" away"}
+	var er_in := float(ctx.er_ctx.er_in)
 	var inset_in := get_param("MOVE_FOR_CHARGE_CONTACT_INSET_INCHES", MOVE_FOR_CHARGE_CONTACT_INSET_INCHES)
+	var contact_px := maxf(er_in - inset_in, 0.0) * PIXELS_PER_INCH
 	var kw: Array = ctx.kw
 	var group: Dictionary = tgt.get("group", {str(tgt.id): true})
 	var first_why := ""
@@ -31440,56 +31494,120 @@ static func _mfc_lane(ctx: Dictionary, members: Array, positions: Array, tgt: Di
 		if away.length() < 0.001:
 			continue
 		var u := away.normalized()
-		var bm := int(ma.get("base_mm", 32))
-		var bt := str(ma.get("base_type", "circular"))
-		var bd: Dictionary = ma.get("base_dimensions", {})
-		var rot := float(ma.get("rotation", 0.0))
-		var c := b + u * (_model_radius_toward_px(bm, bt, bd, -u, rot)
-			+ _model_radius_toward_px(int(tmj.model.get("base_mm", 32)), str(tmj.model.get("base_type", "circular")),
-				tmj.model.get("base_dimensions", {}), u, float(tmj.model.get("rotation", 0.0)))
-			+ maxf(er_in - inset_in, 0.0) * PIXELS_PER_INCH)
-		var ra := _mfc_radius_px(ma)
-		var seg_len := a.distance_to(c)
-		var tm_id := str(tmj.model.get("id", ""))
-		var why := ""
-		# (i) 03.01: no enemy base across the lead model's path.
-		for ek in ctx.enemy_models:
-			if str(ek.unit_id) == str(tgt.id) and str(ek.model_id) == tm_id:
-				continue
-			var q: Vector2 = ek.pos
-			var lim := ra + float(ek.r)
-			if q.distance_to(a) > seg_len + lim:
-				continue
-			if q.distance_to(Geometry2D.get_closest_point_to_segment(q, a, c)) < lim - 0.5:
-				why = "%s stands in the way" % str(ek.name)
-				break
-		# (ii) 11.04 AFTER MOVING: not engaged with a unit that is not a target.
-		if why == "":
-			var probe: Dictionary = ma.duplicate()
-			probe["position"] = c
-			for ek in ctx.enemy_models:
-				if group.has(str(ek.unit_id)):
-					continue
-				if Vector2(ek.pos).distance_to(c) > ra + float(ek.r) + er_scan_px:
-					continue
-				if _cm_in_er(er_ctx, probe, ek.model):
-					why = "it would end engaged with %s" % str(ek.name)
+		var c := _mfc_contact_at(ma, tmj.model, b, u, contact_px)
+		var why := _mfc_contact_why(ctx, ma, a, c, tgt, tmj.model, group)
+		var detoured := false
+		var move_in := 0.0
+		if why == "" and not chars.is_empty() and _dest_really_overlaps(c, int(ma.get("base_mm", 32)),
+				str(ma.get("base_type", "circular")), ma.get("base_dimensions", {}), chars, float(ma.get("rotation", 0.0))):
+			# Our leader stands on the straight contact point. The charge move
+			# (_cm_best_candidate) then ends straight on at a smaller gap, past
+			# the leader, or round the target model's base (its 20 ring
+			# angles): price the cheapest of those end points that passes every
+			# check, the leader's base included — a straight one at its real
+			# move, a ring one (at the contact gap) less the inset, as the
+			# straight contact is priced.
+			var opts: Array = []  # [move half (inches), end point]
+			for g_in in _mfc_detour_gaps(er_in, inset_in):
+				var ps := _mfc_contact_at(ma, tmj.model, b, u, float(g_in) * PIXELS_PER_INCH)
+				opts.append([a.distance_to(ps) / PIXELS_PER_INCH, ps])
+			for si in range(20):
+				var pr2 := _mfc_contact_at(ma, tmj.model, b, Vector2.from_angle(TAU * float(si) / 20.0), contact_px)
+				opts.append([a.distance_to(pr2) / PIXELS_PER_INCH - inset_in, pr2])
+			opts.sort_custom(func(x, y): return float(x[0]) < float(y[0]))
+			for op in opts:
+				var p2: Vector2 = op[1]
+				if _mfc_contact_why(ctx, ma, a, p2, tgt, tmj.model, group, chars) == "":
+					c = p2
+					move_in = float(op[0])
+					detoured = true
 					break
-		# (iii) room for its base at the contact point.
-		if why == "" and (_dest_really_overlaps(c, bm, bt, bd, ctx.obstacles, rot) or _dest_overlaps_wall(c, bm, bt, bd, kw)):
-			why = "no room for a base at %s" % str(tgt.name)
-		# (iv) 13.06: no dense feature its keywords cannot cross.
-		if why == "" and _path_blocked_by_solid_terrain_direct(a, c, bm, bt, bd, kw):
-			why = "dense terrain its models cannot cross is in the way"
+			if not detoured:
+				why = "its attached leader leaves no room for a base at %s" % str(tgt.name)
 		if why == "":
 			var pen := _estimate_charge_terrain_penalty(a, b, bool(ctx.fly), kw)
 			var edge_in := float(pr[0]) / PIXELS_PER_INCH
-			var need := maxf(0.0, maxf(gap_in, edge_in - er_in + pen) - tol)
-			return {"blocked": false, "need": need, "gap": gap_in, "edge": edge_in, "pen": pen, "pair": [i, j],
-				"contact": c, "why": first_why}
+			if not detoured:
+				move_in = edge_in - er_in  # the straight lane's move half
+			var need := maxf(0.0, maxf(gap_in, move_in + pen) - tol)
+			return {"blocked": false, "need": need, "gap": gap_in, "gap_char": gap_char, "edge": edge_in, "pen": pen,
+				"move_in": move_in, "detour": detoured, "pair": [i, j], "contact": c, "why": first_why}
 		if first_why == "":
 			first_why = why
-	return {"blocked": true, "gap": gap_in, "why": first_why if first_why != "" else "no clean lane to it"}
+	return {"blocked": true, "gap": gap_in, "gap_char": gap_char, "why": first_why if first_why != "" else "no clean lane to it"}
+
+## The straight end-point gaps (inches, edge to edge) the charge move tries
+## beside a target model (_cm_choose_endpoint: the 1" band first, then the rest
+## of engagement range), below the lane's contact gap — where a bodyguard model
+## can still end straight on when our leader stands on the contact point.
+static func _mfc_detour_gaps(er_in: float, inset_in: float) -> Array:
+	var gaps: Array = [0.1, 0.4, 0.7, 0.98, 0.995]
+	if er_in > 1.35:
+		gaps.append_array([1.2, minf(er_in - 0.35, 1.6), er_in - 0.15, er_in - 0.03, er_in - 0.01])
+	var out: Array = []
+	for g in gaps:
+		if float(g) < er_in - inset_in:
+			out.append(float(g))
+	return out
+
+## The contact point for a lane: where our model `ma` stands when its base is
+## `contact_px` (engagement range less the inset) from target model `tm`'s base
+## at `b`, in unit direction `u` from b — each base's radius taken toward the
+## other (exact for round bases).
+static func _mfc_contact_at(ma: Dictionary, tm: Dictionary, b: Vector2, u: Vector2, contact_px: float) -> Vector2:
+	return b + u * (_model_radius_toward_px(int(ma.get("base_mm", 32)), str(ma.get("base_type", "circular")),
+			ma.get("base_dimensions", {}), -u, float(ma.get("rotation", 0.0)))
+		+ _model_radius_toward_px(int(tm.get("base_mm", 32)), str(tm.get("base_type", "circular")),
+			tm.get("base_dimensions", {}), u, float(tm.get("rotation", 0.0)))
+		+ contact_px)
+
+## The lane checks (i)-(iv) of _mfc_lane for our model `ma` moving straight from
+## `a` to the contact point `c` beside target model `tm`: "" when clean, else
+## why not. `extra_obstacles` (our attached characters where they stand) join
+## the room check (iii).
+static func _mfc_contact_why(ctx: Dictionary, ma: Dictionary, a: Vector2, c: Vector2, tgt: Dictionary, tm: Dictionary,
+		group: Dictionary, extra_obstacles: Array = []) -> String:
+	var er_ctx: Dictionary = ctx.er_ctx
+	var er_scan_px := (maxf(float(er_ctx.er_in), GameConstants.barricade_engagement_range_inches()) + 0.5) * PIXELS_PER_INCH
+	var bm := int(ma.get("base_mm", 32))
+	var bt := str(ma.get("base_type", "circular"))
+	var bd: Dictionary = ma.get("base_dimensions", {})
+	var rot := float(ma.get("rotation", 0.0))
+	var kw: Array = ctx.kw
+	var ra := _mfc_radius_px(ma)
+	var seg_len := a.distance_to(c)
+	var tm_id := str(tm.get("id", ""))
+	# (i) 03.01: no enemy base across the lead model's path — but 23.02: any
+	# model may be moved through AIRCRAFT models.
+	for ek in ctx.enemy_models:
+		if str(ek.unit_id) == str(tgt.id) and str(ek.model_id) == tm_id:
+			continue
+		if bool(ek.get("aircraft", false)):
+			continue
+		var q: Vector2 = ek.pos
+		var lim := ra + float(ek.r)
+		if q.distance_to(a) > seg_len + lim:
+			continue
+		if q.distance_to(Geometry2D.get_closest_point_to_segment(q, a, c)) < lim - 0.5:
+			return "%s stands in the way" % str(ek.name)
+	# (ii) 11.04 AFTER MOVING: not engaged with a unit that is not a target.
+	var probe: Dictionary = ma.duplicate()
+	probe["position"] = c
+	for ek in ctx.enemy_models:
+		if group.has(str(ek.unit_id)):
+			continue
+		if Vector2(ek.pos).distance_to(c) > ra + float(ek.r) + er_scan_px:
+			continue
+		if _cm_in_er(er_ctx, probe, ek.model):
+			return "it would end engaged with %s" % str(ek.name)
+	# (iii) room for its base at the contact point.
+	if _dest_really_overlaps(c, bm, bt, bd, ctx.obstacles, rot) or _dest_overlaps_wall(c, bm, bt, bd, kw) \
+			or (not extra_obstacles.is_empty() and _dest_really_overlaps(c, bm, bt, bd, extra_obstacles, rot)):
+		return "no room for a base at %s" % str(tgt.name)
+	# (iv) 13.06: no dense feature its keywords cannot cross.
+	if _path_blocked_by_solid_terrain_direct(a, c, bm, bt, bd, kw):
+		return "dense terrain its models cannot cross is in the way"
+	return ""
 
 ## The charge the formation at `positions` leaves, priced as an option over
 ## the 2D6 roll (11.02: the roll comes first, the targets after it): per roll
@@ -31717,18 +31835,21 @@ static func _mfc_roll_text(ev: Dictionary) -> String:
 ## whole unit (attached characters included), each cut short just outside
 ## engagement range of every enemy model (_mfc_max_travel): the aimed lines (for
 ## each target, the closest pair now and after the flag-off move — that member
-## straight at that model — and the centroid toward the planned target's
-## nearest model), the objective-to-charge blends (objective mode; weight 0 is
-## the straight objective move, kind "drop"), a fan round the planned aimed
-## line, and multi-target midpoints. Each is screened with the generator
-## mirrors (cap, path, climb cost, legacy cover nudge, range clamp, the
-## predicted threat dodge), the engagement-range ring, the objective guards,
-## 13.06.01 (no base through a Solid feature) and placement (_mc_place_fail);
-## at most MOVE_FOR_CHARGE_MAX_CANDIDATES survivors, in proposal order, are
-## priced (_mfc_eval) and scored (_mfc_gain). The pick needs
-## MOVE_FOR_CHARGE_MIN_GAIN and _mfc_fires. "pos" is the target to hand the
-## mover, "end" where it will put the centroid. `diag` gets the search's counts
-## (the MOVE_FOR_CHARGE debug line's numbers), for tests.
+## straight at that model; when an attached leader is the closest, the closest
+## bodyguard pair first, since the bodyguard leads the charge move — and the
+## centroid toward the planned target's nearest model), the objective-to-charge
+## blends (objective mode; weight 0 is the straight objective move, kind
+## "drop"), a fan round the planned aimed line, and multi-target midpoints. Each
+## is screened with the generator mirrors (cap, path, climb cost, legacy cover
+## nudge, range clamp, the predicted threat dodge), the engagement-range ring,
+## the objective guards, 13.06.01 (no base through a Solid feature) and
+## placement (_mc_place_fail); at most MOVE_FOR_CHARGE_MAX_CANDIDATES
+## survivors, in proposal order, are priced (_mfc_eval) and scored (_mfc_gain).
+## Each priced spot must pass the plan guard, MOVE_FOR_CHARGE_MIN_GAIN and
+## _mfc_fires itself; the pick is the best that does. "pos" is the target to
+## hand the mover, "end" where it will put the centroid. `diag` gets the
+## search's counts (the MOVE_FOR_CHARGE debug line's numbers), for tests. No
+## spot for a planned target the charger may not select (_mfc_may_select).
 static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dictionary, centroid: Vector2,
 		mode: String, plan_tid: String, base_dests: Dictionary, obj_aim: Vector2, target_pos: Vector2,
 		move_inches: float, enemies: Dictionary, mover_threat: Array, mover_max_wr: float,
@@ -31767,6 +31888,10 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 	var facts := _mfc_target_facts(unit, snapshot, enemies, members, plan_tid, move_inches)
 	var targets: Array = facts.targets
 	if targets.is_empty() or str(targets[0].id) != plan_tid:
+		if not _mfc_may_select(unit, enemies[plan_tid]):
+			diag["exit"] = "aircraft"
+			_debug_log_info("MOVE_FOR_CHARGE %s: the planned target %s is an AIRCRAFT and only FLYING units can charge one (23.04) — unchanged" % [
+				unit_name, _dn(enemies[plan_tid], plan_tid)])
 		return {}
 	var plan_t: Dictionary = targets[0]
 	var ctx := _mfc_lane_ctx(unit, unit_id, snapshot, enemies)
@@ -31832,6 +31957,9 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 			var best_e := INF
 			var bi := -1
 			var bj := -1
+			var best_g := INF  # the closest BODYGUARD pair: the one that leads the charge move (_mfc_lane)
+			var gi := -1
+			var gj := -1
 			for i in range(members.size()):
 				for j in range(tg.models.size()):
 					var e_px := _mfc_edge_px(members[i].model, src[i], tg.models[j].model, tg.models[j].pos)
@@ -31839,14 +31967,24 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 						best_e = e_px
 						bi = i
 						bj = j
+					if e_px < best_g and not bool(members[i].is_char):
+						best_g = e_px
+						gi = i
+						gj = j
 			if bi < 0:
 				continue
-			var hv: Vector2 = Vector2(tg.models[bj].pos) - Vector2(origins[bi])
-			if hv.length() < 1.0:
-				continue
-			if not tgt_heads.has(str(tg.id)):
-				tgt_heads[str(tg.id)] = hv.normalized()
-			heads.append([hv.normalized(), reach_px, "aimed", -1.0])
+			# With an attached leader nearest, aim the bodyguard first (its
+			# heading is the target's first aimed heading), then the leader.
+			var aim_pairs: Array = [[bi, bj]]
+			if gi >= 0 and gi != bi:
+				aim_pairs = [[gi, gj], [bi, bj]]
+			for ap in aim_pairs:
+				var hv: Vector2 = Vector2(tg.models[int(ap[1])].pos) - Vector2(origins[int(ap[0])])
+				if hv.length() < 1.0:
+					continue
+				if not tgt_heads.has(str(tg.id)):
+					tgt_heads[str(tg.id)] = hv.normalized()
+				heads.append([hv.normalized(), reach_px, "aimed", -1.0])
 		if str(tg.id) == plan_tid:
 			plan_head = tgt_heads.get(plan_tid, Vector2.ZERO)
 			var near_d := INF
@@ -31908,7 +32046,7 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 	var place_ready := false
 	var max_cand := maxi(get_param_int("MOVE_FOR_CHARGE_MAX_CANDIDATES", MOVE_FOR_CHARGE_MAX_CANDIDATES), 0)
 	var rej := {"cap": 0, "path": 0, "penalty": 0, "nudge": 0, "clamp": 0, "er": 0, "loss": 0, "turns": 0,
-		"control": 0, "oc": 0, "solid": 0, "place": 0, "budget": 0, "plan": 0, "gain": 0}
+		"control": 0, "oc": 0, "solid": 0, "place": 0, "budget": 0, "plan": 0, "gain": 0, "odds": 0}
 	var survivors: Array = []
 	for pr in props:
 		if survivors.size() >= max_cand:
@@ -31962,8 +32100,14 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 		survivors.append({"t": t, "p": p, "positions": positions, "loss_in": float(og.get("loss_in", 0.0)),
 			"kind": str(pr.kind), "w": float(pr.w), "idx": int(pr.idx)})
 
-	# --- price and pick
-	var best := {}
+	# --- price and pick. The plan guard, MOVE_FOR_CHARGE_MIN_GAIN and the fire
+	# rule (_mfc_fires) screen each spot: when the best-gain spot (`top`)
+	# passes them it is the pick, exactly as it always was; when it fails one,
+	# the best spot that passes all three is — a non-firing top never vetoes a
+	# runner-up that fires.
+	var min_gain := get_param("MOVE_FOR_CHARGE_MIN_GAIN", MOVE_FOR_CHARGE_MIN_GAIN)
+	var top := {}
+	var passing: Array = []
 	for sv in survivors:
 		var ev := _mfc_eval(ctx, members, sv.positions, facts)
 		sv["eval"] = ev
@@ -31971,8 +32115,22 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 		if _mfc_plan_guard(ev, base_eval, mode, str(sv.kind)) != "":
 			rej.plan += 1
 			continue
-		if best.is_empty() or _mfc_better(sv, best, base_end):
-			best = sv
+		if top.is_empty() or _mfc_better(sv, top, base_end):
+			top = sv
+		if float(sv.gain) < min_gain:
+			rej.gain += 1
+			continue
+		if not _mfc_fires(ev, base_eval):
+			rej.odds += 1
+			continue
+		passing.append(sv)
+	var best := {}
+	if not top.is_empty() and float(top.gain) >= min_gain and _mfc_fires(top.eval, base_eval):
+		best = top
+	else:
+		for sv in passing:
+			if best.is_empty() or _mfc_better(sv, best, base_end):
+				best = sv
 	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
 	var rej_parts := PackedStringArray()
 	for k in rej:
@@ -31980,21 +32138,25 @@ static func _pick_charge_spot(unit: Dictionary, unit_id: String, snapshot: Dicti
 	diag["rej"] = rej
 	diag["survivors"] = survivors.size()
 	diag["stats"] = stats
+	if not top.is_empty():
+		diag["top"] = {"p": top.p, "kind": str(top.kind), "gain": float(top.gain), "evn": float(top.eval.evn)}
 	var head_txt := "MOVE_FOR_CHARGE %s: mode=%s plan=%s targets=%d base=%s gap=%.1f\" proposals=%d (dup %d, inside %d) rejected{%s} evaluated=%d" % [
 		unit_name, mode, plan_tid, targets.size(), _mfc_roll_text(base_eval), float(base_eval.gap_plan), props.size(),
 		int(stats.dup), int(stats.inside), ",".join(rej_parts), survivors.size()]
-	var min_gain := get_param("MOVE_FOR_CHARGE_MIN_GAIN", MOVE_FOR_CHARGE_MIN_GAIN)
-	if best.is_empty() or float(best.gain) < min_gain or not _mfc_fires(best.eval, base_eval):
-		if not best.is_empty():
-			diag["best_gain"] = float(best.gain)
+	if best.is_empty():
+		if not top.is_empty():
+			diag["best_gain"] = float(top.gain)
 		_debug_log_info("%s best=%s — keeps the flag-off move (%.1f ms)" % [head_txt,
-			("none" if best.is_empty() else "%s %s gain %.2f" % [str(best.kind), _mfc_roll_text(best.eval), float(best.gain)]), ms])
+			("none" if top.is_empty() else "none that fires (top %s %s gain %.2f)" % [str(top.kind), _mfc_roll_text(top.eval), float(top.gain)]), ms])
 		return {}
+	var veto_txt := ""
+	if not is_same(best, top):
+		veto_txt = " (the top spot, %s %s gain %.2f, fails the gain / odds screen)" % [str(top.kind), _mfc_roll_text(top.eval), float(top.gain)]
 	diag["best"] = best.p
 	diag["best_gain"] = float(best.gain)
-	_debug_log_info("%s best=(%.0f,%.0f) via %s %s gain=%.2f loss=%.1f\" reach=%d (%.1f ms)" % [head_txt,
+	_debug_log_info("%s best=(%.0f,%.0f) via %s %s gain=%.2f loss=%.1f\" reach=%d%s (%.1f ms)" % [head_txt,
 		best.p.x, best.p.y, str(best.kind), _mfc_roll_text(best.eval), float(best.gain), maxf(0.0, float(best.loss_in)),
-		int(best.eval.n_reach), ms])
+		int(best.eval.n_reach), veto_txt, ms])
 	return {
 		"pos": best.t, "end": best.p, "base_end": base_end, "centroid": centroid, "mode": mode, "kind": str(best.kind),
 		"w": float(best.w), "plan_id": plan_tid, "plan_name": str(plan_t.name), "base_eval": base_eval,
@@ -32071,6 +32233,13 @@ static func _move_for_charge_note(pick: Dictionary, check: Dictionary, obj_id: S
 		extras += " (%d to the roll)" % bonus
 	if bool(facts.reroll):
 		extras += " (free re-roll counted)"
+	# An attached leader is the nearest model, but the bodyguard makes the
+	# charge move (_mfc_lane) and its distance sets the roll: say so, or the
+	# "Stops X" figure would not explain the roll.
+	var lp: Dictionary = e1.get("per", {}).get(str(pick.plan_id), {})
+	if bool(lp.get("gap_char", false)) and not bool(lp.get("blocked", true)) \
+			and float(lp.get("move_in", 0.0)) + float(lp.get("pen", 0.0)) > float(lp.get("gap", INF)):
+		extras += " (its attached leader is nearest, but the bodyguard makes the charge move, from %.1f\" away)" % float(lp.get("edge", 0.0))
 	var now_txt := "a %d+ on 2D6 (%.0f%%)" % [int(e1.k_plan), float(e1.p_plan) * 100.0]
 	var was_txt := ("a %d+ (%.0f%%)" % [int(e0.k_plan), float(e0.p_plan) * 100.0]) if bool(e0.plan_ok) else "none"
 	var also := PackedStringArray()
