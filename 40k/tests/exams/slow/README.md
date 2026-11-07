@@ -236,3 +236,12 @@ changes behaviour and needs the paired evaluator first.
   on a base object of type 'Array'`, and the mission is then scored 0.0 and
   discarded as unachievable whenever this path runs. Fixing it changes which
   secondaries the AI keeps, so it needs the paired evaluator; not fixed here.
+
+**2026-11-07 (EXAM-DET-1): it now finishes, and needs its own wall-clock cap.**
+Measured at 575688d with `EXAM_LANES=2` on a 4-core box (load 0.6-3.2):
+the movement phase ended after 120.5 s and the exam PASSED (`got -1.376`);
+b48b429's runner gave the same verdict and value. 120 s is the runner's
+default per-exam cap, and an overrun no longer grades the half-played phase:
+it reports TIMEOUT and run_exams.sh lists it as ERROR, never PASS/FAIL. So
+the spec now sets `max_seconds: 600`, inside the 720 s `EXAM_TIMEOUT_ORKS`
+budget. At about two minutes it may now fit the gated suite; not promoted here.
