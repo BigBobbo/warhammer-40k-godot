@@ -44,12 +44,11 @@ Known follow-ups:
 - `recon_stomps.json` is 2280/2000 pts with codex Ork points; the shipped
   Ork AI plans are authored against that roster, so it was kept whole.
   Re-author the plans for a legal list.
-- Not implemented: Custodes Assault Vehicle, Advanced Firepower; Ork Deff from
-  the Shadows, Pilin' Out, Pulse Jet, Big'ed Bossbunka's three abilities, the
-  Runnin' wiv da Herd keyword swap, Get Out da Way!. Swift Ruin is headless
-  only (11e RAPID INGRESS has no human offer).
-- No Redeployment-step UI: Castellan's Mark, Kaptin's Hat (and Razgit's Magik
-  Map) redeploys cannot be clicked by a human.
+- ~~Not implemented: Assault Vehicle, Advanced Firepower, Deff from the Shadows,
+  Pilin' Out, Pulse Jet, Big'ed Bossbunka's three, Runnin' wiv da Herd keyword
+  swap, Get Out da Way!; Swift Ruin headless only; no Redeployment-step UI;
+  NO ESCAPE / RAPID REACTIONS / SELFLESS SERVICE auto-resolved~~ — DONE
+  2026-11-07 by WP-G1..G5 (see `PLAN_GAPS.md`).
 - Engine: a model never carries two copies of the same weapon (Telemon's 2
   Twin Neutronium Cascade Projectors, Stompa's 5 Big Shootas fire once).
 - Tankbustas ranged loadout still unresolved per model (id/name gap; 72

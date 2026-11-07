@@ -1,6 +1,6 @@
 # Codex 11e — remaining Custodes + Ork gaps — plan
 
-Status: IN PROGRESS (2026-11-07). Owner ask: "Implement the remaining Custodes
+Status: SHIPPED (2026-11-07, version 1.74.0) — G1–G5 merged; see "Integration result" at the end. Owner ask: "Implement the remaining Custodes
 and Ork gaps" (the "Not implemented" / "no player UI" items left by PLAN.md,
 custodes_abilities_audit.md, ork_abilities_audit.md).
 

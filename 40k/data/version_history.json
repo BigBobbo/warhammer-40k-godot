@@ -2,6 +2,28 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.74.0",
+      "date": "2026-11-07",
+      "summary": "The last Custodes and Ork codex rules are in: a Redeployment step you can use, Assault Vehicle, Pilin' Out, Deff from the Shadows, Pulse Jet, Advanced Firepower, the Big'ed Bossbunka, and NO ESCAPE / SELFLESS SERVICE / RAPID REACTIONS played by you.",
+      "changes": [
+        "Redeployment step: Castellan's Mark, Kaptin's Hat and Razgit's Magik Map (and the Space Marine / Space Wolves redeploy rules) now have a panel. Redeploy, send to Strategic Reserves or keep up to three units; players take turns starting with the Attacker.",
+        "Fix: a unit sent to Strategic Reserves from the Redeployment step now arrives later like any other reserve unit.",
+        "Assault Vehicle (Coronus Grav-Carrier, Anathema Psykana Rhino): after the transport Advances, the units inside can make a shock disembark (set up within 3\", no charge this turn). The Impulsor's Rapid Disembarkation now shows the same dialog.",
+        "Pilin' Out (Trukk): when an enemy unit ends a move within 8\" of your Trukk in your opponent's Movement phase, a free card lets the units inside disembark.",
+        "Deff from the Shadows (Boss Snikrot): at the end of your opponent's Movement phase Snikrot can arrive from Strategic Reserves for free, from the first battle round.",
+        "Swift Ruin (Venatari with Verutum Lances): the Rapid Ingress pop-up shows each unit's own cost (Venatari 0 CP) and is offered again after an arrival, so two units can arrive in the same phase.",
+        "Pulse Jet (Wazdakka Gutsmek): pick it with Full Throttle, then press \"Pulse Jet (18\\\" + D6)\" in the Movement phase to fly over models and terrain. No charge or action afterwards; attacks against Wazdakka have -1 to hit until your next turn.",
+        "Runnin' wiv da Herd (Painboss): attached to a Mounted unit, the Painboss loses INFANTRY and gains MOBILE and MOUNTED; its own keywords come back when it leaves or the unit is destroyed.",
+        "Get Out da Way! (Nobz): charging Nobz can move through enemy models except MONSTERS and VEHICLES.",
+        "Charge moves now follow the 11e movement rule: a charging model cannot pass through enemy models (friendly models and AIRCRAFT never block; FLY units charge over models).",
+        "Advanced Firepower (Caladius Annihilator): against MONSTERS and VEHICLES, re-roll one hit, one wound and one damage roll each phase. Click the die in the dice panel, or it is done automatically on Fast Roll / AI / Fire Overwatch.",
+        "Big'ed Bossbunka: Fortification (enemies engaged only with Fortifications can be shot at -1 to hit; their fall-back hazard rolls pass), Raucous Occupants (adds embarked OC on your home objective) and Ramshackle Cover (units partly hidden behind it get cover).",
+        "NO ESCAPE and SELFLESS SERVICE are now yours to play: roll the charge, pick the targets and drag the models. SELFLESS SERVICE can target any enemy within 6\" and the roll (the roll is capped at 6).",
+        "RAPID REACTIONS: choose which weapons fire at the unit that fell back, then roll the attacks.",
+        "Fix: clicking a die to re-roll it in the shooting dice panel no longer logs an engine error."
+      ]
+    },
+    {
       "version": "1.73.2",
       "date": "2026-11-05",
       "summary": "Rotating the board keeps unit labels and round tokens readable.",
