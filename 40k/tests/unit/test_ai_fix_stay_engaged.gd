@@ -48,7 +48,16 @@ const HEAVY_GUN := {"name": "Heavy gun", "type": "Ranged", "range": "36", "attac
 	"strength": "9", "ap": "-2", "damage": "3", "special_rules": ""}
 const PISTOL := {"name": "Bolt pistol", "type": "Ranged", "range": "12", "attacks": "1", "ballistic_skill": "3",
 	"strength": "4", "ap": "0", "damage": "1", "special_rules": "pistol"}
-const PARAMS := ["FIX_STAY_ENGAGED", "STAY_ENGAGED_STRIKE_FIRST", "STAY_ENGAGED_CQ_WEIGHT"]
+const PARAMS := ["FIX_STAY_ENGAGED", "STAY_ENGAGED_STRIKE_FIRST", "STAY_ENGAGED_CQ_WEIGHT", "STAY_ENGAGED_FREE_TARGET_WEIGHT"]
+const LASCANNON := {"name": "Lascannon", "type": "Ranged", "range": "48", "attacks": "1", "ballistic_skill": "3",
+	"strength": "12", "ap": "-3", "damage": "6", "special_rules": ""}
+## The Orks_2000.json Burna profile: D6 attacks, BS "N/A", [TORRENT] (24.37: no hit roll).
+const BURNA := {"name": "Burna", "type": "Ranged", "range": "12", "attacks": "D6", "ballistic_skill": "N/A",
+	"strength": "4", "ap": "0", "damage": "1", "special_rules": "ignores cover, torrent",
+	"abilities": [{"id": "ignores_cover"}, {"id": "torrent"}]}
+const MULTI_MELTA := {"name": "Multi-melta", "type": "Ranged", "range": "18", "attacks": "2", "ballistic_skill": "4",
+	"strength": "9", "ap": "-4", "damage": "D6", "special_rules": "melta 2"}
+const MM_PX := 40.0 / 25.4
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -109,6 +118,15 @@ func _run_tests():
 	test_guard_edition_10_unchanged()
 	test_guard_only_remain_stationary_offered()
 	test_guard_not_engaged_unchanged()
+	# Review fixes
+	test_strike_first_friendly_charger_hands_over()
+	test_strike_first_contested_combats()
+	test_free_target_for_our_guns()
+	test_ranged_damage_weapon_keywords()
+	test_desperate_escape_rolls_match_engine()
+	test_crossing_predicate_shape_aware()
+	test_crossing_costs_nothing_until_engine_refuses()
+	test_reason_when_staying_is_a_loss()
 	test_ledger_sums()
 
 	for p in PARAMS:
@@ -173,6 +191,8 @@ func _reset() -> void:
 	AIDM.clear_all_plans()
 	AIDM._config_overrides.erase("STAY_ENGAGED_STRIKE_FIRST")
 	AIDM._config_overrides.erase("STAY_ENGAGED_CQ_WEIGHT")
+	AIDM._config_overrides.erase("STAY_ENGAGED_FREE_TARGET_WEIGHT")
+	AIDM._thinking_steps.clear()
 
 func _engaged(snap: Dictionary, uid: String, move_types: Array = ["BEGIN_FALL_BACK", "REMAIN_STATIONARY"]) -> Dictionary:
 	AIDM._decision_records.clear()
@@ -622,6 +642,384 @@ func test_guard_not_engaged_unchanged() -> void:
 		_assert(_choice().is_empty() and str(d.get("_ai_description", "")) == "CG falls back (not on objective)",
 			"flag=%.0f: the old fall back, no record (%s)" % [v, str(d.get("_ai_description", ""))])
 	_set_fix(1.0)
+
+# --- review fixes ----------------------------------------------------------------
+
+func _cg_at(snap: Dictionary, uid: String, owner: int, x0: float, y: float, flags: Dictionary = {}) -> Dictionary:
+	return _add(snap, uid, owner, _line(x0, 65, y, 5), [SPEAR], 6, 2, 4, 215, ["INFANTRY"], 40, flags, {"invuln": 4})
+
+## 12.04: Resolve Remaining Combats starts with the player who did NOT make the
+## last Fights First pick. Our second Guard squad B (unengaged) plans to charge
+## enemy Guard Y; a successful charge gives it Fights First (11.04), so we make
+## the only Fights First pick and the ENEMY starts Resolve Remaining Combats —
+## its Guard clone CG2 can strike our stayer first. No strike-first discount.
+func test_strike_first_friendly_charger_hands_over() -> void:
+	print("\n--- (a) 12.04: a friendly charger hands the first Remaining Combats pick to the enemy ---")
+	_reset()
+	_set_fix(1.0)
+	var snap = _snapshot()
+	_add_cg(snap, "CG", 1, 1200)
+	_add_cg(snap, "CG2", 2, 1280)
+	_cg_at(snap, "B", 1, 200, 300)
+	_cg_at(snap, "Y", 2, 200, 660)
+	AIDM._phase_plan[1] = {"charge_intent": {"B": {"target_id": "Y", "target_name": "Y", "score": 20.0, "distance_inches": 9.0}},
+		"lock_targets": [], "shooting_lanes": {}, "charge_target_ids": ["Y"]}
+	var d = _engaged(snap, "CG")
+	var ctx: Dictionary = _choice().get("context", {})
+	_assert(_near(float(ctx.get("p_strike_first", -1.0)), 0.0, 0.001),
+		"B's planned charge (7.4\" edge gap, M6: certain) would give us the only Fights First pick: p(strike first) 0 (got %s)" % str(ctx.get("p_strike_first", "")))
+	_assert(_near(float(ctx.get("in_dmg_after_first_strike", 0.0)), 13.89, 0.02),
+		"no strike-first discount: the clone's full 13.89 strike-back (got %s)" % str(ctx.get("in_dmg_after_first_strike", "")))
+	_assert(not bool(ctx.get("we_strike_first", true)), "context: we do not strike first")
+	_assert(str(d.get("type", "")) == "BEGIN_FALL_BACK",
+		"without the discount the Guard-vs-clone fight is not worth staying for: falls back (%s)" % str(d.get("_ai_description", "")))
+	var fst: Dictionary = AIDM._stay_engaged_first_strike("CG", ["CG"], "CG2", snap, 1)
+	var note: String = AIDM._stay_engaged_first_strike_note(fst, "CG2", 13.89, 13.89)
+	_assert(note.begins_with("Strikes second") and note.contains("planned charge") and note.contains("12.04"),
+		"the K note says it strikes second because of the planned charge (%s)" % note)
+	# The engine agrees once B's charge has gone in (ChargePhase sets both flags).
+	var k := 0
+	for m in snap.units.B.models:
+		m.position = Vector2(200.0 + 65.0 * float(k), 580.0)
+		k += 1
+	snap.units.B.flags["charged_this_turn"] = true
+	snap.units.B.flags["fights_first"] = true
+	AIDM._phase_plan.erase(1)
+	var fs = load("res://scripts/rules/FightSequencer.gd").new()
+	fs.begin(snap, 1)
+	var s1: Dictionary = fs.next_selection(snap)
+	fs.select_to_fight(str(s1.candidates[0]), snap)
+	var s2: Dictionary = fs.next_selection(snap)
+	print("  engine: pick 1 P%d %s %s, pick 2 P%d %s %s" % [int(s1.player), str(s1.step), str(s1.candidates), int(s2.player), str(s2.step), str(s2.candidates)])
+	_assert(int(s1.player) == 1 and str(s1.step) == "fights_first" and int(s2.player) == 2 and str(s2.step) == "remaining" and (s2.candidates as Array).has("CG2"),
+		"engine (FightSequencer): B's Fights First pick, then the ENEMY starts Resolve Remaining Combats and may pick CG2")
+	_engaged(snap, "CG")
+	var ctx2: Dictionary = _choice().get("context", {})
+	_assert(_near(float(ctx2.get("p_strike_first", -1.0)), 0.0, 0.001) and int(ctx2.get("fights_first_ours", 0)) == 1 and int(ctx2.get("fights_first_theirs", -1)) == 0,
+		"after the charge the ledger agrees: our 1 Fights First unit vs their 0 (p %s, ours %s, theirs %s)" % [
+			str(ctx2.get("p_strike_first", "")), str(ctx2.get("fights_first_ours", "")), str(ctx2.get("fights_first_theirs", ""))])
+	# An enemy Fights First unit engaged elsewhere balances it: one each, so we
+	# start Resolve Remaining Combats again. F's combat is not contested there —
+	# its enemy FF fights in the Fights First step.
+	_cg_at(snap, "F", 1, 1300, 2000)
+	_cg_at(snap, "FF", 2, 1300, 2080, {"fights_first": true})
+	_engaged(snap, "CG")
+	var ctx3: Dictionary = _choice().get("context", {})
+	_assert(int(ctx3.get("fights_first_theirs", 0)) == 1 and int(ctx3.get("contested_combats", 0)) == 1 and _near(float(ctx3.get("p_strike_first", -1.0)), 1.0, 0.001),
+		"one Fights First unit each: we start Resolve Remaining Combats again: p 1 (got %s, theirs %s, combats %s)" % [
+			str(ctx3.get("p_strike_first", "")), str(ctx3.get("fights_first_theirs", "")), str(ctx3.get("contested_combats", ""))])
+	var fs3 = load("res://scripts/rules/FightSequencer.gd").new()
+	fs3.begin(snap, 1)
+	var seq: Array = []
+	for i in range(3):
+		var sx: Dictionary = fs3.next_selection(snap)
+		seq.append("P%d %s" % [int(sx.player), str(sx.step)])
+		fs3.select_to_fight("B" if i == 0 else ("FF" if i == 1 else "CG"), snap)
+	_assert(seq == ["P1 fights_first", "P2 fights_first", "P1 remaining"],
+		"engine: B, then FF in the Fights First step, then WE start Resolve Remaining Combats (%s)" % str(seq))
+	# Control: no charger at all — we start Resolve Remaining Combats, the full discount.
+	_reset()
+	var snap0 = _snapshot()
+	_add_cg(snap0, "CG", 1, 1200)
+	_add_cg(snap0, "CG2", 2, 1280)
+	var fs0 = load("res://scripts/rules/FightSequencer.gd").new()
+	fs0.begin(snap0, 1)
+	var s0: Dictionary = fs0.next_selection(snap0)
+	_engaged(snap0, "CG")
+	var ctx0: Dictionary = _choice().get("context", {})
+	_assert(int(s0.player) == 1 and str(s0.step) == "remaining" and _near(float(ctx0.get("p_strike_first", 0.0)), 1.0, 0.001)
+		and _near(float(ctx0.get("in_dmg_after_first_strike", 0.0)), 4.24, 0.02),
+		"control, no charger: the engine and the ledger both have us start Resolve Remaining Combats (p %s, back %s)" % [
+			str(ctx0.get("p_strike_first", "")), str(ctx0.get("in_dmg_after_first_strike", ""))])
+	# A planned charge that cannot make it (28" away) changes nothing.
+	_cg_at(snap0, "B", 1, 1300, 300)
+	_cg_at(snap0, "Y", 2, 1300, 1500)
+	AIDM._phase_plan[1] = {"charge_intent": {"B": {"target_id": "Y", "target_name": "Y", "score": 20.0, "distance_inches": 30.0}},
+		"lock_targets": [], "shooting_lanes": {}, "charge_target_ids": ["Y"]}
+	_engaged(snap0, "CG")
+	_assert(_near(float(_choice().get("context", {}).get("p_strike_first", 0.0)), 1.0, 0.001),
+		"a planned charge with no chance (28\" gap) does not hand the pick over (p %s)" % str(_choice().get("context", {}).get("p_strike_first", "")))
+	AIDM._phase_plan.erase(1)
+
+## 12.04 alternation: with two of our units in separate combats and nobody
+## with Fights First, we pick first — the stayer — then the enemy picks the
+## OTHER combat's unit and strikes first there. Each stayer gets the discount
+## for ceil(S/2) of S combats.
+func test_strike_first_contested_combats() -> void:
+	print("\n--- (a) 12.04: separate combats share the first picks ---")
+	_reset()
+	_set_fix(1.0)
+	var snap = _snapshot()
+	_add_cg(snap, "CG", 1, 1200)
+	_add_cg(snap, "CG2", 2, 1280)
+	_add_cg(snap, "CG3", 1, 2000)
+	_add_cg(snap, "CG4", 2, 2080)
+	_engaged(snap, "CG")
+	var ctx: Dictionary = _choice().get("context", {})
+	var expect := 13.89 * (1.0 - (13.89 / 20.0) * 0.5)
+	_assert(int(ctx.get("contested_combats", 0)) == 2 and _near(float(ctx.get("p_strike_first", 0.0)), 0.5, 0.001),
+		"two combats, we start: strikes first in 1 of 2 (p %s, combats %s)" % [str(ctx.get("p_strike_first", "")), str(ctx.get("contested_combats", ""))])
+	_assert(_near(float(ctx.get("in_dmg_after_first_strike", 0.0)), expect, 0.03),
+		"strike-back = 13.89 x (1 - 0.69 x 0.5) = %.2f (got %s)" % [expect, str(ctx.get("in_dmg_after_first_strike", ""))])
+	var fs = load("res://scripts/rules/FightSequencer.gd").new()
+	fs.begin(snap, 1)
+	var s1: Dictionary = fs.next_selection(snap)
+	fs.select_to_fight("CG", snap)
+	var s2: Dictionary = fs.next_selection(snap)
+	_assert(int(s1.player) == 1 and str(s1.step) == "remaining" and int(s2.player) == 2 and (s2.candidates as Array).has("CG4"),
+		"engine: we pick one combat, then the enemy picks and may strike first in the other (P%d %s)" % [int(s2.player), str(s2.candidates)])
+	_add_cg(snap, "CG5", 1, 300)
+	_add_cg(snap, "CG6", 2, 380)
+	_engaged(snap, "CG")
+	_assert(_near(float(_choice().get("context", {}).get("p_strike_first", 0.0)), 2.0 / 3.0, 0.001),
+		"three combats: ceil(3/2) / 3 = 0.667 (got %s)" % str(_choice().get("context", {}).get("p_strike_first", "")))
+
+## 04.02: while LK stays, the enemy it is engaged with cannot be shot by the
+## rest of our army; falling back makes it a target for our lascannons, which
+## have nothing else to shoot.
+func test_free_target_for_our_guns() -> void:
+	print("\n--- (a) 04.02: falling back frees the engaged enemy for our other guns ---")
+	_reset()
+	_set_fix(1.0)
+	var plan := {"lock_targets": ["E"], "charge_intent": {}, "shooting_lanes": {}, "charge_target_ids": []}
+	AIDM._phase_plan[1] = plan
+	var snap = _lock_board()
+	_add(snap, "GUNS", 1, _line(600, 65, 480, 5), [LASCANNON], 4, 3, 2, 200, ["INFANTRY"], 40)
+	var d = _engaged(snap, "LK")
+	var rec = _choice()
+	var gap: float = AIDM._get_closest_model_distance_inches(snap.units.GUNS, snap.units.E)
+	var dmg: float = AIDM._stay_engaged_ranged_damage(snap.units.GUNS, snap.units.E, 0, false, false, false, gap)
+	var expect := minf(dmg, 9.0) * 150.0 / 9.0
+	print("  free target %.3f, expected %.3f (lascannons %.2f of E's 9 wounds)" % [_term(rec, "fall_back", "leave_free_target"), expect, dmg])
+	_assert(dmg > 0.0 and _near(_term(rec, "fall_back", "leave_free_target"), expect, 0.05),
+		"leave_free_target = min(lascannon damage, 9 W) x 16.7 pts/W = %.1f (got %.3f)" % [expect, _term(rec, "fall_back", "leave_free_target")])
+	_assert(str(d.get("type", "")) == "BEGIN_FALL_BACK", "freeing E for the lascannons beats staying locked: falls back (%s)" % str(d.get("_ai_description", "")))
+	_assert(_notes(d).contains("Frees E for our guns") and _notes(d).contains("04.02"), "move note: frees E for our guns (%s)" % _notes(d))
+	var re = root.get_node("RulesEngine")
+	var stay_t: Dictionary = re.get_eligible_targets("GUNS", snap)
+	var fb_board: Dictionary = snap.duplicate(true)
+	var dests: Dictionary = d.get("_ai_model_destinations", {})
+	for m in fb_board.units.LK.models:
+		var dd = dests.get(m.id, null)
+		if dd is Array:
+			m.position = Vector2(float(dd[0]), float(dd[1]))
+	var fb_t: Dictionary = re.get_eligible_targets("GUNS", fb_board)
+	_assert(stay_t.is_empty() and fb_t.has("E"),
+		"engine (04.02): GUNS can target nothing while LK stays, E once LK stands at the fall-back destinations (%s -> %s)" % [str(stay_t.keys()), str(fb_t.keys())])
+	_set_param("STAY_ENGAGED_FREE_TARGET_WEIGHT", 0.0)
+	var d0 = _engaged(snap, "LK")
+	_assert(not _has_term(_choice(), "fall_back", "leave_free_target") and str(d0.get("type", "")) == "REMAIN_STATIONARY",
+		"STAY_ENGAGED_FREE_TARGET_WEIGHT 0: no term, and it stays (%s)" % str(d0.get("type", "")))
+	AIDM._config_overrides.erase("STAY_ENGAGED_FREE_TARGET_WEIGHT")
+	var veh = _lock_board(["VEHICLE"])
+	_add(veh, "GUNS", 1, _line(600, 65, 480, 5), [LASCANNON], 4, 3, 2, 200, ["INFANTRY"], 40)
+	_engaged(veh, "LK")
+	_assert(not _has_term(_choice(), "fall_back", "leave_free_target"), "a VEHICLE can be shot while engaged (17.03): nothing to free")
+	var held = _lock_board()
+	_add(held, "GUNS", 1, _line(600, 65, 480, 5), [LASCANNON], 4, 3, 2, 200, ["INFANTRY"], 40)
+	_add(held, "LK2", 1, _line(665, 65, 1360, 3), [CCW_WEAK], 4, 3, 2, 60, ["INFANTRY"], 40)
+	_engaged(held, "LK")
+	_assert(not _has_term(_choice(), "fall_back", "leave_free_target"), "another of our units keeps E engaged: still no target")
+	var alt = _lock_board()
+	_add(alt, "GUNS", 1, _line(600, 65, 480, 5), [LASCANNON], 4, 3, 2, 200, ["INFANTRY"], 40)
+	_add(alt, "ALT", 2, _line(1300, 65, 600, 3), [SHANK], 5, 3, 3, 150, ["INFANTRY"], 40)
+	_engaged(alt, "LK")
+	_assert(not _has_term(_choice(), "fall_back", "leave_free_target"), "an equal target already in the lascannons' reach: freeing E gains nothing")
+	var weak = _lock_board()
+	_add(weak, "GUNS", 1, _line(600, 65, 480, 5), [BOLTGUN], 4, 3, 2, 100, ["INFANTRY"], 40)
+	var dw = _engaged(weak, "LK")
+	var fw := _term(_choice(), "fall_back", "leave_free_target")
+	_assert(fw > 0.0 and str(dw.get("type", "")) == "REMAIN_STATIONARY" and _notes(dw).contains("Falling back is worth only")
+		and not _notes(dw).contains("gains nothing"),
+		"boltguns: a small gain (%.1f), it still stays and the note says what leaving was worth, not 'gains nothing' (%s)" % [fw, _notes(dw)])
+	AIDM._phase_plan.erase(1)
+
+## The ranged estimate uses the shared weapon-keyword rules: [TORRENT] has no
+## hit roll (24.37), so no -1 to hit either; [MELTA] counts within half range.
+func test_ranged_damage_weapon_keywords() -> void:
+	print("\n--- (a) ranged estimate: [TORRENT] auto-hits, [MELTA] at half range ---")
+	var snap = _snapshot()
+	var sh = _add(snap, "BURNAS", 2, [Vector2(700, 1200)], [BURNA], 5, 4, 1, 50, ["INFANTRY"], 32)
+	var tgt = _add(snap, "GROTS", 1, [Vector2(700, 1260)], [SHANK], 3, 7, 1, 40, ["INFANTRY"], 25)
+	var d0: float = AIDM._stay_engaged_ranged_damage(sh, tgt, 0)
+	var d1: float = AIDM._stay_engaged_ranged_damage(sh, tgt, 1, true, false, true)
+	_assert(_near(d0, 3.5 * 4.0 / 6.0, 0.005) and _near(d1, d0, 0.0001),
+		"[TORRENT] Burna (BS N/A) vs T3 Sv7: 3.5 x 4/6 = 2.33 with or without the -1 to hit (got %.3f / %.3f)" % [d0, d1])
+	var veh = _add(snap, "VEH", 1, [Vector2(700, 1500)], [], 9, 3, 10, 150, ["VEHICLE"], 60)
+	var full: float = AIDM._stay_engaged_ranged_damage(sh, veh, 0)
+	var partial: float = AIDM._stay_engaged_ranged_damage(sh, veh, 1, false, false, true)
+	_assert(full > 0.0 and _near(full, partial, 0.0001),
+		"stay_shield for an engaged VEHICLE: the -1 to hit (17.03) saves nothing against [TORRENT] (full %.3f, partial %.3f)" % [full, partial])
+	var mm = _add(snap, "MM", 1, [Vector2(300, 300)], [MULTI_MELTA], 10, 3, 12, 150, ["VEHICLE"], 60)
+	var tank = _add(snap, "TANK", 2, [Vector2(300, 400)], [], 10, 3, 12, 150, ["VEHICLE"], 60)
+	var near_d: float = AIDM._stay_engaged_ranged_damage(mm, tank, 0, false, false, false, 0.5)
+	var far_d: float = AIDM._stay_engaged_ranged_damage(mm, tank, 0, false, false, false, 15.0)
+	_assert(far_d > 0.0 and _near(near_d / far_d, 5.5 / 3.5, 0.001),
+		"[MELTA 2]: D6+2 within half range (an engaged target always is) vs D6 at 15\" (ratio %.4f, expected %.4f)" % [near_d / maxf(far_d, 0.0001), 5.5 / 3.5])
+
+## 09.07 / 19.01: the ledger prices as many hazard rolls as the engine makes
+## for an Attached unit's Desperate Escape — the bodyguard's today, the whole
+## Attached unit once the engine rolls for it (EA-36).
+func test_desperate_escape_rolls_match_engine() -> void:
+	print("\n--- (a) Desperate Escape: the ledger counts the engine's hazard rolls (09.07; 19.01) ---")
+	_reset()
+	_set_fix(1.0)
+	var snap = _snapshot()
+	var gr = _add(snap, "GR", 1, _line(630, 50, 1200, 5), [CCW_WEAK], 4, 4, 1, 75, ["INFANTRY"], 32, {"battle_shocked": true})
+	var cap = _add(snap, "CAP", 1, [Vector2(730, 1140)], [CCW_WEAK], 4, 3, 4, 60, ["INFANTRY", "CHARACTER"], 40, {"battle_shocked": true})
+	gr["attachment_data"] = {"attached_characters": ["CAP"]}
+	cap["attached_to"] = "GR"
+	_add(snap, "BR", 2, _line(630, 50, 1280, 4), [CLUB], 4, 4, 2, 80, ["INFANTRY"], 32)
+	var enemies = AIDM._get_enemy_units(snap, 1)
+	var dests: Dictionary = AIDM._compute_fall_back_destinations(gr, "GR", snap, enemies, AIDM._get_objectives(snap), 1)
+	var m: Dictionary = AIDM._stay_engaged_fall_back_mode(gr, "GR", snap, dests, enemies, ["GR", "CAP"])
+	var fbm = load("res://scripts/rules/movetypes/MoveTypes.gd").get_type("fall_back")
+	var eng: Dictionary = fbm.before_moving("GR", snap, load("res://autoloads/RulesEngine.gd").RNGService.new(7), {"mode": "desperate_escape"})
+	var eng_rolls: int = (eng.get("hazard", {}).get("rolls", []) as Array).size()
+	var whole: bool = fbm.has_method("attached_unit_hazard_view")
+	print("  ledger %d hazard roll(s), engine %d (the engine rolls for the whole Attached unit: %s)" % [int(m.rolls), eng_rolls, str(whole)])
+	_assert(bool(m.de) and eng_rolls > 0 and int(m.rolls) == eng_rolls,
+		"the ledger prices exactly the engine's hazard rolls (%d vs %d)" % [int(m.rolls), eng_rolls])
+	_assert(int(m.rolls) == (6 if whole else 5) and bool(m.whole_unit) == whole,
+		"5 bodyguard rolls today; 6 with the leader once the engine rolls for the whole Attached unit (EA-36 in the build: %s)" % str(whole))
+
+## Our 32 mm model 1.5 px from an enemy base (a 32 mm round, or the LONG side of
+## a 75 x 42 mm oval), the enemy due south.
+func _cross_board(enemy_oval: bool, our_kw: Array = ["INFANTRY"]) -> Dictionary:
+	var snap = _snapshot()
+	_add(snap, "OURS", 1, [Vector2(700, 1200)], [CCW_WEAK], 4, 4, 1, 15, our_kw, 32)
+	var half_mm := 21.0 if enemy_oval else 16.0
+	var e = _add(snap, "EN", 2, [Vector2(700, 1200.0 + (16.0 + half_mm) * MM_PX + 1.5)], [CLUB], 5, 4, 3, 30,
+		["MOUNTED"] if enemy_oval else ["INFANTRY"], 75 if enemy_oval else 32)
+	if enemy_oval:
+		e.models[0]["base_type"] = "oval"
+		e.models[0]["base_dimensions"] = {"length": 75.0, "width": 42.0}
+		e.models[0]["rotation"] = 0.0
+	return snap
+
+## 03.01: the crossing test sweeps the real bases (EA-08's sweep): base
+## contact is not moving through, FLY may take to the skies, and a carried
+## CHARACTER's path counts.
+func test_crossing_predicate_shape_aware() -> void:
+	print("\n--- (a) 03.01: the crossing test sweeps the real bases ---")
+	var meas = root.get_node("Measurement")
+	var mt = load("res://scripts/rules/movetypes/MoveType.gd")
+	for oval in [false, true]:
+		var snap = _cross_board(oval)
+		var ours: Dictionary = snap.units.OURS
+		var en: Dictionary = snap.units.EN
+		var enemies = AIDM._get_enemy_units(snap, 1)
+		var gap_px: float = float(meas.model_to_model_distance_inches(ours.models[0], en.models[0])) * 40.0
+		var away := {"m1": [700.0, 960.0]}
+		var crossed: bool = AIDM._stay_engaged_path_crosses(ours, "OURS", ["OURS"], away, enemies, snap)
+		var label := "oval long side" if oval else "32 mm round"
+		_assert(gap_px >= 0.0 and gap_px < 3.0 and not crossed,
+			"%s in contact (gap %.1f px): backing straight away does not cross it" % [label, gap_px])
+		var through := {"m1": [700.0, 1200.0 + 2.0 * (16.0 + (21.0 if oval else 16.0)) * MM_PX + 80.0]}
+		var crossed2: bool = AIDM._stay_engaged_path_crosses(ours, "OURS", ["OURS"], through, enemies, snap)
+		_assert(crossed2, "%s: a path straight through it crosses it" % label)
+		if mt.has_method("path_crosses_enemy_models"):
+			var e_away: bool = mt.path_crosses_enemy_models(snap, 1, ours.models[0], Vector2(700, 1200), Vector2(700, 960), {})
+			var e_through: bool = mt.path_crosses_enemy_models(snap, 1, ours.models[0], Vector2(700, 1200),
+				Vector2(float(through.m1[0]), float(through.m1[1])), {})
+			_assert(e_away == crossed and e_through == crossed2, "%s: the engine's own sweep agrees (EA-08)" % label)
+	var sv = _snapshot()
+	var vh = _add(sv, "VH", 1, [Vector2(730, 1200)], [CLAW], 9, 3, 12, 180, ["VEHICLE"], 120)
+	vh.models[0]["base_type"] = "oval"
+	vh.models[0]["base_dimensions"] = {"length": 120.0, "width": 92.0}
+	vh.models[0]["rotation"] = 0.0
+	_add(sv, "EN", 2, [Vector2(730, 1200.0 + (46.0 + 16.0) * MM_PX + 0.5)], [CLUB], 4, 3, 2, 120, ["INFANTRY"], 32)
+	_assert(not AIDM._stay_engaged_path_crosses(vh, "VH", ["VH"], {"m1": [730.0, 880.0]}, AIDM._get_enemy_units(sv, 1), sv),
+		"our 120 x 92 oval VEHICLE in long-side contact, backing 8\" straight away: no crossing")
+	var sf = _cross_board(false, ["INFANTRY", "FLY"])
+	_assert(not AIDM._stay_engaged_path_crosses(sf.units.OURS, "OURS", ["OURS"], {"m1": [700.0, 1200.0 + 64.0 * MM_PX + 80.0]},
+		AIDM._get_enemy_units(sf, 1), sf), "FLY: a path through enemy models is no crossing (it may take to the skies, 21.03)")
+	var sc = _snapshot()
+	var bg = _add(sc, "BG", 1, [Vector2(400, 1200)], [CCW_WEAK], 4, 4, 1, 15, ["INFANTRY"], 32)
+	var ch = _add(sc, "CH", 1, [Vector2(700, 1200)], [CCW_WEAK], 4, 3, 4, 60, ["INFANTRY", "CHARACTER"], 40)
+	bg["attachment_data"] = {"attached_characters": ["CH"]}
+	ch["attached_to"] = "BG"
+	_add(sc, "EN", 2, [Vector2(700, 1120)], [CLUB], 4, 3, 2, 30, ["INFANTRY"], 32)
+	var en_c = AIDM._get_enemy_units(sc, 1)
+	_assert(AIDM._stay_engaged_path_crosses(bg, "BG", ["BG", "CH"], {"m1": [400.0, 960.0]}, en_c, sc)
+		and not AIDM._stay_engaged_path_crosses(bg, "BG", ["BG"], {"m1": [400.0, 960.0]}, en_c, sc),
+		"the attached CHARACTER rides the bodyguard's delta: its path through an enemy model counts")
+
+## 09.07 today: AIPlayer's BEGIN_FALL_BACK is an Ordered Retreat, and the
+## engine lets an Ordered Retreat move through enemy models until EA-08 lands —
+## so a crossing costs nothing and the record says Ordered Retreat. Once the
+## engine refuses it, the same path is priced as a Desperate Escape.
+func test_crossing_costs_nothing_until_engine_refuses() -> void:
+	print("\n--- (a) 09.07: a way out through enemy models is a Desperate Escape only where the engine forbids an Ordered Retreat through them ---")
+	_reset()
+	_set_fix(1.0)
+	var snap = _cross_board(false)
+	var enemies = AIDM._get_enemy_units(snap, 1)
+	var through := {"m1": [700.0, 1200.0 + 64.0 * MM_PX + 80.0]}
+	var m: Dictionary = AIDM._stay_engaged_fall_back_mode(snap.units.OURS, "OURS", snap, through, enemies, ["OURS"])
+	var rule: bool = load("res://scripts/rules/movetypes/MoveTypes.gd").get_type("fall_back").has_method("path_crosses_enemy_models")
+	print("  engine refuses an Ordered Retreat through enemy models: %s; mode %s, de %s, rolls %d" % [str(rule), str(m.mode), str(m.de), int(m.rolls)])
+	_assert(bool(m.crossing_rule) == rule and bool(m.de) == rule and bool(m.crosses) == rule
+		and str(m.mode) == ("desperate_escape" if rule else "ordered_retreat") and int(m.rolls) == (1 if rule else 0),
+		"a path through an enemy model: a Desperate Escape exactly when the engine refuses the Ordered Retreat (EA-08 in the build: %s)" % str(rule))
+	# The reviewer's flip: the same mildly losing fight, the enemy on 32 mm
+	# rounds or in contact with the long side of 75 x 42 mm ovals — the base
+	# shape must not change the decision.
+	var got: Array = []
+	for oval in [false, true]:
+		_reset()
+		_set_fix(1.0)
+		var s = _snapshot()
+		_add(s, "GR", 1, _line(600, 65, 1200, 5), [CCW_WEAK], 4, 4, 1, 75, ["INFANTRY"], 32)
+		var half := (21.0 if oval else 16.0) * MM_PX
+		var xs := [600.0, 730.0, 860.0, 990.0]
+		var br = _add(s, "BR", 2, [], [CLUB], 4, 4, 2, 80, ["MOUNTED"] if oval else ["INFANTRY"], 75 if oval else 32)
+		var bm: Array = []
+		for k in range(4):
+			var mdl := {"id": "m%d" % (k + 1), "alive": true, "position": Vector2(xs[k] if oval else 600.0 + 65.0 * float(k), 1200.0 + 16.0 * MM_PX + half + 1.5),
+				"wounds": 2, "current_wounds": 2, "rotation": 0.0, "base_mm": 75 if oval else 32,
+				"base_type": "oval" if oval else "circular", "base_dimensions": {"length": 75.0, "width": 42.0} if oval else {}}
+			bm.append(mdl)
+		br["models"] = bm
+		var d = _engaged(s, "GR")
+		var rec = _choice()
+		got.append(str(d.get("type", "")))
+		_assert(not _has_term(rec, "fall_back", "leave_hazard") and str(_cand(rec, "fall_back").get("description", "")) == "Fall back (Ordered Retreat)",
+			"%s: no phantom Desperate Escape — no hazard term, the record says Ordered Retreat (%s)" % ["75 x 42 ovals" if oval else "32 mm rounds", str(_cand(rec, "fall_back").get("description", ""))])
+	_assert(got[0] == got[1] and got[0] == "BEGIN_FALL_BACK", "the base shape does not flip the decision: %s / %s" % [str(got[0]), str(got[1])])
+
+## The action line's reason: "out-fights them" only for a fight it wins;
+## staying because falling back costs more says so.
+func test_reason_when_staying_is_a_loss() -> void:
+	print("\n--- (a) the action line names why it stays ---")
+	_reset()
+	_set_fix(1.0)
+	var d = _engaged(_de_board({"battle_shocked": true}), "GR")
+	var desc := str(d.get("_ai_description", ""))
+	_assert(str(d.get("type", "")) == "REMAIN_STATIONARY" and desc.contains("falling back would cost more: its Desperate Escape makes 5 hazard roll(s)")
+		and not desc.contains("out-fights"), "battle-shocked, a mildly losing fight: it stays because leaving costs more (%s)" % desc)
+	var d2 = _engaged(_de_board({"effect_cut_em_down": true}), "GR")
+	var desc2 := str(d2.get("_ai_description", ""))
+	_assert(desc2.contains("5 hazard roll(s) and a battle-shock roll") and not desc2.contains("out-fights"),
+		"forced Desperate Escape: names the hazard and battle-shock rolls (%s)" % desc2)
+	var snap = _snapshot()
+	_add_cg(snap, "CG", 1, 1200)
+	_add_pz(snap, "PZ", 2, 1280)
+	_assert(str(_engaged(snap, "CG").get("_ai_description", "")).contains("wipes them out in our Fight phase"), "a fight it wins still says so")
+	_reset()
+	_set_fix(1.0)
+	var s4 = _snapshot()
+	_add(s4, "PZ", 1, _line(630, 50, 1200, 4), [CCW_WEAK], 3, 3, 1, 45, ["INFANTRY"], 32, {"effect_cut_em_down": true})
+	_add(s4, "AL", 2, _line(600, 65, 1280, 5), [SPEAR], 7, 2, 4, 275, ["INFANTRY"], 40, {}, {"invuln": 4})
+	AIDM._thinking_steps.clear()
+	var d4 = _engaged(s4, "PZ")
+	var steps: Array = []
+	for st in AIDM._thinking_steps:
+		steps.append(str(st))
+	var steps_s := " | ".join(PackedStringArray(steps))
+	_assert(str(d4.get("type", "")) == "BEGIN_FALL_BACK" and steps_s.contains("PZ falls back via Desperate Escape (forced: CUT 'EM DOWN)")
+		and not steps_s.contains("PZ falls back via Ordered Retreat"),
+		"a forced Desperate Escape that falls back: the step names it, not Ordered Retreat (%s)" % steps_s)
 
 func test_ledger_sums() -> void:
 	print("\n--- ledger: every engaged_choice candidate's score is the sum of its terms ---")

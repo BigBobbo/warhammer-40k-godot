@@ -3022,9 +3022,11 @@ const SURVIVAL_HOLD_BONUS: float = 1.5             # Read only by FIX_STAY_ENGAG
 # stay engaged on purpose. _decide_engaged_unit stayed only on an objective
 # (winning the OC war, sole holder, late game); everywhere else its default
 # branch fell back whenever a fall-back path existed — even locked with a
-# unit it would wipe in its own Fight phase, where it strikes first (12.04:
-# the player whose turn it is selects first when no Fights First unit is
-# eligible). Falling back is not free. Afterwards the unit cannot shoot,
+# unit it would wipe in its own Fight phase, where it usually strikes first
+# (12.04: the Fights First step starts with the player whose turn it is, and
+# Resolve Remaining Combats with the player who did NOT make the last Fights
+# First pick — so it is ours unless we have more Fights First units, e.g.
+# this turn's chargers, 11.04). Falling back is not free. Afterwards the unit cannot shoot,
 # declare a charge or start an action this turn (09.07; 11.02; 16.01) unless
 # a Fall Back and X rule says otherwise; while it stays engaged it cannot be
 # targeted by enemy shooting (04.02; a MONSTER/VEHICLE only gets -1 to hit
@@ -3046,7 +3048,7 @@ const STAY_ENGAGED_MIN_MARGIN: float = 5.0           # pts STAY must beat LEAVE 
 const STAY_ENGAGED_FIGHT_WEIGHT: float = 1.0         # × min(expected melee damage, wounds left) × the enemy's pts per wound (stay_fight)
 const STAY_ENGAGED_KILL_BONUS_FRAC: float = 0.25     # share of the engaged enemy's points when our fight (+ close-quarters shooting) reaches its wounds (stay_kill)
 const STAY_ENGAGED_LOSS_WEIGHT: float = 1.0          # × our wounds expected lost × our pts per wound: strike-back (stay_loss), hazard rolls (leave_hazard)
-const STAY_ENGAGED_STRIKE_FIRST: float = 1.0         # share of our casualties on the focused enemy taken off its strike-back (12.04); 0 = raw survival estimate
+const STAY_ENGAGED_STRIKE_FIRST: float = 1.0         # share of our casualties on the focused enemy taken off its strike-back, × the chance we strike first (12.04); 0 = raw survival estimate
 const STAY_ENGAGED_LOCK_WEIGHT: float = 1.0          # × a locked phase_plan lock target's ranged strength × our army's pts per wound (stay_lock)
 const STAY_ENGAGED_LOCK_MV_FACTOR: float = 0.25      # share of a MONSTER/VEHICLE lock target's shooting denied (it keeps close-quarters shooting, 10.06)
 const STAY_ENGAGED_LOCK_HOLDER_FRAC: float = 0.15    # share of an engaged objective holder's / action performer's points for pinning it (16.01)
@@ -3057,6 +3059,7 @@ const STAY_ENGAGED_CQ_WEIGHT: float = 0.0            # the same for a non-MONSTE
 const STAY_ENGAGED_FB_X_WEIGHT: float = 1.0          # × what a Fall Back and Shoot / Charge unit still does after falling back (leave_fb_shoot / leave_fb_charge)
 const STAY_ENGAGED_LEAVE_OBJECTIVE_PTS: float = 25.0 # pts when the fall back puts a model on an objective and improves who controls it (leave_objective)
 const STAY_ENGAGED_SHOCK_COST_FRAC: float = 0.1      # share of our points × P(fail) for the battle-shock roll a Desperate Escape forces (leave_shock)
+const STAY_ENGAGED_FREE_TARGET_WEIGHT: float = 1.0   # × what our other shooters gain on an engaged non-MONSTER/VEHICLE enemy that only this unit keeps engaged, once falling back makes it a legal target (04.02), over their best other target (leave_free_target)
 
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
@@ -12675,6 +12678,13 @@ static func _decide_engaged_unit(
 					var fb_alive = _get_alive_models(unit).size()
 					_add_thinking_step("%s is Battle-shocked — Desperate Escape is mandatory: ~%.1f of %d models at risk (hazard on 1-2)" % [
 						unit_name, fb_alive / 3.0, fb_alive])
+				elif not sty_eval.is_empty() and bool(sty_eval.de):
+					# FIX_STAY_ENGAGED: the ledger priced a Desperate Escape (an enemy
+					# rule forces it, or the way out crosses enemy models where the
+					# engine refuses an Ordered Retreat) — name that mode, not the other.
+					var sty_why: String = ("forced: %s" % str(sty_eval.forced_by)) if str(sty_eval.forced_by) != "" \
+						else "its way out crosses enemy models, which an Ordered Retreat cannot move through"
+					_add_thinking_step("%s falls back via Desperate Escape (%s) — %s" % [unit_name, sty_why, reason])
 				else:
 					_add_thinking_step("%s falls back via Ordered Retreat — %s" % [unit_name, reason])
 			var fb_decision := {
@@ -12964,8 +12974,10 @@ static func _assess_engaged_unit_survival(
 #     stay_fight     wounds our unit (bodyguard + attached characters) removes
 #                    from the engaged enemy in OUR Fight phase
 #     stay_kill      a share of the enemy's points when that wipes it out
-#     stay_loss      the strike-back, cut by the casualties we inflict first
-#                    (12.04: with no Fights First unit the active player picks first)
+#     stay_loss      the strike-back, cut by the casualties we inflict first ×
+#                    the chance we do strike first (12.04's hand-over between the
+#                    Fights First step and Resolve Remaining Combats; see
+#                    _stay_engaged_first_strike)
 #     stay_cq_shoot  close-quarters shooting in our Shooting phase (10.06)
 #     stay_lock      a phase_plan lock target kept from shooting next turn, or an
 #                    objective holder / action performer pinned (16.01)
@@ -12975,6 +12987,8 @@ static func _assess_engaged_unit_survival(
 #     leave_fb_shoot / leave_fb_charge  Fall Back and Shoot / Charge
 #     leave_objective  the fall back puts a model on an objective and improves
 #                      who controls it (14.02)
+#     leave_free_target  an engaged enemy that only this unit keeps engaged becomes
+#                      a legal ranged target for the rest of our army (04.02)
 #     leave_hazard / leave_shock  a Desperate Escape's hazard rolls (06.03) and
 #                      battle-shock roll (09.07; Commentary 09.07.01)
 #     leave_survival   the T7-27 "fall_back" recommendation
@@ -13072,7 +13086,8 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 		if w_cq_mv > 0.0:
 			var a_dmg := 0.0
 			for cid in our_ids:
-				a_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 1, true, false, true)
+				var a_gap := _get_closest_model_distance_inches(units.get(cid, {}), units.get(best_hid, {}))
+				a_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 1, true, false, true, a_gap)
 			var a_take: float = (minf(out_s + a_dmg, hp_s) - minf(out_s, hp_s)) * ppw_s
 			var b_id := ""
 			var b_take := 0.0
@@ -13116,21 +13131,24 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 		if w_cq > 0.0:
 			var c_dmg := 0.0
 			for cid in our_ids:
-				c_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 0, false, true, true)
+				var c_gap := _get_closest_model_distance_inches(units.get(cid, {}), units.get(best_hid, {}))
+				c_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 0, false, true, true, c_gap)
 			if c_dmg > 0.0:
 				cq_val = (minf(out_s + c_dmg, hp_s) - minf(out_s, hp_s)) * ppw_s * w_cq
 				cq_on_s = c_dmg
 				cq_dmg = c_dmg
 				cq_name = t_name
 	# --- Who strikes first in our Fight phase (12.04) ---
-	# No Fights First on their side, or on ours too: it is our turn, we pick first.
-	var enemy_ff := false
-	var our_ff := false
-	if re != null:
-		var fs = load("res://scripts/rules/FightSequencer.gd").new()
-		enemy_ff = bool(fs.group_is_fights_first(best_hid, snapshot))
-		our_ff = bool(fs.group_is_fights_first(unit_id, snapshot))
-	var we_first: bool = (not enemy_ff) or our_ff
+	# The chance this unit fights before the focused group: 1 / 0 when only
+	# one side has Fights First; otherwise whoever starts the shared step —
+	# Resolve Remaining Combats goes to the player who did not make the last
+	# Fights First pick, so our own chargers (Fights First, 11.04) can hand it
+	# to the enemy — shared over our units in separate combats of that step.
+	var fst: Dictionary = _stay_engaged_first_strike(unit_id, our_ids, best_hid, snapshot, player)
+	var enemy_ff: bool = bool(fst.enemy_ff)
+	var our_ff: bool = bool(fst.our_ff)
+	var p_first: float = float(fst.p_first)
+	var we_first: bool = p_first >= 0.5
 	var kill_frac: float = clampf((out_s + cq_on_s) / hp_s, 0.0, 1.0)
 	var in_raw := 0.0
 	var in_adj := 0.0
@@ -13140,10 +13158,10 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 		in_raw += gin
 		if hid == best_hid:
 			in_s = gin
-			in_adj += (gin * maxf(0.0, 1.0 - w_first * kill_frac)) if we_first else gin
+			in_adj += gin * maxf(0.0, 1.0 - w_first * kill_frac * p_first)
 		else:
 			in_adj += gin
-	var in_s_adj: float = (in_s * maxf(0.0, 1.0 - w_first * kill_frac)) if we_first else in_s
+	var in_s_adj: float = in_s * maxf(0.0, 1.0 - w_first * kill_frac * p_first)
 	var surv_u: float = clampf(1.0 - in_adj / our_hp, 0.0, 1.0)
 	var surv: Dictionary = {}
 	var p_eng := 0.0
@@ -13235,7 +13253,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 		var holds := get_param("STAY_ENGAGED_ENEMY_HOLDS", STAY_ENGAGED_ENEMY_HOLDS)
 		shield_val = w_shield * surv_u * p_eng * holds * minf(saved, our_hp - minf(in_adj, our_hp)) * ppw_u
 	# --- Leave: how the fall back would be made (09.07; Commentary 09.07.01) ---
-	var fbm: Dictionary = _stay_engaged_fall_back_mode(unit, unit_id, snapshot, fb_dests, enemies)
+	var fbm: Dictionary = _stay_engaged_fall_back_mode(unit, unit_id, snapshot, fb_dests, enemies, our_ids)
 	var hazard_val := 0.0
 	var shock_val := 0.0
 	var shock_p := 0.0
@@ -13251,6 +13269,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 	var fbs_val := 0.0
 	var fbs_dmg := 0.0
 	var fbs_name := ""
+	var fbs_id := ""
 	if fb_and_shoot and w_fbx > 0.0 and our_max_range > 0.0:
 		var bt := ""
 		var bt_take := 0.0
@@ -13286,6 +13305,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 			fbs_val = w_fbx * bt_take
 			fbs_dmg = bt_dmg
 			fbs_name = _dn(units.get(bt, {}), bt)
+			fbs_id = bt
 	# Fall Back and Charge: charge back into the focused group as the charger
 	# (Fights First, 11.04), at the odds of the gap the fall back leaves.
 	var fbc_val := 0.0
@@ -13303,6 +13323,20 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 				charge_net += w_kill * pts_s
 			charge_net -= w_loss * minf(in_charge, our_hp) * ppw_u
 			fbc_val = w_fbx * fbc_p * maxf(0.0, charge_net)
+	# The engaged enemy becomes a legal target for the rest of our army this
+	# turn (04.02) — net of what our own Fall Back and Shoot / Charge already
+	# deals it, so the same wounds are not counted twice.
+	var free_val := 0.0
+	var free: Dictionary = {}
+	var w_free := get_param("STAY_ENGAGED_FREE_TARGET_WEIGHT", STAY_ENGAGED_FREE_TARGET_WEIGHT)
+	if w_free > 0.0:
+		var dealt: Dictionary = {}
+		if fbs_val > 0.0 and fbs_id != "":
+			dealt[fbs_id] = fbs_dmg
+		if fbc_val > 0.0:
+			dealt[best_hid] = float(dealt.get(best_hid, 0.0)) + fbc_p * minf(out_s, hp_s)
+		free = _stay_engaged_free_target(our_ids, order, groups, heads, dealt, w_kill, snapshot, player)
+		free_val = w_free * float(free.get("val", 0.0))
 	# The fall back puts a model on an objective it is not on yet and improves
 	# who controls it (14.02) — OC read as _pick_fall_back_target reads it.
 	var obj_val := 0.0
@@ -13349,6 +13383,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 	leave_score += _t_add(leave_terms, "leave_fb_shoot", fbs_val)
 	leave_score += _t_add(leave_terms, "leave_fb_charge", fbc_val)
 	leave_score += _t_add(leave_terms, "leave_objective", obj_val)
+	leave_score += _t_add(leave_terms, "leave_free_target", free_val)
 	leave_score += _t_add(leave_terms, "leave_hazard", hazard_val)
 	leave_score += _t_add(leave_terms, "leave_shock", shock_val)
 	if rec == "fall_back":
@@ -13363,14 +13398,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 	elif out_s > 0.0:
 		stay_notes.append("Deals an expected %.1f of %s's %.0f wounds in our own Fight phase (%.0f pts)" % [out_s, t_name, hp_s, dealt_pts])
 	if in_s > 0.05:
-		if we_first and not enemy_ff:
-			stay_notes.append("Strikes first: %s has no Fights First, so we select first in our own Fight phase (12.04) — takes an expected %.1f damage back instead of %.1f" % [
-				t_name, in_s_adj, in_s])
-		elif we_first:
-			stay_notes.append("Strikes first: both sides have Fights First and it is our turn, so we select first (12.04) — takes an expected %.1f damage back instead of %.1f" % [
-				in_s_adj, in_s])
-		else:
-			stay_notes.append("Strikes second: %s has Fights First (12.04) — takes an expected %.1f damage back before it hits" % [t_name, in_s])
+		stay_notes.append(_stay_engaged_first_strike_note(fst, t_name, in_s, in_s_adj))
 	if cq_val > 0.0:
 		stay_notes.append("Keeps shooting with close-quarters shooting (10.06): %.1f expected damage on %s%s" % [
 			cq_dmg, cq_name, " at -1 to hit" if cq_minus1 else ""])
@@ -13395,14 +13423,22 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 	var de_txt := ""
 	if bool(fbm.de):
 		de_txt = "; its Desperate Escape would make %d hazard roll(s), %.1f expected mortal wounds (06.03)" % [int(fbm.rolls), float(fbm.e_mw)]
-	if leave_terms.is_empty() or leave_score <= 0.0:
+	# "Gains nothing" only when no LEAVE term is a gain (a gain offset by the
+	# Desperate Escape's cost is still a gain, worth naming).
+	var leave_gain := 0.0
+	for k in leave_terms:
+		leave_gain += maxf(0.0, float(leave_terms[k]))
+	if leave_gain <= 0.0:
 		stay_notes.append("Falling back gains nothing: afterwards it could not %s this turn (09.07)%s" % [
 			_stay_engaged_join(forfeits), de_txt])
 	else:
 		stay_notes.append("Falling back is worth only %.1f pts (%s)%s" % [leave_score, _stay_engaged_terms_text(leave_terms), de_txt])
 	var leave_notes: Array = []
 	var loss_pts: float = -float(stay_terms.get("stay_loss", 0.0))
-	if loss_pts > 0.0:
+	# The fight's own balance: what it deals (and the wipe bonus) against what
+	# it takes back. "Staying would cost" is a reason to leave only when it loses.
+	var fight_net: float = float(stay_terms.get("stay_fight", 0.0)) + float(stay_terms.get("stay_kill", 0.0)) - loss_pts
+	if loss_pts > 0.0 and fight_net < 0.0:
 		leave_notes.append("Falls back: staying would cost %.1f wounds (%.0f pts) to %s for %.1f damage dealt (%.0f pts)" % [
 			minf(in_adj, our_hp), loss_pts, t_name, minf(out_s, hp_s), dealt_pts])
 	else:
@@ -13415,20 +13451,30 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 	if fbc_val > 0.0:
 		leave_notes.append("Can charge back in after falling back (Fall Back and Charge): %d%% to make the %.1f\" charge, then strikes first as the charger (11.04)" % [
 			roundi(fbc_p * 100.0), fbc_gap])
+	if free_val > 0.0:
+		leave_notes.append("Frees %s for our guns: an engaged unit cannot be shot (04.02), and %d of our shooting unit(s) in range would gain %.1f pts on it over their best other target (%.1f expected damage)" % [
+			_stay_engaged_join(free.get("names", [])), int(free.get("shooters", 0)), free_val, float(free.get("dmg", 0.0))])
 	if bool(fbm.de):
-		var why_de: String = ("forced (%s)" % str(fbm.forced_by)) if str(fbm.forced_by) != "" else "needed: its way out crosses enemy models"
+		var why_de: String = ("forced (%s)" % str(fbm.forced_by)) if str(fbm.forced_by) != "" else "needed: its way out crosses enemy models, which an Ordered Retreat cannot move through (09.07)"
 		leave_notes.append("Desperate Escape %s: %d hazard roll(s), %.1f expected mortal wounds (06.03)%s" % [
 			why_de, int(fbm.rolls), float(fbm.e_mw), ", then a battle-shock roll (09.07)" if not bool(fbm.shocked) else ""])
 	if rec == "fall_back":
 		leave_notes.append("Survival check: %.1f of its %.0f wounds at risk in the Fight phase — get out" % [
 			float(survival.get("expected_damage", in_raw)), float(survival.get("remaining_wounds", our_hp))])
-	# The reason the action line gives: the biggest STAY term.
+	# The reason the action line gives: the biggest STAY term that really is
+	# why it stays. The fight is a reason only when it wins — it wipes them
+	# out, or deals more than it takes back (stay_fight + stay_loss > 0). When
+	# staying is itself a loss (or nothing else carries it), the reason is what
+	# falling back would cost.
 	var top := ""
 	var top_v := 0.0
-	for k in stay_terms:
-		if float(stay_terms[k]) > top_v:
-			top_v = float(stay_terms[k])
-			top = str(k)
+	if stay_score > 0.0:
+		for k in stay_terms:
+			if (k == "stay_fight" or k == "stay_kill") and not kill and fight_net <= 0.0:
+				continue
+			if float(stay_terms[k]) > top_v:
+				top_v = float(stay_terms[k])
+				top = str(k)
 	var reason := "staying is worth more"
 	match top:
 		"stay_fight", "stay_kill":
@@ -13441,6 +13487,18 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 			reason = "harder to shoot while engaged" if our_mv else "cannot be shot while engaged"
 		"stay_survival":
 			reason = "safe to stay"
+		"":
+			if leave_score < 0.0:
+				var costs: Array = []
+				if hazard_val < 0.0:
+					costs.append("%d hazard roll(s)" % int(fbm.rolls))
+				if shock_val < 0.0:
+					costs.append("a battle-shock roll")
+				if costs.is_empty():
+					reason = "falling back would cost more"
+				else:
+					reason = "falling back would cost more: its Desperate Escape makes %s" % " and ".join(PackedStringArray(costs))
+				top = "leave_hazard" if hazard_val < 0.0 else ("leave_shock" if shock_val < 0.0 else "")
 	var fb_c := Vector2.ZERO
 	var fb_n := 0
 	for mid in fb_dests:
@@ -13456,7 +13514,7 @@ static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name:
 		"stay_notes": stay_notes, "leave_notes": leave_notes,
 		"target_id": best_hid, "target_name": t_name, "engaged_with": engaged_names,
 		"kill": kill, "out_dmg": out_s, "cq_dmg": cq_dmg, "in_dmg": in_raw, "in_adj": in_adj,
-		"our_hp": our_hp, "we_first": we_first, "recommendation": rec,
+		"our_hp": our_hp, "we_first": we_first, "p_first": p_first, "first_strike": fst, "recommendation": rec,
 		"mode": str(fbm.mode), "de": bool(fbm.de), "forced_by": str(fbm.forced_by),
 		"reason": reason, "top": top, "min_margin": min_margin,
 		"fb_centroid": fb_c if fb_n > 0 else Vector2.INF,
@@ -13528,7 +13586,7 @@ static func _stay_engaged_enemy_heads(enemies: Dictionary, snapshot: Dictionary)
 ## FIX_STAY_ENGAGED: is `target_id` engaged with one of `player`'s units other
 ## than `exclude_ids` (our own Attached unit)? 04.02: then it cannot be shot
 ## unless it is a MONSTER/VEHICLE (17.03).
-static func _stay_engaged_friendly_engaged_with(target_id: String, exclude_ids: Array, player: int, snapshot: Dictionary) -> bool:
+static func _stay_engaged_friendly_engaged_with(target_id: String, exclude_ids: Array, player: int, snapshot: Dictionary, spreads = null) -> bool:
 	var re = _rules_engine()
 	if re == null:
 		return false
@@ -13536,22 +13594,389 @@ static func _stay_engaged_friendly_engaged_with(target_id: String, exclude_ids: 
 	var t: Dictionary = units.get(target_id, {})
 	if t.is_empty():
 		return false
+	# The cheap distance bound first (spreads: a caller's cache, or a fresh one).
+	var sp: Dictionary = spreads if spreads is Dictionary else {}
 	for fid in units:
 		if str(fid) in exclude_ids:
 			continue
 		var fu: Dictionary = units[fid]
 		if int(fu.get("owner", 0)) != player or _get_alive_models(fu).is_empty():
 			continue
+		if not _stay_engaged_maybe_near(str(fid), target_id, units, sp):
+			continue
 		if re.check_units_in_engagement_range(fu, t, snapshot):
 			return true
 	return false
+
+## FIX_STAY_ENGAGED: could units `a` and `b` be within engagement range at all?
+## A cheap bound before the engine's per-model check (which reads terrain for
+## every model pair): their centroids farther apart than both spreads plus
+## twice the engagement range cannot be. `spreads` caches _stay_engaged_spread.
+static func _stay_engaged_maybe_near(a: String, b: String, units: Dictionary, spreads: Dictionary) -> bool:
+	if not spreads.has(a):
+		spreads[a] = _stay_engaged_spread(units.get(a, {}))
+	if not spreads.has(b):
+		spreads[b] = _stay_engaged_spread(units.get(b, {}))
+	var sa: Array = spreads[a]
+	var sb: Array = spreads[b]
+	if sa[0] == Vector2.INF or sb[0] == Vector2.INF:
+		return false
+	return (sa[0] as Vector2).distance_to(sb[0]) <= float(sa[1]) + float(sb[1]) \
+		+ 2.0 * GameConstants.engagement_range_inches() * PIXELS_PER_INCH
+
+## FIX_STAY_ENGAGED: is any unit of `ids_a` within engagement range of any unit
+## of `ids_b` (two Attached units' component ids)?
+static func _stay_engaged_groups_engaged(ids_a: Array, ids_b: Array, snapshot: Dictionary, spreads: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null:
+		return false
+	var units: Dictionary = snapshot.get("units", {})
+	for a in ids_a:
+		var ua: Dictionary = units.get(str(a), {})
+		if ua.is_empty():
+			continue
+		for b in ids_b:
+			var ub: Dictionary = units.get(str(b), {})
+			if ub.is_empty() or not _stay_engaged_maybe_near(str(a), str(b), units, spreads):
+				continue
+			if re.check_units_in_engagement_range(ua, ub, snapshot):
+				return true
+	return false
+
+## FIX_STAY_ENGAGED: is any component of an Attached unit (`ids`, all owned by
+## the same player) engaged — RulesEngine.is_unit_engaged's test, with the
+## cheap distance bound first.
+static func _stay_engaged_group_is_engaged(ids: Array, snapshot: Dictionary, spreads: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null:
+		return false
+	var units: Dictionary = snapshot.get("units", {})
+	for a in ids:
+		var ua: Dictionary = units.get(str(a), {})
+		if ua.is_empty():
+			continue
+		var owner := int(ua.get("owner", 0))
+		for oid in units:
+			if str(oid) == str(a):
+				continue
+			var ou: Dictionary = units[oid]
+			if int(ou.get("owner", 0)) == owner or _get_alive_models(ou).is_empty():
+				continue
+			if not _stay_engaged_maybe_near(str(a), str(oid), units, spreads):
+				continue
+			if re.check_units_in_engagement_range(ua, ou, snapshot):
+				return true
+	return false
+
+## FIX_STAY_ENGAGED: the chance `unit_id` (engaged, of `player` — the active
+## player) fights before the enemy unit headed by `focus_id` in this turn's
+## Fight phase (12.04), the share of the strike-first discount it really gets:
+##  - only one of the two is a Fights First unit: 1 (ours) or 0 (theirs);
+##  - both are: they share the Fights First step, which starts with us;
+##  - neither: they share Resolve Remaining Combats, which starts with the
+##    player who did NOT make the last Fights First pick — us only while we
+##    have no more eligible Fights First units than the enemy (FightSequencer:
+##    select_to_fight hands the pick over, next_selection keeps it when the
+##    step changes). Ours: our other engaged Fights First units, plus each
+##    unengaged phase-plan charger at the odds its charge goes in after its
+##    move (a charge gives Fights First, 11.04). A charge into an unengaged
+##    Fights First enemy makes it eligible too — one more on each side — and is
+##    left out. Theirs: the enemy's engaged Fights First units.
+## Within the shared step the picks alternate and each one can strike first in
+## one combat: with S of our units in separate combats there (this one, plus
+## each other engaged unit of ours with the same Fights First status, not
+## engaged with the focus, facing an enemy unit that fights in that step too),
+## the starting player strikes first in ceil(S/2) of them.
+## p_first = P(we start) × ceil(S/2)/S + P(they start) × floor(S/2)/S.
+## Read-only: the engine's own Fights First test, the live phase plan.
+static func _stay_engaged_first_strike(unit_id: String, our_ids: Array, focus_id: String,
+		snapshot: Dictionary, player: int) -> Dictionary:
+	var out := {"p_first": 1.0, "p_start": 1.0, "our_ff": false, "enemy_ff": false,
+		"ff_ours": 0, "ff_theirs": 0, "chargers": 0, "ff_planned": 0.0, "contested": 1}
+	var re = _rules_engine()
+	if re == null:
+		return out
+	var fs = load("res://scripts/rules/FightSequencer.gd").new()
+	var units: Dictionary = snapshot.get("units", {})
+	var our_ff: bool = bool(fs.group_is_fights_first(unit_id, snapshot))
+	var enemy_ff: bool = bool(fs.group_is_fights_first(focus_id, snapshot))
+	out.our_ff = our_ff
+	out.enemy_ff = enemy_ff
+	if our_ff != enemy_ff:
+		out.p_first = 1.0 if our_ff else 0.0
+		return out
+	var focus_ids: Array = re.attached_unit_component_ids(focus_id, snapshot)
+	var spreads: Dictionary = {}
+	# The enemy's units as the Fight phase sees them: one entry per Attached
+	# unit, with its Fights First status. Theirs counts the engaged ones.
+	var e_heads: Array = []
+	var ff_theirs := 0
+	for eid in units:
+		var eu: Dictionary = units[eid]
+		if int(eu.get("owner", 0)) == player or _get_alive_models(eu).is_empty():
+			continue
+		if re.is_attached_character(str(eid), snapshot):
+			continue
+		var e_comps: Array = re.attached_unit_component_ids(str(eid), snapshot)
+		var e_ff: bool = bool(fs.group_is_fights_first(str(eid), snapshot))
+		if e_ff and _stay_engaged_group_is_engaged(e_comps, snapshot, spreads):
+			ff_theirs += 1
+		if str(eid) != focus_id:
+			e_heads.append({"ids": e_comps, "ff": e_ff})
+	var intents: Dictionary = _get_phase_plan(player).get("charge_intent", {})
+	var er_in: float = GameConstants.engagement_range_inches()
+	var probs: Array = []
+	var ff_ours := 0
+	var contested := 1
+	var ff_targets: Dictionary = {}
+	for fid in units:
+		var fu: Dictionary = units[fid]
+		if int(fu.get("owner", 0)) != player or str(fid) in our_ids or _get_alive_models(fu).is_empty():
+			continue
+		if re.is_attached_character(str(fid), snapshot):
+			continue  # 19.03: it fights as part of its bodyguard's entry
+		var comps: Array = re.attached_unit_component_ids(str(fid), snapshot)
+		var ff: bool = bool(fs.group_is_fights_first(str(fid), snapshot))
+		if _stay_engaged_group_is_engaged(comps, snapshot, spreads):
+			if ff:
+				ff_ours += 1
+			if ff == our_ff and not _stay_engaged_groups_engaged(comps, focus_ids, snapshot, spreads):
+				for eh in e_heads:
+					if bool(eh.ff) == our_ff and _stay_engaged_groups_engaged(comps, eh.ids, snapshot, spreads):
+						contested += 1
+						break
+			continue
+		var ci: Dictionary = intents.get(str(fid), {})
+		if ci.is_empty():
+			continue
+		var tid := _attached_unit_target_id(str(ci.get("target_id", "")), snapshot)
+		var tu: Dictionary = units.get(tid, {})
+		if tu.is_empty() or _get_alive_models(tu).is_empty():
+			continue
+		if not ff_targets.has(tid) and bool(fs.group_is_fights_first(tid, snapshot)) \
+				and not _stay_engaged_group_is_engaged(re.attached_unit_component_ids(tid, snapshot), snapshot, spreads):
+			ff_targets[tid] = true
+			continue
+		var gap := _get_closest_model_distance_inches(fu, tu)
+		var mv_in := float(fu.get("meta", {}).get("stats", {}).get("move", 6))
+		var p := _charge_success_probability(_charge_roll_needed(maxf(gap - mv_in, er_in)))
+		if p > 0.0:
+			probs.append(p)
+	var p_start := 1.0
+	if not our_ff:
+		# P(ff_ours + the chargers that make it <= ff_theirs), chargers independent.
+		var dist: Array = [1.0]
+		for p in probs:
+			var nd: Array = []
+			nd.resize(dist.size() + 1)
+			nd.fill(0.0)
+			for k in range(dist.size()):
+				nd[k] = float(nd[k]) + float(dist[k]) * (1.0 - float(p))
+				nd[k + 1] = float(nd[k + 1]) + float(dist[k]) * float(p)
+			dist = nd
+		p_start = 0.0
+		for k in range(dist.size()):
+			if ff_ours + k <= ff_theirs:
+				p_start += float(dist[k])
+	var s := float(contested)
+	var planned := 0.0
+	for p in probs:
+		planned += float(p)
+	out.p_start = p_start
+	out.p_first = p_start * ceilf(s / 2.0) / s + (1.0 - p_start) * floorf(s / 2.0) / s
+	out.ff_ours = ff_ours
+	out.ff_theirs = ff_theirs
+	out.chargers = probs.size()
+	out.ff_planned = planned
+	out.contested = contested
+	return out
+
+## FIX_STAY_ENGAGED: the Suggest (K) line saying who strikes first (12.04) and
+## how much of the strike-back that takes off.
+static func _stay_engaged_first_strike_note(fst: Dictionary, t_name: String, in_s: float, in_s_adj: float) -> String:
+	var p: float = float(fst.p_first)
+	var back := "takes an expected %.1f damage back instead of %.1f" % [in_s_adj, in_s]
+	var before := "takes an expected %.1f damage back before it hits" % in_s
+	var our_ff: bool = bool(fst.our_ff)
+	if bool(fst.enemy_ff) and not our_ff:
+		return "Strikes second (12.04): %s has Fights First and it does not — %s" % [t_name, before]
+	if our_ff and not bool(fst.enemy_ff):
+		return "Strikes first (12.04): it has Fights First and %s does not — %s" % [t_name, back]
+	var why: Array = []
+	var p_start: float = float(fst.p_start)
+	if not our_ff and p_start < 0.995:
+		if int(fst.ff_ours) > int(fst.ff_theirs):
+			why.append("we have more Fights First units (%d vs %d), which hands the enemy the first pick in Resolve Remaining Combats" % [
+				int(fst.ff_ours), int(fst.ff_theirs)])
+		else:
+			why.append("%d planned charge(s) could give us more Fights First units (11.04), which hands the enemy the first pick in Resolve Remaining Combats%s" % [
+				int(fst.chargers), (" (%d%% we keep it)" % roundi(p_start * 100.0)) if roundi(p_start * 100.0) > 0 else ""])
+	if int(fst.contested) > 1:
+		why.append("%d of our units fight separate combats in that step, and the alternating picks let the enemy strike first in some" % int(fst.contested))
+	if p >= 0.995:
+		if our_ff:
+			return "Strikes first (12.04): both have Fights First and it is our turn, so we start the Fights First step — %s" % back
+		return "Strikes first (12.04): we have no more Fights First units than the enemy, so we start Resolve Remaining Combats — %s" % back
+	if p <= 0.005:
+		return "Strikes second (12.04): %s — %s" % ["; ".join(why), before]
+	return "Strikes first only %d%% of the time (12.04): %s — %s" % [roundi(p * 100.0), "; ".join(why), back]
+
+## FIX_STAY_ENGAGED: a unit's centroid and the radius (px) its bases reach
+## from it — a cheap bound before measuring model to model.
+static func _stay_engaged_spread(u: Dictionary) -> Array:
+	var c: Vector2 = _get_unit_centroid(u)
+	if c == Vector2.INF:
+		return [c, 0.0]
+	var r := 0.0
+	for m in _get_alive_models_with_positions(u):
+		var p := _get_model_position(m)
+		if p == Vector2.INF:
+			continue
+		var dims: Dictionary = m.get("base_dimensions", {}) if m.get("base_dimensions", {}) is Dictionary else {}
+		var mm: float = maxf(float(m.get("base_mm", 32)), maxf(float(dims.get("length", 0.0)), float(dims.get("width", 0.0))))
+		r = maxf(r, p.distance_to(c) + mm / 2.0 * PIXELS_PER_INCH / 25.4)
+	return [c, r]
+
+## FIX_STAY_ENGAGED: what falling back frees for the rest of our army. 04.02:
+## a ranged attack's target must be unengaged (only a MONSTER/VEHICLE is
+## exempt, 17.03), so each engaged non-MONSTER/VEHICLE enemy group that no
+## other unit of ours is engaged with becomes a legal target in this turn's
+## Shooting phase once we fall back. Each of our other shooters (alive,
+## deployed, unengaged, not Advanced / Fallen Back, able to shoot) that reaches
+## it now and has a sight line to it (one check) gains the points of its
+## expected damage there (capped at the group's wounds, × its points per
+## wound) over the best other target its guns reach now — range only, no
+## sight line: a generous baseline, so the gain is not overstated. Summed per
+## group, capped at what is left of it after our own unit's Fall Back and Shoot
+## / Charge damage (`dealt`), plus the wipe bonus (`w_kill` × its points) when
+## that fire alone is expected to destroy it. {val, dmg, shooters, names}.
+## No charge half: an engaged enemy is still a legal charge target for our
+## other units (11.04), so only the falling-back unit loses its charge (09.07).
+static func _stay_engaged_free_target(our_ids: Array, order: Array, groups: Dictionary, heads: Array,
+		dealt: Dictionary, w_kill: float, snapshot: Dictionary, player: int) -> Dictionary:
+	var out := {"val": 0.0, "dmg": 0.0, "shooters": 0, "names": []}
+	var re = _rules_engine()
+	if re == null:
+		return out
+	var units: Dictionary = snapshot.get("units", {})
+	var spreads: Dictionary = {}
+	var freed: Array = []
+	for hid in order:
+		var g: Dictionary = groups[hid]
+		if bool(g.mv):
+			continue  # 17.03: an engaged MONSTER/VEHICLE can be shot already
+		var held := false
+		for cid in g.ids:
+			if _stay_engaged_friendly_engaged_with(str(cid), our_ids, player, snapshot, spreads):
+				held = true
+				break
+		if not held:
+			freed.append(hid)
+	if freed.is_empty():
+		return out
+	for hid in freed:
+		if not spreads.has(hid):
+			spreads[hid] = _stay_engaged_spread(units.get(hid, {}))
+	var legal: Dictionary = {}
+	var alt_groups: Dictionary = {}
+	var gain: Dictionary = {}
+	var dmg: Dictionary = {}
+	var n_sh: Dictionary = {}
+	for fid in units:
+		var fu: Dictionary = units[fid]
+		if int(fu.get("owner", 0)) != player or str(fid) in our_ids or _get_alive_models(fu).is_empty():
+			continue
+		var st = fu.get("status", 0)
+		if st == GameStateData.UnitStatus.UNDEPLOYED or st == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var fflags: Dictionary = fu.get("flags", {})
+		if bool(fflags.get("cannot_shoot", false)) or bool(fflags.get("advanced", false)) or bool(fflags.get("fell_back", false)):
+			continue
+		var rng := _get_max_weapon_range(fu)
+		if rng <= 0.0:
+			continue
+		if not spreads.has(str(fid)):
+			spreads[str(fid)] = _stay_engaged_spread(fu)
+		var fs_spread: Array = spreads[str(fid)]
+		if fs_spread[0] == Vector2.INF:
+			continue
+		var reach_px: float = rng * PIXELS_PER_INCH + float(fs_spread[1])
+		var best_h := ""
+		var best_v := 0.0
+		var best_d := 0.0
+		for hid in freed:
+			var sp: Array = spreads[hid]
+			if sp[0] == Vector2.INF or (fs_spread[0] as Vector2).distance_to(sp[0]) > reach_px + float(sp[1]):
+				continue
+			var hu: Dictionary = units.get(hid, {})
+			var gap := _get_closest_model_distance_inches(fu, hu)
+			if gap > rng:
+				continue
+			var d := _stay_engaged_ranged_damage(fu, hu, 0, false, false, false, gap)
+			var v: float = minf(d, float(groups[hid].hp)) * float(groups[hid].ppw)
+			if v > best_v:
+				best_v = v
+				best_h = hid
+				best_d = d
+		if best_h == "" or _stay_engaged_group_is_engaged([str(fid)], snapshot, spreads):
+			continue
+		var alt := 0.0
+		for tid in heads:
+			if groups.has(tid):
+				continue
+			var tu: Dictionary = units.get(tid, {})
+			if not spreads.has(tid):
+				spreads[tid] = _stay_engaged_spread(tu)
+			var tsp: Array = spreads[tid]
+			if tsp[0] == Vector2.INF or (fs_spread[0] as Vector2).distance_to(tsp[0]) > reach_px + float(tsp[1]):
+				continue
+			var tgap := _get_closest_model_distance_inches(fu, tu)
+			if tgap > rng:
+				continue
+			if not legal.has(tid):
+				legal[tid] = _stay_engaged_friendly_engaged_with(tid, our_ids, player, snapshot, spreads)
+			var t_eng: bool = bool(legal[tid])
+			if t_eng and not _stay_engaged_is_mv(tu):
+				continue  # 04.02: engaged with another of our units
+			var ad := _stay_engaged_ranged_damage(fu, tu, 1 if t_eng else 0, false, false, t_eng, tgap)
+			if ad <= 0.0:
+				continue
+			if not alt_groups.has(tid):
+				alt_groups[tid] = _stay_engaged_group(tid, snapshot)
+			alt = maxf(alt, minf(ad, float(alt_groups[tid].hp)) * float(alt_groups[tid].ppw))
+		if best_v <= alt:
+			continue
+		if not bool(re.unit_sight_line(str(fid), best_h, snapshot, false).get("has_los", false)):
+			continue
+		gain[best_h] = float(gain.get(best_h, 0.0)) + best_v - alt
+		dmg[best_h] = float(dmg.get(best_h, 0.0)) + best_d
+		n_sh[best_h] = int(n_sh.get(best_h, 0)) + 1
+	for hid in gain:
+		var g: Dictionary = groups[hid]
+		var before: float = float(dealt.get(hid, 0.0))
+		var v: float = minf(float(gain[hid]), maxf(0.0, float(g.hp) - before) * float(g.ppw))
+		if before <= 0.0 and float(dmg[hid]) >= float(g.hp):
+			v += w_kill * float(g.pts)
+		if v <= 0.0:
+			continue
+		out.val = float(out.val) + v
+		out.dmg = float(out.dmg) + float(dmg[hid])
+		out.shooters = int(out.shooters) + int(n_sh[hid])
+		(out.names as Array).append(str(g.name))
+	return out
 
 ## FIX_STAY_ENGAGED: expected ranged damage of `shooter`'s weapons on `target`
 ## (hit × wound × unsaved × damage capped at the target's W, × carriers, × the
 ## target's FNP). hit_mod +1 = -1 to the hit roll (capped at one, 02.02.01),
 ## not applied to [CLOSE-QUARTERS]/[PISTOL] weapons when cq_exempt (10.06);
 ## only_cq keeps just those weapons; skip_blast drops [BLAST] (10.06, 17.03
-## errata); gap_in >= 0 drops weapons that do not reach that far.
+## errata); gap_in >= 0 drops weapons that do not reach that far. The weapon's
+## own keywords come from the shared _apply_weapon_keyword_modifiers, applied
+## AFTER the hit modifier: [TORRENT] auto-hits (24.37 — no hit roll, so no -1
+## either), [RAPID FIRE] / [MELTA] count at half range (gap_in known; an
+## engaged target is always within half range), [SUSTAINED HITS], [LETHAL
+## HITS], [ANTI-X], [DEVASTATING WOUNDS]. Not cover, efficiency or leader
+## multipliers (_estimate_weapon_damage's extras): they are not this ledger's.
 static func _stay_engaged_ranged_damage(shooter: Dictionary, target: Dictionary, hit_mod: int = 0,
 		cq_exempt: bool = false, only_cq: bool = false, skip_blast: bool = false, gap_in: float = -1.0) -> float:
 	if shooter.is_empty() or target.is_empty() or _get_alive_models(shooter).is_empty():
@@ -13591,26 +14016,39 @@ static func _stay_engaged_ranged_damage(shooter: Dictionary, target: Dictionary,
 			ap = int(ap_s) if ap_s.is_valid_int() else 0
 		var d_raw = w.get("damage", "1")
 		var dmg := _parse_average_damage(str(d_raw) if d_raw != null else "1")
+		var w_rng := _get_weapon_range_inches(w)
+		var kw: Dictionary = _apply_weapon_keyword_modifiers(w, target, attacks, _hit_probability(bs + mod),
+			_wound_probability(strength, toughness), 1.0 - _save_probability(save, ap, invuln), dmg,
+			strength, toughness, save, ap, invuln, maxf(gap_in, 0.01) if gap_in >= 0.0 else -1.0, w_rng)
+		dmg = float(kw.damage)
 		if wpm > 0:
 			dmg = minf(dmg, float(wpm))
-		total += attacks * float(_weapon_carrier_count(shooter, w)) * _hit_probability(bs + mod) \
-			* _wound_probability(strength, toughness) * (1.0 - _save_probability(save, ap, invuln)) * dmg
+		total += float(kw.attacks) * float(_weapon_carrier_count(shooter, w)) * float(kw.p_hit) \
+			* float(kw.p_wound) * float(kw.p_unsaved) * dmg
 	var fnp := AIAbilityAnalyzerData.get_unit_fnp(target)
 	if fnp > 0:
 		total *= AIAbilityAnalyzerData.get_fnp_damage_multiplier(fnp)
 	return total
 
-## FIX_STAY_ENGAGED: how the fall back would be made (09.07). The mode comes
-## from FallBackMove.select_mode — Desperate Escape is mandatory when
-## battle-shocked or when an enemy rule forces it (Commentary 09.07.01). A
-## planned path that crosses an enemy base also needs one (03.01: only a
-## Desperate Escape moves through enemy models). The hazard rolls mirror
-## FallBackMove.before_moving's modifiers without rolling: one per alive
-## model at roll + modifier <= 2 (AttackSequence.hazard_rolls), WHERE D'YA
-## FINK's extra rolls for a MONSTER/VEHICLE, 3 mortal wounds each when every
-## model is a MONSTER/VEHICLE (06.03), after the unit's Feel No Pain.
+## FIX_STAY_ENGAGED: how the fall back would be made (09.07), priced the way
+## the engine will make it. The mode comes from FallBackMove.select_mode —
+## Desperate Escape is mandatory when battle-shocked or when an enemy rule
+## forces it (Commentary 09.07.01). A planned path through enemy models
+## (_stay_engaged_path_crosses) needs one only once the engine refuses an
+## Ordered Retreat through them (09.07 / 03.01; EA-08, Wave A: detected by its
+## shared MoveType.path_crosses_enemy_models). Until then AIPlayer's
+## BEGIN_FALL_BACK (no fall_back_mode) is an Ordered Retreat that moves
+## through them with no hazard roll, so a crossing costs nothing here — and
+## the record, notes and steps say Ordered Retreat, the move that is made.
+## The hazard rolls mirror FallBackMove.before_moving without rolling: one per
+## alive model at roll + modifier <= 2 (AttackSequence.hazard_rolls), WHERE
+## D'YA FINK's extra rolls for a MONSTER/VEHICLE, 3 mortal wounds each when
+## every model is a MONSTER/VEHICLE (06.03), after the unit's Feel No Pain.
+## "Every model" is the bodyguard's today — what before_moving counts; with
+## EA-36 (Wave A: FallBackMove.attached_unit_hazard_view) it is the whole
+## Attached unit (19.01; 09.07.01), the engine's own count.
 static func _stay_engaged_fall_back_mode(unit: Dictionary, unit_id: String, snapshot: Dictionary,
-		fb_dests: Dictionary, enemies: Dictionary) -> Dictionary:
+		fb_dests: Dictionary, enemies: Dictionary, our_ids: Array = []) -> Dictionary:
 	var flags_u: Dictionary = unit.get("flags", {})
 	var shocked: bool = bool(flags_u.get("battle_shocked", false))
 	var mode := "desperate_escape" if shocked else "ordered_retreat"
@@ -13640,35 +14078,19 @@ static func _stay_engaged_fall_back_mode(unit: Dictionary, unit_id: String, snap
 			forced_by = "Savage Frenzy"
 		elif shocked:
 			forced_by = "battle-shocked"
+	# A way out through enemy models forces a Desperate Escape only once the
+	# engine refuses an Ordered Retreat through them (EA-08).
+	var crossing_rule: bool = fbm != null and fbm.has_method("path_crosses_enemy_models")
 	var crosses := false
-	if mode != "desperate_escape":
-		for m in _get_alive_models_with_positions(unit):
-			var mid := str(m.get("id", ""))
-			if not fb_dests.has(mid):
-				continue
-			var dd = fb_dests[mid]
-			if not (dd is Array and dd.size() >= 2):
-				continue
-			var a := _get_model_position(m)
-			var b := Vector2(float(dd[0]), float(dd[1]))
-			var r_own := _model_movement_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))
-			for eid in enemies:
-				for em in enemies[eid].get("models", []):
-					if not em.get("alive", true):
-						continue
-					var ep := _get_model_position(em)
-					if ep == Vector2.INF:
-						continue
-					var r_e := _model_movement_radius_px(int(em.get("base_mm", 32)), str(em.get("base_type", "circular")), em.get("base_dimensions", {}))
-					if Geometry2D.get_closest_point_to_segment(ep, a, b).distance_to(ep) < r_own + r_e - AI_B2B_GAP_PX:
-						crosses = true
-						break
-				if crosses:
-					break
-			if crosses:
-				break
+	if mode != "desperate_escape" and crossing_rule:
+		crosses = _stay_engaged_path_crosses(unit, unit_id, our_ids, fb_dests, enemies, snapshot)
 	var de: bool = mode == "desperate_escape" or crosses
 	var n := _get_alive_models(unit).size()
+	# EA-36: the engine's own count for the whole Attached unit, once it has one.
+	var whole_view: Dictionary = {}
+	if fbm != null and fbm.has_method("attached_unit_hazard_view"):
+		whole_view = fbm.attached_unit_hazard_view(unit_id, snapshot)
+		n = int(whole_view.get("alive", n))
 	var hz_mod: int = -1 if bool(flags_u.get("effect_cut_em_down_minus1", false)) else 0
 	if cus != null:
 		hz_mod += int(cus.corner_the_quarry_hazard_modifier(unit_id, snapshot))
@@ -13684,18 +14106,148 @@ static func _stay_engaged_fall_back_mode(unit: Dictionary, unit_id: String, snap
 		extra_n = int(extra.get("count", 0))
 		px = clampf((2.0 - float(int(extra.get("modifier", 0)) + hz_mod)) / 6.0, 0.0, 1.0)
 	var all_mv := n > 0
-	var unit_mv := _stay_engaged_is_mv(unit)
-	for m in _get_alive_models(unit):
-		var mkw: Array = m.get("keywords", [])
-		if not (unit_mv or "MONSTER" in mkw or "VEHICLE" in mkw):
-			all_mv = false
-			break
+	if not whole_view.is_empty():
+		# 06.03 judged per model of the whole Attached unit (the engine's marks).
+		for m in whole_view.get("hazard_unit", {}).get("models", []):
+			var vkw: Array = m.get("keywords", [])
+			if not ("MONSTER" in vkw or "VEHICLE" in vkw):
+				all_mv = false
+				break
+	else:
+		var unit_mv := _stay_engaged_is_mv(unit)
+		for m in _get_alive_models(unit):
+			var mkw: Array = m.get("keywords", [])
+			if not (unit_mv or "MONSTER" in mkw or "VEHICLE" in mkw):
+				all_mv = false
+				break
 	var mw := 3.0 if all_mv else 1.0
 	var fnp := AIAbilityAnalyzerData.get_unit_fnp(unit)
 	var fnp_mult := AIAbilityAnalyzerData.get_fnp_damage_multiplier(fnp) if fnp > 0 else 1.0
 	var e_mw := (float(n) * p + float(extra_n) * px) * mw * fnp_mult if de else 0.0
-	return {"mode": mode, "mandatory": mandatory, "forced_by": forced_by, "crosses": crosses,
+	return {"mode": "desperate_escape" if de else mode, "mandatory": mandatory, "forced_by": forced_by, "crosses": crosses,
+		"crossing_rule": crossing_rule, "whole_unit": not whole_view.is_empty(),
 		"de": de, "shocked": shocked, "rolls": (n + extra_n) if de else 0, "p": p, "e_mw": e_mw}
+
+## FIX_STAY_ENGAGED: does the planned fall back move a model of this unit
+## THROUGH an enemy model (03.01: "Its base cannot be moved through enemy
+## models")? The engine's EA-08 sweep, mirrored (MoveType.sweep_moves_through):
+## each alive model's straight path to its destination — and each attached
+## CHARACTER model, carried by the first bodyguard model's delta (MP
+## _attached_carry_plan) — swept with a base 1 mm smaller (base contact is not
+## moving through), every ~10 px from t > 0, shape-aware (Measurement.
+## models_overlap: an oval or rectangle by its real outline and rotation); a
+## base already overlapped at the start counts only when the path closes on
+## it. So a model touching an oval's long side that backs straight away does
+## not cross it. The engine's exemptions: FLY (it may take to the skies, 21.03;
+## the engine exempts the keyword outright), Grapnel Launchers, CALISTUS
+## ka'tah (every model) and 24.35 SUPER-HEAVY WALKER (only TITANIC models block).
+static func _stay_engaged_path_crosses(unit: Dictionary, unit_id: String, our_ids: Array,
+		fb_dests: Dictionary, enemies: Dictionary, snapshot: Dictionary) -> bool:
+	if "FLY" in unit.get("meta", {}).get("keywords", []):
+		return false
+	var sm = load("res://scripts/codex/space_marines/SMAbilitiesC.gd")
+	if sm != null and bool(sm.moves_through_models(unit_id)):
+		return false
+	var katah = load("res://scripts/codex/custodes/CustodesKatah.gd")
+	if katah != null and bool(katah.moves_through_all_models(unit, "FALL_BACK")):
+		return false
+	var only_titanic: bool = GameConstants.edition >= 11 and UnitAbilities.is_super_heavy_walker(unit)
+	var units: Dictionary = snapshot.get("units", {})
+	# The moving models as [model, from, to]; the carried characters ride the
+	# delta of the first destination that is a bodyguard model's.
+	var paths: Array = []
+	var by_id: Dictionary = {}
+	for m in _get_alive_models_with_positions(unit):
+		by_id[str(m.get("id", ""))] = m
+	var delta := Vector2.INF
+	for mid in fb_dests:
+		var dd = fb_dests[mid]
+		if not by_id.has(str(mid)) or not (dd is Array and dd.size() >= 2):
+			continue
+		var a := _get_model_position(by_id[str(mid)])
+		var b := Vector2(float(dd[0]), float(dd[1]))
+		if delta == Vector2.INF:
+			delta = b - a
+		paths.append([by_id[str(mid)], a, b])
+	if delta != Vector2.INF:
+		for cid in our_ids:
+			if str(cid) == unit_id:
+				continue
+			for cm in _get_alive_models_with_positions(units.get(str(cid), {})):
+				var cp := _get_model_position(cm)
+				paths.append([cm, cp, cp + delta])
+	var meas = _measurement()
+	for path in paths:
+		var a: Vector2 = path[1]
+		var b: Vector2 = path[2]
+		if a.distance_to(b) < 0.01:
+			continue
+		var mover: Dictionary = _stay_engaged_contact_tolerant(path[0])
+		var r_m := _stay_engaged_bound_px(mover)
+		for eid in enemies:
+			var eu: Dictionary = enemies[eid]
+			if only_titanic and not "TITANIC" in eu.get("meta", {}).get("keywords", []):
+				continue
+			if eu.get("embarked_in", null) != null:
+				continue
+			for em in eu.get("models", []):
+				if not em.get("alive", true):
+					continue
+				var ep := _get_model_position(em)
+				if ep == Vector2.INF:
+					continue
+				if Geometry2D.get_closest_point_to_segment(ep, a, b).distance_to(ep) > r_m + _stay_engaged_bound_px(em):
+					continue
+				if _stay_engaged_sweeps_through(mover, a, b, em, ep, meas):
+					return true
+	return false
+
+## FIX_STAY_ENGAGED: a copy of `model` whose base is 1 mm smaller (round and
+## oval / rectangular dimensions alike) — EA-08's contact-tolerant swept base.
+static func _stay_engaged_contact_tolerant(model: Dictionary) -> Dictionary:
+	var m: Dictionary = model.duplicate(true)
+	m["base_mm"] = maxi(1, int(round(float(m.get("base_mm", 32)))) - 1)
+	var dims = m.get("base_dimensions", {})
+	if dims is Dictionary and not dims.is_empty():
+		var nd: Dictionary = dims.duplicate()
+		for k in ["length", "width"]:
+			if nd.has(k):
+				nd[k] = maxf(1.0, float(nd[k]) - 1.0)
+		m["base_dimensions"] = nd
+	return m
+
+## FIX_STAY_ENGAGED: a base's bounding radius in px (its longest axis).
+static func _stay_engaged_bound_px(m: Dictionary) -> float:
+	var mm := float(m.get("base_mm", 32))
+	var dims = m.get("base_dimensions", {})
+	if dims is Dictionary and not dims.is_empty() and str(m.get("base_type", "circular")) != "circular":
+		mm = maxf(float(dims.get("length", mm)), float(dims.get("width", mm)))
+	return mm / 25.4 * PIXELS_PER_INCH / 2.0
+
+## FIX_STAY_ENGAGED: does `mover`, moved straight from `from` to `to`, move
+## THROUGH `other` (at other_pos)? EA-08's MoveType.sweep_moves_through.
+static func _stay_engaged_sweeps_through(mover: Dictionary, from: Vector2, to: Vector2,
+		other: Dictionary, other_pos: Vector2, meas) -> bool:
+	var probe: Dictionary = mover.duplicate()
+	probe["position"] = from
+	var start_overlap: bool = _stay_engaged_bases_overlap(probe, other, other_pos, meas)
+	var start_d := from.distance_to(other_pos)
+	var n: int = maxi(2, int(from.distance_to(to) / 10.0))
+	for i in range(1, n + 1):
+		var p: Vector2 = from.lerp(to, float(i) / float(n))
+		probe["position"] = p
+		if _stay_engaged_bases_overlap(probe, other, other_pos, meas):
+			if not start_overlap or p.distance_to(other_pos) < start_d - 0.5:
+				return true
+	return false
+
+## FIX_STAY_ENGAGED: shape-aware base overlap (Measurement.models_overlap);
+## bounding circles when the autoload is not there.
+static func _stay_engaged_bases_overlap(a: Dictionary, b: Dictionary, b_pos: Vector2, meas) -> bool:
+	if meas != null:
+		return bool(meas.models_overlap(a, b))
+	var pa := _get_model_position(a)
+	return pa != Vector2.INF and pa.distance_to(b_pos) < _stay_engaged_bound_px(a) + _stay_engaged_bound_px(b)
 
 ## FIX_STAY_ENGAGED: the unit as it would stand after the fall back — each
 ## alive model at its destination (bodyguard only: attached characters follow
@@ -13737,6 +14289,11 @@ static func _stay_engaged_record(unit_id: String, unit_name: String, ev: Diction
 		"in_dmg": snappedf(float(ev.in_dmg), 0.01),
 		"in_dmg_after_first_strike": snappedf(float(ev.in_adj), 0.01),
 		"we_strike_first": bool(ev.we_first),
+		"p_strike_first": snappedf(float(ev.get("p_first", 1.0)), 0.001),
+		"fights_first_ours": int(ev.get("first_strike", {}).get("ff_ours", 0)),
+		"fights_first_planned": snappedf(float(ev.get("first_strike", {}).get("ff_planned", 0.0)), 0.001),
+		"fights_first_theirs": int(ev.get("first_strike", {}).get("ff_theirs", 0)),
+		"contested_combats": int(ev.get("first_strike", {}).get("contested", 1)),
 		"our_wounds": float(ev.our_hp),
 		"survival": str(ev.recommendation),
 		"fall_back_mode": str(ev.mode),

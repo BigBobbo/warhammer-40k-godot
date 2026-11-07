@@ -10,7 +10,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 7,
-  "description": "FIX_STAY_ENGAGED (ships OFF): an engaged unit that would fall back by default compares staying engaged with falling back and stays when staying is worth more — 11e 12.04: in our own Fight phase we select first when nobody has Fights First, so a unit locked with one it wipes strikes first; 09.07: after a fall back it could not shoot, charge or start an action anyway. Same position as exam mv08: Custodian Guard Alpha is locked off every objective with four Prosecutors (11.6 damage against 4 wounds). With tests/bench_profiles/stay_engaged_on.json loaded, clicking the real Suggest (K) button shows 'Custodian Guard Alpha stays engaged with Prosecutors (wipes them out in our Fight phase; …)', the 'How this turn's move was shaped' note 'Wipes out Prosecutors in our own Fight phase …' and the engaged_choice ledger ('Out-fight it'). Clearing the profile restores the shipped default: 'Custodian Guard Alpha falls back (not on objective)', no note, no record. Reloading restores the stay; executing it leaves the squad unmoved and engaged on the engine. The guard pair: our Prosecutors, locked with Allarus Custodians that kill them, are suggested a fall back ('staying would cost 4.0 wounds …'), which staged through AIPlayer ends unengaged.",
+  "description": "FIX_STAY_ENGAGED (ships OFF): an engaged unit that would fall back by default compares staying engaged with falling back and stays when staying is worth more — 11e 12.04: in our own Fight phase the Fights First step starts with us and Resolve Remaining Combats with the player who did not make the last Fights First pick, so a unit locked with one it wipes usually strikes first (our own chargers, Fights First by 11.04, can hand the enemy the first Remaining pick); 09.07: after a fall back it could not shoot, charge or start an action anyway. Same position as exam mv08: Custodian Guard Alpha is locked off every objective with four Prosecutors (11.6 damage against 4 wounds). With tests/bench_profiles/stay_engaged_on.json loaded, clicking the real Suggest (K) button shows 'Custodian Guard Alpha stays engaged with Prosecutors (wipes them out in our Fight phase; …)', the 'How this turn's move was shaped' note 'Wipes out Prosecutors in our own Fight phase …' and the engaged_choice ledger ('Out-fight it'), plus what falling back would have been worth ('Falling back is worth only …': the parked player-1 guns could shoot the Prosecutors once freed, 04.02). Clearing the profile restores the shipped default: 'Custodian Guard Alpha falls back (not on objective)', no note, no record. Reloading restores the stay; executing it leaves the squad unmoved and engaged on the engine. The guard pair: our Prosecutors, locked with Allarus Custodians that kill them, are suggested a fall back ('staying would cost 4.0 wounds …', and it frees the Allarus Custodians for our guns), which staged through AIPlayer ends unengaged.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -104,6 +104,12 @@
       "script": "main._ai_suggestion_panel.full_text.contains(\"Out-fight it\")",
       "equals": true,
       "comment": "the engaged_choice ledger, in the glossary's words"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Falling back is worth only\") and main._ai_suggestion_panel.full_text.contains(\"Frees it for our guns\") and not main._ai_suggestion_panel.full_text.contains(\"Falling back gains nothing\")",
+      "equals": true,
+      "comment": "04.02: falling back would free the Prosecutors for our parked guns - the note names that value (leave_free_target) instead of claiming leaving gains nothing"
     },
     {
       "act": "execute_script",
@@ -231,6 +237,12 @@
       "act": "execute_script",
       "script": "main._ai_suggestion_panel.full_text.contains(\"staying would cost\")",
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Frees Allarus Custodians for our guns\")",
+      "equals": true,
+      "comment": "the guard pair's fall back also frees the Allarus Custodians as a target for the rest of our army (04.02)"
     },
     {
       "act": "execute_script",
