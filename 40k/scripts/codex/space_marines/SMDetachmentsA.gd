@@ -816,7 +816,12 @@ static func _use_shadow(player: int, shooter: String, ctx: Dictionary) -> Dictio
 		# "Those attacks do not prevent that unit from being hidden": the
 		# shot's 13.09 stamp is rolled back to "not shot this or the previous
 		# turn" (the engine stamps only Shooting-phase shots — ruling).
-		var idx := Common.battle_round() * 2 + (0 if Common.active_player() == 1 else 1)
+		# The shared play-order turn index (GameState.get_player_turn_index —
+		# keyed on the first-turn player, the same counter the stamp uses).
+		var idx := GameStateData.player_turn_index_from_meta(Common.state().get("meta", {}))
+		var gs_turn = Common.game_state()
+		if gs_turn != null and gs_turn.has_method("get_player_turn_index"):
+			idx = int(gs_turn.get_player_turn_index())
 		var diffs: Array = []
 		for gid in group:
 			var f: Dictionary = Common.unit(str(gid)).get("flags", {})

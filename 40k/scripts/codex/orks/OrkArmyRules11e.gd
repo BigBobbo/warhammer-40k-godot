@@ -136,15 +136,14 @@ static func battle_round() -> int:
 	return int(Common.state().get("meta", {}).get("battle_round", 1))
 
 ## 0-based index of the current player turn: battle round 1 first turn = 0.
+## The shared play-order turn counter (GameState.get_player_turn_index, which
+## starts battle round 1's first turn at 2 — also used by the 13.09 Hidden
+## shot stamp) shifted to start at 0.
 static func turn_index() -> int:
-	var meta: Dictionary = Common.state().get("meta", {})
-	var rnd := int(meta.get("battle_round", 1))
-	var active := int(meta.get("active_player", 1))
-	var first := int(meta.get("first_turn_player", 1))
 	var gs = Common.game_state()
-	if gs and gs.has_method("get_first_turn_player"):
-		first = int(gs.get_first_turn_player())
-	return (maxi(rnd, 1) - 1) * 2 + (0 if active == first else 1)
+	if gs and gs.has_method("get_player_turn_index"):
+		return int(gs.get_player_turn_index()) - 2
+	return Common.GameStateData.player_turn_index_from_meta(Common.state().get("meta", {})) - 2
 
 static func _player_dict(player: int) -> Dictionary:
 	return Common.state().get("players", {}).get(str(player), {})

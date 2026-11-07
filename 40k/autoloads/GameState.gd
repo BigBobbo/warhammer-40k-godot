@@ -1253,6 +1253,28 @@ func get_first_turn_player() -> int:
 	var ftp = int(state["meta"].get("first_turn_player", 0))
 	return ftp if (ftp == 1 or ftp == 2) else 1
 
+## Monotonic index of the current PLAYER turn in play order (07.02: each
+## battle round has one turn per player, and the first-turn player from the
+## roll-off takes the first turn of every round): battle round R's first turn
+## is 2R, its second turn 2R + 1. This is the one shared turn counter for
+## "this turn / the previous turn / until the end of the next turn" rules —
+## the 13.09 HIDDEN shot stamp (flags.last_shot_idx), the Shadow Masters
+## waiver and the Ork War Cry expiry (OrkArmyRules11e.turn_index() = this - 2).
+## It is keyed on the first-turn player, NOT on Player 1: with Player 2 going
+## first the old "Player 1 = slot 0" formula ran 3, 2, 5, 4 … in play order,
+## so a Player 1 unit that shot was hidden again in the very next turn. With
+## Player 1 going first the values are unchanged (saves stay compatible).
+static func player_turn_index_from_meta(meta: Dictionary) -> int:
+	var rnd := maxi(int(meta.get("battle_round", 1)), 1)
+	var active := int(meta.get("active_player", 1))
+	var ftp := int(meta.get("first_turn_player", 0))
+	if ftp != 1 and ftp != 2:
+		ftp = 1
+	return rnd * 2 + (0 if active == ftp else 1)
+
+func get_player_turn_index() -> int:
+	return player_turn_index_from_meta(state.get("meta", {}))
+
 func get_player_display_name(player: int) -> String:
 	# Optional seat name entered on the main menu (play-and-pass); falls back
 	# to "Player N".

@@ -6079,8 +6079,10 @@ func _get_last_weapon_result() -> Dictionary:
 func _hidden_shot_stamp(unit_id: String) -> Dictionary:
 	# 13.09 HIDDEN: stamp the turn-index when this unit actually made ranged
 	# attacks, so TerrainManager.is_model_hidden can apply the "did not shoot
-	# this turn or the previous turn" condition. Monotonic across player turns.
-	var idx := GameState.get_battle_round() * 2 + (0 if get_current_player() == 1 else 1)
+	# this turn or the previous turn" condition. Monotonic across player turns
+	# in PLAY order — keyed on the first-turn player, not on Player 1
+	# (GameState.get_player_turn_index).
+	var idx := GameState.get_player_turn_index()
 	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
 
 ## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the

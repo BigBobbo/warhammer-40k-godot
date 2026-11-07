@@ -1015,15 +1015,17 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 		return false
 	# 13.09: a model is hidden only while its unit did NOT make ranged attacks
 	# during this turn or the previous turn. ShootingPhase stamps
-	# flags.last_shot_idx = battle_round*2 + (player==1?0:1) whenever the unit
-	# actually shoots; "this or previous turn" = current_idx - last_shot_idx < 2.
+	# flags.last_shot_idx = GameState.get_player_turn_index() (the play-order
+	# turn index: battle round R's first turn = 2R, its second = 2R + 1, keyed
+	# on the first-turn player) whenever the unit actually shoots; "this or
+	# previous turn" = current_idx - last_shot_idx < 2.
 	# The plain shot_recently flag is honoured unconditionally (headless tests
 	# and effect code set it directly, without a live battle-round counter).
 	if unit.get("flags", {}).get("shot_recently", false):
 		return false
 	var gs = get_node_or_null("/root/GameState")
-	if gs != null and gs.has_method("get_battle_round"):
-		var cur_idx := int(gs.get_battle_round()) * 2 + (0 if int(gs.get_active_player()) == 1 else 1)
+	if gs != null and gs.has_method("get_player_turn_index"):
+		var cur_idx := int(gs.get_player_turn_index())
 		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
 		if cur_idx - last_shot_idx < 2:
 			return false
