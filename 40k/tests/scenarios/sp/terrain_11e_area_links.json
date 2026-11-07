@@ -1,0 +1,241 @@
+{
+  "id": "terrain_11e_area_links",
+  "covers": [
+    "terrain.layouts_11e",
+    "autoloads/TerrainManager.gd:build_area_group_map",
+    "autoloads/TerrainManager.gd:is_model_hidden",
+    "autoloads/TerrainManager.gd:visibility_exclusions_for",
+    "RulesEngine.get_eligible_targets",
+    "scripts/TerrainCoverOverlay.gd"
+  ],
+  "fixture": "los_terrain_area_11e_near",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "edition": 11,
+  "description": "TERRAIN-DATA (AI deployment plan P0, DECISIONS D8): the 40kdc 1.0.19 source of the GW layouts was built by point-mirroring half a board and copied the area links, so TerrainManager grouped pieces from opposite sides of the board into one 13.01 terrain area (fixed in the layout JSON, tools/check_terrain_layouts.py). Part 1, take_and_hold_vs_reconnaissance_1: the walls standing in the home-objective ruins area-large-7/8 were parented to the neighbouring area-medium-9/10, so the ruins were 'exposed' (+1 chip, not obscuring, nobody Hidden). Now the chips read LB, 10 Boyz in area-large-7 are Hidden (13.09) and drop off Custodian Guard B's shooting target list from 15.4-23\" away; one Custodian moved inside the 15\" detection range sees them again. Part 2, reconnaissance_vs_reconnaissance_2: link_group '2' was shared by four separate clusters, so a model in area-medium-29 ignored the area-long-line-35/-43 area 13\" south (13.10 exclusion). Now that area obscures every sight line and the Boyz behind it are not targetable. Run on the pre-fix data the THE-fix assertions fail (before evidence).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "emit_pressed": true,
+      "comment": "a drawn-secondaries review (not under test) is closed so the board is unobstructed"
+    },
+    {
+      "act": "wait_for_script",
+      "script": "var d = tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nreturn (d == null or not d.visible) and ToastManager.active_toasts.is_empty()",
+      "equals": true,
+      "timeout_s": 8.0,
+      "poll_s": 0.25
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var layout = \"take_and_hold_vs_reconnaissance_1\"\nTerrainManager.load_terrain_layout(layout)\nGameState.state[\"board\"][\"terrain_layout\"] = layout\nreturn TerrainManager.current_layout",
+      "equals": "take_and_hold_vs_reconnaissance_1",
+      "comment": "the GW layout whose home-objective ruins area-large-7/8 contain the four re-parented walls"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var gm = TerrainManager.build_area_group_map(TerrainManager.terrain_features)\nvar cats = {}\nfor p in TerrainManager.terrain_features:\n\tcats[str(p.id)] = TerrainManager.category_of(p)\nreturn [gm[\"corner-ruin-balanced-right-13\"] == gm[\"area-large-7\"], gm[\"corner-short-15\"] == gm[\"area-large-7\"], gm[\"corner-ruin-balanced-right-14\"] == gm[\"area-large-8\"], cats[\"area-large-7\"], cats[\"area-large-8\"]]",
+      "equals": [
+        true,
+        true,
+        true,
+        "dense",
+        "dense"
+      ],
+      "comment": "THE data fix: the walls standing in the home ruins belong to them (13.01) and the ruins are dense (pre-fix: grouped with area-medium-9/10, ruins 'exposed')"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_show_terrain_cover_labels(true)\nreturn [SettingsService.show_terrain_cover_labels, node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\").visible]",
+      "equals": [
+        true,
+        true
+      ],
+      "comment": "setup: show the opt-in cover chips through the setter the Settings > Visual checkbox calls (T07_terrain_cover_icons drives that menu path; here Escape is taken by the shooting UI). settings.cfg is byte-restored by the hermetic runner"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = node.get_node(\"Main/BoardRoot/TerrainCoverOverlay\")\nreturn [ov.get_node(\"TerrainCoverIcon_area-large-7/Label\").text, ov.get_node(\"TerrainCoverIcon_area-large-8/Label\").text]",
+      "equals": [
+        "LB",
+        "LB"
+      ],
+      "comment": "the home ruins' chips read LB (dense) \u2014 they read +1 (exposed) before the fix"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ms_boyz_k = GameState.state[\"units\"][\"U_BOYZ_K\"][\"models\"]\nvar spots_boyz_k = [Vector2(1248.0, 2116.0), Vector2(1300.0, 2116.0), Vector2(1352.0, 2116.0), Vector2(1404.0, 2116.0), Vector2(1456.0, 2116.0), Vector2(1248.0, 2168.0), Vector2(1300.0, 2168.0), Vector2(1352.0, 2168.0), Vector2(1404.0, 2168.0), Vector2(1456.0, 2168.0)]\nfor i in range(ms_boyz_k.size()):\n\tms_boyz_k[i][\"position\"] = spots_boyz_k[i]\nvar ms_custodian_guard_b = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nvar spots_custodian_guard_b = [Vector2(1640.0, 1280.0), Vector2(1712.0, 1280.0), Vector2(1640.0, 1352.0), Vector2(1712.0, 1352.0)]\nfor i in range(ms_custodian_guard_b.size()):\n\tms_custodian_guard_b[i][\"position\"] = spots_custodian_guard_b[i]\nnode.get_node(\"Main\")._sync_all_token_positions()\nvar n_in_ruin = 0\nfor m in GameState.state[\"units\"][\"U_BOYZ_K\"][\"models\"]:\n\tvar ids = []\n\tfor p in TerrainManager.pieces_model_within(m):\n\t\tids.append(str(p.id))\n\tif ids == [\"area-large-7\"]:\n\t\tn_in_ruin += 1\nreturn n_in_ruin",
+      "equals": 10,
+      "comment": "10 Boyz within the home ruin area-large-7 only (clear of its walls); Custodian Guard B 15.4-23\" away to the north-east"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state[\"units\"][\"U_BOYZ_K\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tif TerrainManager.is_model_hidden(m, u):\n\t\tn += 1\nreturn n",
+      "equals": 10,
+      "comment": "13.09: INFANTRY within a terrain area containing a dense feature are hidden (pre-fix: 0 of 10)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_BOYZ_K\")",
+      "equals": false,
+      "comment": "the shooting target list: the hidden Boyz are beyond the 15\" detection range of every Custodian (pre-fix: targetable)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = node.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.90\nm.view_offset = Vector2(1380.0, 1720.0) - Vector2(960, 540) / 0.90\nm.update_view_transform()\nreturn m.view_zoom",
+      "expect_min": 0.899
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "01_recon1_home_ruin_LB_boyz_hidden"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ms = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nms[0][\"position\"] = Vector2(1580.0, 1840.0)\nnode.get_node(\"Main\")._sync_all_token_positions()\nreturn RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_BOYZ_K\")",
+      "equals": true,
+      "comment": "control: one Custodian inside the 15\" detection range sees them again \u2014 Hidden (13.09) is what removed them"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+      },
+      "comment": "re-select so the shooting panel reflects the moved model"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_recon1_custodian_within_detection_range"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var layout = \"reconnaissance_vs_reconnaissance_2\"\nTerrainManager.load_terrain_layout(layout)\nGameState.state[\"board\"][\"terrain_layout\"] = layout\nreturn TerrainManager.current_layout",
+      "equals": "reconnaissance_vs_reconnaissance_2",
+      "comment": "the GW layout whose link_group \"2\" used to merge four separate terrain areas"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var gm = TerrainManager.build_area_group_map(TerrainManager.terrain_features)\nreturn [gm[\"area-medium-29\"] == gm[\"area-short-line-25\"], gm[\"area-long-line-35\"] == gm[\"area-short-line-43\"], gm[\"area-medium-29\"] != gm[\"area-long-line-35\"], gm[\"area-medium-29\"] != gm[\"area-medium-30\"]]",
+      "equals": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "comment": "THE data fix: each abutting pair stays one area, the mirrored clusters are separate areas (pre-fix: all four shared lg:2)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ms_boyz_k = GameState.state[\"units\"][\"U_BOYZ_K\"][\"models\"]\nvar spots_boyz_k = [Vector2(1000.0, 1800.0), Vector2(1052.0, 1800.0), Vector2(1104.0, 1800.0), Vector2(1156.0, 1800.0), Vector2(1208.0, 1800.0), Vector2(1000.0, 1852.0), Vector2(1052.0, 1852.0), Vector2(1104.0, 1852.0), Vector2(1156.0, 1852.0), Vector2(1208.0, 1852.0)]\nfor i in range(ms_boyz_k.size()):\n\tms_boyz_k[i][\"position\"] = spots_boyz_k[i]\nvar ms_custodian_guard_b = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nvar spots_custodian_guard_b = [Vector2(1416.0, 968.0), Vector2(1480.0, 1000.0), Vector2(1384.0, 1032.0), Vector2(1352.0, 1096.0)]\nfor i in range(ms_custodian_guard_b.size()):\n\tms_custodian_guard_b[i][\"position\"] = spots_custodian_guard_b[i]\nnode.get_node(\"Main\")._sync_all_token_positions()\nvar n = 0\nfor m in GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]:\n\tvar in_cluster = false\n\tfor p in TerrainManager.pieces_model_within(m):\n\t\tif str(p.id) == \"area-medium-29\" or str(p.id) == \"area-short-line-25\":\n\t\t\tin_cluster = true\n\tif in_cluster:\n\t\tn += 1\nreturn n",
+      "equals": 4,
+      "comment": "Custodian Guard B stands in the area-medium-29 / area-short-line-25 area; 10 Boyz in the open 13-21\" south, behind area-long-line-35 / -43"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_BOYZ_K\")",
+      "equals": false,
+      "comment": "13.10: the separate area-long-line-35 / -43 area now obscures every sight line (pre-fix: the shared label excluded it and the Boyz were targetable)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+      },
+      "comment": "P3-96 through the real action path: the Boyz were the Custodians' only target in range"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false,
+      "comment": "refused: 'Unit has no eligible targets to shoot' (pre-fix the shared label let them shoot the Boyz)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = node.get_node(\"Main\")\nm.view_rotation = 0.0\nm.view_zoom = 0.95\nm.view_offset = Vector2(1240.0, 1400.0) - Vector2(960, 540) / 0.95\nm.update_view_transform()\nreturn m.view_zoom",
+      "expect_min": 0.949
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "03_recon2_link_split_blocks_sight",
+      "region": [
+        340,
+        95,
+        1180,
+        960
+      ],
+      "comment": "board only: the shooting panel still shows the previous selection because the re-select was refused"
+    }
+  ]
+}
