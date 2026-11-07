@@ -1800,6 +1800,27 @@ const FIX_REINFORCE_INSURANCE: float = 1.0
 const FIX_RI_RACE: float = 1.0
 const FIX_RI_ASSAULT: float = 1.0
 const FIX_RI_QUARTER: float = 1.0
+# Movement plan (CAPTURE-RACE): 1 = a ONE-MOVE capture of an objective we do
+# not hold gets the hold test RI-RACE gives one-move reinforcements and RACE-1
+# gives multi-turn trips. Neither covered it, so an objective's full VP was
+# credited to a unit that cannot keep it: a lone Allarus (OC 4) was sent to
+# capture a centre the enemy could stand on with ~27 OC next move ("needs 6
+# more OC after this unit") over an uncontested home it reached for sure.
+# When the enemy OC that can stand in range after its next move (+ its
+# holders) is at least CAPTURE_RACE_LOST_RATIO x what we can have there this turn
+# (our holders, this unit, and units that can still move this phase and
+# reach it in one move), the capture keeps MOVE_RACE_LOSS_FACTOR of its
+# score. Units that already moved this phase are not counted: our next
+# chance to add OC comes after the enemy's turn and the next scoring.
+# 0 = previous behaviour.
+const FIX_CAPTURE_RACE: float = 1.0
+# CAPTURE-RACE: the hopeless odds. Not RI_RACE_LOST_RATIO (1.5): a durable
+# squad at 2-2.5x odds is a fight the threat/contest terms already price
+# (test_ai_fix_lone_trip pins a T6 squad taking 8 vs 20; FAR-TRIP, which
+# stopped such trips over 2+ turns, lost -6.26 VP/game in the Custodes
+# mirror), and LONE-TRIP owns fragile units there. The reported case was
+# 27 vs 4 (~7x).
+const CAPTURE_RACE_LOST_RATIO: float = 3.0
 # RI-QUARTER: share of the quarter VP counted for each later battle round
 # (the unit usually stays in the quarter it entered, but may move or die).
 const RI_QUARTER_LATER_ROUND_SHARE: float = 0.5
@@ -9856,6 +9877,7 @@ static func _assign_units_to_objectives(
 	# unit being placed (cached per unit).
 	var ri_race_on: bool = _ri_part_on("FIX_RI_RACE", FIX_RI_RACE)
 	var ri_quarter_on: bool = _ri_part_on("FIX_RI_QUARTER", FIX_RI_QUARTER)
+	var capture_race_on: bool = get_param("FIX_CAPTURE_RACE", FIX_CAPTURE_RACE) >= 0.5
 	var ri_threat_by_obj := {}
 	var ri_objs: Array = []  # [marker position, board entry ({} = marker only)]
 	for ri_eval in obj_evaluations:
@@ -10560,6 +10582,41 @@ static func _assign_units_to_objectives(
 					print("AIDecisionMaker: [REINFORCE_INSURANCE] RI-QUARTER %s -> %s (%s): ends wholly in an uncovered table quarter, +%.1f (card VP)" % [
 						_dn(unit, unit_id), obj_id, action, ri_q_vp])
 
+			# CAPTURE-RACE (FIX_CAPTURE_RACE): a one-move capture the enemy can
+			# take straight back on its next move keeps only part of its value.
+			var capture_race_lost := false
+			var capture_race_our_oc := 0
+			if capture_race_on and turns_to_reach <= 1 and not already_on_obj and not race_lost \
+					and score > 0.0 and str(eval.get("state", "")) not in ["held_safe", "held_threatened"]:
+				if not ri_threat_by_obj.has(obj_id):
+					ri_threat_by_obj[obj_id] = _ri_enemy_next_move_oc(obj_pos, ri_objs, enemies,
+							hd_obj_by_id.get(obj_id, {}), hd_mm) + int(eval.get("enemy_oc", 0))
+				var cr_enemy_oc: int = int(ri_threat_by_obj[obj_id])
+				var cr_our_oc: int = int(eval.get("friendly_oc", 0)) + int(unit_oc)
+				var cr_half := 0
+				for f_arr in eval.get("friendly_arrivals", []):
+					var cr_uid := str(f_arr.get("unit_id", ""))
+					if cr_uid == str(unit_id) or int(f_arr.moves) > 1 or not movable_units.has(cr_uid):
+						continue
+					if f_arr.get("nearest", true):
+						cr_our_oc += int(f_arr.oc)
+					else:
+						cr_half += int(f_arr.oc)
+				cr_our_oc += int(round(cr_half * 0.5))
+				if cr_enemy_oc > 0:
+					print("AIDecisionMaker: [CAPTURE_RACE] check %s -> %s: enemy next move ~%d OC vs ours this turn %d (holders %d + unit %d + movable units within one move; lost at >= %.1fx)" % [
+						_dn(unit, unit_id), obj_id, cr_enemy_oc, cr_our_oc, int(eval.get("friendly_oc", 0)), int(unit_oc),
+						get_param("CAPTURE_RACE_LOST_RATIO", CAPTURE_RACE_LOST_RATIO)])
+				if cr_enemy_oc > 0 and float(cr_enemy_oc) >= float(cr_our_oc) * get_param("CAPTURE_RACE_LOST_RATIO", CAPTURE_RACE_LOST_RATIO):
+					capture_race_lost = true
+					capture_race_our_oc = cr_our_oc
+					race_enemy_oc = cr_enemy_oc
+					var cr_before: float = score
+					score = _t_mul(score_terms, "capture_race", score,
+						get_param("MOVE_RACE_LOSS_FACTOR", MOVE_RACE_LOSS_FACTOR))
+					print("AIDecisionMaker: [CAPTURE_RACE] %s -> %s: the enemy can stand there with ~%d OC next move vs the %d we can have there this turn — capturing keeps %.1f of %.1f" % [
+						_dn(unit, unit_id), obj_id, cr_enemy_oc, cr_our_oc, score, cr_before])
+
 			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
 			# additive term so it shows up in score_breakdown like every other.
 			var plan_bias := _plan_objective_earmark_bonus(unit_id, obj_id, player, snapshot)
@@ -10584,6 +10641,8 @@ static func _assign_units_to_objectives(
 				"move_inches": move_inches,
 				"race_enemy_oc": race_enemy_oc,
 				"race_lost": race_lost,
+				"capture_race_lost": capture_race_lost,  # CAPTURE-RACE
+				"capture_race_our_oc": capture_race_our_oc,
 				# R1-SUPPORT-ADVANCE: a RACE-1 long trip, and its race at the
 				# WALKING pace (data only — nothing here changes the score).
 				"long_adv": long_adv,
@@ -11029,6 +11088,9 @@ static func _assign_units_to_objectives(
 			elif cand.get("race_lost", false):
 				assign_reason = "racing for it (enemy can have ~%d OC there before we arrive in %d turns)" % [
 					cand.get("race_enemy_oc", 0), int(cand.get("turns_to_reach", 1))]
+			elif cand.get("capture_race_lost", false):
+				assign_reason = "capturing it, but unlikely to keep it (enemy can bring ~%d OC next move vs our %d)" % [
+					int(cand.get("race_enemy_oc", 0)), int(cand.get("capture_race_our_oc", 0))]
 			elif proj > 0:
 				assign_reason = "capturing it (enemy can bring ~%d OC next move)" % proj
 			else:

@@ -64,7 +64,7 @@
 // Verify:  node verify-terrain-layouts.mjs   (spec §8 geometry gate — also run
 //          automatically at the end of this script)
 
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveLayout, polygonCentroid } from '@alpaca-software/40kdc-data';
@@ -73,6 +73,23 @@ import { verifyAll } from './verify-terrain-layouts.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', '..', '40k', 'terrain_layouts');
+const zoneDir = join(here, '..', '..', '40k', 'deployment_zones');
+
+/** Ray-cast point-in-polygon; `poly` is [{x,y}] (game inches). */
+export const inZonePoly = (pt, poly) => {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > pt[1]) !== (b.y > pt[1]) && pt[0] < (b.x - a.x) * (pt[1] - a.y) / (b.y - a.y) + a.x) c = !c;
+  }
+  return c;
+};
+
+/** The shipped game deployment zones ({1: poly, 2: poly}) for a game id. */
+export function loadGameZones(deployment) {
+  const d = JSON.parse(readFileSync(join(zoneDir, `${deployment}.json`), 'utf8'));
+  return Object.fromEntries((d.zones ?? []).map(z => [z.player, z.poly]));
+}
 
 // Same map as generate-deployment-zones.mjs (game deployment-zone ids).
 const DEPLOYMENT_ID_MAP = {
@@ -185,7 +202,7 @@ export function convertLayout(layout, templates, tplById) {
     mission_matchup_id: layout.mission_matchup_id,
     variant: layout.variant,
     recommended_deployments: [deployment],
-    objectives: layoutObjectives(layout.id, outPieces),
+    objectives: layoutObjectives(layout.id, outPieces, loadGameZones(deployment)),
     pieces: outPieces,
   };
 }
@@ -193,7 +210,7 @@ export function convertLayout(layout, templates, tplById) {
 /** D3-a: the layout's five objective markers, derived from its objective
  *  pieces (see the header). Positions are game inches, matching the
  *  40k/deployment_zones/*.json objective schema. */
-export function layoutObjectives(layoutId, outPieces) {
+export function layoutObjectives(layoutId, outPieces, zones) {
   const byRole = { home: [], expansion: [], center: [] };
   for (const p of outPieces) {
     if (p.is_objective) (byRole[p.objective_role] ??= []).push(p);
@@ -203,14 +220,26 @@ export function layoutObjectives(layoutId, outPieces) {
       `${byRole.home.length}/${byRole.expansion.length}/${byRole.center.length}`);
   }
   const byY = arr => [...arr].sort((a, b) => a.position[1] - b.position[1]);
-  const [homeTop, homeBottom] = byY(byRole.home);
+  // obj_home_N is the home marker INSIDE player N's deployment zone. Sorting
+  // by y alone ("player 1 = top") is only right for top/bottom deployments:
+  // on Dawn of War / Sweeping Engagement (left/right zones) it labelled each
+  // player's home as the opponent's, so primary cards that exclude or pay
+  // for home scored the wrong objective and the AI defended the wrong one.
+  let [homeTop, homeBottom] = byY(byRole.home);
+  if (zones?.[1] && zones?.[2]) {
+    const p1 = byRole.home.filter(h => inZonePoly(h.position, zones[1]));
+    const p2 = byRole.home.filter(h => inZonePoly(h.position, zones[2]));
+    if (p1.length !== 1 || p2.length !== 1 || p1[0] === p2[0]) {
+      throw new Error(`${layoutId}: each deployment zone must hold exactly one home objective piece`);
+    }
+    [homeTop, homeBottom] = [p1[0], p2[0]];
+  }
   const [nmlTop, nmlBottom] = byY(byRole.expansion);
   const [c1, c2] = byRole.center;
   const centre = [r4((c1.position[0] + c2.position[0]) / 2), r4((c1.position[1] + c2.position[1]) / 2)];
   const obj = (id, position, zone, sourcePieces) => ({ id, position, radius_mm: 40, zone, source_pieces: sourcePieces });
   return [
-    // Game convention (see generate-deployment-zones.mjs): player 1 owns the
-    // top of the portrait board (smaller y).
+    // obj_home_1 = player 1's home (in its deployment zone), obj_home_2 = player 2's.
     obj('obj_home_1', homeTop.position, 'player1', [homeTop.id]),
     obj('obj_home_2', homeBottom.position, 'player2', [homeBottom.id]),
     obj('obj_nml_1', nmlTop.position, 'no_mans_land', [nmlTop.id]),

@@ -685,7 +685,7 @@ func _test_ai_defender() -> void:
 	# Low CP: the AI keeps its last CP.
 	var offer := {"stratagem_id": FO, "name": "FIRE OVERWATCH", "cp_cost": 1,
 		"targets": [{"unit_id": "U_GRETCHIN_C", "secondary": {"kind": "unit", "options": [{"id": "U_CUSTODIAN_GUARD_A"}]}}]}
-	var dec: Dictionary = AIDecisionMaker._decide_fire_overwatch_window_11e(offer, 1, 2)
+	var dec: Dictionary = AIDecisionMaker._decide_fire_overwatch_window_11e(offer, 1)
 	_check("with 1 CP the AI does not fire overwatch", not dec.use, str(dec))
 	AI.enabled = false
 	AI.ai_players = {1: false, 2: false}

@@ -31,6 +31,7 @@ const TERMS := {
 	"objective_priority": {"label": "Objective value", "fmt": "pts", "help": "Base value of this objective right now: who controls it, how contested it is, and the VP at stake."},
 	"oc_efficiency": {"label": "Enough OC to take it", "fmt": "pts", "help": "Bonus when this unit's Objective Control is enough to win the objective."},
 	"contest_race": {"label": "Enemy gets there first", "fmt": "pts", "help": "Cut when the enemy can have at least this unit's OC on the objective before it arrives."},
+	"capture_race": {"label": "Can't keep it", "fmt": "pts", "help": "Cut when the enemy can stand on the objective with far more OC on its next move than we can have there this turn — we would take it and lose it before it scores."},
 	"distance_penalty": {"label": "Distance cost", "fmt": "pts", "help": "Penalty for each extra turn needed to get there — a share of the objective's value per turn."},
 	"reach_horizon": {"label": "Rounds left to score", "fmt": "pts", "help": "Reduced when the unit would arrive too late to score here in the remaining rounds."},
 	"stay_on_objective": {"label": "Already holding it", "fmt": "pts", "help": "Bonus for staying on an objective the unit already holds."},
