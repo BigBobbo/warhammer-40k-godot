@@ -92,6 +92,7 @@ func _run_tests() -> void:
 	test_non_rectangular_zones_do_leak_without_the_guard()
 	test_guard_returns_an_in_zone_formation()
 	test_guard_is_a_no_op_without_a_polygon()
+	test_formation_builder_stays_inside_every_zone()
 
 func test_rectangular_zones_were_never_broken() -> void:
 	# The guard must not "fix" anything on the zones that already worked, or it
@@ -161,3 +162,54 @@ func test_guard_is_a_no_op_without_a_polygon() -> void:
 	_assert(AIDM._find_in_zone_formation(models, BASE_MM, "circular", {},
 		{"min_x": 0.0, "max_x": 100.0, "min_y": 0.0, "max_y": 100.0}, empty, [], []).is_empty(),
 		"…and the repair declines rather than inventing a position")
+
+func test_formation_builder_stays_inside_every_zone() -> void:
+	# P0.1: the deployment formula no longer derives positions from the
+	# rectangle at all — FormationBuilder searches the zone POLYGON itself. Its
+	# output must be wholly inside the polygon for every shipped zone and seat,
+	# for round and oval bases, wherever the formula aimed (centre, a corner of
+	# the bounding rectangle that lies OUTSIDE the triangle/steps, the far edge).
+	# _find_in_zone_formation above is kept only for DEPLOY_FORMATION_BUILDER = 0.
+	var FB = load("res://scripts/ai/FormationBuilder.gd")
+	var meas = root.get_node_or_null("Measurement")
+	_assert(FB != null and meas != null, "FormationBuilder and Measurement load")
+	if FB == null or meas == null:
+		return
+	var tm = root.get_node_or_null("TerrainManager")
+	var saved_terrain: Array = tm.terrain_features.duplicate() if tm else []
+	if tm:
+		tm.terrain_features.clear()   # the shipped zones alone, no layout walls
+	var bikes: Array = []
+	for i in range(6):
+		bikes.append({"id": "b%d" % i, "alive": true, "base_mm": 75, "base_type": "oval",
+			"base_dimensions": {"length": 42.0, "width": 75.0}, "position": null, "rotation": 0.0})
+	for zone_id in DZD.DEPLOYMENT_TYPES:
+		for player in [1, 2]:
+			var snap := _snapshot(zone_id)
+			snap["units"] = {
+				"T_MOB": {"id": "T_MOB", "owner": player, "status": 0, "models": _models(5),
+					"meta": {"name": "Mob", "keywords": ["INFANTRY"]}},
+				"T_BIKES": {"id": "T_BIKES", "owner": player, "status": 0, "models": bikes.duplicate(true),
+					"meta": {"name": "Bikes", "keywords": ["MOUNTED"]}},
+			}
+			var poly: PackedVector2Array = AIDM._get_deployment_zone_polygon_pixels(snap, player)
+			var bounds: Dictionary = AIDM._get_deployment_zone_bounds(snap, player)
+			var aims := [Vector2((bounds.min_x + bounds.max_x) * 0.5, (bounds.min_y + bounds.max_y) * 0.5),
+				Vector2(bounds.min_x, bounds.min_y), Vector2(bounds.max_x, bounds.max_y)]
+			var outside := 0
+			var built := 0
+			for uid in ["T_MOB", "T_BIKES"]:
+				for aim in aims:
+					var res: Dictionary = FB.build_deployment(snap, player, uid, aim, {"final_gate": true})
+					if not res.get("ok", false):
+						continue
+					built += 1
+					var models: Array = snap.units[uid].models
+					for i in range(res.model_positions.size()):
+						var m: Dictionary = models[i].duplicate()
+						if not meas.shape_wholly_in_polygon(res.model_positions[i], m, float(res.model_rotations[i]), poly):
+							outside += 1
+			_assert(built == 6 and outside == 0,
+				"%s seat %d: FormationBuilder sets up a 5-model mob and 6 oval bikes from 3 aims, every model wholly inside the polygon (%d/6 built, %d outside)" % [zone_id, player, built, outside])
+	if tm:
+		tm.terrain_features.append_array(saved_terrain)

@@ -524,7 +524,9 @@ Additional rules:
 - **Base-aware:** read `base_type`/`base_dimensions` (ovals: `width` runs along Y at rotation 0, per the playbook) and allow rotations.
 - **Legal by construction:** pre-check with the same predicates the phase uses (`_plan_positions_legal`, `shape_wholly_in_polygon`, `model_overlaps_any_wall`, coherency via `AttackSequence.check_unit_coherency`). Nudge in a spiral, then try the next slot.
   - Never emit an action the phase will refuse.
-- **No silent reserves:** `_fallback_to_reserves` becomes a last resort that respects the 50% caps. Remove the cap bypass for AI-chosen fallbacks. It is logged as a defect and counted in metrics.
+- **No silent reserves:** `_fallback_to_reserves` becomes a last resort that respects the 50% caps. It is logged as a defect (`[FORMATION] DEFECT forced reserve …`, a warning) and counted in metrics (`DeploymentEval.count_forced_reserves`).
+  - **Decision (P0.1):** the past-the-caps bypass is **kept** as the anti-hang last resort. Removing it turns a rare rules deviation into a deployment hang: an UNDEPLOYED unit blocks SWITCH_PLAYER / END_DEPLOYMENT (pm10). It is logged as an ERROR (`push_error` + `DebugLogger.error`), so the `verify_delivery` / `read_debug_log` no-error gates fail whenever it fires. It was never reached in the P0.1 measurements.
+  - **Implemented (P0.1):** `scripts/ai/FormationBuilder.gd`. Uniform blocks (rotation 0/90) × a 0.5" anchor lattice in the zone polygon, attached characters as satellites sized from their own bases (sent as `COMPOSITE_DEPLOY` with `combined_char_data`), a model-by-model growth fallback, count budgets, no RNG, and an exact final gate (the live `DeploymentPhase.validate_action`).
 
 ### 5.9 FORMATIONS-phase decisions (reserves, transports, attachments)
 - **Board capacity check:** if hide-capable units outnumber hidden slots, or big units outnumber shadows, the overflow becomes reserve candidates. Rank by Deep Strike / fast / no-T1-job / most exposed, within 50% points and units.
@@ -587,7 +589,7 @@ The data layers are identical to §5.1, so the coach is mostly UI.
 
 ## 7. Implementation roadmap
 
-Each phase lands behind `DEPLOY_V2_ENABLED` (via `get_param`, default 0) and adds tests per the project gate. Headless unit tests cover the math; windowed scenarios cover anything a player sees.
+P0 items are rules-correctness fixes, so they ship **default ON**, each with a kill switch whose 0 value restores the previous behaviour exactly, for A/B measurement only (`DEPLOY_FORMATION_BUILDER`, `FIX_DEPLOY_FRAME`, `FIX_DEPLOY_TERRAIN_11E`; via `get_param`). The strategy phases (P2 onwards) land behind `DEPLOY_V2_ENABLED` (via `get_param`, default 0). Every phase adds tests per the project gate. Headless unit tests cover the math; windowed scenarios cover anything a player sees.
 
 | Phase | Deliverables | Key files | Tests / gate |
 |---|---|---|---|

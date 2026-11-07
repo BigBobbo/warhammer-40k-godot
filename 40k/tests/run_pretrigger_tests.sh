@@ -346,6 +346,8 @@ TESTS=(
     "tests/unit/test_plan_roundtrip.gd"
     "tests/unit/test_plan_coherency_editions.gd"
     "tests/unit/test_deployment_zone_polygon_guard.gd"
+    "tests/unit/test_formation_builder.gd"
+    "tests/unit/test_ai_deployment_e2e.gd"
     "tests/unit/test_fixture_boards_current.gd"
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"

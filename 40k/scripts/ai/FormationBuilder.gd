@@ -87,11 +87,14 @@ const DEFAULT_GROW_SEEDS := 60       # growth-fallback seeds
 const MAX_GATE_REJECTIONS := 3
 const MAX_SAT_ROTATION_COMBOS := 4
 
-# Substrings of DeploymentPhase errors that are tied to a model POSITION. Any
-# other error (unit not found / not available / wrong player / AIRCRAFT /
-# malformed action / not attached) is unit-level: no other position can fix it.
-const POSITION_ERROR_MARKERS := ["wholly within", "overlap", "walls", "off the board",
-	"on the battlefield", "coherency", "Infiltrators must be"]
+# The exact DeploymentPhase error phrases that are tied to a model POSITION
+# (per-model checks, intra-unit overlap, coherency, combined_char_data). Any
+# other error (unit not found / not available / wrong player / AIRCRAFT 23.01 —
+# whose text says "...instead of on the battlefield" — / malformed action / not
+# attached / RC7 missing positions) is unit-level: no other position can fix it.
+const POSITION_ERROR_MARKERS := ["Model must be wholly within", "Model cannot overlap",
+	"Model cannot be placed off the board", "Model must be on the battlefield", "overlap each other",
+	"coherency broken", "Infiltrators must be >", "overlaps a model of its attached unit"]
 
 static var _block_cache: Dictionary = {}          # signature -> Array[block] (immutable once built)
 static var _variant_legal_cache: Dictionary = {}  # signature#variant -> bool (pure)
