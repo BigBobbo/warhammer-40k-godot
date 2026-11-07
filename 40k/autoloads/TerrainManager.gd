@@ -63,6 +63,10 @@ const OBSCURING_TRAIT: String = "obscuring"
 ## FLY units ignore this penalty entirely.
 const DIFFICULT_GROUND_PENALTY_INCHES: float = 2.0
 
+## 13.09 shot record (last_shot_idx / prev_shot_idx / last_ranged_attack_idx),
+## shared with every path that makes ranged attacks.
+const HiddenShotRecord = preload("res://scripts/rules/HiddenShotRecord.gd")
+
 func _ready() -> void:
 	print("[TerrainManager] Initializing terrain system")
 	# T11: sight lines are memoized by model geometry only (RulesEngine._los_memo).
@@ -993,8 +997,8 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 ##     (13.09 errata "Change to First Bullet Point" — the launch text said
 ##     dense only; see docs/rules/40k_11th_edition_errata_faq_commentary.md), and
 ##   ▪ its unit made no ranged attacks this turn or the previous turn
-##     (tracked via the unit flag `shot_recently`, maintained by the
-##     shooting phase when ISS-048 lands; callers pass the unit).
+##     (the turn-stamp flags.last_shot_idx written by every ranged-attack
+##     path — scripts/rules/HiddenShotRecord.gd; callers pass the unit).
 ## While hidden, the model is only visible to enemies within its
 ## detection range — 15" unless otherwise stated
 ## (GameConstants.hidden_detection_range_inches()).
@@ -1014,21 +1018,17 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	if not qualifies:
 		return false
 	# 13.09: a model is hidden only while its unit did NOT make ranged attacks
-	# during this turn or the previous turn. ShootingPhase stamps
-	# flags.last_shot_idx = GameState.get_player_turn_index() (the play-order
-	# turn index: battle round R's first turn = 2R, its second = 2R + 1, keyed
-	# on the first-turn player) whenever the unit actually shoots; "this or
-	# previous turn" = current_idx - last_shot_idx < 2.
-	# The plain shot_recently flag is honoured unconditionally (headless tests
-	# and effect code set it directly, without a live battle-round counter).
-	if unit.get("flags", {}).get("shot_recently", false):
+	# during this turn or the previous turn. Every ranged-attack path (Shooting
+	# phase, FIRE OVERWATCH / snap shooting, out-of-phase "your unit shoots")
+	# stamps flags.last_shot_idx = GameState.get_player_turn_index() (the
+	# play-order turn index: battle round R's first turn = 2R, its second =
+	# 2R + 1, keyed on the first-turn player) on every component of the
+	# Attached unit; "this or previous turn" = current_idx - last_shot_idx < 2
+	# (HiddenShotRecord). The plain shot_recently flag is honoured
+	# unconditionally (headless tests and effect code set it directly,
+	# without a live battle-round counter).
+	if HiddenShotRecord.shot_this_or_previous_turn(unit, _hidden_turn_index()):
 		return false
-	var gs = get_node_or_null("/root/GameState")
-	if gs != null and gs.has_method("get_player_turn_index"):
-		var cur_idx := int(gs.get_player_turn_index())
-		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
-		if cur_idx - last_shot_idx < 2:
-			return false
 	# 13.09 (errata): "within a terrain area that contains one or more
 	# light/dense terrain features". Within = any part of the base (01.04);
 	# the area is the whole piece GROUP (boundary halves + parented features),
@@ -1045,6 +1045,21 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 		if groups.has(group_map.get(str(piece.get("id", "")), "?")) and category_allows_hidden(category_of(piece)):
 			return true
 	return false
+
+## The live play-order turn index the 13.09 shot record is compared with
+## (HiddenShotRecord.NO_TURN without a GameState).
+func _hidden_turn_index() -> int:
+	var gs = get_node_or_null("/root/GameState")
+	if gs != null and gs.has_method("get_player_turn_index"):
+		return int(gs.get_player_turn_index())
+	return HiddenShotRecord.NO_TURN
+
+## 13.11.01 Gone to Ground needs "That model's unit did not make one or more
+## ranged attacks during this turn or during the previous turn" — counting
+## attacks a rule says do not prevent it from being hidden (Designer's Note:
+## such units cannot go to ground).
+func can_go_to_ground(unit: Dictionary) -> bool:
+	return not HiddenShotRecord.attacked_this_or_previous_turn(unit, _hidden_turn_index())
 
 ## 13.09 (errata): terrain categories whose areas can make
 ## INFANTRY/BEASTS/SWARM models hidden — light or dense; exposed never does.
@@ -1066,11 +1081,13 @@ func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model
 ##     present (parsed like Lone Operative X"), else 15" (13.09).
 ##   ▪ Gone to Ground: −3" while the model is obscured from this
 ##     observer behind a dense/Solid feature — i.e. at least one
-##     13.10/13.11 sight line is blocked by an intervening DENSE piece.
+##     13.10/13.11 sight line is blocked by an intervening DENSE piece —
+##     and its unit made no ranged attacks this or the previous turn, not
+##     even ones that "do not prevent it from being hidden" (13.11.01).
 ##   ▪ floor: modifiers never take detection range below 9".
 func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> float:
 	var range_in := detection_range_base_inches(unit)
-	if _obscured_by_dense_11e(observer_model, model):
+	if can_go_to_ground(unit) and _obscured_by_dense_11e(observer_model, model):
 		range_in -= GameConstants.gone_to_ground_penalty_inches()
 	# WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
 	# has +3" detection range until the end of the turn.

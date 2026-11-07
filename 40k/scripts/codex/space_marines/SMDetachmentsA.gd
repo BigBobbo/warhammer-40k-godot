@@ -63,6 +63,7 @@ extends RefCounted
 const Common = preload("res://scripts/codex/space_wolves/SWCommon.gd")
 const GameStateData = preload("res://autoloads/GameState.gd")
 const ArmyDets = preload("res://scripts/codex/ArmyDetachments11e.gd")
+const HiddenShotRecord = preload("res://scripts/rules/HiddenShotRecord.gd")
 
 const GLADIUS := "gladius task force"
 const IRONSTORM := "ironstorm spearhead"
@@ -813,22 +814,12 @@ static func _use_shadow(player: int, shooter: String, ctx: Dictionary) -> Dictio
 	var group := Common.attached_group_ids(head)
 	var label := Common.group_label(head)
 	if v == "hidden":
-		# "Those attacks do not prevent that unit from being hidden": the
-		# shot's 13.09 stamp is rolled back to "not shot this or the previous
-		# turn" (the engine stamps only Shooting-phase shots — ruling).
-		# The shared play-order turn index (GameState.get_player_turn_index —
-		# keyed on the first-turn player, the same counter the stamp uses).
-		var idx := GameStateData.player_turn_index_from_meta(Common.state().get("meta", {}))
-		var gs_turn = Common.game_state()
-		if gs_turn != null and gs_turn.has_method("get_player_turn_index"):
-			idx = int(gs_turn.get_player_turn_index())
-		var diffs: Array = []
-		for gid in group:
-			var f: Dictionary = Common.unit(str(gid)).get("flags", {})
-			if f.has("last_shot_idx") and int(f.get("last_shot_idx", -100)) >= idx - 1:
-				diffs.append({"op": "set", "path": "units.%s.flags.last_shot_idx" % str(gid), "value": idx - 2})
-			if f.has("shot_recently"):
-				diffs.append({"op": "remove", "path": "units.%s.flags.shot_recently" % str(gid)})
+		# "Those attacks do not prevent that unit from being hidden": THIS
+		# turn's attacks are dropped from the 13.09 shot record of every
+		# component (HiddenShotRecord — last_shot_idx goes back to what it was
+		# before this turn, so a FIRE OVERWATCH in the previous turn still
+		# counts; the unit still cannot go to ground, 13.11.01).
+		var diffs: Array = HiddenShotRecord.waive_this_turn_diffs(head, Common.state())
 		Common.apply_diffs(diffs)
 		var line := "SHADOW MASTERS — %s: those attacks do not prevent it from being hidden" % label
 		_log(line)

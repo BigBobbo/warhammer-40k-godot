@@ -6,6 +6,8 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 # Codex: Orks (11e) detachment rules (WP-O34): Unpredictable Genius, Try Dat Button! lifecycle.
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+## 13.09 shot record — every completion that made ranged attacks stamps it.
+const HiddenShotRecord = preload("res://scripts/rules/HiddenShotRecord.gd")
 
 
 # ShootingPhase - Full implementation of the Shooting phase following 10e rules
@@ -2075,7 +2077,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
-		changes.append(_hidden_shot_stamp(active_shooter_id))
+		changes.append_array(_hidden_shot_stamp(active_shooter_id))
 		# HAZARDOUS (T2-3): Include hazardous diffs in changes
 		changes.append_array(haz_diffs_on_miss)
 		# ONE SHOT (T4-2): Include one-shot diffs in changes
@@ -3248,7 +3250,7 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	})
-	all_changes.append(_hidden_shot_stamp(unit_id))
+	all_changes.append_array(_hidden_shot_stamp(unit_id))
 	units_that_shot.append(unit_id)
 
 	# T5-UX9: Record per-target shot summary for end-of-phase panel.
@@ -3966,7 +3968,7 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
-		changes.append(_hidden_shot_stamp(active_shooter_id))
+		changes.append_array(_hidden_shot_stamp(active_shooter_id))
 
 		# Return shooter to idle animation
 		_trigger_unit_animation(active_shooter_id, "idle")
@@ -4026,6 +4028,10 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		# 13.09 HIDDEN: the weapons resolved before the skipped ones made real
+		# ranged attacks — stamp the turn index (unless every weapon was skipped).
+		if _activation_made_attacks():
+			changes.append_array(_hidden_shot_stamp(active_shooter_id))
 
 		# T5-UX9: capture before clearing
 		_record_completed_weapons_to_phase_log(shooter_id)
@@ -4278,6 +4284,10 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 				"path": "units.%s.flags.has_shot" % active_shooter_id,
 				"value": true
 			})
+			# 13.09 HIDDEN: this weapon (and any before it) made real ranged
+			# attacks — stamp the turn index.
+			if _activation_made_attacks():
+				auto_changes.append_array(_hidden_shot_stamp(active_shooter_id))
 			units_that_shot.append(active_shooter_id)
 
 			# T5-UX9: capture before clearing
@@ -5834,6 +5844,12 @@ func _ork11e_forced_shoot(player: int, followup: Dictionary) -> void:
 		_window_sync_diffs.append_array(diffs)
 		_window_events_detect()
 		_ev_action_attacker = prev_attacker
+	# 13.09 HIDDEN: the forced shooter made ranged attacks (normal shooting) —
+	# stamp its Attached unit's shot record.
+	var fs_stamp: Array = _hidden_shot_stamp(unit_id)
+	if not fs_stamp.is_empty():
+		PhaseManager.apply_state_changes(fs_stamp)
+		_window_sync_diffs.append_array(fs_stamp)
 	emit_signal("ai_shooting_visual", unit_id, [{"target_unit_id": target_id, "weapon_names": weapon_names}],
 		{"hits": hits, "wounds": wounds, "saves_passed": 0, "saves_failed": 0, "casualties": casualties})
 	if not damage_diffs.is_empty():
@@ -6076,14 +6092,23 @@ func _get_last_weapon_result() -> Dictionary:
 		"skip_reason": last_weapon.get("skip_reason", "")
 	}
 
-func _hidden_shot_stamp(unit_id: String) -> Dictionary:
+func _hidden_shot_stamp(unit_id: String) -> Array:
 	# 13.09 HIDDEN: stamp the turn-index when this unit actually made ranged
 	# attacks, so TerrainManager.is_model_hidden can apply the "did not shoot
 	# this turn or the previous turn" condition. Monotonic across player turns
 	# in PLAY order — keyed on the first-turn player, not on Player 1
-	# (GameState.get_player_turn_index).
-	var idx := GameState.get_player_turn_index()
-	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
+	# (GameState.get_player_turn_index). 19.01: every component of the
+	# Attached unit is stamped (an attached leader shot with its bodyguard).
+	return HiddenShotRecord.stamp_diffs(unit_id, GameState.state)
+
+## True once the current activation resolved at least one weapon's attacks —
+## the completions that close an activation after skipping weapons whose
+## target was destroyed only stamp 13.09 when something was actually fired.
+func _activation_made_attacks() -> bool:
+	for w in resolution_state.get("completed_weapons", []):
+		if not w.get("skipped_target_destroyed", false) and not w.get("skipped", false):
+			return true
+	return false
 
 ## T09 (BasePhase.has_unit_acted_this_phase): a unit has acted in the
 ## Shooting phase once flags.has_shot is set — its attacks resolved, it was
@@ -6740,7 +6765,7 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	# without the stamp here, any unit whose shots caused wounds never lost
 	# Hidden. The give-up-shooting action paths (16.01 etc.) correctly do
 	# NOT stamp.
-	changes.append(_hidden_shot_stamp(unit_id))
+	changes.append_array(_hidden_shot_stamp(unit_id))
 
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
 	if not _big_booms_pending.is_empty():
@@ -7585,7 +7610,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				})
 				# 13.09 HIDDEN: real ranged attacks were made (they destroyed
 				# every remaining target) — stamp the turn index.
-				all_diffs.append(_hidden_shot_stamp(active_shooter_id))
+				all_diffs.append_array(_hidden_shot_stamp(active_shooter_id))
 				units_that_shot.append(active_shooter_id)
 
 				# T5-UX9: capture before clearing

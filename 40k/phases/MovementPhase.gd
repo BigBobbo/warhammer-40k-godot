@@ -44,6 +44,9 @@ const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.
 # Codex: Orks (11e) army rules + detachment rules (WP-O34).
 const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+## 13.09 shot record: FIRE OVERWATCH / snap shooting and RAPID REACTIONS are
+## ranged attacks too (15.09 "Your unit shoots as described in Making Attacks").
+const HiddenShotRecord = preload("res://scripts/rules/HiddenShotRecord.gd")
 
 # ISS-002: engagement range comes from GameConstants.engagement_range_inches()
 # (edition-dependent). Do not re-declare it as a local constant.
@@ -6082,6 +6085,12 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 		load("res://scripts/codex/space_wolves/SWCodex11e.gd").on_unit_has_attacked(str(shooter))
 		# Codex: Space Marines (11e) ARMOUR OF CONTEMPT ends "until that enemy unit has attacked" (SMCodex11e.gd).
 		load("res://scripts/codex/space_marines/SMCodex11e.gd").on_unit_has_attacked(str(shooter))
+	# 13.09 HIDDEN: "your unit shoots" — real ranged attacks; stamp the
+	# Attached unit's shot record (every component).
+	var rr_stamp: Array = HiddenShotRecord.stamp_diffs(unit_id, GameState.state)
+	if not rr_stamp.is_empty():
+		PhaseManager.apply_state_changes(rr_stamp)
+		_window_sync_diffs.append_array(rr_stamp)
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
 	log_phase_message(summary)
 	GameEventLog.add_player_entry(player, summary)
@@ -6241,6 +6250,16 @@ func _snap_finish() -> Array:
 		out.append_array(ShootingTypes.get_type("snap").after_shooting_effects(gid))
 		if not gid in _snap_after_shooting_units:
 			_snap_after_shooting_units.append(gid)
+	# 13.09 HIDDEN: snap shooting is shooting "as described in Making Attacks
+	# (04)" — the unit made ranged attacks this turn, so it is not hidden for
+	# the rest of this turn (the opponent's Shooting phase) or its own next turn.
+	# Every component of the Attached unit is stamped.
+	var snap_shooter := str(st.get("shooter_id", ""))
+	if snap_shooter != "":
+		var snap_stamp: Array = HiddenShotRecord.stamp_diffs(snap_shooter, GameState.state)
+		out.append_array(snap_stamp)
+		log_phase_message("[11e 13.09] %s made ranged attacks (snap shooting) — shot record stamped on %d component(s) at turn #%d" % [
+			snap_shooter, st.get("components", []).size(), HiddenShotRecord.current_turn_index()])
 	if not out.is_empty():
 		PhaseManager.apply_state_changes(out)
 	_window_sync_diffs.append_array(out)
