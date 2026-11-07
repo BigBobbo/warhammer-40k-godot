@@ -2200,7 +2200,11 @@ const DEPLOY_11E_BASELINE_AVOID_SHIFT_IN: float = 4.0  # 11e deployment: column 
 const DEPLOY_11E_MAX_BUILD_TRIES: int = 12  # 11e deployment: terrain spots tried with the formation builder per drop
 const DEPLOY_11E_BUILD_MAX_EVALS: int = 8000  # 11e deployment: builder anchor x block evaluations per terrain spot
 const DEPLOY_11E_BUILD_MAX_FRESH: int = 3000  # 11e deployment: builder fresh per-position checks per terrain spot
-const DEPLOY_11E_DROP_MAX_FRESH: int = 12000  # 11e deployment: builder fresh checks for ALL terrain spots of one drop
+const DEPLOY_11E_DROP_MAX_FRESH: int = 10000  # 11e deployment: builder fresh checks for one drop's terrain spots, room probes and avoid-dense try
+const DEPLOY_11E_DROP_MAX_EVALS: int = 24000  # 11e deployment: builder evaluations for one drop's terrain spots, room probes and avoid-dense try
+const DEPLOY_11E_BIG_BASE_IN: float = 2.0  # 11e deployment: a model this large (bounding radius) still to deploy must keep a legal spot
+const DEPLOY_11E_ROOM_CHECKS: int = 3  # 11e deployment: room-left re-probes per drop (each <= ROOM_CHECK_EVALS anchors)
+const DEPLOY_11E_ROOM_CHECK_EVALS: int = 3000  # 11e deployment: anchor evaluations per room-left probe
 const FIGHT_ALREADY_OVERKILLED: float = 1.0  # fight target: prior fighters already overkilled it (penalty)
 const FIGHT_LOCK_DANGEROUS_SHOOTER: float = 1.5  # fight target: shooter above the dangerous-output threshold
 const FIGHT_LOCK_LONG_RANGE: float = 2.0  # fight target: long-ranged shooter worth locking in melee
@@ -6945,20 +6949,34 @@ static func _deploy_point_clear(q: Vector2, r_px: float, deployed: Array, walls:
 			return false
 	return true
 
-static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch: float, deployed: Array, walls: Array) -> Dictionary:
-	"""Hex fill of n_slots models in the pocket polygons: rows pitch*sqrt(3)/2
-	apart, odd rows offset by pitch/2, scanned y then x per pocket; points
-	within r + r_d + 4 px of a deployed model, or within r of a wall, are
-	dropped. Seed = the deepest point (largest distance to its pocket's edge;
-	ties to scan order); then, repeatedly, the unused point within 1.05 x pitch
-	of the chosen set that is nearest the seed. {} when the lattice is too
-	small or the growth stalls — never a partial fill.
-	Returns {positions (slot order), seed, lattice}."""
-	if n_slots <= 0:
+static func _deploy_pocket_fill(pockets: Array, slot_r: Array, n_bg: int, deployed: Array, walls: Array,
+		zone_poly: PackedVector2Array = PackedVector2Array()) -> Dictionary:
+	"""Fill of the pocket polygons with every model slot (slot_r: bounding radius
+	per slot, bodyguard first). Bodyguard: a hex lattice at its own pitch
+	(2r + 10 px; rows pitch*sqrt(3)/2 apart, odd rows offset by pitch/2,
+	scanned y then x per pocket); points within r + r_d + 4 px of a deployed
+	model, or within r of a wall, are dropped. Seed = the deepest point
+	(largest distance to its pocket's edge; ties to scan order); then,
+	repeatedly, the unused point within 1.05 x pitch of the chosen set that is
+	nearest the seed. Attached characters (their own, often larger, bases):
+	each on the 0.5" grid point nearest the seed that is clear of the chosen
+	models (r_c + r_m + 6 px), within 1.75" of one of them (03.03) and at
+	least r_c inside zone_poly, so a big character base does not shrink the
+	bodyguard's pocket capacity (the pockets are eroded by the bodyguard's
+	radius only).
+	{} when the lattice is too small or a slot cannot be placed — never a
+	partial fill. Returns {positions (slot order), seed, lattice}."""
+	var n_slots := slot_r.size()
+	if n_slots <= 0 or n_bg <= 0 or n_bg > n_slots:
 		return {}
+	var r_bg := 0.0
+	for i in range(n_bg):
+		r_bg = maxf(r_bg, float(slot_r[i]))
+	var pitch := 2.0 * r_bg + 10.0
 	var pts: Array = []
 	var depth: Array = []
 	var row_step := pitch * 0.8660254
+	var near_sets: Array = []   # per pocket: [poly, near_deployed, near_walls]
 	for pk in pockets:
 		var poly: PackedVector2Array = pk
 		var mn := Vector2(INF, INF)
@@ -6966,7 +6984,9 @@ static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch
 		for v in poly:
 			mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
 			mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
-		var box := Rect2(mn, mx - mn).grow(r_px + 8.0)
+		var box := Rect2(mn, mx - mn).grow(r_bg + 8.0)
+		for i in range(n_bg, n_slots):
+			box = box.grow(maxf(0.0, float(slot_r[i]) - r_bg))
 		var near_deployed: Array = []
 		for d in deployed:
 			if box.grow(float(d.r)).has_point(d.p):
@@ -6975,20 +6995,21 @@ static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch
 		for w in walls:
 			if box.intersects(Rect2(w.a, Vector2.ZERO).expand(w.b).grow(1.0)):
 				near_walls.append(w)
+		near_sets.append([poly, near_deployed, near_walls, mn, mx])
 		var row := 0
 		var y := mn.y
 		while y <= mx.y + 0.01:
 			var x := mn.x + (pitch * 0.5 if row % 2 == 1 else 0.0)
 			while x <= mx.x + 0.01:
 				var q := Vector2(x, y)
-				if Geometry2D.is_point_in_polygon(q, poly) and _deploy_point_clear(q, r_px, near_deployed, near_walls):
+				if Geometry2D.is_point_in_polygon(q, poly) and _deploy_point_clear(q, r_bg, near_deployed, near_walls):
 					pts.append(q)
 					depth.append(_dist_to_boundary_px(q, poly))
 				x += pitch
 			y += row_step
 			row += 1
 	var n := pts.size()
-	if n < n_slots:
+	if n < n_bg:
 		return {}
 	var seed_i := 0
 	for i in range(n):
@@ -7007,7 +7028,7 @@ static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch
 	for j in range(n):
 		if (pts[j] as Vector2).distance_to(seed_pt) <= reach:
 			adj[j] = true
-	while chosen.size() < n_slots:
+	while chosen.size() < n_bg:
 		var best := -1
 		var best_d := INF
 		for i in range(n):
@@ -7026,8 +7047,45 @@ static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch
 			if not adj[j] and (pts[j] as Vector2).distance_to(bp) <= reach:
 				adj[j] = true
 	var out: Array = []
+	var out_r: Array = []
 	for i in chosen:
 		out.append(pts[i])
+		out_r.append(r_bg)
+	# Attached characters, one model at a time, on a 0.5" grid.
+	for si in range(n_bg, n_slots):
+		var rc: float = float(slot_r[si])
+		var best_q := Vector2.INF
+		var best_d := INF
+		for ns in near_sets:
+			var poly: PackedVector2Array = ns[0]
+			var mn: Vector2 = ns[3]
+			var mx: Vector2 = ns[4]
+			var y: float = ceil(mn.y / 20.0) * 20.0
+			while y <= mx.y:
+				var x: float = ceil(mn.x / 20.0) * 20.0
+				while x <= mx.x:
+					var q := Vector2(x, y)
+					var d2: float = q.distance_squared_to(seed_pt)
+					if d2 < best_d and Geometry2D.is_point_in_polygon(q, poly) and _deploy_point_clear(q, rc, ns[1], ns[2]) \
+							and (zone_poly.size() < 3 or (Geometry2D.is_point_in_polygon(q, zone_poly) and _dist_to_boundary_px(q, zone_poly) >= rc)):
+						var clear := true
+						var linked := false
+						for k in range(out.size()):
+							var gap: float = q.distance_to(out[k]) - rc - float(out_r[k])
+							if gap < 6.0:
+								clear = false
+								break
+							if gap <= 70.0:
+								linked = true
+						if clear and linked:
+							best_d = d2
+							best_q = q
+					x += 20.0
+				y += 20.0
+		if best_q == Vector2.INF:
+			return {}
+		out.append(best_q)
+		out_r.append(rc)
 	return {"positions": out, "seed": seed_pt, "lattice": n}
 
 static func _deploy_front_samples(frame: Dictionary, k: int) -> Array:
@@ -7122,9 +7180,12 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 	var n_slots := slots.size()
 	out.n_slots = n_slots
 	var r := 0.0
+	var slot_r: Array = []
 	for sl in slots:
 		r = maxf(r, float(sl.r_out))
+		slot_r.append(float(sl.r_out))
 	var pitch := 2.0 * r + 10.0
+	var n_bg: int = int(slot_info.n_bg)
 	var groups := _deploy_area_groups(terrain_features)
 	var dense_polys: Array = []
 	for g in groups:
@@ -7144,7 +7205,10 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 	if hide:
 		var deployed := _deploy_obstacle_circles(snapshot)
 		var walls := _deploy_wall_segments(tm)
-		var eroded: Array = Geometry2D.offset_polygon(own_poly, -r)
+		var r_bg := 0.0
+		for i in range(n_bg):
+			r_bg = maxf(r_bg, float(slot_r[i]))
+		var eroded: Array = Geometry2D.offset_polygon(own_poly, -r_bg)
 		for g in groups:
 			if str(g.category) != "dense":
 				continue
@@ -7156,7 +7220,7 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 							pockets.append(ip)
 			if pockets.is_empty():
 				continue
-			var fill := _deploy_pocket_fill(pockets, n_slots, r, pitch, deployed, walls)
+			var fill := _deploy_pocket_fill(pockets, slot_r, n_bg, deployed, walls, own_poly)
 			if fill.is_empty():
 				continue
 			var positions: Array = fill.positions
@@ -7212,15 +7276,28 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 			for v in ap:
 				h = maxf(h, ((v as Vector2) - c0).dot(away))
 				wl = maxf(wl, absf(((v as Vector2) - c0).dot(lat)))
+		# Off the area itself (13.10: an area a model is within does not obscure
+		# it) and off every dense area: a hide-capable unit must not end up
+		# partly Hidden, and a vehicle parked in a dense pocket takes the place
+		# an infantry unit could be Hidden in.
 		var avoid: Array = (g.area_polys as Array).duplicate()
-		if hide:
-			for dp in dense_polys:
-				if not avoid.has(dp):
-					avoid.append(dp)
+		for dp in dense_polys:
+			if not avoid.has(dp):
+				avoid.append(dp)
 		for o in [0.0, wl * 0.5, -wl * 0.5]:
 			var anchor: Vector2 = c0 + away * (h + ext + clear_px) + lat * float(o)
 			if not Geometry2D.is_point_in_polygon(anchor, own_poly) or _dist_to_boundary_px(anchor, own_poly) < r:
 				continue
+			# Where the builder may put the formation: the strip behind the area
+			# (from its back edge + clearance to 2 formation-reaches further
+			# back), a little wider than this third of the area — so a cramped
+			# zone does not fail the spot for want of the exact anchor.
+			var lo: float = h + clear_px
+			var hi: float = h + clear_px + 2.0 * ext
+			var l0: float = float(o) - wl * 0.5 - ext * 0.5
+			var l1: float = float(o) + wl * 0.5 + ext * 0.5
+			var region := PackedVector2Array([c0 + away * lo + lat * l0, c0 + away * lo + lat * l1,
+				c0 + away * hi + lat * l1, c0 + away * hi + lat * l0])
 			var sh := _deploy_shadow_share(tm, samples, anchor)
 			if float(sh.share) < min_shadow:
 				continue
@@ -7232,7 +7309,7 @@ static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Di
 			if not terms.has("deploy_terrain"):
 				terms["deploy_terrain"] = 0.0
 			cands.append({"rel": "behind", "key": str(g.key), "category": cat, "type": str(g.type),
-				"objective_role": str(g.objective_role), "anchor": anchor, "avoid": avoid,
+				"objective_role": str(g.objective_role), "anchor": anchor, "avoid": avoid, "region": region, "sample_pts": samples,
 				"shadow": float(sh.share), "blocked": int(sh.blocked), "samples": int(sh.n),
 				"score": spot_score, "terms": terms})
 			out.n_behind += 1
@@ -7292,9 +7369,11 @@ static func _deploy_build_spot(cd: Dictionary, snapshot: Dictionary, player: int
 	its failure is expected and is not a no-legal-set-up defect). inside: the
 	pocket fill as the seed, every model centre inside the area, anchors only
 	in the pocket; then every hide-capable model must be Hidden by the engine.
-	behind: no model's bounding circle on the area (nor, for hide-capable
-	units, on any dense area), within DEPLOY_11E_BEHIND_MAX_SHIFT_IN of the
-	anchor, and never partly Hidden. {ok, reason, fresh, built, hidden}."""
+	behind: no model's bounding circle on the area nor on any dense area,
+	anywhere in the strip behind the area (nearest the anchor first); a
+	formation that ends up more than DEPLOY_11E_BEHIND_MAX_SHIFT_IN from the
+	anchor must still block >= DEPLOY_11E_MIN_SHADOW of the enemy-front sight
+	lines; never partly Hidden. {ok, reason, fresh, built, hidden}."""
 	var extra := {"probe": true, "max_fresh": max_fresh, "max_evals": max_evals, "grow": false}
 	if str(cd.rel) == "inside":
 		extra["seed_positions"] = cd.fill
@@ -7302,9 +7381,12 @@ static func _deploy_build_spot(cd: Dictionary, snapshot: Dictionary, player: int
 		extra["anchor_region"] = cd.pockets
 	else:
 		extra["avoid_polys"] = cd.avoid
-		extra["max_displacement_px"] = behind_shift_px
+		if cd.has("region"):
+			extra["anchor_region"] = [cd.region]
+		else:
+			extra["max_displacement_px"] = behind_shift_px
 	var b: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, cd.anchor, _formation_opts(extra))
-	var res := {"ok": false, "reason": "", "fresh": int(b.get("fresh", 0)), "built": b, "hidden": {}}
+	var res := {"ok": false, "reason": "", "fresh": int(b.get("fresh", 0)), "evals": int(b.get("evals", 0)), "built": b, "hidden": {}}
 	if not bool(b.get("ok", false)):
 		res.reason = str(b.get("reason", "no legal set-up"))
 		return res
@@ -7316,6 +7398,18 @@ static func _deploy_build_spot(cd: Dictionary, snapshot: Dictionary, player: int
 	if str(cd.rel) == "behind" and int(tally.hidden) > 0 and int(tally.hidden) < int(tally.eligible):
 		res.reason = "behind: %d of %d models would be Hidden (a partly Hidden unit)" % [int(tally.hidden), int(tally.eligible)]
 		return res
+	if str(cd.rel) == "behind" and cd.has("region") and int(cd.get("samples", 0)) > 0:
+		# The builder may have moved off the anchor: the formation itself must
+		# still sit in the area's shadow.
+		var tm = _terrain_manager()
+		var cen := _deploy_positions_centroid(b.get("model_positions", []))
+		if tm != null and cen != Vector2.INF and (cen as Vector2).distance_to(cd.anchor) > behind_shift_px:
+			var sh := _deploy_shadow_share(tm, cd.get("sample_pts", []), cen)
+			res["shadow_built"] = sh
+			if int(sh.n) > 0 and float(sh.share) < get_param("DEPLOY_11E_MIN_SHADOW", DEPLOY_11E_MIN_SHADOW):
+				res.reason = "behind: the nearest legal set-up (%.0f, %.0f) is out of the area's shadow (%d/%d sight lines blocked)" % [
+					cen.x, cen.y, int(sh.blocked), int(sh.n)]
+				return res
 	res.ok = true
 	return res
 
@@ -7346,6 +7440,156 @@ static func _deploy_spot_label_unused(cd: Dictionary, p: Vector2, n_models: int,
 		return "%s %s (%.0f, %.0f) — not used: no legal set-up for all %d models fits there" % [where, _deploy_spot_what(cd), p.x, p.y, n_models]
 	return "%s %s (%.0f, %.0f) — not used: no legal set-up fits there" % [where, _deploy_spot_what(cd), p.x, p.y]
 
+# "<board key>|<unit id>" -> footprint of a legal set-up found for a big unit
+# still to deploy. Re-used while no deployed model touches it (terrain and
+# zone never change during deployment, and a new model that does not touch a
+# legal set-up cannot make it illegal); the board key holds the zone polygon
+# and terrain ids, so another game or board never sees a stale entry.
+static var _deploy_room_cache: Dictionary = {}
+
+static func _deploy_board_key(snapshot: Dictionary, player: int, frame: Dictionary) -> String:
+	var ids: Array = []
+	for p in snapshot.get("board", {}).get("terrain_features", []):
+		if p is Dictionary:
+			ids.append(str(p.get("id", "")))
+	return "%d:%d:%d" % [player, hash(frame.own_poly), hash(ids)]
+
+static func _deploy_big_units_with_room(snapshot: Dictionary, player: int, unit_id: String, frame: Dictionary, budget: Dictionary = {}) -> Array:
+	"""The player's still-undeployed units with a model whose bounding radius is
+	at least DEPLOY_11E_BIG_BASE_IN (Stompa, Battlewagons, Wartrikes, Wazdakka),
+	the largest first (at most 3), that have a legal set-up on the board as it is.
+	A terrain spot for the current unit must not take that away: earlier
+	units spread over the open ground behind the ruins can leave a 180mm base
+	nowhere to go, and AIPlayer would then have to put it in Strategic
+	Reserves. [{unit_id, name, r, footprint}] — footprint: the bounding
+	circles of the legal set-up found for it, so a spot that does not touch
+	them needs no new probe."""
+	var big_px := get_param("DEPLOY_11E_BIG_BASE_IN", DEPLOY_11E_BIG_BASE_IN) * PIXELS_PER_INCH
+	var bigs: Array = []
+	var units: Dictionary = snapshot.get("units", {})
+	var skip := {unit_id: true}
+	for cid in units.get(unit_id, {}).get("attachment_data", {}).get("attached_characters", []):
+		skip[str(cid)] = true
+	for uid in units:
+		var u = units[uid]
+		if not (u is Dictionary) or int(u.get("owner", 0)) != player or skip.has(str(uid)):
+			continue
+		if int(u.get("status", 0)) != GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+		if u.get("embarked_in", null) != null or u.get("attached_to", null) != null:
+			continue
+		var r := 0.0
+		for m in u.get("models", []):
+			if m is Dictionary and m.get("alive", true):
+				r = maxf(r, _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {})))
+		if r >= big_px:
+			bigs.append({"unit_id": str(uid), "name": _dn(u, str(uid)), "r": r})
+	bigs.sort_custom(func(a, b):
+		if float(a.r) != float(b.r):
+			return float(a.r) > float(b.r)
+		return str(a.unit_id) < str(b.unit_id))
+	var out: Array = []
+	var obstacles: Array = []
+	var placed := _deploy_obstacle_circles(snapshot)
+	var key := _deploy_board_key(snapshot, player, frame)
+	for bu in bigs.slice(0, 3):
+		var ck := key + "|" + str(bu.unit_id)
+		var cached: Array = _deploy_room_cache.get(ck, [])
+		if not cached.is_empty() and not _deploy_footprints_touch(cached, placed):
+			bu["footprint"] = cached
+			out.append(bu)
+			continue
+		var left := mini(int(budget.get("fresh_left", 1 << 30)), int(budget.get("evals_left", 1 << 30)))
+		if left <= 0:
+			break
+		if obstacles.is_empty():
+			obstacles = _deploy_obstacle_models(snapshot, {})
+		var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, left)
+		budget["fresh_left"] = int(budget.get("fresh_left", 1 << 30)) - int(probe.get("fresh", 0))
+		budget["evals_left"] = int(budget.get("evals_left", 1 << 30)) - int(probe.get("evals", 0))
+		if bool(probe.get("ok", false)):
+			bu["footprint"] = _deploy_footprint(snapshot, str(bu.unit_id), probe)
+			_deploy_room_cache[ck] = bu.footprint
+			out.append(bu)
+		elif str(probe.get("reason", "")).find("budget") < 0:
+			_deploy_room_cache.erase(ck)   # genuinely no room already: nothing to protect
+	return out
+
+static func _deploy_footprint(snapshot: Dictionary, unit_id: String, built: Dictionary) -> Array:
+	"""[{p, r}] bounding circles of a build's models (bodyguard + characters)."""
+	var out: Array = []
+	var units: Dictionary = snapshot.get("units", {})
+	var models: Array = units.get(unit_id, {}).get("models", [])
+	var pos: Array = built.get("model_positions", [])
+	for i in range(mini(pos.size(), models.size())):
+		if pos[i] != null:
+			var m: Dictionary = models[i]
+			out.append({"p": pos[i], "r": _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))})
+	var ccd: Dictionary = built.get("combined_char_data", {})
+	for cid in ccd:
+		var cm: Array = units.get(cid, {}).get("models", [])
+		for e in ccd[cid]:
+			var mi := int(e.get("model_idx", 0))
+			if mi >= 0 and mi < cm.size():
+				out.append({"p": Vector2(float(e.get("x", 0.0)), float(e.get("y", 0.0))),
+					"r": _model_bounding_radius_px(int(cm[mi].get("base_mm", 32)), str(cm[mi].get("base_type", "circular")), cm[mi].get("base_dimensions", {}))})
+	return out
+
+static func _deploy_footprints_touch(a: Array, b: Array) -> bool:
+	for x in a:
+		for y in b:
+			if (x.p as Vector2).distance_to(y.p) < float(x.r) + float(y.r) + 2.0:
+				return true
+	return false
+
+static func _deploy_obstacle_models(snapshot: Dictionary, built: Dictionary, unit_id: String = "") -> Array:
+	"""FormationBuilder obstacles: every positioned model of every DEPLOYED unit,
+	plus — when `built` is given — the models of that hypothetical placement."""
+	var out: Array = []
+	var units: Dictionary = snapshot.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if not (u is Dictionary) or int(u.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for m in u.get("models", []):
+			if m is Dictionary and m.get("position", null) != null:
+				out.append(m)
+	if built.is_empty():
+		return out
+	var models: Array = units.get(unit_id, {}).get("models", [])
+	var pos: Array = built.get("model_positions", [])
+	var rot: Array = built.get("model_rotations", [])
+	for i in range(mini(pos.size(), models.size())):
+		if pos[i] == null:
+			continue
+		var m: Dictionary = (models[i] as Dictionary).duplicate()
+		m["position"] = pos[i]
+		m["rotation"] = float(rot[i]) if i < rot.size() and rot[i] != null else 0.0
+		out.append(m)
+	var ccd: Dictionary = built.get("combined_char_data", {})
+	for cid in ccd:
+		var cm: Array = units.get(cid, {}).get("models", [])
+		for e in ccd[cid]:
+			var mi := int(e.get("model_idx", 0))
+			if mi < 0 or mi >= cm.size():
+				continue
+			var m: Dictionary = (cm[mi] as Dictionary).duplicate()
+			m["position"] = Vector2(float(e.get("x", 0.0)), float(e.get("y", 0.0)))
+			m["rotation"] = float(e.get("rotation", 0.0)) if e.get("rotation", null) != null else 0.0
+			out.append(m)
+	return out
+
+static func _deploy_room_probe(snapshot: Dictionary, player: int, big_uid: String, frame: Dictionary, obstacles: Array,
+		fresh_left: int = 1 << 30) -> Dictionary:
+	"""Is there still a legal set-up for big_uid among these obstacles? A probe
+	build (no final gate, no growth, <= DEPLOY_11E_ROOM_CHECK_EVALS anchors and
+	at most fresh_left fresh checks). reason contains "budget" when the probe
+	ran out before an answer — never read that as "no room"."""
+	var n := get_param_int("DEPLOY_11E_ROOM_CHECK_EVALS", DEPLOY_11E_ROOM_CHECK_EVALS)
+	return _FormationBuilderScript.build_deployment(snapshot, player, big_uid, frame.inner, _formation_opts({
+		"probe": true, "obstacles": obstacles, "final_gate": false, "grow": false,
+		"max_evals": maxi(0, mini(n, fresh_left)), "max_fresh": maxi(0, mini(n, fresh_left))}))
+
 static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
 		unit_name: String, unit_role: String, baseline_pos: Vector2, col_index: int, depth_row: int,
 		zone_bounds: Dictionary, frame: Dictionary, objectives: Array, terrain_features: Array,
@@ -7362,21 +7606,58 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 	var spot_fresh := get_param_int("DEPLOY_11E_BUILD_MAX_FRESH", DEPLOY_11E_BUILD_MAX_FRESH)
 	var spot_evals := get_param_int("DEPLOY_11E_BUILD_MAX_EVALS", DEPLOY_11E_BUILD_MAX_EVALS)
 	var drop_fresh := get_param_int("DEPLOY_11E_DROP_MAX_FRESH", DEPLOY_11E_DROP_MAX_FRESH)
+	var drop_evals := get_param_int("DEPLOY_11E_DROP_MAX_EVALS", DEPLOY_11E_DROP_MAX_EVALS)
 	var behind_shift_px := get_param("DEPLOY_11E_BEHIND_MAX_SHIFT_IN", DEPLOY_11E_BEHIND_MAX_SHIFT_IN) * PIXELS_PER_INCH
+	var used_evals := 0
 	var used_fresh := 0
 	var tries := 0
 	var chosen_i := -1
 	var built: Dictionary = {}
 	var tally: Dictionary = {}
+	# Big models still to deploy that fit now must still fit after this unit.
+	var budget := {"fresh_left": drop_fresh, "evals_left": drop_evals}
+	var bigs: Array = _deploy_big_units_with_room(snapshot, player, unit_id, frame, budget) if not ranked.is_empty() else []
+	used_fresh = drop_fresh - int(budget.fresh_left)
+	used_evals = drop_evals - int(budget.evals_left)
+	var room_checks_max := get_param_int("DEPLOY_11E_ROOM_CHECKS", DEPLOY_11E_ROOM_CHECKS)
+	var room_checks := 0
+	var board_key := _deploy_board_key(snapshot, player, frame)
 	for i in range(ranked.size()):
 		var cd: Dictionary = ranked[i]
-		if tries >= tries_max or used_fresh >= drop_fresh:
+		if tries >= tries_max or used_fresh >= drop_fresh or used_evals >= drop_evals:
 			cd["status"] = "untried"
-			cd["why"] = "not tried: the per-drop build budget is spent (%d spots, %d checks)" % [tries, used_fresh]
+			cd["why"] = "not tried: the per-drop build budget is spent (%d spots, %d evaluations, %d checks)" % [tries, used_evals, used_fresh]
 			continue
 		tries += 1
-		var res := _deploy_build_spot(cd, snapshot, player, unit_id, unit, mini(spot_fresh, drop_fresh - used_fresh), spot_evals, behind_shift_px)
+		var res := _deploy_build_spot(cd, snapshot, player, unit_id, unit, mini(spot_fresh, drop_fresh - used_fresh),
+			mini(spot_evals, drop_evals - used_evals), behind_shift_px)
 		used_fresh += int(res.get("fresh", 0))
+		used_evals += int(res.get("evals", 0))
+		if bool(res.ok) and not bigs.is_empty():
+			var mine := _deploy_footprint(snapshot, unit_id, res.built)
+			var obstacles: Array = []
+			for bu in bigs:
+				if not _deploy_footprints_touch(mine, bu.footprint):
+					continue   # the set-up found for it is untouched: still legal
+				if room_checks >= room_checks_max:
+					res.ok = false
+					res.reason = "not tried: the per-drop room-check budget is spent (%s)" % str(bu.name)
+					break
+				room_checks += 1
+				if obstacles.is_empty():
+					obstacles = _deploy_obstacle_models(snapshot, res.built, unit_id)
+				var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, mini(drop_fresh - used_fresh, drop_evals - used_evals))
+				used_fresh += int(probe.get("fresh", 0))
+				used_evals += int(probe.get("evals", 0))
+				if not bool(probe.get("ok", false)):
+					res.ok = false
+					if str(probe.get("reason", "")).find("budget") >= 0:
+						res.reason = "not tried: the per-drop build budget ran out checking room for %s" % str(bu.name)
+					else:
+						res.reason = "would leave no legal set-up for %s" % str(bu.name)
+					break
+				# Still legal with this unit placed: remember where (next drops reuse it).
+				_deploy_room_cache[board_key + "|" + str(bu.unit_id)] = _deploy_footprint(snapshot, str(bu.unit_id), probe)
 		if bool(res.ok):
 			chosen_i = i
 			built = res.built
@@ -7399,7 +7680,9 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 			var avoid_px := get_param("DEPLOY_11E_BASELINE_AVOID_SHIFT_IN", DEPLOY_11E_BASELINE_AVOID_SHIFT_IN) * PIXELS_PER_INCH
 			var b0: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, baseline_pos, _formation_opts({
 				"probe": true, "avoid_polys": dense_polys, "max_displacement_px": avoid_px, "grow": false,
-				"max_fresh": spot_fresh, "max_evals": spot_evals}))
+				"max_fresh": maxi(0, mini(spot_fresh, drop_fresh - used_fresh)), "max_evals": maxi(0, mini(spot_evals, drop_evals - used_evals))}))
+			used_fresh += int(b0.get("fresh", 0))
+			used_evals += int(b0.get("evals", 0))
 			if bool(b0.get("ok", false)):
 				var t_b0 := _deploy_hidden_tally(snapshot, unit, b0)
 				if int(t_b0.hidden) == 0 or int(t_b0.hidden) >= int(t_b0.eligible):

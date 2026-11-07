@@ -186,9 +186,10 @@ const TERMS := {
 	"res_long_range": {"label": "Long-range platform", "fmt": "pts", "help": "Penalty: heavy ranged units want to shoot from turn 1."},
 	"res_cheap_screen": {"label": "Cheap screen", "fmt": "pts", "help": "Penalty: cheap units are better as turn-1 screens."},
 	# Deployment spot (_find_terrain_aware_position)
-	"deploy_terrain": {"label": "Terrain fit for its role", "fmt": "pts", "help": "How well the terrain suits the unit's role (cover, line of sight, height)."},
+	"deploy_terrain": {"label": "Terrain fit for its role", "fmt": "pts", "help": "How well the spot's terrain suits the unit's role. 11th edition: wholly inside a dense area = benefit of cover and Hidden (13.08, 13.09); behind a light or dense area = obscured from the enemy (13.10), scaled by how many enemy sight lines it blocks."},
+	"deploy_hidden": {"label": "Whole unit Hidden", "fmt": "pts", "help": "Every model is inside a terrain area with a dense feature (13.09): enemies more than 15\" away cannot see the unit."},
 	"deploy_objectives": {"label": "Near objectives", "fmt": "pts", "help": "Up to +1 per objective within 10\"."},
-	"deploy_depth": {"label": "Front / back preference", "fmt": "pts", "help": "Melee units like the front edge; characters and fragile shooters like the back."},
+	"deploy_depth": {"label": "Front / back preference", "fmt": "pts", "help": "Measured toward the enemy deployment zone: melee units like the front edge; characters and fragile shooters like the back."},
 	"deploy_drift": {"label": "Drift from the column layout", "fmt": "pts", "help": "−1 per 5\" away from its planned column spot (stops the army bunching up)."},
 	"deploy_baseline_bar": {"label": "Bar a terrain spot must beat", "fmt": "num", "help": "The column-layout spot is used unless a terrain spot scores 1.0 or more."},
 	# Heroic Intervention (evaluate_heroic_intervention)
