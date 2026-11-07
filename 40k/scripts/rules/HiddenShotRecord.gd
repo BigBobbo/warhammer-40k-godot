@@ -221,3 +221,32 @@ static func unify_attached_records(units: Dictionary) -> int:
 			if changed:
 				written += 1
 	return written
+
+## Save compatibility (StateSerializer 1.3.0 -> 1.4.0), Player 2 first: the old
+## build counted turns as battle_round * 2 + (Player 1 ? 0 : 1); the record is
+## now in play order (the first-turn player's turn of round R = 2R, the other
+## 2R + 1 — GameState.get_player_turn_index). It only stamped a unit in its
+## owner's own turn, and the old Shadow Masters waiver ("current - 2") kept that
+## turn's parity, so with meta.first_turn_player == 2 every saved last_shot_idx
+## converts exactly with idx ^ 1 (P2's round-R turn 2R + 1 -> 2R, P1's 2R ->
+## 2R + 1). "Never shot" (NEVER) is kept; with Player 1 first both formulas
+## agree and nothing changes. Only last_shot_idx exists in those saves
+## (prev_shot_idx / last_ranged_attack_idx are this build's). Mutates `units`
+## in place; returns the number of stamps converted.
+static func convert_p2_first_turn_indices(units: Dictionary, first_turn_player: int) -> int:
+	if first_turn_player != 2:
+		return 0
+	var n := 0
+	for uid in units:
+		var u = units[uid]
+		if not u is Dictionary:
+			continue
+		var f = u.get("flags", {})
+		if not f is Dictionary or not f.has(F_LAST):
+			continue
+		var v := int(f[F_LAST])
+		if v < 0:
+			continue
+		f[F_LAST] = v ^ 1
+		n += 1
+	return n

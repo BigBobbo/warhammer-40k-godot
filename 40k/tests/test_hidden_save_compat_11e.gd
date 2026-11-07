@@ -10,6 +10,11 @@ extends SceneTree
 #      read as hidden in terrain and the whole unit as a hidden unit for up to
 #      two turns after loading, although it had just shot (Nowhere to Hide,
 #      Venator Omni-auspex, STRIKE FROM THE SHADOWS).
+#   B. Player 2 first: the old turn index was battle_round*2 + (P1 ? 0 : 1),
+#      the record is now in play order (GameState.get_player_turn_index), so
+#      every saved stamp had the wrong parity — for one turn after loading a
+#      Player 2 unit stayed un-hidden too long and a Player 1 unit hid a turn
+#      early. The old stamps are converted (idx ^ 1).
 #
 # Every save goes through the REAL StateSerializer serialize/deserialize (the
 # version stamped back to 1.3.0, as the old build wrote it) and
@@ -141,6 +146,62 @@ func _section_attached() -> void:
 	_check("idempotent: a fully stamped Attached unit is left unchanged", HSR.unify_attached_records(GS.state.units) == 0
 		and str(before) == str(GS.state.units))
 
+func _unit(uid: String, owner: int, stamp: int) -> Dictionary:
+	var f := {} if stamp < -1 else {"last_shot_idx": stamp}
+	return {"id": uid, "owner": owner, "status": 2, "flags": f,
+		"meta": {"name": uid, "keywords": ["INFANTRY"], "stats": {"move": 6}},
+		"models": [_m("m1", 420, 420)]}
+
+func _set_turn(rnd: int, active: int) -> void:
+	GS.state["meta"]["battle_round"] = rnd
+	GS.state["meta"]["active_player"] = active
+
+func _hid(uid: String) -> bool:
+	var u: Dictionary = GS.state.units[uid]
+	return TM.is_model_hidden(u.models[0], u)
+
+func _section_p2_first() -> void:
+	print("\n-- B. Player 2 went first: old-formula stamps converted to play order --")
+	# The old build, Player 1's turn of round 2 (Player 2 went first). U_P2 shot
+	# in P2's round-2 turn (old 2*2+1 = 5), U_P1 in P1's round-2 turn (old 2*2 = 4),
+	# U_NEVER never shot (no stamp).
+	GS.initialize_default_state()
+	GameConstants.edition = 11
+	GS.state["meta"]["first_turn_player"] = 2
+	_set_turn(2, 1)
+	GS.state["units"] = {"U_P2": _unit("U_P2", 2, 5), "U_P1": _unit("U_P1", 1, 4), "U_NEVER": _unit("U_NEVER", 1, -100)}
+	TM.terrain_features = _ruin()
+	_load(_save_json("1.3.0"))
+	var u: Dictionary = GS.state.units
+	# Play order with Player 2 first: P2R2 = 4, P1R2 = 5, P2R3 = 6, P1R3 = 7.
+	_check("U_P2's stamp is P2R2 in play order (4)", int(u.U_P2.flags.get("last_shot_idx", -1)) == 4, str(u.U_P2.flags))
+	_check("U_P1's stamp is P1R2 in play order (5)", int(u.U_P1.flags.get("last_shot_idx", -1)) == 5, str(u.U_P1.flags))
+	_check("a unit that never shot stays unstamped", not u.U_NEVER.flags.has("last_shot_idx"), str(u.U_NEVER.flags))
+	_check("P1R2 (the save's own turn, 5): neither is hidden (P2 shot last turn, P1 this turn)", not _hid("U_P2") and not _hid("U_P1"))
+	_set_turn(3, 2)
+	_check("P2R3 (6): U_P2 hidden again (it shot two turns ago); U_P1 not (it shot last turn)", _hid("U_P2") and not _hid("U_P1"),
+		"U_P2=%s U_P1=%s" % [str(_hid("U_P2")), str(_hid("U_P1"))])
+	_set_turn(3, 1)
+	_check("P1R3 (7): both hidden", _hid("U_P2") and _hid("U_P1"))
+	# Control: Player 1 first — the two formulas agree; nothing is converted.
+	GS.initialize_default_state()
+	GameConstants.edition = 11
+	GS.state["meta"]["first_turn_player"] = 1
+	_set_turn(2, 2)
+	GS.state["units"] = {"U_P2": _unit("U_P2", 2, 5), "U_P1": _unit("U_P1", 1, 4)}
+	_load(_save_json("1.3.0"))
+	_check("control: Player 1 first — stamps unchanged (5, 4)", int(GS.state.units.U_P2.flags.get("last_shot_idx", -1)) == 5
+		and int(GS.state.units.U_P1.flags.get("last_shot_idx", -1)) == 4)
+	# Control: a save written by this build (play-order stamps) is not converted.
+	GS.initialize_default_state()
+	GameConstants.edition = 11
+	GS.state["meta"]["first_turn_player"] = 2
+	_set_turn(2, 1)
+	GS.state["units"] = {"U_P2": _unit("U_P2", 2, 4), "U_P1": _unit("U_P1", 1, 5)}
+	_load(_save_json(SS.CURRENT_VERSION))
+	_check("control: a %s save keeps its play-order stamps (4, 5)" % SS.CURRENT_VERSION, int(GS.state.units.U_P2.flags.get("last_shot_idx", -1)) == 4
+		and int(GS.state.units.U_P1.flags.get("last_shot_idx", -1)) == 5)
+
 func _run() -> void:
 	print("\n=== test_hidden_save_compat_11e ===")
 	GS = root.get_node("GameState")
@@ -152,6 +213,7 @@ func _run() -> void:
 	HSR = load("res://scripts/rules/HiddenShotRecord.gd")
 	var prev_terrain = TM.terrain_features.duplicate(true)
 	_section_attached()
+	_section_p2_first()
 	TM.terrain_features = prev_terrain
 	GameConstants.edition = 10
 	_completed = true

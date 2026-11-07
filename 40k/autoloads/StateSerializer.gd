@@ -22,7 +22,9 @@ signal serialization_error(error: String)
 # 1.4.0 - 13.09 Hidden shot record (scripts/rules/HiddenShotRecord.gd): every
 #          component of an Attached unit carries flags.last_shot_idx (older
 #          saves stamped only the shooting bodyguard dict, so an attached
-#          leader read as hidden after loading)
+#          leader read as hidden after loading); the stamp is a play-order turn
+#          index (older saves where Player 2 went first used the Player-1-first
+#          formula and are converted)
 const CURRENT_VERSION = "1.4.0"
 const HiddenShotRecordScript = preload("res://scripts/rules/HiddenShotRecord.gd")
 const MINIMUM_MIGRATABLE_VERSION = "1.0.0"
@@ -287,9 +289,18 @@ func _migrate_1_3_0_to_1_4_0(data: Dictionary) -> Dictionary:
 	# unit as a hidden unit: Nowhere to Hide, Venator Omni-auspex, STRIKE FROM
 	# THE SHADOWS) for up to two turns after loading. Every component now gets
 	# the record of the component that shot most recently (19.01).
+	# The stamp itself was battle_round*2 + (Player 1 ? 0 : 1); it is now the
+	# play-order turn index (GameState.get_player_turn_index), which differs
+	# only when Player 2 took the first turn — converted first, so the copies
+	# below are already in play order.
 	var units = data.get("units", {})
 	if not units is Dictionary:
 		return data
+	var meta = data.get("meta", {})
+	var ftp := int(meta.get("first_turn_player", 0)) if meta is Dictionary else 0
+	var converted: int = HiddenShotRecordScript.convert_p2_first_turn_indices(units, ftp)
+	if converted > 0:
+		print("StateSerializer: _migrate_1_3_0_to_1_4_0: Player 2 went first — %d shot stamp(s) converted to the play-order turn index" % converted)
 	var unified: int = HiddenShotRecordScript.unify_attached_records(units)
 	print("StateSerializer: _migrate_1_3_0_to_1_4_0: shot record copied to %d attached-unit component(s)" % unified)
 	return data
