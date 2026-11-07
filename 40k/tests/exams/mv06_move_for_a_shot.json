@@ -11,7 +11,7 @@
   "player": 1,
   "seed": 4248,
   "owner": "FIX_MOVE_FOR_SHOT (movement: move so a ranged weapon has a shot next phase — OFF-01/OFF-03/OFF-04)",
-  "rationale": "11e 04.02 (Select Targets): every ranged target must be visible to the firing model (06.01: a line of sight to any part of one of its models) and within the weapon's range, and the enemy does not move between our Movement and Shooting phases, so where the move ends decides whether the unit shoots at all. 13.10: a sight line crossing a light or dense terrain area is blocked unless either model is within that area; 13.11: a dense feature (Solid) blocks ground-level lines through it. Here U_CUSTODIAN_GUARD_B (5 x 40 mm, M6, guardian spears 24\") stands 2.2\" north of obj_center's Center ruin and U_CUSTODIAN_GUARD_A_P2 is the only enemy within its 24\" plus its move (19\" edge to edge, 23.9\" centroid to centroid, beyond the 20\" charge-plan reach). The straight approach onto the ruin (4.2\" south, onto y 1048.5) ends with every line to the target blocked by the ruin's inner Solid wall (corner-ruin-balanced-left-45) or by area-medium-35 (dense area, neither model within it): the engine answers no_los, and it does from the start too (asserts 2-3 check this on the engine, so the exam cannot drift into passing by layout). Angling the same move 22.5 degrees east ends with every model still on obj_center (the same OC, no extra turn, no progress lost) and the target visible: ten guardian-spear shots instead of none. A Normal move, not an Advance (10.04 / 10.05: only [ASSAULT] weapons may fire after advancing). An AI that walks into a blind spot when a free peek exists throws its Shooting phase away. Asserts 5-9 stop a pass by abandoning the objective, standing still, advancing or an illegal move.",
+  "rationale": "11e 04.02 (Select Targets): every ranged target must be visible to the firing model (06.01: a line of sight to any part of one of its models) and within the weapon's range, and the enemy does not move between our Movement and Shooting phases, so where the move ends decides whether the unit shoots at all. 13.10: a sight line crossing a light or dense terrain area is blocked unless either model is within that area; 13.11: a dense feature (Solid) blocks ground-level lines through it. Here U_CUSTODIAN_GUARD_B (5 x 40 mm, M6, guardian spears 24\") stands 2.2\" north of obj_center's Center ruin and U_CUSTODIAN_GUARD_A_P2 is the only enemy within its 24\" plus its move (19\" edge to edge, 23.9\" centroid to centroid, beyond the 20\" charge-plan reach). The straight approach onto the ruin (4.2\" south, onto y 1048.5) ends with every line to the target blocked by the ruin's inner Solid wall (corner-ruin-balanced-left-45) or by area-medium-35 (dense area, neither model within it): the engine answers no_los, and it does from the start too (asserts 2-4 check this on the engine, so the exam cannot drift into passing by layout). Angling the same move east ends with every model still on obj_center (the same OC — 14.02 adds up every in-range model's OC, so the guard counts all five, not just one — no extra turn, no progress lost) and the target visible: ten guardian-spear shots instead of none. A Normal move, not an Advance (10.04 / 10.05: only [ASSAULT] weapons may fire after advancing). An AI that walks into a blind spot when a free peek exists throws its Shooting phase away. Asserts 6-10 stop a pass by abandoning the objective, standing still, advancing or an illegal move.",
   "setup": [
     "var st = GameState.state",
     "# Behaviour under test ships OFF: switch it on for player 1 only. Loaded",
@@ -97,6 +97,29 @@
       "expect_max": 0
     },
     {
+      "name": "precondition: the straight move toward obj_center (the same y 1048.5 line) puts all 5 models within its range (14.01 hosting area)",
+      "script": [
+        "# Engine precondition, independent of the AI: what the flag-off move holds.",
+        "var snap = GameState.create_snapshot()",
+        "var obj = {}",
+        "for o in GameState.state.board.objectives:",
+        "\tif str(o.get(\"id\", \"\")) == \"obj_center\":",
+        "\t\tobj = o",
+        "if obj.is_empty():",
+        "\treturn -1",
+        "var u = snap.units.U_CUSTODIAN_GUARD_B",
+        "var n = 0",
+        "var k = 0",
+        "for m in u.models:",
+        "\tm.position = Vector2(690.0 + 65.0 * float(k), 1048.5)",
+        "\tk += 1",
+        "\tif m.get(\"alive\", true) and MissionManager.model_in_objective_range(m, obj):",
+        "\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 5
+    },
+    {
       "name": "U_CUSTODIAN_GUARD_B ends with U_CUSTODIAN_GUARD_A_P2 an eligible target for its Shooting phase (04.02, 06.01)",
       "script": [
         "var snap = GameState.create_snapshot()",
@@ -109,7 +132,7 @@
       "equals": true
     },
     {
-      "name": "guard: it still takes obj_center (14.02, a model within the hosting area)",
+      "name": "guard: it keeps all 5 models on obj_center, as the straight move does (14.02 adds up every in-range model's OC, so one model still on is not 'no cost')",
       "script": [
         "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
         "var obj = {}",
@@ -124,7 +147,7 @@
         "\t\tn += 1",
         "return n"
       ],
-      "expect_min": 1
+      "expect_min": 5
     },
     {
       "name": "guard: it moved (alive-model centroid at least 3\" from where it started)",

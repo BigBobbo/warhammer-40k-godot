@@ -25,12 +25,16 @@ extends SceneTree
 # Cases: ON — a sight line round a Solid wall (no_los) / decide() moves for
 # the shot with the note and the integrity wording / a step into weapon range
 # (out_of_range) / a step inside a Hidden target's detection range (hidden) /
-# a step within Lone Operative range; param 0 — byte-identical decide()
-# output, no note; guards — the straight move already has a shot, planned
-# charge, Advance plan, melee-only unit, loss cap, control range kept, probe
-# and pair budgets, the legacy cover nudge screened, the F002 hold-fire
-# prediction, a kept FIX_MOVE_COVER spot wins; follow-through — the returned
-# destinations are re-checked; wording.
+# a step within Lone Operative range / an enemy Attached unit only its
+# leader's model can be brought into range of (19.01); param 0 —
+# byte-identical decide() output, no note; guards — the straight move already
+# has a shot, an enemy Attached unit whose leader alone is in range already
+# is a target (both link directions), planned charge, Advance plan,
+# melee-only unit, loss cap, control range kept, the objective's OC kept
+# (14.02: every model in range counts), probe and pair budgets, the legacy
+# cover nudge screened, the F002 hold-fire prediction, a kept FIX_MOVE_COVER
+# spot wins; follow-through — the returned destinations are re-checked;
+# wording.
 #
 # Run with: godot --headless --path . -s tests/unit/test_ai_fix_move_for_shot.gd
 # (runs once the scene tree is up: the stage reads RulesEngine /
@@ -40,6 +44,8 @@ const AI_PATH := "res://scripts/AIDecisionMaker.gd"
 const GameStateData = preload("res://autoloads/GameState.gd")
 const PX := 40.0  # pixels per inch
 const OBJ := Vector2(600, 1200)
+const OBJ_FAR := Vector2(660.0, 1700.0)  # the attached-leader cases' open-ground objective
+const OBJ_OC := Vector2(660.0, 1200.0)   # the per-model OC case's terrain-hosted objective
 const SQUAD_X0 := 530.0  # a 65 px line 530..790
 const SQUAD_Y := 900.0   # ~1" north of the ruin's top edge (y 970), bases clear of it
 const STEP := 65.0
@@ -100,11 +106,14 @@ func _run_tests():
 	test_on_range_step()
 	test_on_hidden_detection_step()
 	test_on_lone_operative_step()
+	test_on_attached_leader_only_reachable()
 	test_param_zero_restores_old_reads()
 	test_guard_base_already_has_a_shot()
+	test_guard_attached_leader_in_range_unchanged()
 	test_guard_charge_advance_melee_unchanged()
 	test_guard_loss_cap()
 	test_guard_control_range_kept()
+	test_guard_objective_oc_kept()
 	test_guard_probe_and_pair_budgets()
 	test_guard_legacy_nudge_screened()
 	test_guard_f002_hold_fire_predicted()
@@ -153,6 +162,11 @@ func _hide_area(x0: float, y0: float, x1: float, y1: float) -> Dictionary:
 func _obj_area() -> Dictionary:
 	return {"id": "obj_area", "position": OBJ, "zone": "no_mans_land", "source_pieces": ["area_obj"]}
 
+## A dense terrain AREA with its own id (13.10 obscuring; can host an objective).
+func _dense_area(id: String, x0: float, y0: float, x1: float, y1: float) -> Dictionary:
+	return {"id": id, "piece_class": "area", "type": "ruins", "category": "dense", "height_category": "tall",
+		"can_move_through": {"INFANTRY": true, "MONSTER": false, "VEHICLE": false}, "polygon": _rect(x0, y0, x1, y1)}
+
 ## The TM predicates and MissionManager read the LIVE terrain and objectives;
 ## the mover reads the snapshot's — set both to the same thing.
 func _snapshot(pieces: Array, objs: Array, battle_round: int = 2) -> Dictionary:
@@ -194,6 +208,56 @@ func _wall_case(squad_weapons: Array = [SPEAR_R, SPEAR_M]) -> Dictionary:
 	_add(snap, "CG", 1, _line(SQUAD_X0, SQUAD_Y), squad_weapons)
 	_add(snap, "TGT", 2, _line(1360.0, 1018.0))
 	return snap
+
+## Open ground, the objective far south (the straight move is a full 5.7"
+## south and still short of it). TGT: a melee-only squad on the south-east
+## diagonal, `d` px from the line's middle, its leader LDR 70 px nearer.
+## `link`: "attached" (LDR.attached_to + TGT's attached_characters, as
+## CharacterAttachmentManager writes it), "backptr" (only LDR.attached_to — real
+## saves contain this, RulesEngine.attached_unit_component_ids) or "none" (no
+## leader on the board).
+func _leader_case(d: float, link: String) -> Dictionary:
+	var snap = _snapshot([], [{"id": "obj_far", "position": OBJ_FAR, "zone": "no_mans_land"}])
+	_add(snap, "CG", 1, _line(SQUAD_X0, SQUAD_Y))
+	var u := Vector2(1.0, 1.0).normalized()
+	var perp := Vector2(-u.y, u.x)
+	var q: Vector2 = Vector2(660.0, SQUAD_Y) + u * d
+	var tpos: Array = []
+	for k in range(-2, 3):
+		tpos.append(q + perp * STEP * float(k))
+	var t = _add(snap, "TGT", 2, tpos, [SPEAR_M])
+	if link != "none":
+		var l = _add(snap, "LDR", 2, [q - u * 70.0], [SPEAR_M], ["INFANTRY", "CHARACTER"])
+		l["attached_to"] = "TGT"
+		if link == "attached":
+			t["attachment_data"] = {"attached_characters": ["LDR"]}
+	return snap
+
+## obj_area hosted by a dense area x 560-760 (14.01); a dense screening area
+## east of it from x `x0` blocks every line from the straight end to the only
+## enemy (a melee-only line east of the screen). The squad walks south onto
+## the objective: 4 of its 5 OC2 models end in range (OC 8).
+func _oc_case(x0: float) -> Dictionary:
+	var obj := {"id": "obj_area", "position": OBJ_OC, "zone": "no_mans_land", "source_pieces": ["area_obj"]}
+	var snap = _snapshot([_dense_area("area_obj", 560.0, 970.0, 760.0, 1430.0),
+		_dense_area("screen", x0, 900.0, x0 + 200.0, 1500.0)], [obj])
+	_add(snap, "CG", 1, _line(520.0, SQUAD_Y))
+	_add(snap, "TGT", 2, _line(1300.0, 1150.0), [SPEAR_M])
+	return snap
+
+## 14.02: [models within range of the live objective, their summed OC] for
+## uid's models at `dests` (MissionManager's own predicate and model_oc).
+func _on_objective(snap: Dictionary, uid: String, dests: Dictionary) -> Array:
+	var mm = root.get_node_or_null("MissionManager")
+	var obj: Dictionary = gs.state["board"]["objectives"][0]
+	var u: Dictionary = _board_at(snap, uid, dests).units[uid]
+	var n := 0
+	var oc := 0
+	for m in u.models:
+		if m.get("alive", true) and mm.model_in_objective_range(m, obj):
+			n += 1
+			oc += int(mm.model_oc(u, m))
+	return [n, oc]
 
 func _knob(knob: String, v: float) -> void:
 	AIDM._config_overrides[knob] = v
@@ -422,6 +486,46 @@ func test_on_lone_operative_step() -> void:
 	var pd := _pick_dests(snap, "CG", pick)
 	_assert(_elig(snap, "CG", pd).has("TGT"), "engine: eligible from the spot (%.2f\")" % _max_gap_to(snap, "CG", pd, "TGT"))
 
+## (a6) an enemy Attached unit whose leader stands nearer than its bodyguard
+## (19.01: one unit for all rules purposes; 06.01: one visible model is
+## enough). From the straight end the leader is 24.65" away and the bodyguard
+## 26.35", both out of the 24" spear's range; no spot within the move gets a
+## bodyguard model in range, but a sidestep gets the leader in — and that
+## makes TGT an eligible target. Measured to the bodyguard alone, the stage
+## saw nothing it could reach and kept the blind straight move.
+func test_on_attached_leader_only_reachable() -> void:
+	print("\n--- (a) ON: an enemy Attached unit only its leader's model can be brought into range of (19.01) ---")
+	_fix(1.0)
+	var snap = _leader_case(1370.0, "attached")
+	var diag := {}
+	var pick = _pick(snap, "CG", OBJ_FAR, diag)
+	var base: Dictionary = diag.get("base_dests", {})
+	print("  base: bodyguard %.2f\", leader %.2f\"; pick: %s" % [_max_gap_to(snap, "CG", base, "TGT"), _max_gap_to(snap, "CG", base, "LDR"),
+		str({"end": pick.get("end"), "target": pick.get("target_id"), "why": pick.get("why_code"), "kind": pick.get("kind"), "loss": pick.get("loss_in")})])
+	print("  diag: %s" % str({"reachable": diag.get("reachable"), "proposals": diag.get("proposals"), "rej": diag.get("rej"), "probed": diag.get("probed"), "shots": diag.get("shots")}))
+	_assert(_elig(snap, "CG", base).is_empty() and _max_gap_to(snap, "CG", base, "LDR") > 24.0,
+		"precondition (engine): no target from the straight end, the leader included")
+	_assert(not pick.is_empty() and str(pick.get("target_id", "")) == "TGT" and str(pick.get("why_code", "")) == "out_of_range",
+		"a spot is found at TGT, why=out_of_range (got %s / %s)" % [str(pick.get("target_id", "none")), str(pick.get("why_code", ""))])
+	var facts: Dictionary = AIDM._mfs_target_facts(re, tm, snap.units["TGT"], "TGT", false, snap)
+	_assert((facts.get("models", []) as Array).size() == 6 and re._target_model_entries("TGT", snap).size() == 6,
+		"the stage measures to the same 6 models the engine does (5 bodyguards + the leader)")
+	if pick.is_empty():
+		return
+	var pd := _pick_dests(snap, "CG", pick)
+	_assert(_elig(snap, "CG", pd).has("TGT") and _max_gap_to(snap, "CG", pd, "TGT") > 24.0,
+		"engine: TGT eligible from the spot with only its leader within 24\" (bodyguard %.2f\")" % _max_gap_to(snap, "CG", pd, "TGT"))
+	var d = _decide(snap, "CG", "", false)
+	print("  decide: %s" % _shape(d))
+	_assert(_elig(snap, "CG", d.get("_ai_model_destinations", {})).has("TGT"), "decide(): the returned destinations have TGT eligible")
+	_assert(str(d.get("_ai_move_adjustments", [])).contains("for a shot next phase") \
+			and str(d.get("_ai_move_adjustments", [])).contains("out of range"), "the note says the straight move would have ended out of range")
+	# Control: the same bodyguard with no leader — nothing the move can reach.
+	var snap_n = _leader_case(1370.0, "none")
+	var diag_n := {}
+	var pick_n = _pick(snap_n, "CG", OBJ_FAR, diag_n)
+	_assert(pick_n.is_empty(), "control: without the leader there is no shot to move for (the leader's model is what makes it)")
+
 # --- (b) param zero -------------------------------------------------------------
 
 func test_param_zero_restores_old_reads() -> void:
@@ -458,6 +562,52 @@ func test_guard_base_already_has_a_shot() -> void:
 	var d_off = _decide(snap)
 	_fix(1.0)
 	_assert(_shape(d_on) == _shape(d_off), "decide(): on == off")
+
+## (c) the review finding: only the enemy Attached unit's LEADER is in range of
+## the straight end (bodyguard 24.22", leader 22.53") — the engine says TGT is
+## an eligible target (06.01 / 19.01), so the move already has its shot. The
+## stage once measured to the bodyguard alone, called it blind, re-aimed it
+## (0.1-0.5" of progress given up) and printed a false
+## "[FIX_MOVE_FOR_SHOT] ... old=no_shot" tag. That tag is printed only in the
+## branch that also pushes the "for a shot next phase" note and the ", for a
+## shot at" reason, so on == off with neither present means no tag. Both link
+## directions (19.01 forward list; the attached_to back-pointer alone).
+func test_guard_attached_leader_in_range_unchanged() -> void:
+	print("\n--- (c) guard: an enemy Attached unit whose leader alone is in range is already a target — unchanged ---")
+	_fix(1.0)
+	for link in ["attached", "backptr"]:
+		var snap = _leader_case(1285.0, link)
+		var diag := {}
+		var pick = _pick(snap, "CG", OBJ_FAR, diag)
+		var base: Dictionary = diag.get("base_dests", {})
+		print("  %s: bodyguard %.2f\", leader %.2f\"; engine %s; diag %s" % [link, _max_gap_to(snap, "CG", base, "TGT"),
+			_max_gap_to(snap, "CG", base, "LDR"), str(_elig(snap, "CG", base).keys()),
+			str({"base_candidates": diag.get("base_candidates"), "base_has_shot": diag.get("base_has_shot")})])
+		_assert(_max_gap_to(snap, "CG", base, "TGT") > 24.0 and _max_gap_to(snap, "CG", base, "LDR") <= 24.0,
+			"%s precondition: only the leader is within 24\" of the straight end" % link)
+		_assert(_elig(snap, "CG", base).has("TGT"), "%s precondition (engine): TGT is an eligible target from the straight end" % link)
+		_assert(pick.is_empty() and bool(diag.get("base_has_shot", false)) and int(diag.get("base_candidates", 0)) == 1,
+			"%s: the stage agrees the straight move has a shot (base_has_shot=%s, pre-filter candidates=%s)" % [
+				link, str(diag.get("base_has_shot")), str(diag.get("base_candidates"))])
+		var d_on = _decide(snap, "CG", "", false)
+		_fix(0.0)
+		var d_off = _decide(snap, "CG", "", false)
+		_fix(1.0)
+		_assert(_shape(d_on) == _shape(d_off), "%s: decide() on == off" % link)
+		_assert(not str(d_on.get("_ai_move_adjustments", [])).contains("for a shot next phase") \
+				and not str(d_on.get("_ai_description", "")).contains("for a shot at"),
+			"%s: no shot note and no reason suffix (so no [FIX_MOVE_FOR_SHOT] tag)" % link)
+		# The pick-time belt and braces (should the pre-filter ever drift from
+		# the engine again): asked about a target the straight move has, it
+		# refuses; about nothing, it does not call the engine at all.
+		var bb := _board_at(snap, "CG", base)
+		_assert(bool(AIDM._mfs_base_had_target(re, "CG", {"TGT": true}, bb)) \
+				and not bool(AIDM._mfs_base_had_target(re, "CG", {}, bb)),
+			"%s: the drift guard answers from the engine's target list (TGT: had it; nothing asked: no)" % link)
+	var far = _leader_case(1370.0, "attached")
+	var far_base := _base_dests(far, "CG", OBJ_FAR)
+	_assert(not bool(AIDM._mfs_base_had_target(re, "CG", {"TGT": true}, _board_at(far, "CG", far_base))),
+		"the drift guard lets a real no-shot straight move through (leader 24.65\" away)")
 
 func test_guard_charge_advance_melee_unchanged() -> void:
 	print("\n--- (c) guard: a planned charge, an Advance plan and a melee-only unit move exactly as before ---")
@@ -540,6 +690,64 @@ func test_guard_control_range_kept() -> void:
 	_assert(_elig(snap, "CG", south).has("TGT") and not AIDM._unit_has_model_in_control_range(south_unit, OBJ),
 		"precondition (engine): 2\" further south sees TGT but leaves the objective")
 	_assert(pick.is_empty() and int(diag.get("rej", {}).get("control", 0)) >= 1, "no spot, rejected for lost control range")
+
+## 14.02: the level of control adds up the OC of EVERY model within range, so
+## "a model still in range" is not "no cost". The review's case: the straight
+## move puts 4 of 5 OC2 models on obj_area (OC 8) and is blind behind a dense
+## screen. The stage once took a spot 2" east that keeps ONE model on (gap 0,
+## so "loss 0") but walks a second off — OC 8 down to 6 — and said "at no cost
+## to objective progress".
+func test_guard_objective_oc_kept() -> void:
+	print("\n--- (c) guard: never less OC within range of the objective than the straight move (14.02) ---")
+	_fix(1.0)
+	# Screen at x 865: a spot that keeps all 4 models on AND sees TGT exists.
+	var snap = _oc_case(865.0)
+	var unit: Dictionary = snap.units["CG"]
+	_fix(0.0)
+	var d_off = _decide(snap, "CG", "", false)
+	_fix(1.0)
+	var d_on = _decide(snap, "CG", "", false)
+	var off_d: Dictionary = d_off.get("_ai_model_destinations", {})
+	var on_d: Dictionary = d_on.get("_ai_model_destinations", {})
+	var r_off := _on_objective(snap, "CG", off_d)
+	var r_on := _on_objective(snap, "CG", on_d)
+	print("  x0 865: off %s on obj_area (models, OC), targets %s | on %s, targets %s" % [str(r_off), str(_elig(snap, "CG", off_d).keys()),
+		str(r_on), str(_elig(snap, "CG", on_d).keys())])
+	print("  on: %s" % _shape(d_on))
+	_assert(_elig(snap, "CG", off_d).is_empty() and int(r_off[0]) == 4 and int(r_off[1]) == 8,
+		"precondition: the flag-off move ends blind with 4 models (OC 8) on obj_area")
+	# The spot the stage used to take: 2" east of the straight end keeps one
+	# model on (gap 0) and sees TGT, but has fewer models in range.
+	var c: Vector2 = AIDM._get_unit_centroid(unit)
+	var old_spot := _translated_dests(unit, Vector2(730.0, 1019.0) - c)
+	var r_old := _on_objective(snap, "CG", old_spot)
+	_assert(_elig(snap, "CG", old_spot).has("TGT") and int(r_old[0]) >= 1 and int(r_old[1]) < 8,
+		"precondition (engine): the old spot (730,1019) sees TGT with a model still on, but only OC %d" % int(r_old[1]))
+	_assert(int(r_on[1]) >= int(r_off[1]), "fix on: OC within range of obj_area is never below the straight move's (%d vs %d)" % [int(r_on[1]), int(r_off[1])])
+	_assert(_elig(snap, "CG", on_d).has("TGT"), "fix on: and the move still has TGT as a target (a spot that keeps every model on exists)")
+	_assert(str(d_on.get("_ai_move_adjustments", [])).contains("at no cost to objective progress (still OC 8 within range of obj_area)"),
+		"the note says what it kept on the objective")
+	var diag := {}
+	var pick = _pick(snap, "CG", OBJ_OC, diag)
+	_assert(int(diag.get("rej", {}).get("oc", 0)) >= 1 and int(diag.get("base_oc", 0)) == 8,
+		"spots with fewer models' OC in range are screened out (rej.oc=%s, base_oc=%s)" % [str(diag.get("rej", {}).get("oc")), str(diag.get("base_oc"))])
+	if not pick.is_empty():
+		var enemies = AIDM._get_enemy_units(snap, 1)
+		var chk = AIDM._move_for_shot_recheck(unit, "CG", snap, pick, old_spot, OBJ_OC, enemies)
+		print("  re-check on the old spot: keep=%s why=%s" % [str(chk.keep), str(chk.why)])
+		_assert(not bool(chk.keep) and str(chk.why).contains("OC"), "the follow-through drops returned destinations that lose OC on the objective")
+	# Screen at x 895: every spot with a shot keeps at most 3 models on — the
+	# shot is turned down and the straight move stands.
+	var snap2 = _oc_case(895.0)
+	var diag2 := {}
+	var pick2 = _pick(snap2, "CG", OBJ_OC, diag2)
+	print("  x0 895: pick %s; rej %s" % [str(pick2.get("end", "none")), str(diag2.get("rej"))])
+	_assert(pick2.is_empty() and int(diag2.get("rej", {}).get("oc", 0)) >= 1, "x0 895: no spot keeps the OC, so none is taken (rej.oc)")
+	var d2_on = _decide(snap2, "CG", "", false)
+	_fix(0.0)
+	var d2_off = _decide(snap2, "CG", "", false)
+	_fix(1.0)
+	_assert(_shape(d2_on) == _shape(d2_off), "x0 895: decide() on == off (the OC is worth more than the chip shot)")
 
 func test_guard_probe_and_pair_budgets() -> void:
 	print("\n--- (c) guard: MOVE_FOR_SHOT_PROBES = 0 never probes; the pair budget skips probes ---")
@@ -661,3 +869,11 @@ func test_note_wording() -> void:
 	lossy["loss_in"] = 1.5
 	var note2: String = AIDM._move_for_shot_note(pick, lossy, "obj_area")
 	_assert(note2.contains("for 1.5\" less progress toward obj_area"), "a lossy spot says how much progress it gives up")
+	# 14.02: the straight move stood on the objective, so the note says what
+	# the spot keeps there (the re-check's per-model OC).
+	_assert(int(ok.get("base_oc", 0)) > 0 and note.contains("(still OC %d within range of obj_area)" % int(ok.oc)),
+		"the note says the OC it keeps on the objective (base %s, spot %s)" % [str(ok.get("base_oc")), str(ok.get("oc"))])
+	var more: Dictionary = ok.duplicate()
+	more["oc"] = int(ok.get("base_oc", 0)) + 2
+	var note3: String = AIDM._move_for_shot_note(pick, more, "obj_area")
+	_assert(note3.contains("up from %d" % int(ok.get("base_oc", 0))), "a spot with more OC in range says so")

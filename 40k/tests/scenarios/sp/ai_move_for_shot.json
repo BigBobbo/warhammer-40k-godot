@@ -98,6 +98,12 @@
     },
     {
       "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"at no cost to objective progress (still OC 10 within range of obj_center)\")",
+      "equals": true,
+      "comment": "14.02: the K card says what the angled move keeps on the objective — every model's OC (all five Custodian Guard, OC 10), not just a model still in range"
+    },
+    {
+      "act": "execute_script",
       "script": "main._ai_suggestion_panel.full_text.contains(\"moves toward obj_center\")",
       "equals": true,
       "comment": "the objective is unchanged — the plan/action integrity wording holds"

@@ -2740,10 +2740,15 @@ const MOVE_COVER_MAX_GTG_CHECKS: int = 64      # Gone-to-Ground detection calls 
 # or within Lone Operative / Psychic Veil range. The enemy does not move
 # between our Movement and Shooting phases, so the end spot decides the shot.
 # The only rules oracle is the engine's own RulesEngine.get_eligible_targets on
-# a hypothetical board (nothing about visibility is re-derived here); the
-# objective progress it may give up is bounded (MOVE_FOR_SHOT_MAX_LOSS_INCHES,
-# no extra turn, no lost control range) and ties go to the most expected
-# damage.
+# a hypothetical board (nothing about visibility is re-derived here) — before
+# a spot is kept it has said no about every enemy the move could reach, and
+# the target side is the enemy's whole Attached unit (19.01: an attached
+# leader standing nearer than its bodyguard makes the unit a target); the objective progress
+# it may give up is bounded (MOVE_FOR_SHOT_MAX_LOSS_INCHES, no extra turn, no
+# lost control range, and no less OC within range of the objective than the
+# straight move — 14.02 sums every model's OC, attached characters' too, so
+# a spot that keeps one model on and walks the rest off is refused) and ties
+# go to the most expected damage.
 # Where: a target-shaping stage in the normal-move chain that runs AFTER the
 # mover's first call and the FIX_MOVE_COVER follow-through, so the trigger is
 # judged on the destinations the mover really returned; the stage asks the
@@ -30038,7 +30043,12 @@ static func _move_cover_log_plan_prior(candidates: Array, snapshot: Dictionary) 
 # ever answered by RulesEngine.get_eligible_targets on a shallow hypothetical
 # board — range, the 11e line rules, the Hidden detection gate with Gone to
 # Ground, Lone Operative, Psychic Veil, Hunter profiles, targets engaged with
-# friendlies. The geometry below is a necessary-condition pre-filter, and
+# friendlies. The geometry below is a necessary-condition pre-filter over the
+# same models the engine measures to — the target's whole Attached unit, an
+# attached leader's models included (_mfs_target_entries); before a spot is
+# kept the engine is also asked about every reachable enemy the pre-filter
+# dropped (_mfs_base_had_target), so a drift between the two can never re-aim
+# a move that already had its shot — and
 # TerrainManager.model_visible_11e on one model pair only orders the probes. Every generator
 # stage that would bend a spot is screened with the FIX_MOVE_COVER mirrors, and
 # _move_for_shot_recheck re-asks the engine on the destinations the mover
@@ -30164,31 +30174,105 @@ static func _mfs_in_solid_feature(tm, positions: Array, exts: Array) -> bool:
 				return true
 	return false
 
+## 14.02: the OC the formation (members at `positions`) adds to the objective
+## at `pos` — the level of control "adds together the OC characteristics of all
+## the models ... within range", so EVERY in-range model counts, not just the
+## nearest: _unit_oc_at_position per component (the bodyguard, then each
+## attached CHARACTER with its own OC), MissionManager's range predicate on
+## the objective there; 0 while battle-shocked. What a shot spot may not
+## lower against the straight move (a spot that keeps one model on the
+## objective and walks the rest off it is not "no cost").
+static func _mfs_oc_in_range(unit: Dictionary, unit_id: String, snapshot: Dictionary, members: Array,
+		positions: Array, pos: Vector2) -> int:
+	var units: Dictionary = snapshot.get("units", {})
+	var total := _unit_oc_at_position(pos, unit_id, _mfs_unit_at(unit, members, positions), units)
+	var seen: Array = []
+	for mb in members:
+		if not mb.is_char:
+			continue
+		var cu: Dictionary = mb.unit
+		var dup := false
+		for s in seen:
+			if is_same(s, cu):
+				dup = true
+				break
+		if dup:
+			continue
+		seen.append(cu)
+		total += _unit_oc_at_position(pos, str(cu.get("id", "")), _mfs_unit_at(cu, members, positions), units)
+	return total
+
+## The alive, positioned models a shot at enemy unit `eid` is measured to, as
+## [model, component unit, own]: the WHOLE Attached unit it heads — its own
+## models, then each attached CHARACTER's, both link directions — exactly the
+## list the engine's range / sight-line / Hidden checks walk
+## (RulesEngine._target_model_entries: 06.01 "if one or more models in a unit
+## are visible ... that unit is visible", 19.01 "an attached unit is a single
+## unit for all rules purposes"; a bodyguard with no models left heads
+## nothing, 19.05). `own` marks the unit's own models: Lone Operative and
+## Psychic Veil measure only those (RulesEngine._get_min_distance_to_target_rules).
+## Without the engine or a board, the unit's own models.
+static func _mfs_target_entries(re, e: Dictionary, eid: String, board: Dictionary) -> Array:
+	var out: Array = []
+	if re != null and not board.is_empty() and re.has_method("_target_model_entries"):
+		var own_unit = board.get("units", {}).get(eid, e)
+		for entry in re._target_model_entries(eid, board):
+			var om: Dictionary = entry[0]
+			if om.get("alive", true) and om.get("position", null) != null:
+				out.append([om, entry[1], is_same(entry[1], own_unit)])
+		return out
+	for om in _get_alive_models_with_positions(e):
+		out.append([om, e, true])
+	return out
+
 ## One enemy unit as a possible target, position-free (it does not move
-## before our Shooting phase): its alive models (centre, circumscribed radius,
-## Hidden now — 13.09 as errata'd, the engine's is_model_hidden), the
-## detection range a Hidden model has against any observer at most (det_hi:
-## base + datasheet modifiers; the empty observer skips Gone to Ground) and at
-## least (det_lo: Gone to Ground's -3", floor 9"), the Lone Operative range
-## when it shields the unit (24.24: standalone only) and Psychic Veil.
+## before our Shooting phase): every alive model of the Attached unit it heads
+## (_mfs_target_entries — an attached leader standing nearer than its
+## bodyguard makes the unit a target on its own) with its centre,
+## circumscribed radius, `own` (the unit's own models), Hidden now (13.09 as
+## errata'd, the engine's is_model_hidden) and the detection range it has
+## against any observer at most (det_hi: base + datasheet modifiers; the empty
+## observer skips Gone to Ground) and at least (det_lo: Gone to Ground's -3",
+## floor 9") — each judged against the model's OWN component (19.03: a model
+## keeps its own datasheet's keywords and detection range, as
+## RulesEngine._check_target_visibility gates it); the unit-level det_hi /
+## det_lo are the first Hidden model's. Also the Lone Operative range when it
+## shields the unit (24.24: standalone only) and Psychic Veil.
 ## with_hidden = false skips the Hidden facts (every model read as not
 ## Hidden): the distance test is then only more permissive, still a necessary
-## condition — enough for the trigger, which most moves pass.
-static func _mfs_target_facts(re, tm, e: Dictionary, eid: String, with_hidden: bool = true) -> Dictionary:
+## condition — enough for the trigger, which most moves pass. `board` (the
+## snapshot) resolves the Attached unit; without it, the unit's own models.
+static func _mfs_target_facts(re, tm, e: Dictionary, eid: String, with_hidden: bool = true,
+		board: Dictionary = {}) -> Dictionary:
 	var models: Array = []
-	var first_hidden: Dictionary = {}
-	for om in _get_alive_models_with_positions(e):
-		var hid: bool = with_hidden and bool(tm.is_model_hidden(om, e))
-		models.append({"pos": _get_model_position(om), "r": _mfs_extent_px(om), "hidden": hid, "model": om})
-		if hid and first_hidden.is_empty():
-			first_hidden = om
-	if models.is_empty():
-		return {}
 	var det_hi := INF
 	var det_lo := INF
-	if not first_hidden.is_empty():
-		det_hi = float(tm.detection_range_inches_for(first_hidden, e, {}))
-		det_lo = maxf(det_hi - GameConstants.gone_to_ground_penalty_inches(), GameConstants.detection_range_floor_inches())
+	var comp_det: Array = []  # [component unit, det_hi, det_lo] — once per component
+	for entry in _mfs_target_entries(re, e, eid, board):
+		var om: Dictionary = entry[0]
+		var comp: Dictionary = entry[1]
+		var hid: bool = with_hidden and bool(tm.is_model_hidden(om, comp))
+		var m_hi := INF
+		var m_lo := INF
+		if hid:
+			var found := false
+			for cd in comp_det:
+				if is_same(cd[0], comp):
+					m_hi = float(cd[1])
+					m_lo = float(cd[2])
+					found = true
+					break
+			if not found:
+				m_hi = float(tm.detection_range_inches_for(om, comp, {}))
+				m_lo = maxf(m_hi - GameConstants.gone_to_ground_penalty_inches(), GameConstants.detection_range_floor_inches())
+				comp_det.append([comp, m_hi, m_lo])
+			if det_hi == INF:
+				det_hi = m_hi
+				det_lo = m_lo
+		models.append({"pos": _get_model_position(om), "r": _mfs_extent_px(om), "hidden": hid, "model": om,
+			"own": bool(entry[2]), "det_hi": m_hi, "det_lo": m_lo})
+	if models.is_empty():
+		return {}
 	var lo_range := INF
 	if re.has_lone_operative(e) and e.get("attached_to", null) == null \
 			and (e.get("attachment_data", {}).get("attached_characters", []) as Array).is_empty():
@@ -30200,23 +30284,26 @@ static func _mfs_target_facts(re, tm, e: Dictionary, eid: String, with_hidden: b
 ## range for a Hidden model; 24.24 Lone Operative; Psychic Veil) as a
 ## NECESSARY condition for the formation's BODYGUARD models standing at
 ## `positions` — the engine measures range and sight from bodyguard models
-## only. Pure geometry on circumscribed bases (never stricter than the engine):
-## ok = false means the engine cannot accept the target there; true means it
-## may. Also: pairs (bodyguard x target model pairs within weapon reach — what
-## a probe hands to line of sight), shortfall_in (how much closer the unit
-## must get), near_i / near_j (the pair nearest its range or detection gate —
-## the aimed steps' line), min_i / min_j / min_edge_in (the closest pair,
-## which Lone Operative and Psychic Veil measure).
+## only, TO every model of the target's Attached unit (facts.models, leaders
+## included). Pure geometry on circumscribed bases (never stricter than the
+## engine): ok = false means the engine cannot accept the target there; true
+## means it may. Also: pairs (bodyguard x target model pairs within weapon
+## reach — what a probe hands to line of sight), shortfall_in (how much closer
+## the unit must get), near_i / near_j (the pair nearest its range or its own
+## detection gate — the aimed steps' line), min_edge_in (the closest pair over
+## the whole Attached unit — what range measures), min_i / min_j /
+## own_edge_in (the closest pair to the unit's OWN models, which Lone
+## Operative and Psychic Veil measure).
 static func _mfs_reach(members: Array, exts: Array, positions: Array, facts: Dictionary, reach_in: float) -> Dictionary:
 	var pairs := 0
 	var best_slack := INF
 	var near_i := -1
 	var near_j := -1
 	var min_edge := INF
+	var own_edge := INF
 	var min_i := -1
 	var min_j := -1
 	var tmods: Array = facts.models
-	var det_hi := float(facts.det_hi)
 	for i in range(members.size()):
 		if members[i].is_char:
 			continue
@@ -30225,23 +30312,24 @@ static func _mfs_reach(members: Array, exts: Array, positions: Array, facts: Dic
 		for j in range(tmods.size()):
 			var tmj: Dictionary = tmods[j]
 			var edge: float = (a.distance_to(tmj.pos) - ra - float(tmj.r)) / PIXELS_PER_INCH
-			if edge < min_edge:
-				min_edge = edge
+			min_edge = minf(min_edge, edge)
+			if bool(tmj.get("own", true)) and edge < own_edge:
+				own_edge = edge
 				min_i = i
 				min_j = j
 			if edge <= reach_in + MOVE_FOR_SHOT_REACH_SLACK_INCHES:
 				pairs += 1
-			var gate: float = minf(reach_in, det_hi) if bool(tmj.hidden) else reach_in
+			var gate: float = minf(reach_in, float(tmj.get("det_hi", facts.det_hi))) if bool(tmj.hidden) else reach_in
 			if edge - gate < best_slack:
 				best_slack = edge - gate
 				near_i = i
 				near_j = j
-	var short_lo := maxf(0.0, min_edge - float(facts.lo_range)) if float(facts.lo_range) < INF else 0.0
-	var short_veil := maxf(0.0, min_edge - MOVE_FOR_SHOT_VEIL_INCHES) if bool(facts.veil) else 0.0
+	var short_lo := maxf(0.0, own_edge - float(facts.lo_range)) if float(facts.lo_range) < INF else 0.0
+	var short_veil := maxf(0.0, own_edge - MOVE_FOR_SHOT_VEIL_INCHES) if bool(facts.veil) else 0.0
 	var shortfall := maxf(maxf(0.0, best_slack), maxf(short_lo, short_veil))
 	return {"ok": near_i >= 0 and shortfall <= MOVE_FOR_SHOT_REACH_SLACK_INCHES, "pairs": pairs,
 		"shortfall_in": shortfall, "near_i": near_i, "near_j": near_j,
-		"min_i": min_i, "min_j": min_j, "min_edge_in": min_edge}
+		"min_i": min_i, "min_j": min_j, "min_edge_in": min_edge, "own_edge_in": own_edge}
 
 ## Add a proposal (the target point to hand the mover) unless it repeats one
 ## within 0.5" or the straight end itself. A point past the reachable disc is
@@ -30266,12 +30354,33 @@ static func _mfs_add_prop(props: Array, q: Vector2, kind: String, base_end: Vect
 		stats["pulled"] = int(stats.get("pulled", 0)) + 1
 	return true
 
+## The target as the expected-damage estimate sees it: an Attached unit is one
+## unit (19.01), so _estimate_weapon_damage's range test must measure to every
+## model of it, as the engine's eligibility does — a shallow copy of the
+## bodyguard dict whose models list also holds each attached CHARACTER's
+## (_mfs_target_entries); the unit dict itself when nothing is attached (or
+## without the engine). Stats stay the bodyguard's.
+static func _mfs_ev_target(tid: String, snapshot: Dictionary) -> Dictionary:
+	var tgt: Dictionary = snapshot.get("units", {}).get(tid, {})
+	if tgt.is_empty():
+		return tgt
+	var extra: Array = []
+	for ent in _mfs_target_entries(_rules_engine(), tgt, tid, snapshot):
+		if not bool(ent[2]):
+			extra.append(ent[0])
+	if extra.is_empty():
+		return tgt
+	var merged: Dictionary = tgt.duplicate()
+	merged["models"] = (tgt.get("models", []) as Array) + extra
+	return merged
+
 ## Expected damage of the formation at `positions` on each engine-eligible
 ## target (`elig`, get_eligible_targets' answer there), the best kept: the sum
 ## of _estimate_weapon_damage over the target's weapons_in_range, each weapon
 ## fired by its own bearer (the bodyguard, else an attached character) moved
 ## to the spot — _estimate_weapon_damage reads the shooter's model positions
-## for range and its carrier count. {id, name, ev, hp (remaining wounds)}.
+## for range (to every model of the target's Attached unit, _mfs_ev_target)
+## and its carrier count. {id, name, ev, hp (remaining wounds)}.
 static func _mfs_best_target(unit: Dictionary, snapshot: Dictionary, members: Array, positions: Array,
 		elig: Dictionary) -> Dictionary:
 	var units: Dictionary = snapshot.get("units", {})
@@ -30282,6 +30391,7 @@ static func _mfs_best_target(unit: Dictionary, snapshot: Dictionary, members: Ar
 		var tgt: Dictionary = units.get(tid, {})
 		if tgt.is_empty():
 			continue
+		var tgt_ev := _mfs_ev_target(str(tid), snapshot)
 		var ev := 0.0
 		for wid in elig[tid].get("weapons_in_range", []):
 			var w := _ai_weapon_dict(unit, str(wid))
@@ -30297,7 +30407,7 @@ static func _mfs_best_target(unit: Dictionary, snapshot: Dictionary, members: Ar
 						break
 			if w.is_empty():
 				continue
-			ev += _estimate_weapon_damage(w, tgt, snapshot, shooter)
+			ev += _estimate_weapon_damage(w, tgt_ev, snapshot, shooter)
 		if ev > float(best.ev):
 			best = {"id": str(tid), "name": _dn(tgt, str(tid)), "ev": ev, "hp": _calculate_kill_threshold(tgt)}
 	return best
@@ -30306,8 +30416,8 @@ static func _mfs_best_target(unit: Dictionary, snapshot: Dictionary, members: Ar
 ## over the targets in `only`: every ranged weapon of the unit and of its
 ## attached characters, as if each could fire at each target (an engine
 ## answer's weapons_in_range is a subset; _estimate_weapon_damage is never
-## negative). Lets the probe loop skip a spot that cannot beat the pick
-## without asking the engine.
+## negative), against the same target view (_mfs_ev_target). Lets the probe
+## loop skip a spot that cannot beat the pick without asking the engine.
 static func _mfs_ev_upper_bound(unit: Dictionary, snapshot: Dictionary, members: Array, positions: Array,
 		only: Dictionary) -> float:
 	var units: Dictionary = snapshot.get("units", {})
@@ -30321,11 +30431,12 @@ static func _mfs_ev_upper_bound(unit: Dictionary, snapshot: Dictionary, members:
 		var tgt: Dictionary = units.get(tid, {})
 		if tgt.is_empty():
 			continue
+		var tgt_ev := _mfs_ev_target(str(tid), snapshot)
 		var ev := 0.0
 		for sh in shooters:
 			for w in (sh[0] as Dictionary).get("meta", {}).get("weapons", []):
 				if str(w.get("type", "")).to_lower() == "ranged":
-					ev += _estimate_weapon_damage(w, tgt, snapshot, sh[1])
+					ev += _estimate_weapon_damage(w, tgt_ev, snapshot, sh[1])
 		ub = maxf(ub, ev)
 	return ub
 
@@ -30379,6 +30490,20 @@ static func _mfs_f002_would_hold(unit: Dictionary, members: Array, positions: Ar
 		return false
 	return HIDDEN_FULL_KILL_WORTH * minf(float(best.get("ev", 0.0)) / hp, 1.0) < cost
 
+## Belt and braces on the trigger, asked only once a spot is about to be
+## kept: did the straight move (`base_board`) have an eligible target after
+## all among `unasked` — the reachable enemies the distance pre-filter kept
+## from the trigger's engine call? The pre-filter is a necessary condition,
+## so this is false unless it has drifted from the engine (as it once did,
+## measuring an enemy Attached unit to its bodyguard alone); then the stage
+## keeps the straight move rather than re-aim for a shot it had. The engine's
+## target list is the oracle here, not explain_target_ineligibility: that one
+## skips Hunter profiles (04.01.03), so its "" alone proves nothing.
+static func _mfs_base_had_target(re, unit_id: String, unasked: Dictionary, base_board: Dictionary) -> bool:
+	if unasked.is_empty():
+		return false
+	return not re.get_eligible_targets(unit_id, base_board, true, unasked).is_empty()
+
 ## Better shot spot: more expected damage on its best target, then nearer the
 ## straight end, then the earlier proposal.
 static func _mfs_better(a: Dictionary, b: Dictionary, base_end: Vector2) -> bool:
@@ -30405,7 +30530,9 @@ static func _mfs_better(a: Dictionary, b: Dictionary, base_end: Vector2) -> bool
 ## Ground, Lone Operative, Psychic Veil). Each is screened against the
 ## generator stages that would bend it (path, climb cost, legacy cover nudge,
 ## range clamp, the predicted threat dodge, placement), the objective guards
-## (MOVE_FOR_SHOT_MAX_LOSS_INCHES, no extra turn, no lost control range) and
+## (MOVE_FOR_SHOT_MAX_LOSS_INCHES, no extra turn, no lost control range, no
+## less OC within range of the objective than the straight move —
+## _mfs_oc_in_range, 14.02) and
 ## 13.06.01 (no base ending through a Solid feature, _mfs_in_solid_feature);
 ## the distance pre-filter (_mfs_reach) drops spots no target can be reached
 ## from, and at most MOVE_FOR_SHOT_PROBES survivors — a clear
@@ -30447,6 +30574,10 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 	var base_probe := _mfs_unit_at(unit, members, base_positions)
 	var base_gap := _unit_gap_to_objective_px(base_probe, target_pos)
 	var base_in_range := _unit_has_model_in_control_range(base_probe, target_pos)
+	# 14.02: the OC the straight move puts within range of the objective
+	# (every model, attached characters included) — a shot spot keeps it.
+	var base_oc := _mfs_oc_in_range(unit, unit_id, snapshot, members, base_positions, target_pos)
+	diag["base_oc"] = base_oc
 	var reach_in := float(re.max_ranged_weapon_range_inches(unit_id, snapshot))
 	diag["reach_in"] = reach_in
 	if reach_in <= 0.0:
@@ -30465,13 +30596,16 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 			continue
 		if e.get("attached_to", null) != null or e.get("embarked_in", null) != null:
 			continue  # shot through its bodyguard (19.02) / not on the battlefield (18.01)
-		var emods := _get_alive_models_with_positions(e)
+		# The whole Attached unit's models (an attached leader counts, 19.01) —
+		# the same list the facts, the trigger, the pre-filter and the aimed
+		# steps use.
+		var emods := _mfs_target_entries(re, e, key, snapshot)
 		if emods.is_empty():
 			continue
 		var near_now := INF
-		for om in emods:
-			var op := _get_model_position(om)
-			var orr := _mfs_extent_px(om)
+		for ent in emods:
+			var op := _get_model_position(ent[0])
+			var orr := _mfs_extent_px(ent[0])
 			for i in range(members.size()):
 				if not members[i].is_char:
 					near_now = minf(near_now, (Vector2(now_positions[i]).distance_to(op) - float(exts[i]) - orr) / PIXELS_PER_INCH)
@@ -30479,7 +30613,7 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 			continue
 		if not re.is_monster_or_vehicle(e) and re._is_target_in_friendly_engagement(key, unit_id, owner, units, snapshot):
 			continue  # 04.02: not while in Engagement Range of a friendly unit (MONSTER / VEHICLE excepted)
-		var fct := _mfs_target_facts(re, tm, e, key, false)
+		var fct := _mfs_target_facts(re, tm, e, key, false, snapshot)
 		if not fct.is_empty():
 			facts[key] = fct
 	diag["reachable"] = facts.size()
@@ -30489,8 +30623,11 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 		return {}
 
 	# --- trigger: does the straight move already have an eligible target?
-	# (Distance pre-filter without the Hidden facts — more permissive, still
-	# necessary — then one engine call.)
+	# (Distance pre-filter over the whole Attached unit's models, without the
+	# Hidden facts — more permissive, still necessary — then one engine call.
+	# The enemies it drops are asked about only once a spot is about to be
+	# kept: an engine call over targets with no pair in range still costs
+	# about 10 ms per 20-model mob, too much for every move.)
 	var base_board := _move_for_shot_board(snapshot, unit_id, members, base_positions)
 	var base_ids := {}
 	for key in facts:
@@ -30503,11 +30640,12 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 			unit_name, float(Time.get_ticks_usec() - t0) / 1000.0])
 		return {}
 	diag["base_has_shot"] = false
-	# It has none: now the Hidden facts (13.09 detection gates), for the
-	# distance pre-filter and the aimed steps.
+	# It has none: now the Hidden facts (13.09 detection gates, each model
+	# against its own component), for the distance pre-filter and the aimed
+	# steps.
 	var base_reach := {}
 	for key in facts:
-		var fct_h := _mfs_target_facts(re, tm, enemies[key], key)
+		var fct_h := _mfs_target_facts(re, tm, enemies[key], key, true, snapshot)
 		if not fct_h.is_empty():
 			facts[key] = fct_h
 		base_reach[key] = _mfs_reach(members, exts, base_positions, facts[key], reach_in)
@@ -30563,9 +30701,11 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 		var gates: Array = []  # [gate inches, member index, target model index, label]
 		if int(br.near_i) >= 0:
 			gates.append([reach_in, int(br.near_i), int(br.near_j), "range"])
-			if bool(tf.models[int(br.near_j)].hidden):
-				gates.append([float(tf.det_hi), int(br.near_i), int(br.near_j), "detection"])
-				gates.append([float(tf.det_lo), int(br.near_i), int(br.near_j), "detection_gtg"])
+			var nm: Dictionary = tf.models[int(br.near_j)]
+			if bool(nm.hidden):
+				# That model's own detection range (its component's, 19.03).
+				gates.append([float(nm.get("det_hi", tf.det_hi)), int(br.near_i), int(br.near_j), "detection"])
+				gates.append([float(nm.get("det_lo", tf.det_lo)), int(br.near_i), int(br.near_j), "detection_gtg"])
 		if int(br.min_i) >= 0:
 			if float(tf.lo_range) < INF:
 				gates.append([float(tf.lo_range), int(br.min_i), int(br.min_j), "lone_operative"])
@@ -30604,7 +30744,7 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 	var place_ready := false
 	var max_loss := get_param("MOVE_FOR_SHOT_MAX_LOSS_INCHES", MOVE_FOR_SHOT_MAX_LOSS_INCHES)
 	var rej := {"cap": 0, "path": 0, "penalty": 0, "nudge": 0, "clamp": 0, "loss": 0, "turns": 0, "control": 0,
-		"solid": 0, "reach": 0, "place": 0, "dominated": 0, "budget": 0, "no_shot": 0, "ev": 0, "f002": 0}
+		"oc": 0, "solid": 0, "reach": 0, "place": 0, "dominated": 0, "budget": 0, "no_shot": 0, "ev": 0, "f002": 0}
 	var survivors: Array = []
 	for pr in props:
 		var t: Vector2 = pr.t
@@ -30645,6 +30785,12 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 		if base_in_range and not _unit_has_model_in_control_range(probe, target_pos):
 			rej.control += 1
 			continue
+		var spot_oc := base_oc
+		if base_oc > 0:
+			spot_oc = _mfs_oc_in_range(unit, unit_id, snapshot, members, positions, target_pos)
+			if spot_oc < base_oc:
+				rej.oc += 1  # 14.02: fewer models' OC within range of the objective than the straight move
+				continue
 		if _mfs_in_solid_feature(tm, positions, exts):
 			rej.solid += 1  # 13.06.01: a base would end through a Solid feature
 			continue
@@ -30682,7 +30828,7 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 		for key in only:
 			only_ids[key] = true
 		survivors.append({"t": t, "p": p, "positions": positions, "loss_in": loss_in, "only": only_ids,
-			"pairs": pairs_c, "hint": hint, "idx": int(pr.idx), "kind": str(pr.kind)})
+			"pairs": pairs_c, "hint": hint, "idx": int(pr.idx), "kind": str(pr.kind), "oc": spot_oc})
 
 	var t_scr := Time.get_ticks_usec()
 	# --- the probes: a clear line on the hint first, then least loss, then
@@ -30769,18 +30915,33 @@ static func _pick_shot_spot(unit: Dictionary, unit_id: String, snapshot: Diction
 			unit_name, facts.size(), str(top), props.size(), int(stats.pulled), rej_txt, survivors.size(), probes,
 			pairs_spent, ms_txt])
 		return {}
+	# Belt and braces on the trigger, now that a spot is about to be kept:
+	# never re-aim for a shot the straight move already had — ask the engine
+	# about the reachable enemies the distance pre-filter kept from it.
+	var unasked := {}
+	for key in facts:
+		if not base_ids.has(key):
+			unasked[key] = true
+	if _mfs_base_had_target(re, unit_id, unasked, base_board):
+		diag["base_has_shot"] = true
+		_debug_log_info("MOVE_FOR_SHOT %s: the straight move already has an eligible target the distance pre-filter dropped (it has drifted from the engine) — unchanged (%s)" % [
+			unit_name, ms_txt])
+		return {}
 	var tgt_id := str(pick.best.id)
 	var why: Dictionary = re.explain_target_ineligibility(unit_id, tgt_id, base_board)
+	if str(why.get("code", "?")) == "":
+		_debug_log_info("MOVE_FOR_SHOT %s: explain_target_ineligibility calls %s eligible from the straight move but the engine's target list does not (no Hunter profile check there) — the spot stands" % [
+			unit_name, tgt_id])
 	var base_edge_in := float(base_reach[tgt_id].min_edge_in) if base_reach.has(tgt_id) else -1.0
 	diag["best"] = pick.p
 	diag["why_code"] = str(why.get("code", ""))
-	_debug_log_info("MOVE_FOR_SHOT %s: reachable=%d targets=%s proposals=%d pulled_in=%d rejected{%s} survivors=%d probed=%d pairs=%d shots=%d best=(%.0f,%.0f) via %s target=%s why=%s ev=%.2f loss=%.1f (%s; why %.1f)" % [
+	_debug_log_info("MOVE_FOR_SHOT %s: reachable=%d targets=%s proposals=%d pulled_in=%d rejected{%s} survivors=%d probed=%d pairs=%d shots=%d best=(%.0f,%.0f) via %s target=%s why=%s ev=%.2f loss=%.1f oc=%d/%d (%s; why %.1f)" % [
 		unit_name, facts.size(), str(top), props.size(), int(stats.pulled), rej_txt, survivors.size(), probes,
 		pairs_spent, shots.size(), pick.p.x, pick.p.y, str(pick.kind), tgt_id, str(why.get("code", "")),
-		float(pick.best.ev), float(pick.loss_in), ms_txt, float(Time.get_ticks_usec() - t_prb) / 1000.0])
+		float(pick.best.ev), float(pick.loss_in), int(pick.oc), base_oc, ms_txt, float(Time.get_ticks_usec() - t_prb) / 1000.0])
 	return {
 		"pos": pick.t, "end": pick.p, "base_end": base_end, "centroid": centroid, "base_gap": base_gap,
-		"base_in_range": base_in_range, "loss_in": float(pick.loss_in), "target_id": tgt_id,
+		"base_in_range": base_in_range, "base_oc": base_oc, "oc": int(pick.oc), "loss_in": float(pick.loss_in), "target_id": tgt_id,
 		"target_name": str(pick.best.name), "ev": float(pick.best.ev), "n_elig": int(pick.n_elig),
 		"why_code": str(why.get("code", "")), "why": why, "base_edge_in": base_edge_in, "kind": str(pick.kind),
 		"members": members, "move_px": move_px, "target_ids": top_ids, "probes": probes, "reach_in": reach_in,
@@ -30826,6 +30987,15 @@ static func _move_for_shot_recheck(unit: Dictionary, unit_id: String, snapshot: 
 	if bool(pick.base_in_range) and not _unit_has_model_in_control_range(probe, target_pos):
 		out.why = "no model would be within range of the objective"
 		return out
+	var base_oc := int(pick.get("base_oc", 0))
+	out["base_oc"] = base_oc
+	out["oc"] = base_oc
+	if base_oc > 0:
+		var oc_now := _mfs_oc_in_range(unit, unit_id, snapshot, members, positions, target_pos)
+		out["oc"] = oc_now
+		if oc_now < base_oc:
+			out.why = "it would leave OC %d within range of the objective, not the straight move's %d (14.02)" % [oc_now, base_oc]
+			return out
 	var tm = _terrain_manager()
 	var exts: Array = []
 	for mb in members:
@@ -30851,7 +31021,8 @@ static func _move_for_shot_recheck(unit: Dictionary, unit_id: String, snapshot: 
 	out["ev"] = float(best.ev)
 	if str(best.id) != str(pick.target_id):
 		# The returned move's best target is another one: say why the straight
-		# move had no shot at THAT target.
+		# move had no shot at THAT target (the search already established, on
+		# the engine, that it had none at any reachable enemy).
 		var why: Dictionary = re.explain_target_ineligibility(unit_id, str(best.id), pick.base_board)
 		out["why_code"] = str(why.get("code", ""))
 		out["why_info"] = why
@@ -30909,6 +31080,16 @@ static func _move_for_shot_note(pick: Dictionary, check: Dictionary, obj_id: Str
 	var loss := float(check.get("loss_in", pick.loss_in))
 	var cost := "at no cost to objective progress" if loss <= 0.05 \
 			else "for %.1f\" less progress toward %s" % [loss, obj_id]
+	# 14.02: when the straight move already stood on the objective, say what
+	# the spot keeps there — every in-range model's OC (the re-check refuses
+	# a spot with less).
+	var base_oc := int(check.get("base_oc", pick.get("base_oc", 0)))
+	if base_oc > 0:
+		var oc_now := int(check.get("oc", base_oc))
+		if oc_now > base_oc:
+			cost += " (OC %d within range of %s, up from %d)" % [oc_now, obj_id, base_oc]
+		else:
+			cost += " (still OC %d within range of %s)" % [oc_now, obj_id]
 	return "%s for a shot next phase: %s — %s" % [turn, why, cost]
 
 # =============================================================================
