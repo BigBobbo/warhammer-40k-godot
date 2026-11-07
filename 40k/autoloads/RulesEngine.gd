@@ -6633,6 +6633,12 @@ static func _indirect_hit_fail_band_11e(actor_unit_id: String, target_unit_id: S
 			return 3  # remained stationary + a friendly spotter sees the target
 	return 5
 
+## Both units belong to the same player (owners are 1 / 2; an unset owner is
+## never "the same").
+static func _same_owner(a: Dictionary, b: Dictionary) -> bool:
+	var oa := int(a.get("owner", 0))
+	return oa > 0 and oa == int(b.get("owner", 0))
+
 static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	"""Issue #371: returns true if any alive model of actor has LoS to any alive
 	model of target, ignoring weapon range and ignoring Indirect Fire bypass.
@@ -6697,7 +6703,12 @@ static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board
 		return out
 	pairs.sort_custom(func(a, b): return a[0] < b[0])
 
-	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
+	# 13.09: "While a model is hidden, it can only be visible to ENEMY models
+	# that are within its detection range" — a friendly observer (the "visible
+	# friendly unit" rules: Author of the Codex, Master Tactician, MOB
+	# MENTALITY ...) is not limited by it.
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") \
+		if GameConstants.edition >= 11 and not _same_owner(actor_unit, target_unit) else null
 	# PERF: the 13.09 gate's observer-independent half, once per target model.
 	var hidden_gates := {}
 	var budget: int = pairs.size() if max_pairs <= 0 else mini(max_pairs, pairs.size())
@@ -6802,7 +6813,9 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	# an attached CHARACTER's models count; _target_model_entries).
 	var actor_models = actor_unit.get("models", [])
 	var target_entries := _target_model_entries(target_unit_id, board)
-	var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
+	# 13.09 limits a hidden model's visibility to ENEMY models only.
+	var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager") \
+		if GameConstants.edition >= 11 and not _same_owner(actor_unit, target_unit) else null
 
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
