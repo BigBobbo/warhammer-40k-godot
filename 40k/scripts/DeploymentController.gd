@@ -341,6 +341,20 @@ func begin_deploy(_unit_id: String) -> void:
 
 	# Check if this unit has Infiltrators ability
 	is_infiltrators_mode = GameState.unit_has_infiltrators(unit_id)
+	# L1-1 / 24.20: Infiltrators only applies when EVERY model of the unit has
+	# it, and an attached unit is a single unit (19.01) — so a combined session
+	# (bodyguard + attached CHARACTERs) is in Infiltrators mode only when the
+	# bodyguard AND every attached character have the ability. This is the
+	# phase's own merged rule (DeploymentPhase._validate_combined_char_data);
+	# reading the bodyguard alone let the UI place an Infiltrators squad's
+	# non-Infiltrators leader outside the zone, which the phase then refused.
+	if is_infiltrators_mode and is_combined_deployment:
+		for cm in combined_models:
+			var member_id := str(cm.get("unit_id", ""))
+			if member_id != unit_id and not GameState.unit_has_infiltrators(member_id):
+				is_infiltrators_mode = false
+				print("[DeploymentController] Unit %s has Infiltrators but attached %s does not — the attached unit deploys in its zone (24.20: every model must have it)" % [_unit_id, member_id])
+				break
 	if is_infiltrators_mode:
 		print("[DeploymentController] Unit %s has Infiltrators - deploying in Infiltrators mode" % _unit_id)
 		_show_infiltrator_exclusion()
@@ -757,7 +771,7 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 	# up against the boundary — instead of being rejected. A no-op whenever the
 	# block is already clear of it (_clamped_formation_anchor returns the anchor
 	# untouched unless every model ends up legal).
-	var clamped_anchor = _clamped_formation_anchor(world_pos, positions, formation_model_data, formation_rotations, zone)
+	var clamped_anchor = _clamped_formation_anchor(world_pos, positions, formation_model_data, formation_rotations, zone, remaining_indices)
 	if clamped_anchor != world_pos:
 		var anchor_shift = clamped_anchor - world_pos
 		for i in range(positions.size()):
@@ -789,7 +803,7 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 			all_valid = false
 			error_msg = "Models cannot be placed off the board"
 			break
-		if not _validate_formation_position(pos, model, zone, validate_rot):
+		if not _validate_formation_position(pos, model, zone, validate_rot, false, idx):
 			all_valid = false
 			# _validate_formation_position already surfaced the specific reason
 			# (e.g. ">9\" from enemy models") via its own toast; the fallback text
@@ -1205,6 +1219,13 @@ func _complete_deployment() -> void:
 		pending_embark_units = []
 		pending_attach_characters = []
 		print("[DeploymentController] ===== COMPOSITE DEPLOY COMPLETE =====")
+		# L1-2: a refusal leaves the placement session open (see
+		# _keep_session_after_refused_deploy). Only a single-player refusal lands
+		# here — a multiplayer submit always returns success + pending, and that
+		# path continues below unchanged.
+		if not result.get("success", false) and not result.get("pending", false):
+			_keep_session_after_refused_deploy(result, "COMPOSITE_DEPLOY")
+			return
 
 	else:
 		# Simple deployment with no embark/attach — use standard DEPLOY_UNIT action
@@ -1232,6 +1253,11 @@ func _complete_deployment() -> void:
 			print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
 			print("[DeploymentController] Errors: ", result.get("errors", []))
 			push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
+			# L1-2: keep the placement session open (multiplayer never lands
+			# here — its submit returns success + pending).
+			if not result.get("pending", false):
+				_keep_session_after_refused_deploy(result, "DEPLOY_UNIT")
+				return
 
 	_finalize_tokens()
 	_clear_previews()
@@ -1257,6 +1283,35 @@ func _complete_deployment() -> void:
 
 	if GameState.all_units_deployed():
 		emit_signal("deployment_complete")
+
+func _keep_session_after_refused_deploy(result: Dictionary, action_type: String) -> void:
+	"""L1-2: the phase REFUSED this Confirm (a single-player DEPLOY_UNIT /
+	COMPOSITE_DEPLOY; a multiplayer submit always returns success + pending, so
+	it never gets here). Leave the placement session exactly as it was — the
+	preview tokens stay previews, temp_positions / the combined roster / the
+	model-type picker stay live, and the unit keeps the DEPLOYING status this
+	open session owns — and tell the player why, so they can fix the placement
+	(reposition, undo, reset) and Confirm again.
+
+	The old handling finalized the previews and cleared the session anyway: the
+	tokens became permanent board tokens for a unit GameState still had no
+	positions for, its status stayed DEPLOYING (which no list or END_DEPLOYMENT
+	check counts), and the unit vanished from every list — stranded, never on
+	the table. No unit_confirmed / deployment_complete is emitted, so Main keeps
+	the unit card and its Confirm button up."""
+	var reason := str(result.get("error", ""))
+	if reason == "":
+		var errs = result.get("errors", [])
+		reason = ", ".join(errs) if errs is Array and not errs.is_empty() else "the placement is not legal"
+	print("[DeploymentController] %s refused for %s — placement kept open (%d/%d models staged): %s" % [
+		action_type, unit_id, get_placed_count(), get_total_model_count(), reason])
+	DebugLogger.warn("[DeploymentController] %s refused — placement kept open" % action_type, {
+		"unit_id": unit_id, "reason": reason, "errors": result.get("errors", [])})
+	# The tutorial gate already explains itself with its own "do this instead"
+	# toast (TutorialManager.on_action_blocked) — don't stack a second one.
+	if result.get("tutorial_blocked", false):
+		return
+	_show_toast("Deployment refused: %s" % reason)
 
 func _send_embarkation_action(transport_id: String, unit_ids: Array) -> void:
 	"""Send embarkation action through network sync (multiplayer only)"""
@@ -2529,7 +2584,7 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 	# Hold the whole block outside the Deep Strike / Infiltrators exclusion zone.
 	# try_place_formation_at() re-derives the same shifted anchor, so the drop
 	# lands on the previewed block.
-	var clamped_anchor = _clamped_formation_anchor(mouse_pos, positions, formation_model_data, ghost_rotations, zone)
+	var clamped_anchor = _clamped_formation_anchor(mouse_pos, positions, formation_model_data, ghost_rotations, zone, remaining_models)
 	if clamped_anchor != mouse_pos:
 		var shift = clamped_anchor - mouse_pos
 		for i in range(positions.size()):
@@ -2550,15 +2605,20 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 			# silent=true — per-frame formation-ghost colour check; a failure just
 			# reddens the ghosts instead of stacking a toast per model per frame
 			# (the click path in try_place_formation_at surfaces the reason).
-			var is_valid = _validate_formation_position(positions[i], model_data_for_validation, zone, model_rot, true)
+			var ghost_model_index: int = remaining_models[i] if i < remaining_models.size() else -1
+			var is_valid = _validate_formation_position(positions[i], model_data_for_validation, zone, model_rot, true, ghost_model_index)
 			ghost.set_validity(is_valid)
 
-func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0, silent: bool = false) -> bool:
+func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0, silent: bool = false, model_index: int = -1) -> bool:
 	"""Validate a single position in a formation. silent=true suppresses the
 	reinforcement/infiltrator failure toasts — the per-frame formation-ghost
 	colour check passes it so hovering an illegal drop just reddens the ghosts
 	instead of stacking a toast per model per frame; the click path (formation
-	placement) leaves it false so a rejected drop still explains why."""
+	placement) leaves it false so a rejected drop still explains why.
+	`model_index` is the staged slot (combined-roster index) the position is
+	for, so the wall check reads THAT model's unit keywords — in a combined
+	placement an attached CHARACTER is judged with its own keywords, as the
+	single-model click and the phase do. -1 falls back to the bodyguard's."""
 	if is_reinforcement_mode:
 		# Reinforcement (Deep Strike / Strategic Reserves): reinforcements arrive
 		# across the whole battlefield, NOT the owning player's deployment zone,
@@ -2593,11 +2653,12 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 			if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 				return false
 
-	# Check wall collision, honoring the deploying unit's traversal keywords.
+	# Check wall collision, honoring the traversal keywords of the unit that
+	# owns this model (L1-1: index-aware, see the docstring).
 	var test_model = model_data.duplicate()
 	test_model["position"] = pos
 	test_model["rotation"] = model_rotation
-	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
+	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords(model_index)):
 		return false
 
 	return true
@@ -2787,6 +2848,23 @@ func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_inde
 
 		if not in_zone:
 			return false
+
+	# L1-1: the same footprint gates the click path applies (try_place_at /
+	# _placement_position_is_legal), so a lifted model cannot be dropped where a
+	# fresh drop would be refused. Without them a Shift+click / pad-L3 nudge
+	# could park a model off the board edge (Infiltrators / reinforcement modes
+	# only test the centre point) or on a wall / solid 11e piece its unit can't
+	# end on (e.g. a MOUNTED leader on a tall ruin) — the ghost stayed green,
+	# Confirm showed, and the phase then refused the whole set-up.
+	var footprint: Dictionary = model_data.duplicate()
+	footprint["position"] = world_pos
+	footprint["rotation"] = rotation
+	if Measurement.model_outside_board(world_pos, footprint):
+		return false
+	# Index-aware: in a combined placement the lifted model may be an attached
+	# CHARACTER, judged with its own unit's traversal keywords (as the phase does).
+	if Measurement.model_overlaps_any_wall(footprint, _get_deploying_unit_keywords(model_index)):
+		return false
 
 	# Check overlap (excluding the model being repositioned)
 	return not _would_overlap_excluding_self(world_pos, model_data, model_index)
@@ -3094,7 +3172,7 @@ func _clamped_placement_position(world_pos: Vector2, model_data: Dictionary, rot
 	# Nothing legal nearby — leave the player's own aim alone.
 	return world_pos
 
-func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_array: Array, rotations: Array, zone: PackedVector2Array) -> Vector2:
+func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_array: Array, rotations: Array, zone: PackedVector2Array, model_indices: Array = []) -> Vector2:
 	"""Group edition of the clamp: shift a whole formation just far enough that
 	EVERY model clears the exclusion zone, keeping the block's shape and facing
 	intact. The formation layout is a pure translation of its anchor, so moving
@@ -3104,7 +3182,8 @@ func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_arr
 
 	All-or-nothing, like the drop it previews: if the shifted block is not
 	legal in full, the anchor is returned untouched and the ghosts redden
-	exactly as they do today."""
+	exactly as they do today. `model_indices[i]` is the staged slot of
+	positions[i] (index-aware wall check, see _validate_formation_position)."""
 	if not (is_reinforcement_mode or is_infiltrators_mode):
 		return anchor
 	if not _placement_clamp_active():
@@ -3162,7 +3241,8 @@ func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_arr
 		edge_model["rotation"] = rot
 		if Measurement.model_outside_board(candidate, edge_model):
 			return anchor
-		if not _validate_formation_position(candidate, md, zone, rot, true):
+		var slot: int = int(model_indices[i]) if i < model_indices.size() else -1
+		if not _validate_formation_position(candidate, md, zone, rot, true, slot):
 			return anchor
 
 	return anchor + shift
@@ -3359,7 +3439,9 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 		# Check if model center is inside enemy zone
 		if Geometry2D.is_point_in_polygon(world_pos, enemy_zone_poly_pixels):
 			if not silent:
-				_show_toast("Infiltrators must be >9\" from enemy deployment zone")
+				# L4-4: the edition's stand-off (11e 8", 10e 9"), like the two
+				# sibling toasts below — this one still said 9" at 11e.
+				_show_toast("Infiltrators must be >%.0f\" from enemy deployment zone (model is inside it)" % infiltrate_standoff)
 			return false
 
 		# Find minimum distance from model center to any edge of the enemy zone

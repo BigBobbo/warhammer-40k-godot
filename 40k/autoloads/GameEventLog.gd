@@ -106,6 +106,16 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"DEPLOY_UNIT", "COMPOSITE_DEPLOY":
 			if ai_desc != "":
 				return prefix + ai_desc
+			if action_type == "COMPOSITE_DEPLOY":
+				# L1-5 / 19.01: a COMPOSITE_DEPLOY sets the attached CHARACTERs up
+				# with their bodyguard as ONE unit (combined_char_data, or attach_data
+				# on the deploy-time dialog path), so name the leader(s) and count
+				# their models too — the bodyguard-only line ("Deployed Lootas Alpha
+				# (10 models)" for 10 Lootas + a Big Mek) read as if the leader was
+				# never set up. Logged after the action applied, so the attachment
+				# is live; a transport's embark composite has no attached
+				# characters and both helpers fall back to the plain name / count.
+				return prefix + "Deployed %s%s" % [_attached_unit_label(unit_id, unit_name), _attached_model_suffix(unit_id)]
 			return prefix + "Deployed %s%s" % [unit_name, _model_suffix(unit_id)]
 		"CHOOSE_DEPLOYMENT", "ROLL_OFF_DEPLOYMENT":
 			var log_text = action.get("_log_text", "")
