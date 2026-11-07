@@ -3015,8 +3015,48 @@ const MELEE_AGGRESSION_MIN_MOVE_RATIO: float = 0.6      # Move at least 60% of M
 # Used to estimate fight-phase damage and inform hold/fall-back decisions
 const SURVIVAL_LETHAL_THRESHOLD: float = 0.75      # If expected damage >= 75% of remaining wounds, unit is likely destroyed
 const SURVIVAL_SEVERE_THRESHOLD: float = 0.5       # If expected damage >= 50% of remaining wounds, unit is badly hurt
-const SURVIVAL_FALL_BACK_BONUS: float = 2.0        # Score bonus toward falling back when survival is threatened
-const SURVIVAL_HOLD_BONUS: float = 1.5             # Score bonus toward holding when unit can survive the fight phase
+const SURVIVAL_FALL_BACK_BONUS: float = 2.0        # Read only by FIX_STAY_ENGAGED: × the unit's points per wound (leave_survival) when survival.recommendation is "fall_back"
+const SURVIVAL_HOLD_BONUS: float = 1.5             # Read only by FIX_STAY_ENGAGED: × the unit's points per wound (stay_survival) when survival.recommendation is "hold"
+
+# FIX_STAY_ENGAGED (COO-18; absorbs SUR-06 / SUR-18 / DEN-15 / OFF-09) —
+# stay engaged on purpose. _decide_engaged_unit stayed only on an objective
+# (winning the OC war, sole holder, late game); everywhere else its default
+# branch fell back whenever a fall-back path existed — even locked with a
+# unit it would wipe in its own Fight phase, where it strikes first (12.04:
+# the player whose turn it is selects first when no Fights First unit is
+# eligible). Falling back is not free. Afterwards the unit cannot shoot,
+# declare a charge or start an action this turn (09.07; 11.02; 16.01) unless
+# a Fall Back and X rule says otherwise; while it stays engaged it cannot be
+# targeted by enemy shooting (04.02; a MONSTER/VEHICLE only gets -1 to hit
+# and no [BLAST], 17.03 + errata) and a MONSTER/VEHICLE keeps shooting at
+# close quarters (10.06). And a Desperate Escape costs a hazard roll per
+# model plus a battle-shock roll (09.07; Commentary 09.07.01 — also when an
+# enemy rule forces the test). The survival assessment (T7-27) already
+# produced a "hold" / "fall_back" recommendation that nothing read, and
+# SURVIVAL_HOLD_BONUS / SURVIVAL_FALL_BACK_BONUS were never read either.
+# With this on, the default fall back is replaced by a STAY-vs-LEAVE ledger
+# in points (points per wound, the T7-24 rule), priced on the fall-back
+# generator's own destinations; the unit stays (REMAIN_STATIONARY) when STAY
+# beats LEAVE by STAY_ENGAGED_MIN_MARGIN. On an objective it runs only when
+# leaving would not change who controls it (the existing OC rules keep those
+# cases). Evidence: exam mv08 (Custodian Guard locked with Prosecutors it
+# wipes fell back). 0 = previous behaviour (byte-identical play). 11e only.
+const FIX_STAY_ENGAGED: float = 0.0
+const STAY_ENGAGED_MIN_MARGIN: float = 5.0           # pts STAY must beat LEAVE by; ties keep the old fall back
+const STAY_ENGAGED_FIGHT_WEIGHT: float = 1.0         # × min(expected melee damage, wounds left) × the enemy's pts per wound (stay_fight)
+const STAY_ENGAGED_KILL_BONUS_FRAC: float = 0.25     # share of the engaged enemy's points when our fight (+ close-quarters shooting) reaches its wounds (stay_kill)
+const STAY_ENGAGED_LOSS_WEIGHT: float = 1.0          # × our wounds expected lost × our pts per wound: strike-back (stay_loss), hazard rolls (leave_hazard)
+const STAY_ENGAGED_STRIKE_FIRST: float = 1.0         # share of our casualties on the focused enemy taken off its strike-back (12.04); 0 = raw survival estimate
+const STAY_ENGAGED_LOCK_WEIGHT: float = 1.0          # × a locked phase_plan lock target's ranged strength × our army's pts per wound (stay_lock)
+const STAY_ENGAGED_LOCK_MV_FACTOR: float = 0.25      # share of a MONSTER/VEHICLE lock target's shooting denied (it keeps close-quarters shooting, 10.06)
+const STAY_ENGAGED_LOCK_HOLDER_FRAC: float = 0.15    # share of an engaged objective holder's / action performer's points for pinning it (16.01)
+const STAY_ENGAGED_SHIELD_WEIGHT: float = 0.5        # share of the reaching enemy fire assumed aimed at this unit (stay_shield, 04.02)
+const STAY_ENGAGED_ENEMY_HOLDS: float = 0.5          # prior that the engaged enemy stays engaged in its own Movement phase (the shield needs it)
+const STAY_ENGAGED_CQ_MV_WEIGHT: float = 1.0         # × a MONSTER/VEHICLE's close-quarters shooting value this turn (stay_cq_shoot, 10.06)
+const STAY_ENGAGED_CQ_WEIGHT: float = 0.0            # the same for a non-MONSTER/VEHICLE unit's [PISTOL]/[CLOSE-QUARTERS] weapons; ships 0 (see the AI_TUNING.md row)
+const STAY_ENGAGED_FB_X_WEIGHT: float = 1.0          # × what a Fall Back and Shoot / Charge unit still does after falling back (leave_fb_shoot / leave_fb_charge)
+const STAY_ENGAGED_LEAVE_OBJECTIVE_PTS: float = 25.0 # pts when the fall back puts a model on an objective and improves who controls it (leave_objective)
+const STAY_ENGAGED_SHOCK_COST_FRAC: float = 0.1      # share of our points × P(fail) for the battle-shock roll a Desperate Escape forces (leave_shock)
 
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
@@ -12446,6 +12486,12 @@ static func _decide_engaged_unit(
 		_get_round_strategy_modifiers(engaged_battle_round),
 		_get_army_strategy_modifiers(snapshot, player))
 
+	# FIX_STAY_ENGAGED: our / the enemy's OC at the held objective (set below
+	# when the unit is on one) for the "leaving would change control" gate.
+	# Plain locals: nothing reads them when the flag is off.
+	var sty_f_oc := 0
+	var sty_e_oc := 0
+
 	if on_objective:
 		# Check if our OC at this objective would be reduced by falling back
 		var friendly_oc_here = _get_oc_at_position(
@@ -12471,6 +12517,8 @@ static func _decide_engaged_unit(
 			friendly_oc_here = oah_f
 			enemy_oc_here = oah_e
 			unit_oc = oah_u
+		sty_f_oc = int(friendly_oc_here)
+		sty_e_oc = int(enemy_oc_here)
 
 		# T7-43: In rounds 4-5, units on objectives are biased toward holding
 		# even if survival is at risk — objective control is paramount
@@ -12547,6 +12595,49 @@ static func _decide_engaged_unit(
 		var ability_summary = " + ".join(ability_text)
 		print("AIDecisionMaker: %s has Fall Back and %s — fall back is more attractive" % [unit_name, ability_summary])
 
+	# --- FIX_STAY_ENGAGED: stay engaged on purpose (11e 12.04 / 09.07 / 04.02 / 10.06) ---
+	# Instead of always falling back here, price STAY against LEAVE on one
+	# points ledger (_stay_engaged_evaluate), with LEAVE priced on the very
+	# destinations the fall back below would use (computed once, reused). On
+	# an objective it only runs when leaving would not change who controls
+	# it — the OC rules above keep those cases (deliberate Fall Back and
+	# Charge, lethal-but-others-hold). Off: the flag is the first term and
+	# nothing else is read; the fall back below runs exactly as before.
+	var sty_eval: Dictionary = {}
+	var sty_fb_dests: Dictionary = {}
+	var sty_fb_ready := false
+	if get_param("FIX_STAY_ENGAGED", FIX_STAY_ENGAGED) >= 0.5 and GameConstants.edition >= 11 \
+			and "BEGIN_FALL_BACK" in move_types and "REMAIN_STATIONARY" in move_types \
+			and not (survival.get("engaging_enemy_ids", []) as Array).is_empty() \
+			and (not on_objective or signi(sty_f_oc - sty_e_oc) == signi(sty_f_oc - int(unit_oc) - sty_e_oc)):
+		sty_fb_dests = _compute_fall_back_destinations(unit, unit_id, snapshot, enemies, objectives, player)
+		sty_fb_ready = true
+		if not sty_fb_dests.is_empty():
+			sty_eval = _stay_engaged_evaluate(unit, unit_id, unit_name, survival, sty_fb_dests,
+				objectives, enemies, snapshot, player, fb_and_charge, fb_and_shoot)
+		if not sty_eval.is_empty():
+			var sty_min_margin: float = float(sty_eval.min_margin)
+			_debug_log_info("STAY-ENGAGED ledger %s: stay %.1f %s | leave %.1f %s | margin %.1f (min %.1f) vs %s" % [
+				unit_name, float(sty_eval.stay), str(sty_eval.stay_terms), float(sty_eval.leave),
+				str(sty_eval.leave_terms), float(sty_eval.stay) - float(sty_eval.leave), sty_min_margin,
+				str(sty_eval.target_name)])
+			if float(sty_eval.stay) - float(sty_eval.leave) >= sty_min_margin:
+				print("AIDecisionMaker: [FIX_STAY_ENGAGED] %s engaged_choice old=fall_back new=stay stay=%.1f leave=%.1f top=%s" % [
+					unit_name, float(sty_eval.stay), float(sty_eval.leave), str(sty_eval.top)])
+				_stay_engaged_record(unit_id, unit_name, sty_eval, "stay", centroid)
+				_add_thinking_step("%s: stays engaged with %s — staying %.1f pts (%s) vs falling back %.1f pts (%s)" % [
+					unit_name, str(sty_eval.target_name), float(sty_eval.stay), _stay_engaged_terms_text(sty_eval.stay_terms),
+					float(sty_eval.leave), _stay_engaged_terms_text(sty_eval.leave_terms)])
+				for sty_n in sty_eval.stay_notes:
+					_add_thinking_step("%s move: %s" % [unit_name, sty_n])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s stays engaged with %s (%s; staying %.1f pts vs falling back %.1f)" % [
+						unit_name, str(sty_eval.target_name), str(sty_eval.reason), float(sty_eval.stay), float(sty_eval.leave)],
+					"_ai_move_adjustments": (sty_eval.stay_notes as Array).duplicate(),
+				}
+
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
 		var base_reason = "not on objective" if not on_objective else "losing OC war"
@@ -12565,10 +12656,16 @@ static func _decide_engaged_unit(
 			reason = "%s, can still shoot (Fall Back and Shoot)" % base_reason
 
 		# Compute fall-back destinations for all models (MOV-6)
-		var fall_back_destinations = _compute_fall_back_destinations(
+		# FIX_STAY_ENGAGED: reuse the destinations the ledger priced (same call).
+		var fall_back_destinations = sty_fb_dests if sty_fb_ready else _compute_fall_back_destinations(
 			unit, unit_id, snapshot, enemies, objectives, player
 		)
 		if not fall_back_destinations.is_empty():
+			# FIX_STAY_ENGAGED: the ledger said leave — record the comparison and
+			# say what each option was worth (no fire tag: the decision is unchanged).
+			if not sty_eval.is_empty():
+				_stay_engaged_record(unit_id, unit_name, sty_eval, "fall_back", centroid)
+				reason = "%s; falling back is worth %.1f pts, staying %.1f" % [reason, float(sty_eval.leave), float(sty_eval.stay)]
 			print("AIDecisionMaker: %s falling back with %d model destinations (%s)" % [unit_name, fall_back_destinations.size(), reason])
 			# 11e 09.07 fall-back modes: battle-shocked units MUST take
 			# Desperate Escape (hazard roll per model); others default to
@@ -12580,12 +12677,17 @@ static func _decide_engaged_unit(
 						unit_name, fb_alive / 3.0, fb_alive])
 				else:
 					_add_thinking_step("%s falls back via Ordered Retreat — %s" % [unit_name, reason])
-			return {
+			var fb_decision := {
 				"type": "BEGIN_FALL_BACK",
 				"actor_unit_id": unit_id,
 				"_ai_model_destinations": fall_back_destinations,
 				"_ai_description": "%s falls back (%s)" % [unit_name, reason]
 			}
+			if not sty_eval.is_empty():
+				for sty_n in sty_eval.leave_notes:
+					_add_thinking_step("%s move: %s" % [unit_name, sty_n])
+				fb_decision["_ai_move_adjustments"] = (sty_eval.leave_notes as Array).duplicate()
+			return fb_decision
 		else:
 			# Could not compute valid fall-back positions — remain stationary
 			print("AIDecisionMaker: %s cannot find valid fall-back positions, remaining stationary" % unit_name)
@@ -12852,6 +12954,815 @@ static func _assess_engaged_unit_survival(
 		"engaging_enemy_ids": engaging_ids,
 		"recommendation": recommendation
 	}
+
+# =============================================================================
+# FIX_STAY_ENGAGED: STAY ENGAGED OR FALL BACK (11e 12.04 / 09.07 / 04.02 / 10.06)
+# =============================================================================
+# _stay_engaged_evaluate prices the two options an engaged unit has in its own
+# Movement phase on one ledger, in points (points per wound, the T7-24 rule):
+#   STAY (REMAIN_STATIONARY)
+#     stay_fight     wounds our unit (bodyguard + attached characters) removes
+#                    from the engaged enemy in OUR Fight phase
+#     stay_kill      a share of the enemy's points when that wipes it out
+#     stay_loss      the strike-back, cut by the casualties we inflict first
+#                    (12.04: with no Fights First unit the active player picks first)
+#     stay_cq_shoot  close-quarters shooting in our Shooting phase (10.06)
+#     stay_lock      a phase_plan lock target kept from shooting next turn, or an
+#                    objective holder / action performer pinned (16.01)
+#     stay_shield    enemy shooting avoided while still engaged (04.02; 17.03)
+#     stay_survival  the T7-27 "hold" recommendation
+#   LEAVE (BEGIN_FALL_BACK to the fall-back generator's own destinations)
+#     leave_fb_shoot / leave_fb_charge  Fall Back and Shoot / Charge
+#     leave_objective  the fall back puts a model on an objective and improves
+#                      who controls it (14.02)
+#     leave_hazard / leave_shock  a Desperate Escape's hazard rolls (06.03) and
+#                      battle-shock roll (09.07; Commentary 09.07.01)
+#     leave_survival   the T7-27 "fall_back" recommendation
+# Pure: reads the snapshot and the live rules, writes nothing (no statics, so
+# nothing for reset_caches or the planning-state snapshot). {} = nothing to
+# price (no points data, or no engaged enemy left), and the caller keeps the
+# old fall back.
+static func _stay_engaged_evaluate(unit: Dictionary, unit_id: String, unit_name: String,
+		survival: Dictionary, fb_dests: Dictionary, objectives: Array, enemies: Dictionary,
+		snapshot: Dictionary, player: int, fb_and_charge: bool, fb_and_shoot: bool) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {})
+	var re = _rules_engine()
+	# --- Our unit (19.01: an Attached unit is ONE unit) and the army's rate ---
+	var ours: Dictionary = _stay_engaged_group(unit_id, snapshot)
+	var ppw_u: float = float(ours.ppw)
+	var our_hp: float = float(ours.hp)
+	if ppw_u <= 0.0 or our_hp <= 0.0:
+		return {}
+	var our_ids: Array = ours.ids
+	var pts_u: float = float(ours.pts)
+	var our_mv: bool = bool(ours.mv)
+	var our_max_range := 0.0
+	for cid in our_ids:
+		our_max_range = maxf(our_max_range, _get_max_weapon_range(units.get(cid, {})))
+	var friendly_units: Dictionary = _get_units_for_player(snapshot, player)
+	var army_pts := 0.0
+	var army_w := 0.0
+	for fid in friendly_units:
+		var fu: Dictionary = friendly_units[fid]
+		army_pts += float(fu.get("meta", {}).get("points", 0))
+		army_w += float(int(fu.get("meta", {}).get("stats", {}).get("wounds", 1)) * _get_alive_models(fu).size())
+	var army_ppw: float = army_pts / army_w if army_pts > 0.0 and army_w > 0.0 else ppw_u
+	var heads: Array = _stay_engaged_enemy_heads(enemies, snapshot)
+	# --- The engaged enemy groups, each folded onto its head (19.02) ---
+	# in = their melee damage on us: the same estimate as survival.expected_damage.
+	var groups: Dictionary = {}
+	var order: Array = []
+	for eid in survival.get("engaging_enemy_ids", []):
+		var hid: String = _attached_unit_target_id(str(eid), snapshot)
+		if not groups.has(hid):
+			var g: Dictionary = _stay_engaged_group(hid, snapshot)
+			if (g.ids as Array).is_empty() or float(g.hp) <= 0.0:
+				continue
+			g["in"] = 0.0
+			g["out"] = 0.0
+			groups[hid] = g
+			order.append(hid)
+		var eu: Dictionary = enemies.get(str(eid), units.get(str(eid), {}))
+		if not eu.is_empty():
+			groups[hid]["in"] = float(groups[hid]["in"]) + _estimate_melee_damage(eu, unit, snapshot)
+	if order.is_empty():
+		return {}
+	# --- Our Fight phase: damage into each group; focus the most valuable ---
+	var best_hid := ""
+	var best_take := -1.0
+	for hid in order:
+		var g: Dictionary = groups[hid]
+		var head_u: Dictionary = units.get(hid, {})
+		var o := 0.0
+		for cid in our_ids:
+			o += _estimate_melee_damage(units.get(cid, {}), head_u, snapshot)
+		g["out"] = o
+		var take: float = minf(o, float(g.hp)) * float(g.ppw)
+		if take > best_take:
+			best_take = take
+			best_hid = hid
+	var gs: Dictionary = groups[best_hid]
+	var out_s: float = float(gs.out)
+	var hp_s: float = float(gs.hp)
+	var ppw_s: float = float(gs.ppw)
+	var pts_s: float = float(gs.pts)
+	var t_name: String = str(gs.name)
+	var engaged_names: Array = []
+	for hid in order:
+		engaged_names.append(str(groups[hid].name))
+	var w_fight := get_param("STAY_ENGAGED_FIGHT_WEIGHT", STAY_ENGAGED_FIGHT_WEIGHT)
+	var w_kill := get_param("STAY_ENGAGED_KILL_BONUS_FRAC", STAY_ENGAGED_KILL_BONUS_FRAC)
+	var w_loss := get_param("STAY_ENGAGED_LOSS_WEIGHT", STAY_ENGAGED_LOSS_WEIGHT)
+	var w_first := get_param("STAY_ENGAGED_STRIKE_FIRST", STAY_ENGAGED_STRIKE_FIRST)
+	# --- Close-quarters shooting in our Shooting phase (10.06) ---
+	# Eligible while engaged unless it advanced or cannot shoot. A MONSTER/
+	# VEHICLE shoots the engaged group (no [BLAST], -1 to hit except
+	# [CLOSE-QUARTERS] weapons) or the best other target in range (-1 to hit,
+	# one sight-line check). Other units only fire [CLOSE-QUARTERS]/[PISTOL]
+	# weapons at the engaged group (STAY_ENGAGED_CQ_WEIGHT, ships 0).
+	var flags_u: Dictionary = unit.get("flags", {})
+	var can_cq: bool = not bool(flags_u.get("cannot_shoot", false)) and not bool(flags_u.get("advanced", false))
+	var cq_val := 0.0
+	var cq_on_s := 0.0
+	var cq_dmg := 0.0
+	var cq_name := ""
+	var cq_minus1 := false
+	if can_cq and our_mv:
+		var w_cq_mv := get_param("STAY_ENGAGED_CQ_MV_WEIGHT", STAY_ENGAGED_CQ_MV_WEIGHT)
+		if w_cq_mv > 0.0:
+			var a_dmg := 0.0
+			for cid in our_ids:
+				a_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 1, true, false, true)
+			var a_take: float = (minf(out_s + a_dmg, hp_s) - minf(out_s, hp_s)) * ppw_s
+			var b_id := ""
+			var b_take := 0.0
+			var b_dmg := 0.0
+			for tid in heads:
+				if groups.has(tid):
+					continue
+				var tu: Dictionary = units.get(tid, {})
+				var gap := _get_closest_model_distance_inches(unit, tu)
+				if gap > our_max_range:
+					continue
+				var t_eng := _stay_engaged_friendly_engaged_with(tid, our_ids, player, snapshot)
+				if t_eng and not _stay_engaged_is_mv(tu):
+					continue  # 04.02: engaged with another of our units
+				var d := 0.0
+				for cid in our_ids:
+					d += _stay_engaged_ranged_damage(units.get(cid, {}), tu, 1, false, false, t_eng, gap)
+				var tg: Dictionary = _stay_engaged_group(tid, snapshot)
+				var tk: float = minf(d, float(tg.hp)) * float(tg.ppw)
+				if tk > b_take:
+					b_take = tk
+					b_id = tid
+					b_dmg = d
+			if b_id != "" and re != null:
+				var sl: Dictionary = re.unit_sight_line(unit_id, b_id, snapshot, false)
+				if not bool(sl.get("has_los", false)):
+					b_take = 0.0
+			if a_take > 0.0 and a_take >= b_take:
+				cq_val = a_take * w_cq_mv
+				cq_on_s = a_dmg
+				cq_dmg = a_dmg
+				cq_name = t_name
+				cq_minus1 = true
+			elif b_take > 0.0:
+				cq_val = b_take * w_cq_mv
+				cq_dmg = b_dmg
+				cq_name = _dn(units.get(b_id, {}), b_id)
+				cq_minus1 = true
+	elif can_cq:
+		var w_cq := get_param("STAY_ENGAGED_CQ_WEIGHT", STAY_ENGAGED_CQ_WEIGHT)
+		if w_cq > 0.0:
+			var c_dmg := 0.0
+			for cid in our_ids:
+				c_dmg += _stay_engaged_ranged_damage(units.get(cid, {}), units.get(best_hid, {}), 0, false, true, true)
+			if c_dmg > 0.0:
+				cq_val = (minf(out_s + c_dmg, hp_s) - minf(out_s, hp_s)) * ppw_s * w_cq
+				cq_on_s = c_dmg
+				cq_dmg = c_dmg
+				cq_name = t_name
+	# --- Who strikes first in our Fight phase (12.04) ---
+	# No Fights First on their side, or on ours too: it is our turn, we pick first.
+	var enemy_ff := false
+	var our_ff := false
+	if re != null:
+		var fs = load("res://scripts/rules/FightSequencer.gd").new()
+		enemy_ff = bool(fs.group_is_fights_first(best_hid, snapshot))
+		our_ff = bool(fs.group_is_fights_first(unit_id, snapshot))
+	var we_first: bool = (not enemy_ff) or our_ff
+	var kill_frac: float = clampf((out_s + cq_on_s) / hp_s, 0.0, 1.0)
+	var in_raw := 0.0
+	var in_adj := 0.0
+	var in_s := 0.0
+	for hid in order:
+		var gin: float = float(groups[hid]["in"])
+		in_raw += gin
+		if hid == best_hid:
+			in_s = gin
+			in_adj += (gin * maxf(0.0, 1.0 - w_first * kill_frac)) if we_first else gin
+		else:
+			in_adj += gin
+	var in_s_adj: float = (in_s * maxf(0.0, 1.0 - w_first * kill_frac)) if we_first else in_s
+	var surv_u: float = clampf(1.0 - in_adj / our_hp, 0.0, 1.0)
+	var surv: Dictionary = {}
+	var p_eng := 0.0
+	for hid in order:
+		surv[hid] = (1.0 - kill_frac) if hid == best_hid else 1.0
+		p_eng = maxf(p_eng, float(surv[hid]))
+	# --- Is there an enemy turn left? (round 5 and we play second: no) ---
+	var meta: Dictionary = snapshot.get("meta", {})
+	var br := int(meta.get("battle_round", snapshot.get("battle_round", 1)))
+	var next_turn: bool = not (br >= MAX_BATTLE_ROUNDS_AI and player != int(meta.get("first_turn_player", 1)))
+	var nt := 1.0 if next_turn else 0.0
+	# --- Lock (DEN-15): a dangerous shooter or an objective holder kept engaged ---
+	# An engaged enemy that stays engaged or falls back cannot shoot normally
+	# in its turn (04.02, 09.07) unless it can Fall Back and Shoot; a
+	# MONSTER/VEHICLE keeps close-quarters shooting (10.06). An engaged unit
+	# cannot start an action (16.01; TITANIC units excepted).
+	var locks: Array = _get_phase_plan(player).get("lock_targets", [])
+	var w_lock := get_param("STAY_ENGAGED_LOCK_WEIGHT", STAY_ENGAGED_LOCK_WEIGHT)
+	var lock_mv := get_param("STAY_ENGAGED_LOCK_MV_FACTOR", STAY_ENGAGED_LOCK_MV_FACTOR)
+	var holder_frac := get_param("STAY_ENGAGED_LOCK_HOLDER_FRAC", STAY_ENGAGED_LOCK_HOLDER_FRAC)
+	var lock_val := 0.0
+	var lock_names: Array = []
+	var pin_names: Array = []
+	for hid in order:
+		var g: Dictionary = groups[hid]
+		var is_lock := false
+		var holder := false
+		var deny := 1.0
+		var rs := 0.0
+		for cid in g.ids:
+			var cu: Dictionary = units.get(cid, {})
+			if cid in locks:
+				is_lock = true
+			var pa = cu.get("flags", {}).get("performing_action", "")
+			if pa is String and pa != "":
+				holder = true
+			if not holder:
+				for op in objectives:
+					if _unit_has_model_in_control_range(cu, op):
+						holder = true
+						break
+			if AIAbilityAnalyzerData.can_fall_back_and_shoot(cid, cu, units):
+				deny = 0.0
+			rs += _estimate_unit_ranged_strength(cu)
+		if bool(g.titanic):
+			holder = false
+		if deny > 0.0 and bool(g.mv):
+			deny = lock_mv
+		var share: float = w_lock * surv_u * nt * float(surv[hid])
+		if is_lock and deny * rs * share > 0.0:
+			lock_val += deny * rs * army_ppw * share
+			lock_names.append(str(g.name))
+		if holder and share > 0.0:
+			lock_val += holder_frac * float(g.pts) * share
+			pin_names.append(str(g.name))
+	# --- Shield (SUR-06): enemy fire avoided while still engaged next turn ---
+	var shield_val := 0.0
+	var shooters := 0
+	if next_turn and p_eng > 0.0:
+		var saved := 0.0
+		for xid in heads:
+			if groups.has(xid):
+				continue
+			var xg: Dictionary = _stay_engaged_group(xid, snapshot)
+			var reach: Array = []
+			for cid in xg.ids:
+				var cu: Dictionary = units.get(cid, {})
+				var rng := _get_max_weapon_range(cu)
+				if rng <= 0.0:
+					continue
+				var mv_in := float(cu.get("meta", {}).get("stats", {}).get("move", 6))
+				if _get_closest_model_distance_inches(cu, unit) <= rng + mv_in:
+					reach.append(cid)
+			if reach.is_empty():
+				continue
+			if re != null and not bool(xg.mv) and re.is_unit_engaged(xid, snapshot):
+				continue  # engaged itself: it cannot shoot normally either way
+			var full := 0.0
+			var partial := 0.0
+			for cid in reach:
+				full += _stay_engaged_ranged_damage(units.get(cid, {}), unit, 0)
+				if our_mv:
+					partial += _stay_engaged_ranged_damage(units.get(cid, {}), unit, 1, false, false, true)
+			var s: float = (full - partial) if our_mv else full
+			if s > 0.0:
+				saved += s
+				shooters += 1
+		var w_shield := get_param("STAY_ENGAGED_SHIELD_WEIGHT", STAY_ENGAGED_SHIELD_WEIGHT)
+		var holds := get_param("STAY_ENGAGED_ENEMY_HOLDS", STAY_ENGAGED_ENEMY_HOLDS)
+		shield_val = w_shield * surv_u * p_eng * holds * minf(saved, our_hp - minf(in_adj, our_hp)) * ppw_u
+	# --- Leave: how the fall back would be made (09.07; Commentary 09.07.01) ---
+	var fbm: Dictionary = _stay_engaged_fall_back_mode(unit, unit_id, snapshot, fb_dests, enemies)
+	var hazard_val := 0.0
+	var shock_val := 0.0
+	var shock_p := 0.0
+	if bool(fbm.de):
+		hazard_val = -w_loss * minf(float(fbm.e_mw), our_hp) * ppw_u
+		if not bool(fbm.shocked):
+			shock_p = _p_2d6_fail(_effective_leadership_for(unit_id, unit, snapshot))
+			shock_val = -get_param("STAY_ENGAGED_SHOCK_COST_FRAC", STAY_ENGAGED_SHOCK_COST_FRAC) * pts_u * shock_p
+	var probe: Dictionary = _stay_engaged_probe(unit, fb_dests)
+	var w_fbx := get_param("STAY_ENGAGED_FB_X_WEIGHT", STAY_ENGAGED_FB_X_WEIGHT)
+	# Fall Back and Shoot: the best shot from the fall-back spot (04.02: not at
+	# a unit another of ours is still engaged with, unless MONSTER/VEHICLE).
+	var fbs_val := 0.0
+	var fbs_dmg := 0.0
+	var fbs_name := ""
+	if fb_and_shoot and w_fbx > 0.0 and our_max_range > 0.0:
+		var bt := ""
+		var bt_take := 0.0
+		var bt_dmg := 0.0
+		for tid in heads:
+			var tu: Dictionary = units.get(tid, {})
+			var gap := _get_closest_model_distance_inches(probe, tu)
+			if gap > our_max_range:
+				continue
+			var t_eng := _stay_engaged_friendly_engaged_with(tid, our_ids, player, snapshot)
+			if t_eng and not _stay_engaged_is_mv(tu):
+				continue
+			var d := 0.0
+			for cid in our_ids:
+				var shooter: Dictionary = probe if str(cid) == unit_id else units.get(cid, {})
+				d += _stay_engaged_ranged_damage(shooter, tu, 1 if t_eng else 0, false, false, t_eng, gap)
+			var tg: Dictionary = groups[tid] if groups.has(tid) else _stay_engaged_group(tid, snapshot)
+			var tk: float = minf(d, float(tg.hp)) * float(tg.ppw)
+			if tk > bt_take:
+				bt_take = tk
+				bt = tid
+				bt_dmg = d
+		if bt != "" and re != null:
+			# The unit has moved: one sight-line check on a board with it at the
+			# fall-back destinations (shallow copies, the _has_shot_from pattern).
+			var hypo: Dictionary = snapshot.duplicate()
+			var hu: Dictionary = units.duplicate()
+			hu[unit_id] = probe
+			hypo["units"] = hu
+			if not bool(re.unit_sight_line(unit_id, bt, hypo, false).get("has_los", false)):
+				bt_take = 0.0
+		if bt_take > 0.0:
+			fbs_val = w_fbx * bt_take
+			fbs_dmg = bt_dmg
+			fbs_name = _dn(units.get(bt, {}), bt)
+	# Fall Back and Charge: charge back into the focused group as the charger
+	# (Fights First, 11.04), at the odds of the gap the fall back leaves.
+	var fbc_val := 0.0
+	var fbc_p := 0.0
+	var fbc_gap := -1.0
+	if fb_and_charge and w_fbx > 0.0:
+		fbc_gap = _get_closest_model_distance_inches(probe, units.get(best_hid, {}))
+		if fbc_gap <= CHARGE_RANGE_PX / PIXELS_PER_INCH:
+			fbc_p = _charge_success_probability(_charge_roll_needed(fbc_gap))
+		if fbc_p > 0.0:
+			var kf_charge: float = clampf(out_s / hp_s, 0.0, 1.0)
+			var in_charge: float = in_s * maxf(0.0, 1.0 - w_first * kf_charge)
+			var charge_net: float = w_fight * minf(out_s, hp_s) * ppw_s
+			if out_s >= hp_s:
+				charge_net += w_kill * pts_s
+			charge_net -= w_loss * minf(in_charge, our_hp) * ppw_u
+			fbc_val = w_fbx * fbc_p * maxf(0.0, charge_net)
+	# The fall back puts a model on an objective it is not on yet and improves
+	# who controls it (14.02) — OC read as _pick_fall_back_target reads it.
+	var obj_val := 0.0
+	var obj_id := ""
+	var oah_on: bool = get_param("FIX_OBJ_AREA_HOLD", FIX_OBJ_AREA_HOLD) >= 0.5
+	var oah_mm = _held_dup_mm() if oah_on else null
+	for op in objectives:
+		var od: Dictionary = _held_dup_objective_at(snapshot, op) if oah_mm != null else {}
+		var mm_use = oah_mm if not od.is_empty() else null
+		var on_now: bool = _unit_on_objective(unit, op, snapshot) if oah_on else _unit_has_model_in_control_range(unit, op)
+		var on_after: bool = _unit_on_objective(probe, op, snapshot) if oah_on else _unit_has_model_in_control_range(probe, op)
+		if on_now or not on_after:
+			continue
+		var u_oc := _unit_oc_at_position(op, unit_id, probe, friendly_units, od, mm_use)
+		if u_oc <= 0:
+			continue
+		var f_oc := 0
+		for fid in friendly_units:
+			if str(fid) in our_ids:
+				continue
+			f_oc += _unit_oc_at_position(op, str(fid), friendly_units[fid], friendly_units, od, mm_use)
+		var e_oc := _get_oc_at_position(op, enemies, player, false, od, mm_use)
+		if signi(f_oc + u_oc - e_oc) > signi(f_oc - e_oc):
+			obj_val = get_param("STAY_ENGAGED_LEAVE_OBJECTIVE_PTS", STAY_ENGAGED_LEAVE_OBJECTIVE_PTS)
+			obj_id = _objective_id_at(snapshot, op)
+			break
+	var rec: String = str(survival.get("recommendation", "neutral"))
+	# --- The STAY ledger ---
+	var kill: bool = out_s + cq_on_s >= hp_s
+	var stay_terms: Dictionary = {}
+	var stay_score := 0.0
+	stay_score += _t_add(stay_terms, "stay_fight", w_fight * minf(out_s, hp_s) * ppw_s)
+	if kill:
+		stay_score += _t_add(stay_terms, "stay_kill", w_kill * pts_s)
+	stay_score += _t_add(stay_terms, "stay_cq_shoot", cq_val)
+	stay_score += _t_add(stay_terms, "stay_loss", -w_loss * minf(in_adj, our_hp) * ppw_u)
+	stay_score += _t_add(stay_terms, "stay_lock", lock_val)
+	stay_score += _t_add(stay_terms, "stay_shield", shield_val)
+	if rec == "hold":
+		stay_score += _t_add(stay_terms, "stay_survival", get_param("SURVIVAL_HOLD_BONUS", SURVIVAL_HOLD_BONUS) * ppw_u)
+	# --- The LEAVE ledger ---
+	var leave_terms: Dictionary = {}
+	var leave_score := 0.0
+	leave_score += _t_add(leave_terms, "leave_fb_shoot", fbs_val)
+	leave_score += _t_add(leave_terms, "leave_fb_charge", fbc_val)
+	leave_score += _t_add(leave_terms, "leave_objective", obj_val)
+	leave_score += _t_add(leave_terms, "leave_hazard", hazard_val)
+	leave_score += _t_add(leave_terms, "leave_shock", shock_val)
+	if rec == "fall_back":
+		leave_score += _t_add(leave_terms, "leave_survival", get_param("SURVIVAL_FALL_BACK_BONUS", SURVIVAL_FALL_BACK_BONUS) * ppw_u)
+	var min_margin := get_param("STAY_ENGAGED_MIN_MARGIN", STAY_ENGAGED_MIN_MARGIN)
+	# --- Player-visible reasoning (only the terms that count) ---
+	var dealt_pts: float = float(stay_terms.get("stay_fight", 0.0))
+	var stay_notes: Array = []
+	if kill:
+		stay_notes.append("Wipes out %s in our own Fight phase: %.1f expected damage against its %.0f wounds left (%.0f pts)" % [
+			t_name, out_s + cq_on_s, hp_s, pts_s])
+	elif out_s > 0.0:
+		stay_notes.append("Deals an expected %.1f of %s's %.0f wounds in our own Fight phase (%.0f pts)" % [out_s, t_name, hp_s, dealt_pts])
+	if in_s > 0.05:
+		if we_first and not enemy_ff:
+			stay_notes.append("Strikes first: %s has no Fights First, so we select first in our own Fight phase (12.04) — takes an expected %.1f damage back instead of %.1f" % [
+				t_name, in_s_adj, in_s])
+		elif we_first:
+			stay_notes.append("Strikes first: both sides have Fights First and it is our turn, so we select first (12.04) — takes an expected %.1f damage back instead of %.1f" % [
+				in_s_adj, in_s])
+		else:
+			stay_notes.append("Strikes second: %s has Fights First (12.04) — takes an expected %.1f damage back before it hits" % [t_name, in_s])
+	if cq_val > 0.0:
+		stay_notes.append("Keeps shooting with close-quarters shooting (10.06): %.1f expected damage on %s%s" % [
+			cq_dmg, cq_name, " at -1 to hit" if cq_minus1 else ""])
+	for nm in lock_names:
+		stay_notes.append("Keeps %s locked: it cannot shoot normally next turn whether it stays or falls back (04.02, 09.07)" % nm)
+	for nm in pin_names:
+		stay_notes.append("Pins %s: an engaged unit cannot start an action (16.01)" % nm)
+	if shield_val > 0.0:
+		if our_mv:
+			stay_notes.append("Harder to shoot while it stays engaged: %d enemy unit(s) in range would be at -1 to hit and could not use [BLAST] weapons against it (17.03)" % shooters)
+		else:
+			stay_notes.append("Cannot be shot by %d enemy unit(s) in range while it stays engaged (04.02)" % shooters)
+	if rec == "hold":
+		stay_notes.append("Survival check: %.1f of its %.0f wounds at risk in the Fight phase — safe to stay" % [
+			float(survival.get("expected_damage", in_raw)), float(survival.get("remaining_wounds", our_hp))])
+	var forfeits: Array = []
+	if not fb_and_shoot:
+		forfeits.append("shoot")
+	if not fb_and_charge:
+		forfeits.append("declare a charge")
+	forfeits.append("start an action")
+	var de_txt := ""
+	if bool(fbm.de):
+		de_txt = "; its Desperate Escape would make %d hazard roll(s), %.1f expected mortal wounds (06.03)" % [int(fbm.rolls), float(fbm.e_mw)]
+	if leave_terms.is_empty() or leave_score <= 0.0:
+		stay_notes.append("Falling back gains nothing: afterwards it could not %s this turn (09.07)%s" % [
+			_stay_engaged_join(forfeits), de_txt])
+	else:
+		stay_notes.append("Falling back is worth only %.1f pts (%s)%s" % [leave_score, _stay_engaged_terms_text(leave_terms), de_txt])
+	var leave_notes: Array = []
+	var loss_pts: float = -float(stay_terms.get("stay_loss", 0.0))
+	if loss_pts > 0.0:
+		leave_notes.append("Falls back: staying would cost %.1f wounds (%.0f pts) to %s for %.1f damage dealt (%.0f pts)" % [
+			minf(in_adj, our_hp), loss_pts, t_name, minf(out_s, hp_s), dealt_pts])
+	else:
+		leave_notes.append("Falls back: staying engaged with %s is worth %.1f pts against %.1f for falling back — not the %.0f-pt lead it needs" % [
+			t_name, stay_score, leave_score, min_margin])
+	if obj_val > 0.0:
+		leave_notes.append("The fall back puts a model on %s and improves who controls it (14.02)" % obj_id)
+	if fbs_val > 0.0:
+		leave_notes.append("Can still shoot after falling back (Fall Back and Shoot): %.1f expected damage on %s" % [fbs_dmg, fbs_name])
+	if fbc_val > 0.0:
+		leave_notes.append("Can charge back in after falling back (Fall Back and Charge): %d%% to make the %.1f\" charge, then strikes first as the charger (11.04)" % [
+			roundi(fbc_p * 100.0), fbc_gap])
+	if bool(fbm.de):
+		var why_de: String = ("forced (%s)" % str(fbm.forced_by)) if str(fbm.forced_by) != "" else "needed: its way out crosses enemy models"
+		leave_notes.append("Desperate Escape %s: %d hazard roll(s), %.1f expected mortal wounds (06.03)%s" % [
+			why_de, int(fbm.rolls), float(fbm.e_mw), ", then a battle-shock roll (09.07)" if not bool(fbm.shocked) else ""])
+	if rec == "fall_back":
+		leave_notes.append("Survival check: %.1f of its %.0f wounds at risk in the Fight phase — get out" % [
+			float(survival.get("expected_damage", in_raw)), float(survival.get("remaining_wounds", our_hp))])
+	# The reason the action line gives: the biggest STAY term.
+	var top := ""
+	var top_v := 0.0
+	for k in stay_terms:
+		if float(stay_terms[k]) > top_v:
+			top_v = float(stay_terms[k])
+			top = str(k)
+	var reason := "staying is worth more"
+	match top:
+		"stay_fight", "stay_kill":
+			reason = "wipes them out in our Fight phase" if kill else "out-fights them in our Fight phase"
+		"stay_cq_shoot":
+			reason = "keeps shooting at close quarters"
+		"stay_lock":
+			reason = "keeps a dangerous shooter locked" if not lock_names.is_empty() else "pins an objective holder"
+		"stay_shield":
+			reason = "harder to shoot while engaged" if our_mv else "cannot be shot while engaged"
+		"stay_survival":
+			reason = "safe to stay"
+	var fb_c := Vector2.ZERO
+	var fb_n := 0
+	for mid in fb_dests:
+		var dd = fb_dests[mid]
+		if dd is Array and dd.size() >= 2:
+			fb_c += Vector2(float(dd[0]), float(dd[1]))
+			fb_n += 1
+	if fb_n > 0:
+		fb_c /= float(fb_n)
+	return {
+		"stay": stay_score, "leave": leave_score,
+		"stay_terms": stay_terms, "leave_terms": leave_terms,
+		"stay_notes": stay_notes, "leave_notes": leave_notes,
+		"target_id": best_hid, "target_name": t_name, "engaged_with": engaged_names,
+		"kill": kill, "out_dmg": out_s, "cq_dmg": cq_dmg, "in_dmg": in_raw, "in_adj": in_adj,
+		"our_hp": our_hp, "we_first": we_first, "recommendation": rec,
+		"mode": str(fbm.mode), "de": bool(fbm.de), "forced_by": str(fbm.forced_by),
+		"reason": reason, "top": top, "min_margin": min_margin,
+		"fb_centroid": fb_c if fb_n > 0 else Vector2.INF,
+	}
+
+## FIX_STAY_ENGAGED: the Attached unit headed by `head_id` (19.01) as one
+## priced group — alive component ids (RulesEngine's list, both link
+## directions), points, wounds left, points per wound (Σ points / Σ (W ×
+## alive models), the _get_points_per_wound rule), MONSTER/VEHICLE / TITANIC
+## (read off the head, the unit targeting rules look at) and display name.
+static func _stay_engaged_group(head_id: String, snapshot: Dictionary) -> Dictionary:
+	var units: Dictionary = snapshot.get("units", {})
+	var re = _rules_engine()
+	var comp: Array = []
+	if re != null and re.has_method("attached_unit_component_ids"):
+		comp = re.attached_unit_component_ids(head_id, snapshot)
+	else:
+		comp = [head_id]
+		for cid in units.get(head_id, {}).get("attachment_data", {}).get("attached_characters", []):
+			if not comp.has(str(cid)):
+				comp.append(str(cid))
+	var ids: Array = []
+	var pts := 0.0
+	var hp := 0.0
+	var wounds := 0.0
+	for cid in comp:
+		var cu: Dictionary = units.get(str(cid), {})
+		var alive := _get_alive_models(cu).size()
+		if cu.is_empty() or alive == 0:
+			continue
+		ids.append(str(cid))
+		var cmeta: Dictionary = cu.get("meta", {})
+		pts += float(cmeta.get("points", 0))
+		hp += _calculate_kill_threshold(cu)
+		wounds += float(int(cmeta.get("stats", {}).get("wounds", 1)) * alive)
+	var head: Dictionary = units.get(head_id, {})
+	var mv := false
+	var titanic := false
+	for kw in head.get("meta", {}).get("keywords", []):
+		var k := str(kw).to_upper()
+		if k == "MONSTER" or k == "VEHICLE":
+			mv = true
+		elif k == "TITANIC":
+			titanic = true
+	return {"head": head_id, "ids": ids, "pts": pts, "hp": hp,
+		"ppw": pts / wounds if pts > 0.0 and wounds > 0.0 else 0.0,
+		"mv": mv, "titanic": titanic, "name": _dn(head, head_id)}
+
+## FIX_STAY_ENGAGED: true for a MONSTER/VEHICLE unit (17.03 / 10.06 targeting).
+static func _stay_engaged_is_mv(u: Dictionary) -> bool:
+	for kw in u.get("meta", {}).get("keywords", []):
+		var k := str(kw).to_upper()
+		if k == "MONSTER" or k == "VEHICLE":
+			return true
+	return false
+
+## FIX_STAY_ENGAGED: the enemy units that ARE Attached units for targeting —
+## alive heads only; attached CHARACTERs are reached through them (19.02).
+static func _stay_engaged_enemy_heads(enemies: Dictionary, snapshot: Dictionary) -> Array:
+	var out: Array = []
+	for eid in enemies:
+		if _get_alive_models(enemies[eid]).is_empty():
+			continue
+		if _attached_unit_target_id(str(eid), snapshot) != str(eid):
+			continue
+		out.append(str(eid))
+	return out
+
+## FIX_STAY_ENGAGED: is `target_id` engaged with one of `player`'s units other
+## than `exclude_ids` (our own Attached unit)? 04.02: then it cannot be shot
+## unless it is a MONSTER/VEHICLE (17.03).
+static func _stay_engaged_friendly_engaged_with(target_id: String, exclude_ids: Array, player: int, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null:
+		return false
+	var units: Dictionary = snapshot.get("units", {})
+	var t: Dictionary = units.get(target_id, {})
+	if t.is_empty():
+		return false
+	for fid in units:
+		if str(fid) in exclude_ids:
+			continue
+		var fu: Dictionary = units[fid]
+		if int(fu.get("owner", 0)) != player or _get_alive_models(fu).is_empty():
+			continue
+		if re.check_units_in_engagement_range(fu, t, snapshot):
+			return true
+	return false
+
+## FIX_STAY_ENGAGED: expected ranged damage of `shooter`'s weapons on `target`
+## (hit × wound × unsaved × damage capped at the target's W, × carriers, × the
+## target's FNP). hit_mod +1 = -1 to the hit roll (capped at one, 02.02.01),
+## not applied to [CLOSE-QUARTERS]/[PISTOL] weapons when cq_exempt (10.06);
+## only_cq keeps just those weapons; skip_blast drops [BLAST] (10.06, 17.03
+## errata); gap_in >= 0 drops weapons that do not reach that far.
+static func _stay_engaged_ranged_damage(shooter: Dictionary, target: Dictionary, hit_mod: int = 0,
+		cq_exempt: bool = false, only_cq: bool = false, skip_blast: bool = false, gap_in: float = -1.0) -> float:
+	if shooter.is_empty() or target.is_empty() or _get_alive_models(shooter).is_empty():
+		return 0.0
+	var t_stats: Dictionary = target.get("meta", {}).get("stats", {})
+	var toughness := int(t_stats.get("toughness", 4))
+	var save := int(t_stats.get("save", 4))
+	var invuln := _get_target_invulnerable_save(target)
+	var wpm := _get_target_wounds_per_model(target)
+	var total := 0.0
+	for w in shooter.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() != "ranged":
+			continue
+		var abil: Array = AbilityRegistry.from_weapon(w)
+		var is_cq: bool = AbilityRegistry.has_ability(abil, "close_quarters") or AbilityRegistry.has_ability(abil, "pistol")
+		if only_cq and not is_cq:
+			continue
+		if skip_blast and AbilityRegistry.has_ability(abil, "blast"):
+			continue
+		if gap_in >= 0.0 and gap_in > _get_weapon_range_inches(w):
+			continue
+		var a_raw = w.get("attacks", "1")
+		var attacks := _parse_average_damage(str(a_raw) if a_raw != null else "1")
+		var bs_raw = w.get("ballistic_skill", "4")
+		var bs_s := str(bs_raw).replace("+", "") if bs_raw != null else "4"
+		var bs := int(bs_s) if bs_s.is_valid_int() else 4
+		var mod: int = 0 if (cq_exempt and is_cq) else clampi(hit_mod, -1, 1)
+		var s_raw = w.get("strength", "4")
+		var s_s := str(s_raw) if s_raw != null else "4"
+		var strength := int(s_s) if s_s.is_valid_int() else 4
+		var ap_raw = w.get("ap", "0")
+		var ap_s := str(ap_raw) if ap_raw != null else "0"
+		var ap := 0
+		if ap_s.begins_with("-"):
+			ap = int(ap_s.substr(1)) if ap_s.substr(1).is_valid_int() else 0
+		else:
+			ap = int(ap_s) if ap_s.is_valid_int() else 0
+		var d_raw = w.get("damage", "1")
+		var dmg := _parse_average_damage(str(d_raw) if d_raw != null else "1")
+		if wpm > 0:
+			dmg = minf(dmg, float(wpm))
+		total += attacks * float(_weapon_carrier_count(shooter, w)) * _hit_probability(bs + mod) \
+			* _wound_probability(strength, toughness) * (1.0 - _save_probability(save, ap, invuln)) * dmg
+	var fnp := AIAbilityAnalyzerData.get_unit_fnp(target)
+	if fnp > 0:
+		total *= AIAbilityAnalyzerData.get_fnp_damage_multiplier(fnp)
+	return total
+
+## FIX_STAY_ENGAGED: how the fall back would be made (09.07). The mode comes
+## from FallBackMove.select_mode — Desperate Escape is mandatory when
+## battle-shocked or when an enemy rule forces it (Commentary 09.07.01). A
+## planned path that crosses an enemy base also needs one (03.01: only a
+## Desperate Escape moves through enemy models). The hazard rolls mirror
+## FallBackMove.before_moving's modifiers without rolling: one per alive
+## model at roll + modifier <= 2 (AttackSequence.hazard_rolls), WHERE D'YA
+## FINK's extra rolls for a MONSTER/VEHICLE, 3 mortal wounds each when every
+## model is a MONSTER/VEHICLE (06.03), after the unit's Feel No Pain.
+static func _stay_engaged_fall_back_mode(unit: Dictionary, unit_id: String, snapshot: Dictionary,
+		fb_dests: Dictionary, enemies: Dictionary) -> Dictionary:
+	var flags_u: Dictionary = unit.get("flags", {})
+	var shocked: bool = bool(flags_u.get("battle_shocked", false))
+	var mode := "desperate_escape" if shocked else "ordered_retreat"
+	var mandatory := shocked
+	var mts = load("res://scripts/rules/movetypes/MoveTypes.gd")
+	var fbm = mts.get_type("fall_back") if mts != null else null
+	if fbm != null and fbm.has_method("select_mode"):
+		var sel: Dictionary = fbm.select_mode(unit_id, snapshot)
+		if str(sel.get("mode", "")) != "":
+			mode = str(sel.mode)
+			mandatory = bool(sel.get("mandatory", false))
+	var om = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+	var oe = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	var cus = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	var sw = load("res://scripts/codex/space_wolves/SWAbilities11e.gd")
+	var forced_by := ""
+	if mandatory and mode == "desperate_escape":
+		if bool(flags_u.get("effect_cut_em_down", false)):
+			forced_by = "CUT 'EM DOWN"
+		elif om != null and bool(om.where_dya_fink_forces_desperate_escape(unit_id, snapshot)):
+			forced_by = "WHERE D'YA FINK YOU'RE GOING?"
+		elif oe != null and bool(oe.forces_desperate_escape(unit_id, snapshot)):
+			forced_by = "Wimp-kickaz"
+		elif cus != null and str(cus.corner_the_quarry_source(unit_id, snapshot)) != "":
+			forced_by = "Corner the Quarry"
+		elif sw != null and str(sw.savage_frenzy_source(unit_id, snapshot)) != "":
+			forced_by = "Savage Frenzy"
+		elif shocked:
+			forced_by = "battle-shocked"
+	var crosses := false
+	if mode != "desperate_escape":
+		for m in _get_alive_models_with_positions(unit):
+			var mid := str(m.get("id", ""))
+			if not fb_dests.has(mid):
+				continue
+			var dd = fb_dests[mid]
+			if not (dd is Array and dd.size() >= 2):
+				continue
+			var a := _get_model_position(m)
+			var b := Vector2(float(dd[0]), float(dd[1]))
+			var r_own := _model_movement_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))
+			for eid in enemies:
+				for em in enemies[eid].get("models", []):
+					if not em.get("alive", true):
+						continue
+					var ep := _get_model_position(em)
+					if ep == Vector2.INF:
+						continue
+					var r_e := _model_movement_radius_px(int(em.get("base_mm", 32)), str(em.get("base_type", "circular")), em.get("base_dimensions", {}))
+					if Geometry2D.get_closest_point_to_segment(ep, a, b).distance_to(ep) < r_own + r_e - AI_B2B_GAP_PX:
+						crosses = true
+						break
+				if crosses:
+					break
+			if crosses:
+				break
+	var de: bool = mode == "desperate_escape" or crosses
+	var n := _get_alive_models(unit).size()
+	var hz_mod: int = -1 if bool(flags_u.get("effect_cut_em_down_minus1", false)) else 0
+	if cus != null:
+		hz_mod += int(cus.corner_the_quarry_hazard_modifier(unit_id, snapshot))
+	if sw != null:
+		hz_mod += int(sw.savage_frenzy_hazard_modifier(unit_id, snapshot))
+	if oe != null:
+		hz_mod += int(oe.desperate_escape_hazard_modifier(unit_id, snapshot))
+	var p := clampf((2.0 - float(hz_mod)) / 6.0, 0.0, 1.0)
+	var extra_n := 0
+	var px := 0.0
+	if om != null:
+		var extra: Dictionary = om.where_dya_fink_extra_hazard(unit_id, snapshot)
+		extra_n = int(extra.get("count", 0))
+		px = clampf((2.0 - float(int(extra.get("modifier", 0)) + hz_mod)) / 6.0, 0.0, 1.0)
+	var all_mv := n > 0
+	var unit_mv := _stay_engaged_is_mv(unit)
+	for m in _get_alive_models(unit):
+		var mkw: Array = m.get("keywords", [])
+		if not (unit_mv or "MONSTER" in mkw or "VEHICLE" in mkw):
+			all_mv = false
+			break
+	var mw := 3.0 if all_mv else 1.0
+	var fnp := AIAbilityAnalyzerData.get_unit_fnp(unit)
+	var fnp_mult := AIAbilityAnalyzerData.get_fnp_damage_multiplier(fnp) if fnp > 0 else 1.0
+	var e_mw := (float(n) * p + float(extra_n) * px) * mw * fnp_mult if de else 0.0
+	return {"mode": mode, "mandatory": mandatory, "forced_by": forced_by, "crosses": crosses,
+		"de": de, "shocked": shocked, "rolls": (n + extra_n) if de else 0, "p": p, "e_mw": e_mw}
+
+## FIX_STAY_ENGAGED: the unit as it would stand after the fall back — each
+## alive model at its destination (bodyguard only: attached characters follow
+## at CONFIRM, MP _move_attached_characters, and are not repositioned here).
+static func _stay_engaged_probe(unit: Dictionary, fb_dests: Dictionary) -> Dictionary:
+	var probe: Dictionary = unit.duplicate()
+	var ms: Array = []
+	for m in unit.get("models", []):
+		var m2: Dictionary = m.duplicate()
+		var dd = fb_dests.get(str(m.get("id", "")), null)
+		if dd is Array and dd.size() >= 2:
+			m2["position"] = Vector2(float(dd[0]), float(dd[1]))
+		ms.append(m2)
+	probe["models"] = ms
+	return probe
+
+## FIX_STAY_ENGAGED: the "engaged_choice" decision record — the main record of
+## an engaged unit's Movement decision (not a side record): STAY vs LEAVE with
+## each side's additive ledger, board positions for the hover highlight, and
+## the descriptive numbers in context.
+static func _stay_engaged_record(unit_id: String, unit_name: String, ev: Dictionary,
+		chosen_key: String, centroid: Vector2) -> void:
+	var fb_c: Vector2 = ev.get("fb_centroid", Vector2.INF)
+	var cands: Array = [
+		{"key": "stay", "description": "Stay engaged with %s" % str(ev.target_name), "score": float(ev.stay),
+			"score_breakdown": (ev.stay_terms as Dictionary).duplicate(), "pos": [centroid.x, centroid.y]},
+		{"key": "fall_back", "description": "Fall back (%s)" % ("Desperate Escape" if bool(ev.de) else "Ordered Retreat"),
+			"score": float(ev.leave), "score_breakdown": (ev.leave_terms as Dictionary).duplicate()},
+	]
+	if fb_c != Vector2.INF:
+		cands[1]["pos"] = [fb_c.x, fb_c.y]
+	var ctx := {
+		"phase": "movement",
+		"unit_pos": [centroid.x, centroid.y],
+		"engaged_with": (ev.get("engaged_with", []) as Array).duplicate(),
+		"focus_target_id": str(ev.target_id),
+		"out_dmg": snappedf(float(ev.out_dmg), 0.01),
+		"cq_dmg": snappedf(float(ev.cq_dmg), 0.01),
+		"in_dmg": snappedf(float(ev.in_dmg), 0.01),
+		"in_dmg_after_first_strike": snappedf(float(ev.in_adj), 0.01),
+		"we_strike_first": bool(ev.we_first),
+		"our_wounds": float(ev.our_hp),
+		"survival": str(ev.recommendation),
+		"fall_back_mode": str(ev.mode),
+		"desperate_escape": bool(ev.de),
+		"forced_by": str(ev.forced_by),
+		"margin": snappedf(float(ev.stay) - float(ev.leave), 0.01),
+		"min_margin": float(ev.min_margin),
+	}
+	_record_choice("engaged_choice", unit_id, unit_name, cands, chosen_key, ctx)
+
+## FIX_STAY_ENGAGED: "Out-fight it +45.0, Wipe it out +11.3" — a ledger's
+## terms by size, with the glossary's labels, for the thinking steps.
+static func _stay_engaged_terms_text(terms: Dictionary) -> String:
+	var keys: Array = terms.keys()
+	keys.sort_custom(func(a, b): return absf(float(terms[a])) > absf(float(terms[b])))
+	var parts: Array = []
+	for k in keys:
+		parts.append("%s %+.1f" % [AIReasoningGlossary.label(str(k)), float(terms[k])])
+	return ", ".join(parts) if not parts.is_empty() else "nothing"
+
+## FIX_STAY_ENGAGED: "a, b or c".
+static func _stay_engaged_join(items: Array) -> String:
+	if items.size() <= 1:
+		return "" if items.is_empty() else str(items[0])
+	var head: Array = items.slice(0, items.size() - 1)
+	return "%s or %s" % [", ".join(head), str(items[items.size() - 1])]
 
 static func _pick_fall_back_target(
 	centroid: Vector2, enemy_centroid: Vector2,

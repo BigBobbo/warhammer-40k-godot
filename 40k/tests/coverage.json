@@ -11740,12 +11740,13 @@
     },
     {
       "id": "ai.suggestion.move_shape_notes",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader, ai_stay_engaged.",
       "scenarios": [
         "ai_move_cover",
         "ai_move_shape_telemon_gantry",
         "ai_move_for_charge",
-        "ai_move_for_charge_leader"
+        "ai_move_for_charge_leader",
+        "ai_stay_engaged"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11849,6 +11850,36 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_charge.",
       "scenarios": [
         "ai_move_for_charge"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ai.movement.stay_engaged",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_stay_engaged.",
+      "scenarios": [
+        "ai_stay_engaged"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.fall_back_09_07",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_stay_engaged.",
+      "scenarios": [
+        "ai_stay_engaged"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.fight_12_04",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_stay_engaged.",
+      "scenarios": [
+        "ai_stay_engaged"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

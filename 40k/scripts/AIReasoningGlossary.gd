@@ -116,6 +116,20 @@ const TERMS := {
 	"order_cant_hurt": {"label": "Can barely hurt anything", "fmt": "pts", "help": "Expected damage under 0.1: the priority is a flat 0.5."},
 	"order_melee_buffs": {"label": "Melee buffs", "fmt": "pts", "help": "Scaling from abilities that boost its melee attacks (leaders, auras)."},
 	"order_round_aggression": {"label": "Round / army aggression", "fmt": "pts", "help": "Scaling by how aggressive the AI plays this battle round with this army."},
+	# Engaged unit: stay engaged or fall back (engaged_choice, FIX_STAY_ENGAGED) — sums to the score
+	"stay_fight": {"label": "Out-fight it", "fmt": "pts", "help": "Points of the engaged enemy's wounds this unit (and its attached leaders) is expected to remove in our own Fight phase: expected melee damage, capped at the wounds it has left, × its points per wound."},
+	"stay_kill": {"label": "Wipe it out", "fmt": "pts", "help": "A quarter of the engaged enemy unit's points when the expected damage reaches its remaining wounds: a destroyed unit stops scoring, shooting and acting."},
+	"stay_loss": {"label": "Damage taken back", "fmt": "pts", "help": "Cost of the engaged enemy's strike-back in the Fight phase (our wounds × our points per wound). In our own Fight phase we select first unless the enemy has Fights First (12.04), so the casualties we inflict first come off it."},
+	"stay_cq_shoot": {"label": "Close-quarters shooting", "fmt": "pts", "help": "Value of shooting while engaged this turn (10.06): a MONSTER/VEHICLE fires at -1 to hit (no [BLAST] at the unit it is engaged with); other units only use [CLOSE-QUARTERS]/[PISTOL] weapons."},
+	"stay_lock": {"label": "Keeps it locked", "fmt": "pts", "help": "Value of keeping a dangerous enemy shooter engaged (it cannot shoot normally next turn whether it stays or falls back, 04.02 / 09.07), or of pinning an enemy objective holder or action performer (an engaged unit cannot start an action, 16.01)."},
+	"stay_shield": {"label": "Can't be shot while engaged", "fmt": "pts", "help": "Enemy shooting the unit avoids next turn while it is still engaged: enemy units in range cannot target it (04.02; a MONSTER/VEHICLE is only at -1 to hit and safe from [BLAST], 17.03). Weighted by the chance the fight leaves it engaged."},
+	"stay_survival": {"label": "Safe to stay", "fmt": "pts", "help": "Bonus when the expected Fight-phase damage is under a quarter of the unit's wounds (the survival check)."},
+	"leave_fb_shoot": {"label": "Fall Back and Shoot", "fmt": "pts", "help": "Value of the best shot the unit still has after falling back, from where it would end (only with a Fall Back and Shoot rule)."},
+	"leave_fb_charge": {"label": "Fall Back and Charge", "fmt": "pts", "help": "Chance to charge back in after falling back × the fight it would then win as the charger (Fights First, 11.04) — only with a Fall Back and Charge rule."},
+	"leave_objective": {"label": "Takes an objective", "fmt": "pts", "help": "The fall back puts a model on an objective the unit is not on yet and improves who controls it (14.02)."},
+	"leave_hazard": {"label": "Desperate Escape hazard rolls", "fmt": "pts", "help": "Cost of the mortal wounds a Desperate Escape is expected to cause: one hazard roll per model, failing on 1-2 (06.03). Mandatory when battle-shocked or forced by an enemy rule, or when the way out crosses enemy models."},
+	"leave_shock": {"label": "Desperate Escape battle-shock roll", "fmt": "pts", "help": "Cost of the battle-shock roll a Desperate Escape forces on a unit that is not battle-shocked yet (09.07): a share of its points × the chance to fail it."},
+	"leave_survival": {"label": "Survival check: get out", "fmt": "pts", "help": "Bonus for falling back when the expected Fight-phase damage is half the unit's wounds or more (the survival check)."},
 	# Charge — 'no charge' option
 	"charge_threshold": {"label": "Minimum worth charging", "fmt": "num", "help": "A charge is only declared if its score beats this (1.0, lowered when behind on VP and by faction aggression)."},
 	# Stratagem windows / reactive stratagems

@@ -1,0 +1,287 @@
+{
+  "id": "ai_stay_engaged",
+  "covers": [
+    "ai.movement.stay_engaged",
+    "ai.suggestion.move_shape_notes",
+    "rules.11e.fall_back_09_07",
+    "rules.11e.fight_12_04"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "FIX_STAY_ENGAGED (ships OFF): an engaged unit that would fall back by default compares staying engaged with falling back and stays when staying is worth more — 11e 12.04: in our own Fight phase we select first when nobody has Fights First, so a unit locked with one it wipes strikes first; 09.07: after a fall back it could not shoot, charge or start an action anyway. Same position as exam mv08: Custodian Guard Alpha is locked off every objective with four Prosecutors (11.6 damage against 4 wounds). With tests/bench_profiles/stay_engaged_on.json loaded, clicking the real Suggest (K) button shows 'Custodian Guard Alpha stays engaged with Prosecutors (wipes them out in our Fight phase; …)', the 'How this turn's move was shaped' note 'Wipes out Prosecutors in our own Fight phase …' and the engaged_choice ledger ('Out-fight it'). Clearing the profile restores the shipped default: 'Custodian Guard Alpha falls back (not on objective)', no note, no record. Reloading restores the stay; executing it leaves the squad unmoved and engaged on the engine. The guard pair: our Prosecutors, locked with Allarus Custodians that kill them, are suggested a fall back ('staying would cost 4.0 wounds …'), which staged through AIPlayer ends unengaged.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "# Same position as exam mv08 (without the profile line): Custodian Guard\n# Alpha locked with the enemy Prosecutors west of no man's land, our\n# Prosecutors locked with the enemy Allarus Custodians in the north strip,\n# Custodian Guard Gamma holding obj_home_1, everyone else parked.\nvar st = GameState.state\nvar lines = {\n\t\"U_CUSTODIAN_GUARD_A\": [60.0, 65.0, 840.0],\n\t\"U_PROSECUTORS_A_P2\": [90.0, 50.0, 920.0],\n\t\"U_ALLARUS_CUSTODIANS_A_P2\": [1150.0, 65.0, 100.0],\n\t\"U_PROSECUTORS_A\": [1180.0, 50.0, 180.0],\n}\nfor uid in lines:\n\tvar spec = lines[uid]\n\tvar k = 0\n\tfor m in st.units[uid].models:\n\t\tm.position = {\"x\": spec[0] + spec[1] * float(k), \"y\": spec[2]}\n\t\tk += 1\nvar gpos = [Vector2(640, 420), Vector2(705, 420), Vector2(770, 420), Vector2(672, 485), Vector2(737, 485)]\nvar j = 0\nfor m in st.units.U_CUSTODIAN_GUARD_C.models:\n\tm.position = {\"x\": gpos[j].x, \"y\": gpos[j].y}\n\tj += 1\nvar p1 = 0\nvar p2 = 0\nfor uid in st.units:\n\tif uid in [\"U_CUSTODIAN_GUARD_A\", \"U_PROSECUTORS_A_P2\", \"U_ALLARUS_CUSTODIANS_A_P2\", \"U_PROSECUTORS_A\", \"U_CUSTODIAN_GUARD_C\"]:\n\t\tcontinue\n\tvar u = st.units[uid]\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tif int(u.get(\"owner\", 0)) == 1:\n\t\t\tm.position = {\"x\": 50.0 + 70.0 * float(p1 % 6), \"y\": 50.0 + 70.0 * float(p1 / 6)}\n\t\t\tp1 += 1\n\t\telse:\n\t\t\tm.position = {\"x\": 1300.0 + 70.0 * float(p2 % 6), \"y\": 2320.0 - 70.0 * float(p2 / 6)}\n\t\t\tp2 += 1\nreturn RulesEngine.is_unit_engaged(\"U_CUSTODIAN_GUARD_A\", GameState.state) and RulesEngine.is_unit_engaged(\"U_PROSECUTORS_A\", GameState.state)",
+      "multiline": true,
+      "equals": true,
+      "comment": "both player-1 units start engaged (engine check)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "# FIX_STAY_ENGAGED ships OFF: load the opt-in profile AFTER configure()\n# (configure wipes profiles).\nvar f = FileAccess.open(\"res://tests/bench_profiles/stay_engaged_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nreturn prof.parameters.size()",
+      "multiline": true,
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Alpha stays engaged with Prosecutors\")",
+      "equals": true,
+      "comment": "the K card's action line: the unit stays engaged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"How this turn's move was shaped\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Wipes out Prosecutors in our own Fight phase\")",
+      "equals": true,
+      "comment": "the move note: it wipes the Prosecutors in our Fight phase"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"(12.04)\")",
+      "equals": true,
+      "comment": "...striking first (12.04)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Out-fight it\")",
+      "equals": true,
+      "comment": "the engaged_choice ledger, in the glossary's words"
+    },
+    {
+      "act": "execute_script",
+      "script": "# Engine-level check of the same suggestion: Custodian Guard Alpha, a\n# REMAIN_STATIONARY that says it stays engaged, with the engaged_choice\n# record that picked \"stay\".\nvar d = AIPlayer.request_suggestion(\"\")\nvar ok_rec = false\nfor r in d.get(\"_ai_decision_records\", []):\n\tif str(r.get(\"decision_type\", \"\")) == \"engaged_choice\":\n\t\tvar c = r.get(\"candidates\", [])\n\t\tvar ci = int(r.get(\"chosen_index\", -1))\n\t\tok_rec = ci >= 0 and ci < c.size() and str(c[ci].get(\"key\", \"\")) == \"stay\"\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"actor_unit_id\", \"\")) == \"U_CUSTODIAN_GUARD_A\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Alpha stays engaged with Prosecutors\") and ok_rec",
+      "multiline": true,
+      "equals": true,
+      "comment": "engine-level: REMAIN_STATIONARY for Custodian Guard Alpha, record chose 'stay'"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_stay_engaged_suggestion_on"
+    },
+    {
+      "act": "execute_script",
+      "script": "# Close-up: Custodian Guard Alpha and the Prosecutors it stays locked with,\n# framed between the game log and the K card (41% of the width).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(200.0, 870.0), false, Vector2(0.41, 0.5))\nvar vs = m.get_viewport().get_visible_rect().size\nm.zoom_camera_notch(true, Vector2(vs.x * 0.41, vs.y * 0.5))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_stay_engaged_closeup",
+      "comment": "Custodian Guard Alpha (no move arrows) locked with the Prosecutors"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "# SHIPPED-DEFAULT CHECK: clearing the profile leaves FIX_STAY_ENGAGED at 0 —\n# the old fall back, the old description, no engaged_choice record, no notes.\nAIDecisionMaker.clear_player_profile(1)\nvar d = AIPlayer.request_suggestion(\"\")\nvar has_rec = false\nfor r in d.get(\"_ai_decision_records\", []):\n\tif str(r.get(\"decision_type\", \"\")) == \"engaged_choice\":\n\t\thas_rec = true\nreturn str(d.get(\"type\", \"\")) == \"BEGIN_FALL_BACK\" and str(d.get(\"_ai_description\", \"\")) == \"Custodian Guard Alpha falls back (not on objective)\" and not d.has(\"_ai_move_adjustments\") and not has_rec",
+      "multiline": true,
+      "equals": true,
+      "comment": "shipped default (flag 0): the old fall back, unchanged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Alpha falls back (not on objective)\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"stays engaged\")",
+      "equals": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "02_stay_engaged_suggestion_off"
+    },
+    {
+      "act": "execute_script",
+      "script": "# ...and reloading the profile restores the stay.\nvar f = FileAccess.open(\"res://tests/bench_profiles/stay_engaged_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nvar d = AIPlayer.request_suggestion(\"\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"_ai_description\", \"\")).contains(\"stays engaged\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Alpha stays engaged with Prosecutors\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "# Execute the stay as the AI would (AIPlayer routes the decision as-is), then\n# ask the ENGINE: moved (remained stationary), did not fall back, every model\n# where it stood, still engaged with the Prosecutors.\nvar d = AIPlayer.request_suggestion(\"\")\nvar r = NetworkIntegration.route_action({\"type\": \"REMAIN_STATIONARY\", \"actor_unit_id\": \"U_CUSTODIAN_GUARD_A\", \"player\": 1, \"_ai_description\": str(d.get(\"_ai_description\", \"\"))})\nvar u = GameState.state.units.U_CUSTODIAN_GUARD_A\nvar k = 0\nvar still = true\nfor m in u.models:\n\tvar p = m.get(\"position\")\n\tvar pv = p if p is Vector2 else Vector2(float(p.x), float(p.y))\n\tif pv.distance_to(Vector2(60.0 + 65.0 * float(k), 840.0)) > 1.0:\n\t\tstill = false\n\tk += 1\nreturn r != null and bool(r.get(\"success\", false)) and bool(u.get(\"flags\", {}).get(\"moved\", false)) and not bool(u.get(\"flags\", {}).get(\"fell_back\", false)) and still and RulesEngine.is_unit_engaged(\"U_CUSTODIAN_GUARD_A\", GameState.state)",
+      "multiline": true,
+      "equals": true,
+      "comment": "engine truth after the real REMAIN_STATIONARY: not fallen back, unmoved, still engaged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript: the next engaged unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Prosecutors falls back\")",
+      "equals": true,
+      "comment": "the guard: our Prosecutors, out-fought by the Allarus Custodians, still fall back"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"staying would cost\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "# Frame the north strip: our Prosecutors and the Allarus Custodians they are\n# locked with (the fall back lands south-west of them, toward obj_home_1).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1180.0, 230.0), false, Vector2(0.41, 0.5))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_stay_engaged_prosecutors_fall_back",
+      "comment": "the K card for our Prosecutors and their fall-back arrows, north strip"
+    },
+    {
+      "act": "execute_script",
+      "script": "# The guard pair, live: our Prosecutors' suggested fall back staged and\n# confirmed through AIPlayer's own execution path, then checked on the engine\n# (fell back, unengaged — 09.07).\nvar d = AIPlayer.request_suggestion(\"\")\nif str(d.get(\"actor_unit_id\", \"\")) != \"U_PROSECUTORS_A\" or str(d.get(\"type\", \"\")) != \"BEGIN_FALL_BACK\":\n\treturn \"unexpected suggestion: %s %s\" % [str(d.get(\"type\", \"\")), str(d.get(\"actor_unit_id\", \"\"))]\nNetworkIntegration.route_action({\"type\": \"BEGIN_FALL_BACK\", \"actor_unit_id\": \"U_PROSECUTORS_A\", \"player\": 1})\nvar ph = PhaseManager.current_phase_instance\nif ph.has_method(\"has_pending_stratagem_window\") and ph.has_pending_stratagem_window():\n\tvar w = ph.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nAIPlayer._execute_ai_movement(1, d)\nvar u = GameState.state.units.U_PROSECUTORS_A\nreturn bool(u.get(\"flags\", {}).get(\"fell_back\", false)) and not RulesEngine.is_unit_engaged(\"U_PROSECUTORS_A\", GameState.state)",
+      "multiline": true,
+      "equals": true,
+      "comment": "engine truth after the real fall back: fell back, unengaged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "# Frame the north strip: our Prosecutors and the Allarus Custodians they are\n# locked with (the fall back lands south-west of them, toward obj_home_1).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1180.0, 230.0), false, Vector2(0.41, 0.5))\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "04_stay_engaged_after_both_moves",
+      "comment": "our Prosecutors after the real fall back: clear of the Allarus Custodians"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIDecisionMaker.clear_player_profile(1)\nreturn true",
+      "multiline": true,
+      "equals": true
+    }
+  ]
+}
