@@ -45,7 +45,8 @@ extends RefCounted
 ##       (phase_start rule card).
 ##  PHOBOS SHADOW FORCE — SHADOW MASTERS: when a PHOBOS / SCOUT SQUAD unit has
 ##   shot: those attacks do not prevent it from being hidden, OR a normal move
-##   of up to D6" (no charge this turn) (unit_has_shot rule card).
+##   of up to D6" (no charge this turn) (unit_has_shot rule card; also after a
+##   FIRE OVERWATCH snap shot — the rule names no phase, W_SHOT_OUT_OF_PHASE).
 ##   Venator Omni-auspex    attacks vs a hidden unit re-roll wound rolls of 1
 ##       (1-2 with the assault doctrine).
 ##   Execute and Redeploy   after the unit has shot (your Shooting phase,
@@ -134,6 +135,16 @@ const RULE_SHADOW := "sm11e_rule_shadow_masters"
 const RULE_EXECUTE := "sm11e_rule_execute_and_redeploy"
 const RULE_AUSPEX := "sm11e_rule_auspex_triangulation"
 const RULE_DAMOCLES := "sm11e_rule_damocles_uplink"
+
+## The stratagem window opened right after a unit shoots OUTSIDE its Shooting
+## phase — FIRE OVERWATCH's snap shooting at the end of the opponent's Movement
+## phase (MovementPhase._snap_finish). Only rules that name no phase answer it
+## (07.02.01: during an out-of-phase rule "you cannot use any other
+## 'phase-locked' rules; that is, any other rule that explicitly states the
+## phase in which that rule applies"): Shadow Masters ("When a friendly Phobos
+## or Scout SQUAD unit has shot"). Phase-locked "In your Shooting phase, after
+## this unit has shot" rules stay in unit_has_shot.
+const W_SHOT_OUT_OF_PHASE := "unit_has_shot_out_of_phase"
 
 # --- flags (no effect_ prefix: they must outlive the Shooting-phase wipe) --
 ## Ancient Exhortation: phase stamp on every component of the bearer's unit.
@@ -678,6 +689,9 @@ static func window_offers(player: int, window_id: String, ctx: Dictionary) -> Ar
 			out.append_array(_combined_offers(player, ctx))
 			out.append_array(_shadow_offers(player, ctx))
 			out.append_array(_execute_offers(player, ctx))
+		W_SHOT_OUT_OF_PHASE:
+			# Combined Deployment / Execute and Redeploy are Shooting-phase rules.
+			out.append_array(_shadow_offers(player, ctx))
 		"phase_start":
 			var ph := str(ctx.get("phase", ""))
 			if ph == "shooting":
@@ -784,8 +798,16 @@ static func _use_combined(player: int, shooter: String, ctx: Dictionary) -> Dict
 
 # --- Shadow Masters --------------------------------------------------------
 
+## "When a friendly Phobos or Scout SQUAD unit has shot" names no phase: the
+## card is offered after the unit shoots in your Shooting phase (unit_has_shot)
+## AND after it shoots out of phase — FIRE OVERWATCH (W_SHOT_OUT_OF_PHASE).
+## Snap shooting is ranged attacks (15.09 "shoots as described in Making
+## Attacks (04)") and breaks Hidden (13.09), so the waiver must be on offer
+## there too, or an overwatching Phobos unit stays un-hidden for the rest of
+## the opponent's turn and its own next turn.
 static func _shadow_offers(player: int, ctx: Dictionary) -> Array:
-	if not has_det(player, SHADOW) or Common.current_phase() != int(GameStateData.Phase.SHOOTING):
+	var out_of_phase := str(ctx.get("window_id", "")) == W_SHOT_OUT_OF_PHASE
+	if not has_det(player, SHADOW) or (not out_of_phase and Common.current_phase() != int(GameStateData.Phase.SHOOTING)):
 		return []
 	var shooter := Common.head_id(str(ctx.get("unit_id", "")))
 	var su := Common.unit(shooter)
@@ -803,7 +825,7 @@ static func _shadow_offers(player: int, ctx: Dictionary) -> Array:
 		[Common.target_entry(shooter, {"variants": variants, "require_variant": true, "ai_variant": "hidden"})])]
 
 static func _use_shadow(player: int, shooter: String, ctx: Dictionary) -> Dictionary:
-	var offers := _shadow_offers(player, {"unit_id": shooter})
+	var offers := _shadow_offers(player, {"unit_id": shooter, "window_id": str(ctx.get("window_id", ""))})
 	if offers.is_empty():
 		return {"success": false, "error": "Shadow Masters: a PHOBOS / SCOUT SQUAD unit that has just shot (Phobos Shadow Force)", "diffs": []}
 	var v := str(ctx.get("variant_id", "hidden"))

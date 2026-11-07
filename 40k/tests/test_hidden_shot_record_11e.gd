@@ -233,9 +233,9 @@ func _section_shooting_phase() -> void:
 
 # --- C ------------------------------------------------------------------------
 
-func _load_fixture(keep: Array) -> bool:
+func _load_fixture(keep: Array, path: String = FIXTURE) -> bool:
 	var slm = root.get_node("SaveLoadManager")
-	var ok: bool = slm.load_game_from_file_path(FIXTURE)
+	var ok: bool = slm.load_game_from_file_path(path)
 	GameConstants.edition = 11
 	var units: Dictionary = {}
 	for uid in keep:
@@ -370,12 +370,122 @@ func _section_followups() -> void:
 	mp.free()
 	_check("RAPID REACTIONS (normal shooting) stamps the shooter's record (turn %d)" % idx,
 		int(_flag("U_CUSTODIAN_GUARD_A", "last_shot_idx", -1)) == idx, str(GS.state.units["U_CUSTODIAN_GUARD_A"].get("flags", {})))
+	# RAPID REACTIONS rolled real (unseeded) dice: a lucky volley can leave the
+	# Gretchin with only a model that has no gun in range, and the forced shot
+	# below then makes no attacks (no stamp — correctly). Stand them back up so
+	# the check is about the stamp, not the dice.
+	for gm in GS.state.units["U_GRETCHIN_C"].models:
+		gm["alive"] = true
+		gm["current_wounds"] = int(gm.get("wounds", 1))
 	var sp := _shooting_phase()
 	sp._ork11e_forced_shoot(2, {"unit_id": "U_GRETCHIN_C", "forced_target_id": "U_CUSTODIAN_GUARD_A", "source": "TEST FORCED SHOOT"})
 	_free(sp)
 	_check("Ork forced shooting stamps the forced shooter's record (turn %d)" % idx,
 		int(_flag("U_GRETCHIN_C", "last_shot_idx", -1)) == idx, str(GS.state.units["U_GRETCHIN_C"].get("flags", {})))
 	_check("a unit that did not shoot has no record", _flag("U_BOYZ_B", "last_shot_idx", null) == null)
+
+# --- E ------------------------------------------------------------------------
+
+const SM_FIXTURE := "res://tests/saves/sm11e_m2a_marines_active.w40ksave"
+const INFIL := "U_INFILTRATOR_SQUAD_A"
+const GRETS := "U_GRETCHIN_C"
+const W_OOP := "unit_has_shot_out_of_phase"
+const RULE_SHADOW := "sm11e_rule_shadow_masters"
+
+## P1 (Space Marines, Phobos Shadow Force) FIRE OVERWATCHes with the
+## Infiltrator Squad (PHOBOS INFANTRY, in a ruin) at the end of P2's Movement
+## phase (round 2, P1 went first: turn index 5). Returns the phase instance with
+## the FIRE OVERWATCH resolved, or null.
+func _shadow_overwatch() -> Variant:
+	if not _load_fixture([INFIL, GRETS], SM_FIXTURE):
+		return null
+	for uid in GS.state.units:
+		GS.state.units[uid]["flags"] = {}
+	_set_turn(1, 2, 2)
+	_place(INFIL, 8.0, 20.0, 1.6)
+	_place(GRETS, 8.0, 34.0, 1.4)
+	TM.terrain_features = [{"id": "sm_ruin", "type": "ruins", "height_category": "tall",
+		"polygon": _rect_in(3.0, 16.0, 30.0, 24.0), "position": Vector2(16.5 * PX, 20.0 * PX),
+		"size": Vector2(27.0 * PX, 8.0 * PX), "rotation": 0.0,
+		"can_move_through": {"INFANTRY": true, "VEHICLE": false, "MONSTER": false}}]
+	PM.transition_to_phase(PHASE_MOVEMENT)
+	var phase = PM.get_current_phase_instance()
+	var guard := 0
+	while phase != null and phase.has_pending_stratagem_window() and guard < 6:
+		var w = phase.get_pending_stratagem_window()
+		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(w.player), "window_id": str(w.window_id)})
+		guard += 1
+	phase.execute_action({"type": "END_MOVEMENT", "player": 2})
+	guard = 0
+	while phase.has_pending_stratagem_window() and int(phase.get_pending_stratagem_window().player) == 2 and guard < 4:
+		var w2 = phase.get_pending_stratagem_window()
+		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 2, "window_id": str(w2.window_id)})
+		guard += 1
+	var res: Dictionary = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "movement_phase_end",
+		"stratagem_id": "fire_overwatch_11e", "target_unit_id": INFIL, "context": {"secondary_id": GRETS}})
+	_check("FIRE OVERWATCH by the Infiltrators resolved", res.get("success", false) and res.get("fire_overwatch_used", false), str(res.get("error", "")))
+	return phase
+
+func _pending_offer(phase, sid: String) -> Dictionary:
+	if phase == null or not phase.has_pending_stratagem_window():
+		return {}
+	for o in phase.get_pending_stratagem_window().get("offers", []):
+		if str(o.get("stratagem_id", "")) == sid:
+			return o
+	return {}
+
+func _section_shadow_masters_after_overwatch() -> void:
+	print("\n-- E. SHADOW MASTERS after FIRE OVERWATCH (the rule names no phase; 07.02.01) --")
+	var phase = _shadow_overwatch()
+	if phase == null:
+		_check("fixture loaded", false)
+		return
+	var turn_idx: int = int(GS.get_player_turn_index())
+	_check("the overwatch stamped the Infiltrators (turn %d)" % turn_idx, int(_flag(INFIL, "last_shot_idx", -1)) == turn_idx)
+	var w: Dictionary = phase.get_pending_stratagem_window() if phase.has_pending_stratagem_window() else {}
+	_check("P1's %s window is open next" % W_OOP, int(w.get("player", 0)) == 1 and str(w.get("window_id", "")) == W_OOP, str(w.get("window_id", "none")))
+	var off := _pending_offer(phase, RULE_SHADOW)
+	_check("... offering SHADOW MASTERS for the Infiltrators", not off.is_empty() and str(off.targets[0].unit_id) == INFIL, str(w.get("offers", [])))
+	var ids: Array = w.get("offers", []).map(func(o): return str(o.get("stratagem_id", "")))
+	_check("... and nothing phase-locked (no Execute and Redeploy / Combined Deployment)",
+		not "sm11e_rule_execute_and_redeploy" in ids and not "sm11e_rule_combined_deployment" in ids, str(ids))
+	_check("... both choices (the unit is unengaged)", not off.is_empty() and (off.targets[0].get("variants", []) as Array).size() == 2)
+	var D = load("res://scripts/codex/space_marines/SMDetachmentsA.gd")
+	var ai_pick: Dictionary = D.ai_decide(1, W_OOP, w.get("offers", []), w.get("ctx", {}))
+	_check("AI: SHADOW MASTERS 'stay hidden' (the unit stands in a ruin)", str(ai_pick.get("stratagem_id", "")) == RULE_SHADOW
+		and str(ai_pick.get("context", {}).get("variant_id", "")) == "hidden", str(ai_pick))
+	var use: Dictionary = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": W_OOP,
+		"stratagem_id": RULE_SHADOW, "target_unit_id": INFIL, "context": {"variant_id": "hidden"}})
+	_check("'those attacks do not prevent that unit from being hidden' used", use.get("success", false), str(use.get("error", use.get("errors", ""))))
+	_check("the Movement phase ended: P2's Shooting phase", int(GS.state.meta.get("phase", -1)) == PHASE_SHOOTING, "phase=%d" % int(GS.state.meta.get("phase", -1)))
+	_check("in P2's Shooting phase (turn %d) the Infiltrators are hidden" % int(GS.get_player_turn_index()),
+		int(GS.get_player_turn_index()) == turn_idx and _all_hidden(INFIL), str(GS.state.units[INFIL].get("flags", {})))
+	_check("... but cannot go to ground (13.11.01: they made ranged attacks this turn)", not TM.can_go_to_ground(GS.state.units[INFIL]))
+	GS.state.meta["active_player"] = 1
+	GS.state.meta["battle_round"] = 3
+	_check("their own next turn (turn %d): still hidden" % int(GS.get_player_turn_index()),
+		int(GS.get_player_turn_index()) == turn_idx + 1 and _all_hidden(INFIL))
+	# Control: declining the card leaves the overwatch counting (13.09).
+	phase = _shadow_overwatch()
+	if phase == null:
+		return
+	phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": W_OOP})
+	_check("control — declined: P2's Shooting phase, the Infiltrators are NOT hidden",
+		int(GS.state.meta.get("phase", -1)) == PHASE_SHOOTING and not _any_hidden(INFIL))
+	# The move choice: a reactive normal move of up to D6" in P2's Movement phase.
+	phase = _shadow_overwatch()
+	if phase == null:
+		return
+	var mv: Dictionary = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": W_OOP,
+		"stratagem_id": RULE_SHADOW, "target_unit_id": INFIL, "context": {"variant_id": "move"}})
+	var rm: Dictionary = phase.get("_ork11e_reactive_move")
+	_check("the move choice starts P1's reactive normal move of up to D6\"", mv.get("success", false) and str(rm.get("unit_id", "")) == INFIL
+		and float(rm.get("max_inches", 0.0)) >= 1.0 and float(rm.get("max_inches", 0.0)) <= 6.0, str(rm))
+	_check("... the unit cannot declare a charge this turn", bool(_flag(INFIL, "cannot_charge", false)))
+	_check("... and the shot still counts against Hidden", int(_flag(INFIL, "last_shot_idx", -1)) == turn_idx)
+	var done: Dictionary = phase.execute_action({"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": INFIL, "player": 1, "payload": {}})
+	_check("ending the (zero-length) move finishes the Movement phase", done.get("success", false)
+		and int(GS.state.meta.get("phase", -1)) == PHASE_SHOOTING, "%s phase=%d" % [str(done.get("errors", done.get("error", ""))), int(GS.state.meta.get("phase", -1))])
 
 func _run() -> void:
 	print("\n=== test_hidden_shot_record_11e ===")
@@ -389,5 +499,6 @@ func _run() -> void:
 	_section_shooting_phase()
 	_section_fire_overwatch()
 	_section_followups()
+	_section_shadow_masters_after_overwatch()
 	TM.terrain_features = prev_terrain
 	_completed = true

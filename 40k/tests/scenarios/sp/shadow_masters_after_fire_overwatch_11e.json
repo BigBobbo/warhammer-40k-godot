@@ -1,0 +1,282 @@
+{
+  "id": "shadow_masters_after_fire_overwatch_11e",
+  "covers": [
+    "codex.space_marines.detachment.phobos_shadow_force.shadow_masters",
+    "stratagem.window.unit_has_shot_out_of_phase",
+    "stratagem.core.fire_overwatch_11e",
+    "phases.MovementPhase._snap_finish",
+    "rules.terrain.hidden",
+    "debug_log.no_errors"
+  ],
+  "fixture": "sm11e_m2a_marines_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Codex: Space Marines (11e) Phobos Shadow Force — SHADOW MASTERS: 'When a friendly Phobos or Scout SQUAD unit has shot: Those attacks do not prevent that unit from being hidden.' The rule names no phase, so (07.02.01 commentary) it applies after a FIRE OVERWATCH snap shot too, and snap shooting is ranged attacks that break 13.09 HIDDEN. Regression: the card was only offered in the Shooting phase's unit_has_shot window, so an overwatching Phobos unit lost Hidden for the rest of the opponent's turn and its own next turn. Fixture sm11e_m2a_marines_active, P2's Movement phase (round 2): the Ork player turns Skip Overwatch off and ends the phase; the Space Marine player uses FIRE OVERWATCH with the Infiltrator Squad (in a ruin) at the Gretchin with real clicks; the new unit_has_shot_out_of_phase window offers SHADOW MASTERS (stay hidden / D6\" move); a REAL click on 'Stay hidden' — in P2's Shooting phase the Infiltrators are hidden, but cannot go to ground (13.11.01).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup privileges: only the Infiltrator Squad (P1, PHOBOS INFANTRY — Phobos Shadow Force is taken) and Gretchin Alpha (P2) stay in play, 14\" apart; a dense ruin under the Infiltrators (the fixture board's terrain is stashed and restored in cleanup); P2's turn of battle round 2 (P1 went first: turn index 5); P1 6 CP, P2 0 CP (no Ork reactions); wounds allocated automatically.",
+      "script": "var units = GameState.state[\"units\"]\nvar keep = [\"U_INFILTRATOR_SQUAD_A\", \"U_GRETCHIN_C\"]\nfor uid in units:\n\tif not uid in keep:\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tunits[uid][\"flags\"] = {}\nvar px = 40.0\nvar i = 0\nfor m in units[\"U_INFILTRATOR_SQUAD_A\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (8.0 + i * 1.6) * px, \"y\": 20.0 * px}\n\t\ti += 1\nvar j = 0\nfor m in units[\"U_GRETCHIN_C\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (8.0 + j * 1.4) * px, \"y\": 34.0 * px}\n\t\tj += 1\nTerrainManager.set_meta(\"smo_saved_terrain\", TerrainManager.terrain_features.duplicate(true))\nvar poly = PackedVector2Array([Vector2(3, 16) * px, Vector2(30, 16) * px, Vector2(30, 24) * px, Vector2(3, 24) * px])\nTerrainManager.terrain_features = [{\"id\": \"smo_ruin\", \"type\": \"ruins\", \"polygon\": poly, \"height_category\": \"tall\", \"position\": Vector2(16.5, 20.0) * px, \"size\": Vector2(27, 8) * px, \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}}]\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nGameState.state[\"meta\"][\"first_turn_player\"] = 1\nGameState.state[\"meta\"][\"battle_round\"] = 2\nGameState.state[\"meta\"][\"active_player\"] = 2\nGameState.state[\"players\"][\"1\"][\"cp\"] = 6\nGameState.state[\"players\"][\"2\"][\"cp\"] = 0\nSettingsService.set_auto_allocate_wounds(true)\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "P2's Movement phase",
+      "script": "PhaseManager.transition_to_phase(7)\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"%d|%d\" % [int(GameState.get_current_phase()), int(GameState.get_active_player())]",
+      "equals": "7|2"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a movement_phase_start window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.8\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(560, 1080) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.09: the Infiltrators in the ruin are hidden before they shoot",
+      "script": "var u = GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\")\nvar n = 0\nfor m in u[\"models\"]:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif not TerrainManager.is_model_hidden(m, u):\n\t\treturn \"model %s NOT hidden (flags %s)\" % [str(m.get(\"id\", \"?\")), str(u.get(\"flags\", {}))]\n\tn += 1\nreturn n > 0",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.auto_decline_overwatch.button_pressed",
+      "equals": true,
+      "comment": "Skip Overwatch is ON by default"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "comment": "real click: Skip Overwatch OFF"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.auto_decline_overwatch.button_pressed",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "comment": "the Ork player ends the Movement phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the movement_phase_end window for the Space Marine player offers FIRE OVERWATCH",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nif not p.has_pending_stratagem_window():\n\treturn \"no window\"\nvar w = p.get_pending_stratagem_window()\nvar ids = []\nfor o in w.get(\"offers\", []):\n\tids.append(str(o.get(\"stratagem_id\", \"\")))\nreturn str(w.window_id) == \"movement_phase_end\" and int(w.player) == 1 and \"fire_overwatch_11e\" in ids",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_INFILTRATOR_SQUAD_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_INFILTRATOR_SQUAD_A",
+      "comment": "real click: FIRE OVERWATCH with the Infiltrators"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(42)",
+      "comment": "re-start the seeded dice stream right before the snap shot"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "comment": "real click: snap-shoot the Gretchin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state[\"players\"][\"1\"][\"cp\"])",
+      "equals": 5,
+      "comment": "1CP spent on FIRE OVERWATCH (set to 6 in setup)"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\").get(\"flags\", {}).get(\"last_shot_idx\", -1))",
+      "equals": 5,
+      "comment": "13.09: the snap shot is ranged attacks — the record says turn 5"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "NEW: right after the snap shot the overwatching player's unit_has_shot_out_of_phase window offers SHADOW MASTERS ('When a friendly Phobos or Scout SQUAD unit has shot' names no phase — 07.02.01). Before the fix no window opened and the phase went straight to P2's Shooting phase.",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nif not p.has_pending_stratagem_window():\n\treturn \"no window\"\nvar w = p.get_pending_stratagem_window()\nvar ids = []\nfor o in w.get(\"offers\", []):\n\tids.append(str(o.get(\"stratagem_id\", \"\")))\nprint(\"[%s] window %s for P%d offers %s\" % [\"shadow_masters_after_fire_overwatch_11e\", str(w.window_id), int(w.player), str(ids)])\nreturn \"%s|%d|%s\" % [str(w.window_id), int(w.player), \",\".join(PackedStringArray(ids))]",
+      "equals": "unit_has_shot_out_of_phase|1|sm11e_rule_shadow_masters"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_hidden",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_move",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shadow_masters_offered_after_fire_overwatch"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_sm11e_rule_shadow_masters/Buttons/Use_sm11e_rule_shadow_masters_U_INFILTRATOR_SQUAD_A_hidden",
+      "comment": "REAL click: Stay hidden"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8,
+      "comment": "the Movement phase ended: P2's Shooting phase"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.09 + Shadow Masters: the Infiltrators are hidden in the opponent's Shooting phase although they fired overwatch; 13.11.01 Designer's Note: they still cannot go to ground (they made ranged attacks this turn, turn 5)",
+      "script": "var u = GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\")\nvar D = load(\"res://scripts/codex/space_marines/SMDetachmentsA.gd\")\nvar f = u.get(\"flags\", {})\nprint(\"[%s] P2 Shooting phase, turn %d: hidden=%s can_go_to_ground=%s flags=%s\" % [\"shadow_masters_after_fire_overwatch_11e\", GameState.get_player_turn_index(), str(D.unit_is_hidden(u)), str(TerrainManager.can_go_to_ground(u)), str(f)])\nreturn \"%s|%s|%d\" % [str(D.unit_is_hidden(u)), str(TerrainManager.can_go_to_ground(u)), int(f.get(\"last_ranged_attack_idx\", -1))]",
+      "equals": "true|false|5"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.get_unit(\"U_INFILTRATOR_SQUAD_A\")\nvar n = 0\nfor m in u[\"models\"]:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif not TerrainManager.is_model_hidden(m, u):\n\t\treturn \"model %s NOT hidden (flags %s)\" % [str(m.get(\"id\", \"?\")), str(u.get(\"flags\", {}))]\n\tn += 1\nreturn n > 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"those attacks do not prevent it from being hidden\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\">>> FIRE OVERWATCH <<<\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.8\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(560, 1080) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_infiltrators_hidden_in_the_opponents_shooting_phase"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[shadow_masters_after_fire_overwatch_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup: the fixture's terrain back",
+      "script": "if TerrainManager.has_meta(\"smo_saved_terrain\"):\n\tTerrainManager.terrain_features = TerrainManager.get_meta(\"smo_saved_terrain\")\n\tTerrainManager.remove_meta(\"smo_saved_terrain\")\n\tTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nreturn true",
+      "equals": true
+    }
+  ]
+}

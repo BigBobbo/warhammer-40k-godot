@@ -6289,6 +6289,18 @@ func _snap_finish() -> Array:
 		var sm_re: Dictionary = _sm11e_abilities_a().fire_overwatch_reoffer(int(st.get("player", 0)), {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()})
 		if not sm_re.is_empty():
 			_window_queue.push_front(sm_re)
+	# "When this unit has shot" rules that name no phase (07.02.01: only
+	# phase-locked rules are barred during an out-of-phase rule) — SHADOW
+	# MASTERS (Codex: Space Marines 11e, Phobos Shadow Force): the overwatching
+	# player's unit_has_shot_out_of_phase window opens next, ahead of any
+	# re-offered FIRE OVERWATCH. No offer = the queue skips it.
+	var snap_player := int(st.get("player", 0))
+	if snap_shooter != "" and snap_player > 0:
+		var snap_head := str(st.get("head_id", snap_shooter))
+		_window_queue.push_front({"player": snap_player, "window_id": "unit_has_shot_out_of_phase",
+			"ctx": {"phase": "movement", "unit_id": snap_head if snap_head != "" else snap_shooter,
+				"source": str(st.get("source", "FIRE OVERWATCH"))}})
+		log_phase_message("[11e 07.02.01] %s has shot out of phase — unit_has_shot_out_of_phase window queued for P%d" % [snap_head, snap_player])
 	emit_signal("overwatch_result", shooter_id, target_id, res_like)
 	call_deferred("_ork11e_refresh_board_visuals")
 	return out

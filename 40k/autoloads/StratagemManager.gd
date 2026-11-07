@@ -130,6 +130,9 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	"enemy_selected_to_fall_back": "an enemy unit is selected to Fall Back",
 	"unit_selected_to_shoot": "one of your units is selected to shoot",
 	"unit_has_shot": "one of your units has shot",
+	# A shot outside your Shooting phase (FIRE OVERWATCH snap shooting): only
+	# rules that name no phase are offered (07.02.01) — SHADOW MASTERS.
+	"unit_has_shot_out_of_phase": "one of your units has shot outside your Shooting phase",
 	"enemy_targets_unit_shooting": "an enemy unit targets one of your units with ranged attacks",
 	"enemy_has_shot": "an enemy unit has shot",
 	"unit_declares_charge": "one of your units declares a charge",
