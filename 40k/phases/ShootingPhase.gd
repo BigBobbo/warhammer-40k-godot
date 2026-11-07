@@ -4427,9 +4427,44 @@ func _cus11e_prime_target_reroll(stage: String) -> bool:
 	var st := "hit" if stage.begins_with("hit") else "wound"
 	return bool(_cus11e_codex().single_reroll_available(GameState.get_unit(active_shooter_id), st))
 
+## WP-G4 ADVANCED FIREPOWER (CustodesAbilities.gd): the free single re-roll of
+## `stage` ("hits" / "wounds") when NO pause will offer it to the player — SP
+## Fast Roll (auto_continue) or a wound roll that caused no wound. Re-rolls the
+## first failed die not already re-rolled (the PRIME TARGET auto heuristic) and
+## spends the grant. Only for an Advanced Firepower projection: PRIME TARGET's
+## own grant keeps its existing behaviour. True when a die was re-rolled.
+func _cus11e_af_auto_reroll(stage: String) -> bool:
+	if active_shooter_id == "" or not _cus11e_prime_target_reroll(stage):
+		return false
+	var cab = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	if not cab.af_is_projection(GameState.get_unit(active_shooter_id).get("flags", {}).get(cab.PT_FLAG, null)):
+		return false
+	var ctx: Dictionary = resolution_state.get("staged_hit_context" if stage == "hits" else "staged_wound_context", {})
+	if stage == "hits" and (ctx.get("is_torrent", false) or ctx.get("no_hit_rerolls", false)):
+		return false
+	var idx: int = int(load("res://scripts/codex/custodes/CustodesDetachments.gd").magna_pick_index(ctx.get("hit_evals" if stage == "hits" else "wound_evals", []), "is_hit" if stage == "hits" else "is_wound"))
+	if idx < 0:
+		return false
+	var st := "hit" if stage == "hits" else "wound"
+	var rng = RulesEngine.make_rng()
+	var rr: Dictionary = RulesEngine.reroll_hit_die(ctx, idx, rng) if stage == "hits" else RulesEngine.reroll_wound_die(ctx, idx, game_state_snapshot, rng)
+	if not rr.get("success", false):
+		return false
+	PhaseManager.apply_state_changes(_cus11e_codex().single_reroll_spend_diffs(active_shooter_id, st))
+	cab.af_log(active_shooter_id, st, rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0)))
+	emit_signal("dice_rolled", {"context": "reroll_note", "message": "ADVANCED FIREPOWER (free): %s die %s → %s" % [st, str(rr.get("old_display", rr.get("old_value", 0))), str(rr.get("new_display", rr.get("new_value", 0)))]})
+	var block: Dictionary = rr.get("dice_block", {})
+	dice_log.append(block)
+	emit_signal("dice_rolled", block)
+	_replace_staged_dice_block("to_hit" if stage == "hits" else "to_wound", block)
+	if stage == "wounds":
+		resolution_state.staged_save_data_list = [rr.get("save_data", {})] if int(rr.get("wounds_caused", 0)) > 0 else []
+	return true
+
 func _cus11e_reroll_label(stage: String) -> String:
 	if _cus11e_prime_target_reroll(stage):
-		return "PRIME TARGET (free) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
+		# WP-G4: the grant may be a datasheet ability riding it (Advanced Firepower) — name the real source.
+		return "%s (free) — click a %s die to re-roll it:" % [str(_cus11e_codex().single_reroll_source(GameState.get_unit(active_shooter_id))).to_upper(), "hit" if stage == "hits" else "wound"]
 	return ""
 
 func _extract_staged_hit_wound(dice_data: Array) -> Array:
@@ -4516,6 +4551,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 	# hit pause and roll straight through wounds to the saving throws.
 	# pause=false in _staged_continue_to_wounds also skips the wound pause.
 	if resolution_state.get("auto_continue", false):
+		_cus11e_af_auto_reroll("hits")  # WP-G4 ADVANCED FIREPOWER: Fast Roll skips the pause that offers its free hit re-roll
 		return _staged_continue_to_wounds(false)
 
 	var hc = hres.get("hit_context", {})
@@ -4591,6 +4627,10 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 	var save_data_list = wres.get("save_data_list", [])
 	resolution_state.staged_wound_context = wres.get("wound_context", {})
 	resolution_state.staged_save_data_list = save_data_list
+	# WP-G4 ADVANCED FIREPOWER: no pause will offer its free wound re-roll (Fast Roll, or no wound caused) — make it now.
+	if (not pause or save_data_list.is_empty()) and _cus11e_af_auto_reroll("wounds"):
+		save_data_list = resolution_state.get("staged_save_data_list", [])
+		dice_data = resolution_state.get("staged_dice", dice_data)
 
 	var hw = _extract_staged_hit_wound(dice_data)
 	var hit_data = hw[0]
@@ -4682,11 +4722,13 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	# re-roll of this stage is spent first; otherwise the Command Re-roll.
 	var reroll_source := "Command Re-roll (1 CP)"
 	var cus11e_pt_diffs: Array = []
+	var cus11e_log_src := ""
 	if _cus11e_prime_target_reroll(stage):
+		var cus11e_src: String = str(_cus11e_codex().single_reroll_source(GameState.get_unit(active_shooter_id)))  # WP-G4: PRIME TARGET or Advanced Firepower
 		cus11e_pt_diffs = _cus11e_codex().single_reroll_spend_diffs(active_shooter_id, "hit" if stage == "hits" else "wound")
 		PhaseManager.apply_state_changes(cus11e_pt_diffs)
-		reroll_source = "PRIME TARGET (free)"
-		GameEventLog.add_player_entry(get_current_player(), "PRIME TARGET: %s re-rolls one %s roll" % [GameState.get_unit_display_name(active_shooter_id), "hit" if stage == "hits" else "wound"])
+		reroll_source = "%s (free)" % cus11e_src.to_upper()
+		cus11e_log_src = cus11e_src  # Game Log line written after the roll, with the values (WP-G4)
 	else:
 		# Spend the CP + record the once-per-phase Command Re-roll usage.
 		var sm = get_node_or_null("/root/StratagemManager")
@@ -4705,6 +4747,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
 		emit_signal("dice_rolled", {"context": "reroll_note",
 			"message": "%s: hit die %d → %d" % [reroll_source, rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
+		if cus11e_log_src != "":
+			GameEventLog.add_player_entry(get_current_player(), "%s: %s re-rolls one hit roll (%s -> %s)" % [cus11e_log_src, GameState.get_unit_display_name(active_shooter_id), str(rr.get("old_display", rr.get("old_value", 0))), str(rr.get("new_display", rr.get("new_value", 0)))])
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_hit", rr.get("dice_block", {}))
 		var uhc = rr.get("hit_context", {})
@@ -4735,6 +4779,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			resolution_state.staged_save_data_list = []
 		emit_signal("dice_rolled", {"context": "reroll_note",
 			"message": "%s: wound die %d → %d" % [reroll_source, rr.get("old_value", 0), rr.get("new_value", 0)]})
+		if cus11e_log_src != "":
+			GameEventLog.add_player_entry(get_current_player(), "%s: %s re-rolls one wound roll (%s -> %s)" % [cus11e_log_src, GameState.get_unit_display_name(active_shooter_id), str(rr.get("old_value", 0)), str(rr.get("new_value", 0))])
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_wound", rr.get("dice_block", {}))
 		emit_signal("shooting_stage_paused", "wounds", {
@@ -4776,8 +4822,10 @@ func _process_fast_finish_shooting(_action: Dictionary) -> Dictionary:
 		return create_result(false, [], "Not in staged resolution")
 	var stage = resolution_state.get("stage", "")
 	if stage == "hits_pending":
+		_cus11e_af_auto_reroll("hits")  # WP-G4 ADVANCED FIREPOWER: Fast Roll from the hit pause still makes its free hit re-roll
 		return _staged_continue_to_wounds(false)
 	elif stage == "wounds_pending":
+		_cus11e_af_auto_reroll("wounds")  # WP-G4 ADVANCED FIREPOWER: same for the free wound re-roll (it can only add a wound)
 		return _staged_continue_to_saves()
 	return create_result(false, [], "Nothing to fast-finish")
 

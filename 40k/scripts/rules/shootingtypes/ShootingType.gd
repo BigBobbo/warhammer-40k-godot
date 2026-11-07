@@ -46,7 +46,8 @@ func target_allowed(unit_id: String, target_id: String, weapon_profile: Dictiona
 	var rules = _rules()
 	var target = board.get("units", {}).get(target_id, {})
 	if rules.is_unit_engaged(target_id, board):
-		if not _is_monster_or_vehicle(target):
+		# WP-G4 Codex: Orks (11e) FORTIFICATION (Big'ed Bossbunka): a unit engaged with only FORTIFICATIONs can be targeted.
+		if not _is_monster_or_vehicle(target) and not load("res://scripts/codex/orks/OrkFortification11e.gd").lifts_engaged_target(target_id, board):
 			return {"allowed": false, "reason": "engaged non-MONSTER/VEHICLE units cannot be targeted (17.03)"}
 		if _weapon_has(weapon_profile, "blast"):
 			return {"allowed": false, "reason": "[BLAST] weapons cannot target engaged units (24.04)"}

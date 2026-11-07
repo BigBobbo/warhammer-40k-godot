@@ -319,6 +319,7 @@ static func auto_single_reroll_hit(hit_eval: Dictionary, raw_roll: int, attacker
 	out["reroll_from"] = raw_roll
 	out["reroll_to"] = new_roll
 	Common.log_info("[CustodesCodex11e] PRIME TARGET: hit roll %d re-rolled -> %d (%s)" % [raw_roll, new_roll, "hit" if out.is_hit else "miss"])
+	_af_game_log(attacker_unit, "hit", raw_roll, new_roll)  # WP-G4 ADVANCED FIREPOWER rides this grant
 	return out
 
 static func auto_single_reroll_wound(wound_eval: Dictionary, raw_roll: int, attacker_unit: Dictionary, mods: int, threshold: int, crit: int, rng) -> Dictionary:
@@ -334,6 +335,7 @@ static func auto_single_reroll_wound(wound_eval: Dictionary, raw_roll: int, atta
 	out["reroll_from"] = raw_roll
 	out["reroll_to"] = new_roll
 	Common.log_info("[CustodesCodex11e] PRIME TARGET: wound roll %d re-rolled -> %d (%s)" % [raw_roll, new_roll, "wound" if out.is_wound else "fail"])
+	_af_game_log(attacker_unit, "wound", raw_roll, new_roll)  # WP-G4 ADVANCED FIREPOWER rides this grant
 	return out
 
 ## dmg_result: RulesEngine.roll_variable_characteristic's {value, rolled, ...}.
@@ -351,7 +353,23 @@ static func auto_single_reroll_damage(dmg_result: Dictionary, damage_raw: String
 	var again: Dictionary = re.roll_variable_characteristic(damage_raw, rng)
 	Common.log_info("[CustodesCodex11e] PRIME TARGET: damage roll %s re-rolled %d -> %d" % [damage_raw, int(dmg_result.get("value", 0)), int(again.get("value", 0))])
 	again["prime_target_reroll_from"] = int(dmg_result.get("value", 0))
+	_af_game_log(attacker_unit, "damage", int(dmg_result.get("value", 0)), int(again.get("value", 0)))  # WP-G4 ADVANCED FIREPOWER rides this grant
 	return again
+
+## WP-G4: when the single-re-roll grant just spent is an ADVANCED FIREPOWER
+## projection on a live board (not a Mathhammer trial), name it in the Game Log.
+static func _af_game_log(attacker_unit: Dictionary, stage: String, from_v, to_v) -> void:
+	var pt = attacker_unit.get("flags", {}).get(GroupShooting.FLAG_PRIME_TARGET, null)
+	if typeof(pt) == TYPE_DICTIONARY and bool(pt.get("cus11e_af", false)) and bool(pt.get("live", true)):
+		load("res://scripts/codex/custodes/CustodesAbilities.gd").af_log(str(attacker_unit.get("id", "")), stage, from_v, to_v)
+
+## The name of the single-re-roll grant on `attacker_unit` (PRIME TARGET, or a
+## datasheet ability riding it — WP-G4 Advanced Firepower), for dock labels and logs.
+static func single_reroll_source(attacker_unit: Dictionary) -> String:
+	var pt = attacker_unit.get("flags", {}).get(GroupShooting.FLAG_PRIME_TARGET, null)
+	if typeof(pt) == TYPE_DICTIONARY and str(pt.get("source", "")) != "":
+		return str(pt.source)
+	return "PRIME TARGET"
 
 static func _avg_dice(raw: String) -> float:
 	var s := raw.to_upper().replace(" ", "")

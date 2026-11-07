@@ -1185,7 +1185,9 @@ func _section_strike_from_the_skies() -> void:
 
 
 # ---------------------------------------------------------------------------
-# 31. Advanced Firepower — not implemented (10e Lethal Hits rule removed)
+# 31. Advanced Firepower — the 10e Lethal Hits rule removed; the codex rule
+#     (single re-rolls vs MONSTER/VEHICLE) landed in WP-G4 (full coverage:
+#     tests/test_codex11e_g4_combat.gd)
 # ---------------------------------------------------------------------------
 func _section_advanced_firepower() -> void:
 	print("\n-- 31. Advanced Firepower --")
@@ -1195,7 +1197,8 @@ func _section_advanced_firepower() -> void:
 	var m := _mods("U_ANNIHILATOR_A", "U_DEFF_DREAD_A", false)
 	_check("the 10e weapon/target [LETHAL HITS] rule is gone", not bool(m.lethal))
 	_check("RulesEngine.check_advanced_firepower_lethal_hits removed", not RE.has_method("check_advanced_firepower_lethal_hits"))
-	_check("the ABILITY_EFFECTS row is honest: not implemented (single-die re-rolls)", not UAM.is_ability_implemented("Advanced Firepower"))
+	_check("WP-G4: the ABILITY_EFFECTS row is implemented", UAM.is_ability_implemented("Advanced Firepower"))
+	_check("WP-G4: vs a VEHICLE the single re-roll grant is projected", bool(_u("U_ANNIHILATOR_A").get("flags", {}).get("cus11e_prime_target", {}).get("hit", false)))
 
 
 # ---------------------------------------------------------------------------

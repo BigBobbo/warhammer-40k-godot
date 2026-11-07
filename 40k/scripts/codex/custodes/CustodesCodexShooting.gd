@@ -507,6 +507,9 @@ static func single_reroll_spend_diffs(attacker_unit_id: String, stage: String) -
 		var nd: Dictionary = pt.duplicate()
 		nd[stage] = false
 		diffs.append({"op": "set", "path": "units.%s.flags.%s" % [str(gid), FLAG_PRIME_TARGET], "value": nd})
+	# WP-G4 ADVANCED FIREPOWER rides this grant: record the spend in its per-phase ledger too.
+	if load("res://scripts/codex/custodes/CustodesAbilities.gd").af_is_projection(Common.unit(attacker_unit_id).get("flags", {}).get(FLAG_PRIME_TARGET, null)):
+		diffs.append(load("res://scripts/codex/custodes/CustodesAbilities.gd").af_spent_diff(attacker_unit_id, stage))
 	return diffs
 
 
@@ -524,6 +527,9 @@ static func take_single_reroll(attacker_unit: Dictionary, stage: String) -> bool
 	var pt: Dictionary = attacker_unit.get("flags", {}).get(FLAG_PRIME_TARGET, {}).duplicate()
 	pt[stage] = false
 	attacker_unit["flags"][FLAG_PRIME_TARGET] = pt
+	# WP-G4 ADVANCED FIREPOWER rides this grant: the spend reaches its live per-phase ledger (board copies included).
+	if bool(pt.get("cus11e_af", false)):
+		load("res://scripts/codex/custodes/CustodesAbilities.gd").af_spent(uid, stage, bool(pt.get("live", true)))
 	if is_same(Common.unit(uid), attacker_unit):
 		for gid in Common.attached_group_ids(uid):
 			var live := Common.unit(str(gid))

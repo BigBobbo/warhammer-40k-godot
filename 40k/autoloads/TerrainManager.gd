@@ -1388,6 +1388,9 @@ func unit_has_cover_11e(unit: Dictionary, attacker_model: Dictionary = {}) -> bo
 	var o5 = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
 	if o5.grants_stealth(unit) or o5.smoky_gubbinz_cover(unit, attacker_model):
 		return true
+	# WP-G4 Codex: Orks (11e) RAMSHACKLE COVER (Big'ed Bossbunka): not fully visible because of that unit.
+	if load("res://scripts/codex/orks/OrkFortification11e.gd").ramshackle_cover(unit, attacker_model):
+		return true
 	var keywords: Array = unit.get("meta", {}).get("keywords", [])
 	var qualifies_kw := false
 	for kw in ["INFANTRY", "BEASTS", "SWARM"]:

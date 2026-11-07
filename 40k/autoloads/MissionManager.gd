@@ -683,6 +683,9 @@ func model_oc(unit: Dictionary, model: Dictionary) -> int:
 	# _unit_oc_in_range zeroes a battle-shocked unit anyway).
 	if GameConstants.edition >= 11 and int(flags.get("effect_oc_override", 0)) == 0:
 		oc += int(_codex_script("res://scripts/codex/space_wolves/SWArmyRules11e.gd").oc_bonus(unit))
+	# WP-G4 Codex: Orks (11e) RAUCOUS OCCUPANTS (Big'ed Bossbunka, printed OC 0): + the embarked models' OC on your home objective.
+	if GameConstants.edition >= 11:
+		oc += int(_codex_script("res://scripts/codex/orks/OrkFortification11e.gd").raucous_occupants_oc(unit, model))
 	# WP-S4: Space Wolves HUNTING HOUNDS — a Hunting Wolf's printed OC is 0, +1
 	# within 6" of a friendly SPACE WOLVES CHARACTER (SWAbilities11e.model_oc).
 	if GameConstants.edition >= 11:

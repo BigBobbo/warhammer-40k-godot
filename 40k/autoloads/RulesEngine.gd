@@ -1532,7 +1532,7 @@ static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary
 		if cus11e_block != "":
 			print("RulesEngine: [15.09] SNAP — %s cannot be targeted with snap shooting (%s)" % [tid, cus11e_block])
 			continue
-		if is_attached_unit_engaged(tid, board):
+		if is_attached_unit_engaged(tid, board) and not load("res://scripts/codex/orks/OrkFortification11e.gd").lifts_engaged_target(tid, board):  # WP-G4 FORTIFICATION lifts it
 			print("RulesEngine: [15.09/04.02] SNAP — %s is engaged: not an eligible target outside your Shooting phase (17.03)" % tid)
 			continue
 		var target_components: Array = attached_unit_component_ids(tid, board)
@@ -3717,6 +3717,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
 			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
 			dmg_result = SMAbilitiesC11eScript.reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-M4c: Total Obliteration
+			dmg_result = CustodesAbilities11eScript.af_fallback_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-G4: Advanced Firepower beside a real PRIME TARGET
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -3814,6 +3815,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
 			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
 			dmg_result = SMAbilitiesC11eScript.reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-M4c: Total Obliteration
+			dmg_result = CustodesAbilities11eScript.af_fallback_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng, bool(opts.get("is_melee", false)))  # WP-G4: Advanced Firepower beside a real PRIME TARGET
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -10295,13 +10297,18 @@ static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, mo
 		rr_src = "Magna Imperator"
 	elif ranged and SMAbilitiesAScript.machine_spirit_available(actor_unit, "hit"):  # WP-M4a POWER OF THE MACHINE SPIRIT (Land Raider): re-roll one hit roll
 		rr_src = "Power of the Machine Spirit"
+	elif ranged and CustodesAbilities11eScript.af_fallback_available(actor_unit, "hit"):  # WP-G4 ADVANCED FIREPOWER beside a real PRIME TARGET grant (the two stack)
+		rr_src = "Advanced Firepower"
 	if rr_src == "":
 		return out
 	var i: int = cus11e_det().magna_pick_index(hit_evals, "is_hit")
 	if i < 0:
 		return out
+	var cus11e_af_live: bool = CustodesAbilities11eScript.af_fallback_live(actor_unit)
 	if rr_src == "Magna Imperator":
 		cus11e_det().magna_imperator_consume(actor_unit, "hit")
+	elif rr_src == "Advanced Firepower":
+		CustodesAbilities11eScript.af_fallback_consume(actor_unit, "hit")  # WP-G4
 	else:
 		SMAbilitiesAScript.machine_spirit_consume(actor_unit, "hit")
 	var new_raw: int = rng.roll_d6(1)[0]
@@ -10315,6 +10322,8 @@ static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, mo
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
 	ModifierLedger.note(ledger, rr_src, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "one hit roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
 	print("RulesEngine: [cus11e] %s — %s re-rolls one hit roll: %d -> %d (%s)" % [rr_src.to_upper(), str(actor_unit.get("id", "?")), int(old_raw), new_raw, "hit" if ev.is_hit else "miss"])
+	if rr_src == "Advanced Firepower" and cus11e_af_live:
+		CustodesAbilities11eScript.af_log(str(actor_unit.get("id", "")), "hit", int(old_raw), new_raw)  # WP-G4: Game Log line
 	if ev.is_hit:
 		out.hit = 1
 		if ev.is_crit:
@@ -10332,13 +10341,18 @@ static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array
 		rr_src = "Magna Imperator"
 	elif ranged and SMAbilitiesAScript.machine_spirit_available(actor_unit, "wound"):  # WP-M4a POWER OF THE MACHINE SPIRIT: re-roll one wound roll
 		rr_src = "Power of the Machine Spirit"
+	elif ranged and CustodesAbilities11eScript.af_fallback_available(actor_unit, "wound"):  # WP-G4 ADVANCED FIREPOWER beside a real PRIME TARGET grant (the two stack)
+		rr_src = "Advanced Firepower"
 	if rr_src == "":
 		return out
 	var i: int = cus11e_det().magna_pick_index(wound_evals, "is_wound")
 	if i < 0:
 		return out
+	var cus11e_af_live: bool = CustodesAbilities11eScript.af_fallback_live(actor_unit)
 	if rr_src == "Magna Imperator":
 		cus11e_det().magna_imperator_consume(actor_unit, "wound")
+	elif rr_src == "Advanced Firepower":
+		CustodesAbilities11eScript.af_fallback_consume(actor_unit, "wound")  # WP-G4
 	else:
 		SMAbilitiesAScript.machine_spirit_consume(actor_unit, "wound")
 	var new_raw: int = rng.roll_d6(1)[0]
@@ -10349,6 +10363,8 @@ static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array
 	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
 	ModifierLedger.note(ledger, rr_src, ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
 	print("RulesEngine: [cus11e] %s — %s re-rolls one wound roll: %d -> %d (%s)" % [rr_src.to_upper(), str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
+	if rr_src == "Advanced Firepower" and cus11e_af_live:
+		CustodesAbilities11eScript.af_log(str(actor_unit.get("id", "")), "wound", int(old_raw), new_raw)  # WP-G4: Game Log line
 	out.index = i
 	if ev.is_wound and not ev.auto_fail:
 		out.wound = 1
@@ -10501,6 +10517,7 @@ static func ork11e_ab_mods(actor_unit: Dictionary, target_unit: Dictionary, weap
 	SMAbilitiesC11eScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4c: Space Marines (11e) M4c datasheet abilities ride the same aggregator
 	load("res://scripts/codex/space_marines/SMCodexB.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # Codex: Space Marines (11e) WP-M3b (SMCodexB.gd): detachment stratagem attack modifiers
 	SMAbilitiesAScript.merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-M4a: Codex: Space Marines (11e) generic datasheet abilities (M4a list)
+	load("res://scripts/codex/orks/OrkFortification11e.gd").merge_attack_mods(ab_mods, actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)  # WP-G4: Codex: Orks (11e) Big'ed Bossbunka FORTIFICATION (-1 to hit vs a unit engaged with only FORTIFICATIONs)
 	return ab_mods
 
 ## WP-M4b: Codex: Space Marines (11e) M4b datasheet abilities (scripts/codex/space_marines/SMAbilitiesB.gd), loaded lazily.
@@ -11241,6 +11258,8 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 static func _is_target_in_friendly_engagement(target_unit_id: String, actor_unit_id: String, actor_owner: int, units: Dictionary, board: Dictionary) -> bool:
 	var target_unit = units.get(target_unit_id, {})
 	if target_unit.is_empty():
+		return false
+	if GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkFortification11e.gd").lifts_engaged_target(target_unit_id, board):  # WP-G4 Codex: Orks (11e) FORTIFICATION (Big'ed Bossbunka): engaged with only FORTIFICATIONs -> can be targeted
 		return false
 
 	for unit_id in units:

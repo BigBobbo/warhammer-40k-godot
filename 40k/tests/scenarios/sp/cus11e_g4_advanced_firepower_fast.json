@@ -1,0 +1,285 @@
+{
+  "id": "cus11e_g4_advanced_firepower_fast",
+  "covers": [
+    "codex.custodes.datasheet_abilities.advanced_firepower",
+    "scripts.codex.custodes.CustodesAbilities",
+    "shooting.fast_roll"
+  ],
+  "description": "WP-G4 ADVANCED FIREPOWER on the Fast Roll path. Fixture cus11e_g4_shoot (P1 Custodes' Shooting phase). The Annihilator is selected by a real token click; its carronade is assigned to the Deff Dread (VEHICLE) and its twin lastrum bolt cannon to the Gretchin (INFANTRY); a real click on 'Fast Roll All ⏩' resolves both weapons with no pause, so the free re-roll is made automatically on the first failed die against the Deff Dread only and named in the Game Log. Setup privileges: auto wound allocation; both players 0 CP; the Deff Dread's wounds inflated.",
+  "fixture": "cus11e_g4_shoot",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_DEFF_DREAD_A\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup privileges: auto wound allocation; both players 0 CP; the Deff Dread's wounds inflated"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_ANNIHILATOR_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P1's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CLEAR_ALL_ASSIGNMENTS",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_ANNIHILATOR_A",
+        "payload": {
+          "weapon_id": "arachnus_blaze_carronade_ranged",
+          "target_unit_id": "U_DEFF_DREAD_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      },
+      "comment": "the shooting panel's weapon -> target assignment"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_ANNIHILATOR_A",
+        "payload": {
+          "weapon_id": "twin_lastrum_bolt_cannon_ranged",
+          "target_unit_id": "U_GRETCHIN_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      },
+      "comment": "the shooting panel's weapon -> target assignment"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_two_weapons_queued"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fast Roll All ⏩",
+      "comment": "REAL click: Fast Roll — no pause offers the re-roll, so it is made automatically"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P1's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).find(\"Advanced Firepower: Caladius Annihilator Grav-Tank re-rolls one\") >= 0:\n\t\tn += 1\nreturn n",
+      "comment": "Fast Roll: the Annihilator's free re-roll(s) vs the Deff Dread are made and logged",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor e in GameEventLog.entries:\n\tvar t := str(e.get(\"text\", \"\"))\n\tif t.find(\"Advanced Firepower\") >= 0 and t.find(\"hit roll\") >= 0:\n\t\tn += 1\nreturn n",
+      "comment": "at most ONE hit re-roll for the whole activation (the Gretchin are not a MONSTER/VEHICLE)",
+      "expect_max": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var led = GameState.state.units[\"U_ANNIHILATOR_A\"].flags.get(\"cus11e_ab_af\", {})\nreturn not bool(led.get(\"hit\", true)) or not bool(led.get(\"wound\", true))",
+      "equals": true,
+      "comment": "the per-phase ledger records the spend"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = null\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_tab_dice_button\") != null:\n\t\tpanel = n\n\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\nif panel.get(\"_tab_game_button\") != null:\n\tpanel._tab_game_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "show the Game Log tab"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_fast_roll_game_log"
+    }
+  ]
+}

@@ -389,6 +389,7 @@ static func _weapon_name(weapon_profile: Dictionary) -> String:
 static func merge_attack_mods(m: Dictionary, actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, board: Dictionary = {}, bearer_ids: Array = []) -> void:
 	if not _edition_11():
 		return
+	af_project(actor_unit, target_unit, is_melee, board)  # WP-G4 ADVANCED FIREPOWER: project the single re-rolls for this target
 	var c := attack_mods(actor_unit, target_unit, weapon_profile, is_melee, board, bearer_ids)
 	if c.sources.is_empty():
 		return
@@ -407,6 +408,167 @@ static func merge_attack_mods(m: Dictionary, actor_unit: Dictionary, target_unit
 	if not m.has("sources"):
 		m["sources"] = []
 	(m["sources"] as Array).append_array(c.sources)
+
+# ---------------------------------------------------------------------------
+# WP-G4 ADVANCED FIREPOWER (Caladius Annihilator Grav-tank): "This unit's
+# ranged attacks that target a MONSTER/VEHICLE unit can: re-roll one hit roll,
+# re-roll one wound roll, re-roll one damage roll."
+#
+# Rides the engine's single-re-roll grant (the PRIME TARGET flag
+# cus11e_prime_target {hit, wound, damage}), exactly like WP-M4c's Aquilon
+# Optics: every ranged resolver path reads it (manual staged dice — where a
+# human clicks the die in the dock —, Fast Roll / auto-resolve / AI, Fire
+# Overwatch, the defender-rolled save path for the damage roll). The grant is
+# projected onto the attacker dict each time the aggregator is asked about a
+# target: present (with the re-rolls still unspent this phase) against a
+# MONSTER/VEHICLE target, absent otherwise. The truth is the per-phase ledger
+# F_AF on the LIVE head unit; spends made on a board copy (the phases resolve
+# on game_state_snapshot) are written back through af_spent (hook in
+# CustodesCodexShooting.take_single_reroll / single_reroll_spend_diffs).
+# A genuine PRIME TARGET grant on the same unit is never overwritten: the two
+# rules stack, so while it is there Advanced Firepower's re-rolls are made
+# automatically by the resolver (F_AF_FB, read by RulesEngine's single-die
+# re-roll chain cus11e_magna_reroll_hit / _wound and af_fallback_reroll_damage).
+# ---------------------------------------------------------------------------
+const PT_FLAG := "cus11e_prime_target"     # the engine's single-re-roll grant (PRIME TARGET mechanism)
+const F_AF := "cus11e_ab_af"               # live head unit: {hit, wound, damage, key} — re-rolls still unspent this phase
+const F_AF_FB := "cus11e_ab_af_fb"         # attacker dict: {hit, wound, damage, live} — fallback grant while a real PRIME TARGET is on the unit
+const AF_MARK := "cus11e_af"               # marker key inside a projected PT_FLAG
+const AF_SOURCE := "Advanced Firepower"
+
+## The unit's live ledger for this phase (fresh — all three unspent — when the
+## stored one is from another phase).
+static func af_ledger(unit_id: String) -> Dictionary:
+	var live := Common.unit(head_id(unit_id))
+	var led = live.get("flags", {}).get(F_AF, null)
+	if typeof(led) != TYPE_DICTIONARY or str(led.get("key", "")) != _phase_key():
+		return {"hit": true, "wound": true, "damage": true, "key": _phase_key()}
+	return (led as Dictionary).duplicate()
+
+## Snap shooting (Fire Overwatch, 15.08/15.09 — the only ranged attacks made
+## outside the attacker's own Shooting phase): no hit re-rolls.
+static func _af_snap(actor_unit: Dictionary) -> bool:
+	return _phase() != PH_SHOOTING or int(actor_unit.get("owner", 0)) != Common.active_player()
+
+static func af_project(actor_unit: Dictionary, target_unit: Dictionary, is_melee: bool, board: Dictionary = {}) -> void:
+	if is_melee or actor_unit.is_empty():
+		return
+	var aid := _uid(actor_unit)
+	if aid == "" or not (has(actor_unit, "advanced_firepower") or group_has(aid, "advanced_firepower")):
+		return
+	# A Mathhammer trial board carries only "units": its spends never reach the live ledger.
+	var live_board := board.is_empty() or board.has("meta")
+	var tid := _uid(target_unit)
+	var mv := tid != "" and _is_mv(head_id(tid))
+	_af_project_one(actor_unit, mv, live_board)
+	var live := Common.unit(aid)
+	if not live.is_empty() and not is_same(live, actor_unit):
+		_af_project_one(live, mv, live_board)  # the interactive dock reads the LIVE unit
+
+static func _af_project_one(u: Dictionary, mv: bool, live_board: bool) -> void:
+	if not u.has("flags") or typeof(u.flags) != TYPE_DICTIONARY:
+		u["flags"] = {}
+	var flags: Dictionary = u.flags
+	var pt = flags.get(PT_FLAG, null)
+	var genuine_pt := typeof(pt) == TYPE_DICTIONARY and not bool(pt.get(AF_MARK, false))
+	if not mv:
+		if typeof(pt) == TYPE_DICTIONARY and bool(pt.get(AF_MARK, false)):
+			flags.erase(PT_FLAG)
+		flags.erase(F_AF_FB)
+		return
+	var led := af_ledger(_uid(u))
+	var grant := {"hit": bool(led.hit) and not _af_snap(u), "wound": bool(led.wound), "damage": bool(led.damage)}
+	if genuine_pt:
+		flags[F_AF_FB] = {"hit": grant.hit, "wound": grant.wound, "damage": grant.damage, "live": live_board}
+		return
+	flags.erase(F_AF_FB)
+	flags[PT_FLAG] = {"hit": grant.hit, "wound": grant.wound, "damage": grant.damage, AF_MARK: true, "live": live_board, "source": AF_SOURCE}
+
+## Is `pt` (a cus11e_prime_target value) an Advanced Firepower projection?
+static func af_is_projection(pt) -> bool:
+	return typeof(pt) == TYPE_DICTIONARY and bool(pt.get(AF_MARK, false))
+
+## A re-roll of `stage` was spent (on a board copy or the live unit): record
+## it in the live ledger and the live projection, so it stays spent for the
+## rest of the phase whatever board the next weapon resolves on.
+static func af_spent(unit_id: String, stage: String, live_board: bool = true) -> void:
+	if not live_board or unit_id == "":
+		return
+	var head := head_id(unit_id)
+	var led := af_ledger(head)
+	led[stage] = false
+	var hu := Common.unit(head)
+	if hu.is_empty():
+		return
+	if not hu.has("flags"):
+		hu["flags"] = {}
+	hu["flags"][F_AF] = led
+	for gid in group(head):
+		var gu := Common.unit(str(gid))
+		var pt = gu.get("flags", {}).get(PT_FLAG, null)
+		if af_is_projection(pt):
+			var nd: Dictionary = (pt as Dictionary).duplicate()
+			nd[stage] = false
+			gu["flags"][PT_FLAG] = nd
+	Common.log_info("CustodesAbilities: ADVANCED FIREPOWER — %s spent its %s re-roll this phase" % [head, stage])
+
+## The diff that records an interactive spend in the live ledger.
+static func af_spent_diff(unit_id: String, stage: String) -> Dictionary:
+	var head := head_id(unit_id)
+	var led := af_ledger(head)
+	led[stage] = false
+	return {"op": "set", "path": "units.%s.flags.%s" % [head, F_AF], "value": led}
+
+## Player-visible Game Log line for one Advanced Firepower re-roll.
+static func af_log(unit_id: String, stage: String, from_v, to_v) -> void:
+	var uid := head_id(unit_id)
+	var owner := int(Common.unit(uid).get("owner", 0))
+	var msg := "%s: %s re-rolls one %s roll (%s -> %s)" % [AF_SOURCE, Common.unit_name(uid), stage, str(from_v), str(to_v)]
+	Common.log_info("CustodesAbilities: " + msg)
+	if owner > 0:
+		Common.game_log(owner, msg)
+
+## Fallback grant (a real PRIME TARGET is on the unit): RulesEngine's single-die
+## re-roll chain asks / spends it. `kind` "hit" | "wound" | "damage".
+static func af_fallback_available(actor_unit: Dictionary, kind: String) -> bool:
+	if not _edition_11():
+		return false
+	var fb = actor_unit.get("flags", {}).get(F_AF_FB, null)
+	return typeof(fb) == TYPE_DICTIONARY and bool(fb.get(kind, false))
+
+static func af_fallback_consume(actor_unit: Dictionary, kind: String) -> void:
+	var fb = actor_unit.get("flags", {}).get(F_AF_FB, null)
+	if typeof(fb) != TYPE_DICTIONARY:
+		return
+	var nd: Dictionary = (fb as Dictionary).duplicate()
+	nd[kind] = false
+	actor_unit["flags"][F_AF_FB] = nd
+	af_spent(_uid(actor_unit), kind, bool(fb.get("live", true)))
+
+## Whether a fallback spend on this dict should reach the Game Log.
+static func af_fallback_live(actor_unit: Dictionary) -> bool:
+	return bool(actor_unit.get("flags", {}).get(F_AF_FB, {}).get("live", true))
+
+## Fallback damage re-roll (one line after PRIME TARGET's at each RulesEngine
+## damage site): a variable damage roll below the dice average is re-rolled.
+static func af_fallback_reroll_damage(dmg_result: Dictionary, damage_raw: String, attacker_unit: Dictionary, rng, is_melee: bool) -> Dictionary:
+	if is_melee or not bool(dmg_result.get("rolled", false)) or dmg_result.has("prime_target_reroll_from") or dmg_result.has("cus11e_af_reroll_from"):
+		return dmg_result
+	if not af_fallback_available(attacker_unit, "damage"):
+		return dmg_result
+	var re = Common.rules()
+	if re == null:
+		return dmg_result
+	var cx = load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+	if float(dmg_result.get("value", 0)) >= float(cx._avg_dice(damage_raw)):
+		return dmg_result
+	var live := af_fallback_live(attacker_unit)
+	af_fallback_consume(attacker_unit, "damage")
+	var again: Dictionary = re.roll_variable_characteristic(damage_raw, rng)
+	again["cus11e_af_reroll_from"] = int(dmg_result.get("value", 0))
+	if live:
+		af_log(_uid(attacker_unit), "damage", int(dmg_result.get("value", 0)), int(again.get("value", 0)))
+	return again
 
 static func attack_mods(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, is_melee: bool, _board: Dictionary = {}, _bearer_ids: Array = []) -> Dictionary:
 	var m := _empty_mods()
@@ -769,6 +931,15 @@ static func on_phase_transition(old_phase: int, new_phase: int) -> void:
 		if flags.is_empty():
 			continue
 		for f in PHASE_SCOPED:
+			if flags.has(f):
+				flags.erase(f)
+				cleared.append("%s.%s" % [uid, f])
+		# WP-G4 ADVANCED FIREPOWER: the projected grant and the per-phase ledger end with the phase.
+		var af_pt = flags.get(PT_FLAG, null)
+		if typeof(af_pt) == TYPE_DICTIONARY and bool(af_pt.get(AF_MARK, false)):
+			flags.erase(PT_FLAG)
+			cleared.append("%s.%s(advanced firepower)" % [uid, PT_FLAG])
+		for f in [F_AF, F_AF_FB]:
 			if flags.has(f):
 				flags.erase(f)
 				cleared.append("%s.%s" % [uid, f])

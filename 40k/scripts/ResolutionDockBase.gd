@@ -613,7 +613,10 @@ func _clear_reroll_chips() -> void:
 		reroll_row.get_parent().visible = false
 		for child in reroll_row.get_children():
 			reroll_row.remove_child(child)
-			child.free()
+			# WP-G4: a chip clicked by the player is still emitting `pressed`
+			# when the phase re-emits the pause and this clears the row —
+			# free() then raised "Attempted to free a locked object".
+			child.queue_free()
 
 # ---------------------------------------------------------------------------
 # Windowed-scenario helper

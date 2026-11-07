@@ -1,0 +1,104 @@
+{
+  "id": "ork11e_g4_fortification_fall_back",
+  "covers": [
+    "codex.orks.datasheet_abilities.fortification",
+    "scripts.codex.orks.OrkFortification11e",
+    "movement.fall_back.hazard"
+  ],
+  "description": "WP-G4 FORTIFICATION fall-back clause: when an enemy unit engaged with only FORTIFICATION units and not battle-shocked is selected to fall back, its hazard rolls are automatically passed. Fixture ork11e_g4_fort_move (P2 Custodes' Movement phase; Custodian Guard engaged with only the Big'ed Bossbunka). Setup privilege: the Guard is forced into desperate escape (CUT 'EM DOWN mark) — the movement panel only picks that mode when it is forced (battle-shocked units are excluded by the rule). Real clicks: the Guard token, then the Fall Back radio. The desperate-escape hazard rolls are reported as automatically passed (source Fortification), no model is hurt, and the Game Log says why.",
+  "fixture": "ork11e_g4_fort_move",
+  "edition": 11,
+  "rng_seed": 3,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.units[\"U_GUARD_A\"].flags[\"effect_cut_em_down\"] = true\nreturn str(MoveTypes.get_type(\"fall_back\").select_mode(\"U_GUARD_A\", GameState.state).mode)",
+      "equals": "desperate_escape",
+      "comment": "setup privilege: a forced desperate escape (the CUT 'EM DOWN mark) — the movement panel only uses that mode when it is forced, and a battle-shocked unit is excluded by the rule"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(GameState.state.units[\"U_GUARD_A\"].models.filter(func(m): return m.get(\"alive\", true)).size())",
+      "equals": 3
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GUARD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fall Back",
+      "comment": "REAL click on the Fall Back radio"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var am = PhaseManager.get_current_phase_instance().active_moves.get(\"U_GUARD_A\", {})\nreturn [str(am.get(\"mode\", \"\")), str(am.get(\"fall_back_mode\", \"\"))]",
+      "equals": [
+        "FALL_BACK",
+        "desperate_escape"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var hz = PhaseManager.get_current_phase_instance().active_moves.get(\"U_GUARD_A\", {}).get(\"desperate_escape_ctx\", {}).get(\"hazard\", {})\nreturn int(hz.get(\"failures\", -1)) == 0 and str(hz.get(\"auto_passed_source\", \"\")) == \"Fortification\" and int(hz.get(\"auto_passed\", 0)) == 3",
+      "equals": true,
+      "comment": "every hazard roll automatically passed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(GameState.state.units[\"U_GUARD_A\"].models.filter(func(m): return m.get(\"alive\", true) and int(m.get(\"current_wounds\", 0)) == int(m.get(\"wounds\", 0))).size())",
+      "equals": 3,
+      "comment": "no model lost a wound"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).find(\"Fortification: Custodian Guard\") >= 0:\n\t\tn += 1\nreturn n",
+      "comment": "the Game Log says why",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = null\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_tab_dice_button\") != null:\n\t\tpanel = n\n\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\nif panel.get(\"_tab_game_button\") != null:\n\tpanel._tab_game_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "show the Game Log tab"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fall_back_hazards_auto_passed"
+    }
+  ]
+}

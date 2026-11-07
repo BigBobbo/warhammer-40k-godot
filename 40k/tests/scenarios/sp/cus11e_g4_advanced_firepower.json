@@ -1,0 +1,359 @@
+{
+  "id": "cus11e_g4_advanced_firepower",
+  "covers": [
+    "codex.custodes.datasheet_abilities.advanced_firepower",
+    "scripts.codex.custodes.CustodesAbilities",
+    "shooting.staged_reroll"
+  ],
+  "description": "WP-G4 Codex: Adeptus Custodes (11e) ADVANCED FIREPOWER (Caladius Annihilator): ranged attacks that target a MONSTER/VEHICLE can re-roll one hit, one wound and one damage roll. Fixture cus11e_g4_shoot (tests/helpers/gen_codex11e_g4_fixtures.gd; P1 Custodes' Shooting phase). A real token click selects the Annihilator; its Arachnus blaze carronade is assigned to the Ork Deff Dread with the actions the shooting panel sends. The staged dock offers the free re-roll as 'ADVANCED FIREPOWER (free)' at the hit pause and again at the wound pause; real clicks on the failed die chips re-roll them with no CP, the grant is spent once per roll type and the Game Log names each re-roll. Setup privileges: auto wound allocation; both players 0 CP; the Deff Dread's wounds inflated.",
+  "fixture": "cus11e_g4_shoot",
+  "edition": 11,
+  "rng_seed": 11,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_DEFF_DREAD_A\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup privileges: auto wound allocation; both players 0 CP (no stratagem competes); the Deff Dread's wounds inflated so it survives"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_ANNIHILATOR_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_ANNIHILATOR_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P1's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.current_scene.get_node(\"ShootingController\").eligible_targets.has(\"U_DEFF_DREAD_A\")",
+      "equals": true,
+      "comment": "the shooting panel lists the Deff Dread"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CLEAR_ALL_ASSIGNMENTS",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_ANNIHILATOR_A",
+        "payload": {
+          "weapon_id": "arachnus_blaze_carronade_ranged",
+          "target_unit_id": "U_DEFF_DREAD_A",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      },
+      "comment": "the shooting panel's weapon -> target assignment"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"\"))",
+      "equals": "hits_pending",
+      "comment": "the dock paused after the hit roll"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockRerollLabel",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockRerollLabel",
+      "property": "text",
+      "equals": "ADVANCED FIREPOWER (free) — click a hit die to re-roll it:"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ev: Array = PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_hit_context\", {}).get(\"hit_evals\", [])\nfor i in range(ev.size()):\n\tif not bool(ev[i].get(\"is_hit\", false)):\n\t\treturn i\nreturn -1",
+      "equals": 2,
+      "comment": "with seed 11 the third hit die (index 2) failed"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_dock_offers_advanced_firepower_hit_reroll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockRerollScroll/DockRerollRow/DockDie2",
+      "comment": "REAL click on the failed hit die"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return bool(PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_hit_context\", {}).get(\"hit_evals\", [])[2].get(\"rerolled\", false))",
+      "equals": true,
+      "comment": "that die was re-rolled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameState.state.units[\"U_ANNIHILATOR_A\"].flags.get(\"cus11e_prime_target\", {}).get(\"hit\", true)",
+      "equals": false,
+      "comment": "the free hit re-roll is spent (one per phase)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(GameState.state.players[\"1\"][\"cp\"])",
+      "equals": 0,
+      "comment": "no CP spent"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).find(\"Advanced Firepower: Caladius Annihilator Grav-Tank re-rolls one hit roll (\") >= 0:\n\t\tn += 1\nreturn n",
+      "comment": "the Game Log names the re-roll",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = null\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_tab_dice_button\") != null:\n\t\tpanel = n\n\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\nif panel.get(\"_tab_game_button\") != null:\n\tpanel._tab_game_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "show the Game Log tab"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hit_die_rerolled_game_log"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Roll to Wound ▶"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(PhaseManager.get_current_phase_instance().resolution_state.get(\"stage\", \"\"))",
+      "equals": "wounds_pending"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockRerollLabel",
+      "property": "text",
+      "equals": "ADVANCED FIREPOWER (free) — click a wound die to re-roll it:"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ev: Array = PhaseManager.get_current_phase_instance().resolution_state.get(\"staged_wound_context\", {}).get(\"wound_evals\", [])\nfor i in range(ev.size()):\n\tif not bool(ev[i].get(\"is_wound\", false)):\n\t\treturn i\nreturn -1",
+      "equals": 2,
+      "comment": "the third wound die (index 2) failed"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dock_offers_advanced_firepower_wound_reroll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockRerollScroll/DockRerollRow/DockDie2",
+      "comment": "REAL click on the failed wound die"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameState.state.units[\"U_ANNIHILATOR_A\"].flags.get(\"cus11e_prime_target\", {}).get(\"wound\", true)",
+      "equals": false,
+      "comment": "the free wound re-roll is spent"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n := 0\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).find(\"Advanced Firepower: Caladius Annihilator Grav-Tank re-rolls one wound roll (\") >= 0:\n\t\tn += 1\nreturn n",
+      "comment": "the Game Log names the wound re-roll",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameState.state.units[\"U_ANNIHILATOR_A\"].flags.get(\"cus11e_prime_target\", {}).get(\"damage\", false)",
+      "equals": true,
+      "comment": "the damage re-roll is still available"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Continue to Saving Throws ▶"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P2's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "decline P1's stratagem window here (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = null\nfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\tif n.get(\"_tab_dice_button\") != null:\n\t\tpanel = n\n\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\nif panel.get(\"_tab_game_button\") != null:\n\tpanel._tab_game_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true,
+      "comment": "show the Game Log tab"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_after_saves_game_log"
+    }
+  ]
+}
