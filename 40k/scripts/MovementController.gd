@@ -134,6 +134,15 @@ var take_to_skies_checkbox: CheckBox = null
 # Guard so programmatic checkbox syncs (from phase move data) don't re-enter
 # _on_take_to_skies_toggled and dispatch spurious SET_TAKE_TO_SKIES actions.
 var _syncing_take_to_skies: bool = false
+# EA-08 (11e 09.07 / 09.02.02): the fall-back MODE. Ordered Retreat (the
+# default) cannot move through enemy models; Desperate Escape can, at a hazard
+# roll per model of the whole Attached unit before moving and a battle-shock
+# roll after. Shown for an engaged unit at edition >= 11; ticked before Fall
+# Back it rides the BEGIN_FALL_BACK payload, ticked after it is sent as
+# SET_FALL_BACK_MODE.
+var desperate_escape_checkbox: CheckBox = null
+var _syncing_desperate_escape: bool = false
+var _desperate_escape_box_unit: String = ""  # the unit the box's tick belongs to
 # Turbo Boostas (Speedwaaagh!): "use turbo" toggle for SPEED FREEKS / TRUKK
 # units at edition >= 11 — Advance becomes a flat 24" move (no roll), ranged
 # weapons gain ASSAULT and the unit cannot charge this turn.
@@ -716,6 +725,19 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	# the player can tick this box — forward later ticks to the active move.
 	take_to_skies_checkbox.toggled.connect(_on_take_to_skies_toggled)
 	section.add_child(take_to_skies_checkbox)
+
+	# EA-08 (09.07): the fall-back mode choice (see desperate_escape_checkbox).
+	desperate_escape_checkbox = CheckBox.new()
+	desperate_escape_checkbox.name = "DesperateEscapeCheckBox"
+	desperate_escape_checkbox.text = DE_TEXT_CHOICE
+	desperate_escape_checkbox.toggle_mode = true
+	desperate_escape_checkbox.visible = false
+	desperate_escape_checkbox.tooltip_text = "Fall back (09.07): an Ordered Retreat cannot move through enemy models. A Desperate Escape can — one hazard roll per model of the unit, attached characters included (1-2: a mortal wound), before it moves, then a battle-shock roll if the unit is not battle-shocked."
+	desperate_escape_checkbox.add_theme_font_size_override("font_size", 17)
+	desperate_escape_checkbox.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
+	desperate_escape_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.68, 0.45))
+	desperate_escape_checkbox.toggled.connect(_on_desperate_escape_toggled)
+	section.add_child(desperate_escape_checkbox)
 	# B2 (21.03): advertise the rebindable hotkey (default J) on the label and keep
 	# it in sync with any rebind the player makes in Settings › Controls.
 	_refresh_take_to_skies_label()
@@ -905,6 +927,7 @@ func _update_selected_unit_display() -> void:
 		unit_mode_label.text = mode_text
 	_apply_reactive_move_panel_state()
 	_sync_unit_move_controls()
+	_update_desperate_escape_visibility()
 
 ## LV2-C1: the drag hint ("9 of 10 models can be placed here", "Exceeds movement
 ## cap" …) and the Undo Model / Reset Unit / End This Unit's Move buttons belong
@@ -1501,6 +1524,10 @@ func _on_fall_back_pressed() -> void:
 		fb_payload["shw_mobile_gamble"] = true
 	if _take_to_skies_requested():
 		fb_payload["take_to_skies"] = true
+	# EA-08 (09.02.02): "ordered retreat is not mandatory, so you could select
+	# desperate escape instead" — a box ticked before Fall Back rides the payload.
+	if _desperate_escape_requested():
+		fb_payload["fall_back_mode"] = "desperate_escape"
 
 	var action = {
 		"type": "BEGIN_FALL_BACK",
@@ -1736,6 +1763,69 @@ func _refresh_confirm_mode_button_enable() -> void:
 	confirm_mode_button.visible = needs_confirm
 	confirm_mode_button.disabled = not (any_radio_enabled and needs_confirm)
 
+const DE_TEXT_CHOICE := "Desperate Escape (move through enemy models)"
+const DE_TEXT_REQUIRED := "Desperate Escape (required)"
+
+## EA-08: the Desperate Escape box — shown while the selected unit could fall
+## back (engaged, edition >= 11) or is falling back, until its move is done.
+## Ticked and locked when the mode is already Desperate Escape (chosen, forced
+## by battle-shock or a rule — FallBackMove.select_mode — or its hazard rolls
+## were made earlier this phase); locked unticked once a model has moved as an
+## Ordered Retreat (Reset Unit first).
+func _update_desperate_escape_visibility() -> void:
+	if not desperate_escape_checkbox:
+		return
+	var md: Dictionary = _active_move_data_for(active_unit_id)
+	var falling_back: bool = not md.is_empty() and str(md.get("mode", "")) == "FALL_BACK" and not md.get("completed", false)
+	var show: bool = GameConstants.edition >= 11 and active_unit_id != "" and current_phase != null \
+		and (falling_back or (md.is_empty() and fall_back_radio != null and fall_back_radio.visible))
+	var forced := false
+	var hazards_made := false
+	if show:
+		forced = bool(MoveTypes.get_type("fall_back").select_mode(active_unit_id, GameState.state).get("mandatory", false))
+		var rec = GameState.get_unit(active_unit_id).get("flags", {}).get("desperate_escape_hazards_this_phase", null)
+		hazards_made = rec is Dictionary and not rec.is_empty()
+	var de_now: bool = falling_back and str(md.get("fall_back_mode", "")) == "desperate_escape"
+	var moved: bool = falling_back and (not md.get("staged_moves", []).is_empty() or not md.get("model_moves", []).is_empty())
+	desperate_escape_checkbox.visible = show
+	_syncing_desperate_escape = true
+	if active_unit_id != _desperate_escape_box_unit:
+		# A tick made for the previously selected unit never carries over.
+		desperate_escape_checkbox.button_pressed = false
+		_desperate_escape_box_unit = active_unit_id
+	if not show:
+		desperate_escape_checkbox.button_pressed = false
+	elif forced or de_now or hazards_made:
+		desperate_escape_checkbox.button_pressed = true
+	elif falling_back:
+		desperate_escape_checkbox.button_pressed = false
+	_syncing_desperate_escape = false
+	desperate_escape_checkbox.disabled = forced or de_now or hazards_made or moved
+	desperate_escape_checkbox.text = DE_TEXT_REQUIRED if forced else DE_TEXT_CHOICE
+
+func _desperate_escape_requested() -> bool:
+	return desperate_escape_checkbox != null and desperate_escape_checkbox.visible and desperate_escape_checkbox.button_pressed
+
+func _on_desperate_escape_toggled(pressed: bool) -> void:
+	if _syncing_desperate_escape or active_unit_id == "" or not current_phase:
+		return
+	var md: Dictionary = _active_move_data_for(active_unit_id)
+	if md.is_empty() or str(md.get("mode", "")) != "FALL_BACK":
+		print("MovementController: EA-08 Desperate Escape %s for %s — rides the Fall Back payload" % ["ticked" if pressed else "unticked", active_unit_id])
+		return  # no fall-back yet: the tick rides the BEGIN_FALL_BACK payload
+	if pressed and str(md.get("fall_back_mode", "")) != "desperate_escape":
+		print("MovementController: EA-08 switching %s's fall-back to Desperate Escape (SET_FALL_BACK_MODE)" % active_unit_id)
+		emit_signal("move_action_requested", {"type": "SET_FALL_BACK_MODE", "actor_unit_id": active_unit_id,
+			"payload": {"fall_back_mode": "desperate_escape"}})
+	# Dispatch is synchronous in single-player: re-read the authoritative mode
+	# next frame (a refused switch snaps the box back while the toast explains).
+	call_deferred("_sync_desperate_escape_from_phase")
+
+func _sync_desperate_escape_from_phase() -> void:
+	_update_selected_unit_display()
+	if current_phase and current_phase.has_method("get_dice_log"):
+		_update_dice_log_display(current_phase.get_dice_log())
+
 func _update_fall_back_visibility() -> void:
 	if not fall_back_radio or not active_unit_id or not current_phase:
 		return
@@ -1751,6 +1841,7 @@ func _update_fall_back_visibility() -> void:
 	if not is_engaged and fall_back_radio.button_pressed:
 		if normal_radio:
 			normal_radio.button_pressed = true
+	_update_desperate_escape_visibility()
 
 func _unit_is_super_heavy_walker(unit_id: String) -> bool:
 	# ISS-073 (24.35): the MOBILE gamble is only available to SUPER-HEAVY WALKER
@@ -2079,6 +2170,11 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 		_update_movement_display()
 	else:
 		print("ERROR: No current phase set!")
+
+	# EA-08: a desperate escape's hazard rolls are on the dice log as soon as the
+	# fall-back begins.
+	if mode == "FALL_BACK" and current_phase and current_phase.has_method("get_dice_log"):
+		_update_dice_log_display(current_phase.get_dice_log())
 
 	# Codex: Orks (11e) reactive move follow-ups roll their maximum distance
 	# (D6") — show it in the dice log like an advance roll.
@@ -6476,6 +6572,11 @@ func pad_menu_options() -> Array:
 		opts.append({"id": "ADVANCE", "label": "Advance"})
 	if fall_back_radio and fall_back_radio.visible and not fall_back_radio.disabled:
 		opts.append({"id": "FALL_BACK", "label": "Fall Back"})
+		# EA-08 (09.02.02): "ordered retreat is not mandatory, so you could
+		# select desperate escape instead" — the Desperate Escape box's chip
+		# (only while that choice is open: not forced, no hazard rolls made).
+		if desperate_escape_checkbox and desperate_escape_checkbox.visible and not desperate_escape_checkbox.disabled:
+			opts.append({"id": "FALL_BACK_DESPERATE", "label": "Fall Back: Desperate Escape"})
 	if stationary_radio and stationary_radio.visible and not stationary_radio.disabled:
 		opts.append({"id": "REMAIN_STATIONARY", "label": "Stay Still"})
 	# Moving the whole unit at once is NOT a separate menu entry: once any move
@@ -6532,7 +6633,7 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 			"actor_unit_id": active_unit_id
 		})
 		return
-	_pad_set_mode_radio(choice_id)
+	_pad_set_mode_radio("FALL_BACK" if choice_id == "FALL_BACK_DESPERATE" else choice_id)
 	match choice_id:
 		"NORMAL":
 			# Selection normally auto-dispatched BEGIN_NORMAL_MOVE already; the
@@ -6547,6 +6648,13 @@ func pad_apply_menu_choice(choice_id: String) -> void:
 		"ADVANCE", "REMAIN_STATIONARY":
 			_on_confirm_mode_pressed()
 		"FALL_BACK":
+			_on_fall_back_pressed()
+		"FALL_BACK_DESPERATE":
+			# EA-08: tick the Desperate Escape box, then begin the fall-back with it.
+			if desperate_escape_checkbox:
+				_syncing_desperate_escape = true
+				desperate_escape_checkbox.button_pressed = true
+				_syncing_desperate_escape = false
 			_on_fall_back_pressed()
 
 

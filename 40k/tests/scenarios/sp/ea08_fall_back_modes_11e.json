@@ -1,0 +1,276 @@
+{
+  "id": "ea08_fall_back_modes_11e",
+  "covers": [
+    "phases.MovementPhase.fall_back_ordered_retreat_no_crossing",
+    "phases.MovementPhase.fall_back_desperate_escape_attached_unit",
+    "ui.movement.desperate_escape_checkbox"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "EA-08 / EA-36 (11e 09.07, 09.02.02, 09.07.01, 19.01). Setup privilege only: Boyz K (5 alive) and their attached Weirdboy are placed in two rows, engaged with two Witchseekers standing right in front of them (north). Everything after that is a REAL click / drag: (1) a click selects the Boyz — the movement panel shows the Desperate Escape box, unticked; (2) a click on Fall Back begins an Ordered Retreat; (3) a drag of one Boy straight north through a Witchseeker is REFUSED ('Ordered Retreat cannot move through enemy models' toast) and nothing is staged; (4) a click on the Desperate Escape box switches the mode (SET_FALL_BACK_MODE): SIX hazard rolls — 5 Boyz + the Weirdboy, the whole Attached unit — on the movement panel's dice log and the game log, casualties leave the board; (5) Ctrl+A and a drag move the whole unit north THROUGH the Witchseekers — staged; (6) End This Unit's Move: the unit ends unengaged and makes its 09.07 battle-shock roll.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: 5 Boyz + attached Weirdboy, two Witchseekers in front",
+      "script": "var s = GameState.state\nvar b = s.units.U_BOYZ_K.models\nvar pos = [[1580.0,1300.0],[1632.0,1300.0],[1684.0,1300.0],[1606.0,1345.0],[1658.0,1345.0]]\nfor i in range(b.size()):\n\tif i < 5:\n\t\tb[i].position = {\"x\": pos[i][0], \"y\": pos[i][1]}\n\t\tb[i].alive = true\n\telse:\n\t\tb[i].alive = false\n\t\tb[i].current_wounds = 0\ns.units.U_WEIRDBOY_J.models[0].position = {\"x\": 1722.0, \"y\": 1345.0}\nvar w = s.units.U_WITCHSEEKERS_C.models\nw[0].position = {\"x\": 1606.0, \"y\": 1249.0}\nw[1].position = {\"x\": 1658.0, \"y\": 1249.0}\ntree.current_scene._recreate_unit_visuals()\nreturn RulesEngine.is_unit_engaged(\"U_BOYZ_K\", s)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "frame the lane",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(1640.0, 1200.0)\nvar z := 1.5\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_boyz_and_weirdboy_engaged"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_BOYZ_K"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_BOYZ_K"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/DesperateEscapeCheckBox",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/DesperateEscapeCheckBox",
+      "property": "button_pressed",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fall Back"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"fall_back_mode\"]",
+      "equals": "ordered_retreat"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.unit_mode_label.text.find(\"Ordered Retreat\") != -1",
+      "equals": true
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1632.0,
+      "from_y": 1300.0,
+      "to_x": 1632.0,
+      "to_y": 1064.0,
+      "steps": 16
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"staged_moves\"].size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the refusal toast names the mode",
+      "script": "var tm = tree.root.get_node_or_null(\"ToastManager\")\nif tm == null:\n\treturn false\nfor t in tm.active_toasts:\n\tif t == null or not is_instance_valid(t):\n\t\tcontinue\n\tvar stack = [t]\n\twhile not stack.is_empty():\n\t\tvar n = stack.pop_back()\n\t\tif n is Label and str(n.text).find(\"Ordered Retreat cannot move through enemy models\") != -1:\n\t\t\treturn true\n\t\tstack.append_array(n.get_children())\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ordered_retreat_refused_through_enemy"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(7)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/DesperateEscapeCheckBox"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"fall_back_mode\"]",
+      "equals": "desperate_escape"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"desperate_escape_ctx\"][\"hazard\"][\"rolls\"].size()",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.unit_mode_label.text.find(\"Desperate Escape\") != -1",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"makes 6 hazard roll(s)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "comment": "the Game Log shows the desperate escape hazard rolls as a card with dice icons (the movement-phase dice surface there)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/DesperateEscapeCheckBox",
+      "property": "disabled",
+      "equals": true,
+      "comment": "no way back to Ordered Retreat once the hazard rolls are made"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the hazard casualties are gone from the board",
+      "script": "var layer = tree.root.get_node(\"Main\").get_node(\"BoardRoot/TokenLayer\")\nvar n := 0\nfor c in layer.get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) in [\"U_BOYZ_K\", \"U_WEIRDBOY_J\"] and not c.is_queued_for_deletion():\n\t\tn += 1\nvar alive := 0\nfor uid in [\"U_BOYZ_K\", \"U_WEIRDBOY_J\"]:\n\tfor m in GameState.state.units[uid].models:\n\t\tif m.alive:\n\t\t\talive += 1\nprint(\"[ea08] tokens \", n, \" alive \", alive)\nreturn n == alive",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_desperate_escape_six_hazard_rolls"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1722.0,
+      "from_y": 1345.0,
+      "to_x": 1722.0,
+      "to_y": 1109.0,
+      "steps": 16
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "every alive model of the Attached unit staged north of the Witchseekers",
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_BOYZ_K\", {})\nvar alive := 0\nfor uid in [\"U_BOYZ_K\", \"U_WEIRDBOY_J\"]:\n\tfor m in GameState.state.units[uid].models:\n\t\tif m.alive:\n\t\t\talive += 1\nvar staged: Array = md.get(\"staged_moves\", [])\nprint(\"[ea08] staged \", staged.size(), \" of \", alive)\nreturn staged.size() == alive and alive > 0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_desperate_escape_through_the_witchseekers"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_K.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_BOYZ_K\", GameState.state)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Desperate Escape:\")",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"takes a Battle-shock test\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/DesperateEscapeCheckBox",
+      "property": "visible",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "05_escaped_and_battle_shock_roll"
+    }
+  ]
+}

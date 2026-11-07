@@ -12257,6 +12257,39 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase.fall_back_ordered_retreat_no_crossing",
+      "description": "11e 09.07 / 09.02.02 / 03.01 (EA-08): an Ordered Retreat fall-back cannot move a model through enemy models — only a Desperate Escape can (WHILE MOVING). MovementPhase._enemy_models_block_move gates STAGE_MODEL_MOVE / SET_MODEL_DEST / the group validators and the models End This Unit's Move carries (_carried_model_move_errors); refusal 'Ordered Retreat cannot move through enemy models — choose Desperate Escape to move through them (09.07)'. Base contact is not moving through (paths are swept with a base 1 mm smaller, MoveType.sweep_moves_through); a Desperate Escape also passes enemy MONSTER/VEHICLE models. Windowed: a real drag of a Boy through a Witchseeker is refused, a real click on the Desperate Escape box switches the mode and the whole unit then moves through. Headless: contact / overlap fixtures, FLY and 10e controls, SET_FALL_BACK_MODE refusals, no second set of hazard rolls after Reset Unit, carried CHARACTERs.",
+      "scenarios": [
+        "ea08_fall_back_modes_11e",
+        "mp:tests/test_ea08_ordered_retreat_no_crossing_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "phases.MovementPhase.fall_back_desperate_escape_attached_unit",
+      "description": "11e 09.07 BEFORE MOVING / 09.07.01 / 19.01 / 06.02 (EA-36): a Desperate Escape makes one hazard roll per model of the WHOLE Attached unit (leaders included) and allocates the mortal wounds once across it — non-CHARACTER models first, then the leader (FallBackMove.attached_unit_hazard_view / hazard_casualties); 06.03's 3-MW 'each model is a MONSTER/VEHICLE model' is judged per model of the whole unit. Windowed: 5 Boyz + their attached Weirdboy make six hazard rolls (game log card with dice) and the casualties leave the board; iss040_movement_11e expects 11 rolls for 10 Boyz + the Weirdboy. Headless: counts, pooled spill-over to the leader, the VEHICLE-bodyguard / INFANTRY-leader 06.03 case.",
+      "scenarios": [
+        "ea08_fall_back_modes_11e",
+        "iss040_movement_11e",
+        "mp:tests/test_ea36_desperate_escape_attached_unit_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
+    },
+    {
+      "id": "ui.movement.desperate_escape_checkbox",
+      "description": "Movement panel 'Desperate Escape (move through enemy models)' box (MovementController.desperate_escape_checkbox, EA-08): shown for an engaged unit at edition 11 while it could fall back or is falling back; ticked before Fall Back it rides the BEGIN_FALL_BACK payload, ticked after it sends SET_FALL_BACK_MODE; ticked and locked when the mode is already Desperate Escape (chosen, forced — then labelled '(required)' — or its hazard rolls were made this phase), locked once a model moved as an Ordered Retreat. Pad: a 'Fall Back: Desperate Escape' chip in the move menu.",
+      "scenarios": [
+        "ea08_fall_back_modes_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

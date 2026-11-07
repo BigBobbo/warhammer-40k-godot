@@ -883,7 +883,7 @@ func _apply_menu_choice(choice_id: String) -> void:
 	# focus/validity guards make the deferred call a no-op anyway, so gating
 	# here is just intent. There is no separate "move all" menu entry: with the
 	# carry in hand, a D-pad press lifts the whole squad in ANY move mode.
-	if choice_id == "NORMAL" or choice_id == "FALL_BACK":
+	if choice_id == "NORMAL" or choice_id == "FALL_BACK" or choice_id == "FALL_BACK_DESPERATE":  # EA-08
 		call_deferred("_auto_carry_after_menu")
 
 

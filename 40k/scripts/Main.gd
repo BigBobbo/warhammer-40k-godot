@@ -13409,9 +13409,20 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 
 			# Handle different action types
 			match action.type:
-				"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
+				"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "SET_FALL_BACK_MODE":
 					# Movement has begun, mode should be set in controller
 					print("Movement mode initiated: ", action.type)
+					# EA-08 / EA-36: a desperate escape's hazard casualties (09.07 BEFORE
+					# MOVING) leave the board now — no model of the unit has been
+					# staged yet, so there is nothing to keep.
+					if action.type in ["BEGIN_FALL_BACK", "SET_FALL_BACK_MODE"]:
+						var _de_dead := false
+						for ch in result.get("changes", []):
+							if str(ch.get("path", "")).ends_with(".alive") and ch.get("value", true) == false:
+								_de_dead = true
+						if _de_dead:
+							print("Main: desperate escape hazard casualties — refreshing unit tokens")
+							_recreate_unit_visuals()
 				"USE_COMMAND_REROLL":
 					# Advance reroll resolved — unit_move_begun signal handles UI update
 					print("Main: Command Re-roll used for advance, UI updated via signal")

@@ -32,6 +32,7 @@
     { "act": "execute_script", "script": "PadActionBar.is_open()", "equals": true },
     { "act": "execute_script", "script": "PadActionBar.highlighted_id()", "equals": "NORMAL" },
     { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"FALL_BACK\") != -1", "equals": true },
+    { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"FALL_BACK_DESPERATE\") != -1", "equals": true, "comment": "EA-08 (09.02.02): the move menu also offers 'Fall Back: Desperate Escape' for this unshocked unit" },
     { "act": "execute_script", "script": "str(main.movement_controller.pad_menu_options()).find(\"NORMAL_ALL\")", "equals": -1 },
 
     { "act": "simulate_joy_button", "button_index": 14 },
