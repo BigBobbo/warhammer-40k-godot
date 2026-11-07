@@ -5224,8 +5224,8 @@ const DEPLOY_FORMATION_BUILDER: float = 1.0
 const DEPLOY_FORMATION_MAX_EVALS: int = 80000     # anchor x block evaluations per drop
 const DEPLOY_FORMATION_MAX_FRESH: int = 16000     # fresh per-position checks per drop
 const DEPLOY_FORMATION_SAT_VARIANTS: int = 10     # attached-character slot variants per rotation combination
-const DEPLOY_FORMATION_GROW_SEEDS: int = 60       # growth-fallback seeds
-const DEPLOY_FORMATION_MAX_GROW_WORK: int = 400000 # growth-fallback work units (~1 us each)
+const DEPLOY_FORMATION_GROW_SEEDS: int = 120      # growth-fallback seeds (all growth plans together)
+const DEPLOY_FORMATION_MAX_GROW_WORK: int = 800000 # growth-fallback work units (~1 us each)
 const _FormationBuilderScript = preload("res://scripts/ai/FormationBuilder.gd")
 
 static func formation_builder_enabled() -> bool:
@@ -5298,11 +5298,13 @@ static func _attach_formation_context(unit_id: String, built: Dictionary) -> voi
 			return
 
 static func _no_legal_formation_marker(unit_id: String, unit_name: String, reason: String) -> Dictionary:
-	"""Returned when no legal set-up exists anywhere in the zone. NEVER routed:
-	AIPlayer sends the unit to Strategic Reserves instead (an empty DEPLOY_UNIT
-	would otherwise validate and leave the unit DEPLOYED with no positions —
-	RC7, now also refused by the phase). The description is what a suggestion
-	card shows, so it says what happened rather than claiming a deployment."""
+	"""Returned when the formation builder found no legal set-up for the unit
+	(within its count budgets — a failure is not proof that none exists).
+	NEVER routed: AIPlayer sends the unit to Strategic Reserves instead (an
+	empty DEPLOY_UNIT would otherwise validate and leave the unit DEPLOYED with
+	no positions — RC7, now also refused by the phase). The description is what
+	a suggestion card shows, so it says what happened rather than claiming a
+	deployment."""
 	return {
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
@@ -5310,7 +5312,7 @@ static func _no_legal_formation_marker(unit_id: String, unit_name: String, reaso
 		"model_rotations": [],
 		"_ai_no_legal_formation": true,
 		"_ai_formation_reason": reason,
-		"_ai_description": "No legal set-up for %s anywhere in the deployment zone" % unit_name,
+		"_ai_description": "No legal set-up found for %s in the deployment zone" % unit_name,
 	}
 
 static func _formula_formation_action(snapshot: Dictionary, player: int, unit_id: String, unit_name: String,
@@ -5369,27 +5371,56 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	"""Deployment decision (plan, then formula). P0.3: timed per drop for
 	deploy_drop_stats() — the whole decision, every formation build included."""
 	var t0 := Time.get_ticks_usec()
+	var fb0: Dictionary = _FormationBuilderScript.stats()
 	var out := _decide_deployment_impl(snapshot, available_actions, player)
 	var otype := str(out.get("type", ""))
 	if otype == "DEPLOY_UNIT" or otype == "COMPOSITE_DEPLOY":
-		_note_deploy_drop(str(out.get("unit_id", "")), Time.get_ticks_usec() - t0)
+		var fb1: Dictionary = _FormationBuilderScript.stats()
+		_note_deploy_drop(str(out.get("unit_id", "")), Time.get_ticks_usec() - t0, {
+			"evals": int(fb1.get("evals", 0)) - int(fb0.get("evals", 0)),
+			"fresh": int(fb1.get("fresh", 0)) - int(fb0.get("fresh", 0)),
+			"grow_work": int(fb1.get("grow_work", 0)) - int(fb0.get("grow_work", 0)),
+			"builds": int(fb1.get("builds", 0)) + int(fb1.get("probes", 0)) - int(fb0.get("builds", 0)) - int(fb0.get("probes", 0))})
 	return out
 
 static var _deploy_drop_stats: Dictionary = {}
 
 static func deploy_drop_stats() -> Dictionary:
-	"""Per-drop deployment decision timing and 11e picker outcomes since
-	reset_deploy_drop_stats(): {drops, total_us, max_us, max_unit, inside,
-	behind, baseline, legacy, spot_tries, unbuildable}."""
+	"""Per-drop deployment decision timing, work COUNTS and 11e picker outcomes
+	since reset_deploy_drop_stats(): {drops, total_us, max_us, max_unit,
+	inside, behind, baseline, legacy, spot_tries, unbuildable (spots where
+	nothing fit — L3-2: budget stops and policy refusals are not counted),
+	max_evals, max_fresh, max_grow_work, max_builds (+ _unit for each): the
+	largest FormationBuilder evaluations / fresh checks / growth work units /
+	builds of any ONE drop, every build of the drop included (C-3: the drop is
+	bounded by these counts — deploy_drop_count_bound())}."""
 	if _deploy_drop_stats.is_empty():
 		reset_deploy_drop_stats()
 	return _deploy_drop_stats.duplicate()
 
 static func reset_deploy_drop_stats() -> void:
 	_deploy_drop_stats = {"drops": 0, "total_us": 0, "max_us": 0, "max_unit": "",
-		"inside": 0, "behind": 0, "baseline": 0, "legacy": 0, "spot_tries": 0, "unbuildable": 0}
+		"inside": 0, "behind": 0, "baseline": 0, "legacy": 0, "spot_tries": 0, "unbuildable": 0,
+		"max_evals": 0, "max_evals_unit": "", "max_fresh": 0, "max_fresh_unit": "",
+		"max_grow_work": 0, "max_grow_work_unit": "", "max_builds": 0, "max_builds_unit": ""}
 
-static func _note_deploy_drop(unit_id: String, us: int) -> void:
+static func deploy_drop_count_bound() -> Dictionary:
+	"""C-3: the most FormationBuilder work ONE deployment decision can do, by
+	construction (get_param budgets). The 11e drop: its terrain spots, room
+	probes and avoid-dense try share DEPLOY_11E_DROP_MAX_EVALS / _FRESH; then
+	at most two column-spot builds (the room-guarded one, the unconstrained
+	last resort), each <= DEPLOY_FORMATION_MAX_EVALS evaluations, 1.5 x
+	DEPLOY_FORMATION_MAX_FRESH fresh checks (search + growth) and
+	DEPLOY_FORMATION_MAX_GROW_WORK growth work. (A few checks of overshoot per
+	build: a budget is tested once per evaluation.) {evals, fresh, grow_work}."""
+	var fe := get_param_int("DEPLOY_FORMATION_MAX_EVALS", DEPLOY_FORMATION_MAX_EVALS)
+	var ff := get_param_int("DEPLOY_FORMATION_MAX_FRESH", DEPLOY_FORMATION_MAX_FRESH)
+	var fw := get_param_int("DEPLOY_FORMATION_MAX_GROW_WORK", DEPLOY_FORMATION_MAX_GROW_WORK)
+	return {"evals": get_param_int("DEPLOY_11E_DROP_MAX_EVALS", DEPLOY_11E_DROP_MAX_EVALS) + 2 * fe,
+		"fresh": get_param_int("DEPLOY_11E_DROP_MAX_FRESH", DEPLOY_11E_DROP_MAX_FRESH) + 2 * (ff + ff / 2),
+		"grow_work": 2 * fw}
+
+static func _note_deploy_drop(unit_id: String, us: int, counts: Dictionary = {}) -> void:
 	if _deploy_drop_stats.is_empty():
 		reset_deploy_drop_stats()
 	_deploy_drop_stats.drops += 1
@@ -5397,6 +5428,11 @@ static func _note_deploy_drop(unit_id: String, us: int) -> void:
 	if us > int(_deploy_drop_stats.max_us):
 		_deploy_drop_stats.max_us = us
 		_deploy_drop_stats.max_unit = unit_id
+	for k in ["evals", "fresh", "grow_work", "builds"]:
+		var v := int(counts.get(k, 0))
+		if v > int(_deploy_drop_stats.get("max_" + k, 0)):
+			_deploy_drop_stats["max_" + k] = v
+			_deploy_drop_stats["max_" + k + "_unit"] = unit_id
 
 static func _note_deploy_pick(key: String, tries: int = 0, unbuildable: int = 0) -> void:
 	if _deploy_drop_stats.is_empty():
@@ -6843,10 +6879,14 @@ static func _deploy_positions_centroid(positions: Array) -> Vector2:
 #   spots: <= 1 inside per dense group + 3 behind per obscuring group in reach;
 #   sight-line checks: <= 3 x groups x DEPLOY_11E_SHADOW_SAMPLES;
 #   builds: <= DEPLOY_11E_MAX_BUILD_TRIES terrain spots, each <= BUILD_MAX_EVALS
-#     evaluations and <= BUILD_MAX_FRESH fresh checks, all of them together
-#     <= DROP_MAX_FRESH fresh checks, no growth fallback, <= 4 gate calls each;
-#   then <= 2 column-spot builds (a bounded avoid-dense one for hide-capable
-#     units, then the unconstrained P0.1 build with its own budgets).
+#     evaluations and <= BUILD_MAX_FRESH fresh checks, no growth fallback,
+#     <= 4 gate calls each; they, the big units' room probes and the bounded
+#     avoid-dense try (hide-capable units) share DROP_MAX_EVALS / DROP_MAX_FRESH;
+#   then <= 2 column-spot builds, each with the P0.1 budgets (growth included):
+#     the room-guarded one (C-1: the big units' known set-ups as obstacles)
+#     and, only when it finds nothing, the unconstrained last resort.
+#   deploy_drop_count_bound() is that sum; deploy_drop_stats() records the
+#   largest counts any one drop used (C-3).
 
 static func _deploy_11e_active(terrain_features: Array) -> bool:
 	"""Dispatch to the 11e picker: edition 11+, FIX_DEPLOY_TERRAIN_11E on, the
@@ -6879,7 +6919,11 @@ static func _deploy_area_groups(terrain_features: Array) -> Array:
 	13.09), else light if any is light, else exposed. area_polys holds the AREA
 	pieces only (piece_class != "feature"): every geometric use — pockets, the
 	behind anchors, the reach filter — reads those, never the wall / gantry
-	feature polygons, which some layouts parent to an area far away. A group
+	feature polygons. The shipped layouts no longer parent a feature to a
+	far-away area (fixed in the data, D8, and gated by
+	test_terrain_layout_area_groups / tools/check_terrain_layouts.py); the
+	area-polygons-only rule stays as the defence for edited or legacy layouts
+	(test_ai_deploy_terrain_11e re-injects the old parents to pin it). A group
 	with no area piece (a feature standing on its own, 13.01) uses its
 	feature polygons."""
 	var tm = _terrain_manager()
@@ -7444,14 +7488,46 @@ static func _deploy_spot_label(cd: Dictionary, p: Vector2, n_models: int, det_in
 	return "Behind %s, away from the enemy — %d/%d enemy sight lines blocked (%.0f, %.0f)" % [
 		_deploy_spot_what(cd), int(cd.blocked), int(cd.samples), p.x, p.y]
 
+static func _deploy_spot_why_kind(why: String) -> String:
+	"""L3-2: why a tried terrain spot was not used. "untried" (skipped: the
+	per-drop budget was spent), "budget" (its build or a room check ran out of
+	evaluations — not proof that nothing fits), "ruled_out" (a legal set-up
+	was refused by a policy: it would take a big unit's last set-up, leave the
+	unit partly Hidden, or sit out of the area's shadow), else "nofit"."""
+	if why.begins_with("not tried: the per-drop build budget is spent"):
+		return "untried"
+	if why.find("ran out checking room") >= 0 or why.find("room-check budget") >= 0 or why.find("budget (") >= 0:
+		return "budget"
+	if why.begins_with("would leave no legal set-up") or why.find("would be Hidden") >= 0 or why.find("shadow") >= 0:
+		return "ruled_out"
+	return "nofit"
+
 static func _deploy_spot_label_unused(cd: Dictionary, p: Vector2, n_models: int, why: String) -> String:
-	"""K-card text for a spot that was tried and failed, or skipped for budget."""
+	"""K-card text for a spot that was tried and failed, or skipped for budget —
+	worded by the reason (L3-2), so a spot refused for a budget or a policy is
+	never described as having no legal set-up."""
 	var where := "Inside" if str(cd.rel) == "inside" else "Behind"
-	if why.begins_with("not tried"):
-		return "%s %s (%.0f, %.0f) — not tried: the build budget for this drop was spent" % [where, _deploy_spot_what(cd), p.x, p.y]
+	var head := "%s %s (%.0f, %.0f)" % [where, _deploy_spot_what(cd), p.x, p.y]
+	if why.begins_with("not tried: the per-drop build budget is spent"):
+		return "%s — not tried: the build budget for this drop was spent" % head
+	var rx := RegEx.new()
+	if why.find("ran out checking room for ") >= 0:
+		return "%s — not used: the build budget ran out checking room for %s" % [head, why.get_slice("ran out checking room for ", 1)]
+	if why.find("room-check budget") >= 0:
+		rx.compile("\\(([^)]*)\\)\\s*$")
+		var m := rx.search(why)
+		return "%s — not used: no room check was left to confirm room for %s" % [head, m.get_string(1) if m != null else "a big unit"]
+	if why.begins_with("would leave no legal set-up for "):
+		return "%s — not used: it would take the last legal set-up of %s" % [head, why.get_slice("would leave no legal set-up for ", 1)]
+	if why.find("would be Hidden") >= 0:
+		return "%s — not used: only part of the unit would be Hidden" % head
+	if why.find("shadow") >= 0:
+		return "%s — not used: the nearest legal set-up is out of the area's shadow" % head
+	if why.find("budget (") >= 0:
+		return "%s — not used: no legal set-up found within the build budget" % head
 	if str(cd.rel) == "inside":
-		return "%s %s (%.0f, %.0f) — not used: no legal set-up for all %d models fits there" % [where, _deploy_spot_what(cd), p.x, p.y, n_models]
-	return "%s %s (%.0f, %.0f) — not used: no legal set-up fits there" % [where, _deploy_spot_what(cd), p.x, p.y]
+		return "%s — not used: no legal set-up for all %d models fits there" % [head, n_models]
+	return "%s — not used: no legal set-up fits there" % head
 
 # "<board key>|<unit id>" -> footprint of a legal set-up found for a big unit
 # still to deploy. Re-used while no deployed model touches it (terrain and
@@ -7495,6 +7571,11 @@ static func _deploy_big_units_with_room(snapshot: Dictionary, player: int, unit_
 		for m in u.get("models", []):
 			if m is Dictionary and m.get("alive", true):
 				r = maxf(r, _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {})))
+		# Sized by the unit's OWN models. Counting an attached unit's big
+		# characters (Warbikers led by a 150mm Wartrike) was measured and not
+		# adopted: their large known set-ups, kept clear by every column-spot
+		# build, fragmented crowded zones (one more forced reserve in the
+		# 45-layout sweep, take_and_hold_mirror_3@search_and_destroy).
 		if r >= big_px:
 			bigs.append({"unit_id": str(uid), "name": _dn(u, str(uid)), "r": r})
 	bigs.sort_custom(func(a, b):
@@ -7534,7 +7615,10 @@ static func _deploy_big_units_with_room(snapshot: Dictionary, player: int, unit_
 			break
 		if obstacles.is_empty():
 			obstacles = _deploy_obstacle_models(snapshot, {})
-		var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, left)
+		# L3-1: a touched cached set-up is re-probed next to where it was (cheap:
+		# a nearby legal set-up usually remains); a first probe from the frame.
+		var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, left,
+			_deploy_footprint_centroid(cached) if not cached.is_empty() else Vector2.INF)
 		budget["fresh_left"] = int(budget.get("fresh_left", 1 << 30)) - int(probe.get("fresh", 0))
 		budget["evals_left"] = int(budget.get("evals_left", 1 << 30)) - int(probe.get("evals", 0))
 		if bool(probe.get("ok", false)):
@@ -7546,23 +7630,32 @@ static func _deploy_big_units_with_room(snapshot: Dictionary, player: int, unit_
 	return out
 
 static func _deploy_footprint(snapshot: Dictionary, unit_id: String, built: Dictionary) -> Array:
-	"""[{p, r}] bounding circles of a build's models (bodyguard + characters)."""
+	"""[{p, r, m}] bounding circles of a build's models (bodyguard +
+	characters); m is the model at that position and rotation (an exact
+	obstacle for the column spot's room guard, _deploy_bigs_obstacles)."""
 	var out: Array = []
 	var units: Dictionary = snapshot.get("units", {})
 	var models: Array = units.get(unit_id, {}).get("models", [])
 	var pos: Array = built.get("model_positions", [])
+	var rot: Array = built.get("model_rotations", [])
 	for i in range(mini(pos.size(), models.size())):
 		if pos[i] != null:
 			var m: Dictionary = models[i]
-			out.append({"p": pos[i], "r": _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))})
+			var mp: Dictionary = m.duplicate()
+			mp["position"] = pos[i]
+			mp["rotation"] = float(rot[i]) if i < rot.size() and rot[i] != null else 0.0
+			out.append({"p": pos[i], "r": _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {})), "m": mp})
 	var ccd: Dictionary = built.get("combined_char_data", {})
 	for cid in ccd:
 		var cm: Array = units.get(cid, {}).get("models", [])
 		for e in ccd[cid]:
 			var mi := int(e.get("model_idx", 0))
 			if mi >= 0 and mi < cm.size():
-				out.append({"p": Vector2(float(e.get("x", 0.0)), float(e.get("y", 0.0))),
-					"r": _model_bounding_radius_px(int(cm[mi].get("base_mm", 32)), str(cm[mi].get("base_type", "circular")), cm[mi].get("base_dimensions", {}))})
+				var cp: Dictionary = (cm[mi] as Dictionary).duplicate()
+				cp["position"] = Vector2(float(e.get("x", 0.0)), float(e.get("y", 0.0)))
+				cp["rotation"] = float(e.get("rotation", 0.0)) if e.get("rotation", null) != null else 0.0
+				out.append({"p": cp.position,
+					"r": _model_bounding_radius_px(int(cm[mi].get("base_mm", 32)), str(cm[mi].get("base_type", "circular")), cm[mi].get("base_dimensions", {})), "m": cp})
 	return out
 
 static func _deploy_footprints_touch(a: Array, b: Array) -> bool:
@@ -7572,19 +7665,33 @@ static func _deploy_footprints_touch(a: Array, b: Array) -> bool:
 				return true
 	return false
 
+# Late-bound reference to the SettingsService autoload (vehicle-collision override)
+static func _settings_service_node():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("SettingsService")
+	return null
+
 static func _deploy_obstacle_models(snapshot: Dictionary, built: Dictionary, unit_id: String = "") -> Array:
 	"""FormationBuilder obstacles: every positioned model of every DEPLOYED unit,
-	plus — when `built` is given — the models of that hypothetical placement."""
+	plus — when `built` is given — the models of that hypothetical placement;
+	minus the units the vehicle-collision override exempts, exactly as the
+	builder's own default list and DeploymentPhase skip them."""
 	var out: Array = []
 	var units: Dictionary = snapshot.get("units", {})
+	var ss = _settings_service_node()
 	for uid in units:
 		var u = units[uid]
 		if not (u is Dictionary) or int(u.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		if ss != null and ss.has_method("unit_skips_collision") and ss.unit_skips_collision(str(uid)):
 			continue
 		for m in u.get("models", []):
 			if m is Dictionary and m.get("position", null) != null:
 				out.append(m)
 	if built.is_empty():
+		return out
+	if ss != null and ss.has_method("unit_skips_collision") and ss.unit_skips_collision(unit_id):
 		return out
 	var models: Array = units.get(unit_id, {}).get("models", [])
 	var pos: Array = built.get("model_positions", [])
@@ -7610,15 +7717,27 @@ static func _deploy_obstacle_models(snapshot: Dictionary, built: Dictionary, uni
 	return out
 
 static func _deploy_room_probe(snapshot: Dictionary, player: int, big_uid: String, frame: Dictionary, obstacles: Array,
-		fresh_left: int = 1 << 30) -> Dictionary:
+		fresh_left: int = 1 << 30, desired: Vector2 = Vector2.INF) -> Dictionary:
 	"""Is there still a legal set-up for big_uid among these obstacles? A probe
 	build (no final gate, no growth, <= DEPLOY_11E_ROOM_CHECK_EVALS anchors and
-	at most fresh_left fresh checks). reason contains "budget" when the probe
-	ran out before an answer — never read that as "no room"."""
+	at most fresh_left fresh checks) from `desired` — L3-1: the centroid of the
+	big unit's known legal set-up, so the search starts beside it instead of
+	walking the whole zone from frame.inner (the default). reason contains
+	"budget" when the probe ran out before an answer — never read that as
+	"no room"."""
 	var n := get_param_int("DEPLOY_11E_ROOM_CHECK_EVALS", DEPLOY_11E_ROOM_CHECK_EVALS)
-	return _FormationBuilderScript.build_deployment(snapshot, player, big_uid, frame.inner, _formation_opts({
+	return _FormationBuilderScript.build_deployment(snapshot, player, big_uid, frame.inner if desired == Vector2.INF else desired, _formation_opts({
 		"probe": true, "obstacles": obstacles, "final_gate": false, "grow": false,
 		"max_evals": maxi(0, mini(n, fresh_left)), "max_fresh": maxi(0, mini(n, fresh_left))}))
+
+static func _deploy_footprint_centroid(footprint: Array) -> Vector2:
+	"""Mean centre of a footprint's circles (Vector2.INF when empty)."""
+	if footprint.is_empty():
+		return Vector2.INF
+	var c := Vector2.ZERO
+	for x in footprint:
+		c += x.p as Vector2
+	return c / float(footprint.size())
 
 static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
 		unit_name: String, unit_role: String, baseline_pos: Vector2, col_index: int, depth_row: int,
@@ -7644,9 +7763,10 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 	var chosen_i := -1
 	var built: Dictionary = {}
 	var tally: Dictionary = {}
-	# Big models still to deploy that fit now must still fit after this unit.
+	# Big models still to deploy that fit now must still fit after this unit —
+	# whichever spot it takes, the column spot included (C-1).
 	var budget := {"fresh_left": drop_fresh, "evals_left": drop_evals}
-	var bigs: Array = _deploy_big_units_with_room(snapshot, player, unit_id, frame, budget) if not ranked.is_empty() else []
+	var bigs: Array = _deploy_big_units_with_room(snapshot, player, unit_id, frame, budget)
 	used_fresh = drop_fresh - int(budget.fresh_left)
 	used_evals = drop_evals - int(budget.evals_left)
 	var room_checks_max := get_param_int("DEPLOY_11E_ROOM_CHECKS", DEPLOY_11E_ROOM_CHECKS)
@@ -7676,7 +7796,8 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 				room_checks += 1
 				if obstacles.is_empty():
 					obstacles = _deploy_obstacle_models(snapshot, res.built, unit_id)
-				var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, mini(drop_fresh - used_fresh, drop_evals - used_evals))
+				var probe := _deploy_room_probe(snapshot, player, str(bu.unit_id), frame, obstacles, mini(drop_fresh - used_fresh, drop_evals - used_evals),
+					_deploy_footprint_centroid(bu.footprint))
 				used_fresh += int(probe.get("fresh", 0))
 				used_evals += int(probe.get("evals", 0))
 				if not bool(probe.get("ok", false)):
@@ -7704,13 +7825,22 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 	else:
 		# The column-layout spot. A hide-capable unit is kept out of every dense
 		# area first (no partly Hidden unit), within a few inches; then the
-		# unconstrained P0.1 build, which always finds a legal set-up if one exists.
+		# unconstrained P0.1 build — the last resort before Strategic Reserves
+		# (a failure means no legal set-up was FOUND within its budgets). C-1:
+		# neither may take the last legal set-up of a big unit still to deploy,
+		# as no terrain spot may: both are first built with every such unit's
+		# known legal set-up as exact obstacles (which keeps those set-ups
+		# legal, so no room probe is needed); only when that finds nothing does
+		# the unconstrained build run.
+		var guard_obs := _deploy_bigs_obstacles(snapshot, bigs)
 		var dense_polys: Array = pick.get("dense_polys", [])
 		if _unit_hidden_eligible(unit) and not dense_polys.is_empty():
 			var avoid_px := get_param("DEPLOY_11E_BASELINE_AVOID_SHIFT_IN", DEPLOY_11E_BASELINE_AVOID_SHIFT_IN) * PIXELS_PER_INCH
-			var b0: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, baseline_pos, _formation_opts({
-				"probe": true, "avoid_polys": dense_polys, "max_displacement_px": avoid_px, "grow": false,
-				"max_fresh": maxi(0, mini(spot_fresh, drop_fresh - used_fresh)), "max_evals": maxi(0, mini(spot_evals, drop_evals - used_evals))}))
+			var o0 := {"probe": true, "avoid_polys": dense_polys, "max_displacement_px": avoid_px, "grow": false,
+				"max_fresh": maxi(0, mini(spot_fresh, drop_fresh - used_fresh)), "max_evals": maxi(0, mini(spot_evals, drop_evals - used_evals))}
+			if not guard_obs.is_empty():
+				o0["obstacles"] = guard_obs
+			var b0: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, baseline_pos, _formation_opts(o0))
 			used_fresh += int(b0.get("fresh", 0))
 			used_evals += int(b0.get("evals", 0))
 			if bool(b0.get("ok", false)):
@@ -7720,7 +7850,21 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 					tally = t_b0
 					baseline_note = "kept out of dense areas"
 			if built.is_empty():
-				baseline_note = "column spot: %s" % str(b0.get("reason", "partly Hidden"))
+				baseline_note = "column spot: %s" % ("partly Hidden" if bool(b0.get("ok", false)) else str(b0.get("reason", "")))
+		if built.is_empty() and not guard_obs.is_empty():
+			var guard_names := ", ".join(bigs.map(func(b): return str(b.name)))
+			var bp: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, baseline_pos,
+				_formation_opts({"probe": true, "obstacles": guard_obs}))
+			var how := "%s d=%.1f\" evals=%d fresh=%d %.1fms" % [str(bp.get("template", "")), float(bp.get("displacement_px", 0.0)) / PIXELS_PER_INCH,
+				int(bp.get("evals", 0)), int(bp.get("fresh", 0)), float(bp.get("us", 0)) / 1000.0]
+			if bool(bp.get("ok", false)):
+				built = bp
+				tally = _deploy_hidden_tally(snapshot, unit, built)
+				_deploy11e_log("%s: column spot kept clear of the set-up %s needs (%s)" % [unit_name, guard_names, how])
+			else:
+				var gnote := "no set-up clear of the room %s needs (%s)" % [guard_names, str(bp.get("reason", "")).left(120)]
+				baseline_note = gnote if baseline_note == "" else "%s; %s" % [baseline_note, gnote]
+				_deploy11e_log("%s: %s — unconstrained column spot" % [unit_name, gnote])
 		if built.is_empty():
 			built = _build_formation(snapshot, player, unit_id, baseline_pos)
 			if bool(built.get("ok", false)):
@@ -7746,6 +7890,22 @@ static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: Strin
 	if chosen_i >= 0:
 		_add_thinking_step("%s: %s" % [unit_name, ("inside %s, every model Hidden" if relation == "inside" else "behind %s, out of the enemy's sight") % _deploy_spot_what(ranked[chosen_i])])
 	return action
+
+static func _deploy_bigs_obstacles(snapshot: Dictionary, bigs: Array) -> Array:
+	"""C-1: FormationBuilder obstacles for a column-spot build that must keep
+	the big units still to deploy placeable: every deployed model (as the
+	builder's default list) plus each big unit's known legal set-up
+	(_deploy_big_units_with_room footprints, exact shapes). A placement that
+	overlaps none of those models leaves those set-ups legal. [] when there is
+	no big unit (the builder's default obstacles)."""
+	if bigs.is_empty():
+		return []
+	var obs: Array = _deploy_obstacle_models(snapshot, {})
+	for bu in bigs:
+		for e in bu.get("footprint", []):
+			if e is Dictionary and e.has("m"):
+				obs.append(e.m)
+	return obs
 
 static func _deploy_11e_record(snapshot: Dictionary, player: int, unit_id: String, unit_name: String, unit_role: String,
 		pick: Dictionary, ranked: Array, chosen_i: int, baseline_pos: Vector2, final_c: Vector2, built: Dictionary,
@@ -7784,6 +7944,7 @@ static func _deploy_11e_record(snapshot: Dictionary, player: int, unit_id: Strin
 	var reasons: Array = []
 	var higher_unbuilt := 0
 	var higher_untried := 0
+	var higher_ruled_out := 0
 	for i in range(ranked.size()):
 		var cd: Dictionary = ranked[i]
 		var st := str(cd.get("status", ""))
@@ -7792,16 +7953,22 @@ static func _deploy_11e_record(snapshot: Dictionary, player: int, unit_id: Strin
 			"score_breakdown": (cd.terms as Dictionary).duplicate(), "relation": str(cd.rel)}
 		if st == "failed" or (st == "untried" and cd.has("why")):
 			var why := str(cd.get("why", ""))
+			var kind := _deploy_spot_why_kind(why) if st == "failed" else "untried"
 			entry["description"] = _deploy_spot_label_unused(cd, p, n_models, why)
 			entry["eligible"] = false
 			entry["reason"] = why
-			if st == "failed":
+			entry["reason_kind"] = kind
+			# L3-2: only a spot where the builder found NOTHING counts as
+			# unbuildable; budget stops and policy refusals are counted apart.
+			if kind == "nofit":
 				unbuildable += 1
 				if reasons.size() < 3:
 					reasons.append(why)
 			if float(cd.score) > chosen_score:
-				if st == "failed":
+				if kind == "nofit":
 					higher_unbuilt += 1
+				elif kind == "ruled_out":
+					higher_ruled_out += 1
 				else:
 					higher_untried += 1
 		else:
@@ -7824,13 +7991,17 @@ static func _deploy_11e_record(snapshot: Dictionary, player: int, unit_id: Strin
 		"formation": form_ctx, "hidden": "%d/%d" % [int(tally.get("hidden", 0)), int(tally.get("eligible", 0))]}
 	if baseline_note != "":
 		ctx["baseline_note"] = baseline_note
-	if higher_unbuilt + higher_untried > 0:
+	if higher_unbuilt + higher_untried + higher_ruled_out > 0:
 		var parts: Array = []
 		if higher_unbuilt > 0:
 			parts.append("no legal set-up for the whole unit fits at %s" % ("that spot" if higher_unbuilt == 1 else "%d higher-scoring spots" % higher_unbuilt))
+		if higher_ruled_out > 0:
+			parts.append("%d higher-scoring spot%s ruled out (room for a big unit / partly Hidden / out of the area's shadow)" % [
+				higher_ruled_out, " was" if higher_ruled_out == 1 else "s were"])
 		if higher_untried > 0:
-			parts.append("%d higher-scoring spot%s not tried: the build budget for this drop was spent" % [higher_untried, "" if higher_untried == 1 else "s were"])
+			parts.append("%d higher-scoring spot%s not fully tried: the build budget for this drop ran out" % [higher_untried, " was" if higher_untried == 1 else "s were"])
 		ctx["override_reason"] = "; ".join(parts)
+	ctx["ruled_out_spots"] = higher_ruled_out
 	_record_choice("deployment", unit_id, unit_name, scored, chosen_key, ctx)
 	return unbuildable
 

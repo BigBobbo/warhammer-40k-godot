@@ -16,9 +16,13 @@ extends RefCounted
 ##   3. a 0.5" anchor lattice inside the zone polygon, nearest the desired spot
 ##      first;
 ##   4. when no block fits (or the count budget runs out), a model-by-model growth
-##      fallback that only ever adds a model at a legal, coherent spot.
-## "Nothing legal" therefore means nothing legal in that set — not "unlucky
-## random samples", which is what used to dump units into Strategic Reserves.
+##      fallback that only ever adds a model at a legal, coherent spot, seeded
+##      at the ROOMIEST legal cells of the whole zone first (L2-2), so open
+##      ground far from the desired spot is still found in a crowded zone.
+## A failure therefore means no legal set-up was FOUND in that set within the
+## count budgets — reported as "no legal set-up found", never as proof that
+## none exists — not "unlucky random samples", which is what used to dump
+## units into Strategic Reserves.
 ##
 ## Per-model legality copies DeploymentPhase's own predicates: zone
 ## (Measurement.shape_wholly_in_polygon sampling, without its debug prints),
@@ -42,13 +46,25 @@ extends RefCounted
 ##
 ## Determinism. No RNG anywhere. Every ordering has a total tie-break
 ## (distance², y, x for anchors, slots and growth cells; footprint, rotation,
-## columns, name for blocks). Budgets are COUNTS (anchor×block evaluations and
-## fresh per-position checks), never wall-clock, so a build returns the same
-## result on any machine. The static caches hold pure functions of their keys
-## (blocks per base signature + edition, variant legality, anchor lattices per
-## polygon); everything that depends on the search (memo, fail-first order,
-## counters) lives in the per-build context, so a warm cache returns exactly
-## what a cold one does.
+## columns, name for blocks; free room, then distance, for growth seeds).
+## Budgets are COUNTS (anchor×block evaluations, fresh per-position checks and
+## growth work units), never wall-clock, so a build returns the same result on
+## any machine. The static caches hold pure functions of their keys (blocks per
+## base signature + edition, variant legality, anchor lattices per polygon);
+## everything that depends on the search (memo, fail-first order, counters)
+## lives in the per-build context, so a warm cache returns exactly what a cold
+## one does.
+##
+## Work outside the count budgets (L2-1). Template legality — every candidate
+## block's and every satellite variant's overlap pairs and coherency
+## (_template_legal) — is not charged to evals / fresh (charging it only when
+## computed would make a cold build differ from a warm one). It is bounded per
+## unit SIGNATURE instead: at most 2 rotations x 2·n_bg column layouts of
+## blocks, each with at most MAX_SAT_ROTATION_COMBOS x sat_variants (4 x 10)
+## variants, each computed once per session (static caches). So the FIRST
+## build of a signature in a session (cold) can take several times longer
+## than a warm one at identical counts and an identical result; a satellite
+## variant re-checks only its character pairs and the merged coherency.
 ##
 ## Output is index-aligned with unit.models: one entry per model, null for a
 ## dead model. combined_char_data uses the format DeploymentController sends
@@ -90,12 +106,15 @@ const PHASE_DEPLOYMENT := 1
 const DEFAULT_MAX_EVALS := 80000     # anchor x block evaluations
 const DEFAULT_MAX_FRESH := 16000     # fresh (non-memoised) per-position checks
 const DEFAULT_SAT_VARIANTS := 10     # satellite variants per character rotation combination
-const DEFAULT_GROW_SEEDS := 60       # growth-fallback seeds
+const DEFAULT_GROW_SEEDS := 120      # growth-fallback seeds (all plans together)
 # Growth work, in units of roughly one microsecond on this machine: one per
-# lattice cell scanned per placed model, one per candidate tried, 15 per
-# model-to-model distance in a coherency step. With the fresh-check allowance
-# (half of max_fresh on top of the search's) it bounds the fallback's cost.
-const DEFAULT_MAX_GROW_WORK := 400000
+# lattice cell enumerated / scored when ranking seeds, one per disc cell
+# stamped into a growth frontier and per frontier cell returned, one per
+# candidate tried, 15 per model-to-model distance in a coherency step. With the
+# fresh-check allowance (half of max_fresh on top of the search's) it bounds
+# the fallback's cost. A 7-model attached unit costs ~3-7k per seed, a
+# 22-model one ~15-30k.
+const DEFAULT_MAX_GROW_WORK := 800000
 const MAX_GATE_REJECTIONS := 3
 const MAX_SAT_ROTATION_COMBOS := 4
 
@@ -144,13 +163,14 @@ static func build_deployment(snapshot: Dictionary, player: int, unit_id: String,
 	    `desired`.
 	  probe (bool): a constrained attempt at one spot. Its failure is
 	    expected, so stats() counts it under probes / probe_fail, never as
-	    no_legal (a unit with no legal set-up anywhere).
+	    no_legal (a unit for which no legal set-up was found).
 	When a constraint is active and nothing fits, reason starts with
 	"inside: ", "avoid: " or "near: " — never a partial result.
 
 	Returns {ok, reason, model_positions, model_rotations, combined_char_data,
 	action_type ("DEPLOY_UNIT" | "COMPOSITE_DEPLOY"), template, anchor,
-	displacement_px, evals, fresh, grown, gate_rejections, constraint_rejects, us}."""
+	displacement_px, evals, fresh, grown, grow_work, gate_rejections,
+	constraint_rejects, us}."""
 	var t0 := Time.get_ticks_usec()
 	var ctx := _make_ctx(snapshot, player, unit_id, opts)
 	var out: Dictionary
@@ -209,9 +229,14 @@ static func attach_satellites(snapshot: Dictionary, player: int, unit_id: String
 		var r = rotations[ctx.mlist[i].idx] if ctx.mlist[i].idx < rotations.size() else 0.0
 		rots.append(0.0 if r == null else float(r))
 	var block := _block_from_offsets(ctx, offs, rots, "fixed")
+	# The fixed bodyguard shape once (overlaps + coherency); each variant then
+	# only checks its characters (L2-1). An illegal shape fails every variant,
+	# exactly as before.
+	if not _template_legal(ctx, block, ctx.n_bg):
+		return {"ok": false, "reason": "no satellite slot fits beside the fixed placement", "combined_char_data": {}}
 	var variants := _make_variants(ctx, block)
 	for t in variants:
-		if not _template_legal(ctx, t, ctx.n_all):
+		if not _template_legal(ctx, t, ctx.n_all, true):
 			continue
 		var fits := true
 		for j in range(ctx.n_bg, ctx.n_all):
@@ -227,7 +252,9 @@ static func attach_satellites(snapshot: Dictionary, player: int, unit_id: String
 		var g := _gate(ctx, cand)
 		if g.ok:
 			return {"ok": true, "reason": "", "combined_char_data": cand.ccd, "template": t.name}
-		if g.unit_level:
+		# L2-3: the header's contract — a position-level refusal excludes the
+		# candidate at most MAX_GATE_REJECTIONS times (each one is a DEFECT).
+		if g.unit_level or ctx.gate_rejections >= MAX_GATE_REJECTIONS:
 			return {"ok": false, "reason": "refused: %s" % "; ".join(g.errors), "combined_char_data": {}}
 	return {"ok": false, "reason": "no satellite slot fits beside the fixed placement", "combined_char_data": {}}
 
@@ -262,7 +289,7 @@ static func final_check(snapshot: Dictionary, player: int, unit_id: String, posi
 
 static func stats() -> Dictionary:
 	"""{builds, ok, grown, no_legal, gate_rejections, gate_aborts, evals, fresh,
-	max_us, max_unit, total_us, probes, probe_ok, probe_fail} since the last
+	grow_work, max_us, max_unit, total_us, probes, probe_ok, probe_fail} since the last
 	reset_stats(). builds / ok / grown / no_legal count unconstrained builds
 	only; probe builds (opts.probe — one terrain spot, P0.3) are counted in
 	probes / probe_ok / probe_fail. evals, fresh, gate_rejections and the
@@ -273,7 +300,7 @@ static func stats() -> Dictionary:
 
 static func reset_stats() -> void:
 	_stats = {"builds": 0, "ok": 0, "grown": 0, "no_legal": 0, "gate_rejections": 0,
-		"gate_aborts": 0, "evals": 0, "fresh": 0, "max_us": 0, "max_unit": "", "total_us": 0,
+		"gate_aborts": 0, "evals": 0, "fresh": 0, "grow_work": 0, "max_us": 0, "max_unit": "", "total_us": 0,
 		"probes": 0, "probe_ok": 0, "probe_fail": 0}
 
 static func clear_caches() -> void:
@@ -419,12 +446,18 @@ static func _make_ctx(snapshot: Dictionary, player: int, unit_id: String, opts: 
 			ctx.memo[mi["class"]] = {}
 	# Obstacles: every model WITH A POSITION of every DEPLOYED unit, alive or not
 	# (DeploymentPhase._position_overlaps_existing_models_shape), minus units the
-	# vehicle-collision override exempts.
+	# vehicle-collision override exempts. Explicit opts.obstacles are taken as
+	# given, except that an entry carrying a "unit_id" is filtered by the same
+	# override as the default list (callers that know the owner pass it).
 	var obstacles: Array = []
 	if opts.has("obstacles"):
 		for ob in opts.obstacles:
-			if ob is Dictionary and ob.get("position", null) != null:
-				obstacles.append(_obstacle_entry(ctx, ob))
+			if not (ob is Dictionary) or ob.get("position", null) == null:
+				continue
+			var ob_uid := str(ob.get("unit_id", ""))
+			if ob_uid != "" and settings != null and settings.has_method("unit_skips_collision") and settings.unit_skips_collision(ob_uid):
+				continue
+			obstacles.append(_obstacle_entry(ctx, ob))
 	else:
 		for uid in units:
 			var u = units[uid]
@@ -1038,19 +1071,23 @@ static func _make_variants(ctx: Dictionary, block: Dictionary) -> Array:
 			made += 1
 	return variants
 
-static func _template_legal(ctx: Dictionary, t: Dictionary, n: int) -> bool:
+static func _template_legal(ctx: Dictionary, t: Dictionary, n: int, bg_known_legal: bool = false) -> bool:
 	"""Anchor-invariant legality of the first n models of template t: no two
 	footprints overlap (both directions), the bodyguard alone is coherent and,
-	with characters, the merged attached unit is coherent (19.01 + 03.03)."""
-	var meas = ctx.meas
+	with characters, the merged attached unit is coherent (19.01 + 03.03).
+	bg_known_legal (L2-1): t's first n_bg offsets and rotations are those of a
+	block that already passed this check (a satellite variant), so the
+	bodyguard-pair overlaps and the bodyguard-only coherency are skipped — only
+	the pairs with a character and the merged coherency are tested. Same
+	verdict, about half the work."""
+	var n_bg: int = mini(n, ctx.n_bg)
 	for i in range(n):
 		var si = ctx.mlist[i].info.shape
-		for j in range(i + 1, n):
+		for j in range(maxi(i + 1, n_bg) if bg_known_legal else i + 1, n):
 			var sj = ctx.mlist[j].info.shape
 			if si.overlaps_with(sj, t.offs[i], t.rots[i], t.offs[j], t.rots[j]) \
 					or sj.overlaps_with(si, t.offs[j], t.rots[j], t.offs[i], t.rots[i]):
 				return false
-	var n_bg: int = mini(n, ctx.n_bg)
 	var bg: Array = []
 	var merged: Array = []
 	for i in range(n):
@@ -1062,17 +1099,20 @@ static func _template_legal(ctx: Dictionary, t: Dictionary, n: int) -> bool:
 		merged.append(m)
 		if i < n_bg:
 			bg.append(m)
-	if n_bg > 1 and not AttackSequence.check_unit_coherency({"models": bg}).get("coherent", false):
+	if not bg_known_legal and n_bg > 1 and not AttackSequence.check_unit_coherency({"models": bg}).get("coherent", false):
 		return false
 	if n > n_bg and not AttackSequence.check_unit_coherency({"models": merged}).get("coherent", false):
 		return false
 	return true
 
 static func _variant_legal(ctx: Dictionary, t: Dictionary) -> bool:
+	"""A satellite variant of a block that passed _template_legal (_blocks,
+	_preferred_block): only the character pairs and the merged coherency are
+	left to check (L2-1)."""
 	var key := str(ctx.sig) + "#" + str(t.name)
 	if _variant_legal_cache.has(key):
 		return _variant_legal_cache[key]
-	var ok := _template_legal(ctx, t, ctx.n_all)
+	var ok := _template_legal(ctx, t, ctx.n_all, true)
 	_variant_legal_cache[key] = ok
 	return ok
 
@@ -1411,23 +1451,35 @@ static func _success(ctx: Dictionary, cand: Dictionary, template: String, anchor
 	return {"ok": true, "reason": "", "model_positions": cand.positions, "model_rotations": cand.rotations,
 		"combined_char_data": cand.ccd, "action_type": "COMPOSITE_DEPLOY" if not cand.ccd.is_empty() else "DEPLOY_UNIT",
 		"template": template, "anchor": anchor, "displacement_px": disp, "evals": evals, "fresh": ctx.fresh,
-		"memo_hits": ctx.memo_hits, "grown": grown, "gate_rejections": ctx.gate_rejections}
+		"memo_hits": ctx.memo_hits, "grown": grown, "gate_rejections": ctx.gate_rejections, "grow_work": int(ctx.get("grow_work", 0))}
 
 static func _fail(ctx: Dictionary, reason: String, evals: int = 0) -> Dictionary:
 	return {"ok": false, "reason": reason, "model_positions": [], "model_rotations": [], "combined_char_data": {},
 		"action_type": "DEPLOY_UNIT", "template": "", "anchor": Vector2.INF, "displacement_px": 0.0,
 		"evals": evals, "fresh": int(ctx.get("fresh", 0)), "memo_hits": int(ctx.get("memo_hits", 0)),
-		"grown": false, "gate_rejections": int(ctx.get("gate_rejections", 0))}
+		"grown": false, "gate_rejections": int(ctx.get("gate_rejections", 0)), "grow_work": int(ctx.get("grow_work", 0))}
 
 # =============================================================================
 # Growth fallback
 # =============================================================================
-# Seed model 0 at the legal lattice cell nearest the desired spot, then add each
-# next model at the legal cell nearest the placed centroid that overlaps no
-# placed model (both directions), is within 2" of enough placed models (1; at
-# 10e, 2 once a 7+ model unit has two placed) and — at 11e — within 9" of all of
-# them (03.03). Characters are grown last, so the bodyguard alone is coherent
-# too; the whole formation is then re-checked with AttackSequence.
+# Seeds (L2-2): every legal model-0 cell of the zone lattice (or anchor_region,
+# within max_displacement_px), ranked by FREE ROOM — the number of legal
+# model-0 cells within 3" (GROW_ROOM_CELLS lattice steps) — roomiest first,
+# ties nearest the desired spot first ((distance², y, x)). Nearest-first seeds
+# used to cluster round the desired spot: in a crowded zone every one of them
+# was a dead end that spent the shared work budget, and a unit with open
+# ground elsewhere was reported as having no legal set-up (and went to
+# Strategic Reserves). From a seed, add each next model at the legal cell
+# nearest the placed centroid that overlaps no placed model (both
+# directions), is within 2" of enough placed models (1; at 10e, 2 once a 7+
+# model unit has two placed) and — at 11e — within 9" of all of them (03.03).
+# Characters are grown last, so the bodyguard alone is coherent too; the whole
+# formation is then re-checked with AttackSequence. Budgets unchanged: at most
+# grow_seeds seeds, 1.5 x max_fresh fresh checks (search included) and
+# max_grow_work work units in all (seed ranking included), no per-seed cap.
+
+const GROW_ROOM_CELLS := 6     # growth-seed free room: at least 6 lattice steps (3"), more for a bigger unit
+const GROW_ROOM_MAX_CELLS := 16  # ... and at most 16 (8")
 
 static func _grow_or_fail(ctx: Dictionary, desired: Vector2, why: String, evals: int) -> Dictionary:
 	if not ctx.opts.get("grow", true):
@@ -1437,93 +1489,333 @@ static func _grow_or_fail(ctx: Dictionary, desired: Vector2, why: String, evals:
 		return _success(ctx, g.cand, "grown", g.anchor, g.centroid.distance_to(desired), evals, true)
 	return _fail(ctx, "%s; %s" % [why, str(g.reason)], evals)
 
+static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, max_work: int, max_seeds: int, slots: Array = [0]) -> Dictionary:
+	"""Growth seeds ranked by free room (L2-2). The growth lattice within
+	max_displacement_px is enumerated in (distance², y, x) order (the anchor
+	cursor; anchor_region honoured) and every cell is given ROOM = the number
+	of legal model-0 cells (the bulk of the unit) within _grow_room_cells
+	lattice steps (a disc, the cell itself included; row prefix sums, 2R+1
+	reads a cell). Seeds per requested slot, by (room desc, distance rank asc)
+	— deterministic, no sort: slot 0, the legal model-0 cells; another slot (a
+	big character, see _grow_plans), the cells where THAT model is legal,
+	tested lazily in room order until max_seeds are found. Work: 1 per lattice
+	cell enumerated, 1 per prefix-sum cell, 2R+1 per cell scored; the lazy
+	tests are fresh checks. {ok, reason, orders: {slot: [[cell, rot]]},
+	legal (legal model-0 cells)}."""
+	var mi0: Dictionary = ctx.mlist[0]
+	var cur := _anchor_cursor(_anchor_points(ctx, GROW_STEP_PX), desired)
+	var max_disp: float = ctx.max_disp
+	var cells: Array = []    # [cell, rot (model 0) or null, ix, iy] in distance order
+	var n_legal := 0
+	var x0 := 1 << 30
+	var y0 := 1 << 30
+	var x1 := -(1 << 30)
+	var y1 := -(1 << 30)
+	while true:
+		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
+			return {"ok": false, "legal": n_legal, "orders": {},
+				"reason": "grow budget (fresh=%d work=%d) ranking seeds (%d legal cells so far)" % [ctx.fresh, int(ctx.grow_work), n_legal]}
+		var c = _next_anchor(cur)
+		if c == null or (c as Vector2).distance_to(desired) > max_disp:
+			break
+		ctx.grow_work += 1
+		var ix := int(round((c as Vector2).x / GROW_STEP_PX))
+		var iy := int(round((c as Vector2).y / GROW_STEP_PX))
+		var r0 = null
+		for rot in mi0.info.rots:
+			if _position_ok(ctx, mi0, c, rot):
+				r0 = float(rot)
+				break
+		if r0 != null:
+			n_legal += 1
+			x0 = mini(x0, ix)
+			y0 = mini(y0, iy)
+			x1 = maxi(x1, ix)
+			y1 = maxi(y1, iy)
+		if r0 != null or slots != [0]:
+			cells.append([c, r0, ix, iy])
+	if n_legal == 0:
+		return {"ok": true, "reason": "", "orders": {}, "legal": 0}
+	var R := _grow_room_cells(ctx)
+	var pad := 2 * R                         # a scored cell may lie up to R outside the legal box
+	var stride := x1 - x0 + 1 + 2 * pad + 1  # padded row width + the prefix column
+	var rows := y1 - y0 + 1 + 2 * pad
+	var pre := PackedInt32Array()
+	pre.resize(rows * stride)
+	pre.fill(0)
+	for e in cells:
+		if e[1] != null:
+			pre[(int(e[3]) - y0 + pad) * stride + (int(e[2]) - x0 + pad) + 1] = 1
+	for row in range(rows):
+		var base := row * stride
+		for col in range(1, stride):
+			pre[base + col] += pre[base + col - 1]
+	ctx.grow_work += rows * stride
+	var half: Array = []     # disc half-width per row offset -R..R
+	for dy in range(-R, R + 1):
+		var w := 0
+		while (w + 1) * (w + 1) + dy * dy <= R * R:
+			w += 1
+		half.append(w)
+	var buckets: Array = []  # room -> entries, distance order kept
+	buckets.resize((2 * R + 1) * (2 * R + 1) + 1)
+	for i in range(buckets.size()):
+		buckets[i] = []
+	var scored := 0
+	for e in cells:
+		var ix: int = e[2]
+		var iy: int = e[3]
+		if ix < x0 - R or ix > x1 + R or iy < y0 - R or iy > y1 + R:
+			(buckets[0] as Array).append(e)   # no legal model-0 cell within R: no room
+			continue
+		var col := ix - x0 + pad
+		var row := iy - y0 + pad
+		var sc := 0
+		for k in range(2 * R + 1):
+			var base := (row + k - R) * stride
+			sc += pre[base + col + int(half[k]) + 1] - pre[base + col - int(half[k])]
+		(buckets[sc] as Array).append(e)
+		scored += 1
+	ctx.grow_work += scored * (2 * R + 1)
+	var orders := {}
+	for slot in slots:
+		var order: Array = []
+		var ms: Dictionary = ctx.mlist[int(slot)]
+		for sc in range(buckets.size() - 1, -1, -1):
+			for e in buckets[sc]:
+				if order.size() >= max_seeds:
+					break
+				if int(slot) == 0:
+					if e[1] != null:
+						order.append([e[0], e[1]])
+					continue
+				if ctx.fresh > fresh_cap:
+					break
+				for rot in ms.info.rots:
+					if _position_ok(ctx, ms, e[0], rot):
+						order.append([e[0], float(rot)])
+						break
+			if order.size() >= max_seeds:
+				break
+		orders[int(slot)] = order
+	return {"ok": true, "reason": "", "orders": orders, "legal": n_legal}
+
+static func _grow_room_cells(ctx: Dictionary) -> int:
+	"""Radius (lattice steps) of the free-room disc that ranks growth seeds: the
+	disc whose area is the unit's whole footprint (every slot's footprint box
+	plus the template gap), at least GROW_ROOM_CELLS (3") and at most
+	GROW_ROOM_MAX_CELLS. A 3" disc holds 10 Boyz but not 20 Boyz and a Wartrike."""
+	var area := 0.0
+	for mi in ctx.mlist:
+		area += (2.0 * float(mi.info.hx) + GAP_PX) * (2.0 * float(mi.info.hy) + GAP_PX)
+	var r_cells := int(ceil(sqrt(area / PI) / GROW_STEP_PX))
+	return clampi(r_cells, GROW_ROOM_CELLS, GROW_ROOM_MAX_CELLS)
+
 static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	var max_fresh := int(ctx.opts.get("max_fresh", DEFAULT_MAX_FRESH))
 	var fresh_cap: int = max_fresh + max_fresh / 2
 	var max_work := int(ctx.opts.get("max_grow_work", DEFAULT_MAX_GROW_WORK))
 	var max_seeds := int(ctx.opts.get("grow_seeds", DEFAULT_GROW_SEEDS))
-	var mlist: Array = ctx.mlist
-	var n: int = ctx.n_all
-	var n_bg: int = ctx.n_bg
-	var cur := _anchor_cursor(_anchor_points(ctx, GROW_STEP_PX), desired)
-	var max_disp: float = ctx.max_disp
+	var plans := _grow_plans(ctx)
+	var slots: Array = []
+	for plan in plans:
+		if not (int(plan.seed_slot) in slots):
+			slots.append(int(plan.seed_slot))
+	var ranked := _grow_seed_order(ctx, desired, fresh_cap, max_work, max_seeds, slots)
+	if not bool(ranked.ok):
+		return {"ok": false, "reason": str(ranked.reason)}
+	var legal := int(ranked.legal)
+	for plan in plans:
+		var sl := int(plan.seed_slot)
+		if sl != 0 and (ranked.orders.get(sl, []) as Array).is_empty() and ctx.fresh <= fresh_cap:
+			# Every lattice cell was tested: the character fits nowhere, so no
+			# grown formation can hold it (exact for the growth lattice).
+			var mb: Dictionary = ctx.mlist[sl]
+			return {"ok": false, "reason": "grow: %s (%smm) has no legal position on the zone's 0.5\" growth lattice" % [str(mb.unit_id), str(mb.m.get("base_mm", 32))]}
+	# Round-robin over the plans: seed 1 of each plan, then seed 2 of each ...
+	# at most grow_seeds seeds in all.
+	var queue: Array = []
+	var longest := 0
+	for plan in plans:
+		longest = maxi(longest, (ranked.orders.get(int(plan.seed_slot), []) as Array).size())
+	for si in range(longest):
+		for plan in plans:
+			var po: Array = ranked.orders.get(int(plan.seed_slot), [])
+			if si < po.size() and queue.size() < max_seeds:
+				queue.append([po[si], plan.order])
 	var seeds := 0
-	while true:
+	var stuck := {}   # why each seed failed: "model <k>" / "coherency" / "excluded" / "gate"
+	for q in queue:
+		var e0: Array = q[0]
+		var gorder: Array = q[1]
 		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
-			return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds)" % [ctx.fresh, int(ctx.grow_work), seeds]}
-		var seed_cell = _next_anchor(cur)
-		if seed_cell == null or (seed_cell as Vector2).distance_to(desired) > max_disp:
-			break
-		var r0 = null
-		for rot in mlist[0].info.rots:
-			if _position_ok(ctx, mlist[0], seed_cell, rot):
-				r0 = rot
-				break
-		if r0 == null:
-			continue
+			return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds of %d legal cells, roomiest first%s)" % [
+				ctx.fresh, int(ctx.grow_work), seeds, legal, _stuck_text(ctx, stuck)]}
 		seeds += 1
-		if seeds > max_seeds:
-			break
-		var placed: Array = [{"pos": seed_cell, "rot": float(r0), "mi": mlist[0]}]
-		var ok := true
-		for k in range(1, n):
-			if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
-				return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds)" % [ctx.fresh, int(ctx.grow_work), seeds]}
-			var cen := _centroid(placed)
-			var group_n := n_bg if k < n_bg else n
-			var cells := _cells_near(ctx, placed, mlist[k], ctx.poly)
-			cells.sort_custom(func(a, b):
-				var da: float = a.distance_squared_to(cen)
-				var db: float = b.distance_squared_to(cen)
-				if da != db:
-					return da < db
-				if a.y != b.y:
-					return a.y < b.y
-				return a.x < b.x)
-			var best = null
-			for c in cells:
-				for rot in mlist[k].info.rots:
-					ctx.grow_work += 1
-					if not _position_ok(ctx, mlist[k], c, rot):
-						continue
-					if _overlaps_placed(c, mlist[k], rot, placed):
-						continue
-					if not _coherent_step(ctx, c, mlist[k], rot, placed, group_n):
-						continue
-					best = {"pos": c, "rot": rot, "mi": mlist[k]}
-					break
-				if best != null:
-					break
-			if best == null:
-				ok = false
-				break
-			placed.append(best)
-		if not ok:
+		var gr := _grow_from_seed(ctx, e0[0], float(e0[1]), gorder, fresh_cap, max_work)
+		if not bool(gr.ok):
+			_stuck_note(stuck, str(gr.stuck))
 			continue
-		var bg: Array = []
-		var merged: Array = []
-		for i in range(n):
-			var pm := _placed_model(placed[i], i)
-			merged.append(pm)
-			if i < n_bg:
-				bg.append(pm)
-		if n_bg > 1 and not AttackSequence.check_unit_coherency({"models": bg}).get("coherent", false):
-			continue
-		if n > n_bg and not AttackSequence.check_unit_coherency({"models": merged}).get("coherent", false):
-			continue
+		var placed: Array = gr.placed
 		var t := {"offs": [], "rots": [], "name": "grown"}
 		for e in placed:
 			t.offs.append(e.pos)
 			t.rots.append(e.rot)
 		var cand := _candidate(ctx, Vector2.ZERO, t)
 		if _excluded(ctx, cand):
+			_stuck_note(stuck, "excluded")
 			continue
 		var g := _gate(ctx, cand)
 		if g.ok:
-			return {"ok": true, "cand": cand, "anchor": seed_cell, "centroid": _centroid(placed), "seeds": seeds}
+			return {"ok": true, "cand": cand, "anchor": e0[0], "centroid": _centroid(placed), "seeds": seeds}
+		_stuck_note(stuck, "gate")
 		if g.unit_level or ctx.gate_rejections >= MAX_GATE_REJECTIONS:
 			return {"ok": false, "reason": "refused by the phase: %s" % "; ".join(g.errors)}
-	return {"ok": false, "reason": "grow: no seed grew to %d models (%d seeds)" % [n, seeds]}
+	return {"ok": false, "reason": "grow: no seed grew to %d models (%d seeds of %d legal cells, roomiest first%s)" % [
+		ctx.n_all, seeds, legal, _stuck_text(ctx, stuck)]}
+
+static func _grow_from_seed(ctx: Dictionary, seed_cell: Vector2, seed_rot: float, gorder: Array, fresh_cap: int, max_work: int) -> Dictionary:
+	"""Grow one formation from model 0 at seed_cell, adding models in gorder
+	(model-slot indices). {ok, placed (slot order), stuck ("model <k>" — no
+	legal coherent cell for slot k, or the budget ran out there — or
+	"coherency": the whole formation failed AttackSequence's check)}."""
+	var mlist: Array = ctx.mlist
+	var n: int = ctx.n_all
+	var n_bg: int = ctx.n_bg
+	var s0: int = gorder[0]
+	var placed: Array = [{"pos": seed_cell, "rot": seed_rot, "mi": mlist[s0], "i": s0}]
+	var bg_down := 1 if s0 < n_bg else 0
+	var frontiers := {}   # incremental candidate cells per model shape (see _frontier_cells)
+	for step in range(1, n):
+		var k: int = gorder[step]
+		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
+			return {"ok": false, "stuck": "model %d" % k}
+		var cen := _centroid(placed)
+		# A bodyguard model must be in 2" coherency with the BODYGUARD (the
+		# bodyguard alone stays coherent, as before) — except the first one
+		# down after a character seed, which joins the character; a character
+		# joins any placed model. The 9" envelope (11e) is checked against all.
+		var bg_step := k < n_bg and bg_down > 0
+		var group_n := n_bg if k < n_bg else n
+		var cells := _frontier_cells(ctx, frontiers, placed, mlist[k], ctx.poly, bg_step)
+		cells.sort_custom(func(a, b):
+			var da: float = a.distance_squared_to(cen)
+			var db: float = b.distance_squared_to(cen)
+			if da != db:
+				return da < db
+			if a.y != b.y:
+				return a.y < b.y
+			return a.x < b.x)
+		var best = null
+		for c in cells:
+			for rot in mlist[k].info.rots:
+				ctx.grow_work += 1
+				if not _position_ok(ctx, mlist[k], c, rot):
+					continue
+				if _overlaps_placed(c, mlist[k], rot, placed):
+					continue
+				if not _coherent_step(ctx, c, mlist[k], rot, placed, group_n, bg_step):
+					continue
+				best = {"pos": c, "rot": rot, "mi": mlist[k], "i": k}
+				break
+			if best != null:
+				break
+		if best == null:
+			return {"ok": false, "stuck": "model %d" % k}
+		placed.append(best)
+		if k < n_bg:
+			bg_down += 1
+	# Back to model-slot order (the template is indexed like mlist).
+	var by_slot: Array = []
+	by_slot.resize(n)
+	for e in placed:
+		by_slot[int(e.i)] = e
+	var bg: Array = []
+	var merged: Array = []
+	for i in range(n):
+		var pm := _placed_model(by_slot[i], i)
+		merged.append(pm)
+		if i < n_bg:
+			bg.append(pm)
+	if n_bg > 1 and not AttackSequence.check_unit_coherency({"models": bg}).get("coherent", false):
+		return {"ok": false, "stuck": "coherency"}
+	if n > n_bg and not AttackSequence.check_unit_coherency({"models": merged}).get("coherent", false):
+		return {"ok": false, "stuck": "coherency"}
+	return {"ok": true, "placed": by_slot, "stuck": ""}
+
+static func _grow_plans(ctx: Dictionary) -> Array:
+	"""Growth plans [{seed_slot, order}] (model-slot indices), tried in turn
+	under the one budget. A unit with characters bigger than every bodyguard
+	model is SEEDED at its biggest character, ranked by that model's own free
+	room — the 150mm Wartrike, not a 32mm Boy, is what decides whether a seed
+	can grow: grown after 20 Boyz it found no room left beside them, and a seed
+	roomy for a Boy had no 150mm cell beside it — then grows the other big
+	characters, the bodyguard and the other characters. Otherwise the seed is
+	bodyguard model 0 and characters grow last. opts grow_plan (experiment
+	switch): "auto" (above), "model0" (seed at model 0, big characters right
+	after it), "last" (seed at model 0, characters last)."""
+	var mode := str(ctx.opts.get("grow_plan", "auto"))
+	if OS.get_environment("F1_GROW_PLAN") != "" and not ctx.opts.has("grow_plan"):   # F1-EXPERIMENT (remove)
+		mode = OS.get_environment("F1_GROW_PLAN")
+	var big := _grow_big_slots(ctx)
+	var bg: Array = []
+	for i in range(ctx.n_bg):
+		bg.append(i)
+	var small: Array = []
+	var chars: Array = []
+	for j in range(ctx.n_bg, ctx.n_all):
+		chars.append(j)
+		if not (j in big):
+			small.append(j)
+	var p_last := {"seed_slot": 0, "order": bg + chars}
+	if mode == "last" or big.is_empty():
+		return [p_last]
+	var p_model0 := {"seed_slot": 0, "order": [0] + big + bg.slice(1) + small}
+	var p_big := {"seed_slot": int(big[0]), "order": big + bg + small}
+	if mode == "model0":
+		return [p_model0]
+	if mode == "big":
+		return [p_big]
+	return [p_model0, p_big, p_last]
+
+static func _grow_big_slots(ctx: Dictionary) -> Array:
+	"""Character slots whose footprint is larger than every bodyguard model's
+	(bounding radius + 0.5 px), largest first, then slot order."""
+	var bg_r := 0.0
+	for i in range(ctx.n_bg):
+		bg_r = maxf(bg_r, float(ctx.mlist[i].info.r_out))
+	var big: Array = []
+	for j in range(ctx.n_bg, ctx.n_all):
+		if float(ctx.mlist[j].info.r_out) > bg_r + 0.5:
+			big.append(j)
+	big.sort_custom(func(a, b):
+		var ra: float = ctx.mlist[a].info.r_out
+		var rb: float = ctx.mlist[b].info.r_out
+		if ra != rb:
+			return ra > rb
+		return a < b)
+	return big
+
+static func _stuck_note(stuck: Dictionary, key: String) -> void:
+	stuck[key] = int(stuck.get(key, 0)) + 1
+
+static func _stuck_text(ctx: Dictionary, stuck: Dictionary) -> String:
+	"""'; stuck: model 21 (T_TRIKE 150mm) x3, coherency x1' — where each failed
+	seed stopped (diagnostics for the failure reason)."""
+	if stuck.is_empty():
+		return ""
+	var keys: Array = stuck.keys()
+	keys.sort()
+	var parts: Array = []
+	for key in keys:
+		var label := str(key)
+		if label.begins_with("model "):
+			var k := int(label.substr(6))
+			if k >= 0 and k < (ctx.mlist as Array).size():
+				var mi: Dictionary = ctx.mlist[k]
+				label += " (%s %smm%s)" % [str(mi.unit_id), str(mi.m.get("base_mm", 32)), " char" if bool(mi.is_char) else ""]
+		parts.append("%s x%d" % [label, int(stuck[key])])
+	return "; stuck: " + ", ".join(parts)
 
 static func _placed_model(entry: Dictionary, i: int) -> Dictionary:
 	var m: Dictionary = entry.mi.m.duplicate()
@@ -1543,15 +1835,24 @@ static func _overlaps_placed(pos: Vector2, mi: Dictionary, rot: float, placed: A
 			return true
 	return false
 
-static func _coherent_step(ctx: Dictionary, pos: Vector2, mi: Dictionary, rot: float, placed: Array, group_n: int) -> bool:
+static func _coherent_step(ctx: Dictionary, pos: Vector2, mi: Dictionary, rot: float, placed: Array, group_n: int,
+		near_bg_only: bool = false) -> bool:
+	"""Within 2" of enough placed models (1; at 10e 2 once a 7+ model group has
+	two placed) and — at 11e — within 9" of every placed model. near_bg_only:
+	only placed BODYGUARD models count as 2" neighbours (a bodyguard model of an
+	attached unit grown after its big characters)."""
 	var meas = ctx.meas
 	var tol: float = meas.DISTANCE_TOLERANCE_INCHES
 	var coh_px: float = meas.inches_to_px(GameConstants.coherency_distance_inches() + tol) - 1.0
 	var env_px: float = INF
 	if int(ctx.edition) >= 11:
 		env_px = meas.inches_to_px(GameConstants.coherency_envelope_inches() + tol) - 1.0
+	var counted := 0
+	for e in placed:
+		if not near_bg_only or not bool(e.mi.is_char):
+			counted += 1
 	var need := 1
-	if int(ctx.edition) < 11 and group_n >= 7 and placed.size() >= 2:
+	if int(ctx.edition) < 11 and group_n >= 7 and counted >= 2:
 		need = 2
 	var probe: Dictionary = mi.m.duplicate()
 	probe["position"] = pos
@@ -1566,40 +1867,71 @@ static func _coherent_step(ctx: Dictionary, pos: Vector2, mi: Dictionary, rot: f
 		var d: float = meas.model_to_model_distance_px(probe, _placed_model(e, i))
 		if d > env_px:
 			return false
-		if d <= coh_px:
+		if d <= coh_px and (not near_bg_only or not bool(e.mi.is_char)):
 			near += 1
 	return near >= need
 
-static func _cells_near(ctx: Dictionary, placed: Array, mi: Dictionary, poly: PackedVector2Array) -> Array:
+static func _frontier_cells(ctx: Dictionary, frontiers: Dictionary, placed: Array, mi: Dictionary,
+		poly: PackedVector2Array, reach_bg_only: bool = false) -> Array:
+	"""Growth candidate cells for model mi: lattice cells within 2" reach of a
+	placed model (reach_bg_only: of a placed BODYGUARD model), not inside any
+	placed model's inner circle (r_in + r_in - 1 px), inside the zone polygon;
+	unordered (the caller sorts them with a total order). Kept incrementally
+	for one growth attempt: each placed model's reach and clash discs are
+	stamped ONCE per model shape (and reach_bg_only). This returns exactly the
+	cells the earlier full re-scan of the blob's box against every placed model
+	did (verified step by step, 2,890 growth steps), at a tenth of the cost —
+	that scan was ~80% of a growth seed's time. Work: 1 per disc cell stamped,
+	1 per cell returned."""
+	var key := "%s|%s" % [str(mi.info.skey), "B" if reach_bg_only else "A"]
+	var fr: Dictionary = frontiers.get(key, {})
+	if fr.is_empty():
+		fr = {"n": 0, "reach": {}, "clash": {}, "cand": {}}
+		frontiers[key] = fr
+	if not frontiers.has("_in_poly"):
+		frontiers["_in_poly"] = {}
+	var in_poly: Dictionary = frontiers["_in_poly"]
 	var reach_extra: float = GameConstants.coherency_distance_inches() * PX_PER_INCH + mi.info.r_out
-	var mn := Vector2(INF, INF)
-	var mx := Vector2(-INF, -INF)
-	for e in placed:
-		var r: float = e.mi.info.r_out + reach_extra
-		mn = Vector2(minf(mn.x, e.pos.x - r), minf(mn.y, e.pos.y - r))
-		mx = Vector2(maxf(mx.x, e.pos.x + r), maxf(mx.y, e.pos.y + r))
-	ctx.grow_work += int(((mx.x - mn.x) / GROW_STEP_PX + 1.0) * ((mx.y - mn.y) / GROW_STEP_PX + 1.0)) * placed.size()
-	var out: Array = []
-	var y: float = ceil(mn.y / GROW_STEP_PX) * GROW_STEP_PX
-	while y <= mx.y:
-		var x: float = ceil(mn.x / GROW_STEP_PX) * GROW_STEP_PX
-		while x <= mx.x:
-			var c := Vector2(x, y)
-			if Geometry2D.is_point_in_polygon(c, poly):
-				var reach := false
-				var clash := false
-				for e in placed:
-					var cd: float = c.distance_to(e.pos)
-					if cd <= e.mi.info.r_out + reach_extra:
-						reach = true
-					if cd < mi.info.r_in + e.mi.info.r_in - 1.0:
-						clash = true
-						break
-				if reach and not clash:
-					out.append(c)
-			x += GROW_STEP_PX
-		y += GROW_STEP_PX
-	return out
+	var reach: Dictionary = fr.reach
+	var clash: Dictionary = fr.clash
+	var cand: Dictionary = fr.cand
+	var visited := 0
+	for idx in range(int(fr.n), placed.size()):
+		var e: Dictionary = placed[idx]
+		var p: Vector2 = e.pos
+		# Clash disc first (strict <), then the reach disc (<=), as _cells_near.
+		var rc: float = mi.info.r_in + e.mi.info.r_in - 1.0
+		if rc > 0.0:
+			for iy in range(int(floor((p.y - rc) / GROW_STEP_PX)), int(ceil((p.y + rc) / GROW_STEP_PX)) + 1):
+				for ix in range(int(floor((p.x - rc) / GROW_STEP_PX)), int(ceil((p.x + rc) / GROW_STEP_PX)) + 1):
+					visited += 1
+					var c := Vector2(ix * GROW_STEP_PX, iy * GROW_STEP_PX)
+					if c.distance_to(p) < rc:
+						var kc := Vector2i(ix, iy)
+						clash[kc] = true
+						cand.erase(kc)
+		if reach_bg_only and bool(e.mi.is_char):
+			continue
+		var rr: float = e.mi.info.r_out + reach_extra
+		for iy in range(int(floor((p.y - rr) / GROW_STEP_PX)), int(ceil((p.y + rr) / GROW_STEP_PX)) + 1):
+			for ix in range(int(floor((p.x - rr) / GROW_STEP_PX)), int(ceil((p.x + rr) / GROW_STEP_PX)) + 1):
+				visited += 1
+				var kr := Vector2i(ix, iy)
+				if reach.has(kr):
+					continue
+				var c := Vector2(ix * GROW_STEP_PX, iy * GROW_STEP_PX)
+				if c.distance_to(p) > rr:
+					continue
+				reach[kr] = true
+				if clash.has(kr):
+					continue
+				if not in_poly.has(kr):
+					in_poly[kr] = Geometry2D.is_point_in_polygon(c, poly)
+				if in_poly[kr]:
+					cand[kr] = c
+	fr.n = placed.size()
+	ctx.grow_work += visited + cand.size()
+	return cand.values()
 
 static func _centroid(placed: Array) -> Vector2:
 	var c := Vector2.ZERO
@@ -1753,6 +2085,7 @@ static func _record_stats(unit_id: String, out: Dictionary, probe: bool = false)
 	_stats.total_us += us
 	_stats.evals += int(out.get("evals", 0))
 	_stats.fresh += int(out.get("fresh", 0))
+	_stats.grow_work += int(out.get("grow_work", 0))
 	_stats.gate_rejections += int(out.get("gate_rejections", 0))
 	if str(out.get("reason", "")).begins_with("refused"):
 		_stats.gate_aborts += 1

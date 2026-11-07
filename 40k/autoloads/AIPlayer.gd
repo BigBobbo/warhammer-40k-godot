@@ -1053,9 +1053,9 @@ func accept_suggestion(decision: Dictionary) -> Dictionary:
 func _run_accepted_suggestion(player: int, action: Dictionary) -> Dictionary:
 	var t := str(action.get("type", ""))
 	var unit_id := str(action.get("actor_unit_id", action.get("unit_id", "")))
-	# P0.1: "no legal set-up" is a finding, not an action — never route it.
+	# P0.1: "no legal set-up found" is a finding, not an action — never route it.
 	if bool(action.get("_ai_no_legal_formation", false)):
-		return {"success": false, "error": "No legal set-up for %s anywhere in the deployment zone" % _get_unit_name(unit_id)}
+		return {"success": false, "error": "No legal set-up found for %s in the deployment zone" % _get_unit_name(unit_id)}
 	# A move the player already began (card says "move in progress"): the BEGIN
 	# is done — clear anything they staged and place the AI's plan instead.
 	if bool(action.get("_ai_in_progress_move", false)) and action.has("_ai_model_destinations"):
@@ -2436,15 +2436,16 @@ func _execute_next_action(player: int) -> void:
 		if _decision_batches_total % 50 == 0:
 			export_decision_log(false)
 
-	# P0.1: the decision maker found no legal set-up for this unit anywhere in
-	# the zone. The marker is never routed (an empty DEPLOY_UNIT is refused by
-	# the phase, RC7) — the unit goes to Strategic Reserves, logged as a defect.
+	# P0.1: the decision maker's formation builder found no legal set-up for
+	# this unit (within its count budgets — not proof that none exists). The
+	# marker is never routed (an empty DEPLOY_UNIT is refused by the phase,
+	# RC7) — the unit goes to Strategic Reserves, logged as a defect.
 	if bool(decision.get("_ai_no_legal_formation", false)):
 		var nlf_unit_id := str(decision.get("unit_id", ""))
 		var nlf_name := _get_unit_name(nlf_unit_id)
 		var nlf_reason := str(decision.get("_ai_formation_reason", ""))
-		print("AIPlayer: [FORMATION] no legal set-up for %s (P%d): %s" % [nlf_name, player, nlf_reason])
-		_log_ai_event(player, "%s: no legal set-up anywhere in the deployment zone" % nlf_name)
+		print("AIPlayer: [FORMATION] no legal set-up found for %s (P%d): %s" % [nlf_name, player, nlf_reason])
+		_log_ai_event(player, "%s: no legal set-up found in the deployment zone" % nlf_name)
 		_current_phase_actions += 1
 		if nlf_unit_id != "":
 			_fallback_to_reserves(player, nlf_unit_id, nlf_name)
@@ -4144,7 +4145,7 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		# D5: a forced reserve within the caps is a defect worth seeing, but
 		# rules-legal — a warning (DeploymentEval.count_forced_reserves counts it
 		# from the "(fallback)" action-log description below).
-		var forced := "[FORMATION] DEFECT forced reserve: %s (P%d) had no legal set-up and was placed in Strategic Reserves (fallback)" % [unit_name, player]
+		var forced := "[FORMATION] DEFECT forced reserve: no legal set-up was found for %s (P%d); placed in Strategic Reserves (fallback)" % [unit_name, player]
 		push_warning(forced)
 		DebugLogger.warn(forced, {"unit_id": unit_id, "player": player})
 		_append_action_log({
@@ -4171,10 +4172,10 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		if stuck_result != null and stuck_result.get("success", false):
 			# D5: past the caps is a rules deviation kept only as the anti-hang last
 			# resort — an ERROR, so the verify_delivery / read_debug_log gates fail.
-			var stuck := "[FORMATION] DEFECT: %s (P%d) had no legal set-up and the reserves caps were full — placed in reserves past the caps (no legal position) so deployment can finish" % [unit_name, player]
+			var stuck := "[FORMATION] DEFECT: no legal set-up was found for %s (P%d) and the reserves caps were full — placed in reserves past the caps (no legal position) so deployment can finish" % [unit_name, player]
 			push_error(stuck)
 			DebugLogger.error(stuck, {"unit_id": unit_id, "player": player})
-			_log_ai_event(player, "%s could not be set up anywhere and the reserves limits were full — placed in Strategic Reserves past the limits so deployment can finish" % unit_name)
+			_log_ai_event(player, "No legal set-up was found for %s and the reserves limits were full — placed in Strategic Reserves past the limits so deployment can finish" % unit_name)
 			_append_action_log({
 				"phase": GameState.get_current_phase(),
 				"action_type": "PLACE_IN_RESERVES",

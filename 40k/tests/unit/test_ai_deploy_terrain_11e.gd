@@ -9,12 +9,15 @@ extends SceneTree
 # Scorer: 11e category semantics, the fragile_shooter swap fix, the anti_tank arm.
 # Picker (live game state, real fixtures): candidates only from terrain AREA groups
 # (group keys are VALUES of TerrainManager.build_area_group_map), group geometry
-# from area polygons only (cross-parented wall features cannot drag anchors away),
-# inside fills Hidden + legal, behind spots for non-hide-capable units, the K-card
-# record written from the final positions with >= 2 options and chosen = the best
-# ELIGIBLE option (also when no terrain spot builds), no partly Hidden units,
-# determinism, both kill switches, the per-drop time bound, and attached Big Meks
-# + a Battlewagon with embarked Gretchin (bw_load_deploy_pretrigger).
+# from area polygons only — pinned with the pre-B2 cross-parented corner walls
+# re-injected in memory (the shipped data is fixed, so that is the only way to
+# exercise it) — inside fills Hidden + legal, behind spots for non-hide-capable
+# units, the K-card record written from the final positions with >= 2 options
+# and chosen = the best ELIGIBLE option (also when no terrain spot builds), the
+# K-card wording by refusal reason (L3-2), no partly Hidden units, determinism,
+# both kill switches, the per-drop work bound (D10 / C-3: by COUNTS; the time is
+# printed, with only a generous hang guard), and attached Big Meks + a
+# Battlewagon with embarked Gretchin (bw_load_deploy_pretrigger).
 #
 # Deployment loops route the AI's own decisions through PhaseManager /
 # NetworkIntegration (the real DeploymentPhase + TurnManager order, TITANIC skip
@@ -53,7 +56,8 @@ const GOLDEN := {
 		"character": [Vector2(337.50, 2065.00), Vector2(60.00, 2340.00), Vector2(1700.00, 1775.00)],
 		"general": [Vector2(555.00, 2040.00), Vector2(215.00, 2330.00), Vector2(1532.50, 1750.00)]},
 }
-const DROP_BUDGET_MS := 1200.0   # D10: <= ~1.2 s worst case per drop
+const DROP_BUDGET_MS := 1200.0   # D10: ~1.2 s per drop on the dev machine — reported, not asserted
+const DROP_HANG_GUARD_MS := 3.0 * DROP_BUDGET_MS   # the only wall-clock assertion: a hang guard
 
 var pass_count := 0
 var fail_count := 0
@@ -98,6 +102,7 @@ func _initialize():
 	_test_fragile_swap_fixed()
 	_test_anti_tank_branch()
 	_test_pocket_fill_unit_math()
+	_test_spot_labels_by_reason()
 	await _test_candidates_only_from_area_groups()
 	await _test_cross_parented_features_do_not_move_anchors()
 	await _test_inside_fill_hidden_and_legal()
@@ -245,9 +250,14 @@ func _deploy_all(max_drops: int = 80) -> Dictionary:
 		var player := int(GS.get_active_player())
 		var avail: Array = PM.get_available_actions()
 		var snap = GS.create_snapshot(false)
+		var fb0: Dictionary = FB.stats()
 		var t0 := Time.get_ticks_usec()
 		var d: Dictionary = AIDecisionMaker.decide(1, snap, avail, player)
 		var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+		var fb1: Dictionary = FB.stats()
+		var counts := {"evals": int(fb1.evals) - int(fb0.evals), "fresh": int(fb1.fresh) - int(fb0.fresh),
+			"grow_work": int(fb1.get("grow_work", 0)) - int(fb0.get("grow_work", 0)),
+			"builds": int(fb1.builds) + int(fb1.probes) - int(fb0.builds) - int(fb0.probes)}
 		var rec := _deployment_record(AIDecisionMaker._decision_records)
 		if d.is_empty():
 			var routed := false
@@ -281,7 +291,7 @@ func _deploy_all(max_drops: int = 80) -> Dictionary:
 			if not success:
 				print("  REJECTED %s: %s" % [str(d.get("unit_id", "")), str(res)])
 				ok = false
-			drops.append({"player": player, "unit_id": str(d.get("unit_id", "")), "type": t, "ms": ms,
+			drops.append({"player": player, "unit_id": str(d.get("unit_id", "")), "type": t, "ms": ms, "counts": counts,
 				"record": rec, "relation": str(rec.get("context", {}).get("relation", "")),
 				"desc": str(d.get("_ai_description", "")), "ccd": d.get("combined_char_data", {}),
 				"positions": d.get("model_positions", []), "success": success})
@@ -541,6 +551,29 @@ func _test_pocket_fill_unit_math() -> void:
 # picker on live fixtures
 # -----------------------------------------------------------------------------
 
+func _test_spot_labels_by_reason() -> void:
+	print("\n-- K-card wording by refusal reason (L3-2) --")
+	var cd := {"rel": "behind", "category": "dense", "type": "ruins", "objective_role": ""}
+	var p := Vector2(100, 200)
+	var cases := [
+		["avoid: budget (evals=8001 fresh=1437)", "budget", "no legal set-up found within the build budget"],
+		["not tried: the per-drop build budget ran out checking room for Wazdakka Gutsmek", "budget", "the build budget ran out checking room for Wazdakka Gutsmek"],
+		["not tried: the per-drop room-check budget is spent (Stompa)", "budget", "no room check was left to confirm room for Stompa"],
+		["would leave no legal set-up for Wazdakka Gutsmek", "ruled_out", "it would take the last legal set-up of Wazdakka Gutsmek"],
+		["behind: 1 of 11 models would be Hidden (a partly Hidden unit)", "ruled_out", "only part of the unit would be Hidden"],
+		["behind: the nearest legal set-up (10, 20) is out of the area's shadow (2/8 sight lines blocked)", "ruled_out", "out of the area's shadow"],
+		["avoid: nothing fits within 2.0\" of the spot (12 blocks)", "nofit", "no legal set-up fits there"],
+		["not tried: the per-drop build budget is spent (3 spots, 24000 evaluations, 900 checks)", "untried", "not tried: the build budget for this drop was spent"],
+	]
+	var ok := true
+	for c in cases:
+		var kind: String = AIDecisionMaker._deploy_spot_why_kind(str(c[0]))
+		var label: String = AIDecisionMaker._deploy_spot_label_unused(cd, p, 6, str(c[0]))
+		if kind != str(c[1]) or label.find(str(c[2])) < 0:
+			ok = false
+			print("  '%s' -> %s / '%s'" % [str(c[0]), kind, label])
+	_check(ok, "each refusal reason gets its own kind and K-card text; only a real no-fit says 'no legal set-up fits there' (%d reasons)" % cases.size())
+
 func _pick_for(uid: String, player: int) -> Dictionary:
 	_as_player(player)
 	var snap = GS.create_snapshot(false)
@@ -598,12 +631,49 @@ func _test_candidates_only_from_area_groups() -> void:
 			inside += 1
 	_check(inside >= 1, "at least one INSIDE dense spot for a hide-capable unit (%d)" % inside)
 
+# Pre-B2 (1.0.19 data, e64bf37) parents of the take_and_hold_mirror_1 corner
+# walls: each was parented to the area ~37" away. B2 (18de0f8) fixed the data.
+const PRE_B2_PARENTS := {"corner-short-9": "area-medium-7", "corner-short-10": "area-medium-8",
+	"corner-short-11": "area-medium-7", "corner-short-12": "area-medium-8"}
+
+func _raw_cross_parented() -> int:
+	"""Feature pieces whose polygon lies > 10" from their parent AREA piece's
+	polygon (raw TerrainManager pieces, not the AI's grouping)."""
+	var by_id := {}
+	for piece in TMN.terrain_features:
+		by_id[str(piece.get("id", ""))] = piece
+	var n := 0
+	for piece in TMN.terrain_features:
+		if str(piece.get("piece_class", "")) != "feature":
+			continue
+		var parent = by_id.get(str(piece.get("parent_area_id", "")), null)
+		if parent == null:
+			continue
+		var near := false
+		for v in piece.get("polygon", PackedVector2Array()):
+			if AIDecisionMaker._dist_point_polygon_px(v, parent.get("polygon", PackedVector2Array())) <= 400.0:
+				near = true
+				break
+		if not near:
+			n += 1
+	return n
+
 func _test_cross_parented_features_do_not_move_anchors() -> void:
 	print("\n-- group geometry from AREA polygons only (cross-parented features) --")
-	# take_and_hold_mirror_1 (the asym fixture's layout) parents some wall
-	# features to an area far away (corner-short-9..12 -> area-medium-7 / -8,
-	# ~37" apart; layout data fix tracked separately, D8). Anchors must stay by
-	# the AREA whatever the data says.
+	# The shipped take_and_hold_mirror_1 (the asym fixture's layout) is fixed (B2
+	# re-parented corner-short-9..12 to the area each stands in), so the old
+	# cross-parented data is re-injected IN MEMORY: anchors must stay by the
+	# AREA whatever the data says — the rule that protects edited / legacy
+	# layouts. The real parents are restored at the end (later tests reuse the
+	# loaded state).
+	var saved := {}
+	for piece in TMN.terrain_features:
+		var pid := str(piece.get("id", ""))
+		if PRE_B2_PARENTS.has(pid):
+			saved[pid] = piece.get("parent_area_id", null)
+			piece["parent_area_id"] = PRE_B2_PARENTS[pid]
+	var raw_cross := _raw_cross_parented()
+	_check(saved.size() == 4 and raw_cross >= 4, "[pre-B2 data] the 4 corner walls are cross-parented again in memory (%d pieces swapped, %d cross-parented)" % [saved.size(), raw_cross])
 	var groups: Array = AIDecisionMaker._deploy_area_groups(TMN.terrain_features)
 	var cross := 0
 	for g in groups:
@@ -616,10 +686,12 @@ func _test_cross_parented_features_do_not_move_anchors() -> void:
 			if far:
 				cross += 1
 	print("  cross-parented feature polygons (> 10\" from their own area): %d" % cross)
+	_check(cross >= 4, "[pre-B2 data] the AI's area groups hold the 4 far-away corner walls (%d)" % cross)
 	# The corner-short-9..12 groups named by the review: every behind anchor of
 	# theirs lies within the AREA footprint + the formation reach R + the
 	# clearance + half the area's width (the lateral offsets), whatever their
-	# far-away features say.
+	# far-away features say. (A regression that let feature polygons into the
+	# group geometry dragged these anchors 18-22" out — L6-1 / L7-1.)
 	var corner_groups := {}
 	for g in groups:
 		for pid in g.ids:
@@ -629,6 +701,7 @@ func _test_cross_parented_features_do_not_move_anchors() -> void:
 	print("  groups holding corner-short-9..12: %s" % str(corner_groups.keys()))
 	_check(not corner_groups.is_empty(), "take_and_hold_mirror_1: the corner-short-9..12 groups exist (%s)" % str(corner_groups.keys()))
 	var clear_px := AIDecisionMaker.DEPLOY_11E_BEHIND_CLEARANCE_IN * 40.0
+	var seen_total := 0
 	for spec in [["U_STOMPA_A", 2], ["U_WARBIKERS_C", 2], ["U_PROSECUTORS_A", 1]]:
 		var info := _pick_for(str(spec[0]), int(spec[1]))
 		var slots: Array = FB.model_slots(info.snapshot, int(spec[1]), str(spec[0])).slots
@@ -662,6 +735,8 @@ func _test_cross_parented_features_do_not_move_anchors() -> void:
 				ok = false
 				print("  %s: anchor %s is %.1f\" from %s (bound %.1f\")" % [str(spec[0]), str(cd.anchor), d / 40.0, str(cd.key), (R + clear_px + wl * 0.5) / 40.0])
 		_check(ok, "%s: the corner-short groups' %d behind anchors stay within area + R + clearance" % [str(spec[0]), seen])
+		seen_total += seen
+	_check(seen_total > 0, "the bound above was checked over real anchors (%d corner-group behind anchors)" % seen_total)
 	for spec in [["U_STOMPA_A", 2], ["U_WARBIKERS_C", 2], ["U_ALLARUS_CUSTODIANS_A", 1]]:
 		var info := _pick_for(str(spec[0]), int(spec[1]))
 		var by: Dictionary = {}
@@ -678,6 +753,12 @@ func _test_cross_parented_features_do_not_move_anchors() -> void:
 				d = minf(d, AIDecisionMaker._dist_point_polygon_px(cd.anchor, ap))
 			worst = maxf(worst, d)
 		_check(n == 0 or worst <= 12.0 * 40.0, "%s P%d: %d behind anchors, all within 12\" of their own area (worst %.1f\")" % [str(spec[0]), int(spec[1]), n, worst / 40.0])
+	# Restore the shipped (fixed) parents.
+	for piece in TMN.terrain_features:
+		var pid := str(piece.get("id", ""))
+		if saved.has(pid):
+			piece["parent_area_id"] = saved[pid]
+	_check(_raw_cross_parented() == 0, "the shipped parents are restored (0 cross-parented pieces)")
 
 func _test_inside_fill_hidden_and_legal() -> void:
 	print("\n-- the top inside spot builds legally and every model is Hidden --")
@@ -981,7 +1062,7 @@ func _test_full_deployment_asym_no_leakers_and_determinism() -> void:
 	_check(same_records, "... and identical records (descriptions, scores, chosen index) for every drop")
 
 func _test_perf_budget_orks() -> void:
-	print("\n-- per-drop time, Ork mirror on Search and Destroy (both seats) --")
+	print("\n-- per-drop work (counts) and time, Ork mirror on Search and Destroy (both seats) --")
 	if not await _load("mirror_orks_2000_predeploy", "search_and_destroy", 11):
 		return
 	# Before anything is deployed: the 13.09 detection-range rule on the map
@@ -1000,7 +1081,13 @@ func _test_perf_budget_orks() -> void:
 				if float((cd.terms as Dictionary).get("deploy_hidden", 0.0)) != 0.0:
 					det_ok = false
 	print("  S&D: %d inside spots within detection range of the enemy zone (Gretchin / Stormboyz, both seats)" % detected)
-	_check(det_ok, "S&D: inside spots within detection range carry no Hidden points (%d such spots generated)" % detected)
+	# L6-7: the shipped S&D layout has no dense pocket within 15" of the enemy
+	# zone, so this only checks something when such spots exist; the rule
+	# itself is pinned in _test_inside_fill_hidden_and_legal (enemy zone moved).
+	if detected > 0:
+		_check(det_ok, "S&D: inside spots within detection range carry no Hidden points (%d such spots generated)" % detected)
+	else:
+		print("  NOTE: no inside spot within detection range on this layout — nothing to check here")
 	_load_ok_after_probe = await _load("mirror_orks_2000_predeploy", "search_and_destroy", 11)
 	var run := await _deploy_all()
 	var ms: Array = []
@@ -1016,12 +1103,35 @@ func _test_perf_budget_orks() -> void:
 	if n == 0:
 		_check(false, "drops were timed")
 		return
-	print("  %d drops: p50 %.1f ms, p95 %.1f ms, max %.1f ms (%s)" % [n, ms[n / 2], ms[int(n * 0.95)], worst_ms, worst])
+	print("  %d drops: p50 %.1f ms, p95 %.1f ms, max %.1f ms (%s) — the D10 ~%.0f ms figure is reported, not asserted" % [
+		n, ms[n / 2], ms[int(n * 0.95)], worst_ms, worst, DROP_BUDGET_MS])
 	_check(bool(run.ok) and int(run.forced) == 0, "deployment completed with every placement accepted, 0 forced reserves (%d)" % int(run.forced))
-	_check(worst_ms < DROP_BUDGET_MS, "worst drop %.0f ms < %.0f ms (D10)" % [worst_ms, DROP_BUDGET_MS])
+	# L6-2 / D10 / C-3: the drop is bounded by COUNTS. Every drop's builder
+	# work (all its builds) stays within AIDecisionMaker.deploy_drop_count_bound()
+	# (+ a few checks of overshoot per build: a budget is tested once per
+	# evaluation). Wall clock only as a hang guard (3x), never the 1.2 s figure.
+	var bound: Dictionary = AIDecisionMaker.deploy_drop_count_bound()
+	var worst_c := {"evals": 0, "fresh": 0, "grow_work": 0, "builds": 0}
+	var over: Array = []
+	for dr in run.drops:
+		var c: Dictionary = dr.get("counts", {})
+		for k in worst_c:
+			worst_c[k] = maxi(int(worst_c[k]), int(c.get(k, 0)))
+		var slack := 64 * maxi(1, int(c.get("builds", 1)))
+		if int(c.get("evals", 0)) > int(bound.evals) + slack or int(c.get("fresh", 0)) > int(bound.fresh) + slack \
+				or int(c.get("grow_work", 0)) > int(bound.grow_work) + slack:
+			over.append("%s %s" % [str(dr.unit_id), str(c)])
+	print("  worst per-drop counts: %s; bound %s" % [str(worst_c), str(bound)])
+	_check(over.is_empty() and int(worst_c.evals) > 0, "every drop's builder work is within the per-drop count bound (worst evals %d / %d, fresh %d / %d, growth work %d / %d)%s" % [
+		int(worst_c.evals), int(bound.evals), int(worst_c.fresh), int(bound.fresh), int(worst_c.grow_work), int(bound.grow_work),
+		"" if over.is_empty() else " — over: %s" % str(over)])
+	var stats: Dictionary = AIDecisionMaker.deploy_drop_stats()
+	_check(int(stats.get("max_evals", 0)) == int(worst_c.evals) and int(stats.get("max_fresh", 0)) == int(worst_c.fresh),
+		"deploy_drop_stats() reports the same per-drop maxima (evals %d, fresh %d, growth %d)" % [int(stats.get("max_evals", 0)), int(stats.get("max_fresh", 0)), int(stats.get("max_grow_work", 0))])
+	_check(worst_ms < DROP_HANG_GUARD_MS, "no drop hangs: worst %.0f ms < %.0f ms (3x the D10 figure; a hang guard only)" % [worst_ms, DROP_HANG_GUARD_MS])
 	var t1 := _hide_tally(1)
 	var t2 := _hide_tally(2)
-	_check(int(t1.leak) == 0 and int(t2.leak) == 0, "no partly Hidden unit (S&D: zones 12.7\" apart — Hidden is not worth points within 15\")")
+	_check(int(t1.leak) == 0 and int(t2.leak) == 0, "no partly Hidden unit (P1 %d, P2 %d)" % [int(t1.leak), int(t2.leak)])
 	# 13.09 detection range: listed inside spots within 15" of the enemy zone
 	# carry no Hidden points (they are offered for 13.08 cover only).
 	var near_spots := 0
@@ -1032,7 +1142,10 @@ func _test_perf_budget_orks() -> void:
 				near_spots += 1
 				if float((c.get("score_breakdown", {}) as Dictionary).get("deploy_hidden", 0.0)) != 0.0:
 					near_without_bonus = false
-	_check(near_without_bonus, "S&D: no listed inside spot within detection range of the enemy zone books Hidden points (%d listed)" % near_spots)
+	if near_spots > 0:
+		_check(near_without_bonus, "S&D: no listed inside spot within detection range of the enemy zone books Hidden points (%d listed)" % near_spots)
+	else:
+		print("  NOTE: no listed inside spot within detection range on this layout — nothing to check here")
 
 func _test_bw_load_attached_leaders_and_transport() -> void:
 	print("\n-- bw_load_deploy_pretrigger: attached Big Meks + a Battlewagon with embarked Gretchin --")
