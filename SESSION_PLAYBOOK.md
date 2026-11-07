@@ -94,10 +94,15 @@ coverage check:
 
 ```bash
 python3 40k/tests/check_coverage.py
+python3 40k/tests/sync_coverage.py --scenario <scenario_id>    # DECLARED tiles for your scenario's new tags only
+python3 40k/tests/check_coverage.py --scenario <scenario_id>   # your covers and the tiles agree both ways
 ```
 
 It enforces: every covered tile references an existing scenario file,
-every scenario's cover tags map to a tile.
+every scenario's cover tags map to a tile (a warning repo-wide). With
+`--scenario` it also fails unless that scenario's covers and the tiles agree in
+both directions. Do not run `sync_coverage.py` without `--scenario`: it appends
+a tile for every un-catalogued tag in the repo.
 
 ### 5. Commit
 
@@ -153,7 +158,7 @@ uploaded as artifacts even on failure.
 | `bash 40k/tests/run_pretrigger_tests.sh` | Headless audit suite (~2 min, ~475 asserts). Fast inner loop. |
 | `bash 40k/tests/run_scenario.sh PATH` | Single scenario, windowed mode. |
 | `bash 40k/tests/run_scenarios.sh` | All sp scenarios. `--all` includes mp; `--changed-only` for pre-commit. |
-| `python3 40k/tests/check_coverage.py` | Validate coverage.json ↔ scenarios. |
+| `python3 40k/tests/check_coverage.py` | Validate coverage.json ↔ scenarios (`--scenario ID`: both directions for one scenario). |
 | `40k/tests/scenarios/_schema.md` | Scenario format spec. |
 | `.llm/scaled-testing-plan.md` | Living design doc — read first if you're new to this. |
 
