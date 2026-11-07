@@ -1,0 +1,212 @@
+{
+  "id": "precision_hidden_leader_own_keywords_11e",
+  "covers": [
+    "rules.precision_visibility_gate_24_28",
+    "ui.AllocationGroupOverlay.precision_picker",
+    "RulesEngine.precision_eligible_groups_11e",
+    "debug_log.no_errors"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "24.28 [PRECISION] lets the attacker promote a CHARACTER group 'visible to an attacking model'; 13.09 HIDDEN limits visibility, and its INFANTRY/BEASTS/SWARM test is the model's OWN keyword (19.03: models in an Attached unit do not gain other models' keywords; 02.05.01 'A model only has its own keywords'). Regression: the PRECISION gate judged an attached leader with the folded allocation unit, i.e. the BODYGUARD's keywords — an INFANTRY leader of a VEHICLE bodyguard (11e Big Mek / Mek -> Mek Gunz) was never hidden and could be picked while hidden beyond 15\". Fixture ork11e_orks_reactive, Shooting phase: Warboss Alpha re-attached to the Mek Gunz stands in a light area ~20\" from Custodian Guard Alpha; the defender's allocation overlay for a PRECISION batch shows NO PrecisionPicker; with the Guard at ~11\" (inside the detection range) the picker is offered.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a shooting phase_start window (not under test), if any"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup privileges: Warboss Alpha (INFANTRY CHARACTER) is re-attached to the Mek Gunz (VEHICLE) — the shape of the real 11e pairings Big Mek / Mek -> Mek Gunz; the Warboss stands in a LIGHT terrain area (barricade), the gun outside it; Custodian Guard Alpha ~20\" away; everything else removed; the fixture's terrain stashed (restored in cleanup); the defender allocates wounds (overlay).",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar units = GameState.state[\"units\"]\nvar keep = [\"U_CUSTODIAN_GUARD_A\", \"U_MEK_GUNZ_A\", \"U_WARBOSS_A\"]\nfor uid in units:\n\tif not uid in keep:\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\n\t\tcontinue\n\tvar f = units[uid].get(\"flags\", {})\n\tf[\"in_engagement\"] = false\n\tf.erase(\"last_shot_idx\")\n\tunits[uid][\"flags\"] = f\n# The Warboss now leads the Mek Gunz (stand-in for the 11e Big Mek -> Mek Gunz pairing).\nvar ad = units[\"U_BOYZ_B\"].get(\"attachment_data\", {})\nad[\"attached_characters\"] = []\nunits[\"U_BOYZ_B\"][\"attachment_data\"] = ad\nunits[\"U_MEK_GUNZ_A\"][\"attachment_data\"] = {\"attached_characters\": [\"U_WARBOSS_A\"]}\nunits[\"U_WARBOSS_A\"][\"attached_to\"] = \"U_MEK_GUNZ_A\"\nvar px = 40.0\nvar i = 0\nfor m in units[\"U_CUSTODIAN_GUARD_A\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (10.0 + i * 1.8) * px, \"y\": 10.0 * px}\n\t\ti += 1\nunits[\"U_MEK_GUNZ_A\"][\"models\"][0][\"position\"] = {\"x\": 14.0 * px, \"y\": 31.0 * px}\nunits[\"U_WARBOSS_A\"][\"models\"][0][\"position\"] = {\"x\": 16.5 * px, \"y\": 31.5 * px}\nTerrainManager.set_meta(\"phl_saved_terrain\", TerrainManager.terrain_features.duplicate(true))\nvar poly = PackedVector2Array([Vector2(15.5, 30.5) * px, Vector2(17.5, 30.5) * px, Vector2(17.5, 32.5) * px, Vector2(15.5, 32.5) * px])\nTerrainManager.terrain_features = [{\"id\": \"phl_light_area\", \"type\": \"barricade\", \"height_category\": \"low\", \"polygon\": poly}]\nTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nSettingsService.set_auto_allocate_wounds(false)\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\nmain._recreate_unit_visuals()\nmain.get_node(\"ShootingController\")._refresh_unit_list(false)\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nmain.view_zoom = 0.6\nvar vps = main.get_viewport().get_visible_rect().size\nmain.view_offset = Vector2(560, 1100) - vps / (2.0 * main.view_zoom)\nmain.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "13.09 judged per model on its OWN keywords (19.03): the Warboss is hidden and beyond its 15\" detection range from every Guard; the VEHICLE gun is not hidden, so the Attached unit is a legal target.",
+      "script": "var units = GameState.state[\"units\"]\nvar w = units[\"U_WARBOSS_A\"]\nvar wm = w[\"models\"][0]\nvar mg = units[\"U_MEK_GUNZ_A\"]\nvar seen_by = 0\nvar nearest = INF\nfor cm in units[\"U_CUSTODIAN_GUARD_A\"][\"models\"]:\n\tif not cm.get(\"alive\", true):\n\t\tcontinue\n\tnearest = minf(nearest, Measurement.model_to_model_distance_inches(cm, wm))\n\tif TerrainManager.hidden_model_visible_to(wm, w, cm):\n\t\tseen_by += 1\nvar hid_w = TerrainManager.is_model_hidden(wm, w)\nvar hid_mg = TerrainManager.is_model_hidden(mg[\"models\"][0], mg)\nvar tgt = RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", GameState.create_snapshot(false)).has(\"U_MEK_GUNZ_A\")\nprint(\"[%s] Warboss (INFANTRY) hidden=%s nearest Guard %.1fin, seen by %d; Mek Gunz (VEHICLE) hidden=%s; Attached unit targetable=%s\" % [\"precision_hidden_leader_own_keywords_11e\", str(hid_w), nearest, seen_by, str(hid_mg), str(tgt)])\nreturn \"%s|%d|%s|%s\" % [str(hid_w), seen_by, str(hid_mg), str(tgt)]",
+      "equals": "true|0|false|true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "24.28 [PRECISION]: the hidden Warboss is NOT visible to any attacking model, so his group cannot be promoted. Before the fix the gate read the folded allocation unit — the Mek Gunz's VEHICLE keywords — and offered him (1 group).",
+      "script": "var sd = RulesEngine.prepare_save_resolution(4, \"U_MEK_GUNZ_A\", \"U_CUSTODIAN_GUARD_A\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 4, \"critical_hits\": 4})\nvar g = RulesEngine.precision_eligible_groups_11e(sd, GameState.state)\nprint(\"[%s] PRECISION eligible groups: %s\" % [\"precision_hidden_leader_own_keywords_11e\", str(g)])\nreturn g.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the defender's allocation overlay for a [PRECISION] save batch",
+      "script": "var sd = RulesEngine.prepare_save_resolution(4, \"U_MEK_GUNZ_A\", \"U_CUSTODIAN_GUARD_A\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 4, \"critical_hits\": 4})\ntree.root.get_node(\"Main\").get_node(\"ShootingController\")._on_saves_required([sd])\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "no PRECISION picker: nothing to promote",
+      "script": "var p = tree.root.get_node(\"Main\").get_node_or_null(\"AllocationGroupOverlay/Center/Panel/Row/DecisionCol/PrecisionPicker\")\nreturn p != null and p.is_visible_in_tree()",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hidden_leader_not_offered_to_precision"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Control: the Guard closes to ~11\" — inside the Warboss's detection range he is visible, and PRECISION may pick him.",
+      "script": "var units = GameState.state[\"units\"]\nvar i = 0\nfor m in units[\"U_CUSTODIAN_GUARD_A\"][\"models\"]:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": (10.0 + i * 1.8) * 40.0, \"y\": 19.0 * 40.0}\n\t\ti += 1\nPhaseManager.get_current_phase_instance().update_local_state(GameState.create_snapshot())\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sd = RulesEngine.prepare_save_resolution(4, \"U_MEK_GUNZ_A\", \"U_CUSTODIAN_GUARD_A\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 4, \"critical_hits\": 4})\nvar g = RulesEngine.precision_eligible_groups_11e(sd, GameState.state)\nprint(\"[%s] PRECISION eligible groups: %s\" % [\"precision_hidden_leader_own_keywords_11e\", str(g)])\nreturn g.size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sd = RulesEngine.prepare_save_resolution(4, \"U_MEK_GUNZ_A\", \"U_CUSTODIAN_GUARD_A\", {\"name\": \"Precision Test Rifle\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"precision\"}, GameState.state, {}, {}, {\"has_precision\": true, \"precision_wounds\": 4, \"critical_hits\": 4})\ntree.root.get_node(\"Main\").get_node(\"ShootingController\")._on_saves_required([sd])\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/PrecisionPicker",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_within_detection_range_precision_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clean log: no ERROR line in this session's debug log",
+      "script": "DebugLogger._flush_buffer()\nvar f = FileAccess.open(DebugLogger.get_log_file_path(), FileAccess.READ)\nif f == null:\n\treturn -1\nvar n = 0\nvar bad = []\nwhile not f.eof_reached():\n\tvar l = f.get_line()\n\tif l.contains(\"[ERROR\"):\n\t\tn += 1\n\t\tbad.append(l)\nprint(\"[precision_hidden_leader_own_keywords_11e log] ERROR lines = \", n, \" \", bad.slice(0, 3))\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "cleanup",
+      "script": "if TerrainManager.has_meta(\"phl_saved_terrain\"):\n\tTerrainManager.terrain_features = TerrainManager.get_meta(\"phl_saved_terrain\")\n\tTerrainManager.remove_meta(\"phl_saved_terrain\")\n\tTerrainManager.emit_signal(\"terrain_loaded\", TerrainManager.terrain_features)\nSettingsService.set_auto_allocate_wounds(true)\nreturn true",
+      "equals": true
+    }
+  ]
+}

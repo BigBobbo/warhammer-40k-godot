@@ -231,6 +231,7 @@ func _run() -> void:
 	_section_leader_only_in_range()
 	_section_leader_only_in_sight()
 	_section_per_model_hidden_gate()
+	_section_precision_keywords_per_component()
 	_section_fire_overwatch_leader_only()
 
 	TM.terrain_features = prev_terrain
@@ -327,6 +328,87 @@ func _section_per_model_hidden_gate() -> void:
 	esm = RE.get_eligible_shooter_models("U_SHOOT", _weapon_id(board), "U_BG", board)
 	_check("s1 fires; s0 sees no model of the unit (no_los)",
 		esm.eligible == ["s1"] and str(esm.reasons.get("s0", "")) == "no_los", "eligible=%s reasons=%s" % [esm.eligible, esm.reasons])
+
+## I. [PRECISION] (24.28: a CHARACTER "visible to the attacking model") judges
+## an attached leader's 13.09 keyword from ITS OWN unit (19.03 / 02.05.01 "A
+## model only has its own keywords") — it used to read the folded allocation
+## unit, i.e. the bodyguard's keywords. Real pairings: an INFANTRY Big Mek leads
+## VEHICLE Mek Gunz; a MOUNTED leader with an INFANTRY bodyguard.
+func _setup_precision(bg_kws: Array, ldr_kws: Array, shooter_x: float) -> Dictionary:
+	for uid in GS.state.units.keys():
+		GS.state.units.erase(uid)
+	TM.terrain_features = [
+		{"id": "light_area", "type": "barricade", "polygon": _rect(1200, 1000, 200, 200), "height_category": "low"},
+	]
+	GS.state.units["U_SHOOT"] = {"id": "U_SHOOT", "owner": 2, "status": 2, "flags": {},
+		"meta": {"name": "Shooter", "keywords": ["INFANTRY"],
+			"stats": {"toughness": 4, "save": 5, "wounds": 1, "move": 6},
+			"weapons": [{"name": "Test gun", "type": "Ranged", "range": "36",
+				"attacks": "2", "ballistic_skill": "4", "strength": "4", "ap": "0",
+				"damage": "1", "keywords": ["PRECISION"], "special_rules": "precision"}]},
+		"models": [_model("s0", shooter_x, 1000.0)]}
+	GS.state.units["U_BG"] = {"id": "U_BG", "owner": 1, "status": 2, "flags": {},
+		"meta": {"name": "Bodyguard", "keywords": bg_kws,
+			"stats": {"toughness": 6, "save": 4, "wounds": 3, "move": 6}},
+		"models": [_model("b0", 1140.0, 980.0, 3), _model("b1", 1140.0, 1020.0, 3)]}
+	GS.state.units["U_LDR"] = {"id": "U_LDR", "owner": 1, "status": 2, "flags": {}, "attached_to": null,
+		"meta": {"name": "Leader", "keywords": ldr_kws,
+			"leader_data": {"can_lead": [bg_kws[0]]},
+			"stats": {"toughness": 5, "save": 4, "wounds": 5, "move": 6}},
+		"models": [_model("l0", 1180.0, 1000.0, 5)]}
+	CAM.attach_character("U_LDR", "U_BG")
+	return GS.create_snapshot()
+
+## {eligible: [group ids], picked: String, hit: [unit ids the batch damaged]}
+func _precision_outcome(board: Dictionary) -> Dictionary:
+	var sd := {"has_precision": true, "target_unit_id": "U_BG", "shooter_unit_id": "U_SHOOT"}
+	var ids: Array = []
+	for g in RE.precision_eligible_groups_11e(sd, board):
+		ids.append(str(g.get("id", "")))
+	var scratch: Dictionary = RE._build_attached_allocation_unit_11e("U_BG", board).unit
+	var picked: String = RE._precision_group_11e(true, scratch, board.units["U_SHOOT"], board)
+	var save_data := {"target_unit_id": "U_BG", "shooter_unit_id": "U_SHOOT", "wounds_to_save": 2,
+		"ap": 0, "damage": 1, "damage_raw": "1", "has_precision": true, "precision_wounds": 2,
+		"precision_critical_hits": 2, "devastating_wounds": 0, "has_devastating_wounds": false}
+	var batch: Dictionary = RE.resolve_allocation_batch_11e(save_data, [], board, RE.make_rng(), {"forced_save_rolls": [1, 1]})
+	var hit: Array = []
+	for d in batch.get("diffs", []):
+		var parts: PackedStringArray = str(d.get("path", "")).split(".")
+		if parts.size() > 1 and not parts[1] in hit:
+			hit.append(parts[1])
+	return {"eligible": ids, "picked": picked, "hit": hit}
+
+func _section_precision_keywords_per_component() -> void:
+	print("\n-- I. [PRECISION]: an attached leader's Hidden status uses its own keywords (19.03) --")
+	# I-A: MOUNTED leader, INFANTRY bodyguard hidden in a light area beyond 15".
+	var board := _setup_precision(["CUSTODIAN GUARD", "INFANTRY"], ["CHARACTER", "MOUNTED"], 400.0)
+	var lm: Dictionary = board.units["U_LDR"].models[0]
+	var sm: Dictionary = board.units["U_SHOOT"].models[0]
+	_check("I-A setup: the MOUNTED leader (%.1f\") is not hidden and is visible" % _edge_in(sm, lm),
+		not TM.is_model_hidden(lm, board.units["U_LDR"]) and TM.hidden_model_visible_to(lm, board.units["U_LDR"], sm))
+	_check("I-A setup: the Attached unit is a legal target (through the leader)", RE.get_eligible_targets("U_SHOOT", board).has("U_BG"))
+	var o: Dictionary = _precision_outcome(board)
+	_check("I-A: PRECISION may pick the visible leader's group", o.eligible.size() == 1 and o.picked != "" and o.picked == o.eligible[0], str(o))
+	_check("I-A: the PRECISION batch damages the leader", o.hit == ["U_LDR"], str(o))
+	# I-B: INFANTRY Big Mek, VEHICLE Mek Gunz; the leader hidden beyond 15".
+	board = _setup_precision(["MEK GUNZ", "GROTS", "ORKS", "VEHICLE"], ["BIG MEK", "CHARACTER", "INFANTRY", "MEK", "ORKS"], 400.0)
+	lm = board.units["U_LDR"].models[0]
+	sm = board.units["U_SHOOT"].models[0]
+	_check("I-B setup: the INFANTRY leader is hidden, beyond its 15\" (%.1f\")" % _edge_in(sm, lm),
+		TM.is_model_hidden(lm, board.units["U_LDR"]) and not TM.hidden_model_visible_to(lm, board.units["U_LDR"], sm))
+	_check("I-B setup: the Attached unit is a legal target (the VEHICLE bodyguard is not hidden)", RE.get_eligible_targets("U_SHOOT", board).has("U_BG"))
+	o = _precision_outcome(board)
+	_check("I-B: PRECISION cannot pick the hidden leader", o.eligible.is_empty() and o.picked == "", str(o))
+	_check("I-B: the batch damages the bodyguard only", o.hit == ["U_BG"], str(o))
+	# I-B2 (control): same pairing, the shooter within 15" of the hidden leader.
+	board = _setup_precision(["MEK GUNZ", "GROTS", "ORKS", "VEHICLE"], ["BIG MEK", "CHARACTER", "INFANTRY", "MEK", "ORKS"], 640.0)
+	o = _precision_outcome(board)
+	_check("I-B2 control: within its detection range the hidden leader can be picked", o.eligible.size() == 1 and o.hit == ["U_LDR"], str(o))
+	# I-C (control): INFANTRY leader with an INFANTRY bodyguard, both hidden beyond 15".
+	board = _setup_precision(["CUSTODIAN GUARD", "INFANTRY"], ["CHARACTER", "INFANTRY"], 400.0)
+	_check("I-C control: the whole unit is hidden — not a legal target", not RE.get_eligible_targets("U_SHOOT", board).has("U_BG"))
+	o = _precision_outcome(board)
+	_check("I-C control: and no PRECISION pick", o.eligible.is_empty() and o.picked == "", str(o))
 
 ## H. The REAL FIRE OVERWATCH path (ork11e_orks_reactive): Custodian Guard A
 ## (24" spears) at Boyz B + their attached Warboss A, where only the Warboss is

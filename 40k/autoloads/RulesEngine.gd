@@ -3994,9 +3994,27 @@ static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: D
 		print("RulesEngine: [24.28] requested PRECISION group %s is not an eligible visible CHARACTER group — auto-picking %s" % [chosen_gid, eligible[0]])
 	return eligible[0]
 
+# Model key naming the component unit of an attached CHARACTER's model inside a
+# folded allocation unit (_build_attached_allocation_unit_11e).
+const ALLOC_SOURCE_UNIT_KEY := "alloc_source_unit_id"
+
+# The component unit dict a model of a (possibly folded) allocation unit belongs
+# to: an attached CHARACTER's model names its own unit (ALLOC_SOURCE_UNIT_KEY);
+# every other model belongs to `unit` itself. 19.03 / 02.05.01 "A model only has
+# its own keywords" — Hidden's INFANTRY/BEASTS/SWARM test is that model's.
+static func _alloc_model_component(model: Dictionary, unit: Dictionary, board: Dictionary) -> Dictionary:
+	var sid := str(model.get(ALLOC_SOURCE_UNIT_KEY, ""))
+	if sid != "":
+		var cu: Dictionary = board.get("units", {}).get(sid, {})
+		if not cu.is_empty():
+			return cu
+	return unit
+
 # 24.28: at least one alive model of the CHARACTER group is visible to at
 # least one alive attacking model — the same per-model gates as the live
 # targeting path (13.09 hidden detection, 13.10/13.11 sight lines, base LoS).
+# Each model's 13.09 gate is judged from its OWN component (19.03): an
+# attached leader is not judged with its bodyguard's keywords.
 static func _character_group_visible_to_attackers(group: Dictionary, target_unit: Dictionary, actor_unit: Dictionary, board: Dictionary) -> bool:
 	var t_models = target_unit.get("models", [])
 	var tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
@@ -4022,7 +4040,7 @@ static func _character_group_visible_to_attackers(group: Dictionary, target_unit
 				# 13.09 hidden gate; 13.10/13.11 sight lines are judged by the
 				# base LoS check (EnhancedLineOfSight 11e branch) below.
 				if not hidden_gates.has(mi):
-					hidden_gates[mi] = tm.hidden_gate_for(t_model, target_unit)
+					hidden_gates[mi] = tm.hidden_gate_for(t_model, _alloc_model_component(t_model, target_unit, board))
 				if not tm.hidden_gate_allows(hidden_gates[mi], t_model, actor_model):
 					continue
 			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
@@ -4411,6 +4429,12 @@ static func _build_attached_allocation_unit_11e(target_unit_id: String, board: D
 		for ci in range(char_models.size()):
 			var cm = char_models[ci].duplicate(true)
 			cm["is_character"] = true
+			# 19.03: "models ... do not gain the keywords of other models" — the
+			# folded unit carries the BODYGUARD's meta, so a character model
+			# names its own component (_alloc_model_component); the [PRECISION]
+			# visibility gate judges its 13.09 INFANTRY/BEASTS/SWARM keyword
+			# and shot record there, as target eligibility does.
+			cm[ALLOC_SOURCE_UNIT_KEY] = str(char_id)
 			# Carry the character unit's stat fallbacks onto the model so
 			# the combined unit's stats don't mask them (05.03 group keys).
 			if not cm.has("wounds") and char_stats.has("wounds"):
