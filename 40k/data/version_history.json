@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.6",
+      "date": "2026-11-07",
+      "summary": "BEASTS and SWARM units move through dense terrain on a Normal Move again without a phantom climb (rule 13.06).",
+      "changes": [
+        "BEASTS and SWARM units (e.g. Fenrisian Wolves), and units made MOBILE by a rule (STOMPING JUGGERNAUT, UNSTOPPABLE MOMENTUM, the SUPER-HEAVY WALKER gamble), move through dense terrain on a Normal Move, Advance or Fall Back without a climb or difficult-ground cost, the same as on a charge. Since 1.73.4 a wolf's 2.9\" step past a ruin wall read 10.9\" and the drop was refused; it now reads 2.9\".",
+        "Ending a move on top of a dense feature (a generator, gantry, catwalk or ruin wall) still pays its climb, and the drag ruler and booked distance include it.",
+        "Units that are MOBILE but not INFANTRY, BEASTS or SWARM (Thunderwolf Cavalry, Outriders, MOBILE walkers) can move across dense terrain but can no longer end a move, charge or set-up overlapping a dense feature taller than they can step over: the drag shows \"Cannot overlap with walls\"."
+      ]
+    },
+    {
       "version": "1.73.5",
       "date": "2026-11-07",
       "summary": "Vehicles and monsters can drive through enemy infantry on a Normal Move or Advance (11th-edition rule 17.01).",
