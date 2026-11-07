@@ -13,6 +13,11 @@ const PX_PER_INCH: float = 40.0
 
 static func _exclusion_distance_inches() -> float:
 	return GameConstants.reinforcement_min_enemy_distance_inches()
+
+## The label drawn on the bubbles, from the same accessor as their radius: a
+## literal "9\" exclusion" sat on the 8" bubbles for the whole of 11e.
+static func exclusion_label_text() -> String:
+	return "%d\" exclusion" % int(_exclusion_distance_inches())
 const CIRCLE_SEGMENTS: int = 48  # Smooth circles
 
 # Dashed line style (matches InfiltratorExclusionVisual)
@@ -43,6 +48,9 @@ var _merged_polygons: Array = []  # One clipped polygon per connected enemy clus
 var _pulse_time: float = 0.0
 var _is_active: bool = false
 var _default_font: Font = null
+## The label text the last _draw() actually drew on the board ("" until a label
+## is drawn), so windowed scenarios can assert what the player sees.
+var _last_label_text: String = ""
 
 func _ready() -> void:
 	z_index = -4  # Same layer as InfiltratorExclusionVisual
@@ -50,7 +58,7 @@ func _ready() -> void:
 	set_process(false)
 
 func show_exclusion(enemy_positions: Array) -> void:
-	"""Show 9-inch exclusion bubbles around all enemy model positions.
+	"""Show the stand-off (_exclusion_distance_inches()) exclusion bubbles around all enemy model positions.
 	enemy_positions: Array of { x: float, y: float, base_mm: int } in pixels."""
 	_exclusion_circles.clear()
 	_merged_polygons.clear()
@@ -76,7 +84,7 @@ func show_exclusion(enemy_positions: Array) -> void:
 	set_process(true)
 	visible = true
 	queue_redraw()
-	print("[DeepStrikeExclusionVisual] Showing 9\" exclusion bubbles around %d enemy models (%d polygons)" % [enemy_positions.size(), _merged_polygons.size()])
+	print("[DeepStrikeExclusionVisual] Showing %s bubbles around %d enemy models (%d polygons)" % [exclusion_label_text(), enemy_positions.size(), _merged_polygons.size()])
 
 func hide_exclusion() -> void:
 	"""Hide the exclusion bubbles."""
@@ -167,7 +175,7 @@ func _merge_cluster(cluster: Array) -> PackedVector2Array:
 	blob and _largest_polygon reliably returns the outer boundary ring.
 
 	KNOWN LIMITATION: if a cluster forms a ring of enemies with an uncovered gap in the
-	middle (a legal deep-strike pocket >9\" from every model), that gap is an interior
+	middle (a legal deep-strike pocket beyond the stand-off from every model), that gap is an interior
 	'hole' ring in the union. We keep only the outer boundary here, and the fill in _draw
 	uses draw_colored_polygon which cannot express holes, so such a pocket is drawn as
 	excluded. This is a rare, purely-cosmetic over-exclusion — the authoritative legality
@@ -314,7 +322,7 @@ func _draw_dashed_line(p1: Vector2, p2: Vector2, pulse_alpha: float, march_offse
 		pos += segment_length
 
 func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: float, threshold: float, pulse_alpha: float) -> void:
-	"""Draw a '9\" exclusion' label on the longest non-board edge."""
+	"""Draw the exclusion_label_text() label on the longest non-board edge."""
 	if not _default_font:
 		return
 
@@ -338,7 +346,8 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 	if not found or best_length < 40.0:
 		return
 
-	var label_text = "9\" exclusion"
+	var label_text = exclusion_label_text()
+	_last_label_text = label_text
 	var midpoint = (best_p1 + best_p2) / 2.0
 
 	var direction = (best_p2 - best_p1).normalized()

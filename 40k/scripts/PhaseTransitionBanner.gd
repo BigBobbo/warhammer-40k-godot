@@ -43,7 +43,10 @@ static func _get_phase_rules_brief(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.FORMATIONS:
 			return "Assign units to Battle Formations and select Enhancements."
 		GameStateData.Phase.DEPLOYMENT:
-			return "Alternate placing units in your deployment zone. Infiltrators deploy anywhere >9\" from enemies."
+			# Infiltrators (11e 24.20): set up "more than 8\" horizontally from
+			# your opponent's deployment zone and all enemy units" (10e: 9"). Read
+			# from GameConstants — a literal 9" told every 11e game the 10e rule.
+			return "Alternate placing units in your deployment zone. Infiltrators deploy anywhere >%d\" from the enemy deployment zone and enemy units." % int(GameConstants.infiltrators_min_enemy_distance_inches())
 		GameStateData.Phase.REDEPLOYMENT:
 			return "Redeploy eligible units to new positions before the battle begins."
 		GameStateData.Phase.SCOUT:
@@ -180,6 +183,8 @@ func _ready() -> void:
 
 	# P3-110: Phase rules brief label (smaller italic-styled, bottom portion)
 	_rules_label = Label.new()
+	# Stable node name so windowed scenarios can assert the rendered rules brief.
+	_rules_label.name = "RulesBriefLabel"
 	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_rules_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_rules_label.anchor_left = 0.05

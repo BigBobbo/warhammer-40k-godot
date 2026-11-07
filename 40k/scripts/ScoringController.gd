@@ -1268,7 +1268,7 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	content.add_child(HSeparator.new())
 
 	var desc = Label.new()
-	desc.text = "%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % unit_name
+	desc.text = "%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than %d\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % [unit_name, int(GameConstants.reinforcement_min_enemy_distance_inches())]
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
 
@@ -1392,7 +1392,7 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 	content.add_child(HSeparator.new())
 
 	var desc = Label.new()
-	desc.text = "%s is not within Engagement Range of any enemy units.\n\nRemove this unit from the battlefield and place into Strategic Reserves?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nThis ability can only be used once per battle." % unit_name
+	desc.text = "%s is not within Engagement Range of any enemy units.\n\nRemove this unit from the battlefield and place into Strategic Reserves?\nIt will return in the Reinforcements step of your next Movement phase (more than %d\" from all enemies).\n\nThis ability can only be used once per battle." % [unit_name, int(GameConstants.reinforcement_min_enemy_distance_inches())]
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
 
