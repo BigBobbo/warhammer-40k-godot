@@ -278,7 +278,7 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
-var _deep_strike_exclusion_visual: Node2D = null  # 9" exclusion bubble around enemy models
+var _deep_strike_exclusion_visual: Node2D = null  # ingress stand-off (GameConstants: 11e 8") exclusion bubble around enemy models
 var _strategic_reserves_zone_visual: Node2D = null  # 6"-from-edge valid band for Strategic Reserves
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
@@ -3222,7 +3222,7 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		if omni_positions.size() > 0:
 			status_label.text += " — >12\" from Omni-scramblers"
 
-		# Show 9" exclusion bubbles around all enemy models
+		# Show the ingress stand-off exclusion bubbles (GameConstants: 11e 8") around all enemy models
 		_show_deep_strike_exclusion()
 
 		unit_list.visible = false
@@ -3578,7 +3578,8 @@ func _placement_arriving_owner() -> int:
 	return GameState.get_active_player()
 
 func _show_deep_strike_exclusion() -> void:
-	"""Show placement helpers for reinforcement placement: the 9\" exclusion
+	"""Show placement helpers for reinforcement placement: the ingress stand-off
+	(GameConstants.reinforcement_min_enemy_distance_inches(), 11e 8\") exclusion
 	bubbles around all enemy models, plus — when the unit is arriving from
 	Strategic Reserves — the valid 6\"-from-board-edge band it must be set up in."""
 	_hide_deep_strike_exclusion()  # Clean up any existing visual
@@ -3728,7 +3729,7 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
 
-		# Show 9" exclusion bubbles around all enemy models
+		# Show the ingress stand-off exclusion bubbles (GameConstants: 11e 8") around all enemy models
 		_show_deep_strike_exclusion()
 
 		unit_list.visible = false
@@ -4831,7 +4832,8 @@ func _setup_scout_moves_ui() -> void:
 	# Show status info
 	var active_player = GameState.get_active_player()
 	var scout_units = GameState.get_scout_units_for_player(active_player)
-	status_label.text = "Scout Moves — Select a unit to move (max >9\" from enemies)"
+	# 11e 24.32 stand-off (D9): from GameConstants, never a hard-coded 9".
+	status_label.text = "Scout Moves — Select a unit to move (must end >%d\" from enemies)" % int(GameConstants.scout_min_enemy_distance_inches())
 	print("Main: Scout Moves setup complete. %d scout units for Player %d" % [scout_units.size(), active_player])
 
 func _on_scout_unit_selected(index: int) -> void:
@@ -4868,7 +4870,7 @@ func _enter_scout_move_mode(unit_id: String) -> void:
 	var unit = GameState.get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", "Unknown")
 	var scout_range = GameState.get_scout_range(unit_id)
-	status_label.text = "Scout Move: %s — Click to set destination (max %d\", >9\" from enemies)" % [unit_name, int(scout_range)]
+	status_label.text = "Scout Move: %s — Click to set destination (max %d\", >%d\" from enemies)" % [unit_name, int(scout_range), int(GameConstants.scout_min_enemy_distance_inches())]
 
 	# Store the unit being scouted for input handling
 	_current_scout_unit_id = unit_id
@@ -8749,7 +8751,7 @@ func _refresh_unit_list_inner() -> void:
 					unit_list.add_item("Waiting for Player %d to scout..." % active_player)
 					unit_list.set_item_disabled(0, true)
 				else:
-					unit_list.add_item("--- SCOUT MOVES (>9\" from enemies) ---")
+					unit_list.add_item("--- SCOUT MOVES (>%d\" from enemies) ---" % int(GameConstants.scout_min_enemy_distance_inches()))
 					unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 					for unit_id in scout_moves_units:
 						var unit_data = GameState.get_unit(unit_id)
@@ -9194,7 +9196,7 @@ func _show_deploy_hover_tooltip(unit_id: String, item_index: int) -> void:
 	if GameState.unit_has_deep_strike(unit_id):
 		special_rules.append("[color=#6A9BD2]Deep Strike[/color] available")
 	if GameState.unit_has_infiltrators(unit_id):
-		special_rules.append("[color=#6AD26A]Infiltrators[/color] — deploy anywhere >9\"")
+		special_rules.append("[color=#6AD26A]Infiltrators[/color] — deploy anywhere >%d\"" % int(GameConstants.infiltrators_min_enemy_distance_inches()))
 	if "CHARACTER" in keywords:
 		special_rules.append("[color=#D49761]CHARACTER[/color] — can lead units")
 	if unit_data.has("transport_data"):
@@ -9828,7 +9830,7 @@ func _on_unit_selected(index: int) -> void:
 		var phase_inst = PhaseManager.get_current_phase_instance()
 		var already_active = phase_inst and phase_inst.get("active_scout_moves") and phase_inst.active_scout_moves.has(unit_id)
 		if scout_result.get("success", false) or already_active:
-			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
+			status_label.text = "Scout move: Drag models up to %d\" (must end >%d\" from enemies)" % [int(scout_dist), int(GameConstants.scout_min_enemy_distance_inches())]
 			# Show confirm/skip buttons
 			_setup_scout_unit_card_buttons(unit_id)
 			# Highlight the selected unit's models on the board
@@ -9958,7 +9960,7 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			var phase_inst_bp = PhaseManager.get_current_phase_instance()
 			var already_active_bp = phase_inst_bp and phase_inst_bp.get("active_scout_moves") and phase_inst_bp.active_scout_moves.has(unit_id)
 			if scout_result_bp.get("success", false) or already_active_bp:
-				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
+				status_label.text = "Scout move: Drag models up to %d\" (must end >%d\" from enemies)" % [int(scout_dist_bp), int(GameConstants.scout_min_enemy_distance_inches())]
 				_setup_scout_unit_card_buttons(unit_id)
 				_scout_highlight_active_unit(unit_id, scout_dist_bp)
 			else:
@@ -12679,7 +12681,9 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.REDEPLOYMENT:
 			return "Optional redeployment moves before turn 1."
 		GameStateData.Phase.SCOUT, GameStateData.Phase.SCOUT_MOVES:
-			return "Move SCOUT-keyword units up to 9\" before the first turn."
+			# 24.31/24.32: the move is up to the unit's own Scouts X", and must end
+			# beyond the stand-off (GameConstants; 11e 8") — not "up to 9"".
+			return "Units with Scouts X\" can move up to X\" before the first turn, ending more than %d\" from all enemy units." % int(GameConstants.scout_min_enemy_distance_inches())
 		GameStateData.Phase.ROLL_OFF:
 			return "Roll off to determine who deploys first (Attacker/Defender)."
 		GameStateData.Phase.FIRST_TURN_ROLLOFF:
@@ -17268,7 +17272,7 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
 	var scout_dist = GameState.get_scout_distance(unit_id)
 	unit_name_label.text = "%s [Scout %d\"]" % [unit_name, int(scout_dist)]
-	models_label.text = "Drag models to move (up to %d\", must end >9\" from enemies)" % int(scout_dist)
+	models_label.text = "Drag models to move (up to %d\", must end >%d\" from enemies)" % [int(scout_dist), int(GameConstants.scout_min_enemy_distance_inches())]
 
 	# Configure buttons (same layout as movement phase)
 	confirm_button.visible = true

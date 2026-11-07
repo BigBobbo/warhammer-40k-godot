@@ -218,6 +218,7 @@ TESTS=(
     "tests/test_t011_designate_warlord_pin.gd"
     "tests/test_iss001_pipeline_mutations.gd"
     "tests/test_iss002_game_constants.gd"
+    "tests/unit/test_ai_rules_distances_11e.gd"
     "tests/test_iss003_ability_schema.gd"
     "tests/test_iss004_rng_seeding.gd"
     "tests/test_iss012_attack_goldens.gd"

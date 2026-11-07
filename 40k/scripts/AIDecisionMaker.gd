@@ -2751,7 +2751,10 @@ const ENEMY_WEAK_OC_FLOOR: int = 4
 const SUPPORT_STACK_PENALTY: float = 3.5
 
 # Threat range awareness constants (AI-TACTIC-4, MOV-2)
-# Charge threat = enemy M + 12" charge + 1" engagement range
+# Charge threat radius = enemy M + 12" + engagement range (GameConstants: 11e 2",
+# 10e 1"), compared against CENTROID-to-point distances — see
+# _calculate_enemy_threat_data for why the ER term stays (it is a centroid
+# geometry allowance, not an 11.04 reach extension).
 # Shooting threat = max weapon range of the enemy unit
 # Penalty weights for moving into threat zones
 const THREAT_CHARGE_PENALTY: float = 2.0    # Penalty for moving into charge threat range (reduced from 3.0 to encourage engagement)
@@ -4017,7 +4020,10 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 			var dist_inches = dist_px / PIXELS_PER_INCH
 
 			# Can this unit plausibly reach the enemy after moving + charging?
-			# Use total reach + engagement range for generous estimate
+			# Use total reach + engagement range for generous estimate. This is a
+			# CENTROID-to-centroid pre-filter: 11.04's reach is M + 12" measured
+			# base to base, and centroids sit further apart than the nearest
+			# bases, so the ER term is a geometry allowance, not a rules value.
 			if dist_px > total_reach_px + _engagement_range_px():
 				continue
 
@@ -4909,11 +4915,14 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 		undeclare_reserves_actions: Array, player: int) -> Dictionary:
 	"""Evaluate which units should be placed in reserves during formations.
 
-	Per 10th Edition rules:
+	Per the core rules (stand-off from GameConstants.reinforcement_min_enemy_distance_inches():
+	11e >8" per 20.04 / 24.09, 10e >9"):
 	- Deep Strike: Units with the Deep Strike ability can be set up in reserves,
-	  arriving anywhere on the battlefield >9" from enemies (from Round 2+).
-	- Strategic Reserves: Any unit can go into reserves (within 6" of board edge,
-	  >9" from enemies). Limited to 25% of total army points.
+	  arriving anywhere on the battlefield more than the stand-off from enemies
+	  (from Round 2+).
+	- Strategic Reserves: Any unit can go into reserves (wholly within 6" of a
+	  board edge, more than the stand-off from enemies). The points cap is
+	  enforced by the phase (10e: 25% of the army's points).
 	- Total reserves cannot exceed 50% of units or 50% of points.
 	- Fortifications cannot be placed in reserves.
 
@@ -5124,7 +5133,8 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 	# --- Scoring by reserve type ---
 
 	if reserve_type == "deep_strike" and has_deep_strike:
-		# Deep Strike allows deployment anywhere >9" from enemies — extremely flexible.
+		# Deep Strike allows deployment anywhere more than the ingress stand-off
+		# from enemies (11e >8", 10e >9") — extremely flexible.
 		# Melee units benefit most: arrive close, charge next turn.
 		if has_melee and not has_ranged:
 			score += _t_add(terms, "res_deep_strike_fit", get_param("RESERVES_DS_PURE_MELEE", RESERVES_DS_PURE_MELEE))  # Pure melee — Deep Strike is their ideal delivery method
@@ -7862,7 +7872,9 @@ static func _decide_redeployment(snapshot: Dictionary, available_actions: Array,
 
 static func _decide_scout(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# AI strategy: Move scout units toward the nearest uncontrolled objective,
-	# maintaining >9" from all enemy models. If no valid move exists, skip.
+	# ending more than the scout stand-off from all enemy models
+	# (GameConstants.scout_min_enemy_distance_inches(): 11e 24.32 >8", 10e >9").
+	# If no valid move exists, skip.
 
 	# Step 1: If CONFIRM_SCOUT_MOVE is available, confirm it
 	# (safety fallback — normally AIPlayer handles confirm after staging)
@@ -7952,6 +7964,24 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 static func _get_scout_distance_from_unit(unit: Dictionary, snapshot: Dictionary = {}) -> float:
 	"""Extract scout move distance in inches from unit abilities.
 	Also checks for transport inheritance from embarked units per Balance Dataslate."""
+	# P0.2 F2: the engine's own value first. ScoutPhase caps the move at
+	# GameState.get_scout_distance (11e 'Scouts X"' name/parameter/description,
+	# codex grants such as Spearpoint War Leader or Minefield Detail), so the
+	# AI planning a different X either wastes inches or plans a move the
+	# engine rejects. PURITY: that is a LIVE GameState read inside a function
+	# that otherwise reads only the snapshot, so it is used only when the
+	# snapshot's unit IS the live unit (same owner/status/name/abilities/
+	# keywords/flags/links — _scout_snapshot_unit_is_live). A hypothetical
+	# snapshot (plan simulation, a K-card on an edited state, tests reusing
+	# fixture unit ids) falls through to the snapshot-only parse below, so the
+	# result never depends on live state the snapshot does not describe.
+	var sd_uid := str(unit.get("id", ""))
+	var sd_gs = _game_state()
+	if sd_uid != "" and sd_gs != null and sd_gs.has_method("get_scout_distance") and sd_gs.has_method("get_unit"):
+		if _scout_snapshot_unit_is_live(unit, sd_gs.get_unit(sd_uid)):
+			var sd_eng := float(sd_gs.get_scout_distance(sd_uid))
+			if sd_eng > 0.0:
+				return sd_eng
 	# Check unit's own abilities first
 	var own_distance = _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", []))
 	if own_distance > 0.0:
@@ -7990,13 +8020,49 @@ static func _get_scout_distance_from_abilities(abilities: Array) -> float:
 		if aname.to_lower().begins_with("scout"):
 			if avalue > 0:
 				return float(avalue)
+			# P0.2 F2: the engine's pattern (GameState.SCOUT_DISTANCE_PATTERN,
+			# `\bscouts?\s*(\d+)`). The old "scout\s+(\d+)" could not match the
+			# 11e ability name 'Scouts 8"' (24.31), so every Scouts 7"/8" unit
+			# without a numeric value field fell back to 6".
 			var regex = RegEx.new()
-			regex.compile("(?i)scout\\s+(\\d+)")
+			regex.compile(GameStateData.SCOUT_DISTANCE_PATTERN)
 			var result = regex.search(aname)
 			if result:
 				return float(result.get_string(1))
 			return 6.0
 	return 0.0
+
+## P0.2 F2 purity guard: true when the snapshot's copy of a unit describes the
+## same unit as the live GameState entry, so reading the engine's Scouts value
+## for it cannot leak live state into a hypothetical snapshot. Compares every
+## field the engine's get_scout_distance reads (abilities, keywords, flags,
+## embark/attach links) plus owner/status/name.
+static func _scout_snapshot_unit_is_live(snap_unit: Dictionary, live_unit: Dictionary) -> bool:
+	if snap_unit.is_empty() or live_unit.is_empty():
+		return false
+	if int(snap_unit.get("owner", -1)) != int(live_unit.get("owner", -2)):
+		return false
+	if int(snap_unit.get("status", -1)) != int(live_unit.get("status", -2)):
+		return false
+	var sm: Dictionary = snap_unit.get("meta", {})
+	var lm: Dictionary = live_unit.get("meta", {})
+	if str(sm.get("name", "")) != str(lm.get("name", "")):
+		return false
+	if sm.get("abilities", []) != lm.get("abilities", []):
+		return false
+	if sm.get("keywords", []) != lm.get("keywords", []):
+		return false
+	if snap_unit.get("flags", {}) != live_unit.get("flags", {}):
+		return false
+	if str(snap_unit.get("embarked_in", "")) != str(live_unit.get("embarked_in", "")):
+		return false
+	if str(snap_unit.get("attached_to", "")) != str(live_unit.get("attached_to", "")):
+		return false
+	if snap_unit.get("attachment_data", {}) != live_unit.get("attachment_data", {}):
+		return false
+	if snap_unit.get("transport_data", {}).get("embarked_units", []) != live_unit.get("transport_data", {}).get("embarked_units", []):
+		return false
+	return true
 
 static func _find_best_scout_objective(
 	unit: Dictionary, objectives: Array, enemies: Dictionary,
@@ -8097,7 +8163,9 @@ static func _compute_scout_movement(
 	scout_distance_inches: float, snapshot: Dictionary, enemies: Dictionary
 ) -> Dictionary:
 	"""Compute model destinations for a scout move toward target_pos.
-	Respects: scout distance limit, >9\" from all enemy models, board bounds, model overlap."""
+	Respects: scout distance limit, the scout stand-off from all enemy models
+	(GameConstants.scout_min_enemy_distance_inches(): 11e >8\", 10e >9\"; each
+	model measured with its own base), board bounds, model overlap."""
 	if target_pos == Vector2.INF:
 		return {}
 
@@ -8152,15 +8220,23 @@ static func _try_scout_move_with_checks(
 	base_type: String, base_dimensions: Dictionary,
 	original_positions: Dictionary = {}, move_cap_px: float = 0.0
 ) -> Dictionary:
-	"""Try moving all models by move_vector, checking the >9\" enemy distance rule
-	and model overlap. Returns model_id -> [x, y] destinations, or empty dict if invalid."""
-	const SCOUT_ENEMY_DIST_INCHES: float = 9.0
+	"""Try moving all models by move_vector, checking the scout stand-off
+	(24.32 AFTER MOVING: more than GameConstants.scout_min_enemy_distance_inches()
+	from all enemy units — 11e >8\", 10e >9\") and model overlap.
+	Each model is measured with ITS OWN base (base_mm radius for the stand-off,
+	base shape for overlap), exactly as the engine measures it in
+	ScoutPhase._validate_set_scout_model_dest / _validate_confirm_scout_move.
+	The base_mm / base_type / base_dimensions arguments are only the fallback for
+	a model dict that carries none. Returns model_id -> [x, y] destinations, or
+	empty dict if invalid."""
+	# P0.2 F1: the rule's own value, not a hard-coded 9" (which made the AI
+	# refuse every legal 8-9" Scout end at 11e).
+	var scout_standoff_in: float = GameConstants.scout_min_enemy_distance_inches()
+	# The engine rejects a scout move longer than X + 0.02" (0.8 px); stay
+	# strictly inside that so a collision side-step never overshoots it.
+	const SCOUT_MOVE_CAP_TOLERANCE_PX: float = 0.5
 	var destinations = {}
 	var placed_models: Array = []
-
-	var own_models = unit.get("models", [])
-	var own_base_mm = own_models[0].get("base_mm", 32) if own_models.size() > 0 else 32
-	var own_radius_inches = (own_base_mm / 2.0) / 25.4
 
 	for model in alive_models:
 		var model_id = model.get("id", "")
@@ -8171,6 +8247,15 @@ static func _try_scout_move_with_checks(
 			continue
 		var dest = model_pos + move_vector
 
+		# This model's own base. With the 9" slack gone, measuring a mixed unit
+		# (e.g. Wolf Scouts: a 32mm model first, 60mm-oval wolves after it) by
+		# models[0]'s radius put the larger bases 0.55" inside the stand-off
+		# and the engine rejected them.
+		var m_base_mm: int = int(model.get("base_mm", base_mm))
+		var m_base_type: String = str(model.get("base_type", base_type))
+		var m_base_dims: Dictionary = model.get("base_dimensions", base_dimensions)
+		var own_radius_inches = (m_base_mm / 2.0) / 25.4
+
 		# Clamp to board bounds with margin
 		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
@@ -8178,21 +8263,21 @@ static func _try_scout_move_with_checks(
 		# Check movement distance does not exceed scout distance
 		if move_cap_px > 0.0:
 			var orig_pos = original_positions.get(model_id, model_pos)
-			if orig_pos.distance_to(dest) > move_cap_px + 1.0:  # Small tolerance
+			if orig_pos.distance_to(dest) > move_cap_px + SCOUT_MOVE_CAP_TOLERANCE_PX:
 				return {}
 
-		# Check >9" from all enemy models (edge-to-edge)
-		if _is_position_too_close_to_enemies_scout(dest, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES):
+		# Check the scout stand-off from all enemy models (edge-to-edge)
+		if _is_position_too_close_to_enemies_scout(dest, enemies, own_radius_inches, scout_standoff_in):
 			return {}
 
 		# Check overlap with deployed models and already-placed models
 		var all_obstacles = deployed_models + placed_models
-		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
+		if _position_collides_with_deployed(dest, m_base_mm, all_obstacles, 1.0, m_base_type, m_base_dims):
 			# Try small perpendicular offsets to avoid the collision
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var resolved_dest = _resolve_scout_collision(
-				dest, move_vector, base_mm, base_type, base_dimensions,
-				all_obstacles, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES,
+				dest, move_vector, m_base_mm, m_base_type, m_base_dims,
+				all_obstacles, enemies, own_radius_inches, scout_standoff_in,
 				orig_pos, move_cap_px
 			)
 			if resolved_dest == Vector2.INF:
@@ -8202,9 +8287,9 @@ static func _try_scout_move_with_checks(
 		destinations[model_id] = [dest.x, dest.y]
 		placed_models.append({
 			"position": dest,
-			"base_mm": base_mm,
-			"base_type": base_type,
-			"base_dimensions": base_dimensions
+			"base_mm": m_base_mm,
+			"base_type": m_base_type,
+			"base_dimensions": m_base_dims
 		})
 
 	return destinations
@@ -8214,7 +8299,9 @@ static func _is_position_too_close_to_enemies_scout(
 	own_radius_inches: float, min_distance_inches: float
 ) -> bool:
 	"""Check if a position is within min_distance_inches (edge-to-edge) of any enemy model.
-	Used for scout moves where the minimum distance is 9\"."""
+	Used for scout moves, where the minimum distance is
+	GameConstants.scout_min_enemy_distance_inches() (11e >8\", 10e >9\").
+	Same circular base_mm/2 radii as the engine validator (ScoutPhase)."""
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
 		for model in enemy.get("models", []):
@@ -8239,7 +8326,10 @@ static func _resolve_scout_collision(
 	own_radius_inches: float, min_enemy_dist_inches: float,
 	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0
 ) -> Vector2:
-	"""Try perpendicular offsets to avoid collision while satisfying scout >9\" rule."""
+	"""Try perpendicular offsets to avoid collision while satisfying the scout
+	stand-off (min_enemy_dist_inches = GameConstants.scout_min_enemy_distance_inches():
+	11e >8\", 10e >9\"). base_mm / own_radius_inches are the MOVING model's own
+	base (per-model, as the engine measures it)."""
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
 	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
@@ -8254,16 +8344,16 @@ static func _resolve_scout_collision(
 		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 			continue
 
-		# Check movement cap
+		# Check movement cap (strictly inside the engine's X + 0.02" = 0.8 px)
 		if original_pos != Vector2.INF and move_cap_px > 0.0:
-			if original_pos.distance_to(candidate) > move_cap_px + 1.0:
+			if original_pos.distance_to(candidate) > move_cap_px + 0.5:
 				continue
 
 		# Check model overlap
 		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions):
 			continue
 
-		# Check >9" from enemies
+		# Check the scout stand-off from enemies (per-model radius)
 		if _is_position_too_close_to_enemies_scout(candidate, enemies, own_radius_inches, min_enemy_dist_inches):
 			continue
 
@@ -9870,12 +9960,10 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 			var deployed_models = _get_all_deployed_model_positions(snapshot)
 			model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 
-			# Validate all positions satisfy the 9" enemy distance rule AND unit coherency
-			var all_valid = true
-			for pos in model_positions:
-				if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round):
-					all_valid = false
-					break
+			# Validate all positions satisfy the ingress stand-off (GameConstants:
+			# 11e >8", 10e >9") with each model's OWN base, AND unit coherency
+			var alive_base_mms := _alive_model_base_mms(unit)
+			var all_valid = _reinforcement_positions_valid(model_positions, alive_base_mms, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round)
 			if all_valid and not _check_formation_coherency(model_positions, base_mm):
 				print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate 0 fails coherency, trying alternates" % [unit_name, try_type])
 				all_valid = false
@@ -9892,11 +9980,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 				for pi in range(1, positions.size()):
 					model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
 					model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
-					var valid = true
-					for pos in model_positions:
-						if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round):
-							valid = false
-							break
+					var valid = _reinforcement_positions_valid(model_positions, alive_base_mms, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round)
 					if valid and not _check_formation_coherency(model_positions, base_mm):
 						print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate %d fails coherency" % [unit_name, try_type, pi])
 						valid = false
@@ -10021,9 +10105,12 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	# not one bonus per objective on the board. Enemy-strong objectives are
 	# skipped (one arriving unit will not flip them). A deep-striking unit
 	# cannot move after it arrives, so it only helps where it can land in
-	# control range more than 9" from every enemy model: the nearest enemy
-	# model must be farther than 9" minus control range from the marker.
-	var ds_clear_px = (9.0 * PIXELS_PER_INCH) - OBJECTIVE_CONTROL_RANGE_PX
+	# control range more than the ingress stand-off from every enemy model
+	# (24.09 / 20.04: GameConstants.reinforcement_min_enemy_distance_inches(),
+	# 11e >8", 10e >9"): the nearest enemy model must be farther than that
+	# stand-off minus control range from the marker. (P0.2 F4: this was a
+	# hard-coded 9", so at 11e the AI ignored objectives it could land on.)
+	var ds_clear_px = (GameConstants.reinforcement_min_enemy_distance_inches() * PIXELS_PER_INCH) - OBJECTIVE_CONTROL_RANGE_PX
 	var best_arrive := 0.0
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
@@ -10056,9 +10143,15 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 	var candidates = []
 	var first_model = unit.get("models", [{}])[0]
 	var base_mm = first_model.get("base_mm", 32)
-	# Conservative radius check: 9" + own base radius (in pixels)
+	# Centroid PRE-FILTER only (cheap, centre to centre): the ingress stand-off
+	# (P0.2 F3: GameConstants.reinforcement_min_enemy_distance_inches(), 11e >8"
+	# per 20.04 / 24.09, 10e >9" — was a hard-coded 9", so at 11e every legal
+	# 8-9" spot was never even proposed) + own base radius + a 25 px (~0.6")
+	# allowance for the enemy's base. The exact per-model gate is
+	# _is_valid_reinforcement_position, applied to every model of the
+	# formation built on the chosen centroid.
 	var base_radius_px = (base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
-	var min_enemy_dist_px = 9.0 * PIXELS_PER_INCH + base_radius_px + 25.0  # 25px (~0.6") extra buffer for enemy bases
+	var min_enemy_dist_px = GameConstants.reinforcement_min_enemy_distance_inches() * PIXELS_PER_INCH + base_radius_px + 25.0
 
 	# Get Omni-scrambler positions for deep strike denial zones
 	var omni_positions = _get_omni_scrambler_positions_from_snapshot(snapshot, player)
@@ -10073,7 +10166,8 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 	if reserve_type == "strategic_reserves":
 		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round, omni_positions)
 	else:
-		# Deep strike: can be placed anywhere on the board >9" from enemies
+		# Deep strike: can be placed anywhere on the board more than the
+		# ingress stand-off from enemies (11e >8", 10e >9")
 		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, omni_positions)
 
 	return candidates
@@ -10169,7 +10263,9 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
 		min_enemy_dist_px: float, omni_scrambler_positions: Array = []) -> Array:
-	"""Generate candidate positions for deep strike (anywhere on the board >9\" from enemies)."""
+	"""Generate candidate positions for deep strike (anywhere on the board more
+	than the ingress stand-off from enemies — min_enemy_dist_px, see
+	_compute_reinforcement_positions)."""
 	var candidates = []
 	var step_px = 4.0 * PIXELS_PER_INCH  # Sample every 4 inches
 
@@ -10213,7 +10309,10 @@ static func _is_candidate_position_valid(pos: Vector2, enemy_model_positions: Ar
 	if pos.y < BASE_MARGIN_PX or pos.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 		return false
 
-	# Must be >9" from all enemy models (using conservative buffer)
+	# Must be more than the ingress stand-off from all enemy models (centre to
+	# centre with a conservative buffer — min_enemy_dist_px already includes
+	# both base allowances; the exact edge-to-edge test is
+	# _is_valid_reinforcement_position)
 	for enemy in enemy_model_positions:
 		if pos.distance_to(enemy.position) < min_enemy_dist_px:
 			return false
@@ -10363,7 +10462,15 @@ static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, de
 static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 		enemy_model_positions: Array, reserve_type: String,
 		placement_bounds: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> bool:
-	"""Validate a single model position for reinforcement placement."""
+	"""Validate a single model position for reinforcement placement.
+	base_mm is THIS model's own base (use _reinforcement_positions_valid for a
+	whole formation). The engine gate it mirrors: at 11e
+	IngressMove.validate_setup (MovementPhase._validate_place_reinforcement
+	returns early into it); at 10e the legacy MovementPhase branch.
+	Known gaps vs that gate (pre-existing, not P0.2): the Strategic Reserves 6\"
+	edge test below uses the model centre (the engine needs the base WHOLLY
+	within 6\") and the opponent-zone ban is a centre point at round 2 only
+	(the engine: any base overlap before round 3)."""
 	# Must be on the board
 	if pos.x < BASE_MARGIN_PX or pos.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
 		return false
@@ -10371,10 +10478,10 @@ static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 		return false
 
 	# Must be more than the ingress stand-off from all enemy models
-	# (edge-to-edge). 10e: >9". 11e 20.04 Ingress Move: >8". Read it from
-	# GameConstants rather than hardcoding — the engine's own placement
-	# validator uses the same source, and a hardcoded 9.0 made the AI refuse
-	# perfectly legal 8-9" arrivals under 11e.
+	# (edge-to-edge). 10e: >9". 11e 20.04 / 24.09: >8". Read it from
+	# GameConstants rather than hardcoding — the engine's 11e gate
+	# (IngressMove.validate_setup) uses the same source, and a hardcoded 9.0
+	# made the AI refuse perfectly legal 8-9" arrivals under 11e.
 	var ingress_standoff = GameConstants.reinforcement_min_enemy_distance_inches()
 	var model_radius_inches = (base_mm / 2.0) / 25.4
 	for enemy in enemy_model_positions:
@@ -10419,6 +10526,34 @@ static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 		if edge_dist < 12.0:
 			return false
 
+	return true
+
+## P0.2: base_mm of each ALIVE model, in model order — parallel to the
+## formation positions the reserve-arrival paths build (the k-th position goes
+## to the k-th alive model; see their full_positions assembly).
+static func _alive_model_base_mms(unit: Dictionary) -> Array:
+	var out: Array = []
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			out.append(int(m.get("base_mm", 32)))
+	return out
+
+## P0.2: true when EVERY formation position passes
+## _is_valid_reinforcement_position measured with ITS OWN model's base
+## (alive_base_mms[k]; fallback_base_mm past the end of the list), as the
+## engine measures it (IngressMove.validate_setup at 11e; the legacy
+## MovementPhase branch at 10e). Every caller used to pass models[0]'s base for
+## all models, so a unit whose later models are larger (Wolf Scouts: 32mm then
+## 60mm ovals; Wardens of Ultramar: 28.5mm then 40mm) could clear the AI gate
+## and still be rejected by the engine — a risk the 11e 8" stand-off (1" less
+## slack than the old 9" pre-filter) makes more likely.
+static func _reinforcement_positions_valid(model_positions: Array, alive_base_mms: Array, fallback_base_mm: int,
+		enemy_model_positions: Array, reserve_type: String, placement_bounds: Dictionary,
+		snapshot: Dictionary, player: int, battle_round: int) -> bool:
+	for k in range(model_positions.size()):
+		var k_base: int = int(alive_base_mms[k]) if k < alive_base_mms.size() else fallback_base_mm
+		if not _is_valid_reinforcement_position(model_positions[k], k_base, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
+			return false
 	return true
 
 static func _get_reinforcement_zone_bounds(reserve_type: String, player: int,
@@ -16986,8 +17121,10 @@ static func _calculate_denial_positions(
 		# to create a denial bubble that covers the objective
 		var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
 		var toward_center = (board_center - obj_pos).normalized()
-		# Place screener between the objective and the center, at ~9" offset
-		# This creates a denial zone that covers the objective area
+		# Place screener between the objective and the center, at 0.75x the
+		# derived denial radius (F007: the ingress stand-off, 11e 8" / 10e 9",
+		# or shorter if an enemy reserve unit advertises it). This creates a
+		# denial zone that covers the objective area
 		var denial_pos = obj_pos + toward_center * denial_radius_px * 0.75
 
 		# Clamp to board
@@ -17025,7 +17162,8 @@ static func _calculate_denial_positions(
 			while sample_y < zone_max_y:
 				var sample_pos = Vector2(sample_x, sample_y)
 
-				# Check if any friendly unit is within 9" of this sample point
+				# Check if any friendly unit is within the denial radius of this
+				# sample point (F007-derived, see _deep_strike_denial_radius_px)
 				var nearest_friendly_dist = INF
 				for fid in friendly_units:
 					var funit = friendly_units[fid]
@@ -30274,12 +30412,10 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 			var deployed_models = _get_all_deployed_model_positions(snapshot)
 			model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 
-			# Validate all positions satisfy the 9" enemy distance rule
-			var all_valid = true
-			for pos in model_positions:
-				if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, ri_try_type, placement_bounds, snapshot, defending_player, battle_round):
-					all_valid = false
-					break
+			# Validate all positions satisfy the ingress stand-off (GameConstants:
+			# 11e >8", 10e >9") with each model's OWN base
+			var ri_alive_base_mms := _alive_model_base_mms(unit)
+			var all_valid = _reinforcement_positions_valid(model_positions, ri_alive_base_mms, base_mm, enemy_model_positions, ri_try_type, placement_bounds, snapshot, defending_player, battle_round)
 			# Engine-exact overlap gate — same reasoning as the reserves flow:
 			# never submit a formation whose real bases overlap on-board models.
 			if all_valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
@@ -30292,11 +30428,10 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 				for pi in range(1, positions.size()):
 					model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
 					model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
-					var valid = true
-					for pos in model_positions:
-						if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
-							valid = false
-							break
+					# ri_try_type, not reserve_type: a Strategic Reserves unit trying
+					# its Deep Strike placement (P2-80) had every alternate judged by
+					# the 6"-edge rule it was not using.
+					var valid = _reinforcement_positions_valid(model_positions, ri_alive_base_mms, base_mm, enemy_model_positions, ri_try_type, placement_bounds, snapshot, defending_player, battle_round)
 					if valid and _formation_really_overlaps(model_positions, base_mm, base_type, base_dimensions, deployed_models):
 						valid = false
 					if valid:
@@ -30727,7 +30862,8 @@ static func _overwatch_exposure_penalty(
 static func _calculate_enemy_threat_data(enemies: Dictionary) -> Array:
 	"""Build an array of threat data for each enemy unit.
 	Each entry: {unit_id, centroid, charge_threat_px, shoot_threat_px, has_melee, has_ranged, unit_value}
-	charge_threat_px = (enemy M + 12" charge + 1" ER) in pixels
+	charge_threat_px = (enemy M + 12" charge + engagement range — 11e 2", 10e 1")
+	  in pixels, a radius tested against CENTROID-to-point distances
 	shoot_threat_px = max ranged weapon range in pixels"""
 	var threat_data = []
 	for enemy_id in enemies:
@@ -30741,8 +30877,18 @@ static func _calculate_enemy_threat_data(enemies: Dictionary) -> Array:
 		var has_ranged = _unit_has_ranged_weapons(enemy)
 		var max_shoot_range = _get_max_weapon_range(enemy)  # in inches
 
-		# Charge threat range = Movement + 12" max charge + engagement range
-		# (2" at 11e). This is the maximum distance the unit reaches with move + charge.
+		# Charge threat radius = Movement + 12" max charge + engagement range
+		# (GameConstants: 2" at 11e, 1" at 10e).
+		# Read literally against 11.04 (the charge target must be within the
+		# 2D6 roll, measured base to base) the ER term overstates the reach by
+		# 2". It is kept on purpose (P0.2, decision D6): the radius is tested
+		# against CENTROID-to-point distances, and a centroid overstates the
+		# base-to-base gap by more than 2" (measured over 996 melee-enemy x
+		# friendly pairs on 12 fixtures at 11e: p10 1.87", median 3.93", p90
+		# 5.97"). So the ER term acts as an undersized geometry allowance:
+		# dropping it raised missed rules-reachable charge threats from 21 to
+		# 36 of 128. A rules-faithful threat model needs a base-to-base test,
+		# not a smaller centroid radius.
 		var charge_threat_inches = enemy_move + 12.0 + GameConstants.engagement_range_inches()
 		var charge_threat_px = charge_threat_inches * PIXELS_PER_INCH
 

@@ -50,7 +50,11 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 	var board_w_px = board_size.x * 40.0
 	var board_h_px = board_size.y * 40.0
 	var edge_px = m.inches_to_px(6.0)
-	var enemy_px = m.inches_to_px(8.0)
+	# 20.04 / 24.09: "more than 8\" horizontally from all enemy units" — read
+	# from GameConstants (ISS-002), the same source the AI's reserve-arrival
+	# gate (AIDecisionMaker._is_valid_reinforcement_position) uses.
+	var enemy_in: float = GameConstants.reinforcement_min_enemy_distance_inches()
+	var enemy_px = m.inches_to_px(enemy_in)
 	var models: Array = context.get("models", [])
 
 	var pos_index := -1
@@ -85,7 +89,7 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 				var epv = Vector2(float(ep.x) if ep is Dictionary else ep.x, float(ep.y) if ep is Dictionary else ep.y)
 				var enemy_radius_px: float = m.base_radius_px(int(em.get("base_mm", 32)))
 				if pos.distance_to(epv) - self_radius_px - enemy_radius_px < enemy_px:
-					errors.append("model at %s is within 8\" of an enemy model" % str(pos))
+					errors.append("model at %s is within %d\" of an enemy model" % [str(pos), int(enemy_in)])
 					break
 
 		# Codex: Adeptus Custodes (11e) Arae-Shrike (Honoured Companions):

@@ -993,7 +993,8 @@ func get_redeploy_units_for_player(player: int) -> Array:
 	return redeploy_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:
-	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""
+	"""Get the enemy's deployment zone for a given player (for the Infiltrators
+	stand-off check — GameConstants.infiltrators_min_enemy_distance_inches(), 11e >8\")"""
 	var enemy_player = 3 - player
 	return get_deployment_zone_for_player(enemy_player)
 
@@ -1048,7 +1049,8 @@ func get_reserves_unit_count(player: int) -> int:
 	return count
 
 func get_enemy_model_positions(player: int) -> Array:
-	"""Get all enemy model positions (for >9 inch distance checks)"""
+	"""Get all enemy model positions (for the edge-to-edge stand-off checks:
+	Scout moves, reinforcements — see GameConstants, 11e >8\" / 10e >9\")"""
 	var positions = []
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]

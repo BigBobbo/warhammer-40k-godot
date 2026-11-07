@@ -4,15 +4,17 @@ class_name ScoutPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ScoutPhase - Handles the pre-game Scout moves after Roll-Off and before Turn 1
-# Per 10e rules + Balance Dataslate:
-# - Units with Scout X" can make a Normal Move of up to X" after deployment
+# 11e 24.31 SCOUTS / 24.32 SCOUT MOVE (10e + Balance Dataslate where noted):
+# - Units with Scouts X" can make a scout move of up to X" after deployment
 # - The distance moved can exceed the model's Move characteristic, as long as ≤ X"
-# - Must end >9" from all enemy models
+# - Must end more than GameConstants.scout_min_enemy_distance_inches() from all
+#   enemy units: >8" at 11e (24.32 AFTER MOVING), >9" at 10e
 # - Player going first moves their Scout units first
-# - Dedicated Transports can use Scout X" inherited from embarked units,
-#   provided ALL embarked models have the Scout ability
+# - Dedicated Transports can use Scouts X" inherited from embarked units,
+#   provided ALL embarked models have the Scouts ability
+# The stand-off lives ONLY in GameConstants (ISS-002) — do not re-declare it
+# here; tests/test_iss002_game_constants.gd scans for that.
 
-const SCOUT_MIN_ENEMY_DISTANCE_INCHES: float = 9.0
 const PX_PER_INCH: float = 40.0
 const OVERLAP_TOLERANCE_PX: float = 0.5
 
@@ -181,8 +183,9 @@ func process_action(action: Dictionary) -> Dictionary:
 # ========================================
 
 func _scout_min_enemy_distance_inches() -> float:
-	# 11e 24.32: >8" horizontally from enemy units; 10e: >9".
-	return 8.0 if GameConstants.edition >= 11 else 9.0
+	# 11e 24.32: >8" horizontally from enemy units; 10e: >9". One source of
+	# truth (ISS-002), shared with the AI (AIDecisionMaker._try_scout_move_with_checks).
+	return GameConstants.scout_min_enemy_distance_inches()
 
 
 func _zone_poly_px(zone: Dictionary) -> PackedVector2Array:
@@ -356,11 +359,19 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 
 	var unit = get_unit(unit_id)
 	var owner = unit.get("owner", 0)
-	var model_base_mm = unit.get("models", [{}])[0].get("base_mm", 32)
-	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+	# Each model's OWN base radius, exactly as _validate_set_scout_model_dest
+	# measures it. This used to take models[0]'s base for every staged model,
+	# so a unit whose first model is the larger base (a sergeant on a bigger
+	# base, a mixed squad) had legal staged moves rejected at confirm — and
+	# the AI, which now checks per model, had its moves rejected too.
+	var radius_by_model_id := {}
+	for um in unit.get("models", []):
+		radius_by_model_id[str(um.get("id", ""))] = (um.get("base_mm", 32) / 2.0) / 25.4
 
-	# Validate all staged positions pass the >9" enemy distance check
+	# Validate all staged positions pass the scout stand-off (11e 24.32 >8",
+	# 10e >9" — GameConstants.scout_min_enemy_distance_inches()).
 	for model_id in staged_positions:
+		var model_radius_inches: float = radius_by_model_id.get(str(model_id), (32 / 2.0) / 25.4)
 		var pos = staged_positions[model_id]
 		var dest_pos = Vector2(pos.x, pos.y) if pos is Dictionary else pos
 		var enemy_positions = GameState.get_enemy_model_positions(owner)

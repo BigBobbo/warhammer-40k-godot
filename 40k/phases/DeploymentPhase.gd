@@ -458,8 +458,9 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
 	"""Validate Infiltrators deployment: anywhere on the board, >9" (10e) /
 	>8" (11e, 24.20) from the enemy deployment zone and all enemy models."""
-	# ISS-068 (11e 24.20): 9" -> 8".
-	var infiltrate_min = 8.0 if GameConstants.edition >= 11 else 9.0
+	# ISS-068 (11e 24.20): 9" -> 8". One source of truth (ISS-002), shared
+	# with DeploymentController's placement UI.
+	var infiltrate_min = GameConstants.infiltrators_min_enemy_distance_inches()
 	var errors = []
 
 	# Get model info
@@ -477,7 +478,8 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 	if position.x < 0 or position.x > board_width_px or position.y < 0 or position.y > board_height_px:
 		errors.append("Model must be on the battlefield")
 
-	# Check >9" from enemy deployment zone (edge-to-edge distance from model base to zone boundary)
+	# Check > infiltrate_min (11e 8", 10e 9") from the enemy deployment zone
+	# (edge-to-edge distance from model base to zone boundary)
 	var enemy_zone = GameState.get_enemy_deployment_zone(unit_owner)
 	var enemy_zone_poly_inches = enemy_zone.get("poly", [])
 	var enemy_zone_poly_pixels = _convert_zone_inches_to_pixels(enemy_zone_poly_inches)
@@ -496,7 +498,7 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 		elif edge_dist_inches < infiltrate_min:
 			errors.append("Infiltrators must be >%d\" from enemy deployment zone (%.1f\")" % [int(infiltrate_min), edge_dist_inches])
 
-	# Check >9" from all enemy models (edge-to-edge)
+	# Check > infiltrate_min (11e 8", 10e 9") from all enemy models (edge-to-edge)
 	var model_base_mm = model.get("base_mm", 32)
 	var model_radius_inches = (model_base_mm / 2.0) / 25.4
 	var enemy_positions = GameState.get_enemy_model_positions(unit_owner)
