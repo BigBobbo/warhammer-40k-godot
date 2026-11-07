@@ -62,6 +62,13 @@ extends RefCounted
 ## a position-level refusal excludes that candidate and continues, at most
 ## MAX_GATE_REJECTIONS times, each logged as a [FORMATION] DEFECT.
 ##
+## Spot constraints (P0.3, AIDecisionMaker's 11e terrain picker): a build can
+## be pinned to one terrain spot — seed_positions (a pocket fill tried first,
+## verbatim), inside_polys (every model centre, attached characters included,
+## inside an area), avoid_polys (no bounding circle touching them),
+## anchor_region and max_displacement_px (a local search). They only narrow the
+## search; the final gate is unchanged. See build_deployment().
+##
 ## Autoloads are reached late-bound (DeploymentEval pattern) so this script
 ## compiles in `godot --headless --script` test mode. No dependency on
 ## AIDecisionMaker (the dependency runs AIDecisionMaker -> FormationBuilder).
@@ -120,9 +127,30 @@ static func build_deployment(snapshot: Dictionary, player: int, unit_id: String,
 	plan repair), exclude_positions: Array of position Arrays (candidates whose
 	bodyguard positions match one within 1 px are skipped — AIPlayer retry).
 
+	Spot constraints (P0.3, the 11e terrain picker; search-only — the final
+	gate is still exactly the phase's own rules):
+	  seed_positions: Array[Vector2] in MODEL-SLOT order (model_slots(): alive
+	    bodyguard models, then the alive models of each UNDEPLOYED attached
+	    character), size = every slot. Tried first, verbatim (rotation 0):
+	    accepted only if every model is legal there, every constraint holds,
+	    the shape is coherent (bodyguard alone and merged) and the gate passes.
+	  inside_polys: Array[PackedVector2Array] ("require" mode): every model
+	    CENTRE — attached characters included — must lie in their union.
+	  avoid_polys: Array[PackedVector2Array]: no model's bounding circle may
+	    overlap any of them.
+	  anchor_region: Array[PackedVector2Array]: block anchors and growth seeds
+	    only inside these (and the zone), nearest `desired` first.
+	  max_displacement_px: no anchor / growth seed further than this from
+	    `desired`.
+	  probe (bool): a constrained attempt at one spot. Its failure is
+	    expected, so stats() counts it under probes / probe_fail, never as
+	    no_legal (a unit with no legal set-up anywhere).
+	When a constraint is active and nothing fits, reason starts with
+	"inside: ", "avoid: " or "near: " — never a partial result.
+
 	Returns {ok, reason, model_positions, model_rotations, combined_char_data,
 	action_type ("DEPLOY_UNIT" | "COMPOSITE_DEPLOY"), template, anchor,
-	displacement_px, evals, fresh, grown, gate_rejections, us}."""
+	displacement_px, evals, fresh, grown, gate_rejections, constraint_rejects, us}."""
 	var t0 := Time.get_ticks_usec()
 	var ctx := _make_ctx(snapshot, player, unit_id, opts)
 	var out: Dictionary
@@ -130,9 +158,28 @@ static func build_deployment(snapshot: Dictionary, player: int, unit_id: String,
 		out = _fail(ctx, str(ctx.error))
 	else:
 		out = _search(ctx, desired)
+		var tag := str(ctx.get("constraint_tag", ""))
+		if not bool(out.get("ok", false)) and tag != "" and not str(out.get("reason", "")).begins_with("refused"):
+			out["reason"] = "%s: %s" % [tag, str(out.get("reason", ""))]
+	out["constraint_rejects"] = int(ctx.get("constraint_rejects", 0))
 	out["us"] = Time.get_ticks_usec() - t0
-	_record_stats(unit_id, out)
+	_record_stats(unit_id, out, bool(opts.get("probe", false)))
 	return out
+
+static func model_slots(snapshot: Dictionary, player: int, unit_id: String, opts: Dictionary = {}) -> Dictionary:
+	"""The model slots build_deployment places, in its order: the alive
+	bodyguard models (model index order), then the alive models of each
+	UNDEPLOYED attached character (attachment order). seed_positions use this
+	order. Returns {ok, reason, n_bg, slots: [{unit_id, idx, is_char, r_out,
+	base_mm, keywords}]} (r_out = bounding radius in px)."""
+	var ctx := _make_ctx(snapshot, player, unit_id, opts)
+	if not ctx.get("error", "").is_empty():
+		return {"ok": false, "reason": str(ctx.error), "n_bg": 0, "slots": []}
+	var slots: Array = []
+	for mi in ctx.mlist:
+		slots.append({"unit_id": str(mi.unit_id), "idx": int(mi.idx), "is_char": bool(mi.is_char),
+			"r_out": float(mi.info.r_out), "base_mm": int(mi.m.get("base_mm", 32)), "keywords": mi.kws})
+	return {"ok": true, "reason": "", "n_bg": int(ctx.n_bg), "slots": slots}
 
 static func attach_satellites(snapshot: Dictionary, player: int, unit_id: String, positions: Array, rotations: Array, opts: Dictionary = {}) -> Dictionary:
 	"""Fixed bodyguard positions (e.g. a plan placement already checked with
@@ -215,14 +262,19 @@ static func final_check(snapshot: Dictionary, player: int, unit_id: String, posi
 
 static func stats() -> Dictionary:
 	"""{builds, ok, grown, no_legal, gate_rejections, gate_aborts, evals, fresh,
-	max_us, max_unit, total_us} since the last reset_stats()."""
+	max_us, max_unit, total_us, probes, probe_ok, probe_fail} since the last
+	reset_stats(). builds / ok / grown / no_legal count unconstrained builds
+	only; probe builds (opts.probe — one terrain spot, P0.3) are counted in
+	probes / probe_ok / probe_fail. evals, fresh, gate_rejections and the
+	timings cover both."""
 	if _stats.is_empty():
 		reset_stats()
 	return _stats.duplicate()
 
 static func reset_stats() -> void:
 	_stats = {"builds": 0, "ok": 0, "grown": 0, "no_legal": 0, "gate_rejections": 0,
-		"gate_aborts": 0, "evals": 0, "fresh": 0, "max_us": 0, "max_unit": "", "total_us": 0}
+		"gate_aborts": 0, "evals": 0, "fresh": 0, "max_us": 0, "max_unit": "", "total_us": 0,
+		"probes": 0, "probe_ok": 0, "probe_fail": 0}
 
 static func clear_caches() -> void:
 	_block_cache.clear()
@@ -431,7 +483,78 @@ static func _make_ctx(snapshot: Dictionary, player: int, unit_id: String, opts: 
 	# zone-checked). The SEARCH keeps every model inside its own zone in P0 —
 	# stricter than the phase for Infiltrators, never looser.
 	ctx["phase_exact"] = false
+	# P0.3 spot constraints (search only; see build_deployment). Fixed for the
+	# whole build, so the per-build memo may fold them into its verdicts.
+	ctx["inside_polys"] = _poly_list(opts.get("inside_polys", []))
+	ctx["avoid_polys"] = _poly_list(opts.get("avoid_polys", []))
+	ctx["max_disp"] = float(opts.get("max_displacement_px", INF))
+	ctx["constraint_rejects"] = 0
+	var tag := ""
+	if not (ctx.inside_polys as Array).is_empty():
+		tag = "inside"
+	elif not (ctx.avoid_polys as Array).is_empty():
+		tag = "avoid"
+	elif float(ctx.max_disp) < INF:
+		tag = "near"
+	ctx["constraint_tag"] = tag
 	return ctx
+
+static func _poly_list(raw) -> Array:
+	"""[{poly: PackedVector2Array, box: Rect2}] for polygons with 3+ points."""
+	var out: Array = []
+	if not (raw is Array):
+		return out
+	for p in raw:
+		var poly := PackedVector2Array()
+		if p is PackedVector2Array:
+			poly = p
+		elif p is Array:
+			for v in p:
+				poly.append(_vec(v))
+		if poly.size() < 3:
+			continue
+		var box := Rect2(poly[0], Vector2.ZERO)
+		for v in poly:
+			box = box.expand(v)
+		out.append({"poly": poly, "box": box.grow(1.0)})
+	return out
+
+static func _circle_overlaps_polygon(center: Vector2, radius: float, poly: PackedVector2Array) -> bool:
+	"""Copy of TerrainManager._circle_overlaps_polygon (no autoload dependency)."""
+	if poly.size() < 3:
+		return false
+	if Geometry2D.is_point_in_polygon(center, poly):
+		return true
+	for i in range(poly.size()):
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % poly.size()]
+		if a.distance_to(center) <= radius:
+			return true
+		if Geometry2D.segment_intersects_circle(a, b, center, radius) >= 0.0:
+			return true
+	return false
+
+static func _constraints_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2) -> bool:
+	"""P0.3 spot constraints for one model at `pos` (cheap geometry, checked
+	before the phase predicates so a rejected spot costs no fresh check)."""
+	var inside: Array = ctx.inside_polys
+	if not inside.is_empty():
+		var hit := false
+		for e in inside:
+			if (e.box as Rect2).has_point(pos) and Geometry2D.is_point_in_polygon(pos, e.poly):
+				hit = true
+				break
+		if not hit:
+			ctx.constraint_rejects += 1
+			return false
+	var avoid: Array = ctx.avoid_polys
+	if not avoid.is_empty():
+		var r: float = mi.info.r_out
+		for e in avoid:
+			if (e.box as Rect2).grow(r).has_point(pos) and _circle_overlaps_polygon(pos, r, e.poly):
+				ctx.constraint_rejects += 1
+				return false
+	return true
 
 static func _model_entry(ctx: Dictionary, model: Dictionary, uid: String, idx: int, kws: Array, skip: bool, infil: bool, is_char: bool) -> Dictionary:
 	var info := _info_for(ctx, model)
@@ -588,13 +711,13 @@ static func _grid_nearby(grid: Dictionary, pos: Vector2, query_radius: float) ->
 
 static func _position_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2, rot: float) -> bool:
 	if ctx.no_memo:
-		return _check_model(ctx, mi, pos, rot, null)
+		return _constraints_ok(ctx, mi, pos) and _check_model(ctx, mi, pos, rot, null)
 	var key := Vector3i(int(round(pos.x / RASTER_PX)), int(round(pos.y / RASTER_PX)), 1 if absf(sin(rot)) > 0.5 else 0)
 	var mm: Dictionary = ctx.memo[mi["class"]]
 	if mm.has(key):
 		ctx.memo_hits += 1
 		return mm[key]
-	var ok := _check_model(ctx, mi, pos, rot, null)
+	var ok := _constraints_ok(ctx, mi, pos) and _check_model(ctx, mi, pos, rot, null)
 	mm[key] = ok
 	return ok
 
@@ -1022,6 +1145,12 @@ static func _search(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	var opts: Dictionary = ctx.opts
 	var max_evals := int(opts.get("max_evals", DEFAULT_MAX_EVALS))
 	var max_fresh := int(opts.get("max_fresh", DEFAULT_MAX_FRESH))
+	# P0.3: a caller-supplied shape (the 11e picker's pocket fill) goes first.
+	var seed = opts.get("seed_positions", [])
+	if seed is Array and not seed.is_empty():
+		var seeded := _try_seed(ctx, seed, desired)
+		if not seeded.is_empty():
+			return seeded
 	var blocks: Array = _blocks(ctx)
 	var build_blocks: Array = []
 	var pref = opts.get("preferred_offsets", [])
@@ -1032,13 +1161,17 @@ static func _search(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	build_blocks.append_array(blocks)
 	if build_blocks.is_empty():
 		return _grow_or_fail(ctx, desired, "no legal block for this unit's bases", 0)
-	var cur := _anchor_cursor(_lattice(ctx.poly, ANCHOR_STEP_PX), desired)
+	var cur := _anchor_cursor(_anchor_points(ctx, ANCHOR_STEP_PX), desired)
+	var max_disp: float = ctx.max_disp
 	var evals := 0
 	var why := ""
 	while why.is_empty():
 		var a = _next_anchor(cur)
 		if a == null:
-			why = "nothing fits: %d blocks over the zone lattice" % build_blocks.size()
+			why = "nothing fits: %d blocks over the %s lattice" % [build_blocks.size(), "region" if _has_region(ctx) else "zone"]
+			break
+		if (a as Vector2).distance_to(desired) > max_disp:
+			why = "nothing fits within %.1f\" of the spot (%d blocks)" % [max_disp / PX_PER_INCH, build_blocks.size()]
 			break
 		for bi in range(build_blocks.size()):
 			evals += 1
@@ -1062,6 +1195,89 @@ static func _search(ctx: Dictionary, desired: Vector2) -> Dictionary:
 			if g.unit_level or ctx.gate_rejections >= MAX_GATE_REJECTIONS:
 				return _fail(ctx, "refused by the phase: %s" % "; ".join(g.errors), evals)
 	return _grow_or_fail(ctx, desired, why, evals)
+
+static func _has_region(ctx: Dictionary) -> bool:
+	var region = ctx.opts.get("anchor_region", [])
+	return region is Array and not region.is_empty()
+
+static func _anchor_points(ctx: Dictionary, step: float) -> PackedVector2Array:
+	"""Anchor / growth-seed lattice: the zone lattice, or — with anchor_region
+	— its points inside the region polygons (region order, then y, then x;
+	the cursor re-sorts by distance with a total tie-break)."""
+	if not _has_region(ctx):
+		return _lattice(ctx.poly, step)
+	var out := PackedVector2Array()
+	var seen := {}
+	for e in _poly_list(ctx.opts.anchor_region):
+		var pk: PackedVector2Array = e.poly
+		var box: Rect2 = e.box
+		var y: float = ceil(box.position.y / step) * step
+		while y <= box.end.y:
+			var x: float = ceil(box.position.x / step) * step
+			while x <= box.end.x:
+				var p := Vector2(x, y)
+				var key := Vector2i(int(round(x / step)), int(round(y / step)))
+				if not seen.has(key) and Geometry2D.is_point_in_polygon(p, pk) \
+						and (not ctx.check_zone or (ctx.poly as PackedVector2Array).size() < 3 or Geometry2D.is_point_in_polygon(p, ctx.poly)):
+					seen[key] = true
+					out.append(p)
+				x += step
+			y += step
+	return out
+
+static func _try_seed(ctx: Dictionary, seed: Array, desired: Vector2) -> Dictionary:
+	"""seed_positions, verbatim at rotation 0: every model legal there (phase
+	predicates + spot constraints), no overlaps (both directions), the
+	bodyguard and the merged attached unit coherent, then the gate. {} = the
+	seed does not hold; the search continues. Not memoised: seed points are not
+	on the raster, so memo keys would alias."""
+	var n: int = ctx.n_all
+	if seed.size() != n:
+		ctx["seed_reason"] = "seed has %d positions for %d models" % [seed.size(), n]
+		return {}
+	var pts: Array = []
+	var centre := Vector2.ZERO
+	for p in seed:
+		if p == null:
+			ctx["seed_reason"] = "seed has an empty slot"
+			return {}
+		var v := _vec(p)
+		pts.append(v)
+		centre += v
+	centre /= float(n)
+	for i in range(n):
+		if not _constraints_ok(ctx, ctx.mlist[i], pts[i]) or not _check_model(ctx, ctx.mlist[i], pts[i], 0.0, null):
+			ctx["seed_reason"] = "model slot %d is not legal at its seed spot" % i
+			return {}
+	var offs: Array = []
+	var rots: Array = []
+	for i in range(n):
+		offs.append(pts[i] - centre)
+		rots.append(0.0)
+	var t := {"offs": offs, "rots": rots, "name": "seed"}
+	if not _template_legal(ctx, t, n):
+		ctx["seed_reason"] = "seed shape overlaps or is not coherent"
+		return {}
+	var cand := _candidate(ctx, centre, t)
+	# Keep the caller's exact positions (not centre + offset).
+	for i in range(ctx.n_bg):
+		cand.positions[ctx.mlist[i].idx] = pts[i]
+	var k: int = ctx.n_bg
+	for cid in cand.ccd:
+		for entry in cand.ccd[cid]:
+			entry["x"] = (pts[k] as Vector2).x
+			entry["y"] = (pts[k] as Vector2).y
+			k += 1
+	if _excluded(ctx, cand):
+		ctx["seed_reason"] = "seed is an excluded placement"
+		return {}
+	var g := _gate(ctx, cand)
+	if g.ok:
+		return _success(ctx, cand, "seed", centre, centre.distance_to(desired), 0, false)
+	if g.unit_level or ctx.gate_rejections >= MAX_GATE_REJECTIONS:
+		return _fail(ctx, "refused by the phase: %s" % "; ".join(g.errors), 0)
+	ctx["seed_reason"] = "the phase refused the seed"
+	return {}
 
 static func _bodyguard_fits(ctx: Dictionary, blk: Dictionary, bi: int, a: Vector2) -> bool:
 	# Fail-first: start with the model that failed last time for this block (per build).
@@ -1229,13 +1445,14 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	var mlist: Array = ctx.mlist
 	var n: int = ctx.n_all
 	var n_bg: int = ctx.n_bg
-	var cur := _anchor_cursor(_lattice(ctx.poly, GROW_STEP_PX), desired)
+	var cur := _anchor_cursor(_anchor_points(ctx, GROW_STEP_PX), desired)
+	var max_disp: float = ctx.max_disp
 	var seeds := 0
 	while true:
 		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
 			return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds)" % [ctx.fresh, int(ctx.grow_work), seeds]}
 		var seed_cell = _next_anchor(cur)
-		if seed_cell == null:
+		if seed_cell == null or (seed_cell as Vector2).distance_to(desired) > max_disp:
 			break
 		var r0 = null
 		for rot in mlist[0].info.rots:
@@ -1529,23 +1746,30 @@ static func _defect(msg: String) -> void:
 	if dl != null and dl.has_method("error"):
 		dl.error("[FORMATION] DEFECT: %s" % msg, {})
 
-static func _record_stats(unit_id: String, out: Dictionary) -> void:
+static func _record_stats(unit_id: String, out: Dictionary, probe: bool = false) -> void:
 	if _stats.is_empty():
 		reset_stats()
-	_stats.builds += 1
 	var us := int(out.get("us", 0))
 	_stats.total_us += us
 	_stats.evals += int(out.get("evals", 0))
 	_stats.fresh += int(out.get("fresh", 0))
 	_stats.gate_rejections += int(out.get("gate_rejections", 0))
-	if out.get("ok", false):
-		_stats.ok += 1
-		if out.get("grown", false):
-			_stats.grown += 1
+	if str(out.get("reason", "")).begins_with("refused"):
+		_stats.gate_aborts += 1
+	if probe:
+		_stats.probes += 1
+		if out.get("ok", false):
+			_stats.probe_ok += 1
+		else:
+			_stats.probe_fail += 1
 	else:
-		_stats.no_legal += 1
-		if str(out.get("reason", "")).begins_with("refused"):
-			_stats.gate_aborts += 1
+		_stats.builds += 1
+		if out.get("ok", false):
+			_stats.ok += 1
+			if out.get("grown", false):
+				_stats.grown += 1
+		else:
+			_stats.no_legal += 1
 	if us > int(_stats.max_us):
 		_stats.max_us = us
 		_stats.max_unit = unit_id

@@ -2135,17 +2135,72 @@ const FIX_ADV_ENGINE_PREDICATES: float = 0.0
 const FIX_WAAAGH_ADV_REROLL: float = 0.0
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
-const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
-const DEPLOY_TERRAIN_CHAR_LOS_BLOCK: float = 5.0  # deployment terrain, character: piece blocks line of sight
-const DEPLOY_TERRAIN_DURABLE_COVER: float = 2.5  # deployment terrain, durable ranged: cover
-const DEPLOY_TERRAIN_DURABLE_LOS_BLOCK: float = 1.0  # deployment terrain, durable ranged: LoS blocker
-const DEPLOY_TERRAIN_FORWARD_WEIGHT: float = 2.0  # deployment terrain, melee: weight on how far forward the piece is
-const DEPLOY_TERRAIN_FRAGILE_COVER: float = 3.5  # deployment terrain, fragile shooter: cover
-const DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK: float = 3.0  # deployment terrain, fragile shooter: LoS blocker
-const DEPLOY_TERRAIN_MELEE_COVER: float = 1.5  # deployment terrain, melee: cover
-const DEPLOY_TERRAIN_MELEE_LOS_BLOCK: float = 4.0  # deployment terrain, melee: LoS blocker to advance behind
-const DEPLOY_TERRAIN_SCREEN_COVER: float = 2.0  # deployment terrain, screen: cover
-const DEPLOY_TERRAIN_SCREEN_LOS_BLOCK: float = 1.5  # deployment terrain, screen: LoS blocker
+# DEPLOY-FRAME (FIX_DEPLOY_FRAME; docs/AI_DEPLOYMENT_PLAN.md P0(c), P0.3 root
+# cause 3): 1 = formula deployment measures "forward" from its own zone toward
+# the ENEMY zone (_deployment_frame: own -> enemy polygon centroids, a lateral
+# axis across it), so the column baseline, the counter-deployment nudges, the
+# terrain pickers' "behind" side, the melee forward bonus and the depth bonus
+# face the real enemy edge on every map, and spots are clamped into the zone
+# POLYGON, not its bounding box. The old test `is_top_zone = zone min_y < board
+# middle` is true for BOTH seats on Dawn of War and Sweeping Engagement, so
+# "front" pointed down the board for both players there (and only the sign was
+# right on Crucible / Search and Destroy). 0 = previous behaviour exactly
+# (is_top_zone axis, bounding-box clamp), for A/B only.
+const FIX_DEPLOY_FRAME: float = 1.0
+# DEPLOY-TERRAIN-11E (FIX_DEPLOY_TERRAIN_11E; P0(c), P0.3 root causes 1, 2, 4-7):
+# 1 = at edition 11 the formula picks deployment spots from 11e terrain AREAS
+# (13.01 groups, never wall/gantry features): hide-capable units (INFANTRY /
+# BEASTS / SWARM) WHOLLY INSIDE a dense area's in-zone pocket — every model,
+# attached characters included, Hidden by the engine's own 13.09 predicate —
+# and everyone else BEHIND a light or dense area on the side away from the
+# enemy (13.10), scored with the role weights below. Each spot must build as a
+# legal formation (FormationBuilder) or the next is tried, then the column
+# baseline (kept out of dense areas for hide-capable units first, so it does
+# not leave a unit partly Hidden). Also: the fragile_shooter cover / LoS
+# weights are no longer swapped, anti_tank has its own weights, and the K-card
+# record is written from the FINAL positions (chosen = the spot actually
+# used). 0 = previous behaviour exactly (next-to-piece picker, swapped fragile
+# weights, no anti_tank arm, record written before the formation), A/B only.
+const FIX_DEPLOY_TERRAIN_11E: float = 1.0
+# Deployment terrain preference by role: DEPLOY_TERRAIN_<ROLE>_COVER /
+# _LOS_BLOCK. 11e meaning (FIX_DEPLOY_TERRAIN_11E = 1): COVER = the unit is
+# protected by the area — inside it (13.08 benefit of cover) or behind it;
+# LOS_BLOCK = sight is blocked — Hidden inside a dense area beyond the enemy's
+# detection range (13.09), or obscured behind a light / dense area (13.10,
+# scaled by the share of enemy-front sight lines it blocks). The legacy picker
+# (edition 10, or the flag at 0) adds COVER when a piece grants cover and
+# LOS_BLOCK when it blocks line of sight. These must stay compound
+# `x_score += get_param(...)` lines (tools/ai_lab ratchet).
+const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: protected by the area (inside it or behind it)
+const DEPLOY_TERRAIN_CHAR_LOS_BLOCK: float = 5.0  # deployment terrain, character: sight blocked (Hidden inside dense / obscured behind)
+const DEPLOY_TERRAIN_DURABLE_COVER: float = 2.5  # deployment terrain, durable ranged: protected by the area
+const DEPLOY_TERRAIN_DURABLE_LOS_BLOCK: float = 1.0  # deployment terrain, durable ranged: sight blocked
+const DEPLOY_TERRAIN_FORWARD_WEIGHT: float = 2.0  # deployment terrain, melee: weight on how far forward the spot is (toward the enemy zone)
+const DEPLOY_TERRAIN_FRAGILE_COVER: float = 3.5  # deployment terrain, fragile shooter: protected by the area
+const DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK: float = 3.0  # deployment terrain, fragile shooter: sight blocked
+const DEPLOY_TERRAIN_MELEE_COVER: float = 1.5  # deployment terrain, melee: protected by the area
+const DEPLOY_TERRAIN_MELEE_LOS_BLOCK: float = 4.0  # deployment terrain, melee: sight blocked (advance unseen)
+const DEPLOY_TERRAIN_SCREEN_COVER: float = 2.0  # deployment terrain, screen / general: protected by the area
+const DEPLOY_TERRAIN_SCREEN_LOS_BLOCK: float = 1.5  # deployment terrain, screen / general: sight blocked
+const DEPLOY_TERRAIN_ANTITANK_COVER: float = 2.5  # deployment terrain, anti-tank: protected by the area (= durable ranged, its role before T-108)
+const DEPLOY_TERRAIN_ANTITANK_LOS_BLOCK: float = 1.0  # deployment terrain, anti-tank: sight blocked (= durable ranged)
+const DEPLOY_TERRAIN_MIN_SCORE: float = 1.0  # deployment: a terrain spot is used only if it scores at least this, else the column-layout spot
+const DEPLOY_TERRAIN_OBJECTIVE_WEIGHT: float = 1.0  # deployment: per objective within 10" of the spot, this x (1 - distance / 10")
+const DEPLOY_TERRAIN_DEPTH_MELEE: float = 1.5  # deployment: melee, this x forwardness (1 = the zone's front edge)
+const DEPLOY_TERRAIN_DEPTH_FRAGILE: float = 1.0  # deployment: character / fragile shooter, this x (1 - forwardness)
+const DEPLOY_TERRAIN_DRIFT_PER_INCH: float = 0.2  # deployment: penalty per inch from the column-layout spot (stops bunching)
+const DEPLOY_TERRAIN_MAX_LATERAL_DRIFT: float = 0.4  # deployment: spots further across the zone than this share of its width are dropped
+const DEPLOY_11E_HIDDEN_BONUS: float = 2.0  # 11e deployment: inside a dense area beyond detection range, every model Hidden (13.09)
+const DEPLOY_11E_MIN_SHADOW: float = 0.25  # 11e deployment: a behind spot must block at least this share of enemy-front sight lines
+const DEPLOY_11E_SHADOW_SAMPLES: int = 8  # 11e deployment: enemy-front points sampled per behind spot (0 = assume full shadow, no LoS calls)
+const DEPLOY_11E_BEHIND_REACH_IN: float = 3.0  # 11e deployment: areas with a vertex within this of the own zone give behind spots
+const DEPLOY_11E_BEHIND_CLEARANCE_IN: float = 1.0  # 11e deployment: gap between an area's back edge and the formation's extent
+const DEPLOY_11E_BEHIND_MAX_SHIFT_IN: float = 2.0  # 11e deployment: a behind spot's formation sits at most this far from its anchor
+const DEPLOY_11E_BASELINE_AVOID_SHIFT_IN: float = 4.0  # 11e deployment: column spot kept out of dense areas (hide-capable) within this
+const DEPLOY_11E_MAX_BUILD_TRIES: int = 12  # 11e deployment: terrain spots tried with the formation builder per drop
+const DEPLOY_11E_BUILD_MAX_EVALS: int = 8000  # 11e deployment: builder anchor x block evaluations per terrain spot
+const DEPLOY_11E_BUILD_MAX_FRESH: int = 3000  # 11e deployment: builder fresh per-position checks per terrain spot
+const DEPLOY_11E_DROP_MAX_FRESH: int = 12000  # 11e deployment: builder fresh checks for ALL terrain spots of one drop
 const FIGHT_ALREADY_OVERKILLED: float = 1.0  # fight target: prior fighters already overkilled it (penalty)
 const FIGHT_LOCK_DANGEROUS_SHOOTER: float = 1.5  # fight target: shooter above the dangerous-output threshold
 const FIGHT_LOCK_LONG_RANGE: float = 2.0  # fight target: long-ranged shooter worth locking in melee
@@ -5249,6 +5304,12 @@ static func _formula_formation_action(snapshot: Dictionary, player: int, unit_id
 	"""P0.1 formula tail: the nearest legal set-up around best_pos."""
 	var built := _build_formation(snapshot, player, unit_id, best_pos)
 	_attach_formation_context(unit_id, built)
+	return _formation_action_from_built(snapshot, unit_id, unit_name, unit_role, built, col_index, depth_row)
+
+static func _formation_action_from_built(snapshot: Dictionary, unit_id: String, unit_name: String,
+		unit_role: String, built: Dictionary, col_index: int, depth_row: int) -> Dictionary:
+	"""The deployment action for a FormationBuilder result (DEPLOY_UNIT, or
+	COMPOSITE_DEPLOY with combined_char_data), or the no-legal-formation marker."""
 	if not bool(built.get("ok", false)):
 		return _no_legal_formation_marker(unit_id, unit_name, str(built.get("reason", "")))
 	var action := {
@@ -5291,6 +5352,46 @@ static func _build_deploy_order(snapshot: Dictionary, deploy_actions: Array, fir
 		"first_label": "Deploying next", "verb": "deploy"}
 
 static func _decide_deployment(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	"""Deployment decision (plan, then formula). P0.3: timed per drop for
+	deploy_drop_stats() — the whole decision, every formation build included."""
+	var t0 := Time.get_ticks_usec()
+	var out := _decide_deployment_impl(snapshot, available_actions, player)
+	var otype := str(out.get("type", ""))
+	if otype == "DEPLOY_UNIT" or otype == "COMPOSITE_DEPLOY":
+		_note_deploy_drop(str(out.get("unit_id", "")), Time.get_ticks_usec() - t0)
+	return out
+
+static var _deploy_drop_stats: Dictionary = {}
+
+static func deploy_drop_stats() -> Dictionary:
+	"""Per-drop deployment decision timing and 11e picker outcomes since
+	reset_deploy_drop_stats(): {drops, total_us, max_us, max_unit, inside,
+	behind, baseline, legacy, spot_tries, unbuildable}."""
+	if _deploy_drop_stats.is_empty():
+		reset_deploy_drop_stats()
+	return _deploy_drop_stats.duplicate()
+
+static func reset_deploy_drop_stats() -> void:
+	_deploy_drop_stats = {"drops": 0, "total_us": 0, "max_us": 0, "max_unit": "",
+		"inside": 0, "behind": 0, "baseline": 0, "legacy": 0, "spot_tries": 0, "unbuildable": 0}
+
+static func _note_deploy_drop(unit_id: String, us: int) -> void:
+	if _deploy_drop_stats.is_empty():
+		reset_deploy_drop_stats()
+	_deploy_drop_stats.drops += 1
+	_deploy_drop_stats.total_us += us
+	if us > int(_deploy_drop_stats.max_us):
+		_deploy_drop_stats.max_us = us
+		_deploy_drop_stats.max_unit = unit_id
+
+static func _note_deploy_pick(key: String, tries: int = 0, unbuildable: int = 0) -> void:
+	if _deploy_drop_stats.is_empty():
+		reset_deploy_drop_stats()
+	_deploy_drop_stats[key] = int(_deploy_drop_stats.get(key, 0)) + 1
+	_deploy_drop_stats.spot_tries += tries
+	_deploy_drop_stats.unbuildable += unbuildable
+
+static func _decide_deployment_impl(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# Filter to DEPLOY_UNIT actions
 	var deploy_actions = available_actions.filter(func(a): return a.get("type") == "DEPLOY_UNIT")
 
@@ -5410,47 +5511,111 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		if u.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
 			deployed_count += 1
 
-	var zone_width = zone_bounds.max_x - zone_bounds.min_x
-	var zone_height = zone_bounds.max_y - zone_bounds.min_y
-	var num_columns = maxi(3, mini(5, my_units.size()))
-	var col_width = zone_width / num_columns
-	var col_index = deployed_count % num_columns
-	var depth_row = deployed_count / num_columns  # Which row front-to-back
-
-	# Column center X position
-	var col_center_x = zone_bounds.min_x + col_width * (col_index + 0.5)
-	# Depth Y: stagger front to back within zone
-	var depth_step = mini(200, int(zone_height / 3.0))
-	var depth_offset = depth_row * depth_step
-
+	# P0.3 (FIX_DEPLOY_FRAME): the column baseline and the counter-deployment
+	# nudges are laid out in the zone frame (forward = toward the enemy zone).
+	# At 0 the pre-P0.3 code below runs unchanged (is_top_zone axis).
+	var frame_on := deploy_frame_fix_on()
+	var terrain_on := deploy_terrain_11e_fix_on()
+	var frame: Dictionary = {}
+	var col_index: int = 0
+	var depth_row: int = 0
+	var baseline_pos = Vector2.ZERO
 	# Player 1 deploys top (low Y), Player 2 deploys bottom (high Y)
 	var is_top_zone = zone_bounds.min_y < BOARD_HEIGHT_PX / 2.0
-	var deploy_y: float
-	if is_top_zone:
-		# Top zone - front edge is max_y (closer to center)
-		deploy_y = zone_bounds.max_y - 80.0 - depth_offset
+	if frame_on:
+		frame = _deployment_frame(snapshot, player)
+		var fbase := _frame_baseline(frame, zone_bounds, deployed_count, my_units.size(), objective_pos)
+		baseline_pos = fbase.pos
+		col_index = int(fbase.col)
+		depth_row = int(fbase.row)
+		# T7-44: Counter-deployment — adjust baseline based on opponent's deployed units
+		baseline_pos = _apply_counter_deployment_frame(
+			baseline_pos, unit_role, unit, snapshot, player, zone_bounds, frame, objectives
+		)
 	else:
-		# Bottom zone - front edge is min_y (closer to center)
-		deploy_y = zone_bounds.min_y + 80.0 + depth_offset
+		var zone_width = zone_bounds.max_x - zone_bounds.min_x
+		var zone_height = zone_bounds.max_y - zone_bounds.min_y
+		var num_columns = maxi(3, mini(5, my_units.size()))
+		var col_width = zone_width / num_columns
+		col_index = deployed_count % num_columns
+		depth_row = deployed_count / num_columns  # Which row front-to-back
 
-	# Blend column position with objective-proximity position (baseline position)
-	var baseline_pos = Vector2.ZERO
-	baseline_pos.x = col_center_x * 0.7 + objective_pos.x * 0.3
-	baseline_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+		# Column center X position
+		var col_center_x = zone_bounds.min_x + col_width * (col_index + 0.5)
+		# Depth Y: stagger front to back within zone
+		var depth_step = mini(200, int(zone_height / 3.0))
+		var depth_offset = depth_row * depth_step
 
-	# T7-44: Counter-deployment — adjust baseline based on opponent's deployed units
-	baseline_pos = _apply_counter_deployment(
-		baseline_pos, unit_role, unit, snapshot, player, zone_bounds, is_top_zone, objectives
-	)
+		var deploy_y: float
+		if is_top_zone:
+			# Top zone - front edge is max_y (closer to center)
+			deploy_y = zone_bounds.max_y - 80.0 - depth_offset
+		else:
+			# Bottom zone - front edge is min_y (closer to center)
+			deploy_y = zone_bounds.min_y + 80.0 + depth_offset
+
+		# Blend column position with objective-proximity position (baseline position)
+		baseline_pos = Vector2.ZERO
+		baseline_pos.x = col_center_x * 0.7 + objective_pos.x * 0.3
+		baseline_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+		# T7-44: Counter-deployment — adjust baseline based on opponent's deployed units
+		baseline_pos = _apply_counter_deployment(
+			baseline_pos, unit_role, unit, snapshot, player, zone_bounds, is_top_zone, objectives
+		)
+		if terrain_on:
+			# The 11e picker still needs a frame: the pre-P0.3 axis (FIX_DEPLOY_FRAME = 0).
+			frame = _deployment_frame_legacy(snapshot, player, zone_bounds, is_top_zone)
 
 	# T7-18: Terrain-aware position adjustment
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
 	_deploy_terrain_choice = {}
-	var best_pos = _find_terrain_aware_position(
-		baseline_pos, unit_role, terrain_features, zone_bounds,
-		is_top_zone, objectives, snapshot, player
-	)
+	# P0.3 (FIX_DEPLOY_TERRAIN_11E): at 11e, the area-based picker — inside dense
+	# pockets / behind obscuring areas, every spot built as a legal formation,
+	# the record written from the final positions. Edition 10, the flag at 0,
+	# no TerrainManager / formation builder, or a snapshot whose terrain is not
+	# the live terrain: the legacy picker below.
+	if terrain_on and _deploy_11e_active(terrain_features):
+		return _deploy_11e_decide(snapshot, player, str(unit_id), unit, unit_name, unit_role, baseline_pos,
+			col_index, depth_row, zone_bounds, frame, objectives, terrain_features, plan_name)
+	var best_pos
+	if frame_on:
+		best_pos = _find_terrain_aware_position_frame(
+			baseline_pos, unit_role, terrain_features, zone_bounds,
+			frame, objectives, snapshot, player
+		)
+	else:
+		best_pos = _find_terrain_aware_position(
+			baseline_pos, unit_role, terrain_features, zone_bounds,
+			is_top_zone, objectives, snapshot, player
+		)
+	if terrain_on:
+		# P0.3: the legacy picker's record, written once the positions are final.
+		return _deploy_legacy_decide_record_after(snapshot, player, str(unit_id), unit, unit_name, unit_role,
+			best_pos, col_index, depth_row, zone_bounds, objectives, plan_name, unit_keywords)
 
+	# A6: deployment placement scored among real alternatives (pre-P0.3 order:
+	# the record is written before the formation is built).
+	_deploy_formula_record(snapshot, player, str(unit_id), unit_name, unit_role, best_pos,
+		zone_bounds, objectives, plan_name, best_pos)
+
+	# P0.1: the nearest LEGAL set-up around best_pos (FormationBuilder). The tail
+	# below it is the pre-P0.1 path, kept only for DEPLOY_FORMATION_BUILDER = 0.
+	if _formation_builder_active():
+		return _formula_formation_action(snapshot, player, unit_id, unit_name, unit_role, best_pos, col_index, depth_row)
+	return _formula_legacy_tail(snapshot, player, str(unit_id), unit, unit_name, unit_role, best_pos,
+		col_index, depth_row, zone_bounds, unit_keywords)
+
+static func _deploy_formula_record(snapshot: Dictionary, player: int, unit_id: String, unit_name: String,
+		unit_role: String, best_pos: Vector2, zone_bounds: Dictionary, objectives: Array, plan_name: String,
+		unit_pos: Vector2, extra_ctx: Dictionary = {}) -> void:
+	"""The A6 deployment record of the formula path (moved out of
+	_decide_deployment unchanged): the real terrain spots the legacy picker
+	scored (_deploy_terrain_choice) plus the column-layout spot, or — when no
+	terrain spot was scored — a ring of alternates around best_pos.
+	context.unit_pos = unit_pos (P0.3 passes the final formation centroid;
+	before P0.3, and with FIX_DEPLOY_TERRAIN_11E = 0, it is best_pos), and
+	extra_ctx is merged into the context."""
 	# A6: deployment placement scored among real alternatives. Deployment
 	# largely decides rounds 1-2 and until now it left no trace at all — the
 	# phase with the longest-lived consequences was the least visible one.
@@ -5473,9 +5638,11 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		var bp: Vector2 = _deploy_terrain_choice.get("baseline", best_pos)
 		dep_scored.append({"description": "Column-layout spot (%.0f, %.0f) — used unless a terrain spot scores 1.0+" % [bp.x, bp.y],
 			"score": 1.0, "key": "baseline", "pos": [bp.x, bp.y], "score_breakdown": {"deploy_baseline_bar": 1.0}})
-		_record_choice("deployment", unit_id, unit_name, dep_scored, real_pick,
-			{"phase": "deployment", "role": unit_role, "source": "terrain-aware placement",
-				"plan": plan_name, "unit_pos": [best_pos.x, best_pos.y]})
+		var ctx_t := {"phase": "deployment", "role": unit_role, "source": "terrain-aware placement",
+				"plan": plan_name, "unit_pos": [unit_pos.x, unit_pos.y]}
+		for k in extra_ctx:
+			ctx_t[k] = extra_ctx[k]
+		_record_choice("deployment", unit_id, unit_name, dep_scored, real_pick, ctx_t)
 	# No terrain spot was scored: the column-layout spot stands. The ring of
 	# alternates below is a rough comparison for offline analysis only.
 	if dep_real.is_empty():
@@ -5513,17 +5680,19 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		# PM-2a: `source` makes plan adherence countable per game per seat —
 		# "formula" when no plan applies at all, "formula_fallback" when a plan is
 		# active but did not cover (or could not legally place) this unit.
-		_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
-			{"phase": "deployment", "role": unit_role,
+		var ctx_r := {"phase": "deployment", "role": unit_role,
 				"source": "formula_fallback" if not plan_name.is_empty() else "formula",
 				"plan": plan_name,
-				"unit_pos": [best_pos.x, best_pos.y]})
+				"unit_pos": [unit_pos.x, unit_pos.y]}
+		for k in extra_ctx:
+			ctx_r[k] = extra_ctx[k]
+		_record_choice("deployment", unit_id, unit_name, dep_scored, "0", ctx_r)
 
-	# P0.1: the nearest LEGAL set-up around best_pos (FormationBuilder). The tail
-	# below it is the pre-P0.1 path, kept only for DEPLOY_FORMATION_BUILDER = 0.
-	if _formation_builder_active():
-		return _formula_formation_action(snapshot, player, unit_id, unit_name, unit_role, best_pos, col_index, depth_row)
-
+static func _formula_legacy_tail(snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
+		unit_name: String, unit_role: String, best_pos: Vector2, col_index: int, depth_row: int,
+		zone_bounds: Dictionary, unit_keywords: Array) -> Dictionary:
+	"""The pre-P0.1 formula tail (moved out of _decide_deployment unchanged),
+	used only with DEPLOY_FORMATION_BUILDER = 0 or without Measurement."""
 	# Generate formation positions
 	var models = unit.get("models", [])
 	var first_model = models[0] if models.size() > 0 else {}
@@ -5590,6 +5759,34 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		"model_rotations": rotations,
 		"_ai_description": "Deployed %s (%s, col %d, row %d)" % [unit_name, unit_role, col_index + 1, depth_row + 1]
 	}
+
+static func _deploy_legacy_decide_record_after(snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
+		unit_name: String, unit_role: String, best_pos: Vector2, col_index: int, depth_row: int,
+		zone_bounds: Dictionary, objectives: Array, plan_name: String, unit_keywords: Array) -> Dictionary:
+	"""P0.3 (FIX_DEPLOY_TERRAIN_11E = 1) with the legacy picker (edition 10, no
+	live TerrainManager terrain, or no formation builder): build first, then
+	write the same A6 record with context.unit_pos = the FINAL formation
+	centroid, reseated = true when that is more than 1" from the picked spot,
+	and context.formation."""
+	var built: Dictionary = {}
+	var action: Dictionary
+	if _formation_builder_active():
+		built = _build_formation(snapshot, player, unit_id, best_pos)
+		action = _formation_action_from_built(snapshot, unit_id, unit_name, unit_role, built, col_index, depth_row)
+	else:
+		action = _formula_legacy_tail(snapshot, player, unit_id, unit, unit_name, unit_role, best_pos,
+			col_index, depth_row, zone_bounds, unit_keywords)
+	var final_c := _deploy_positions_centroid(action.get("model_positions", []))
+	var extra := {}
+	if final_c == Vector2.INF:
+		final_c = best_pos
+	if final_c.distance_to(best_pos) > PIXELS_PER_INCH:
+		extra["reseated"] = true
+	if not built.is_empty():
+		extra["formation"] = _formation_context(built)
+	_deploy_formula_record(snapshot, player, unit_id, unit_name, unit_role, best_pos, zone_bounds,
+		objectives, plan_name, final_c, extra)
+	return action
 
 # T7-18: Unit role classification for terrain-aware deployment
 # Returns one of: "fragile_shooter", "durable_shooter", "melee", "character", "general"
@@ -5836,6 +6033,12 @@ static func _get_deployed_enemy_analysis(snapshot: Dictionary, player: int) -> A
 # Returns 0.0 if terrain is irrelevant, positive values for beneficial terrain
 static func _score_terrain_for_role(terrain: Dictionary, role: String, pos_near_terrain: Vector2,
 		zone_bounds: Dictionary, is_top_zone: bool) -> float:
+	# P0.3 (FIX_DEPLOY_TERRAIN_11E = 1): the fixed weights — fragile_shooter cover /
+	# LoS no longer swapped, an anti_tank arm — with this function's own (pre-P0.3,
+	# is_top_zone) forward measure. At 0 the body below runs unchanged.
+	if deploy_terrain_11e_fix_on():
+		return _score_terrain_for_role_frame(terrain, role, pos_near_terrain,
+			{"legacy": true, "is_top_zone": is_top_zone, "zone_bounds": zone_bounds})
 	var terrain_type = terrain.get("type", "")
 	var height_cat = terrain.get("height_category", "")
 	var score = 0.0
@@ -6034,6 +6237,1289 @@ static func _find_terrain_aware_position(
 		role, best.terrain_type, best.height, best.score, best.pos.x, best.pos.y
 	])
 	return best.pos
+
+# =============================================================================
+# P0.3 — DEPLOYMENT ZONE FRAME (FIX_DEPLOY_FRAME) and the 11e TERRAIN PICKER
+# (FIX_DEPLOY_TERRAIN_11E). docs/AI_DEPLOYMENT_PLAN.md §5, §7 P0(c).
+# =============================================================================
+
+static func deploy_frame_fix_on() -> bool:
+	"""P0.3 kill switch for the zone frame (get_param FIX_DEPLOY_FRAME, default 1)."""
+	return get_param("FIX_DEPLOY_FRAME", FIX_DEPLOY_FRAME) >= 0.5
+
+static func deploy_terrain_11e_fix_on() -> bool:
+	"""P0.3 kill switch for the 11e terrain picker (get_param FIX_DEPLOY_TERRAIN_11E, default 1)."""
+	return get_param("FIX_DEPLOY_TERRAIN_11E", FIX_DEPLOY_TERRAIN_11E) >= 0.5
+
+static func _deploy11e_log(msg: String) -> void:
+	print("AIDecisionMaker: [deploy11e] %s" % msg)
+	_debug_log_info("[AIDecisionMaker/deploy11e] %s" % msg)
+
+static func _zone_polygon_px_any(snapshot: Dictionary, player: int) -> PackedVector2Array:
+	"""The player's deployment zone in pixels: zone.poly (inches) -> zone.vertices
+	(pixels, legacy test data) -> the rectangle of _get_deployment_zone_bounds
+	(which keeps its Hammer and Anvil fallback). It reads the zone exactly as
+	the bounds function does, so the polygon and zone_bounds always agree."""
+	for zone in snapshot.get("board", {}).get("deployment_zones", []):
+		if not (zone is Dictionary) or zone.get("player", 0) != player:
+			continue
+		var raw: Array = zone.get("poly", [])
+		var inches := not raw.is_empty()
+		if not inches:
+			raw = zone.get("vertices", [])
+		var poly := PackedVector2Array()
+		for v in raw:
+			var p := Vector2.ZERO
+			if v is Vector2:
+				p = v
+			elif v is Dictionary:
+				p = Vector2(float(v.get("x", 0)), float(v.get("y", 0)))
+			else:
+				continue
+			poly.append(p * PIXELS_PER_INCH if inches else p)
+		if poly.size() >= 3:
+			return poly
+		break
+	var zb := _get_deployment_zone_bounds(snapshot, player)
+	return PackedVector2Array([Vector2(zb.min_x, zb.min_y), Vector2(zb.max_x, zb.min_y),
+		Vector2(zb.max_x, zb.max_y), Vector2(zb.min_x, zb.max_y)])
+
+static func _polygon_centroid_px(poly: PackedVector2Array) -> Vector2:
+	"""Area centroid (shoelace); the vertex mean for a degenerate polygon."""
+	var a := 0.0
+	var cx := 0.0
+	var cy := 0.0
+	var n := poly.size()
+	for i in range(n):
+		var p0: Vector2 = poly[i]
+		var p1: Vector2 = poly[(i + 1) % n]
+		var cr: float = p0.x * p1.y - p1.x * p0.y
+		a += cr
+		cx += (p0.x + p1.x) * cr
+		cy += (p0.y + p1.y) * cr
+	a *= 0.5
+	if absf(a) < 1e-6:
+		var m := Vector2.ZERO
+		for v in poly:
+			m += v
+		return m / maxf(1.0, float(n))
+	return Vector2(cx / (6.0 * a), cy / (6.0 * a))
+
+static func _dist_to_boundary_px(p: Vector2, poly: PackedVector2Array) -> float:
+	var best := INF
+	var n := poly.size()
+	for i in range(n):
+		best = minf(best, p.distance_to(Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % n])))
+	return best
+
+static func _dist_point_polygon_px(p: Vector2, poly: PackedVector2Array) -> float:
+	"""0 inside the polygon, else the distance to its boundary (INF: no polygon)."""
+	if poly.size() < 3:
+		return INF
+	if Geometry2D.is_point_in_polygon(p, poly):
+		return 0.0
+	return _dist_to_boundary_px(p, poly)
+
+static func _polygon_interior_point(poly: PackedVector2Array, centroid: Vector2) -> Vector2:
+	"""A point well inside the polygon: its centroid when that is inside (every
+	shipped zone: >= 4.45" margin), else the deepest point of a 1" grid."""
+	if Geometry2D.is_point_in_polygon(centroid, poly):
+		return centroid
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for v in poly:
+		mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
+		mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
+	var best := centroid
+	var best_d := -1.0
+	var y := mn.y + 20.0
+	while y < mx.y:
+		var x := mn.x + 20.0
+		while x < mx.x:
+			var q := Vector2(x, y)
+			if Geometry2D.is_point_in_polygon(q, poly):
+				var d := _dist_to_boundary_px(q, poly)
+				if d > best_d:
+					best_d = d
+					best = q
+			x += 40.0
+		y += 40.0
+	return best
+
+static func _deployment_frame(snapshot: Dictionary, player: int) -> Dictionary:
+	"""Zone frame (P0.3, FIX_DEPLOY_FRAME): fwd points from the own zone's
+	centroid to the enemy zone's; lat is across it, oriented +x (+y when fwd
+	is horizontal) so column order is the same for both seats and equals the
+	old x columns on Hammer and Anvil. gap_min / gap_max: how near / far the
+	own zone gets to the enemy zone; t_* / s_*: the own zone's extent along
+	lat / fwd about its centroid; inner: a point well inside the own zone
+	(the clamp target — the centroid unless that lies outside a non-convex
+	zone, which is logged). Measured fwd: H&A (0,+-1), DoW (-1,0)/(1,0),
+	crucible +-(0.34,0.94), tipping point +-(0.13,0.99), sweeping
+	+-(-0.97,-0.25), S&D +-(0.59,0.81)."""
+	var own := _zone_polygon_px_any(snapshot, player)
+	var enemy := _zone_polygon_px_any(snapshot, 3 - player)
+	var c := _polygon_centroid_px(own)
+	var ec := _polygon_centroid_px(enemy)
+	var fwd := ec - c
+	if fwd.length() < 1.0:
+		fwd = Vector2(0, 1) if c.y < BOARD_HEIGHT_PX / 2.0 else Vector2(0, -1)
+	fwd = fwd.normalized()
+	var lat := Vector2(-fwd.y, fwd.x)
+	if lat.x < -1e-6 or (absf(lat.x) <= 1e-6 and lat.y < 0.0):
+		lat = -lat
+	var fr := {"own_poly": own, "enemy_poly": enemy, "centroid": c, "enemy_centroid": ec,
+		"fwd": fwd, "lat": lat, "legacy": false, "player": player}
+	_frame_extents(fr)
+	var inner := _polygon_interior_point(own, c)
+	if inner != c:
+		_deploy11e_log("P%d zone centroid (%.0f, %.0f) lies outside its polygon: spots are clamped toward (%.0f, %.0f) instead" % [
+			player, c.x, c.y, inner.x, inner.y])
+	fr["inner"] = inner
+	return fr
+
+static func _frame_extents(fr: Dictionary) -> void:
+	var own: PackedVector2Array = fr.own_poly
+	var enemy: PackedVector2Array = fr.enemy_poly
+	var c: Vector2 = fr.centroid
+	var fwd: Vector2 = fr.fwd
+	var lat: Vector2 = fr.lat
+	var gap_min := INF
+	var gap_max := 0.0
+	for v in own:
+		var g := _dist_point_polygon_px(v, enemy)
+		gap_min = minf(gap_min, g)
+		gap_max = maxf(gap_max, g)
+	for w in enemy:
+		gap_min = minf(gap_min, _dist_point_polygon_px(w, own))
+	var t_min := INF
+	var t_max := -INF
+	var s_min := INF
+	var s_max := -INF
+	for v in own:
+		var d: Vector2 = v - c
+		t_min = minf(t_min, d.dot(lat))
+		t_max = maxf(t_max, d.dot(lat))
+		s_min = minf(s_min, d.dot(fwd))
+		s_max = maxf(s_max, d.dot(fwd))
+	fr["gap_min"] = gap_min
+	fr["gap_max"] = gap_max
+	fr["t_min"] = t_min
+	fr["t_max"] = t_max
+	fr["s_min"] = s_min
+	fr["s_max"] = s_max
+
+static func _deployment_frame_legacy(snapshot: Dictionary, player: int, zone_bounds: Dictionary, is_top_zone: bool) -> Dictionary:
+	"""FIX_DEPLOY_FRAME = 0 with the 11e picker on: the same polygons, but the
+	pre-P0.3 axis — forward is +y for a zone that reaches the board's top half
+	(is_top_zone), else -y; lateral is +x — and the pre-P0.3 forwardness
+	(distance from the bounding box's front edge)."""
+	var fr := _deployment_frame(snapshot, player)
+	fr["fwd"] = Vector2(0, 1) if is_top_zone else Vector2(0, -1)
+	fr["lat"] = Vector2(1, 0)
+	_frame_extents(fr)
+	fr["legacy"] = true
+	fr["is_top_zone"] = is_top_zone
+	fr["zone_bounds"] = zone_bounds
+	return fr
+
+static func _frame_forwardness(frame: Dictionary, p: Vector2) -> float:
+	"""1 at the own zone's front edge (nearest the enemy zone), 0 at its back:
+	1 - clamp((d(p, enemy zone) - gap_min) / (gap_max - gap_min)). A legacy
+	frame (FIX_DEPLOY_FRAME = 0) uses the old bounding-box measure."""
+	if bool(frame.get("legacy", false)):
+		var zb: Dictionary = frame.zone_bounds
+		var front_y: float = float(zb.max_y) if bool(frame.is_top_zone) else float(zb.min_y)
+		var zh: float = absf(float(zb.max_y) - float(zb.min_y))
+		if zh <= 0.0:
+			return 0.0
+		return 1.0 - clampf(absf(p.y - front_y) / zh, 0.0, 1.0)
+	var g := _dist_point_polygon_px(p, frame.enemy_poly)
+	var gmin: float = frame.gap_min
+	var gmax: float = frame.gap_max
+	return 1.0 - clampf((g - gmin) / maxf(1.0, gmax - gmin), 0.0, 1.0)
+
+static func _frame_clamp_into_zone(frame: Dictionary, zone_bounds: Dictionary, p: Vector2, margin_px: float) -> Vector2:
+	"""1) the old per-axis clamp to zone_bounds +/- margin (the same result on a
+	rectangular zone); 2) then step 12% toward the zone's inner point until the
+	spot is inside the polygon at least margin_px from its edge (<= 30 steps);
+	3) else the inner point itself. A legacy frame stops after step 1."""
+	var q := Vector2(clampf(p.x, float(zone_bounds.min_x) + margin_px, float(zone_bounds.max_x) - margin_px),
+		clampf(p.y, float(zone_bounds.min_y) + margin_px, float(zone_bounds.max_y) - margin_px))
+	if bool(frame.get("legacy", false)):
+		return q
+	var poly: PackedVector2Array = frame.own_poly
+	var target: Vector2 = frame.inner
+	for i in range(30):
+		if Geometry2D.is_point_in_polygon(q, poly) and _dist_to_boundary_px(q, poly) >= margin_px - 0.01:
+			return q
+		q = q.lerp(target, 0.12)
+	return target
+
+static func _frame_chord(frame: Dictionary, p0: Vector2) -> Array:
+	"""[s_back, s_front]: the stretch of the line p0 + fwd * s inside the own
+	zone. A non-convex zone (Tipping Point, Sweeping Engagement, Search and
+	Destroy) can cut the line into several in-zone segments: take the one that
+	contains p0 (s = 0), else the longest. No crossing at all: the zone's s
+	extent."""
+	var poly: PackedVector2Array = frame.own_poly
+	var fwd: Vector2 = frame.fwd
+	var reach := 8000.0
+	var a0: Vector2 = p0 - fwd * reach
+	var a1: Vector2 = p0 + fwd * reach
+	var ss: Array = []
+	var n := poly.size()
+	for i in range(n):
+		var hit = Geometry2D.segment_intersects_segment(a0, a1, poly[i], poly[(i + 1) % n])
+		if hit != null:
+			ss.append(((hit as Vector2) - p0).dot(fwd))
+	ss.sort()
+	var cuts: Array = []
+	for s in ss:
+		if cuts.is_empty() or float(s) - float(cuts[cuts.size() - 1]) > 0.01:
+			cuts.append(float(s))
+	var best_lo := 0.0
+	var best_hi := 0.0
+	var have := false
+	var best_has0 := false
+	var k := 0
+	while k < cuts.size() - 1:
+		var lo: float = cuts[k]
+		var hi: float = cuts[k + 1]
+		if not Geometry2D.is_point_in_polygon(p0 + fwd * ((lo + hi) * 0.5), poly):
+			k += 1
+			continue
+		k += 1
+		# A vertex on the line splits one in-zone stretch in two: merge them.
+		while k < cuts.size() - 1 and Geometry2D.is_point_in_polygon(p0 + fwd * ((float(cuts[k]) + float(cuts[k + 1])) * 0.5), poly):
+			hi = cuts[k + 1]
+			k += 1
+		var has0 := lo <= 0.0 and hi >= 0.0
+		if not have or (has0 and not best_has0) or (has0 == best_has0 and hi - lo > best_hi - best_lo):
+			best_lo = lo
+			best_hi = hi
+			best_has0 = has0
+			have = true
+	if not have:
+		return [float(frame.s_min), float(frame.s_max)]
+	return [best_lo, best_hi]
+
+static func _frame_baseline(frame: Dictionary, zone_bounds: Dictionary, deployed_count: int, n_units: int, objective_pos: Vector2) -> Dictionary:
+	"""The column-layout spot in the zone frame (FIX_DEPLOY_FRAME = 1). Same
+	grid as before (3-5 columns, rows 2" behind the front then up to 5" apart,
+	70% column / 30% nearest objective) but across `lat` and back from the
+	front along `fwd`, so on side-on maps the front row faces the real enemy
+	edge. Equal to the old formula on Hammer and Anvil. {pos, col, row}."""
+	var ncol := maxi(3, mini(5, n_units))
+	var col := deployed_count % ncol
+	var row := deployed_count / ncol
+	var t_min: float = frame.t_min
+	var t_max: float = frame.t_max
+	var c: Vector2 = frame.centroid
+	var lat: Vector2 = frame.lat
+	var fwd: Vector2 = frame.fwd
+	var t: float = 0.7 * (t_min + (t_max - t_min) * (float(col) + 0.5) / float(ncol)) + 0.3 * (objective_pos - c).dot(lat)
+	var p0: Vector2 = c + lat * t
+	var chord := _frame_chord(frame, p0)
+	var s_back: float = chord[0]
+	var s_front: float = chord[1]
+	var depth_step := mini(200, int((s_front - s_back) / 3.0))
+	var s: float = s_front - 80.0 - float(row * depth_step)
+	if s_front - s_back > 120.0:
+		s = clampf(s, s_back + 60.0, s_front - 60.0)
+	else:
+		s = (s_front + s_back) * 0.5
+	var pos := _frame_clamp_into_zone(frame, zone_bounds, p0 + fwd * s, 60.0)
+	return {"pos": pos, "col": col, "row": row}
+
+static func _apply_counter_deployment_frame(
+	baseline_pos: Vector2, role: String, unit: Dictionary,
+	snapshot: Dictionary, player: int, zone_bounds: Dictionary,
+	frame: Dictionary, objectives: Array
+) -> Vector2:
+	"""T7-44 counter-deployment in the zone frame (FIX_DEPLOY_FRAME = 1): the
+	same rules and literals as _apply_counter_deployment, with every sideways
+	shift taken along `lat` and every forward / back nudge along `fwd`, then
+	clamped into the zone polygon. Equal to the old function on Hammer and Anvil."""
+	var enemy_positions = _get_deployed_enemy_analysis(snapshot, player)
+	if enemy_positions.is_empty():
+		print("AIDecisionMaker: T7-44 no enemy units deployed yet, using baseline")
+		return baseline_pos
+	var lat: Vector2 = frame.lat
+	var fwd: Vector2 = frame.fwd
+	var enemy_melee_positions: Array = []
+	var enemy_shooter_positions: Array = []
+	var enemy_all_positions: Array = []
+	var enemy_high_value_positions: Array = []
+	for ep in enemy_positions:
+		enemy_all_positions.append(ep.centroid)
+		if ep.role == "melee":
+			enemy_melee_positions.append(ep.centroid)
+		elif ep.role in ["fragile_shooter", "durable_shooter"]:
+			enemy_shooter_positions.append(ep.centroid)
+		if ep.points >= 100:
+			enemy_high_value_positions.append(ep.centroid)
+	var enemy_center := _deploy_mean(enemy_all_positions)
+	var adjusted := baseline_pos
+	match role:
+		"melee":
+			# Toward enemy shooters (else high-value, else everyone), and forward.
+			var target_positions = enemy_high_value_positions if not enemy_high_value_positions.is_empty() else enemy_all_positions
+			if not enemy_shooter_positions.is_empty():
+				target_positions = enemy_shooter_positions
+			var target_center := _deploy_mean(target_positions)
+			adjusted = baseline_pos + lat * ((target_center - baseline_pos).dot(lat) * 0.35) + fwd * 40.0
+			print("AIDecisionMaker: T7-44 melee counter-deploy (frame): toward (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+				target_center.x, target_center.y, adjusted.x, adjusted.y])
+		"fragile_shooter":
+			if not enemy_melee_positions.is_empty():
+				var melee_center := _deploy_mean(enemy_melee_positions)
+				adjusted = baseline_pos + lat * ((baseline_pos - melee_center).dot(lat) * 0.3) - fwd * 30.0
+				print("AIDecisionMaker: T7-44 fragile_shooter counter-deploy (frame): away from melee at (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+					melee_center.x, melee_center.y, adjusted.x, adjusted.y])
+			else:
+				adjusted = baseline_pos + lat * ((enemy_center - baseline_pos).dot(lat) * 0.2)
+				print("AIDecisionMaker: T7-44 fragile_shooter counter-deploy (frame): no melee threats, shifting toward enemy center")
+		"durable_shooter":
+			adjusted = baseline_pos + lat * ((enemy_center - baseline_pos).dot(lat) * 0.25)
+			if not enemy_high_value_positions.is_empty():
+				var hv_center := _deploy_mean(enemy_high_value_positions)
+				# The old code clamps between its two shifts: so does this.
+				adjusted = _frame_clamp_into_zone(frame, zone_bounds, adjusted, 60.0)
+				adjusted = adjusted + lat * ((hv_center - adjusted).dot(lat) * 0.15)
+			print("AIDecisionMaker: T7-44 durable_shooter counter-deploy (frame): toward enemy center (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+				enemy_center.x, enemy_center.y, adjusted.x, adjusted.y])
+		"character":
+			if not enemy_shooter_positions.is_empty():
+				var shooter_center := _deploy_mean(enemy_shooter_positions)
+				adjusted = baseline_pos + lat * ((baseline_pos - shooter_center).dot(lat) * 0.25) - fwd * 25.0
+				print("AIDecisionMaker: T7-44 character counter-deploy (frame): away from shooters at (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+					shooter_center.x, shooter_center.y, adjusted.x, adjusted.y])
+			else:
+				print("AIDecisionMaker: T7-44 character counter-deploy: no enemy shooters, using baseline")
+		"general":
+			adjusted = baseline_pos + lat * ((enemy_center - baseline_pos).dot(lat) * 0.15)
+			print("AIDecisionMaker: T7-44 general counter-deploy (frame): slight shift toward enemy center")
+	return _frame_clamp_into_zone(frame, zone_bounds, adjusted, 60.0)
+
+static func _deploy_mean(points: Array) -> Vector2:
+	var m := Vector2.ZERO
+	for p in points:
+		m += p
+	return m / float(maxi(1, points.size()))
+
+static func _deploy_role_terrain_weights(role: String) -> Vector2:
+	"""(COVER, LOS_BLOCK) for a deployment role — the DEPLOY_TERRAIN_<ROLE>_*
+	parameters. Compound get_param lines on purpose (tools/ai_lab ratchet:
+	a Vector2-returning helper without them drops the tunable count)."""
+	var cover_score := 0.0
+	var los_score := 0.0
+	match role:
+		"character":
+			cover_score += get_param("DEPLOY_TERRAIN_CHAR_COVER", DEPLOY_TERRAIN_CHAR_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_CHAR_LOS_BLOCK", DEPLOY_TERRAIN_CHAR_LOS_BLOCK)
+		"fragile_shooter":
+			cover_score += get_param("DEPLOY_TERRAIN_FRAGILE_COVER", DEPLOY_TERRAIN_FRAGILE_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK", DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK)
+		"durable_shooter":
+			cover_score += get_param("DEPLOY_TERRAIN_DURABLE_COVER", DEPLOY_TERRAIN_DURABLE_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_DURABLE_LOS_BLOCK", DEPLOY_TERRAIN_DURABLE_LOS_BLOCK)
+		"melee":
+			cover_score += get_param("DEPLOY_TERRAIN_MELEE_COVER", DEPLOY_TERRAIN_MELEE_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_MELEE_LOS_BLOCK", DEPLOY_TERRAIN_MELEE_LOS_BLOCK)
+		"anti_tank":
+			cover_score += get_param("DEPLOY_TERRAIN_ANTITANK_COVER", DEPLOY_TERRAIN_ANTITANK_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_ANTITANK_LOS_BLOCK", DEPLOY_TERRAIN_ANTITANK_LOS_BLOCK)
+		_:
+			cover_score += get_param("DEPLOY_TERRAIN_SCREEN_COVER", DEPLOY_TERRAIN_SCREEN_COVER)
+			los_score += get_param("DEPLOY_TERRAIN_SCREEN_LOS_BLOCK", DEPLOY_TERRAIN_SCREEN_LOS_BLOCK)
+	return Vector2(cover_score, los_score)
+
+static func _score_terrain_for_role_frame(terrain: Dictionary, role: String, pos_near_terrain: Vector2, frame: Dictionary) -> float:
+	"""The legacy terrain scorer (T7-18) in the zone frame: COVER when the piece
+	grants cover, LOS_BLOCK when it blocks LoS, melee + FORWARD_WEIGHT x
+	forwardness toward the enemy zone. With FIX_DEPLOY_TERRAIN_11E = 1 the
+	fragile_shooter weights are no longer swapped and anti_tank has its own
+	(DEPLOY_TERRAIN_ANTITANK_*); at 0 both bugs are kept (A/B)."""
+	var terrain_type = terrain.get("type", "")
+	if terrain_type == "impassable":
+		return 0.0
+	var height_cat = terrain.get("height_category", "")
+	var blocks_los = (height_cat == "tall") or (height_cat == "medium" and terrain_type == "ruins")
+	var grants_cover = terrain_type in ["ruins", "obstacle", "barricade", "woods", "crater", "forest"]
+	var w := _deploy_role_terrain_weights(role)
+	if not deploy_terrain_11e_fix_on():
+		if role == "fragile_shooter":
+			w = Vector2(w.y, w.x)   # pre-P0.3: cover weight on LoS blockers, LoS weight on cover
+		elif role == "anti_tank":
+			w = Vector2.ZERO        # pre-P0.3: no anti_tank arm
+	var fit_score := 0.0
+	if grants_cover:
+		fit_score += w.x
+	if blocks_los:
+		fit_score += w.y
+	if role == "melee":
+		fit_score += get_param("DEPLOY_TERRAIN_FORWARD_WEIGHT", DEPLOY_TERRAIN_FORWARD_WEIGHT) * _frame_forwardness(frame, pos_near_terrain)
+	return fit_score
+
+static func _deploy_spot_common_terms(anchor: Vector2, role: String, baseline_pos: Vector2, frame: Dictionary,
+		objectives: Array, terms: Dictionary) -> float:
+	"""deploy_objectives, deploy_depth and deploy_drift for a deployment spot,
+	written into `terms` (all three keys always present); returns their sum.
+	The defaults reproduce the old literals (obj 1.0, depth 1.5 / 1.0, drift
+	0.2 per inch = 1 point per 200 px)."""
+	var obj_w := get_param("DEPLOY_TERRAIN_OBJECTIVE_WEIGHT", DEPLOY_TERRAIN_OBJECTIVE_WEIGHT)
+	var obj_bonus := 0.0
+	for obj_pos in objectives:
+		var obj_dist: float = anchor.distance_to(obj_pos)
+		if obj_dist < 400.0:  # 10 inches
+			obj_bonus += obj_w * (1.0 - obj_dist / 400.0)
+	var f := _frame_forwardness(frame, anchor)
+	var depth_bonus := 0.0
+	if role == "melee":
+		depth_bonus = get_param("DEPLOY_TERRAIN_DEPTH_MELEE", DEPLOY_TERRAIN_DEPTH_MELEE) * f
+	elif role == "character" or role == "fragile_shooter":
+		depth_bonus = get_param("DEPLOY_TERRAIN_DEPTH_FRAGILE", DEPLOY_TERRAIN_DEPTH_FRAGILE) * (1.0 - f)
+	var drift_penalty := get_param("DEPLOY_TERRAIN_DRIFT_PER_INCH", DEPLOY_TERRAIN_DRIFT_PER_INCH) * anchor.distance_to(baseline_pos) / PIXELS_PER_INCH
+	terms["deploy_objectives"] = obj_bonus
+	terms["deploy_depth"] = depth_bonus
+	terms["deploy_drift"] = -drift_penalty
+	return obj_bonus + depth_bonus - drift_penalty
+
+static func _deploy_spot_before(a: Dictionary, b: Dictionary) -> bool:
+	"""Total order for ranked spots: score desc, inside before behind, anchor
+	y, anchor x, then key (sort_custom is not stable)."""
+	var sa: float = a.score
+	var sb: float = b.score
+	if sa != sb:
+		return sa > sb
+	var ra := 0 if str(a.get("rel", "")) == "inside" else 1
+	var rb := 0 if str(b.get("rel", "")) == "inside" else 1
+	if ra != rb:
+		return ra < rb
+	var pa: Vector2 = a.get("anchor", a.get("pos", Vector2.ZERO))
+	var pb: Vector2 = b.get("anchor", b.get("pos", Vector2.ZERO))
+	if pa.y != pb.y:
+		return pa.y < pb.y
+	if pa.x != pb.x:
+		return pa.x < pb.x
+	return str(a.get("key", "")) < str(b.get("key", ""))
+
+static func _find_terrain_aware_position_frame(
+	baseline_pos: Vector2, role: String, terrain_features: Array,
+	zone_bounds: Dictionary, frame: Dictionary, objectives: Array,
+	snapshot: Dictionary, player: int
+) -> Vector2:
+	"""The T7-18 legacy terrain picker in the zone frame (FIX_DEPLOY_FRAME = 1),
+	used when the 11e picker is not (edition 10, FIX_DEPLOY_TERRAIN_11E = 0, no
+	TerrainManager / formation builder, or terrain that is not the live
+	terrain). Same candidates as _find_terrain_aware_position — next to each
+	piece: behind it (-fwd), the two back diagonals, the two flanks (+-lat)
+	and, for woods / craters / forest, the piece itself — clamped into the
+	zone polygon, a lateral drift cap, and the depth bonus measured toward
+	the enemy zone. Identical to the old picker on Hammer and Anvil."""
+	if terrain_features.is_empty():
+		print("AIDecisionMaker: No terrain features, using baseline position")
+		return baseline_pos
+	var fwd: Vector2 = frame.fwd
+	var lat: Vector2 = frame.lat
+	var width: float = float(frame.t_max) - float(frame.t_min)
+	var max_lat: float = get_param("DEPLOY_TERRAIN_MAX_LATERAL_DRIFT", DEPLOY_TERRAIN_MAX_LATERAL_DRIFT) * width
+	var min_score := get_param("DEPLOY_TERRAIN_MIN_SCORE", DEPLOY_TERRAIN_MIN_SCORE)
+	var candidates = []
+	var zone_margin = 120.0  # 3" tolerance for terrain just outside the zone
+	for terrain in terrain_features:
+		var terrain_pos = Vector2.ZERO
+		var raw_pos = terrain.get("position", null)
+		if raw_pos is Vector2:
+			terrain_pos = raw_pos
+		elif raw_pos is Dictionary:
+			terrain_pos = Vector2(float(raw_pos.get("x", 0)), float(raw_pos.get("y", 0)))
+		else:
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			if polygon.size() >= 3:
+				var centroid = Vector2.ZERO
+				for pt in polygon:
+					centroid += pt
+				terrain_pos = centroid / polygon.size()
+			else:
+				continue
+		var in_zone_x = terrain_pos.x >= zone_bounds.min_x - zone_margin and terrain_pos.x <= zone_bounds.max_x + zone_margin
+		var in_zone_y = terrain_pos.y >= zone_bounds.min_y - zone_margin and terrain_pos.y <= zone_bounds.max_y + zone_margin
+		if not in_zone_x or not in_zone_y:
+			continue
+		var terrain_size = Vector2.ZERO
+		var raw_size = terrain.get("size", null)
+		if raw_size is Vector2:
+			terrain_size = raw_size
+		elif raw_size is Dictionary:
+			terrain_size = Vector2(float(raw_size.get("x", 100)), float(raw_size.get("y", 100)))
+		else:
+			terrain_size = Vector2(100, 100)
+		var terrain_type = terrain.get("type", "")
+		var is_area_terrain = terrain_type in ["woods", "crater", "forest"]
+		var offset_dist: float = max(terrain_size.x, terrain_size.y) / 2.0 + 60.0  # Adjacent offset
+		var candidate_offsets: Array = []
+		if is_area_terrain:
+			candidate_offsets.append(Vector2.ZERO)
+		candidate_offsets.append(-fwd * offset_dist)                     # behind (away from the enemy)
+		candidate_offsets.append((-fwd - lat) * (offset_dist * 0.7))     # back diagonals
+		candidate_offsets.append((-fwd + lat) * (offset_dist * 0.7))
+		candidate_offsets.append(-lat * offset_dist)                     # flanks
+		candidate_offsets.append(lat * offset_dist)
+		for offset in candidate_offsets:
+			var candidate_pos := _frame_clamp_into_zone(frame, zone_bounds, terrain_pos + offset, 60.0)
+			var terrain_score := _score_terrain_for_role_frame(terrain, role, candidate_pos, frame)
+			if terrain_score <= 0.0:
+				continue
+			# Lateral cap: no candidate more than 40% of the zone's width across from the column spot.
+			if absf((candidate_pos - baseline_pos).dot(lat)) > max_lat:
+				continue
+			var terms := {"deploy_terrain": terrain_score}
+			var total := terrain_score + _deploy_spot_common_terms(candidate_pos, role, baseline_pos, frame, objectives, terms)
+			candidates.append({"pos": candidate_pos, "score": total, "terrain_type": terrain.get("type", ""), "height": terrain.get("height_category", ""),
+				"terms": terms})
+	_deploy_terrain_choice = {"candidates": candidates.duplicate(true), "baseline": baseline_pos}
+	if candidates.is_empty():
+		print("AIDecisionMaker: No terrain candidates for %s role, using baseline" % role)
+		return baseline_pos
+	candidates.sort_custom(func(a, b): return _deploy_spot_before(a, b))
+	var best = candidates[0]
+	if best.score < min_score:
+		print("AIDecisionMaker: Best terrain score %.2f too low for %s, using baseline" % [best.score, role])
+		return baseline_pos
+	print("AIDecisionMaker: T7-18 terrain-aware deploy (frame): %s -> %s terrain (%s), score=%.2f, pos=(%.0f,%.0f)" % [
+		role, best.terrain_type, best.height, best.score, best.pos.x, best.pos.y])
+	return best.pos
+
+static func _deploy_positions_centroid(positions: Array) -> Vector2:
+	"""Mean of the non-null positions (Vector2 or {x, y}); INF when there are none."""
+	var c := Vector2.ZERO
+	var n := 0
+	for p in positions:
+		if p == null:
+			continue
+		if p is Vector2:
+			c += p
+		elif p is Dictionary:
+			c += Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+		else:
+			continue
+		n += 1
+	if n == 0:
+		return Vector2.INF
+	return c / float(n)
+
+# --- 11e terrain picker (FIX_DEPLOY_TERRAIN_11E) ------------------------------
+# Rules (docs/rules/40k_11th_edition_core_rules.txt 13.07-13.11):
+#   13.08 benefit of cover — every model INFANTRY/BEASTS/SWARM within a terrain area;
+#   13.09 Hidden — such a model within an area containing a DENSE feature is only
+#         visible to enemy models within its detection range (15" unless stated);
+#   13.10 Obscuring — sight lines crossing a light/dense area that neither model is
+#         within are blocked; 13.11 Solid — dense features block at ground level.
+# So hide-capable units want every model INSIDE a dense area, and everyone else
+# wants a light/dense area BETWEEN it and the enemy (being within the area would
+# switch its obscuring off for that unit). Detection range: a pocket within 15"
+# (the unit's detection range) of the enemy deployment zone polygon can be
+# detected by an enemy model set up at the edge of that zone, so it earns no
+# Hidden bonus and no LoS-block weight there — only the 13.08 cover weight
+# (Search and Destroy's zones are 12.7" apart; Sweeping Engagement's 16").
+#
+# Work per drop is bounded by COUNTS, not time (no wall clock, no RNG):
+#   spots: <= 1 inside per dense group + 3 behind per obscuring group in reach;
+#   sight-line checks: <= 3 x groups x DEPLOY_11E_SHADOW_SAMPLES;
+#   builds: <= DEPLOY_11E_MAX_BUILD_TRIES terrain spots, each <= BUILD_MAX_EVALS
+#     evaluations and <= BUILD_MAX_FRESH fresh checks, all of them together
+#     <= DROP_MAX_FRESH fresh checks, no growth fallback, <= 4 gate calls each;
+#   then <= 2 column-spot builds (a bounded avoid-dense one for hide-capable
+#     units, then the unconstrained P0.1 build with its own budgets).
+
+static func _deploy_11e_active(terrain_features: Array) -> bool:
+	"""Dispatch to the 11e picker: edition 11+, FIX_DEPLOY_TERRAIN_11E on, the
+	FormationBuilder available (every spot must build legally) and the
+	snapshot's terrain being TerrainManager's live terrain (Hidden and sight
+	lines are measured on the live terrain)."""
+	return GameConstants.edition >= 11 and deploy_terrain_11e_fix_on() \
+		and _formation_builder_active() and _deploy_terrain_is_live(terrain_features)
+
+static func _deploy_terrain_is_live(terrain_features: Array) -> bool:
+	"""The snapshot's terrain_features are TerrainManager's live pieces (same
+	ids, same order). Production snapshots copy them; a fabricated test
+	snapshot takes the legacy picker instead."""
+	var tm = _terrain_manager()
+	if tm == null:
+		return false
+	var live: Array = tm.terrain_features
+	if live.is_empty() or live.size() != terrain_features.size():
+		return false
+	for i in range(live.size()):
+		if not (terrain_features[i] is Dictionary) or str(live[i].get("id", "")) != str(terrain_features[i].get("id", "")):
+			return false
+	return true
+
+static func _deploy_area_groups(terrain_features: Array) -> Array:
+	"""13.01 terrain AREAS as groups of pieces (TerrainManager.build_area_group_map:
+	link_group, else parent_area_id, else the piece itself), in terrain order.
+	{key, category, area_polys, feature_polys, objective_role, type, ids}.
+	category: dense if ANY piece of the group is dense (as is_model_hidden reads
+	13.09), else light if any is light, else exposed. area_polys holds the AREA
+	pieces only (piece_class != "feature"): every geometric use — pockets, the
+	behind anchors, the reach filter — reads those, never the wall / gantry
+	feature polygons, which some layouts parent to an area far away. A group
+	with no area piece (a feature standing on its own, 13.01) uses its
+	feature polygons."""
+	var tm = _terrain_manager()
+	if tm == null:
+		return []
+	var gm: Dictionary = tm.build_area_group_map(terrain_features)
+	var by: Dictionary = {}
+	var order: Array = []
+	for p in terrain_features:
+		if not (p is Dictionary):
+			continue
+		var pid := str(p.get("id", ""))
+		var key := str(gm.get(pid, "id:" + pid))
+		if not by.has(key):
+			by[key] = {"key": key, "category": "exposed", "area_polys": [], "feature_polys": [],
+				"objective_role": "", "type": str(p.get("type", "terrain")), "ids": []}
+			order.append(key)
+		var g: Dictionary = by[key]
+		var cat := str(tm.category_of(p))
+		if cat == "dense":
+			g.category = "dense"
+		elif cat == "light" and str(g.category) == "exposed":
+			g.category = "light"
+		g.ids.append(pid)
+		var poly: PackedVector2Array = tm._to_packed_polygon(p.get("polygon", PackedVector2Array()))
+		if poly.size() < 3:
+			continue
+		if str(p.get("piece_class", "")) != "feature":
+			g.area_polys.append(poly)
+			if str(p.get("objective_role", "")) != "" and str(g.objective_role) == "":
+				g.objective_role = str(p.get("objective_role", ""))
+			g.type = str(p.get("type", g.type))
+		else:
+			g.feature_polys.append(poly)
+	var out: Array = []
+	for key in order:
+		var g: Dictionary = by[key]
+		if (g.area_polys as Array).is_empty():
+			g.area_polys = (g.feature_polys as Array).duplicate()
+		if not (g.area_polys as Array).is_empty():
+			out.append(g)
+	return out
+
+static func _deploy_obstacle_circles(snapshot: Dictionary) -> Array:
+	"""[{p, r}] for every positioned model of every DEPLOYED unit (what the
+	builder treats as obstacles), r = bounding radius."""
+	var out: Array = []
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if not (u is Dictionary) or int(u.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for m in u.get("models", []):
+			if not (m is Dictionary) or m.get("position", null) == null:
+				continue
+			var pos = m.position
+			var pv: Vector2 = pos if pos is Vector2 else Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+			out.append({"p": pv, "r": _model_bounding_radius_px(int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))})
+	return out
+
+static func _deploy_wall_segments(tm) -> Array:
+	"""[{a, b}] wall segments of the live terrain (no model may end on a wall)."""
+	var out: Array = []
+	for piece in tm.terrain_features:
+		for w in piece.get("walls", []):
+			var a = w.get("start", null)
+			var b = w.get("end", null)
+			if a is Vector2 and b is Vector2:
+				out.append({"a": a, "b": b})
+	return out
+
+static func _deploy_point_clear(q: Vector2, r_px: float, deployed: Array, walls: Array) -> bool:
+	for d in deployed:
+		if q.distance_to(d.p) < r_px + float(d.r) + 4.0:
+			return false
+	for w in walls:
+		if q.distance_to(Geometry2D.get_closest_point_to_segment(q, w.a, w.b)) <= r_px + 1.0:
+			return false
+	return true
+
+static func _deploy_pocket_fill(pockets: Array, n_slots: int, r_px: float, pitch: float, deployed: Array, walls: Array) -> Dictionary:
+	"""Hex fill of n_slots models in the pocket polygons: rows pitch*sqrt(3)/2
+	apart, odd rows offset by pitch/2, scanned y then x per pocket; points
+	within r + r_d + 4 px of a deployed model, or within r of a wall, are
+	dropped. Seed = the deepest point (largest distance to its pocket's edge;
+	ties to scan order); then, repeatedly, the unused point within 1.05 x pitch
+	of the chosen set that is nearest the seed. {} when the lattice is too
+	small or the growth stalls — never a partial fill.
+	Returns {positions (slot order), seed, lattice}."""
+	if n_slots <= 0:
+		return {}
+	var pts: Array = []
+	var depth: Array = []
+	var row_step := pitch * 0.8660254
+	for pk in pockets:
+		var poly: PackedVector2Array = pk
+		var mn := Vector2(INF, INF)
+		var mx := Vector2(-INF, -INF)
+		for v in poly:
+			mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
+			mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
+		var box := Rect2(mn, mx - mn).grow(r_px + 8.0)
+		var near_deployed: Array = []
+		for d in deployed:
+			if box.grow(float(d.r)).has_point(d.p):
+				near_deployed.append(d)
+		var near_walls: Array = []
+		for w in walls:
+			if box.intersects(Rect2(w.a, Vector2.ZERO).expand(w.b).grow(1.0)):
+				near_walls.append(w)
+		var row := 0
+		var y := mn.y
+		while y <= mx.y + 0.01:
+			var x := mn.x + (pitch * 0.5 if row % 2 == 1 else 0.0)
+			while x <= mx.x + 0.01:
+				var q := Vector2(x, y)
+				if Geometry2D.is_point_in_polygon(q, poly) and _deploy_point_clear(q, r_px, near_deployed, near_walls):
+					pts.append(q)
+					depth.append(_dist_to_boundary_px(q, poly))
+				x += pitch
+			y += row_step
+			row += 1
+	var n := pts.size()
+	if n < n_slots:
+		return {}
+	var seed_i := 0
+	for i in range(n):
+		if float(depth[i]) > float(depth[seed_i]):
+			seed_i = i
+	var seed_pt: Vector2 = pts[seed_i]
+	var used: Array = []
+	var adj: Array = []
+	used.resize(n)
+	adj.resize(n)
+	used.fill(false)
+	adj.fill(false)
+	var reach := pitch * 1.05
+	var chosen: Array = [seed_i]
+	used[seed_i] = true
+	for j in range(n):
+		if (pts[j] as Vector2).distance_to(seed_pt) <= reach:
+			adj[j] = true
+	while chosen.size() < n_slots:
+		var best := -1
+		var best_d := INF
+		for i in range(n):
+			if used[i] or not adj[i]:
+				continue
+			var d: float = (pts[i] as Vector2).distance_squared_to(seed_pt)
+			if d < best_d:
+				best_d = d
+				best = i
+		if best < 0:
+			return {}
+		chosen.append(best)
+		used[best] = true
+		var bp: Vector2 = pts[best]
+		for j in range(n):
+			if not adj[j] and (pts[j] as Vector2).distance_to(bp) <= reach:
+				adj[j] = true
+	var out: Array = []
+	for i in chosen:
+		out.append(pts[i])
+	return {"positions": out, "seed": seed_pt, "lattice": n}
+
+static func _deploy_front_samples(frame: Dictionary, k: int) -> Array:
+	"""k points on the enemy zone's boundary facing us — within gap_min + 4" of
+	the own zone — spread evenly along `lat`. [] when k <= 0."""
+	if k <= 0:
+		return []
+	var en: PackedVector2Array = frame.enemy_poly
+	var own: PackedVector2Array = frame.own_poly
+	var band: float = float(frame.gap_min) + 160.0
+	var lat: Vector2 = frame.lat
+	var pts: Array = []
+	for i in range(en.size()):
+		var a: Vector2 = en[i]
+		var b: Vector2 = en[(i + 1) % en.size()]
+		var steps := maxi(1, int(a.distance_to(b) / 80.0))
+		for s in range(steps):
+			var q: Vector2 = a.lerp(b, float(s) / float(steps))
+			if _dist_point_polygon_px(q, own) <= band:
+				pts.append(q)
+	pts.sort_custom(func(p, q):
+		var dp: float = (p as Vector2).dot(lat)
+		var dq: float = (q as Vector2).dot(lat)
+		if dp != dq:
+			return dp < dq
+		return (p as Vector2).y < (q as Vector2).y)
+	if pts.size() <= k:
+		return pts
+	var out: Array = []
+	if k == 1:
+		out.append(pts[pts.size() / 2])
+		return out
+	for j in range(k):
+		out.append(pts[int(round(float(j) * float(pts.size() - 1) / float(k - 1)))])
+	return out
+
+static func _deploy_shadow_share(tm, samples: Array, anchor: Vector2) -> Dictionary:
+	"""Share of the enemy-front samples whose sight line to `anchor` is blocked
+	by an obscuring area (TerrainManager.is_obscured_between, 13.10).
+	{share, blocked, n}; share 1.0 with no samples."""
+	if samples.is_empty():
+		return {"share": 1.0, "blocked": 0, "n": 0}
+	var blocked := 0
+	for s in samples:
+		if tm.is_obscured_between(s, anchor):
+			blocked += 1
+	return {"share": float(blocked) / float(samples.size()), "blocked": blocked, "n": samples.size()}
+
+static func _deploy_terrain_fit_11e(role: String, category: String, relation: String, shadow_share: float,
+		forwardness: float, detected: bool = false) -> float:
+	"""deploy_terrain of an 11e spot. inside: COVER (13.08: every model within a
+	terrain area) plus LOS_BLOCK when the area is dense and the pocket is
+	beyond the enemy's detection range (13.09 Hidden); behind a light or dense
+	area: (COVER + LOS_BLOCK) x the share of enemy-front sight lines it blocks
+	(13.10 — light and dense obscure alike); an exposed area: 0. Melee adds
+	FORWARD_WEIGHT x forwardness. (Inside a LIGHT area is unit math only: the
+	picker generates inside spots for dense areas alone.)"""
+	if category != "dense" and category != "light":
+		return 0.0
+	var w := _deploy_role_terrain_weights(role)
+	var fit_score := 0.0
+	if relation == "inside":
+		fit_score += w.x
+		if category == "dense" and not detected:
+			fit_score += w.y
+	else:
+		fit_score += (w.x + w.y) * clampf(shadow_share, 0.0, 1.0)
+	if role == "melee":
+		fit_score += get_param("DEPLOY_TERRAIN_FORWARD_WEIGHT", DEPLOY_TERRAIN_FORWARD_WEIGHT) * forwardness
+	return fit_score
+
+static func _find_terrain_spot_11e(baseline_pos: Vector2, role: String, unit: Dictionary, unit_id: String,
+		terrain_features: Array, zone_bounds: Dictionary, frame: Dictionary, objectives: Array,
+		snapshot: Dictionary, player: int) -> Dictionary:
+	"""The 11e terrain spots for one unit (P0.3 §3), scored and ranked:
+	INSIDE each dense area's in-zone pocket (hide-capable bodyguards only; the
+	pocket must hold every model, attached characters included) and BEHIND
+	each light / dense area within reach of the zone, on the side away from
+	the enemy (every unit). Spots beyond the lateral drift cap are dropped;
+	spots under DEPLOY_TERRAIN_MIN_SCORE are kept apart (below_bar).
+	{ranked, below_bar, dropped_lateral, dense_polys, n_slots, n_inside,
+	n_behind, detection_in}."""
+	var out := {"ranked": [], "below_bar": [], "dropped_lateral": 0, "dense_polys": [], "n_slots": 0,
+		"n_inside": 0, "n_behind": 0, "detection_in": GameConstants.hidden_detection_range_inches()}
+	var tm = _terrain_manager()
+	if tm == null:
+		return out
+	var slot_info: Dictionary = _FormationBuilderScript.model_slots(snapshot, player, unit_id)
+	if not bool(slot_info.get("ok", false)):
+		return out
+	var slots: Array = slot_info.slots
+	var n_slots := slots.size()
+	out.n_slots = n_slots
+	var r := 0.0
+	for sl in slots:
+		r = maxf(r, float(sl.r_out))
+	var pitch := 2.0 * r + 10.0
+	var groups := _deploy_area_groups(terrain_features)
+	var dense_polys: Array = []
+	for g in groups:
+		if str(g.category) == "dense":
+			dense_polys.append_array(g.area_polys)
+	out.dense_polys = dense_polys
+	var own_poly: PackedVector2Array = frame.own_poly
+	var enemy_poly: PackedVector2Array = frame.enemy_poly
+	var lat: Vector2 = frame.lat
+	var away: Vector2 = -(frame.fwd as Vector2)
+	var hide := _unit_hidden_eligible(unit)
+	var det_in: float = tm.detection_range_base_inches(unit) if tm.has_method("detection_range_base_inches") else GameConstants.hidden_detection_range_inches()
+	out.detection_in = det_in
+	var det_px: float = det_in * PIXELS_PER_INCH
+	var cands: Array = []
+	# INSIDE dense pockets (13.08 + 13.09).
+	if hide:
+		var deployed := _deploy_obstacle_circles(snapshot)
+		var walls := _deploy_wall_segments(tm)
+		var eroded: Array = Geometry2D.offset_polygon(own_poly, -r)
+		for g in groups:
+			if str(g.category) != "dense":
+				continue
+			var pockets: Array = []
+			for ez in eroded:
+				for ap in g.area_polys:
+					for ip in Geometry2D.intersect_polygons(ap, ez):
+						if (ip as PackedVector2Array).size() >= 3:
+							pockets.append(ip)
+			if pockets.is_empty():
+				continue
+			var fill := _deploy_pocket_fill(pockets, n_slots, r, pitch, deployed, walls)
+			if fill.is_empty():
+				continue
+			var positions: Array = fill.positions
+			# Eligibility is the engine's own 13.09 predicate at the seed point.
+			if not _position_would_be_hidden(unit, positions[0], int(slots[0].base_mm)):
+				continue
+			var c := _deploy_mean(positions)
+			var gap := INF
+			for i in range(positions.size()):
+				gap = minf(gap, _dist_point_polygon_px(positions[i], enemy_poly) - float(slots[i].r_out))
+			var detected := gap <= det_px
+			var f := _frame_forwardness(frame, c)
+			var terms := {}
+			var fit := _deploy_terrain_fit_11e(role, "dense", "inside", 1.0, f, detected)
+			var hidden_pts := 0.0 if detected else get_param("DEPLOY_11E_HIDDEN_BONUS", DEPLOY_11E_HIDDEN_BONUS)
+			var spot_score := _t_add(terms, "deploy_terrain", fit)
+			spot_score += _t_add(terms, "deploy_hidden", hidden_pts)
+			spot_score += _deploy_spot_common_terms(c, role, baseline_pos, frame, objectives, terms)
+			if not terms.has("deploy_hidden"):
+				terms["deploy_hidden"] = 0.0
+			if not terms.has("deploy_terrain"):
+				terms["deploy_terrain"] = 0.0
+			cands.append({"rel": "inside", "key": str(g.key), "category": "dense", "type": str(g.type),
+				"objective_role": str(g.objective_role), "anchor": c, "fill": positions, "pockets": pockets,
+				"inside_polys": g.area_polys, "detected": detected, "gap_in": snappedf(gap / PIXELS_PER_INCH, 0.1),
+				"score": spot_score, "terms": terms})
+			out.n_inside += 1
+	# BEHIND obscuring areas (13.10), away from the enemy.
+	var samples := _deploy_front_samples(frame, get_param_int("DEPLOY_11E_SHADOW_SAMPLES", DEPLOY_11E_SHADOW_SAMPLES))
+	var reach_px := get_param("DEPLOY_11E_BEHIND_REACH_IN", DEPLOY_11E_BEHIND_REACH_IN) * PIXELS_PER_INCH
+	var clear_px := get_param("DEPLOY_11E_BEHIND_CLEARANCE_IN", DEPLOY_11E_BEHIND_CLEARANCE_IN) * PIXELS_PER_INCH
+	var min_shadow := get_param("DEPLOY_11E_MIN_SHADOW", DEPLOY_11E_MIN_SHADOW)
+	var cols := mini(5, maxi(1, n_slots))
+	var rows := int(ceil(float(n_slots) / float(cols)))
+	var ext := maxf(r, float(maxi(cols, rows)) * pitch * 0.5)
+	for g in groups:
+		var cat := str(g.category)
+		if cat != "dense" and cat != "light":
+			continue
+		var near := INF
+		for ap in g.area_polys:
+			for v in ap:
+				near = minf(near, _dist_point_polygon_px(v, own_poly))
+		if near > reach_px:
+			continue
+		var c0 := Vector2.ZERO
+		for ap in g.area_polys:
+			c0 += _polygon_centroid_px(ap)
+		c0 /= float(maxi(1, (g.area_polys as Array).size()))
+		var h := -INF
+		var wl := 0.0
+		for ap in g.area_polys:
+			for v in ap:
+				h = maxf(h, ((v as Vector2) - c0).dot(away))
+				wl = maxf(wl, absf(((v as Vector2) - c0).dot(lat)))
+		var avoid: Array = (g.area_polys as Array).duplicate()
+		if hide:
+			for dp in dense_polys:
+				if not avoid.has(dp):
+					avoid.append(dp)
+		for o in [0.0, wl * 0.5, -wl * 0.5]:
+			var anchor: Vector2 = c0 + away * (h + ext + clear_px) + lat * float(o)
+			if not Geometry2D.is_point_in_polygon(anchor, own_poly) or _dist_to_boundary_px(anchor, own_poly) < r:
+				continue
+			var sh := _deploy_shadow_share(tm, samples, anchor)
+			if float(sh.share) < min_shadow:
+				continue
+			var f := _frame_forwardness(frame, anchor)
+			var terms := {}
+			var fit := _deploy_terrain_fit_11e(role, cat, "behind", float(sh.share), f)
+			var spot_score := _t_add(terms, "deploy_terrain", fit)
+			spot_score += _deploy_spot_common_terms(anchor, role, baseline_pos, frame, objectives, terms)
+			if not terms.has("deploy_terrain"):
+				terms["deploy_terrain"] = 0.0
+			cands.append({"rel": "behind", "key": str(g.key), "category": cat, "type": str(g.type),
+				"objective_role": str(g.objective_role), "anchor": anchor, "avoid": avoid,
+				"shadow": float(sh.share), "blocked": int(sh.blocked), "samples": int(sh.n),
+				"score": spot_score, "terms": terms})
+			out.n_behind += 1
+	var width: float = float(frame.t_max) - float(frame.t_min)
+	var max_lat: float = get_param("DEPLOY_TERRAIN_MAX_LATERAL_DRIFT", DEPLOY_TERRAIN_MAX_LATERAL_DRIFT) * width
+	var min_score := get_param("DEPLOY_TERRAIN_MIN_SCORE", DEPLOY_TERRAIN_MIN_SCORE)
+	for cd in cands:
+		if absf(((cd.anchor as Vector2) - baseline_pos).dot(lat)) > max_lat:
+			out.dropped_lateral += 1
+			continue
+		if float(cd.score) < min_score:
+			out.below_bar.append(cd)
+		else:
+			out.ranked.append(cd)
+	(out.ranked as Array).sort_custom(func(a, b): return _deploy_spot_before(a, b))
+	(out.below_bar as Array).sort_custom(func(a, b): return _deploy_spot_before(a, b))
+	return out
+
+static func _deploy_hidden_tally(snapshot: Dictionary, unit: Dictionary, built: Dictionary) -> Dictionary:
+	"""Of the models a build placed (bodyguard + attached characters): how many
+	could be Hidden (their own unit is hide-capable) and how many the engine's
+	13.09 predicate says ARE Hidden at those positions. {eligible, hidden, models}."""
+	var eligible := 0
+	var hidden := 0
+	var placed := 0
+	var models: Array = unit.get("models", [])
+	var hide_bg := _unit_hidden_eligible(unit)
+	var pos: Array = built.get("model_positions", [])
+	for i in range(pos.size()):
+		if pos[i] == null or i >= models.size():
+			continue
+		placed += 1
+		if not hide_bg:
+			continue
+		eligible += 1
+		if _position_would_be_hidden(unit, pos[i], int(models[i].get("base_mm", 32))):
+			hidden += 1
+	var ccd: Dictionary = built.get("combined_char_data", {})
+	for cid in ccd:
+		var cu: Dictionary = snapshot.get("units", {}).get(cid, {})
+		var cm: Array = cu.get("models", [])
+		var hide_c := _unit_hidden_eligible(cu)
+		for e in ccd[cid]:
+			placed += 1
+			if not hide_c:
+				continue
+			var mi := int(e.get("model_idx", 0))
+			eligible += 1
+			var cb := int(cm[mi].get("base_mm", 32)) if mi < cm.size() else -1
+			if _position_would_be_hidden(cu, Vector2(float(e.get("x", 0.0)), float(e.get("y", 0.0))), cb):
+				hidden += 1
+	return {"eligible": eligible, "hidden": hidden, "models": placed}
+
+static func _deploy_build_spot(cd: Dictionary, snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
+		max_fresh: int, max_evals: int, behind_shift_px: float) -> Dictionary:
+	"""Build one terrain spot with the FormationBuilder pinned to it (a probe:
+	its failure is expected and is not a no-legal-set-up defect). inside: the
+	pocket fill as the seed, every model centre inside the area, anchors only
+	in the pocket; then every hide-capable model must be Hidden by the engine.
+	behind: no model's bounding circle on the area (nor, for hide-capable
+	units, on any dense area), within DEPLOY_11E_BEHIND_MAX_SHIFT_IN of the
+	anchor, and never partly Hidden. {ok, reason, fresh, built, hidden}."""
+	var extra := {"probe": true, "max_fresh": max_fresh, "max_evals": max_evals, "grow": false}
+	if str(cd.rel) == "inside":
+		extra["seed_positions"] = cd.fill
+		extra["inside_polys"] = cd.inside_polys
+		extra["anchor_region"] = cd.pockets
+	else:
+		extra["avoid_polys"] = cd.avoid
+		extra["max_displacement_px"] = behind_shift_px
+	var b: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, cd.anchor, _formation_opts(extra))
+	var res := {"ok": false, "reason": "", "fresh": int(b.get("fresh", 0)), "built": b, "hidden": {}}
+	if not bool(b.get("ok", false)):
+		res.reason = str(b.get("reason", "no legal set-up"))
+		return res
+	var tally := _deploy_hidden_tally(snapshot, unit, b)
+	res.hidden = tally
+	if str(cd.rel) == "inside" and int(tally.hidden) < int(tally.eligible):
+		res.reason = "inside: only %d of %d models would be Hidden" % [int(tally.hidden), int(tally.eligible)]
+		return res
+	if str(cd.rel) == "behind" and int(tally.hidden) > 0 and int(tally.hidden) < int(tally.eligible):
+		res.reason = "behind: %d of %d models would be Hidden (a partly Hidden unit)" % [int(tally.hidden), int(tally.eligible)]
+		return res
+	res.ok = true
+	return res
+
+static func _deploy_objective_suffix(role: String) -> String:
+	return "" if role == "" else " (%s objective)" % role
+
+static func _deploy_spot_what(cd: Dictionary) -> String:
+	return "%s %s%s" % [str(cd.category), str(cd.type).replace("_", " "), _deploy_objective_suffix(str(cd.objective_role))]
+
+static func _deploy_spot_label(cd: Dictionary, p: Vector2, n_models: int, det_in: float) -> String:
+	"""K-card text for a spot the unit was (or could be) set up at."""
+	if str(cd.rel) == "inside":
+		if bool(cd.get("detected", false)):
+			return "Inside %s — all %d models Hidden, but within %d\" of the enemy zone (%.0f, %.0f)" % [
+				_deploy_spot_what(cd), n_models, int(round(det_in)), p.x, p.y]
+		return "Inside %s — all %d models Hidden (%.0f, %.0f)" % [_deploy_spot_what(cd), n_models, p.x, p.y]
+	if int(cd.get("samples", 0)) <= 0:
+		return "Behind %s, away from the enemy (%.0f, %.0f)" % [_deploy_spot_what(cd), p.x, p.y]
+	return "Behind %s, away from the enemy — %d/%d enemy sight lines blocked (%.0f, %.0f)" % [
+		_deploy_spot_what(cd), int(cd.blocked), int(cd.samples), p.x, p.y]
+
+static func _deploy_spot_label_unused(cd: Dictionary, p: Vector2, n_models: int, why: String) -> String:
+	"""K-card text for a spot that was tried and failed, or skipped for budget."""
+	var where := "Inside" if str(cd.rel) == "inside" else "Behind"
+	if why.begins_with("not tried"):
+		return "%s %s (%.0f, %.0f) — not tried: the build budget for this drop was spent" % [where, _deploy_spot_what(cd), p.x, p.y]
+	if str(cd.rel) == "inside":
+		return "%s %s (%.0f, %.0f) — not used: no legal set-up for all %d models fits there" % [where, _deploy_spot_what(cd), p.x, p.y, n_models]
+	return "%s %s (%.0f, %.0f) — not used: no legal set-up fits there" % [where, _deploy_spot_what(cd), p.x, p.y]
+
+static func _deploy_11e_decide(snapshot: Dictionary, player: int, unit_id: String, unit: Dictionary,
+		unit_name: String, unit_role: String, baseline_pos: Vector2, col_index: int, depth_row: int,
+		zone_bounds: Dictionary, frame: Dictionary, objectives: Array, terrain_features: Array,
+		plan_name: String) -> Dictionary:
+	"""P0.3 formula tail at 11e: rank the terrain spots, build them in order
+	until one is legal (FormationBuilder pinned to the spot), else the column
+	spot (kept out of dense areas first for hide-capable units, then the
+	unconstrained P0.1 build). The record is written from the FINAL positions."""
+	var t0 := Time.get_ticks_usec()
+	var pick := _find_terrain_spot_11e(baseline_pos, unit_role, unit, unit_id, terrain_features,
+		zone_bounds, frame, objectives, snapshot, player)
+	var ranked: Array = pick.get("ranked", [])
+	var tries_max := get_param_int("DEPLOY_11E_MAX_BUILD_TRIES", DEPLOY_11E_MAX_BUILD_TRIES)
+	var spot_fresh := get_param_int("DEPLOY_11E_BUILD_MAX_FRESH", DEPLOY_11E_BUILD_MAX_FRESH)
+	var spot_evals := get_param_int("DEPLOY_11E_BUILD_MAX_EVALS", DEPLOY_11E_BUILD_MAX_EVALS)
+	var drop_fresh := get_param_int("DEPLOY_11E_DROP_MAX_FRESH", DEPLOY_11E_DROP_MAX_FRESH)
+	var behind_shift_px := get_param("DEPLOY_11E_BEHIND_MAX_SHIFT_IN", DEPLOY_11E_BEHIND_MAX_SHIFT_IN) * PIXELS_PER_INCH
+	var used_fresh := 0
+	var tries := 0
+	var chosen_i := -1
+	var built: Dictionary = {}
+	var tally: Dictionary = {}
+	for i in range(ranked.size()):
+		var cd: Dictionary = ranked[i]
+		if tries >= tries_max or used_fresh >= drop_fresh:
+			cd["status"] = "untried"
+			cd["why"] = "not tried: the per-drop build budget is spent (%d spots, %d checks)" % [tries, used_fresh]
+			continue
+		tries += 1
+		var res := _deploy_build_spot(cd, snapshot, player, unit_id, unit, mini(spot_fresh, drop_fresh - used_fresh), spot_evals, behind_shift_px)
+		used_fresh += int(res.get("fresh", 0))
+		if bool(res.ok):
+			chosen_i = i
+			built = res.built
+			tally = res.hidden
+			cd["status"] = "chosen"
+			break
+		cd["status"] = "failed"
+		cd["why"] = str(res.reason)
+		_deploy11e_log("%s: spot %d (%s %s, %.2f) not used — %s" % [unit_name, i, str(cd.rel), str(cd.key), float(cd.score), str(res.reason)])
+	var relation := "baseline"
+	var baseline_note := ""
+	if chosen_i >= 0:
+		relation = str(ranked[chosen_i].rel)
+	else:
+		# The column-layout spot. A hide-capable unit is kept out of every dense
+		# area first (no partly Hidden unit), within a few inches; then the
+		# unconstrained P0.1 build, which always finds a legal set-up if one exists.
+		var dense_polys: Array = pick.get("dense_polys", [])
+		if _unit_hidden_eligible(unit) and not dense_polys.is_empty():
+			var avoid_px := get_param("DEPLOY_11E_BASELINE_AVOID_SHIFT_IN", DEPLOY_11E_BASELINE_AVOID_SHIFT_IN) * PIXELS_PER_INCH
+			var b0: Dictionary = _FormationBuilderScript.build_deployment(snapshot, player, unit_id, baseline_pos, _formation_opts({
+				"probe": true, "avoid_polys": dense_polys, "max_displacement_px": avoid_px, "grow": false,
+				"max_fresh": spot_fresh, "max_evals": spot_evals}))
+			if bool(b0.get("ok", false)):
+				var t_b0 := _deploy_hidden_tally(snapshot, unit, b0)
+				if int(t_b0.hidden) == 0 or int(t_b0.hidden) >= int(t_b0.eligible):
+					built = b0
+					tally = t_b0
+					baseline_note = "kept out of dense areas"
+			if built.is_empty():
+				baseline_note = "column spot: %s" % str(b0.get("reason", "partly Hidden"))
+		if built.is_empty():
+			built = _build_formation(snapshot, player, unit_id, baseline_pos)
+			if bool(built.get("ok", false)):
+				tally = _deploy_hidden_tally(snapshot, unit, built)
+	var action := _formation_action_from_built(snapshot, unit_id, unit_name, unit_role, built, col_index, depth_row)
+	var final_c := _deploy_positions_centroid(action.get("model_positions", []))
+	if final_c == Vector2.INF:
+		final_c = baseline_pos
+	if bool(built.get("ok", false)) and chosen_i >= 0:
+		var cdc: Dictionary = ranked[chosen_i]
+		action["_ai_description"] += " — %s %s %s%s" % ["inside" if relation == "inside" else "behind",
+			str(cdc.category), str(cdc.type).replace("_", " "), " (Hidden)" if relation == "inside" and not bool(cdc.get("detected", false)) else ""]
+	var unbuildable := _deploy_11e_record(snapshot, player, unit_id, unit_name, unit_role, pick, ranked, chosen_i,
+		baseline_pos, final_c, built, tally, plan_name, tries, zone_bounds, objectives, baseline_note)
+	_note_deploy_pick(relation if bool(built.get("ok", false)) else "baseline", tries, unbuildable)
+	var us := Time.get_ticks_usec() - t0
+	var pick_txt := "column spot%s" % ((" (" + baseline_note + ")") if baseline_note != "" else "")
+	if chosen_i >= 0:
+		pick_txt = "#%d %s %s %.2f" % [chosen_i, relation, str(ranked[chosen_i].key), float(ranked[chosen_i].score)]
+	_deploy11e_log("%s (P%d, %s): %d spots (%d inside, %d behind, %d under the bar, %d off-column) -> %s; tried %d, unbuildable %d, hidden %d/%d, %.1f ms" % [
+		unit_name, player, unit_role, ranked.size(), int(pick.n_inside), int(pick.n_behind), (pick.below_bar as Array).size(),
+		int(pick.dropped_lateral), pick_txt, tries, unbuildable, int(tally.get("hidden", 0)), int(tally.get("eligible", 0)), float(us) / 1000.0])
+	if chosen_i >= 0:
+		_add_thinking_step("%s: %s" % [unit_name, ("inside %s, every model Hidden" if relation == "inside" else "behind %s, out of the enemy's sight") % _deploy_spot_what(ranked[chosen_i])])
+	return action
+
+static func _deploy_11e_record(snapshot: Dictionary, player: int, unit_id: String, unit_name: String, unit_role: String,
+		pick: Dictionary, ranked: Array, chosen_i: int, baseline_pos: Vector2, final_c: Vector2, built: Dictionary,
+		tally: Dictionary, plan_name: String, tries: int, zone_bounds: Dictionary, objectives: Array,
+		baseline_note: String) -> int:
+	"""The deployment record of the 11e picker, written from the FINAL
+	positions: the chosen spot's pos / coordinates / context.unit_pos are the
+	final formation centroid. Listed: every ranked spot — tried-and-failed and
+	budget-skipped ones with eligible: false and a reason — the spots under
+	the bar, and the column-layout spot, so a record always has >= 2 options
+	and the chosen one is the best ELIGIBLE option. When a higher-scoring spot
+	could not be set up, context.override_reason says so (the K card's
+	"scored higher" line then explains it). No terrain spot at all: the A6
+	ring of alternates (source formula / formula_fallback). Returns the
+	number of unbuildable spots."""
+	var below: Array = pick.get("below_bar", [])
+	var min_score := get_param("DEPLOY_TERRAIN_MIN_SCORE", DEPLOY_TERRAIN_MIN_SCORE)
+	var det_in: float = pick.get("detection_in", 15.0)
+	var n_models := int(tally.get("models", int(pick.get("n_slots", 0))))
+	if n_models <= 0:
+		n_models = int(pick.get("n_slots", 0))
+	var form_ctx := _formation_context(built)
+	if ranked.is_empty() and below.is_empty():
+		_deploy_terrain_choice = {}
+		_deploy_formula_record(snapshot, player, unit_id, unit_name, unit_role, baseline_pos, zone_bounds, objectives,
+			plan_name, final_c, {"picker": "11e", "spots": 0, "formation": form_ctx,
+				"hidden": "%d/%d" % [int(tally.get("hidden", 0)), int(tally.get("eligible", 0))]})
+		return 0
+	var scored: Array = []
+	var chosen_key := "baseline"
+	var chosen_score := min_score
+	if chosen_i >= 0:
+		chosen_key = "s%d" % chosen_i
+		chosen_score = float(ranked[chosen_i].score)
+	var unbuildable := 0
+	var reasons: Array = []
+	var higher_unbuilt := 0
+	var higher_untried := 0
+	for i in range(ranked.size()):
+		var cd: Dictionary = ranked[i]
+		var st := str(cd.get("status", ""))
+		var p: Vector2 = final_c if i == chosen_i else (cd.anchor as Vector2)
+		var entry := {"key": "s%d" % i, "score": float(cd.score), "pos": [p.x, p.y],
+			"score_breakdown": (cd.terms as Dictionary).duplicate(), "relation": str(cd.rel)}
+		if st == "failed" or (st == "untried" and cd.has("why")):
+			var why := str(cd.get("why", ""))
+			entry["description"] = _deploy_spot_label_unused(cd, p, n_models, why)
+			entry["eligible"] = false
+			entry["reason"] = why
+			if st == "failed":
+				unbuildable += 1
+				if reasons.size() < 3:
+					reasons.append(why)
+			if float(cd.score) > chosen_score:
+				if st == "failed":
+					higher_unbuilt += 1
+				else:
+					higher_untried += 1
+		else:
+			entry["description"] = _deploy_spot_label(cd, p, n_models, det_in)
+		scored.append(entry)
+	for j in range(below.size()):
+		var cb: Dictionary = below[j]
+		var pb: Vector2 = cb.anchor
+		scored.append({"key": "b%d" % j, "score": float(cb.score), "pos": [pb.x, pb.y],
+			"score_breakdown": (cb.terms as Dictionary).duplicate(), "relation": str(cb.rel),
+			"description": _deploy_spot_label(cb, pb, n_models, det_in) + " — under the %.1f bar" % min_score})
+	var bp: Vector2 = final_c if chosen_i < 0 else baseline_pos
+	scored.append({"description": "Column-layout spot (%.0f, %.0f) — used unless a terrain spot scores %.1f+" % [bp.x, bp.y, min_score],
+		"score": min_score, "key": "baseline", "pos": [bp.x, bp.y], "score_breakdown": {"deploy_baseline_bar": min_score},
+		"relation": "baseline"})
+	var ctx := {"phase": "deployment", "role": unit_role, "source": "terrain-aware placement",
+		"plan": plan_name, "unit_pos": [final_c.x, final_c.y], "picker": "11e",
+		"relation": str(ranked[chosen_i].rel) if chosen_i >= 0 else "baseline",
+		"spots": ranked.size(), "tried": tries, "unbuildable_spots": unbuildable, "unbuildable_reasons": reasons,
+		"formation": form_ctx, "hidden": "%d/%d" % [int(tally.get("hidden", 0)), int(tally.get("eligible", 0))]}
+	if baseline_note != "":
+		ctx["baseline_note"] = baseline_note
+	if higher_unbuilt + higher_untried > 0:
+		var parts: Array = []
+		if higher_unbuilt > 0:
+			parts.append("no legal set-up for the whole unit fits at %s" % ("that spot" if higher_unbuilt == 1 else "%d higher-scoring spots" % higher_unbuilt))
+		if higher_untried > 0:
+			parts.append("%d higher-scoring spot%s not tried: the build budget for this drop was spent" % [higher_untried, "" if higher_untried == 1 else "s were"])
+		ctx["override_reason"] = "; ".join(parts)
+	_record_choice("deployment", unit_id, unit_name, scored, chosen_key, ctx)
+	return unbuildable
 
 # =============================================================================
 # REDEPLOYMENT PHASE
