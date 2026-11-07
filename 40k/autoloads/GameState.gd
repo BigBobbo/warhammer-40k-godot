@@ -993,7 +993,8 @@ func get_redeploy_units_for_player(player: int) -> Array:
 	return redeploy_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:
-	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""
+	"""Get the enemy's deployment zone for a given player (for the Infiltrators
+	stand-off check — GameConstants.infiltrators_min_enemy_distance_inches(), 11e >8\")"""
 	var enemy_player = 3 - player
 	return get_deployment_zone_for_player(enemy_player)
 

@@ -4,7 +4,7 @@ class_name ScoutPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ScoutPhase - Handles the pre-game Scout moves after Roll-Off and before Turn 1
-# 11e 24.31 SCOUTS / 24.32 SCOUT MOVE (10e + Balance Dataslate wording in brackets):
+# 11e 24.31 SCOUTS / 24.32 SCOUT MOVE (10e + Balance Dataslate where noted):
 # - Units with Scouts X" can make a scout move of up to X" after deployment
 # - The distance moved can exceed the model's Move characteristic, as long as ≤ X"
 # - Must end more than GameConstants.scout_min_enemy_distance_inches() from all

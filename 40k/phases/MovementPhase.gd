@@ -699,7 +699,8 @@ func _validate_begin_fall_back(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit is not engaged, use Normal Move instead"]}
 
 	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
-	# (Theoretically unreachable since reserves arrive >9" from enemies, but added for robustness)
+	# (Theoretically unreachable since reserves arrive more than the ingress stand-off
+	# from enemies — GameConstants: 11e >8", 10e >9" — but added for robustness)
 	var arrived_turn = unit.get("arrived_from_reserves_turn", -1)
 	if arrived_turn >= 0 and arrived_turn == GameState.get_battle_round():
 		return {"valid": false, "errors": ["Unit arrived from reserves this turn and cannot move further"]}
