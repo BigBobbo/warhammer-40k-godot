@@ -445,7 +445,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-7"
+   "parent_area_id": "area-medium-8"
   },
   {
    "id": "corner-short-10",
@@ -490,7 +490,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-8"
+   "parent_area_id": "area-medium-7"
   },
   {
    "id": "corner-short-11",
@@ -535,7 +535,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-7"
+   "parent_area_id": "area-medium-8"
   },
   {
    "id": "corner-short-12",
@@ -580,7 +580,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-8"
+   "parent_area_id": "area-medium-7"
   },
   {
    "id": "area-large-13",

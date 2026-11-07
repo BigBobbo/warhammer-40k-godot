@@ -1280,7 +1280,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Side"
+   "link_group": "Side#2"
   },
   {
    "id": "generator-29",
@@ -1428,7 +1428,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Side"
+   "link_group": "Side#2"
   },
   {
    "id": "pipe-33",
@@ -1576,7 +1576,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Bot"
+   "link_group": "Bot#2"
   },
   {
    "id": "corner-short-37",
@@ -1832,7 +1832,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Bot"
+   "link_group": "Bot#2"
   },
   {
    "id": "catwalk-43",

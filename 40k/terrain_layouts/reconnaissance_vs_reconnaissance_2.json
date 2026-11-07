@@ -1070,7 +1070,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#2"
   },
   {
    "id": "catwalk-27",
@@ -1218,7 +1218,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#2"
   },
   {
    "id": "corner-short-31",
@@ -1436,7 +1436,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#3"
   },
   {
    "id": "area-long-line-36",
@@ -1474,7 +1474,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#4"
   },
   {
    "id": "gantry-37",
@@ -1797,7 +1797,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#3"
   },
   {
    "id": "area-short-line-44",
@@ -1834,7 +1834,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#4"
   },
   {
    "id": "pipe-45",

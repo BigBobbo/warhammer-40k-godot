@@ -747,7 +747,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-15"
+   "parent_area_id": "area-large-16"
   },
   {
    "id": "corner-ruin-left-18",
@@ -792,7 +792,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-16"
+   "parent_area_id": "area-large-15"
   },
   {
    "id": "corner-ruin-right-19",
@@ -837,7 +837,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-15"
+   "parent_area_id": "area-large-16"
   },
   {
    "id": "corner-ruin-right-20",
@@ -882,7 +882,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-16"
+   "parent_area_id": "area-large-15"
   },
   {
    "id": "area-large-21",
@@ -1005,7 +1005,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-21"
+   "parent_area_id": "area-large-22"
   },
   {
    "id": "corner-ruin-balanced-right-24",
@@ -1050,7 +1050,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-22"
+   "parent_area_id": "area-large-21"
   },
   {
    "id": "corner-short-25",

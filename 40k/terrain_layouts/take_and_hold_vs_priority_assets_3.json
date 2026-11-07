@@ -1018,7 +1018,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Cluster"
+   "link_group": "Cluster#2"
   },
   {
    "id": "pipe-23",
@@ -1168,7 +1168,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Cluster"
+   "link_group": "Cluster#2"
   },
   {
    "id": "generator-27",

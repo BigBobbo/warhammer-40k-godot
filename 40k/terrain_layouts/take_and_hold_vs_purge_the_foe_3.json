@@ -1003,7 +1003,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-21"
+   "parent_area_id": "area-large-22"
   },
   {
    "id": "corner-ruin-right-24",
@@ -1048,7 +1048,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-22"
+   "parent_area_id": "area-large-21"
   },
   {
    "id": "corner-ruin-balanced-left-25",

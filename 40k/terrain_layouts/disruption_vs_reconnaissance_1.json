@@ -1602,7 +1602,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "pipe-37",
@@ -1752,7 +1752,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "generator-41",
