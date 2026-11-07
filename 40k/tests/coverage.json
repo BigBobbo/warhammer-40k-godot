@@ -2834,7 +2834,8 @@
       "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a light or dense feature (13.09 errata; any part of base), unit hasn't made ranged attacks this or last turn. Group-aware so a model on one linked boundary half counts the whole area's pieces. A codex 'hidden unit' has at least one hidden model (01.02.07).",
       "scenarios": [
         "los_terrain_area_11e_far",
-        "mp:tests/test_hidden_unit_descriptor_11e.gd"
+        "mp:tests/test_hidden_unit_descriptor_11e.gd",
+        "terrain_home_area_hidden_obscuring_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -7088,7 +7089,8 @@
       "scenarios": [
         "los_overlay_l_key",
         "hidden_light_terrain_errata_11e",
-        "mp:tests/test_hidden_label_11e.gd"
+        "mp:tests/test_hidden_label_11e.gd",
+        "terrain_home_area_hidden_obscuring_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8948,7 +8950,8 @@
       "scenarios": [
         "los_overlay_targetable_vs_visible",
         "mp:tests/test_hidden_attached_target_11e.gd",
-        "mp:tests/test_hidden_label_11e.gd"
+        "mp:tests/test_hidden_label_11e.gd",
+        "terrain_home_area_hidden_obscuring_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -11984,6 +11987,174 @@
       "fidelity": "CLICK",
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "RulesEngine.filter_eligible_model_ids",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: attached_leader_only_in_range_shoot_11e.",
+      "scenarios": [
+        "attached_leader_only_in_range_shoot_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "RulesEngine.precision_eligible_groups_11e",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: precision_hidden_leader_own_keywords_11e.",
+      "scenarios": [
+        "precision_hidden_leader_own_keywords_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:get_height_inches",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: vehicle_enters_area_open_ground_11e.",
+      "scenarios": [
+        "vehicle_enters_area_open_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "autoloads/TerrainManager.gd:get_terrain_at_position",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: vehicle_enters_area_open_ground_11e.",
+      "scenarios": [
+        "vehicle_enters_area_open_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.space_marines.detachment.phobos_shadow_force.shadow_masters",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shadow_masters_after_fire_overwatch_11e, sm11e_det_shadow_masters.",
+      "scenarios": [
+        "shadow_masters_after_fire_overwatch_11e",
+        "sm11e_det_shadow_masters"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "debug_log.no_errors",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: attached_leader_only_in_range_shoot_11e, precision_hidden_leader_own_keywords_11e, shadow_masters_after_fire_overwatch_11e, sm11e_ar_combat_doctrines, sm11e_det_ancient_exhortation, sm11e_det_assault_mastery, sm11e_det_codex_discipline, sm11e_det_codex_fire_patterns, sm11e_det_death_blow, sm11e_det_enduring_vengeance, sm11e_det_gauntlet, sm11e_det_indomitable_defence, sm11e_det_ironstorm, sm11e_det_shadow_masters, sm11e_det_stormlance, sm11e_det_vanguard_ambushers, sm11e_det_walking_fortress, sm11e_det_wrath_of_the_chapter, sm11e_enh_artificer_sarcophagus, sm11e_enh_champion_first_company, sm11e_enh_corporeum_reliquary, sm11e_enh_furious_assault, sm11e_enh_honour_of_vigilance, sm11e_enh_immovable_conquerors, sm11e_enh_indefatigable_fortitude, sm11e_enh_laurels_of_vigilance, sm11e_enh_master_forged_firearms, sm11e_enh_narthecis_gauntlet, sm11e_enh_tactical_insight, sm11e_enh_tempered_in_battle, sw11e_ar_combat_doctrines, sw11e_ar_curse_of_the_wulfen, sw11e_ar_transhuman_strategist, sw11e_det_great_wolf_watches, sw11e_det_legendary_slayers, sw11e_det_master_of_wolves, sw11e_enh_grimnars_mark, sw11e_enh_howlmaw, sw11e_enh_preyslayer, sw11e_enh_skjalds_foretelling, sw11e_enh_wolf_touched, vehicle_enters_area_open_ground_11e.",
+      "scenarios": [
+        "attached_leader_only_in_range_shoot_11e",
+        "precision_hidden_leader_own_keywords_11e",
+        "shadow_masters_after_fire_overwatch_11e",
+        "sm11e_ar_combat_doctrines",
+        "sm11e_det_ancient_exhortation",
+        "sm11e_det_assault_mastery",
+        "sm11e_det_codex_discipline",
+        "sm11e_det_codex_fire_patterns",
+        "sm11e_det_death_blow",
+        "sm11e_det_enduring_vengeance",
+        "sm11e_det_gauntlet",
+        "sm11e_det_indomitable_defence",
+        "sm11e_det_ironstorm",
+        "sm11e_det_shadow_masters",
+        "sm11e_det_stormlance",
+        "sm11e_det_vanguard_ambushers",
+        "sm11e_det_walking_fortress",
+        "sm11e_det_wrath_of_the_chapter",
+        "sm11e_enh_artificer_sarcophagus",
+        "sm11e_enh_champion_first_company",
+        "sm11e_enh_corporeum_reliquary",
+        "sm11e_enh_furious_assault",
+        "sm11e_enh_honour_of_vigilance",
+        "sm11e_enh_immovable_conquerors",
+        "sm11e_enh_indefatigable_fortitude",
+        "sm11e_enh_laurels_of_vigilance",
+        "sm11e_enh_master_forged_firearms",
+        "sm11e_enh_narthecis_gauntlet",
+        "sm11e_enh_tactical_insight",
+        "sm11e_enh_tempered_in_battle",
+        "sw11e_ar_combat_doctrines",
+        "sw11e_ar_curse_of_the_wulfen",
+        "sw11e_ar_transhuman_strategist",
+        "sw11e_det_great_wolf_watches",
+        "sw11e_det_legendary_slayers",
+        "sw11e_det_master_of_wolves",
+        "sw11e_enh_grimnars_mark",
+        "sw11e_enh_howlmaw",
+        "sw11e_enh_preyslayer",
+        "sw11e_enh_skjalds_foretelling",
+        "sw11e_enh_wolf_touched",
+        "vehicle_enters_area_open_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase._snap_finish",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shadow_masters_after_fire_overwatch_11e.",
+      "scenarios": [
+        "shadow_masters_after_fire_overwatch_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.ShootingPhase.resolve_attached_unit_target_19_01",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: attached_leader_only_in_range_shoot_11e.",
+      "scenarios": [
+        "attached_leader_only_in_range_shoot_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.terrain.hidden",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shadow_masters_after_fire_overwatch_11e, sm11e_det_shadow_masters, sm11e_det_vanguard_ambushers.",
+      "scenarios": [
+        "shadow_masters_after_fire_overwatch_11e",
+        "sm11e_det_shadow_masters",
+        "sm11e_det_vanguard_ambushers"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "stratagem.core.fire_overwatch_11e",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fire_overwatch_ai_snap_toast_11e, fire_overwatch_decline_11e, fire_overwatch_end_of_movement_11e, fire_overwatch_skip_toggle_auto_decline_11e, shadow_masters_after_fire_overwatch_11e.",
+      "scenarios": [
+        "fire_overwatch_ai_snap_toast_11e",
+        "fire_overwatch_decline_11e",
+        "fire_overwatch_end_of_movement_11e",
+        "fire_overwatch_skip_toggle_auto_decline_11e",
+        "shadow_masters_after_fire_overwatch_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "stratagem.window.unit_has_shot_out_of_phase",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shadow_masters_after_fire_overwatch_11e.",
+      "scenarios": [
+        "shadow_masters_after_fire_overwatch_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.ShootingController.auto_assign_single_target",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: attached_leader_only_in_range_shoot_11e.",
+      "scenarios": [
+        "attached_leader_only_in_range_shoot_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

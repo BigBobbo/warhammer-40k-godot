@@ -16,18 +16,26 @@ Verifies that:
      to clear it (it appends a tile per un-catalogued tag).
   3. (WARNING) tiles with last_verified_commit older than HEAD~50 should be
      re-verified — flagged as stale but does not fail.
+  4. (ERROR, opt-in) `--scenario ID` (repeatable): the named scenario's
+     `covers` and the tiles agree in both directions — every tag has a tile,
+     every tile the scenario names lists it, and every tile that lists it is
+     named in its covers. Run it for the scenarios you add or edit; the
+     repo-wide default does not check this (many older scenarios predate it).
 
 Exit code:
   0 — no errors (warnings may still print)
-  1 — at least one ERROR (a covered tile references a missing scenario)
+  1 — at least one ERROR (a covered tile references a missing scenario, or a
+      --scenario disagrees with the tiles)
   2 — usage / IO error
 
 Usage:
   python3 40k/tests/check_coverage.py
+  python3 40k/tests/check_coverage.py --scenario my_new_scenario_11e
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -40,7 +48,12 @@ SCENARIOS_DIR = REPO_ROOT / "40k" / "tests" / "scenarios"
 STALE_THRESHOLD_COMMITS = 50  # warn if last_verified_commit is older than HEAD~50
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate coverage.json against the windowed scenarios.")
+    parser.add_argument("--scenario", action="append", default=[], metavar="ID",
+                        help="also require this scenario's covers and the tiles to agree both ways (repeatable)")
+    args = parser.parse_args(argv)
+
     if not COVERAGE_JSON.exists():
         print(f"FAIL: coverage.json missing at {COVERAGE_JSON}", file=sys.stderr)
         return 2
@@ -118,6 +131,23 @@ def main() -> int:
                 warnings.append(f"scenario '{sid}' ({sd['_path']}) declares cover tag '{tag}' but no matching tile in coverage.json")
     if uncatalogued:
         warnings.append(f"{uncatalogued} un-catalogued cover tag(s) — run `python3 40k/tests/sync_coverage.py` to register tiles for them")
+
+    # 4) Opt-in: the named scenarios' covers <-> tiles agree in both directions.
+    for sid in args.scenario:
+        sd = scenario_index.get(sid)
+        if sd is None:
+            errors.append(f"--scenario '{sid}': no such scenario under tests/scenarios/sp|mp")
+            continue
+        covers = sd.get("covers", [])
+        tiles_by_id = {t["id"]: t for t in tiles}
+        for tag in covers:
+            if tag not in tiles_by_id:
+                errors.append(f"scenario '{sid}' declares cover tag '{tag}' but no tile has that id (python3 40k/tests/sync_coverage.py --scenario {sid})")
+            elif sid not in tiles_by_id[tag].get("scenarios", []):
+                errors.append(f"scenario '{sid}' declares tile '{tag}' but that tile's scenarios[] does not list it")
+        for tile in tiles:
+            if sid in tile.get("scenarios", []) and tile["id"] not in covers:
+                errors.append(f"tile '{tile['id']}' lists scenario '{sid}' but its covers do not name that tile")
 
     # 3) Staleness warning
     try:

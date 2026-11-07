@@ -3,7 +3,7 @@
   "covers": [
     "autoloads/TerrainManager.gd:get_height_inches",
     "autoloads/TerrainManager.gd:get_terrain_at_position",
-    "phases.MovementPhase._get_vertical_climb_cost",
+    "movement.terrain.no_phantom_climb_cost",
     "terrain.layouts_11e",
     "debug_log.no_errors"
   ],

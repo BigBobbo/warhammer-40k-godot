@@ -5,6 +5,7 @@
     "stratagem.window.unit_has_shot_out_of_phase",
     "stratagem.core.fire_overwatch_11e",
     "phases.MovementPhase._snap_finish",
+    "phases.ShootingPhase.hidden_shot_stamp",
     "rules.terrain.hidden",
     "debug_log.no_errors"
   ],

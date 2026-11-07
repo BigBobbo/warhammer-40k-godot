@@ -23,13 +23,23 @@ Run it after adding or editing a scenario's `covers` list:
 
 Idempotent: running twice adds nothing the second time.
 
+Scoped run — register only the tags your scenario(s) declare (the plain run
+appends a tile for EVERY un-catalogued tag in the repo, 1000+ on 2026-11-07):
+
+    python3 40k/tests/sync_coverage.py --scenario my_new_scenario_11e
+    python3 40k/tests/check_coverage.py --scenario my_new_scenario_11e
+
+A tile added by a scoped run still lists every scenario that declares its tag,
+so it is the same tile the plain run would add.
+
 Exit code:
   0 — coverage.json is in sync (nothing to add, or tiles were added)
-  2 — IO / parse error
+  2 — IO / parse error, or a --scenario id that no scenario file declares
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -45,7 +55,13 @@ def _scenario_files() -> list[Path]:
     return sorted(p for p in files if not p.name.startswith("_"))
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Register a coverage.json tile for each un-catalogued scenario cover tag.")
+    parser.add_argument("--scenario", action="append", default=[], metavar="ID",
+                        help="only register tags declared by this scenario id (repeatable)")
+    args = parser.parse_args(argv)
+    only: set[str] = set(args.scenario)
+
     if not COVERAGE_JSON.exists():
         print(f"coverage.json missing at {COVERAGE_JSON}", file=sys.stderr)
         return 2
@@ -70,9 +86,18 @@ def main() -> int:
         for tag in data.get("covers", []):
             tag_scenarios.setdefault(tag, set()).add(sid)
 
+    if only:
+        declared = set().union(*tag_scenarios.values()) if tag_scenarios else set()
+        missing = sorted(only - declared)
+        if missing:
+            print(f"sync_coverage: no scenario declares cover tags under id(s) {missing}", file=sys.stderr)
+            return 2
+
     added = 0
     for tag in sorted(tag_scenarios):
         if tag in existing_ids:
+            continue
+        if only and not (tag_scenarios[tag] & only):
             continue
         scenarios = sorted(tag_scenarios[tag])
         tiles.append({

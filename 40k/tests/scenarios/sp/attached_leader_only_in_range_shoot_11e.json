@@ -1,7 +1,7 @@
 {
   "id": "attached_leader_only_in_range_shoot_11e",
   "covers": [
-    "RulesEngine.get_eligible_shooter_models",
+    "autoloads.RulesEngine.get_eligible_shooter_models",
     "RulesEngine.filter_eligible_model_ids",
     "ui.ShootingController.auto_assign_single_target",
     "phases.ShootingPhase.resolve_attached_unit_target_19_01",
