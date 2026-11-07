@@ -2374,10 +2374,13 @@ func _unit_within_inches_of_enemy(unit: Dictionary, player: int, inches: float) 
 # FORCED BATTLE-SHOCK TESTS (Big Gob, SQUIG FLINGIN', Supa-glowy Fing)
 # ============================================================================
 
-func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: String = "") -> Dictionary:
+func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: String = "", rng = null) -> Dictionary:
 	"""Roll 2D6 (+modifier) against the unit's effective Leadership; the unit
 	becomes Battle-shocked on a failure. Out-of-Command-phase tests forced by
-	Ork abilities/stratagems."""
+	Ork abilities/stratagems. `rng`: the caller's RNGService — one seeded from
+	the action where an online client runs the action optimistically, e.g. the
+	09.07 desperate escape roll at CONFIRM_UNIT_MOVE (MovementPhase);
+	null = RulesEngine.make_rng()."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return {"success": false, "error": "unit not found"}
@@ -2388,7 +2391,8 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 	if unit.get("flags", {}).get("ork11e_mob_mentality", false):
 		print("FactionAbilityManager: %s — forced Battle-shock test for %s AUTO-PASSED (MOB MENTALITY)" % [source, unit_id])
 		return {"success": true, "passed": true, "auto_passed": true, "total": 0, "leadership": ld, "dice": [], "diffs": []}
-	var rng = RulesEngine.make_rng()
+	if rng == null:
+		rng = RulesEngine.make_rng()
 	var d1 = rng.rng.randi_range(1, 6)
 	var d2 = rng.rng.randi_range(1, 6)
 	var total = d1 + d2 + roll_modifier

@@ -2953,7 +2953,7 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 		active_moves[unit_id]["fall_back_mode"] = fb_mode
 		log_phase_message("[11e] Fall-back mode for %s: %s (available: %s)" % [unit_id, fb_mode, str(fb_sel.available)])
 		if fb_mode == "desperate_escape":
-			fb_hazard_changes = _fall_back_desperate_escape_before_moving(unit_id)
+			fb_hazard_changes = _fall_back_desperate_escape_before_moving(unit_id, action)
 
 	# Emitted once the 11e fall-back mode is known, so the movement panel can
 	# show it (Desperate Escape, and that it was forced — r3:F12).
@@ -2995,6 +2995,11 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 ## when the phase ends.
 const FLAG_DE_HAZARDS := "desperate_escape_hazards_this_phase"
 
+## EA-08 review: XORed into CONFIRM_UNIT_MOVE's rng_seed for the desperate
+## escape's AFTER MOVING battle-shock roll, so that roll does not replay the
+## dice of another roll seeded with the bare action seed (the 24.35 SHW gamble).
+const DE_BATTLE_SHOCK_SEED_SALT := 0x2F6B3A1D
+
 ## Has unit_id already made its desperate escape hazard rolls this phase?
 func _desperate_escape_hazards_made(unit_id: String) -> bool:
 	var rec = get_unit(unit_id).get("flags", {}).get(FLAG_DE_HAZARDS, null)
@@ -3010,7 +3015,12 @@ func _desperate_escape_hazards_made(unit_id: String) -> bool:
 ## rolling a second set. Sets the active move's fall_back_mode /
 ## desperate_escape_ctx (and fall_back_mode_forced_by when a rule forced the
 ## mode). Shared by BEGIN_FALL_BACK and SET_FALL_BACK_MODE. Returns the diffs.
-func _fall_back_desperate_escape_before_moving(unit_id: String) -> Array:
+## The hazard rolls and their Feel No Pain rolls come from the action's
+## rng_seed (RulesEngine.rng_for_action; NetworkManager.submit_action embeds one
+## in every networked action): an online client runs both actions
+## optimistically (NetworkManager.DETERMINISTIC_ACTIONS) and must roll exactly
+## what the host rolls — make_rng() is an unseeded RNG on a client.
+func _fall_back_desperate_escape_before_moving(unit_id: String, action: Dictionary = {}) -> Array:
 	var md: Dictionary = active_moves[unit_id]
 	md["fall_back_mode"] = "desperate_escape"
 	# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING?, Codex: Adeptus Custodes
@@ -3031,27 +3041,31 @@ func _fall_back_desperate_escape_before_moving(unit_id: String) -> Array:
 			"can_move_through_enemies": true, "reused": true}
 		log_phase_message("[11e] Desperate escape for %s: its hazard rolls %s were made earlier this phase — not rolled again" % [unit_id, str(prior.get("rolls", []))])
 		return []
-	var fb_ctx = MoveTypes.get_type("fall_back").before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": "desperate_escape"})
+	var de_rng = RulesEngine.rng_for_action(action)
+	var fb_ctx = MoveTypes.get_type("fall_back").before_moving(unit_id, GameState.state, de_rng, {"mode": "desperate_escape"})
 	md["desperate_escape_ctx"] = fb_ctx
 	var hz: Dictionary = fb_ctx.get("hazard", {})
-	log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+	log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s)), seed %s" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0)), str(action.get("payload", {}).get("rng_seed", "none"))])
 	match forced_by:
 		"WHERE D'YA FINK YOU'RE GOING?":
 			# Surface the hazard rolls, including the extra MONSTER/VEHICLE rolls
-			# (FallBackMove.before_moving).
+			# (FallBackMove.before_moving). This entry IS the rolls' game-log card
+			# and dice-log row — the generic one below would report the same dice
+			# a second time (EA-08 review).
 			_ork11e_log_where_dya_fink_hazards(unit_id, hz)
 		"Corner the Quarry":
 			log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
 		"Savage Frenzy":
 			log_phase_message("[11e] Savage Frenzy: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
-	_log_desperate_escape_hazards(unit_id, hz)
+	if forced_by != "WHERE D'YA FINK YOU'RE GOING?":
+		_log_desperate_escape_hazards(unit_id, hz)
 	var diffs: Array = [{"op": "set", "path": "units.%s.flags.%s" % [unit_id, FLAG_DE_HAZARDS],
 		"value": {"rolls": hz.get("rolls", []).duplicate(), "failures": int(hz.get("failures", 0)), "mortal_wounds": int(hz.get("mortal_wounds", 0))}}]
 	# 06.03: each failure is 1 mortal wound (3 instead if every model of the
 	# Attached unit is a MONSTER/VEHICLE model), allocated by 06.02 across the
 	# whole Attached unit after Feel No Pain (EA-36).
 	if int(hz.get("failures", 0)) > 0:
-		var cas: Dictionary = FallBackMove.hazard_casualties(unit_id, int(hz.get("mortal_wounds", 0)), GameState.state, "desperate_escape")
+		var cas: Dictionary = FallBackMove.hazard_casualties(unit_id, int(hz.get("mortal_wounds", 0)), GameState.state, "desperate_escape", de_rng)
 		diffs.append_array(cas.get("diffs", []))
 		log_phase_message("[11e] Desperate escape: %d mortal wound(s) after Feel No Pain, %d applied across the Attached unit (%d lost), destroyed %s" % [
 			int(cas.get("mw_after_fnp", 0)), int(cas.get("applied", 0)), int(cas.get("lost", 0)), str(cas.get("destroyed", []))])
@@ -3060,7 +3074,9 @@ func _fall_back_desperate_escape_before_moving(unit_id: String) -> Array:
 ## EA-08: the desperate escape hazard rolls in the phase dice log
 ## (get_dice_log) and in the game log, where the player sees them as a card
 ## with dice (before, only a WHERE D'YA FINK forced escape surfaced them; the
-## rest reached the debug log only).
+## rest reached the debug log only). A WHERE D'YA FINK forced escape keeps its
+## own entry (_ork11e_log_where_dya_fink_hazards, which also lists the extra
+## MONSTER/VEHICLE rolls) and does not come here — one card per set of rolls.
 func _log_desperate_escape_hazards(unit_id: String, hz: Dictionary) -> void:
 	var rolls: Array = hz.get("rolls", [])
 	var uname := GameState.get_unit_display_name(unit_id)
@@ -3093,7 +3109,7 @@ func _validate_set_fall_back_mode(action: Dictionary) -> Dictionary:
 	var want := str(action.get("payload", {}).get("fall_back_mode", ""))
 	if not want in ["ordered_retreat", "desperate_escape"]:
 		return {"valid": false, "errors": ["Unknown fall-back mode '%s' (ordered_retreat or desperate_escape)" % want]}
-	var cur := str(md.get("fall_back_mode", ""))
+	var cur := _fall_back_mode_of(unit_id, md)
 	if want == cur:
 		return {"valid": true, "errors": []}  # no-op
 	if want == "ordered_retreat":
@@ -3111,7 +3127,7 @@ func _process_set_fall_back_mode(action: Dictionary) -> Dictionary:
 	log_phase_message("[11e] %s switches its fall-back move to the desperate escape mode (09.02.02: ordered retreat is not mandatory)" % unit_id)
 	# (The movement panel re-reads the mode and the dice log itself —
 	# MovementController._sync_desperate_escape_from_phase.)
-	return create_result(true, _fall_back_desperate_escape_before_moving(unit_id))
+	return create_result(true, _fall_back_desperate_escape_before_moving(unit_id, action))
 
 func _process_set_model_dest(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -3651,8 +3667,10 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		var mt_map_11e = {"NORMAL": "normal", "ADVANCE": "advance", "FALL_BACK": "fall_back"}
 		if mt_map_11e.has(move_data.mode):
+			# (_fall_back_mode_of: the synced hazard record also marks a desperate
+			# escape — an online client's phase-local record can miss the switch.)
 			var mt_fx = MoveTypes.get_type(mt_map_11e[move_data.mode]).after_moving_effects(
-				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
+				unit_id, {"mode": _fall_back_mode_of(unit_id, move_data)})
 			# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not
 			# prevent your unit from being eligible to start an action" — drop the
 			# advance / fall-back 16.01 action lock (ActionsManager also ignores
@@ -3685,10 +3703,19 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			# template's pending_battleshock_roll with the engine's out-of-
 			# Command-phase roll (a failure makes the unit battle-shocked, which
 			# opens its unit_battle_shocked stratagem window).
-			if move_data.mode == "FALL_BACK" and str(move_data.get("fall_back_mode", "")) == "desperate_escape":
+			# The roll comes from the action's rng_seed when it carries one (every
+			# networked action does — NetworkManager.submit_action): an online
+			# client runs CONFIRM_UNIT_MOVE optimistically and must roll exactly
+			# what the host rolls (make_rng() is unseeded on a client). The seed is
+			# salted (DE_BATTLE_SHOCK_SEED_SALT): the 24.35 SUPER-HEAVY WALKER
+			# gamble below rolls RNGService.new(rng_seed) for the same action.
+			# Without a seed (single-player) it is make_rng(), as before.
+			if move_data.mode == "FALL_BACK" and _fall_back_mode_of(unit_id, move_data) == "desperate_escape":
 				var de_shocked: bool = GameState.get_unit(unit_id).get("flags", {}).get("battle_shocked", false)
 				if not de_shocked and has_node("/root/FactionAbilityManager"):
-					var de_roll: Dictionary = get_node("/root/FactionAbilityManager").force_battle_shock_test(unit_id, 0, "Desperate Escape")
+					var de_seed := int(action.get("payload", {}).get("rng_seed", -1))
+					var de_bs_rng = RulesEngine.RNGService.new(de_seed ^ DE_BATTLE_SHOCK_SEED_SALT) if de_seed >= 0 else null
+					var de_roll: Dictionary = get_node("/root/FactionAbilityManager").force_battle_shock_test(unit_id, 0, "Desperate Escape", de_bs_rng)
 					changes.append_array(de_roll.get("diffs", []))
 					log_phase_message("[11e 09.07] Desperate escape battle-shock roll for %s: %s = %d vs Ld %d — %s" % [
 						unit_id, str(de_roll.get("dice", [])), int(de_roll.get("total", 0)), int(de_roll.get("leadership", 0)),
@@ -7229,7 +7256,7 @@ func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
 func _enemy_models_block_move(unit_id: String, move_data: Dictionary) -> bool:
 	var mode := str(move_data.get("mode", ""))
 	if mode == "FALL_BACK":
-		if GameConstants.edition < 11 or _is_desperate_escape(move_data):
+		if GameConstants.edition < 11 or _is_desperate_escape(move_data, unit_id):
 			return false
 	elif not mode in ["NORMAL", "ADVANCE"]:
 		return false
@@ -7237,10 +7264,39 @@ func _enemy_models_block_move(unit_id: String, move_data: Dictionary) -> bool:
 		return false
 	return not _o6_moves_through_models(unit_id, move_data)
 
-## True for an 11e fall-back move made in the desperate escape mode.
-static func _is_desperate_escape(move_data: Dictionary) -> bool:
+## True for an 11e fall-back move made in the desperate escape mode
+## (_fall_back_mode_of; unit_id "" reads the move record alone).
+func _is_desperate_escape(move_data: Dictionary, unit_id: String = "") -> bool:
 	return GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "FALL_BACK" \
-		and str(move_data.get("fall_back_mode", "")) == "desperate_escape"
+		and _fall_back_mode_of(unit_id, move_data) == "desperate_escape"
+
+## EA-08 review (online play): the 09.07 mode of unit_id's 11e fall-back move.
+## The active move records it (fall_back_mode), but active_moves is
+## phase-local: an online client only updates it for the actions it runs
+## itself, so a switch it did not run (a host-only path, a resync) leaves its
+## record saying Ordered Retreat while the host's says Desperate Escape. The
+## desperate escape's hazard record (FLAG_DE_HAZARDS) is synced game state, only
+## a desperate escape writes it, and a fall-back begun again after one stays one
+## (_process_begin_fall_back_after_windows) — so an 11e fall-back whose unit
+## carries the record IS a Desperate Escape, on every peer. The move record is
+## brought in line the first time (move_data is the active_moves entry).
+func _fall_back_mode_of(unit_id: String, move_data: Dictionary) -> String:
+	var fbm := str(move_data.get("fall_back_mode", ""))
+	if fbm != "desperate_escape" and unit_id != "" and GameConstants.edition >= 11 \
+			and str(move_data.get("mode", "")) == "FALL_BACK" and _desperate_escape_hazards_made(unit_id):
+		log_phase_message("[11e] %s's fall-back is a Desperate Escape: its hazard rolls were made this phase (the move record said '%s' — updated)" % [unit_id, fbm])
+		move_data["fall_back_mode"] = "desperate_escape"
+		return "desperate_escape"
+	return fbm
+
+## The 09.07 mode of unit_id's active fall-back move ("ordered_retreat" /
+## "desperate_escape"; "" when it is not making one) — what the movement panel
+## shows (_fall_back_mode_of).
+func get_fall_back_mode(unit_id: String) -> String:
+	var md: Dictionary = active_moves.get(unit_id, {})
+	if str(md.get("mode", "")) != "FALL_BACK":
+		return ""
+	return _fall_back_mode_of(unit_id, md)
 
 const ERR_ORDERED_RETREAT_THROUGH_ENEMY := "Ordered Retreat cannot move through enemy models — choose Desperate Escape to move through them (09.07)"
 
@@ -7732,7 +7788,7 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 	var units = game_state_snapshot.get("units", {})
 	# EA-08 (11e 09.07 WHILE MOVING): "Desperate Escape: Each model that is moved
 	# can be moved through enemy models" — enemy MONSTER/VEHICLE models included.
-	var enemy_pass := _is_desperate_escape(active_moves.get(unit_id, {}))
+	var enemy_pass := _is_desperate_escape(active_moves.get(unit_id, {}), unit_id)
 	if enemy_pass:
 		log_phase_message("  09.07 Desperate Escape — %s may move through enemy MONSTER/VEHICLE models" % unit_id)
 

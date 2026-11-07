@@ -12328,6 +12328,18 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "RULES"
+    },
+    {
+      "id": "network.relay_client.fall_back_desperate_escape_11e",
+      "description": "EA-08 review (online play, 11e 09.07 / 09.02.02): a Desperate Escape made by the web-relay CLIENT. SET_FALL_BACK_MODE is one of NetworkManager.DETERMINISTIC_ACTIONS, so the client's own MovementPhase switches the mode and its drags through enemy models are no longer refused locally; the hazard rolls and their Feel No Pain rolls (BEGIN_FALL_BACK / SET_FALL_BACK_MODE: RulesEngine.rng_for_action) and the AFTER MOVING battle-shock roll (CONFIRM_UNIT_MOVE: the seed salted, so it does not replay the 24.35 gamble's die) come from the action's rng_seed, so client and host roll the same dice; the synced hazard record (flags.desperate_escape_hazards_this_phase) also marks the move as a Desperate Escape (MovementPhase._fall_back_mode_of / get_fall_back_mode, the movement panel's mode line). Headless: host + relay-client runs of the real NetworkManager / MovementPhase (box after / before Fall Back, three seed sets each, identical state hashes, no desync). Two-process: tests/mp_two_process_core_rules.py fb_relay_client — real clicks on Fall Back and the Desperate Escape box, a real drag through a Witchseeker, End This Unit's Move; identical GameStates. Windowed (single-player UI path): ea08_fall_back_modes_11e.",
+      "scenarios": [
+        "ea08_fall_back_modes_11e",
+        "mp:tests/test_ea08_fall_back_online_client_11e.gd",
+        "mp:tests/mp_two_process_core_rules.py"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "RULES"
     }
   ]
 }

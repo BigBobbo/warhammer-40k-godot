@@ -34,6 +34,17 @@ BOTH peers through their MCP bridges:
        (PLACE_RAPID_INGRESS_REINFORCEMENT, cross-turn), the FIRE OVERWATCH
        window that follows is auto-declined, both peers reach Shooting with
        the unit DEPLOYED where it was clicked and identical GameStates.
+  E. EA-08 review — fb_relay_client: a Desperate Escape made by the web-relay
+     CLIENT (production online games run the NetworkManager
+     DETERMINISTIC_ACTIONS optimistically on the client, validated against its
+     own phase). The client is switched to its relay-client branch (a stub
+     relay forwards its game_action messages to the host over the ENet RPC;
+     the host answers over ENet as usual). The client clicks Fall Back, then
+     the Desperate Escape box (SET_FALL_BACK_MODE, run by the client too, with
+     the action's seed), drags a Boy straight through a Witchseeker with a
+     REAL mouse drag, stages the rest and clicks End This Unit's Move: the drag
+     reaches the host, both peers make the same hazard rolls, casualties and
+     battle-shock roll, and their GameStates stay identical.
 
 Dialog / overlay / HUD buttons are pressed with REAL mouse clicks through the
 bridge's simulate_click (click()); fixture set-up (loading, reserves, the
@@ -45,9 +56,10 @@ the host's and client's GameState are compared key-by-key after each step.
 
 Usage (from the repo root; needs the xvfb godot shim on PATH, see CLAUDE.md):
   python3 40k/tests/mp_two_process_core_rules.py [project_40k_dir] [out_dir] [scenario...]
-  scenarios: fight afk move_host move_client fo_host fo_client ri_client ri_client_use (default: all)
+  scenarios: fight afk move_host move_client fo_host fo_client ri_client ri_client_use fb_relay_client (default: all)
 Env: GODOT (binary, default "godot"), MP_HOST_PORT / MP_CLIENT_PORT (MCP
-bridge ports, default 9201/9202). The ENet game port is 7777. Each peer gets
+bridge ports, default 9201/9202), MP_ENET_PORT (the ENet game port, default
+7777). Each peer gets
 its own user:// via XDG_DATA_HOME (Linux); exit code 0 only if every check
 passes.
 """
@@ -55,10 +67,11 @@ import json, os, socket, subprocess, sys, time
 
 PROJ = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join("/tmp", "mp_two_process_core_rules")
-WHICH = sys.argv[3:] or ["fight", "afk", "move_host", "move_client", "fo_host", "fo_client", "ri_client", "ri_client_use"]
+WHICH = sys.argv[3:] or ["fight", "afk", "move_host", "move_client", "fo_host", "fo_client", "ri_client", "ri_client_use", "fb_relay_client"]
 GODOT = os.environ.get("GODOT", "godot")
 HOST_PORT = int(os.environ.get("MP_HOST_PORT", "9201"))
 CLIENT_PORT = int(os.environ.get("MP_CLIENT_PORT", "9202"))
+ENET_PORT = int(os.environ.get("MP_ENET_PORT", "7777"))
 if OUT:
     os.makedirs(OUT, exist_ok=True)
 SRC_USER = os.path.expanduser("~/.local/share/godot/app_userdata/40k")
@@ -152,9 +165,9 @@ def wait_until(fn, timeout=30, interval=0.5):
 
 
 def boot(tag):
-    host = Peer(tag + "_host", HOST_PORT, ["--auto-host", "--port=7777"])
+    host = Peer(tag + "_host", HOST_PORT, ["--auto-host", "--port=%d" % ENET_PORT])
     time.sleep(3)
-    client = Peer(tag + "_client", CLIENT_PORT, ["--auto-join", "--host-ip=127.0.0.1", "--host-port=7777"])
+    client = Peer(tag + "_client", CLIENT_PORT, ["--auto-join", "--host-ip=127.0.0.1", "--host-port=%d" % ENET_PORT])
     ok = host.connect() and client.connect()
     check("[%s] both MCP bridges up" % tag, ok)
     in_game = "return tree.current_scene != null and tree.current_scene.name == \"Main\" and NetworkManager.is_networked()"
@@ -750,6 +763,181 @@ def scenario_ri_client_use():
         host.stop(); client.stop()
 
 
+# ── E. EA-08 review: a Desperate Escape by the web-relay CLIENT (09.07) ───
+
+FB_SETUP = """var s = GameState.state
+var b = s.units.U_BOYZ_K.models
+var pos = [[1580.0,1300.0],[1632.0,1300.0],[1684.0,1300.0],[1606.0,1345.0],[1658.0,1345.0]]
+for i in range(b.size()):
+	if i < 5:
+		b[i].position = {"x": pos[i][0], "y": pos[i][1]}
+		b[i].alive = true
+	else:
+		b[i].alive = false
+		b[i].current_wounds = 0
+s.units.U_WEIRDBOY_J.models[0].position = {"x": 1722.0, "y": 1345.0}
+var w = s.units.U_WITCHSEEKERS_C.models
+w[0].position = {"x": 1606.0, "y": 1249.0}
+w[1].position = {"x": 1658.0, "y": 1249.0}
+tree.current_scene._recreate_unit_visuals()
+return RulesEngine.is_unit_engaged("U_BOYZ_K", s)"""
+
+# Frame the lane (as the ea08_fall_back_modes_11e scenario does).
+FB_FRAME = """var m = tree.root.get_node("Main")
+var focus := Vector2(1640.0, 1200.0)
+var z := 1.5
+var vp: Vector2 = m.get_viewport().get_visible_rect().size
+m.camera.position = focus
+m.camera.zoom = Vector2(z, z)
+m.view_zoom = z
+m.view_offset = focus - vp / (2.0 * z)
+m.update_view_transform()
+return true"""
+
+# The client's NetworkManager on its web-relay CLIENT branch: a stub relay
+# transport forwards each game_action message to the host over the ENet RPC.
+FB_RELAY_STUB = '''var src = "extends Node\\nvar is_connected := true\\nvar sent := []\\nfunc send_game_data(data: Dictionary) -> void:\\n\\tsent.append(str(data.get(\\"action\\", {}).get(\\"type\\", \\"\\")))\\n\\tif str(data.get(\\"msg_type\\", \\"\\")) == \\"game_action\\":\\n\\t\\tNetworkManager._send_action_to_host.rpc_id(1, NetworkManager._desanitize_from_json(data.get(\\"action\\", {})))\\n"
+var gs = GDScript.new()
+gs.source_code = src
+if gs.reload() != OK:
+	return "stub reload failed"
+var stub = Node.new()
+stub.name = "FbRelayStub"
+stub.set_script(gs)
+tree.root.add_child(stub)
+NetworkManager.web_relay = stub
+NetworkManager.is_online_host = false
+NetworkManager.web_relay_mode = true
+NetworkManager.peer_to_player_map[1] = 1
+NetworkManager.peer_to_player_map[2] = 2
+return [NetworkManager.is_host(), NetworkManager.is_networked(), NetworkManager.get_local_player()]'''
+
+FB_PANEL = "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel"
+FB_RADIO = FB_PANEL + "/Section3_ModeSelection/ModeButtons/FallBackRadio"
+FB_BOX = FB_PANEL + "/Section3_ModeSelection/DesperateEscapeCheckBox"
+FB_CONFIRM = FB_PANEL + "/Section4_Actions/ActionButtons/ConfirmMoveButton"
+FB_MODE = 'var p = PhaseManager.get_current_phase_instance()\nreturn str(p.active_moves.get("U_BOYZ_K", {}).get("fall_back_mode", "<none>"))'
+FB_STAGED = 'var p = PhaseManager.get_current_phase_instance()\nreturn p.active_moves.get("U_BOYZ_K", {}).get("staged_moves", []).size()'
+FB_FLAG = 'return GameState.state.units.U_BOYZ_K.get("flags", {}).get("desperate_escape_hazards_this_phase", {}).get("rolls", []).map(func(v): return int(v))'
+FB_ALIVE = """var out = []
+for m in GameState.state.units.U_BOYZ_K.models:
+	if m.alive:
+		out.append([m.id, m.position.x, m.position.y])
+return out"""
+FB_TOKENS = """var layer = tree.root.get_node("Main").get_node("BoardRoot/TokenLayer")
+var n := 0
+for c in layer.get_children():
+	if c.has_meta("unit_id") and str(c.get_meta("unit_id")) in ["U_BOYZ_K", "U_WEIRDBOY_J"] and not c.is_queued_for_deletion():
+		n += 1
+var alive := 0
+for uid in ["U_BOYZ_K", "U_WEIRDBOY_J"]:
+	for m in GameState.state.units[uid].models:
+		if m.alive:
+			alive += 1
+return [n, alive]"""
+
+
+def fb_ensure_visible(peer, path):
+    peer.ex('var n = tree.root.get_node_or_null(%s)\nvar sc = tree.root.get_node_or_null("Main/HUD_Right/VBoxContainer/MovementScrollContainer")\nif n != null and sc != null:\n\tsc.ensure_control_visible(n)\nreturn true' % json.dumps(path))
+    time.sleep(0.4)
+
+
+def fb_drag_board(peer, fx, fy, tx, ty, steps=16):
+    """A REAL mouse drag on the board (bridge simulate_drag), from board (fx, fy) to (tx, ty)."""
+    a = peer.ex("var p: Vector2 = tree.current_scene.world_to_screen_position(Vector2(%f, %f))\nreturn [p.x, p.y]" % (fx, fy))
+    b = peer.ex("var p: Vector2 = tree.current_scene.world_to_screen_position(Vector2(%f, %f))\nreturn [p.x, p.y]" % (tx, ty))
+    if not (isinstance(a, list) and isinstance(b, list)):
+        return False
+    r = peer.call("simulate_drag", {"from_x": a[0], "from_y": a[1], "to_x": b[0], "to_y": b[1], "steps": steps})
+    time.sleep(1.0)
+    return (r.get("result") or {}).get("status") == "ok"
+
+
+def scenario_fb_relay_client():
+    tag = "fb_relay_client"
+    host, client = boot(tag)
+    try:
+        load_fixture(host, client, "audit_374_kunnin", 7)
+        check("[%s] P2 (the client) is active" % tag, host.ex("return GameState.state.meta.active_player") == 2)
+        for p in (host, client):
+            p.ex('GameState.state.players["1"].merge({"cp": 0}, true)\nGameState.state.players["2"].merge({"cp": 0}, true)\nreturn true')
+            check("[%s] %s: 5 Boyz + the attached Weirdboy engaged with two Witchseekers" % (tag, p.name), p.ex(FB_SETUP) is True)
+        hashes_equal(host, client, tag + " after setup")
+        st = client.ex(FB_RELAY_STUB)
+        check("[%s] the client runs the web-relay CLIENT branch (not host, networked, P2)" % tag, st == [False, True, 2], st)
+        needles = ("DESYNC", "Only host can generate RNG seeds", "Optimistic validation FAILED")
+        log0 = {n: len(log_errors(client, n)) for n in needles}
+        client.ex(FB_FRAME)
+        client.ex('tree.current_scene.movement_controller._select_unit_in_list_by_id("U_BOYZ_K")\nreturn true')
+        time.sleep(1.0)
+        sel = client.ex("return str(tree.current_scene.movement_controller.active_unit_id)")
+        check("[%s] client: the Boyz are selected in its movement panel" % tag, sel == "U_BOYZ_K", sel)
+        fb_ensure_visible(client, FB_RADIO)
+        check("[%s] client: real click on Fall Back" % tag, click(client, FB_RADIO))
+        r = wait_until(lambda: host.ex(FB_MODE) == "ordered_retreat", timeout=20)
+        decline_pending_windows(host, client)
+        r = wait_until(lambda: host.ex(FB_MODE) == "ordered_retreat" and client.ex(FB_MODE) == "ordered_retreat", timeout=20)
+        check("[%s] Fall Back began as an Ordered Retreat on both peers" % tag, r is True, [host.ex(FB_MODE), client.ex(FB_MODE)])
+        client.ex("seed(20261107)\nreturn true")
+        fb_ensure_visible(client, FB_BOX)
+        check("[%s] client: real click on the Desperate Escape box" % tag, click(client, FB_BOX))
+        r = wait_until(lambda: host.ex(FB_MODE) == "desperate_escape" and client.ex(FB_MODE) == "desperate_escape", timeout=20)
+        check("[%s] the move is a Desperate Escape on the HOST and in the CLIENT's own phase" % tag, r is True,
+              [host.ex(FB_MODE), client.ex(FB_MODE)])
+        time.sleep(1.0)
+        hf, cf = host.ex(FB_FLAG), client.ex(FB_FLAG)
+        check("[%s] the client made the host's hazard rolls (6: one per model of the Attached unit)" % tag,
+              isinstance(hf, list) and len(hf) == 6 and hf == cf, [hf, cf])
+        lbl = client.ex("return tree.current_scene.movement_controller.unit_mode_label.text")
+        check("[%s] client panel: 'Fall Back — Desperate Escape'" % tag, isinstance(lbl, str) and "Desperate Escape" in lbl, lbl)
+        tk = client.ex(FB_TOKENS)
+        check("[%s] client: the hazard casualties left its board" % tag, isinstance(tk, list) and tk[0] == tk[1], tk)
+        hashes_equal(host, client, tag + " after the Desperate Escape box")
+        alive = host.ex(FB_ALIVE) or []
+        front = [a for a in alive if abs(a[2] - 1300.0) < 1]
+        pick = (front or [a for a in alive if abs(a[2] - 1345.0) < 1] or [None])[0]
+        check("[%s] fixture: a Boy that must cross a Witchseeker survived the hazard rolls" % tag, pick is not None, alive)
+        if pick is not None:
+            mid, x, y = pick
+            check("[%s] client: real drag of %s straight north through a Witchseeker" % (tag, mid),
+                  fb_drag_board(client, x, y, x, y - 236.0))
+            r = wait_until(lambda: host.ex(FB_STAGED) == 1 and client.ex(FB_STAGED) == 1, timeout=15)
+            fails = log_errors(client, "Optimistic validation FAILED")
+            check("[%s] the drag was staged on the client AND reached the host (staged there too)" % tag, r is True,
+                  {"host": host.ex(FB_STAGED), "client": client.ex(FB_STAGED), "client_log": fails[-2:]})
+            client.shot(tag + "_client_dragged_through")
+            for mid2, x2, y2 in alive:
+                if mid2 == mid:
+                    continue
+                route(client, {"type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_BOYZ_K", "player": 2,
+                               "payload": {"model_id": mid2, "dest": [x2, y2 - 236.0], "rotation": 0.0}})
+                time.sleep(0.8)
+            r = wait_until(lambda: host.ex(FB_STAGED) == len(alive) and client.ex(FB_STAGED) == len(alive), timeout=15)
+            check("[%s] every surviving Boy staged on both peers" % tag, r is True, [host.ex(FB_STAGED), client.ex(FB_STAGED), len(alive)])
+            bs0h, bs0c = game_log_count(host, "takes a Battle-shock test"), game_log_count(client, "takes a Battle-shock test")
+            fb_ensure_visible(client, FB_CONFIRM)
+            check("[%s] client: real click on End This Unit's Move" % tag, click(client, FB_CONFIRM))
+            r = wait_until(lambda: host.ex('return GameState.state.units.U_BOYZ_K.flags.get("moved", false)') is True, timeout=20)
+            decline_pending_windows(host, client)
+            time.sleep(1.5)
+            check("[%s] the fall-back is confirmed on the host, the unit unengaged" % tag,
+                  r is True and host.ex('return RulesEngine.is_unit_engaged("U_BOYZ_K", GameState.state)') is False, r)
+            bsh = host.ex('var out = []\nfor e in GameEventLog.entries:\n\tif "takes a Battle-shock test" in str(e.get("text", "")):\n\t\tout.append(str(e.text))\nreturn out')
+            bsc = client.ex('var out = []\nfor e in GameEventLog.entries:\n\tif "takes a Battle-shock test" in str(e.get("text", "")):\n\t\tout.append(str(e.text))\nreturn out')
+            check("[%s] both peers made the same AFTER MOVING battle-shock roll (seeded by the action)" % tag,
+                  isinstance(bsh, list) and isinstance(bsc, list) and len(bsh) == bs0h + 1 and bsh[bs0h:] == bsc[bs0c:], [bsh, bsc])
+            hashes_equal(host, client, tag + " after End This Unit's Move")
+        client.ex('tree.current_scene.movement_controller._select_unit_in_list_by_id("U_BOYZ_K")\nreturn true')
+        time.sleep(1.0)
+        client.shot(tag + "_client_after_confirm")
+        host.shot(tag + "_host_after_confirm")
+        for needle in needles:
+            lines = log_errors(client, needle)[log0[needle]:]
+            check("[%s] client log: no '%s' during the fall-back" % (tag, needle), not lines, lines[:3])
+    finally:
+        host.stop(); client.stop()
+
+
 def main():
     for name in WHICH:
         print("\n==== %s ====" % name, flush=True)
@@ -773,6 +961,8 @@ def main():
                 scenario_ri_client()
             elif name == "ri_client_use":
                 scenario_ri_client_use()
+            elif name == "fb_relay_client":
+                scenario_fb_relay_client()
         except Exception as e:
             check("[%s] scenario crashed" % name, False, repr(e))
 

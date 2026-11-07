@@ -46,6 +46,8 @@
     { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif str(d.get(\"type\", \"\")).begins_with(\"Desperate escape (WHERE D'YA FINK?)\"):\n\t\treturn d.get(\"rolls\", []).size()\nreturn -1", "equals": 5, "comment": "one hazard roll per Allarus model (not MONSTER/VEHICLE: no extra rolls)" },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._awaiting_krump_and_run", "equals": false },
     { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"WHERE D'YA FINK\")", "expect_min": 1 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"hazard roll\")", "equals": 1, "comment": "EA-08 review: ONE game-log card for the one set of hazard rolls (the generic Desperate Escape card no longer repeats WHERE D'YA FINK's dice)" },
+    { "act": "execute_script", "multiline": true, "script": "var n := 0\nfor d in PhaseManager.get_current_phase_instance().dice_log:\n\tif str(d.get(\"type\", \"\")).to_lower().begins_with(\"desperate escape\"):\n\t\tn += 1\nreturn n", "equals": 1, "comment": "EA-08 review: and ONE dice-log row for them" },
     { "act": "screenshot", "label": "03_forced_desperate_escape" }
   ]
 }

@@ -183,9 +183,11 @@ static func attached_unit_hazard_view(unit_id: String, board: Dictionary) -> Dic
 ## inflicted or that unit is destroyed" — for an Attached unit, ONE allocation
 ## across the whole unit (non-CHARACTER models first, then the leaders), written
 ## back to each component. Feel No Pain vs mortal wounds is rolled as before on
-## the head unit's Feel No Pain (RulesEngine.mortal_wounds_after_fnp).
+## the head unit's Feel No Pain (RulesEngine.mortal_wounds_after_fnp), with
+## `rng` when given (the hazard rolls' RNG — MovementPhase seeds it from the
+## action so an online client rolls what the host rolls; null = make_rng()).
 ## Returns {diffs, applied, lost, destroyed: [{unit_id, model_index}], mw_after_fnp}.
-static func hazard_casualties(unit_id: String, mortal_wounds: int, board: Dictionary, fnp_source: String = "desperate_escape") -> Dictionary:
+static func hazard_casualties(unit_id: String, mortal_wounds: int, board: Dictionary, fnp_source: String = "desperate_escape", rng = null) -> Dictionary:
 	var out := {"diffs": [], "applied": 0, "lost": 0, "destroyed": [], "mw_after_fnp": 0}
 	if mortal_wounds <= 0:
 		return out
@@ -194,7 +196,7 @@ static func hazard_casualties(unit_id: String, mortal_wounds: int, board: Dictio
 	var head: Dictionary = board.get("units", {}).get(str(fold.sources[0].unit_id) if not fold.sources.is_empty() else unit_id, {})
 	var mw := mortal_wounds
 	if re != null:
-		mw = int(re.mortal_wounds_after_fnp(head, mortal_wounds, null, [], false, fnp_source))
+		mw = int(re.mortal_wounds_after_fnp(head, mortal_wounds, rng, [], false, fnp_source))
 	out.mw_after_fnp = mw
 	if mw <= 0:
 		return out

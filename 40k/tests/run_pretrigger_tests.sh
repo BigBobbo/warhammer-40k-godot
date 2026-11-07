@@ -316,6 +316,7 @@ TESTS=(
     "tests/test_ea08_ordered_retreat_no_crossing_11e.gd"
     "tests/test_ea36_desperate_escape_attached_unit_11e.gd"
     "tests/test_ea63_out_of_phase_fall_back_11e.gd"
+    "tests/test_ea08_fall_back_online_client_11e.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_fire_overwatch_15_08_11e.gd"

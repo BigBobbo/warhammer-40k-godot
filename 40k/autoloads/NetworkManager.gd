@@ -73,7 +73,13 @@ const DETERMINISTIC_ACTIONS: Array[String] = [
 	"BEGIN_SCOUT_MOVE", "SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE",
 	"SKIP_SCOUT_UNIT", "END_SCOUT_MOVES",
 	# Movement (BEGIN_ADVANCE included — T5-MP9: seed embedded in action for deterministic roll)
-	"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
+	# SET_FALL_BACK_MODE (EA-08: Desperate Escape chosen after Fall Back began)
+	# switches the phase-local fall-back mode the client's own STAGE_MODEL_MOVE /
+	# SET_MODEL_DEST validation reads; its hazard rolls, like BEGIN_FALL_BACK's
+	# and CONFIRM_UNIT_MOVE's desperate-escape battle-shock roll, come from the
+	# action's embedded rng_seed (MovementPhase), so client and host roll the
+	# same dice.
+	"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "SET_FALL_BACK_MODE",
 	"SET_MODEL_DEST", "STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE",
 	"RESET_UNIT_MOVE", "REMAIN_STATIONARY",
 	"DISEMBARK_UNIT", "DISEMBARK_AND_MOVE",

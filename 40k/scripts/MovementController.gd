@@ -912,7 +912,7 @@ func _update_selected_unit_display() -> void:
 			mode_text += "Fall Back"
 			# 11e fall-back modes (09.07): say which one is in effect — and when a
 			# rule forced it (WHERE D'YA FINK YOU'RE GOING?), say so (r3:F12).
-			var fbm := str(amd.get("fall_back_mode", ""))
+			var fbm := _fall_back_mode_for(active_unit_id, amd)
 			if fbm == "desperate_escape":
 				mode_text += " — Desperate Escape"
 				var forced_by := str(amd.get("fall_back_mode_forced_by", ""))
@@ -952,6 +952,15 @@ func _active_move_data_for(unit_id: String) -> Dictionary:
 	if unit_id == "" or current_phase == null or not current_phase.has_method("get_active_move_data"):
 		return {}
 	return current_phase.get_active_move_data(unit_id)
+
+## EA-08: the 09.07 mode of unit_id's fall-back as the phase judges it
+## (MovementPhase.get_fall_back_mode — the synced hazard record also marks a
+## Desperate Escape, so an online client shows what the host plays);
+## md.fall_back_mode when the phase has no such query.
+func _fall_back_mode_for(unit_id: String, md: Dictionary) -> String:
+	if current_phase != null and current_phase.has_method("get_fall_back_mode") and str(md.get("mode", "")) == "FALL_BACK":
+		return str(current_phase.get_fall_back_mode(unit_id))
+	return str(md.get("fall_back_mode", ""))
 
 ## Display name of the rule that granted a reactive normal move.
 static func reactive_move_source(move_data: Dictionary) -> String:
@@ -1785,7 +1794,7 @@ func _update_desperate_escape_visibility() -> void:
 		forced = bool(MoveTypes.get_type("fall_back").select_mode(active_unit_id, GameState.state).get("mandatory", false))
 		var rec = GameState.get_unit(active_unit_id).get("flags", {}).get("desperate_escape_hazards_this_phase", null)
 		hazards_made = rec is Dictionary and not rec.is_empty()
-	var de_now: bool = falling_back and str(md.get("fall_back_mode", "")) == "desperate_escape"
+	var de_now: bool = falling_back and _fall_back_mode_for(active_unit_id, md) == "desperate_escape"
 	var moved: bool = falling_back and (not md.get("staged_moves", []).is_empty() or not md.get("model_moves", []).is_empty())
 	desperate_escape_checkbox.visible = show
 	_syncing_desperate_escape = true
@@ -1813,7 +1822,7 @@ func _on_desperate_escape_toggled(pressed: bool) -> void:
 	if md.is_empty() or str(md.get("mode", "")) != "FALL_BACK":
 		print("MovementController: EA-08 Desperate Escape %s for %s — rides the Fall Back payload" % ["ticked" if pressed else "unticked", active_unit_id])
 		return  # no fall-back yet: the tick rides the BEGIN_FALL_BACK payload
-	if pressed and str(md.get("fall_back_mode", "")) != "desperate_escape":
+	if pressed and _fall_back_mode_for(active_unit_id, md) != "desperate_escape":
 		print("MovementController: EA-08 switching %s's fall-back to Desperate Escape (SET_FALL_BACK_MODE)" % active_unit_id)
 		emit_signal("move_action_requested", {"type": "SET_FALL_BACK_MODE", "actor_unit_id": active_unit_id,
 			"payload": {"fall_back_mode": "desperate_escape"}})
