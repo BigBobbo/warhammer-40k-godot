@@ -74,12 +74,15 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary) -> Dictionary:
 	if GameConstants.edition < 11 or context.get("mode", "") != "desperate_escape":
 		return {}
-	# Desperate Escape BEFORE MOVING: a hazard roll for each model (06.03).
+	# Desperate Escape BEFORE MOVING: a hazard roll for each model (06.03) of
+	# the WHOLE Attached unit — EA-36: 19.01 "An attached unit is a single unit
+	# for all rules purposes", 09.07.01 "one hazard roll for each model in that
+	# unit". The leader's models roll too, and 06.03's 3-MW test ("if each
+	# model in that unit is a MONSTER/VEHICLE model") is judged on every model.
 	var unit = _unit(board, unit_id)
-	var alive := 0
-	for m in unit.get("models", []):
-		if m.get("alive", true):
-			alive += 1
+	var view: Dictionary = attached_unit_hazard_view(unit_id, board)
+	var alive := int(view.alive)
+	print("FallBackMove: desperate escape for %s — %d hazard roll(s), one per model of the Attached unit %s" % [unit_id, alive, str(view.component_ids)])
 	# CUT' EM DOWN (Bully Boyz): -1 to each test while a Waaagh! was active
 	# for the Nobz/Meganobz unit when the stratagem was used.
 	var cut_mod: int = -1 if unit.get("flags", {}).get("effect_cut_em_down_minus1", false) else 0
@@ -92,14 +95,14 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 	if wk_mod != 0:
 		print("FallBackMove: Wimp-kickaz — %d to %s's desperate escape hazard rolls (the Nobz are riled up)" % [wk_mod, unit_id])
 	cut_mod += wk_mod
-	var hz = AttackSequence.hazard_rolls(unit, alive, rng, cut_mod)
+	var hz = AttackSequence.hazard_rolls(view.hazard_unit, alive, rng, cut_mod)
 	# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING?: a MONSTER/VEHICLE unit
 	# makes three ADDITIONAL hazard rolls per BEAST SNAGGA unit it is engaged
 	# with, -1 to those rolls while it is battle-shocked. All rolls are made
 	# simultaneously (06.03); the extra ones are reported separately.
 	var wdyf: Dictionary = _ork_codex_movement().where_dya_fink_extra_hazard(unit_id, board)
 	if int(wdyf.get("count", 0)) > 0:
-		var extra = AttackSequence.hazard_rolls(unit, int(wdyf.count), rng, int(wdyf.modifier) + cut_mod)
+		var extra = AttackSequence.hazard_rolls(view.hazard_unit, int(wdyf.count), rng, int(wdyf.modifier) + cut_mod)
 		hz["extra_rolls"] = extra.rolls
 		hz["extra_failures"] = extra.failures
 		hz["extra_modifier"] = int(wdyf.modifier)
@@ -112,6 +115,107 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 		"can_move_through_enemies": true,  # WHILE MOVING (desperate escape)
 		"dice": [{"context": "desperate_escape_hazard", "rolls": hz.rolls}],
 	}
+
+## EA-36 (09.07 / 09.07.01; 19.01 "An attached unit is a single unit for all
+## rules purposes"): the Attached unit headed by unit_id folded into one unit
+## dict, the way 05.03 / 06.02 allocation folds it — the head's models first,
+## then each attached CHARACTER's (both link directions,
+## RulesEngine.attached_unit_component_ids), marked is_character so 06.02
+## reaches them last. {unit, sources: [{unit_id, model_index}] (per folded
+## model), component_ids}. An attached CHARACTER id resolves to its bodyguard.
+static func attached_unit_fold(unit_id: String, board: Dictionary) -> Dictionary:
+	var units: Dictionary = board.get("units", {})
+	var re = _rules()
+	var head_id := unit_id
+	var comps: Array = [unit_id]
+	if re != null:
+		head_id = str(re.attached_unit_target_id(unit_id, board))
+		comps = re.attached_unit_component_ids(head_id, board)
+	var folded: Dictionary = units.get(head_id, {}).duplicate(true)
+	var models: Array = []
+	var sources: Array = []
+	for cid in comps:
+		var cu: Dictionary = units.get(str(cid), {})
+		var cstats: Dictionary = cu.get("meta", {}).get("stats", {})
+		var cms: Array = cu.get("models", [])
+		for i in range(cms.size()):
+			var m: Dictionary = cms[i].duplicate(true)
+			if str(cid) != head_id:
+				m["is_character"] = true
+				if not m.has("wounds") and cstats.has("wounds"):
+					m["wounds"] = cstats.wounds
+			models.append(m)
+			sources.append({"unit_id": str(cid), "model_index": i})
+	folded["models"] = models
+	return {"unit": folded, "sources": sources, "component_ids": comps}
+
+static func _has_mv_keyword(kws: Array) -> bool:
+	for k in kws:
+		var ku := str(k).to_upper()
+		if ku == "MONSTER" or ku == "VEHICLE":
+			return true
+	return false
+
+## EA-36: the Attached unit headed by unit_id as its desperate escape sees it —
+## {fold (attached_unit_fold), component_ids, alive, hazard_unit}. alive counts
+## the alive models of every component (one hazard roll each); hazard_unit has
+## one entry per alive model, marked VEHICLE when that model or its own
+## component unit is MONSTER/VEHICLE, so AttackSequence.hazard_rolls' "each
+## model in that unit is a MONSTER/VEHICLE model" (06.03: 3 MW a failure) is
+## judged on the whole Attached unit.
+static func attached_unit_hazard_view(unit_id: String, board: Dictionary) -> Dictionary:
+	var fold: Dictionary = attached_unit_fold(unit_id, board)
+	var units: Dictionary = board.get("units", {})
+	var models: Array = fold.unit.get("models", [])
+	var marks: Array = []
+	for i in range(models.size()):
+		var m: Dictionary = models[i]
+		if not m.get("alive", true):
+			continue
+		var src_id := str(fold.sources[i].get("unit_id", unit_id))
+		var mv: bool = _has_mv_keyword(units.get(src_id, {}).get("meta", {}).get("keywords", [])) or _has_mv_keyword(m.get("keywords", []))
+		marks.append({"alive": true, "keywords": ["VEHICLE"] if mv else []})
+	return {"fold": fold, "component_ids": fold.component_ids, "alive": marks.size(),
+		"hazard_unit": {"meta": {"keywords": []}, "models": marks}}
+
+## EA-36 (06.02 MORTAL WOUNDS, 06.03 FAQ): the desperate escape's hazard mortal
+## wounds are inflicted on the unit "until either all of them have been
+## inflicted or that unit is destroyed" — for an Attached unit, ONE allocation
+## across the whole unit (non-CHARACTER models first, then the leaders), written
+## back to each component. Feel No Pain vs mortal wounds is rolled as before on
+## the head unit's Feel No Pain (RulesEngine.mortal_wounds_after_fnp).
+## Returns {diffs, applied, lost, destroyed: [{unit_id, model_index}], mw_after_fnp}.
+static func hazard_casualties(unit_id: String, mortal_wounds: int, board: Dictionary, fnp_source: String = "desperate_escape") -> Dictionary:
+	var out := {"diffs": [], "applied": 0, "lost": 0, "destroyed": [], "mw_after_fnp": 0}
+	if mortal_wounds <= 0:
+		return out
+	var re = _rules()
+	var fold: Dictionary = attached_unit_fold(unit_id, board)
+	var head: Dictionary = board.get("units", {}).get(str(fold.sources[0].unit_id) if not fold.sources.is_empty() else unit_id, {})
+	var mw := mortal_wounds
+	if re != null:
+		mw = int(re.mortal_wounds_after_fnp(head, mortal_wounds, null, [], false, fnp_source))
+	out.mw_after_fnp = mw
+	if mw <= 0:
+		return out
+	var folded: Dictionary = fold.unit
+	var vmodels: Array = folded.get("models", [])
+	var head_stats: Dictionary = folded.get("meta", {}).get("stats", {})
+	var alloc: Dictionary = Allocation.apply_mortal_wounds_11e(folded, mw, CasualtyPreference.engine_auto_preference(head, board))
+	for vi in alloc.remaining:
+		var i := int(vi)
+		var src: Dictionary = fold.sources[i]
+		var w := int(vmodels[i].get("wounds", head_stats.get("wounds", 1)))
+		if int(alloc.remaining[vi]) != int(vmodels[i].get("current_wounds", w)):
+			out.diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [str(src.unit_id), int(src.model_index)], "value": int(alloc.remaining[vi])})
+	for di in alloc.models_destroyed:
+		var src2: Dictionary = fold.sources[int(di)]
+		out.diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [str(src2.unit_id), int(src2.model_index)], "value": false})
+		out.diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [str(src2.unit_id), int(src2.model_index)], "value": 0})
+		out.destroyed.append({"unit_id": str(src2.unit_id), "model_index": int(src2.model_index)})
+	out.applied = int(alloc.applied)
+	out.lost = int(alloc.lost)
+	return out
 
 func after_moving_conditions(unit_id: String, board: Dictionary, context: Dictionary) -> Dictionary:
 	var base = super.after_moving_conditions(unit_id, board, context)

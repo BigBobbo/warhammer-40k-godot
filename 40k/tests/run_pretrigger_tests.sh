@@ -118,6 +118,12 @@
 #     normal / advance move passes enemy non-MONSTER/VEHICLE models (STAGE /
 #     SET_MODEL_DEST / reactive translation), per model in Attached units;
 #     enemy M/V still block, the move must end unengaged, 10e unchanged
+#   - EA-08 11e 09.07 / 09.02.02: an Ordered Retreat fall-back cannot move
+#     through enemy models (base contact is not "through"); Desperate Escape can,
+#     chosen at BEGIN or later (SET_FALL_BACK_MODE), its hazard rolls made once
+#     per phase; carried CHARACTERs are path-checked too
+#   - EA-36 11e 09.07.01 / 19.01: a Desperate Escape rolls a hazard per model of
+#     the whole Attached unit and pools the mortal wounds across it (06.02)
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -304,6 +310,8 @@ TESTS=(
     "tests/test_iss072_duplicated_abilities.gd"
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_ea10_mv_moves_through_enemy_11e.gd"
+    "tests/test_ea08_ordered_retreat_no_crossing_11e.gd"
+    "tests/test_ea36_desperate_escape_attached_unit_11e.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_fire_overwatch_15_08_11e.gd"

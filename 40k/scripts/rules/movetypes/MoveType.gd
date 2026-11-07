@@ -88,6 +88,120 @@ func _unit(board: Dictionary, unit_id: String) -> Dictionary:
 	return board.get("units", {}).get(unit_id, {})
 
 
+## ── 03.01 "Its base cannot be moved through enemy models" ─────────
+## EA-08 (11e 09.07): shared by the Movement phase's path checks
+## (MovementPhase._path_crosses_enemy_bases / _path_crosses_monster_vehicle_bases)
+## and the fall-back moves made outside it (Tactical Fluidity, WIND-SWIFT
+## EVASION via ReactiveMove11e), so every fall-back judges "moving through"
+## the same way.
+##
+## Base CONTACT is not moving through. A charge's snap leaves bases within
+## half a pixel of each other and float32 positions turn exact contact into a
+## hair of overlap, so a straight path is swept with a base CONTACT_TOLERANCE_MM
+## smaller than the model's (half a millimetre a side, about 0.8 px).
+const CONTACT_TOLERANCE_MM := 1
+
+static func _measurement() -> Node:
+	var ml = Engine.get_main_loop()
+	if ml is SceneTree and ml.root:
+		return ml.root.get_node_or_null("Measurement")
+	return null
+
+static func _pos_of(m: Dictionary) -> Vector2:
+	var p = m.get("position", null)
+	if p is Vector2:
+		return p
+	if p is Dictionary:
+		return Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+	return Vector2.INF
+
+## A copy of `model` whose base is CONTACT_TOLERANCE_MM smaller (round and
+## oval / rectangular dimensions alike) — the swept base of a path check.
+static func contact_tolerant_mover(model: Dictionary) -> Dictionary:
+	var m: Dictionary = model.duplicate(true)
+	m["base_mm"] = maxi(1, int(round(float(m.get("base_mm", 32)))) - CONTACT_TOLERANCE_MM)
+	var dims = m.get("base_dimensions", {})
+	if dims is Dictionary and not dims.is_empty():
+		var nd: Dictionary = dims.duplicate()
+		for k in ["length", "width"]:
+			if nd.has(k):
+				nd[k] = maxf(1.0, float(nd[k]) - float(CONTACT_TOLERANCE_MM))
+		m["base_dimensions"] = nd
+	return m
+
+## Shape-aware base overlap (Measurement.models_overlap); bounding circles
+## when the autoload is not there (bare --script unit tests).
+static func _bases_overlap(a: Dictionary, b: Dictionary) -> bool:
+	var meas = _measurement()
+	if meas != null:
+		return bool(meas.models_overlap(a, b))
+	var pa := _pos_of(a)
+	var pb := _pos_of(b)
+	if pa == Vector2.INF or pb == Vector2.INF:
+		return false
+	var ra := _bounding_radius_px(a)
+	var rb := _bounding_radius_px(b)
+	return pa.distance_to(pb) < ra + rb
+
+static func _bounding_radius_px(m: Dictionary) -> float:
+	var mm := float(m.get("base_mm", 32))
+	var dims = m.get("base_dimensions", {})
+	if dims is Dictionary and not dims.is_empty() and str(m.get("base_type", "circular")) != "circular":
+		mm = maxf(float(dims.get("length", mm)), float(dims.get("width", mm)))
+	return mm / 25.4 * 40.0 / 2.0
+
+## Does `mover` (already contact-tolerant), moved in a straight line from
+## `from` to `to`, move THROUGH `other` (standing at other_pos)? Samples about
+## every 10 px (t > 0). A base the mover already overlaps at `from` (a deep
+## overlap a set-up left behind) only counts when the path takes the mover's
+## centre closer to it; otherwise any overlap on the way counts.
+static func sweep_moves_through(mover: Dictionary, from: Vector2, to: Vector2, other: Dictionary, other_pos: Vector2) -> bool:
+	var probe: Dictionary = mover.duplicate()
+	probe["position"] = from
+	var start_overlap: bool = _bases_overlap(probe, other)
+	var start_d := from.distance_to(other_pos)
+	var n: int = maxi(2, int(from.distance_to(to) / 10.0))
+	for i in range(1, n + 1):
+		var p: Vector2 = from.lerp(to, float(i) / float(n))
+		probe["position"] = p
+		if _bases_overlap(probe, other):
+			if not start_overlap or p.distance_to(other_pos) < start_d - 0.5:
+				return true
+	return false
+
+## Would `model` (of a unit owned by `owner`), moved straight from `from` to
+## `to`, move through an alive, on-table model of another player? skip_unit_ids
+## (a set: unit_id -> true) is never a blocker. 03.01 / 09.07 (Ordered Retreat).
+static func path_crosses_enemy_models(board: Dictionary, owner: int, model: Dictionary, from: Vector2, to: Vector2, skip_unit_ids: Dictionary = {}) -> bool:
+	if from.distance_to(to) < 0.01:
+		return false
+	var mover := contact_tolerant_mover(model)
+	var mover_r := _bounding_radius_px(mover)
+	var seg := to - from
+	var seg_len2 := seg.length_squared()
+	var units: Dictionary = board.get("units", {})
+	for uid in units:
+		if skip_unit_ids.has(str(uid)):
+			continue
+		var u: Dictionary = units[uid]
+		if int(u.get("owner", 0)) == owner or u.get("embarked_in", null) != null:
+			continue
+		for om in u.get("models", []):
+			if not om.get("alive", true):
+				continue
+			var op := _pos_of(om)
+			if op == Vector2.INF:
+				continue
+			# Cheap reject: the enemy base is farther from the path than the
+			# two bounding radii (+1 px) — no overlap anywhere along it.
+			var t := clampf((op - from).dot(seg) / seg_len2, 0.0, 1.0) if seg_len2 > 0.0 else 0.0
+			if (from + seg * t).distance_to(op) > mover_r + _bounding_radius_px(om) + 1.0:
+				continue
+			if sweep_moves_through(mover, from, to, om, op):
+				return true
+	return false
+
+
 ## 21.03 / 24.17 (11e): when a FLYING unit "takes to the skies" its move
 ## maximum is reduced by 2" (0" with HOVER) and it may move through all
 ## models and terrain ignoring vertical distance. Returns the distance

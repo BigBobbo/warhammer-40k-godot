@@ -520,7 +520,9 @@ func apply_state_changes(changes: Array) -> void:
 ## Unit flags whose meaning is "this phase" and that no phase instance owns:
 ##   embarked_this_phase — 18.04 / 18.06 "did not embark within that TRANSPORT
 ##   this phase" (set by the Movement-phase embark and KEEP IT RUNNIN').
-const PHASE_SCOPED_UNIT_FLAGS := ["embarked_this_phase"]
+##   desperate_escape_hazards_this_phase — EA-08 (MovementPhase.FLAG_DE_HAZARDS):
+##   a unit's 09.07 desperate escape hazard rolls are made once per phase.
+const PHASE_SCOPED_UNIT_FLAGS := ["embarked_this_phase", "desperate_escape_hazards_this_phase"]
 
 func _clear_phase_scoped_unit_flags() -> void:
 	var changes: Array = []

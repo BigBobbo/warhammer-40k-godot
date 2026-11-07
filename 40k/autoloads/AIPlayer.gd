@@ -2901,6 +2901,7 @@ func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictiona
 	var staged_count = 0
 	var failed_count = 0
 	var failure_reasons = []
+	var failed_model_ids: Array = []
 
 	for model_id in destinations:
 		var dest = destinations[model_id]
@@ -2937,10 +2938,27 @@ func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictiona
 			staged_count += 1
 		else:
 			failed_count += 1
+			failed_model_ids.append(str(model_id))
 			var errors = stage_result.get("errors", []) if stage_result != null else []
 			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
 			failure_reasons.append(error_msg)
 			print("AIPlayer: Failed to stage model %s: %s" % [model_id, error_msg])
+
+	# EA-08 (11e 09.07 AFTER MOVING: "Your unit must be unengaged"): an Ordered
+	# Retreat cannot move a model through enemy models, so a model whose way out
+	# crosses one fails to stage — and confirming the rest would leave it behind,
+	# still engaged. Never confirm such a partial fall-back: reset and report a
+	# staging failure, so the caller tries a Desperate Escape (or stays put).
+	if failed_count > 0 and staged_count > 0 and _fall_back_leaves_model_engaged(unit_id, failed_model_ids):
+		print("AIPlayer: EA-08 partial fall-back for %s would leave %s engaged (%s) — resetting instead of confirming" % [
+			unit_id, str(failed_model_ids), "; ".join(PackedStringArray(failure_reasons))])
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "RESET_UNIT_MOVE",
+			"actor_unit_id": unit_id,
+			"player": player
+		})
+		return "staging_failed"
 
 	if staged_count == 0:
 		_current_phase_actions += 1
@@ -2994,6 +3012,28 @@ func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictiona
 			"player": player
 		})
 		return "confirm_failed"
+
+## EA-08: is unit_id making an 11e fall-back move in which one of model_ids
+## (bodyguard models that failed to stage, so they would stay where they are)
+## is still within engagement range of an enemy model?
+func _fall_back_leaves_model_engaged(unit_id: String, model_ids: Array) -> bool:
+	if GameConstants.edition < 11 or model_ids.is_empty():
+		return false
+	var phase = _phase_manager_ref.current_phase_instance if _phase_manager_ref else null
+	if phase == null or not ("active_moves" in phase) or not phase.has_method("_is_position_in_engagement_range"):
+		return false
+	if str(phase.active_moves.get(unit_id, {}).get("mode", "")) != "FALL_BACK":
+		return false
+	for m in GameState.get_unit(unit_id).get("models", []):
+		if not m.get("alive", true) or not str(m.get("id", "")) in model_ids:
+			continue
+		var p = m.get("position", null)
+		if p == null:
+			continue
+		var pos: Vector2 = p if p is Vector2 else Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+		if phase._is_position_in_engagement_range(unit_id, str(m.get("id", "")), pos):
+			return true
+	return false
 
 # --- AI Scout Movement execution ---
 

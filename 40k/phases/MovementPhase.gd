@@ -457,6 +457,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_lock_movement_mode(action)
 		"SET_TAKE_TO_SKIES":
 			return _validate_set_take_to_skies(action)
+		"SET_FALL_BACK_MODE":  # EA-08: choose Desperate Escape after Fall Back began
+			return _validate_set_fall_back_mode(action)
 		"SET_ADVANCE_BONUS":
 			return _validate_set_advance_bonus(action)
 		"END_MOVEMENT":
@@ -547,6 +549,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_lock_movement_mode(action)
 		"SET_TAKE_TO_SKIES":
 			return _process_set_take_to_skies(action)
+		"SET_FALL_BACK_MODE":  # EA-08
+			return _process_set_fall_back_mode(action)
 		"SET_ADVANCE_BONUS":
 			return _process_set_advance_bonus(action)
 		"END_MOVEMENT":
@@ -756,13 +760,13 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if not er_check.valid:
 		return {"valid": false, "errors": er_check.errors}
 
-	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
-	# FLY units are exempt — they can move over enemy models
-	# Fall Back and Surge are also exempt
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+	# 03.01: a model's base cannot be moved through enemy models — Normal Move,
+	# Advance and (11e, EA-08) an Ordered Retreat fall-back; a Desperate Escape
+	# may (09.07 WHILE MOVING). _enemy_models_block_move owns the exemptions.
+	if _enemy_models_block_move(unit_id, move_data):
 		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
-			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
-			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
+			log_phase_message("  FAILED: Path crosses enemy model base (%s cannot move through enemies)" % _enemy_crossing_move_label(move_data))
+			return {"valid": false, "errors": [_enemy_crossing_error(move_data)]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
@@ -892,14 +896,16 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	if not er_check.valid:
 		return {"valid": false, "errors": er_check.errors}
 
-	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
-	# FLY units are exempt — they can move over enemy models
-	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
-	# Surge moves allow moving through/into Engagement Range)
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+	# 03.01: a model's base cannot be moved through enemy models — Normal Move,
+	# Advance and (11e, EA-08) an Ordered Retreat fall-back. A Desperate Escape
+	# may (09.07 WHILE MOVING); surge moves are not checked here.
+	# _enemy_models_block_move owns the move-wide exemptions (FLY / take to the
+	# skies, Shokk-Boosta, Grapnel Launchers); _path_crosses_enemy_bases the ones
+	# that narrow which enemy models block (Calistus, 24.35, 17.01).
+	if _enemy_models_block_move(unit_id, move_data):
 		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model, model_actual_unit_id):
-			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
-			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
+			log_phase_message("  FAILED: Path crosses enemy model base (%s cannot move through enemies)" % _enemy_crossing_move_label(move_data))
+			return {"valid": false, "errors": [_enemy_crossing_error(move_data)]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt. The moved model's own unit is passed: the 11e 17.01
@@ -2928,7 +2934,9 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 	# ISS-040 step 2 (11e 09.07): fall-back MODES via the template —
 	# desperate escape is mandatory when battle-shocked and rolls one
 	# hazard per model BEFORE moving (06.03); ordered retreat otherwise
-	# (player may still opt into desperate escape via payload).
+	# (the player may still opt into desperate escape: payload.fall_back_mode,
+	# the movement panel's Desperate Escape box, or SET_FALL_BACK_MODE once the
+	# fall-back has begun — EA-08).
 	var fb_hazard_changes: Array = []
 	if GameConstants.edition >= 11:
 		var fb_template = MoveTypes.get_type("fall_back")
@@ -2936,40 +2944,16 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 		var fb_mode = str(action.get("payload", {}).get("fall_back_mode", fb_sel.mode))
 		if not fb_mode in fb_sel.available:
 			fb_mode = str(fb_sel.mode)
+		# EA-08: the desperate escape hazard rolls are made once per phase — a
+		# fall-back begun again (Reset Unit, the AI's retry) stays a desperate
+		# escape and keeps them (_fall_back_desperate_escape_before_moving).
+		if fb_mode != "desperate_escape" and _desperate_escape_hazards_made(unit_id):
+			log_phase_message("[11e] %s already made its desperate escape hazard rolls this phase — the fall-back stays a Desperate Escape" % unit_id)
+			fb_mode = "desperate_escape"
 		active_moves[unit_id]["fall_back_mode"] = fb_mode
 		log_phase_message("[11e] Fall-back mode for %s: %s (available: %s)" % [unit_id, fb_mode, str(fb_sel.available)])
 		if fb_mode == "desperate_escape":
-			var fb_ctx = fb_template.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": fb_mode})
-			active_moves[unit_id]["desperate_escape_ctx"] = fb_ctx
-			var hz = fb_ctx.get("hazard", {})
-			log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
-			# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING? forced this desperate
-			# escape (FallBackMove.select_mode) — surface the hazard rolls, including
-			# the extra MONSTER/VEHICLE rolls (FallBackMove.before_moving).
-			if Ork11eMovement.where_dya_fink_forces_desperate_escape(unit_id, GameState.state):
-				active_moves[unit_id]["fall_back_mode_forced_by"] = "WHERE D'YA FINK YOU'RE GOING?"
-				_ork11e_log_where_dya_fink_hazards(unit_id, hz)
-			# Codex: Adeptus Custodes CORNER THE QUARRY (CustodesAbilities.gd) forced it.
-			elif _cus11e_abilities().corner_the_quarry_source(unit_id) != "":
-				active_moves[unit_id]["fall_back_mode_forced_by"] = "Corner the Quarry"
-				log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
-			# WP-S4 SAVAGE FRENZY (Space Wolves, Wulfen) forced it.
-			elif _sw11e_abilities().savage_frenzy_source(unit_id) != "":
-				active_moves[unit_id]["fall_back_mode_forced_by"] = "Savage Frenzy"
-				log_phase_message("[11e] Savage Frenzy: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
-			# 06.03: each failure destroys a model (3 MW each instead for
-			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
-			if int(hz.get("failures", 0)) > 0:
-				var mw = int(hz.get("mortal_wounds", 0))
-				# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
-				mw = RulesEngine.mortal_wounds_after_fnp(unit, mw, null, [], false, "desperate_escape")
-				var out = Allocation.apply_mortal_wounds_11e(unit, mw, CasualtyPreference.engine_auto_preference(unit, GameState.state))
-				for ridx in out.remaining:
-					var mi = int(ridx)
-					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, mi], "value": int(out.remaining[ridx])})
-				for di in out.models_destroyed:
-					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
-					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
+			fb_hazard_changes = _fall_back_desperate_escape_before_moving(unit_id)
 
 	# Emitted once the 11e fall-back mode is known, so the movement panel can
 	# show it (Desperate Escape, and that it was forced — r3:F12).
@@ -3004,6 +2988,130 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 		return result
 
 	return create_result(true, begin_changes)
+
+## EA-08: unit flag recording the desperate escape hazard rolls a unit made
+## this phase ({rolls, failures, mortal_wounds}); phase-scoped
+## (PhaseManager.PHASE_SCOPED_UNIT_FLAGS), so it is synced, saved, and cleared
+## when the phase ends.
+const FLAG_DE_HAZARDS := "desperate_escape_hazards_this_phase"
+
+## Has unit_id already made its desperate escape hazard rolls this phase?
+func _desperate_escape_hazards_made(unit_id: String) -> bool:
+	var rec = get_unit(unit_id).get("flags", {}).get(FLAG_DE_HAZARDS, null)
+	return rec is Dictionary and not rec.is_empty()
+
+## EA-08 / EA-36 (11e 09.07 BEFORE MOVING, desperate escape): "Make a hazard
+## roll for each model in your unit (06.03)" — every model of the Attached
+## unit (FallBackMove.before_moving), its mortal wounds allocated once across
+## the whole Attached unit, non-CHARACTER models first (06.02,
+## FallBackMove.hazard_casualties). The rolls are made ONCE per unit per
+## phase: they are recorded on the unit (FLAG_DE_HAZARDS), so a fall-back
+## begun again after Reset Unit — or the AI's retry — keeps them instead of
+## rolling a second set. Sets the active move's fall_back_mode /
+## desperate_escape_ctx (and fall_back_mode_forced_by when a rule forced the
+## mode). Shared by BEGIN_FALL_BACK and SET_FALL_BACK_MODE. Returns the diffs.
+func _fall_back_desperate_escape_before_moving(unit_id: String) -> Array:
+	var md: Dictionary = active_moves[unit_id]
+	md["fall_back_mode"] = "desperate_escape"
+	# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING?, Codex: Adeptus Custodes
+	# CORNER THE QUARRY and WP-S4 SAVAGE FRENZY (Space Wolves, Wulfen) force
+	# the mode (FallBackMove.select_mode) — the movement panel says so (r3:F12).
+	var forced_by := ""
+	if Ork11eMovement.where_dya_fink_forces_desperate_escape(unit_id, GameState.state):
+		forced_by = "WHERE D'YA FINK YOU'RE GOING?"
+	elif _cus11e_abilities().corner_the_quarry_source(unit_id) != "":
+		forced_by = "Corner the Quarry"
+	elif _sw11e_abilities().savage_frenzy_source(unit_id) != "":
+		forced_by = "Savage Frenzy"
+	if forced_by != "":
+		md["fall_back_mode_forced_by"] = forced_by
+	var prior = get_unit(unit_id).get("flags", {}).get(FLAG_DE_HAZARDS, null)
+	if prior is Dictionary and not prior.is_empty():
+		md["desperate_escape_ctx"] = {"hazard": prior.duplicate(true), "mortal_wounds": int(prior.get("mortal_wounds", 0)),
+			"can_move_through_enemies": true, "reused": true}
+		log_phase_message("[11e] Desperate escape for %s: its hazard rolls %s were made earlier this phase — not rolled again" % [unit_id, str(prior.get("rolls", []))])
+		return []
+	var fb_ctx = MoveTypes.get_type("fall_back").before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": "desperate_escape"})
+	md["desperate_escape_ctx"] = fb_ctx
+	var hz: Dictionary = fb_ctx.get("hazard", {})
+	log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+	match forced_by:
+		"WHERE D'YA FINK YOU'RE GOING?":
+			# Surface the hazard rolls, including the extra MONSTER/VEHICLE rolls
+			# (FallBackMove.before_moving).
+			_ork11e_log_where_dya_fink_hazards(unit_id, hz)
+		"Corner the Quarry":
+			log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
+		"Savage Frenzy":
+			log_phase_message("[11e] Savage Frenzy: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
+	_log_desperate_escape_hazards(unit_id, hz)
+	var diffs: Array = [{"op": "set", "path": "units.%s.flags.%s" % [unit_id, FLAG_DE_HAZARDS],
+		"value": {"rolls": hz.get("rolls", []).duplicate(), "failures": int(hz.get("failures", 0)), "mortal_wounds": int(hz.get("mortal_wounds", 0))}}]
+	# 06.03: each failure is 1 mortal wound (3 instead if every model of the
+	# Attached unit is a MONSTER/VEHICLE model), allocated by 06.02 across the
+	# whole Attached unit after Feel No Pain (EA-36).
+	if int(hz.get("failures", 0)) > 0:
+		var cas: Dictionary = FallBackMove.hazard_casualties(unit_id, int(hz.get("mortal_wounds", 0)), GameState.state, "desperate_escape")
+		diffs.append_array(cas.get("diffs", []))
+		log_phase_message("[11e] Desperate escape: %d mortal wound(s) after Feel No Pain, %d applied across the Attached unit (%d lost), destroyed %s" % [
+			int(cas.get("mw_after_fnp", 0)), int(cas.get("applied", 0)), int(cas.get("lost", 0)), str(cas.get("destroyed", []))])
+	return diffs
+
+## EA-08: the desperate escape hazard rolls in the phase dice log
+## (get_dice_log) and in the game log, where the player sees them as a card
+## with dice (before, only a WHERE D'YA FINK forced escape surfaced them; the
+## rest reached the debug log only).
+func _log_desperate_escape_hazards(unit_id: String, hz: Dictionary) -> void:
+	var rolls: Array = hz.get("rolls", [])
+	var uname := GameState.get_unit_display_name(unit_id)
+	var chars: Array = RulesEngine.attached_character_ids(unit_id, GameState.state)
+	var who := uname if chars.is_empty() else "%s (+%d attached)" % [uname, chars.size()]
+	var res := "%d hazard roll(s), %d failed (1-2): %d mortal wound(s)" % [rolls.size(), int(hz.get("failures", 0)), int(hz.get("mortal_wounds", 0))]
+	dice_log.append({"unit_id": unit_id, "unit_name": uname, "type": "Desperate Escape (%s)" % who, "rolls": rolls, "result": res})
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(get_unit(unit_id).get("owner", 0)), "Desperate Escape: %s makes %s %s" % [who, res, str(rolls)])
+
+## EA-08 (11e 09.07 / 09.02.02): "ordered retreat is not mandatory, so you
+## could select desperate escape instead". The Fall Back radio begins the move
+## at once, so a later tick of the movement panel's Desperate Escape box lands
+## here (like SET_TAKE_TO_SKIES): switch a fall-back that has not moved a
+## model yet from ordered retreat to desperate escape. Its BEFORE MOVING hazard
+## rolls are made now, and there is no way back once they are rolled.
+## payload: {fall_back_mode: "desperate_escape" | "ordered_retreat"}
+func _validate_set_fall_back_mode(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("actor_unit_id", ""))
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["Fall-back modes are an 11th edition rule"]}
+	if not active_moves.has(unit_id) or str(active_moves[unit_id].get("mode", "")) != "FALL_BACK":
+		return {"valid": false, "errors": ["%s is not making a fall-back move" % GameState.get_unit_display_name(unit_id)]}
+	var md: Dictionary = active_moves[unit_id]
+	if md.get("completed", false):
+		return {"valid": false, "errors": ["Unit has already completed its move"]}
+	var want := str(action.get("payload", {}).get("fall_back_mode", ""))
+	if not want in ["ordered_retreat", "desperate_escape"]:
+		return {"valid": false, "errors": ["Unknown fall-back mode '%s' (ordered_retreat or desperate_escape)" % want]}
+	var cur := str(md.get("fall_back_mode", ""))
+	if want == cur:
+		return {"valid": true, "errors": []}  # no-op
+	if want == "ordered_retreat":
+		return {"valid": false, "errors": ["The desperate escape hazard rolls have been made — this fall-back move stays a Desperate Escape (09.07)"]}
+	if not md.get("staged_moves", []).is_empty() or not md.get("model_moves", []).is_empty():
+		return {"valid": false, "errors": ["Models have already moved as an Ordered Retreat — Reset Unit first, then choose Desperate Escape"]}
+	return {"valid": true, "errors": []}
+
+func _process_set_fall_back_mode(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("actor_unit_id", ""))
+	var md: Dictionary = active_moves[unit_id]
+	var want := str(action.get("payload", {}).get("fall_back_mode", ""))
+	if want == str(md.get("fall_back_mode", "")):
+		return create_result(true, [])
+	log_phase_message("[11e] %s switches its fall-back move to the desperate escape mode (09.02.02: ordered retreat is not mandatory)" % unit_id)
+	# (The movement panel re-reads the mode and the dice log itself —
+	# MovementController._sync_desperate_escape_from_phase.)
+	return create_result(true, _fall_back_desperate_escape_before_moving(unit_id))
 
 func _process_set_model_dest(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -7106,6 +7214,46 @@ func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
 		and OrkAbilities11eScript.shokk_boosta_active(unit_id)) \
 		or load("res://scripts/codex/space_marines/SMAbilitiesC.gd").moves_through_models(unit_id)  # WP-M4c GRAPNEL LAUNCHERS (Reiver Squad): move through all types of model
 
+## EA-08 (11e 03.01 / 09.07 / 09.02.02): must this move's models keep clear of
+## enemy bases? NORMAL / ADVANCE: yes. FALL_BACK at 11e: yes, unless the
+## desperate escape mode was selected — 09.07 WHILE MOVING "Desperate Escape:
+## Each model that is moved can be moved through enemy models", and 09.02.02:
+## a condition labelled with a mode name only applies if you selected that
+## mode, so an Ordered Retreat keeps 03.01 ("Its base cannot be moved through
+## enemy models"). 10e fall-backs (their desperate escape tests are made at
+## confirm) and every other mode are not checked here. Move-wide exemptions:
+## FLY (the pre-existing exemption — EA-28 narrows it to a declared take to the
+## skies), a declared take to the skies, and _o6_moves_through_models
+## (Shokk-Boosta, Grapnel Launchers). Calistus ka'tah and 24.35 SUPER-HEAVY
+## WALKER narrow WHICH enemy models block, inside _path_crosses_enemy_bases.
+func _enemy_models_block_move(unit_id: String, move_data: Dictionary) -> bool:
+	var mode := str(move_data.get("mode", ""))
+	if mode == "FALL_BACK":
+		if GameConstants.edition < 11 or _is_desperate_escape(move_data):
+			return false
+	elif not mode in ["NORMAL", "ADVANCE"]:
+		return false
+	if _unit_has_fly_keyword(unit_id) or bool(move_data.get("took_to_skies", false)):
+		return false
+	return not _o6_moves_through_models(unit_id, move_data)
+
+## True for an 11e fall-back move made in the desperate escape mode.
+static func _is_desperate_escape(move_data: Dictionary) -> bool:
+	return GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "FALL_BACK" \
+		and str(move_data.get("fall_back_mode", "")) == "desperate_escape"
+
+const ERR_ORDERED_RETREAT_THROUGH_ENEMY := "Ordered Retreat cannot move through enemy models — choose Desperate Escape to move through them (09.07)"
+
+## The refusal for a path through an enemy model (_enemy_models_block_move).
+## Normal Move / Advance keep their long-standing text.
+func _enemy_crossing_error(move_data: Dictionary) -> String:
+	if str(move_data.get("mode", "")) == "FALL_BACK":
+		return ERR_ORDERED_RETREAT_THROUGH_ENEMY
+	return "Cannot move through enemy models during Normal Move or Advance"
+
+func _enemy_crossing_move_label(move_data: Dictionary) -> String:
+	return "Ordered Retreat" if str(move_data.get("mode", "")) == "FALL_BACK" else "Normal/Advance"
+
 ## Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): the unit's
 ## current normal / advance / fall-back move may cross every model's base.
 func _cus11e_moves_through_all_models(unit_id: String) -> bool:
@@ -7527,41 +7675,31 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	var current_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
-	# Build a reference model for path sampling
-	var reference_model = model.duplicate()
+	# EA-08: the path is swept with a base 1 mm smaller than the model's
+	# (MoveType.contact_tolerant_mover) — base CONTACT is not moving through: a
+	# fall-back from a charge's base contact (float positions, the charge snap's
+	# half-pixel gaps) moves away from, not through, the model it touched. A base
+	# the model already overlaps at the start only counts when the path closes
+	# on it (MoveType.sweep_moves_through). Samples about every 10 px, as before.
+	var reference_model: Dictionary = MoveType.contact_tolerant_mover(model)
 
-	# Sample points along the path (approximately every 10 pixels for good coverage)
-	var path_length = from.distance_to(to)
-	var num_samples = max(2, int(path_length / 10.0))
-
-	for i in range(num_samples + 1):
-		var t = float(i) / float(num_samples)
-		var sample_pos = from.lerp(to, t)
-
-		# Create a temporary model at this position
-		var model_at_pos = reference_model.duplicate()
-		model_at_pos["position"] = sample_pos
-
-		# Check against all enemy models only (friendly models can be crossed freely)
-		for enemy_unit_id in units:
-			var enemy_unit = units[enemy_unit_id]
-			if enemy_unit.get("owner", 0) == current_player:
+	# Check against all enemy models only (friendly models can be crossed freely)
+	for enemy_unit_id in units:
+		var enemy_unit = units[enemy_unit_id]
+		if enemy_unit.get("owner", 0) == current_player:
+			continue
+		if shw_only_titanic and not _unit_is_titanic(enemy_unit):
+			continue
+		if mv_only_mv and not _unit_is_monster_or_vehicle(enemy_unit):
+			continue
+		for enemy_model in enemy_unit.get("models", []):
+			if not enemy_model.get("alive", true):
 				continue
-			if shw_only_titanic and not _unit_is_titanic(enemy_unit):
-				continue
-			if mv_only_mv and not _unit_is_monster_or_vehicle(enemy_unit):
-				continue
-
-			var enemy_models = enemy_unit.get("models", [])
-			for enemy_model in enemy_models:
-				if not enemy_model.get("alive", true):
-					continue
-				var enemy_pos = _get_model_position(enemy_model)
-				if enemy_pos:
-					# Only check base overlap — moving close to enemies is allowed,
-					# only moving through their bases is illegal
-					if Measurement.models_overlap(model_at_pos, enemy_model):
-						return true
+			var enemy_pos = _get_model_position(enemy_model)
+			# Only base overlap counts — moving close to enemies is allowed,
+			# only moving through their bases is illegal
+			if enemy_pos and MoveType.sweep_moves_through(reference_model, from, to, enemy_model, enemy_pos):
+				return true
 
 	return false
 
@@ -7592,49 +7730,46 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 		log_phase_message("  17.01 FAQ — %s is not making a normal / advance move: friendly MONSTER/VEHICLE models do not block it" % (model_unit_id if model_unit_id != "" else unit_id))
 	var mover_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
+	# EA-08 (11e 09.07 WHILE MOVING): "Desperate Escape: Each model that is moved
+	# can be moved through enemy models" — enemy MONSTER/VEHICLE models included.
+	var enemy_pass := _is_desperate_escape(active_moves.get(unit_id, {}))
+	if enemy_pass:
+		log_phase_message("  09.07 Desperate Escape — %s may move through enemy MONSTER/VEHICLE models" % unit_id)
 
-	var reference_model = model.duplicate()
+	# EA-08: swept with a base 1 mm smaller (base contact is not moving through
+	# — a model in base contact with a VEHICLE read as crossing it the moment it
+	# moved away); see _path_crosses_enemy_bases.
+	var reference_model: Dictionary = MoveType.contact_tolerant_mover(model)
 
-	# Sample points along the path (approximately every 10 pixels for good coverage)
-	var path_length = from.distance_to(to)
-	var num_samples = max(2, int(path_length / 10.0))
+	for check_unit_id in units:
+		if own_unit_ids.has(str(check_unit_id)):
+			continue  # Skip own unit's models (every component of an Attached unit)
 
-	for i in range(num_samples + 1):
-		var t = float(i) / float(num_samples)
-		var sample_pos = from.lerp(to, t)
+		var check_unit = units[check_unit_id]
+		if friendly_pass and check_unit.get("owner", 0) == mover_player:
+			continue  # 17.01 FAQ: friendly models do not block this move
+		if enemy_pass and check_unit.get("owner", 0) != mover_player:
+			continue  # 09.07: a desperate escape moves through enemy models
+		if shw_only_titanic and not _unit_is_titanic(check_unit):
+			continue
+		# Only block on MONSTER or VEHICLE units
+		var check_keywords = check_unit.get("meta", {}).get("keywords", [])
+		var is_monster_or_vehicle = false
+		for kw in check_keywords:
+			var kw_upper = str(kw).to_upper()
+			if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+				is_monster_or_vehicle = true
+				break
+		if not is_monster_or_vehicle:
+			continue
 
-		var model_at_pos = reference_model.duplicate()
-		model_at_pos["position"] = sample_pos
-
-		for check_unit_id in units:
-			if own_unit_ids.has(str(check_unit_id)):
-				continue  # Skip own unit's models (every component of an Attached unit)
-
-			var check_unit = units[check_unit_id]
-			if friendly_pass and check_unit.get("owner", 0) == mover_player:
-				continue  # 17.01 FAQ: friendly models do not block this move
-			if shw_only_titanic and not _unit_is_titanic(check_unit):
+		for check_model in check_unit.get("models", []):
+			if not check_model.get("alive", true):
 				continue
-			# Only block on MONSTER or VEHICLE units
-			var check_keywords = check_unit.get("meta", {}).get("keywords", [])
-			var is_monster_or_vehicle = false
-			for kw in check_keywords:
-				var kw_upper = kw.to_upper()
-				if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
-					is_monster_or_vehicle = true
-					break
-			if not is_monster_or_vehicle:
-				continue
-
-			var check_models = check_unit.get("models", [])
-			for check_model in check_models:
-				if not check_model.get("alive", true):
-					continue
-				var check_pos = _get_model_position(check_model)
-				if check_pos:
-					if Measurement.models_overlap(model_at_pos, check_model):
-						log_phase_message("  Path crosses MONSTER/VEHICLE model base in unit %s" % check_unit_id)
-						return true
+			var check_pos = _get_model_position(check_model)
+			if check_pos and MoveType.sweep_moves_through(reference_model, from, to, check_model, check_pos):
+				log_phase_message("  Path crosses MONSTER/VEHICLE model base in unit %s" % check_unit_id)
+				return true
 
 	return false
 
@@ -8248,9 +8383,9 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 			group_validation.valid = false
 			group_validation.errors.append("Model %s would overlap with another model" % model_id)
 
-		# 10e Rule: Normal Move and Advance cannot cross enemy model bases
-		# FLY units are exempt — they can move over enemy models
-		if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+		# 03.01: no model moves through enemy models — Normal Move, Advance and
+		# (11e, EA-08) an Ordered Retreat fall-back (_enemy_models_block_move).
+		if _enemy_models_block_move(unit_id, move_data):
 			if not full_model.is_empty() and _path_crosses_enemy_bases(model_data.position, new_pos, unit_id, full_model):
 				group_validation.valid = false
 				group_validation.errors.append("Model %s path crosses enemy model base" % model_id)
@@ -8336,8 +8471,9 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	if _would_overlap_other_models(unit_id, model_id, dest_pos, model):
 		return false
 
-	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+	# 03.01: no model moves through enemy models — Normal Move, Advance and
+	# (11e, EA-08) an Ordered Retreat fall-back (_enemy_models_block_move).
+	if _enemy_models_block_move(unit_id, move_data):
 		var current_pos = _get_model_position(model)
 		if current_pos and _path_crosses_enemy_bases(current_pos, dest_pos, unit_id, model):
 			return false
@@ -9549,13 +9685,16 @@ func _bodyguard_follow_plan(unit_id: String, moves: Array, explicitly_moved_mode
 ## judged on its OWN unit: its straight path crosses no enemy base the model may
 ## not cross and no blocking MONSTER/VEHICLE base, and it does not end engaged.
 ## Returns the refusal reasons ([] = the confirm may go ahead). 11e normal /
-## advance moves (the moves 17.01 opens up).
+## advance moves (the moves 17.01 opens up) and, EA-08, 11e fall-back moves:
+## an Ordered Retreat may not carry a model through enemy models either (03.01,
+## 09.07 — only a Desperate Escape may), and a fall-back must end unengaged
+## (09.07 AFTER MOVING).
 func _carried_model_move_errors(unit_id: String, move_data: Dictionary) -> Array:
 	var errors: Array = []
 	if GameConstants.edition < 11:
 		return errors
 	var mode := str(move_data.get("mode", ""))
-	if not mode in ["NORMAL", "ADVANCE"]:
+	if not mode in ["NORMAL", "ADVANCE", "FALL_BACK"]:
 		return errors
 	var attached: Array = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
 	if attached.is_empty():
@@ -9575,12 +9714,15 @@ func _carried_model_move_errors(unit_id: String, move_data: Dictionary) -> Array
 	else:
 		carried = _attached_carry_plan(unit_id, attached, moves, explicit, _staged_position_changes(unit_id, move_data)).entries
 	var path_checked := not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data)
+	# EA-08: which moves keep clear of enemy bases is _enemy_models_block_move's
+	# call (a Desperate Escape may carry its models through enemy models).
+	var enemy_checked := _enemy_models_block_move(unit_id, move_data)
 	var reported := {}
 	for c in carried:
 		if not c.model.get("alive", true):
 			continue
 		var reason := ""
-		if path_checked and _path_crosses_enemy_bases(c.from, c.to, unit_id, c.model, c.uid):
+		if enemy_checked and _path_crosses_enemy_bases(c.from, c.to, unit_id, c.model, c.uid):
 			reason = "enemy"
 		elif path_checked and _path_crosses_monster_vehicle_bases(c.from, c.to, unit_id, c.model, c.uid):
 			reason = "mv"
