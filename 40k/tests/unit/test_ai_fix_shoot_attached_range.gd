@@ -16,6 +16,10 @@ extends SceneTree
 #   (b) a leader linked only by his own attached_to back-pointer counts too;
 #   (c) control: with a Boy in range the estimate is the same OFF and ON;
 #   (d) half range (RAPID FIRE) is read off the whole-unit distance;
+#   (d') the same through a leader linked ONLY by his attached_to: the AI's
+#       RAPID FIRE credit matches the engine's half-range count (MELTA path,
+#       RAPID FIRE path, preview_attack, both resolve paths' [MA-14] bonus),
+#       which used to read the forward attached_characters list alone;
 #   (e) the engaged-pistol gate (T7-48) measures the leader too;
 #   (f) 0.0 == unset: decide() byte-identical.
 #
@@ -212,6 +216,100 @@ func _section_half_range() -> void:
 	for i in range(GS.state.units.U_BOYZ_B.models.size()):
 		GS.state.units.U_BOYZ_B.models[i]["position"] = keep_b[i]
 
+# The engine's [MA-14] RAPID FIRE bonus off a resolve result's dice log (-1: none).
+func _rf_bonus(res: Dictionary) -> int:
+	for d in res.get("dice", []):
+		if d is Dictionary and d.has("rapid_fire_bonus"):
+			return int(d.get("rapid_fire_bonus", -1))
+	return -1
+
+func _section_half_range_back_pointer() -> void:
+	print("\n-- (d') half range through a leader linked only by attached_to: AI credit == engine count --")
+	# (d)'s board — every Boy 13.5" away (beyond half of 24"), the Warboss 11"
+	# away (within it) — with the Custodians' own spear given [RAPID FIRE 1], so
+	# the engine resolves the very weapon the AI prices. Two link shapes of the
+	# same Attached unit: the forward attached_characters list (the engine always
+	# agreed) and the Warboss's attached_to back-pointer alone (the engine's
+	# half-range counts read the forward list only: 0/5 in half range, while the
+	# AI credited all five — twice the attacks the engine rolled).
+	var keep_w = GS.state.units.U_WARBOSS_A.models[0].get("position", {}).duplicate()
+	var keep_b: Array = []
+	for m in GS.state.units.U_BOYZ_B.models:
+		keep_b.append(m.get("position", {}).duplicate() if m.get("position", null) is Dictionary else m.get("position", null))
+	GS.state.units.U_WARBOSS_A.models[0]["position"] = {"x": 430.0, "y": 400.0 + 31.5 * 2.0 + 11.0 * 40.0}
+	var j := 0
+	for m in GS.state.units.U_BOYZ_B.models:
+		if m.get("alive", true):
+			m["position"] = {"x": 205.0 + float(j) * 50.0, "y": 400.0 + 31.5 + 25.2 + 13.5 * 40.0}
+			j += 1
+	# The engine reads the structured abilities (ISS-003: authoritative, the
+	# special_rules string is re-synthesised from them); the AI reads the string.
+	var spear_live: Dictionary = _spear(GS.state.units.U_CUSTODIAN_GUARD_A)
+	var keep_sr := str(spear_live.get("special_rules", ""))
+	var had_abilities: bool = spear_live.has("abilities")
+	var keep_ab = spear_live.get("abilities", []).duplicate(true) if spear_live.get("abilities", []) is Array else spear_live.get("abilities")
+	spear_live["special_rules"] = (keep_sr + ", " if keep_sr != "" else "") + "rapid fire 1"
+	var ab_rf: Array = spear_live.get("abilities", []).duplicate(true) if spear_live.get("abilities", []) is Array else []
+	ab_rf.append({"id": "rapid_fire", "x": 1})
+	spear_live["abilities"] = ab_rf
+	var got: Dictionary = {}
+	for link in ["forward", "back_only"]:
+		GS.state.units.U_BOYZ_B["attachment_data"] = {"attached_characters": ["U_WARBOSS_A"] if link == "forward" else []}
+		GS.state.units.U_WARBOSS_A["attached_to"] = "U_BOYZ_B"
+		RE.clear_los_memo()
+		AIDM.reset_caches()
+		var snap: Dictionary = GS.create_snapshot()
+		var cg: Dictionary = snap.units.U_CUSTODIAN_GUARD_A
+		var boyz: Dictionary = snap.units.U_BOYZ_B
+		var spear := _spear(cg)
+		var wid: String = RE.generate_weapon_id(str(spear.get("name", "")), str(spear.get("type", "")))
+		var mids: Array = []
+		for m in cg.models:
+			if m.get("alive", true):
+				mids.append(str(m.get("id", "")))
+		var base_attacks: int = int(str(spear.get("attacks", "0"))) * mids.size()
+		var d_own: float = AIDM._get_closest_model_distance_inches(cg, boyz)
+		_knob(0.0)
+		var e_off: float = AIDM._estimate_weapon_damage(spear, boyz, snap, cg)
+		_knob(1.0)
+		var d_att: float = AIDM._shot_target_distance_inches(cg, boyz, snap, 24.0, spear)
+		var e_on: float = AIDM._estimate_weapon_damage(spear, boyz, snap, cg)
+		var hr_melta: int = RE.count_models_in_half_range(cg, boyz, wid, mids, snap)
+		var hr_rf: int = RE.count_models_in_half_range(cg, boyz, wid, mids, snap, true)
+		var pv: Dictionary = RE.preview_attack("U_CUSTODIAN_GUARD_A", "U_BOYZ_B", wid, snap)
+		var action := {"type": "SHOOT", "actor_unit_id": "U_CUSTODIAN_GUARD_A", "payload": {"assignments": [
+			{"weapon_id": wid, "target_unit_id": "U_BOYZ_B", "model_ids": mids}]}}
+		var rf_auto := _rf_bonus(RE.resolve_shoot(action, snap.duplicate(true), RE.RNGService.new(7)))
+		var rf_inter := _rf_bonus(RE.resolve_shoot_until_wounds(action, snap.duplicate(true), RE.RNGService.new(7)))
+		var comps: Array = RE.attached_unit_component_ids("U_BOYZ_B", snap)
+		print("  [%s] comps=%s d_own=%.2f d_att=%.2f e_off=%.4f e_on=%.4f hr_melta=%d hr_rf=%d preview_attacks=%s rf_auto=%d rf_inter=%d (base %d)" % [
+			link, str(comps), d_own, d_att, e_off, e_on, hr_melta, hr_rf, str(pv.get("total_attacks", "?")), rf_auto, rf_inter, base_attacks])
+		_check("[%s] setup: one Attached unit (%s), Boyz %.1f\" (beyond 12\"), Warboss %.1f\" (within 12\")" % [link, str(comps), d_own, d_att],
+			comps.size() == 2 and "U_WARBOSS_A" in comps and d_own > 12.0 and d_att <= 12.0 and mids.size() > 0)
+		_check("[%s] AI ON credits [RAPID FIRE 1] for the whole unit (%.4f = %.4f x 3/2)" % [link, e_on, e_off],
+			e_off > 0.0 and absf(e_on - e_off * 1.5) < 0.0005)
+		_check("[%s] engine: every shooter within half range — MELTA path %d/%d, RAPID FIRE path %d/%d" % [link, hr_melta, mids.size(), hr_rf, mids.size()],
+			hr_melta == mids.size() and hr_rf == mids.size())
+		_check("[%s] engine: preview_attack gathers base + 1 per shooter (%s == %d)" % [link, str(pv.get("total_attacks", "?")), base_attacks + mids.size()],
+			int(float(pv.get("total_attacks", -1))) == base_attacks + mids.size())
+		_check("[%s] engine: [MA-14] +%d attacks in both resolve paths (auto-resolve %d, interactive %d)" % [link, mids.size(), rf_auto, rf_inter],
+			rf_auto == mids.size() and rf_inter == mids.size())
+		got[link] = e_on
+	_check("the AI's credit is the same for both link shapes (%.4f / %.4f)" % [float(got.get("forward", -1.0)), float(got.get("back_only", -2.0))],
+		got.has("forward") and is_equal_approx(float(got.forward), float(got.back_only)))
+	spear_live["special_rules"] = keep_sr
+	if had_abilities:
+		spear_live["abilities"] = keep_ab
+	else:
+		spear_live.erase("abilities")
+	GS.state.units.U_BOYZ_B["attachment_data"] = {"attached_characters": ["U_WARBOSS_A"]}
+	GS.state.units.U_WARBOSS_A["attached_to"] = "U_BOYZ_B"
+	GS.state.units.U_WARBOSS_A.models[0]["position"] = keep_w
+	for i in range(GS.state.units.U_BOYZ_B.models.size()):
+		GS.state.units.U_BOYZ_B.models[i]["position"] = keep_b[i]
+	RE.clear_los_memo()
+	AIDM.reset_caches()
+
 func _section_engaged_pistol() -> void:
 	print("\n-- (e) the engaged-pistol gate (T7-48) measures the leader too --")
 	var snap: Dictionary = GS.create_snapshot()
@@ -251,6 +349,7 @@ func _run() -> void:
 	_section_back_pointer()
 	_section_control_in_range()
 	_section_half_range()
+	_section_half_range_back_pointer()
 	_section_engaged_pistol()
 	_section_zero_is_unset()
 	AIDM._config_overrides.erase(KNOB)

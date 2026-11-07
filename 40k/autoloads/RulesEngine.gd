@@ -2344,6 +2344,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	if rapid_fire_value > 0:
 		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 		var half_range_inches = weapon_range if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(actor_unit) else weapon_range / 2.0  # WP-M2b Codex Fire-patterns: [RAPID FIRE] up to maximum range
+		# Half range is measured to the whole TARGET unit — for an Attached
+		# unit that includes its leaders (19.03), not only the bodyguard models
+		# (r1:WH-3) — both link directions, as range and visibility
+		# (_half_range_target_models).
+		var rf_target_models: Array = _half_range_target_models(target_unit_id, board)
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
 			# in actor_unit.models, so _get_model_by_id returned {} and the model
@@ -2353,10 +2358,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
-			# Half range is measured to the whole TARGET unit — for an
-			# Attached unit that includes its leaders (19.03), not only the
-			# bodyguard models (r1:WH-3).
-			for target_model in attached_unit_models(target_unit_id, board):
+			for target_model in rf_target_models:
 				if not target_model.get("alive", true):
 					continue
 				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
@@ -4395,6 +4397,35 @@ static func _target_model_entries(target_unit_id: String, board: Dictionary) -> 
 			out.append([ms[i], cu, "%s#%d" % [str(cid), i]])
 	return out
 
+# [RAPID FIRE X] 24.30 / [MELTA X] 24.25 — "if the target unit was within half
+# range of that weapon": the models half range is measured to. Every alive model
+# of the WHOLE Attached unit headed by target_unit_id, from the same list range
+# and visibility walk (_target_model_entries: its own models, then each attached
+# CHARACTER's, BOTH link directions, with the 19.05 guard). 01.04.01 (errata
+# commentary): "A unit is within a specified distance if one or more of its
+# models are within that distance"; 19.01: "An attached unit is a single unit
+# for all rules purposes". The three half-range counts used to read
+# attached_unit_models (the forward attached_characters list only), so a leader
+# linked only by his own attached_to back-pointer — real saves contain them, see
+# attached_unit_component_ids — put the unit in range and in sight for the shot
+# but never within half range, and the shooters lost their RAPID FIRE attacks /
+# MELTA damage. As get_eligible_shooter_models measures range: the target's OWN
+# models keep the legacy handling (headless fixtures without positions measure
+# from the origin); an attached character's model that is not on the
+# battlefield (no position) is left out. attached_unit_models itself is
+# unchanged (melee / FightPhase callers).
+static func _half_range_target_models(target_unit_id: String, board: Dictionary) -> Array:
+	var head = board.get("units", {}).get(target_unit_id, {})
+	var out: Array = []
+	for entry in _target_model_entries(target_unit_id, board):
+		var tm: Dictionary = entry[0]
+		if not tm.get("alive", true):
+			continue
+		if not is_same(entry[1], head) and tm.get("position") == null:
+			continue
+		out.append(tm)
+	return out
+
 static func _unit_has_alive_model(unit: Dictionary) -> bool:
 	for m in unit.get("models", []):
 		if m.get("alive", true):
@@ -4601,6 +4632,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if rapid_fire_value > 0:
 		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 		var half_range_inches = weapon_range if load("res://scripts/codex/space_marines/SMDetachmentsB.gd").full_range_rapid_fire(actor_unit) else weapon_range / 2.0  # WP-M2b Codex Fire-patterns: [RAPID FIRE] up to maximum range
+		# Half range is measured to the whole TARGET unit — for an Attached
+		# unit that includes its leaders (19.03), not only the bodyguard models
+		# (r1:WH-3) — both link directions, as range and visibility
+		# (_half_range_target_models).
+		var rf_target_models: Array = _half_range_target_models(target_unit_id, board)
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
 			# in actor_unit.models, so _get_model_by_id returned {} and the model
@@ -4610,10 +4646,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
-			# Half range is measured to the whole TARGET unit — for an
-			# Attached unit that includes its leaders (19.03), not only the
-			# bodyguard models (r1:WH-3).
-			for target_model in attached_unit_models(target_unit_id, board):
+			for target_model in rf_target_models:
 				if not target_model.get("alive", true):
 					continue
 				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
@@ -11981,6 +12014,13 @@ static func count_models_in_half_range(
 
 	var models_in_half_range = 0
 
+	# Check distance to closest target model (edge-to-edge) — every model of
+	# the target unit, including an Attached unit's leaders (19.03), both link
+	# directions, as range and visibility (_half_range_target_models).
+	var hr_target_id := str(target_unit.get("id", ""))
+	var hr_target_models: Array = _half_range_target_models(hr_target_id, board) \
+		if hr_target_id != "" and board.get("units", {}).has(hr_target_id) else target_unit.get("models", [])
+
 	for model_id in model_ids:
 		# ATTACHED CHARACTERS: composite bearers live in another unit dict.
 		# Skipping them lost MELTA's half-range damage bonus for a character's gun.
@@ -11988,12 +12028,7 @@ static func count_models_in_half_range(
 		if not model or not model.get("alive", true):
 			continue
 
-		# Check distance to closest target model (edge-to-edge) — every model
-		# of the target unit, including an Attached unit's leaders (19.03).
 		var closest_distance_inches = INF
-		var hr_target_id := str(target_unit.get("id", ""))
-		var hr_target_models: Array = attached_unit_models(hr_target_id, board) \
-			if hr_target_id != "" and board.get("units", {}).has(hr_target_id) else target_unit.get("models", [])
 		for target_model in hr_target_models:
 			if not target_model.get("alive", true):
 				continue

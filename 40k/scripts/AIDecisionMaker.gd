@@ -2910,7 +2910,11 @@ const MOVE_FOR_CHARGE_MAX_ROLL: int = 12
 # commentary): "A unit is within a specified distance if one or more of its
 # models are within that distance"; 19.01: "An attached unit is a single unit
 # for all rules purposes". Half range (RAPID FIRE, MELTA) is read off the same
-# distance. Toughness / save stay the bodyguard dict's.
+# distance, as the engine's half-range counts read the same list
+# (RulesEngine._half_range_target_models — before it, the engine's half range
+# walked the forward attached_characters list alone, so a leader linked only by
+# attached_to was credited here but never granted). Toughness / save stay the
+# bodyguard dict's.
 # Evidence: exam sh03 (ork11e_orks_reactive) — Custodian Guard A's spears reach
 # the Warboss attached to Boyz B (23" away) but no Boy (25"+): the engine lists
 # the Boyz as an eligible target with the spears in range, yet every estimate
