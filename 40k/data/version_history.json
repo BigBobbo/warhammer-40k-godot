@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.7",
+      "date": "2026-11-07",
+      "summary": "RAPID FIRE and MELTA half-range bonuses count an attached leader in every save; AI Hidden fixes (opt-in).",
+      "changes": [
+        "A RAPID FIRE or MELTA shot at an attached unit now gets its half-range bonus when the leader is within half range, in every save. Before, a leader linked to his unit only from his own side counted for range and line of sight but not for half range.",
+        "Under the hood, switched OFF by default: the AI's Hidden planning now asks about the enemy's next turn and the whole attached unit, prices the Hidden it would give up when it fires FIRE OVERWATCH, and (new opt-in FIX_SHOOT_ATTACHED_RANGE) can shoot an attached unit that only its leader puts in range."
+      ]
+    },
+    {
       "version": "1.73.6",
       "date": "2026-11-07",
       "summary": "BEASTS and SWARM units move through dense terrain on a Normal Move again without a phantom climb (rule 13.06).",
