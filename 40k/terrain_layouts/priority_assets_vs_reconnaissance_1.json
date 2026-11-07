@@ -664,7 +664,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#2"
   },
   {
    "id": "catwalk-15",
@@ -812,7 +812,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#2"
   },
   {
    "id": "corner-short-19",
@@ -1474,7 +1474,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "3"
+   "link_group": "3#2"
   },
   {
    "id": "gantry-35",
@@ -1834,7 +1834,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "3"
+   "link_group": "3#2"
   },
   {
    "id": "pipe-43",

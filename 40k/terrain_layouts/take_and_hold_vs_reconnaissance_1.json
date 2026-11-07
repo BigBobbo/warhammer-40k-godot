@@ -358,11 +358,12 @@
     31.25,
     51.5
    ],
-   "height": "low",
-   "height_inches": 0,
-   "category": "exposed",
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
    "rotation": 0,
    "traits": [
+    "obscuring",
     "difficult_ground"
    ],
    "floor": 0,
@@ -396,11 +397,12 @@
     12.75,
     8.5
    ],
-   "height": "low",
-   "height_inches": 0,
-   "category": "exposed",
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
    "rotation": 0,
    "traits": [
+    "obscuring",
     "difficult_ground"
    ],
    "floor": 0,
@@ -434,8 +436,8 @@
     27,
     43
    ],
-   "height": "tall",
-   "height_inches": 5,
+   "height": "medium",
+   "height_inches": 3,
    "category": "dense",
    "rotation": 0,
    "traits": [
@@ -471,8 +473,8 @@
     17,
     17
    ],
-   "height": "tall",
-   "height_inches": 5,
+   "height": "medium",
+   "height_inches": 3,
    "category": "dense",
    "rotation": 0,
    "traits": [
@@ -599,7 +601,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-9"
+   "parent_area_id": "area-large-7"
   },
   {
    "id": "corner-ruin-balanced-right-14",
@@ -644,7 +646,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-10"
+   "parent_area_id": "area-large-8"
   },
   {
    "id": "corner-short-15",
@@ -689,7 +691,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-9"
+   "parent_area_id": "area-large-7"
   },
   {
    "id": "corner-short-16",
@@ -734,7 +736,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-medium-10"
+   "parent_area_id": "area-large-8"
   },
   {
    "id": "area-long-line-17",
@@ -1217,7 +1219,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-25"
+   "parent_area_id": "area-large-26"
   },
   {
    "id": "corner-ruin-left-28",
@@ -1262,7 +1264,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "parent_area_id": "area-large-26"
+   "parent_area_id": "area-large-25"
   },
   {
    "id": "corner-ruin-right-29",

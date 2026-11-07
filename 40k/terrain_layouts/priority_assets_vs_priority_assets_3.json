@@ -1470,7 +1470,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "3"
+   "link_group": "3#2"
   },
   {
    "id": "gantry-35",
@@ -1830,7 +1830,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "3"
+   "link_group": "3#2"
   },
   {
    "id": "pipe-43",

@@ -922,7 +922,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "gantry-25",
@@ -1534,7 +1534,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "pipe-39",
@@ -1832,7 +1832,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "2"
+   "link_group": "2#2"
   },
   {
    "id": "generator-47",

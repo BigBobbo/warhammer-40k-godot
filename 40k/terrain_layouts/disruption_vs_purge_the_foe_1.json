@@ -1422,7 +1422,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Side"
+   "link_group": "Side#2"
   },
   {
    "id": "catwalk-33",
@@ -1572,7 +1572,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "Side"
+   "link_group": "Side#2"
   },
   {
    "id": "generator-37",

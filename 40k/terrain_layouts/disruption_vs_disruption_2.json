@@ -406,7 +406,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "catwalk-14",
@@ -554,7 +554,7 @@
    ],
    "floor": 0,
    "walls": [],
-   "link_group": "1"
+   "link_group": "1#2"
   },
   {
    "id": "corner-short-18",
