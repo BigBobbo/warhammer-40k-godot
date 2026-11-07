@@ -2854,7 +2854,7 @@ func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_inde
 	# fresh drop would be refused. Without them a Shift+click / pad-L3 nudge
 	# could park a model off the board edge (Infiltrators / reinforcement modes
 	# only test the centre point) or on a wall / solid 11e piece its unit can't
-	# end on (e.g. a MOUNTED leader on a tall ruin) — the ghost stayed green,
+	# end on (e.g. a MOUNTED leader on a tall ruin) — the drop was accepted,
 	# Confirm showed, and the phase then refused the whole set-up.
 	var footprint: Dictionary = model_data.duplicate()
 	footprint["position"] = world_pos

@@ -1,0 +1,410 @@
+{
+ "id": "tut_t2_confirm_during_nudge_keeps_session",
+ "covers": [
+  "tutorial.t2.reposition_nudge",
+  "deployment.refused_confirm_keeps_session_open",
+  "tutorial.t2.confirm_gate_keeps_session"
+ ],
+ "edition": 11,
+ "description": "Review L1-2 on a real player path: the T2 tutorial's nudge step gates Confirm (TutorialManager allow: [] - the lesson data says 'Gating DEPLOY_UNIT keeps the session open until both boxes are ticked'). Boots the lesson exactly like tut_t2_musterin (formations, roll-off, rotate and drop the Battlewagon), then clicks the real Confirm button DURING the nudge step. The phase refuses the DEPLOY_UNIT (tutorial gate); the DeploymentController now keeps the placement session open: the lesson's own hint toast is shown (not doubled by a 'Deployment refused' toast), the wagon is still a preview in hand (DEPLOYING, no position, no permanent token), Confirm and the unit card stay up, the step stays nudge_wagon. Before the fix the refused Confirm finalized the preview into a permanent token and cleared the session: the wagon was stranded (gone from the list, never deployed) and the nudge checklist could never tick. The scenario then nudges the wagon (Shift+click lift, click drop), the step advances, Confirm deploys it with exactly one board token.",
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "click_node",
+   "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/MainMenu/TutorialPicker",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 8.0
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.active",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "attach_warboss"
+  },
+  {
+   "act": "expect_phase",
+   "equals": 0
+  },
+  {
+   "act": "execute_script",
+   "script": "var body = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif body == null:\n\treturn \"no card\"\nvar t = str(body.text).to_lower().replace(\"[b]\", \"\").replace(\"[/b]\", \"\")\nif not \"attach da warboss to da boyz\" in t:\n\treturn \"card never names the goal: \" + str(body.text)\nif not \"fight as one\" in t:\n\treturn \"card never says why: \" + str(body.text)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "the card must name WHAT the dropdown does (attach da Warboss to da Boyz) and WHY (they fight as one unit), not only how to reach the control. The predicate is deliberately the goal PHRASE, not the word 'attach' - the old copy said 'under LEADER ATTACHMENTS, set da dropdown to Boyz', which contains 'attach' while never telling the player what they are declaring."
+  },
+  {
+   "act": "screenshot",
+   "label": "01_formations"
+  },
+  {
+   "act": "execute_script",
+   "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+   "multiline": true,
+   "equals": true,
+   "comment": "OptionButton popup menus are native Windows - select+emit is the dropdown escape hatch"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 15
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "embark_boyz"
+  },
+  {
+   "act": "execute_script",
+   "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+   "multiline": true,
+   "equals": true,
+   "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls; setting button_pressed emits toggled exactly like a click"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 15
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "confirm_formations"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_declarations_staged"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 2.5
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "roll_off"
+  },
+  {
+   "act": "expect_phase",
+   "equals": 3
+  },
+  {
+   "act": "execute_script",
+   "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.2
+  },
+  {
+   "act": "execute_script",
+   "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.2
+  },
+  {
+   "act": "execute_script",
+   "script": "var bar = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar\")\nif bar == null:\n\treturn true\nvar b = bar.get_node_or_null(\"ContinueButton\")\nif b == null or not b.is_visible_in_tree():\n\tb = bar.get_node_or_null(\"DeployFirstButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "The roll-off winner depends on the dice: when the AI wins it deploys second and the human clicks Continue; when the human wins they pick 'Deploy first (Defender)'. Either way the human deploys first, which is the order the rest of the lesson drives."
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 2.0
+  },
+  {
+   "act": "expect_phase",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "rotate_wagon"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_deployment_starts"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 0
+  },
+  {
+   "act": "wait_frames",
+   "frames": 10
+  },
+  {
+   "act": "hover_board_at",
+   "x": 640.0,
+   "y": 320.0,
+   "comment": "park the pointer where the wagon will go so the ghost renders on the board - the rotation has to be VISIBLE in the screenshots below, not just readable off the controller"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "execute_script",
+   "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nif dc.ghost_sprite == null:\n\treturn \"NO_GHOST\"\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - BoardState.get_default_facing_for_player(1), -PI, PI)) < 0.001",
+   "multiline": true,
+   "equals": true,
+   "comment": "the wagon ghost starts at the default enemy-facing, so the rotate step cannot be already-done on entry"
+  },
+  {
+   "act": "execute_script",
+   "script": "return TutorialManager.current_step_id()",
+   "multiline": true,
+   "equals": "rotate_wagon",
+   "comment": "picking the wagon up is NOT enough - the step still waits for a real turn"
+  },
+  {
+   "act": "screenshot",
+   "label": "04_wagon_ghost_default_facing"
+  },
+  {
+   "act": "execute_script",
+   "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+   "multiline": true,
+   "equals": false,
+   "comment": "Confirm is gated until the wagon is turned - otherwise a player could deploy it flat and strand the step with no ghost left to rotate"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E"
+  },
+  {
+   "act": "simulate_key",
+   "keycode": "E",
+   "comment": "rotate_right = +15 degrees a tap, so six taps is a quarter turn"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "execute_script",
+   "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(dc.ghost_sprite.get_base_rotation() - want, -PI, PI)) < 0.02",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "05_wagon_ghost_rotated_90"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "deploy_wagon",
+   "comment": "turning the ghost is what advances the step"
+  },
+  {
+   "act": "click_board_at",
+   "x": 640.0,
+   "y": 320.0
+  },
+  {
+   "act": "wait_frames",
+   "frames": 10
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "nudge_wagon",
+   "comment": "placing the wagon now advances to the nudge step, not straight to Confirm"
+  },
+  {
+   "act": "screenshot",
+   "label": "05b_nudge_step"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "return TutorialManager.is_action_allowed({\"type\": \"DEPLOY_UNIT\", \"unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+   "equals": false
+  },
+  {
+   "act": "screenshot",
+   "label": "01_nudge_step_wagon_placed"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+   "comment": "the player hits Confirm during the nudge step, which the lesson gates (allow: [] - 'reposition the wagon first, then you can Confirm')"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 10
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar warn = \"\"\nvar refused = \"\"\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t) and t.get_child_count() > 0:\n\t\tvar lbl = t.get_child(0)\n\t\tif lbl is Label:\n\t\t\tvar txt = str(lbl.text)\n\t\t\tif txt.contains(\"wagon\") and txt.contains(\"Confirm\"):\n\t\t\t\twarn = txt\n\t\t\tif txt.contains(\"Deployment refused\"):\n\t\t\t\trefused = txt\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar fin = 0\nfor c in tl.get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_BATTLEWAGON_T\":\n\t\tfin += 1\nvar w = GameState.state.units[\"U_BATTLEWAGON_T\"]\nvar r = \"hint=%s dup_toast=%s step=%s placing=%s unit=%s staged=%d/%d previews=%d finalized=%d status=%d pos0=%s confirm=%s card=%s\" % [str(warn != \"\"), str(refused != \"\"), TutorialManager.current_step_id(), str(dc.is_placing()), dc.unit_id, dc.get_placed_count(), dc.get_total_model_count(), dc.placed_tokens.size(), fin, int(w.status), str(w.models[0].get(\"position\")), str(main.confirm_button.visible), str(main.unit_card.visible)]\nprint(\"SCENARIO tut_t2_nudge blocked confirm: \" + r)\nreturn r",
+   "equals": "hint=true dup_toast=false step=nudge_wagon placing=true unit=U_BATTLEWAGON_T staged=1/1 previews=1 finalized=0 status=1 pos0=<null> confirm=true card=true",
+   "comment": "L1-2: the refused Confirm leaves the placement session open - the lesson's own hint toast is up (and not doubled by a 'Deployment refused' toast), the wagon is still a preview in hand (status DEPLOYING owned by the session, no position written, no permanent token), Confirm and the unit card are still shown, the step is still nudge_wagon. Before the fix the previews were finalized and the session cleared: the wagon stranded and the checklist could never tick"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_confirm_blocked_session_kept"
+  },
+  {
+   "act": "execute_script",
+   "script": "InputDeviceManager.set_meta(\"wp\", main.deployment_controller.temp_positions[0])"
+  },
+  {
+   "act": "click_board_at",
+   "x": 640.0,
+   "y": 320.0,
+   "shift": true,
+   "comment": "shift+click the placed wagon to pick it back up - the gesture this step teaches"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 10
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.is_repositioning()",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "05c_wagon_lifted"
+  },
+  {
+   "act": "click_board_at",
+   "x": 700.0,
+   "y": 320.0,
+   "comment": "drop 1.5in sideways: the wagon was turned 90deg so its long axis is horizontal, and the zone's y<=12in step sits just below"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.is_repositioning()",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "main.deployment_controller.reposition_commits",
+   "expect_min": 1
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var wp = InputDeviceManager.get_meta(\"wp\")\nvar np = tree.current_scene.deployment_controller.temp_positions[0]\nreturn float(wp.distance_to(np))",
+   "expect_min": 5.0
+  },
+  {
+   "act": "wait_frames",
+   "frames": 15
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "confirm_wagon"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"nudge_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[L3]\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var TS = load(\"res://scripts/tutorial/TutorialScript.gd\")\nvar step = {}\nfor s in TutorialManager._steps:\n\tif str(s.get(\"id\", \"\")) == \"rotate_wagon\":\n\t\tstep = s\nvar txt = TS.render_text(str(step.get(\"prompt\", {}).get(\"pad\", \"\")), true)\nreturn txt.contains(\"[R3]\")",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "05d_wagon_nudged"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 3.0
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_BATTLEWAGON_T.status",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "var m = GameState.get_unit(\"U_BATTLEWAGON_T\").models[0]\nvar want = BoardState.get_default_facing_for_player(1) + PI / 2.0\nreturn abs(wrapf(float(m.get(\"rotation\", 0.0)) - want, -PI, PI)) < 0.02",
+   "multiline": true,
+   "equals": true,
+   "comment": "the turn the tutorial taught actually lands on the deployed wagon, not just on the ghost"
+  },
+  {
+   "act": "execute_script",
+   "script": "TutorialManager.current_step_id()",
+   "equals": "deploy_grots"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar fin = 0\nfor c in tl.get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == \"U_BATTLEWAGON_T\":\n\t\tfin += 1\nvar w = GameState.state.units[\"U_BATTLEWAGON_T\"]\nreturn \"status=%d tokens=%d previews=%d placing_wagon=%s\" % [int(w.status), fin, main.deployment_controller.placed_tokens.size(), str(main.deployment_controller.unit_id == \"U_BATTLEWAGON_T\")]",
+   "equals": "status=2 tokens=1 previews=0 placing_wagon=false",
+   "comment": "after the nudge the gated Confirm goes through: the wagon is DEPLOYED with exactly one board token"
+  },
+  {
+   "act": "screenshot",
+   "label": "03_wagon_deployed_after_nudge"
+  }
+ ]
+}

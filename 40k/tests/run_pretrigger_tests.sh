@@ -347,6 +347,7 @@ TESTS=(
     "tests/unit/test_ai_plan_deployment.gd"
     "tests/unit/test_ai_plan_formations.gd"
     "tests/unit/test_formations_attachment_offers.gd"
+    "tests/unit/test_human_deploy_confirm_l1.gd"
     "tests/unit/test_reserves_half_army_cap.gd"
     "tests/unit/test_ai_plan_earmarks.gd"
     "tests/unit/test_plan_roundtrip.gd"

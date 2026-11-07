@@ -1,0 +1,637 @@
+{
+ "id": "human_composite_deploy_leader_11e",
+ "covers": [
+  "deployment.human_composite_deploy_confirm",
+  "deployment.refused_confirm_keeps_session_open",
+  "deployment.reposition_respects_terrain_and_board",
+  "phases.DeploymentPhase.attached_unit_merged_coherency",
+  "phases.DeploymentPhase.composite_deploy_character_validation",
+  "autoloads.GameEventLog.composite_deploy_names_leader"
+ ],
+ "fixture": "bw_load_deploy_pretrigger",
+ "transition_to_phase": 1,
+ "disable_ai": true,
+ "edition": 11,
+ "rng_seed": 7,
+ "description": "Human (hot-seat) deployment of attached units through the real DeploymentController UI at 11e (review L1-1..L1-5, L6-3). Both seats human, deployment alternating naturally: Player 1 sets up a Custodian Guard squad (plain DEPLOY_UNIT) between each Ork unit. (a) Lootas Alpha + Big Mek Beta: the attached unit is picked from the unit list (one row), the Select Model Type picker is clicked, 10 Lootas + the Big Mek are placed, the real Confirm button is clicked -> COMPOSITE_DEPLOY accepted, both DEPLOYED, exactly one board token per model, and the game log reads 'Deployed Lootas Alpha + Big Mek Beta (11 models)' (L1-5). (c1)+(b) Lootas Beta + Big Mek Gamma: the Big Mek is first dropped 7in away -> Confirm is REFUSED by the UI coherency gate with an error toast while the session stays open (nothing finalized or stranded); the leader is picked back up with a real Shift+click and dropped where it is the 10th Loota's only 2in neighbour -> Confirm ACCEPTED (L1-3: the phase used to also demand the Lootas be coherent on their own, refused, and stranded the unit - ghost tokens, status DEPLOYING, gone from the list). (c2) Warbikers Alpha (MOUNTED): a placed bike is lifted with Shift+click over the wall of corner-ruin-left-19 (5in dense) -> the lifted ghost reports the spot invalid and the drop is refused with a toast, the bike stays put (L1-1: the reposition validator had no wall / solid-piece check, so the drop was accepted and the phase refused the unit at Confirm) -> Confirm accepted. Final invariant: no unit is left DEPLOYING outside a session and every deployed unit has every model on the board. Model drops use DeploymentController.try_place_at (the function every board click calls); unit selection, the picker, Confirm, and the Shift+click lift / drop are real input.",
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "expect_phase",
+   "equals": 1
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var u = GameState.state.units\nvar la = u[\"U_LOOTAS_A\"]\nvar lb = u[\"U_LOOTAS_B\"]\nreturn \"active=%d ed=%d formations=%s ai=%s|%s la=%d+%s lb=%d+%s bmb=%d bmc=%d wb=%d\" % [GameState.get_active_player(), GameConstants.edition, str(GameState.formations_declared()), str(AIPlayer.is_ai_player(1)), str(AIPlayer.is_ai_player(2)), int(la.status), str(la.attachment_data.get(\"attached_characters\", [])), int(lb.status), str(lb.attachment_data.get(\"attached_characters\", [])), int(u[\"U_BIG_MEK_B\"].status), int(u[\"U_BIG_MEK_C\"].status), int(u[\"U_WARBIKERS_A\"].status)]",
+   "equals": "active=1 ed=11 formations=true ai=false|false la=0+[\"U_BIG_MEK_B\"] lb=0+[\"U_BIG_MEK_C\"] bmb=0 bmc=0 wb=0",
+   "comment": "precondition: hot-seat (both seats human), 11e, formations declared \u2014 Lootas Alpha leads Big Mek Beta, Lootas Beta leads Big Mek Gamma; Player 1 to deploy"
+  },
+  {
+   "act": "screenshot",
+   "label": "00_start_player1_to_deploy"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_CUSTODIAN_GUARD_A\":\n\t\tidx = i\nreturn idx",
+   "equals": 4,
+   "comment": "Player 1 (Custodes): the next Custodian Guard squad is row 4 of the deployment list"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 4
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_CUSTODIAN_GUARD_A\"].status)]",
+   "equals": "U_CUSTODIAN_GUARD_A combined=false total=5 picker=false infil=false status=1"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(300.0, 200.0))\npts.append(Vector2(370.0, 200.0))\npts.append(Vector2(440.0, 200.0))\npts.append(Vector2(510.0, 200.0))\npts.append(Vector2(580.0, 200.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 5/5 coherent=true confirm=true bad=[]",
+   "comment": "Player 1 sets up a 5-model Custodian Guard squad in its zone (plain DEPLOY_UNIT)"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_CUSTODIAN_GUARD_A\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_CUSTODIAN_GUARD_A st=2 pos=5/5 tok=5 | previews=0 placing=false listed=false",
+   "comment": "plain human DEPLOY_UNIT still confirms normally: DEPLOYED, one board token per model"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.get_active_player()) == 2 and not tree.current_scene.deployment_controller.is_placing()",
+   "equals": true,
+   "timeout_s": 15.0,
+   "poll_s": 0.25,
+   "comment": "deployment alternates to Player 2 (TurnManager) after the confirmed unit"
+  },
+  {
+   "act": "wait_for_tweens",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_LOOTAS_A\":\n\t\tidx = i\nreturn idx",
+   "equals": 11,
+   "comment": "(a) the attached unit is ONE row: 'Lootas Alpha (11 models) + Big Mek'"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 11
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_LOOTAS_A\"].status)]",
+   "equals": "U_LOOTAS_A combined=true total=11 picker=true infil=false status=1"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Lootas x10",
+   "comment": "the combined session waits on the Select Model Type picker: place the 10 Lootas first"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(300.0, 2340.0))\npts.append(Vector2(356.0, 2340.0))\npts.append(Vector2(412.0, 2340.0))\npts.append(Vector2(468.0, 2340.0))\npts.append(Vector2(524.0, 2340.0))\npts.append(Vector2(300.0, 2280.0))\npts.append(Vector2(356.0, 2280.0))\npts.append(Vector2(412.0, 2280.0))\npts.append(Vector2(468.0, 2280.0))\npts.append(Vector2(524.0, 2280.0))\npts.append(Vector2(620.0, 2310.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 11/11 coherent=true confirm=true bad=[]",
+   "comment": "(a) 10 Lootas in two ranks, then the Big Mek (auto-selected once the Lootas run out) beside them"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "screenshot",
+   "label": "a_staged"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_LOOTAS_A\", \"U_BIG_MEK_B\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_LOOTAS_A st=2 pos=10/10 tok=10 | U_BIG_MEK_B st=2 pos=1/1 tok=1 | previews=0 placing=false listed=false",
+   "comment": "(a) the COMPOSITE_DEPLOY is accepted: bodyguard AND leader DEPLOYED, exactly one board token per model"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var hit = \"\"\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).contains(\"Deployed Lootas Alpha\"):\n\t\thit = str(e.get(\"text\", \"\"))\nreturn hit",
+   "equals": "P2: Deployed Lootas Alpha + Big Mek Beta (11 models)",
+   "comment": "L1-5: the game log names the leader and counts the whole attached unit (was 'Deployed Lootas Alpha (10 models)')"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "tree.current_scene.focus_on_deployment_zone(2, false)\nreturn true",
+   "equals": true,
+   "comment": "camera back on the Ork zone (the turn already passed to Player 1) so the shot shows the accepted set-up"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "screenshot",
+   "label": "a_deployed_log_names_leader"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.get_active_player()) == 1 and not tree.current_scene.deployment_controller.is_placing()",
+   "equals": true,
+   "timeout_s": 15.0,
+   "poll_s": 0.25,
+   "comment": "deployment alternates to Player 1 (TurnManager) after the confirmed unit"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_CUSTODIAN_GUARD_B\":\n\t\tidx = i\nreturn idx",
+   "equals": 4,
+   "comment": "Player 1 (Custodes): the next Custodian Guard squad is row 4 of the deployment list"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 4
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].status)]",
+   "equals": "U_CUSTODIAN_GUARD_B combined=false total=5 picker=false infil=false status=1"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(300.0, 300.0))\npts.append(Vector2(370.0, 300.0))\npts.append(Vector2(440.0, 300.0))\npts.append(Vector2(510.0, 300.0))\npts.append(Vector2(580.0, 300.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 5/5 coherent=true confirm=true bad=[]",
+   "comment": "Player 1 sets up a 5-model Custodian Guard squad in its zone (plain DEPLOY_UNIT)"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_CUSTODIAN_GUARD_B\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_CUSTODIAN_GUARD_B st=2 pos=5/5 tok=5 | previews=0 placing=false listed=false",
+   "comment": "plain human DEPLOY_UNIT still confirms normally: DEPLOYED, one board token per model"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.get_active_player()) == 2 and not tree.current_scene.deployment_controller.is_placing()",
+   "equals": true,
+   "timeout_s": 15.0,
+   "poll_s": 0.25,
+   "comment": "deployment alternates to Player 2 (TurnManager) after the confirmed unit"
+  },
+  {
+   "act": "wait_for_tweens",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_LOOTAS_B\":\n\t\tidx = i\nreturn idx",
+   "equals": 11,
+   "comment": "(b) Lootas Beta (+ Big Mek) row"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 11
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_LOOTAS_B\"].status)]",
+   "equals": "U_LOOTAS_B combined=true total=11 picker=true infil=false status=1"
+  },
+  {
+   "act": "click_node",
+   "button_text": "Lootas x10"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(900.0, 2120.0))\npts.append(Vector2(956.0, 2120.0))\npts.append(Vector2(1012.0, 2120.0))\npts.append(Vector2(900.0, 2176.0))\npts.append(Vector2(956.0, 2176.0))\npts.append(Vector2(1012.0, 2176.0))\npts.append(Vector2(900.0, 2232.0))\npts.append(Vector2(956.0, 2232.0))\npts.append(Vector2(1012.0, 2232.0))\npts.append(Vector2(1204.0, 2176.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 10/11 coherent=true confirm=false bad=[]",
+   "comment": "(b) nine Lootas in a 3x3 block and the 10th 4.8in to the side - 3.5in from any other Loota"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar p = Vector2(1380.0, 2330.0)\nvar slot = dc.model_idx\ndc.try_place_at(p)\nreturn \"slot=%d placed=%d/%d coherent=%s confirm=%s\" % [slot, dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible)]",
+   "equals": "slot=10 placed=11/11 coherent=false confirm=true",
+   "comment": "(c1) the Big Mek dropped too far away (7in from the squad): every model is down, so Confirm shows, but the attached unit is out of coherency"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+   "comment": "(c1) the player confirms anyway"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 10
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var hit = \"\"\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t) and t.get_child_count() > 0:\n\t\tvar lbl = t.get_child(0)\n\t\tif lbl is Label and str(lbl.text).contains(\"out of coherency\"):\n\t\t\thit = str(lbl.text)\nvar main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar fin = 0\nfor c in tl.get_children():\n\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) in [\"U_LOOTAS_B\", \"U_BIG_MEK_C\"]:\n\t\tfin += 1\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == \"U_LOOTAS_B\":\n\t\tlisted = true\nvar u = GameState.state.units\nreturn \"toast=%s placing=%s unit=%s staged=%d previews=%d finalized=%d bg=%d ch=%d bg_pos0=%s confirm=%s card=%s listed=%s\" % [str(hit != \"\"), str(dc.is_placing()), dc.unit_id, dc.get_placed_count(), dc.placed_tokens.size(), fin, int(u[\"U_LOOTAS_B\"].status), int(u[\"U_BIG_MEK_C\"].status), str(u[\"U_LOOTAS_B\"].models[0].get(\"position\")), str(main.confirm_button.visible), str(main.unit_card.visible), str(listed)]",
+   "equals": "toast=true placing=true unit=U_LOOTAS_B staged=11 previews=11 finalized=0 bg=1 ch=0 bg_pos0=<null> confirm=true card=true listed=true",
+   "comment": "(c1) REFUSED by the UI coherency gate: the error toast is up, the placement session is still open (11 staged previews, unit card + Confirm still shown, the unit still in the list), nothing was finalized or stranded"
+  },
+  {
+   "act": "screenshot",
+   "label": "c1_refused_leader_too_far_toast"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar out = []\nout.append(main.world_to_screen_position(Vector2(1380.0, 2330.0)))\nout.append(main.world_to_screen_position(Vector2(1108.0, 2176.0)))\nvar ok = true\nfor p in out:\n\tif p.x < 350.0 or p.x > 1505.0 or p.y < 180.0 or p.y > 1065.0:\n\t\tok = false\nprint(\"SCENARIO human_composite_deploy screen points: %s\" % str(out))\nreturn ok",
+   "equals": true,
+   "comment": "the leader and its new spot are on the visible board (not under the log or unit panels) for real clicks"
+  },
+  {
+   "act": "click_board_at",
+   "x": 1380.0,
+   "y": 2330.0,
+   "shift": true,
+   "comment": "(c1) fix it: Shift+click picks the placed Big Mek back up"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 6
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s %d\" % [str(dc.is_repositioning()), dc.reposition_model_index]",
+   "equals": "true 10",
+   "comment": "the Big Mek (combined slot 10) is in hand"
+  },
+  {
+   "act": "hover_board_at",
+   "x": 1108.0,
+   "y": 2176.0
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "return tree.current_scene.deployment_controller.reposition_ghost.is_valid_position",
+   "equals": true,
+   "comment": "the lifted leader's ghost reports the spot between the 3x3 block and the far Loota as valid"
+  },
+  {
+   "act": "screenshot",
+   "label": "c1_leader_lifted_to_bridge_spot"
+  },
+  {
+   "act": "click_board_at",
+   "x": 1108.0,
+   "y": 2176.0,
+   "comment": "drop it between the block and the far Loota"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar lootas = []\nfor i in range(10):\n\tlootas.append({\"id\": \"l%d\" % i, \"base_mm\": 32, \"position\": dc.temp_positions[i], \"rotation\": 0.0, \"alive\": true})\nvar bg_alone = AttackSequence.check_unit_coherency({\"models\": lootas}).get(\"coherent\", true)\nreturn \"lifted=%s moved=%s coherent_ui=%s bodyguard_alone_coherent=%s\" % [str(dc.is_repositioning()), str(dc.temp_positions[10].distance_to(Vector2(1108.0, 2176.0)) < 3.0), str(dc._is_unit_coherent()), str(bg_alone)]",
+   "equals": "lifted=false moved=true coherent_ui=true bodyguard_alone_coherent=false",
+   "comment": "(b) the L1-3 layout: the attached unit is coherent as ONE unit (19.01), while the 10th Loota's only model within 2in is the Big Mek - the Lootas alone are not coherent"
+  },
+  {
+   "act": "screenshot",
+   "label": "b_staged_leader_bridges_last_loota"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_LOOTAS_B\", \"U_BIG_MEK_C\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_LOOTAS_B st=2 pos=10/10 tok=10 | U_BIG_MEK_C st=2 pos=1/1 tok=1 | previews=0 placing=false listed=false",
+   "comment": "(b) L1-3: the phase now judges the attached unit's coherency once, over bodyguard + leader, and ACCEPTS it (it used to refuse 'Unit coherency broken' on the Lootas alone and strand the unit)"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var hit = \"\"\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t) and t.get_child_count() > 0:\n\t\tvar lbl = t.get_child(0)\n\t\tif lbl is Label and str(lbl.text).contains(\"Deployment refused\"):\n\t\t\thit = str(lbl.text)\nreturn hit",
+   "equals": "",
+   "comment": "no refusal toast for the accepted set-up"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "tree.current_scene.focus_on_deployment_zone(2, false)\nreturn true",
+   "equals": true,
+   "comment": "camera back on the Ork zone for the shot"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "screenshot",
+   "label": "b_deployed_l1_3_layout_accepted"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.get_active_player()) == 1 and not tree.current_scene.deployment_controller.is_placing()",
+   "equals": true,
+   "timeout_s": 15.0,
+   "poll_s": 0.25,
+   "comment": "deployment alternates to Player 1 (TurnManager) after the confirmed unit"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_CUSTODIAN_GUARD_C\":\n\t\tidx = i\nreturn idx",
+   "equals": 4,
+   "comment": "Player 1 (Custodes): the next Custodian Guard squad is row 4 of the deployment list"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 4
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].status)]",
+   "equals": "U_CUSTODIAN_GUARD_C combined=false total=5 picker=false infil=false status=1"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(300.0, 400.0))\npts.append(Vector2(370.0, 400.0))\npts.append(Vector2(440.0, 400.0))\npts.append(Vector2(510.0, 400.0))\npts.append(Vector2(580.0, 400.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 5/5 coherent=true confirm=true bad=[]",
+   "comment": "Player 1 sets up a 5-model Custodian Guard squad in its zone (plain DEPLOY_UNIT)"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_CUSTODIAN_GUARD_C\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_CUSTODIAN_GUARD_C st=2 pos=5/5 tok=5 | previews=0 placing=false listed=false",
+   "comment": "plain human DEPLOY_UNIT still confirms normally: DEPLOYED, one board token per model"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.get_active_player()) == 2 and not tree.current_scene.deployment_controller.is_placing()",
+   "equals": true,
+   "timeout_s": 15.0,
+   "poll_s": 0.25,
+   "comment": "deployment alternates to Player 2 (TurnManager) after the confirmed unit"
+  },
+  {
+   "act": "wait_for_tweens",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var ul = tree.current_scene.unit_list\nvar idx = -1\nfor i in range(ul.get_item_count()):\n\tif str(ul.get_item_metadata(i)) == \"U_WARBIKERS_A\":\n\t\tidx = i\nreturn idx",
+   "equals": 13,
+   "comment": "(c2) Warbikers Alpha row"
+  },
+  {
+   "act": "click_item_list",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+   "index": 13
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s combined=%s total=%d picker=%s infil=%s status=%d\" % [dc.unit_id, str(dc.is_combined_deployment), dc.get_total_model_count(), str(dc.has_model_type_picker), str(dc.is_infiltrators_mode), int(GameState.state.units[\"U_WARBIKERS_A\"].status)]",
+   "equals": "U_WARBIKERS_A combined=false total=3 picker=false infil=false status=1"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nvar pts = []\npts.append(Vector2(1112.0, 1992.0))\npts.append(Vector2(1192.0, 1992.0))\npts.append(Vector2(1272.0, 1992.0))\nvar bad = []\nfor i in range(pts.size()):\n\tvar slot = dc.model_idx\n\tif slot != i:\n\t\tbad.append(\"slot%d->%d\" % [i, slot])\n\t\tbreak\n\tdc.try_place_at(pts[i])\n\tif dc.temp_positions[slot] == null:\n\t\tbad.append(\"refused%d\" % i)\nreturn \"placed %d/%d coherent=%s confirm=%s bad=%s\" % [dc.get_placed_count(), dc.get_total_model_count(), str(dc._is_unit_coherent()), str(tree.current_scene.confirm_button.visible), str(bad)]",
+   "equals": "placed 3/3 coherent=true confirm=true bad=[]",
+   "comment": "(c2) three Warbikers 2in apart just south of the corner ruin (legal, coherent)"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 4
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\ndc.set_meta(\"f2_commits0\", dc.reposition_commits)\nvar m = GameState.state.units[\"U_WARBIKERS_A\"].models[1].duplicate()\nm[\"position\"] = Vector2(1192.0, 1856.0)\nm[\"rotation\"] = dc.temp_rotations[1]\nreturn TerrainManager.solid_terrain_endpoint_blocker_11e(m, GameState.state.units[\"U_WARBIKERS_A\"].meta.keywords)",
+   "equals": "corner-ruin-left-19",
+   "comment": "precondition: the target spot puts the bike on corner-ruin-left-19 (dense, 5in) - a piece MOUNTED models cannot end on at 11e"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar out = []\nout.append(main.world_to_screen_position(Vector2(1192.0, 1992.0)))\nout.append(main.world_to_screen_position(Vector2(1192.0, 1856.0)))\nvar ok = true\nfor p in out:\n\tif p.x < 350.0 or p.x > 1505.0 or p.y < 180.0 or p.y > 1065.0:\n\t\tok = false\nprint(\"SCENARIO human_composite_deploy screen points: %s\" % str(out))\nreturn ok",
+   "equals": true,
+   "comment": "the bike and the ruin spot are on the visible board for real clicks"
+  },
+  {
+   "act": "click_board_at",
+   "x": 1192.0,
+   "y": 1992.0,
+   "shift": true,
+   "comment": "(c2) Shift+click picks the middle Warbiker back up"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 6
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var dc = tree.current_scene.deployment_controller\nreturn \"%s %d\" % [str(dc.is_repositioning()), dc.reposition_model_index]",
+   "equals": "true 1"
+  },
+  {
+   "act": "hover_board_at",
+   "x": 1192.0,
+   "y": 1856.0
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "return tree.current_scene.deployment_controller.reposition_ghost.is_valid_position",
+   "equals": false,
+   "comment": "L1-1: the lifted bike's ghost reports the ruin wall as INVALID (the reposition validator now has the wall / solid-piece check the click path has; the default 'letter' token style does not tint ghosts by validity, so this is asserted, not seen)"
+  },
+  {
+   "act": "screenshot",
+   "label": "c2_bike_lifted_over_ruin"
+  },
+  {
+   "act": "click_board_at",
+   "x": 1192.0,
+   "y": 1856.0,
+   "comment": "(c2) try to drop it on the ruin wall"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 8
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var hit = \"\"\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t) and t.get_child_count() > 0:\n\t\tvar lbl = t.get_child(0)\n\t\tif lbl is Label and str(lbl.text).contains(\"Invalid position for repositioning\"):\n\t\t\thit = str(lbl.text)\nvar dc = tree.current_scene.deployment_controller\nreturn \"toast=%s lifted=%s stayed=%s commits=%d placing=%s staged=%d\" % [str(hit != \"\"), str(dc.is_repositioning()), str(dc.temp_positions[1].distance_to(Vector2(1192.0, 1992.0)) < 1.0), dc.reposition_commits - int(dc.get_meta(\"f2_commits0\", 0)), str(dc.is_placing()), dc.get_placed_count()]",
+   "equals": "toast=true lifted=false stayed=true commits=0 placing=true staged=3",
+   "comment": "(c2) the UI REFUSES the drop: toast shown, the bike stays where it was, the session stays open (before the fix the drop was accepted and the phase refused the whole unit at Confirm, stranding it)"
+  },
+  {
+   "act": "screenshot",
+   "label": "c2_drop_on_ruin_refused_toast"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 12
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var main = tree.current_scene\nvar dc = main.deployment_controller\nvar tl = main.get_node(\"BoardRoot/TokenLayer\")\nvar ids = [\"U_WARBIKERS_A\"]\nvar parts = []\nfor uid in ids:\n\tvar u = GameState.state.units[uid]\n\tvar pos_n = 0\n\tfor m in u.models:\n\t\tif m.get(\"position\") != null:\n\t\t\tpos_n += 1\n\tvar tok = 0\n\tfor c in tl.get_children():\n\t\tif c.has_meta(\"unit_id\") and str(c.get_meta(\"unit_id\")) == uid:\n\t\t\ttok += 1\n\tparts.append(\"%s st=%d pos=%d/%d tok=%d\" % [uid, int(u.status), pos_n, u.models.size(), tok])\nvar listed = false\nfor i in range(main.unit_list.get_item_count()):\n\tif str(main.unit_list.get_item_metadata(i)) == ids[0]:\n\t\tlisted = true\nparts.append(\"previews=%d placing=%s listed=%s\" % [dc.placed_tokens.size(), str(dc.is_placing()), str(listed)])\nvar r = \" | \".join(parts)\nprint(\"SCENARIO human_composite_deploy report: \" + r)\nreturn r",
+   "equals": "U_WARBIKERS_A st=2 pos=3/3 tok=3 | previews=0 placing=false listed=false",
+   "comment": "(c2) fixed placement confirms: DEPLOYED, 3 board tokens"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "tree.current_scene.focus_on_deployment_zone(2, false)\nreturn true",
+   "equals": true,
+   "comment": "camera back on the Ork zone for the final shots"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 3
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var u = GameState.state.units[\"U_WARBIKERS_A\"]\nvar hits = []\nfor m in u.models:\n\tvar t = m.duplicate()\n\tvar p = m.get(\"position\")\n\tt[\"position\"] = Vector2(float(p.x), float(p.y))\n\tvar h = TerrainManager.solid_terrain_endpoint_blocker_11e(t, u.meta.keywords)\n\tif h != \"\":\n\t\thits.append(h)\nreturn str(hits)",
+   "equals": "[]",
+   "comment": "no Warbiker ended on a solid piece"
+  },
+  {
+   "act": "execute_script",
+   "multiline": true,
+   "script": "var stranded = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"status\", 0)) == 1 and uid != tree.current_scene.deployment_controller.unit_id:\n\t\tstranded.append(uid)\n\tif int(u.get(\"status\", 0)) == 2 and u.get(\"embarked_in\", null) == null:\n\t\tfor m in u.models:\n\t\t\tif m.get(\"alive\", true) and m.get(\"position\") == null:\n\t\t\t\tstranded.append(uid + \":nopos\")\n\t\t\t\tbreak\nreturn str(stranded)",
+   "equals": "[]",
+   "comment": "invariant: no unit is left DEPLOYING outside an open session, and every DEPLOYED (not embarked) unit has every alive model on the board"
+  },
+  {
+   "act": "screenshot",
+   "label": "z_final_board"
+  }
+ ]
+}
