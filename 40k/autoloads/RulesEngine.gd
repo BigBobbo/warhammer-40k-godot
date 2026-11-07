@@ -4000,6 +4000,8 @@ static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: D
 static func _character_group_visible_to_attackers(group: Dictionary, target_unit: Dictionary, actor_unit: Dictionary, board: Dictionary) -> bool:
 	var t_models = target_unit.get("models", [])
 	var tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+	# PERF: the 13.09 gate's observer-independent half, once per target model.
+	var hidden_gates := {}
 	for actor_model in actor_unit.get("models", []):
 		if not actor_model.get("alive", true):
 			continue
@@ -4019,7 +4021,9 @@ static func _character_group_visible_to_attackers(group: Dictionary, target_unit
 			if tm != null:
 				# 13.09 hidden gate; 13.10/13.11 sight lines are judged by the
 				# base LoS check (EnhancedLineOfSight 11e branch) below.
-				if not tm.hidden_model_visible_to(t_model, target_unit, actor_model):
+				if not hidden_gates.has(mi):
+					hidden_gates[mi] = tm.hidden_gate_for(t_model, target_unit)
+				if not tm.hidden_gate_allows(hidden_gates[mi], t_model, actor_model):
 					continue
 			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
 				return true
@@ -6647,31 +6651,38 @@ static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board
 		return out
 
 	var pairs: Array = []
+	var target_models: Array = target_unit.get("models", [])
 	for actor_model in actor_unit.get("models", []):
 		if not actor_model.get("alive", true):
 			continue
 		var actor_pos = _get_model_position(actor_model)
 		if not actor_pos:
 			continue
-		for target_model in target_unit.get("models", []):
+		for ti in range(target_models.size()):
+			var target_model = target_models[ti]
 			if not target_model.get("alive", true):
 				continue
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
 				continue
-			pairs.append([actor_pos.distance_squared_to(target_pos), actor_model, target_model, actor_pos, target_pos])
+			pairs.append([actor_pos.distance_squared_to(target_pos), actor_model, target_model, actor_pos, target_pos, ti])
 	if pairs.is_empty():
 		return out
 	pairs.sort_custom(func(a, b): return a[0] < b[0])
 
 	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
+	# PERF: the 13.09 gate's observer-independent half, once per target model.
+	var hidden_gates := {}
 	var budget: int = pairs.size() if max_pairs <= 0 else mini(max_pairs, pairs.size())
 	for i in range(budget):
 		var p = pairs[i]
 		# 13.09: a hidden model is not visible beyond its detection range —
 		# "visible to any model in the firing unit" must honour that too.
-		if tm_hidden != null and not tm_hidden.hidden_model_visible_to(p[2], target_unit, p[1]):
-			continue
+		if tm_hidden != null:
+			if not hidden_gates.has(p[5]):
+				hidden_gates[p[5]] = tm_hidden.hidden_gate_for(p[2], target_unit)
+			if not tm_hidden.hidden_gate_allows(hidden_gates[p[5]], p[2], p[1]):
+				continue
 		if _check_line_of_sight(p[3], p[4], board, p[1], p[2]):
 			return {"has_los": true, "from": p[3], "to": p[4]}
 
@@ -6739,7 +6750,11 @@ static func unit_within_weapon_reach(actor_unit_id: String, target_unit_id: Stri
 				return true
 	return false
 
-static func _check_target_visibility(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
+## `hidden_gates` (optional): a per-TARGET-unit cache of the 13.09 gate's
+## observer-independent half (TerrainManager.hidden_gate_for), keyed by target
+## model index — get_eligible_targets passes one dict per target unit so the
+## gate is computed once per target model across all the actor's weapons.
+static func _check_target_visibility(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary, hidden_gates: Dictionary = {}) -> Dictionary:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
@@ -6757,6 +6772,7 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	# Check if any model in actor unit can see and is in range of any model in target unit
 	var actor_models = actor_unit.get("models", [])
 	var target_models = target_unit.get("models", [])
+	var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
 
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
@@ -6766,7 +6782,8 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 		if not actor_pos:
 			continue
 
-		for target_model in target_models:
+		for ti in range(target_models.size()):
+			var target_model = target_models[ti]
 			if not target_model.get("alive", true):
 				continue
 
@@ -6787,11 +6804,14 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				# the base LoS check below (EnhancedLineOfSight runs the 11e
 				# per-line rules with full base-to-base sampling at edition 11,
 				# including the terrain-area grouping + "within" exclusions).
-				if GameConstants.edition >= 11:
-					var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
-					if tm_11e != null:
-						if not tm_11e.hidden_model_visible_to(target_model, target_unit, actor_model):
-							continue
+				# PERF: the observer-independent half of the gate is computed
+				# once per target model (hidden_gates), distance-first per pair.
+				if tm_11e != null:
+					var gate_key := "%s#%d" % [target_unit_id, ti]
+					if not hidden_gates.has(gate_key):
+						hidden_gates[gate_key] = tm_11e.hidden_gate_for(target_model, target_unit)
+					if not tm_11e.hidden_gate_allows(hidden_gates[gate_key], target_model, actor_model):
+						continue
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}
@@ -7233,6 +7253,8 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 		# difference between checking "shoota" once vs 20×. Dedup by weapon: only
 		# the first bearer of each weapon triggers the (expensive) visibility scan.
 		var checked_weapons := {}
+		# PERF: the 13.09 hidden gate per target model, shared by every weapon.
+		var hidden_gates := {}
 		for model_id in unit_weapons:
 			# ATTACHED CHARACTERS: get_unit_weapons emits composite
 			# "<char_unit>:<model>" bearers. Dropping them here meant an attached
@@ -7274,7 +7296,7 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 							continue
 						# BGNT: Non-Pistol weapons can target any visible enemy (no ER restriction)
 
-				var visibility = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
+				var visibility = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board, hidden_gates)
 				if visibility.visible:
 					weapons_in_range.append(weapon_id)
 					# PERF-LOS: for the yes/no filter, one visible weapon settles it —
@@ -7391,6 +7413,13 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 	var hidden_min_dist = INF
 	var hidden_det_range = GameConstants.hidden_detection_range_inches()
 	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
+	# PERF: the 13.09 gate's observer-independent half, once per target model.
+	var hidden_gates := {}
+	# PERF: the pair scan below depends only on a weapon's range and whether it
+	# is [INDIRECT FIRE] (it walks EVERY actor model whatever the bearer), so a
+	# repeat of the same (range, indirect) combination scans the exact same
+	# pairs in the same order and cannot change any result — skip it.
+	var scanned_combos := {}
 
 	for model_id in unit_weapons:
 		# ATTACHED CHARACTERS: composite bearers resolved through the board, so a
@@ -7418,11 +7447,19 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 			var weapon_range = weapon_profile.get("range", 12) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 			var range_px = Measurement.inches_to_px(weapon_range)
 			var is_indirect = has_indirect_fire(weapon_id, board)
+			var combo_key := "%s|%s" % [str(range_px), str(is_indirect)]
+			if scanned_combos.has(combo_key):
+				continue
+			scanned_combos[combo_key] = true
 
+			var target_ms: Array = target_unit.get("models", [])
 			for actor_m in actor_unit.get("models", []):
+				if any_in_los:
+					break
 				if not actor_m.get("alive", true):
 					continue
-				for target_m in target_unit.get("models", []):
+				for ti in range(target_ms.size()):
+					var target_m = target_ms[ti]
 					if not target_m.get("alive", true):
 						continue
 					var distance = Measurement.model_to_model_distance_px(actor_m, target_m)
@@ -7431,19 +7468,37 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 						if is_indirect:
 							any_in_los = true
 						else:
+							# The 13.09 hidden gate applied by _check_target_visibility,
+							# judged on pairs with clear sight lines. PERF: the gate is
+							# evaluated first (cheap, distance-first); a pair it refuses
+							# needs its sight line only while it could still set or
+							# lower the closest Hidden distance (strict <, as before).
+							var gate_ok := true
+							if tm_hidden != null:
+								if not hidden_gates.has(ti):
+									hidden_gates[ti] = tm_hidden.hidden_gate_for(target_m, target_unit)
+								gate_ok = tm_hidden.hidden_gate_allows(hidden_gates[ti], target_m, actor_m)
+							var d_in = Measurement.px_to_inches(distance)
+							if not gate_ok and any_hidden_blocked and d_in >= hidden_min_dist:
+								continue
 							var a_pos = _get_model_position(actor_m)
 							var t_pos = _get_model_position(target_m)
 							if _check_line_of_sight(a_pos, t_pos, board, actor_m, target_m):
-								# Sight lines are clear — mirror the 13.09
-								# hidden gate applied by _check_target_visibility.
-								if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_m, target_unit, actor_m):
+								if not gate_ok:
 									any_hidden_blocked = true
-									var d_in = Measurement.px_to_inches(distance)
 									if d_in < hidden_min_dist:
 										hidden_min_dist = d_in
 										hidden_det_range = tm_hidden.detection_range_inches_for(target_m, target_unit, actor_m)
 								else:
 									any_in_los = true
+						if any_in_los:
+							# A clear, visible pair settles it: the target is
+							# eligible ("" below) whatever the other pairs say.
+							break
+			if any_in_los:
+				break
+		if any_in_los:
+			break
 
 	if not has_any_weapon:
 		return _ineligible("no_weapons", "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id))

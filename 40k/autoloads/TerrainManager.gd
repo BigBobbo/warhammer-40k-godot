@@ -1069,11 +1069,37 @@ static func category_allows_hidden(cat: String) -> bool:
 ## Visibility gate for hidden models: visible only when the observer is
 ## within the detection range (13.09), as refined per observer by
 ## detection_range_inches_for (Gone to Ground, datasheet modifiers).
+## PERF: answered distance-first — see hidden_gate_allows. Same answer as
+## comparing the distance with detection_range_inches_for for every pair.
 func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> bool:
+	return hidden_gate_allows(hidden_gate_for(model, unit), model, observer_model)
+
+## The observer-independent half of the 13.09 gate for ONE target model:
+## {"hidden": false}, or {"hidden": true, "lo_px", "hi_px"} — its detection
+## range with / without the Gone to Ground term (detection_range_bounds_inches),
+## in px. is_model_hidden does not depend on the observer, so callers that
+## test one target model against many observers compute this once per target
+## model and call hidden_gate_allows per pair.
+func hidden_gate_for(model: Dictionary, unit: Dictionary) -> Dictionary:
 	if not is_model_hidden(model, unit):
+		return {"hidden": false}
+	var b := detection_range_bounds_inches(unit)
+	return {"hidden": true, "lo_px": Measurement.inches_to_px(float(b.lo)), "hi_px": Measurement.inches_to_px(float(b.hi))}
+
+## One observer against a precomputed gate. The detection range is one of two
+## values, so the edge-to-edge distance decides on its own outside the band
+## between them: beyond `hi` never visible, within `lo` always. Only inside
+## (lo, hi] can Gone to Ground change the answer, and only there is the
+## 9-sight-line dense-terrain check (_obscured_by_dense_11e) paid.
+func hidden_gate_allows(gate: Dictionary, model: Dictionary, observer_model: Dictionary) -> bool:
+	if not gate.get("hidden", false):
 		return true
-	var det_px = Measurement.inches_to_px(detection_range_inches_for(model, unit, observer_model))
-	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
+	var d: float = Measurement.model_to_model_distance_px(observer_model, model)
+	if d > float(gate.get("hi_px", 0.0)):
+		return false
+	if d <= float(gate.get("lo_px", 0.0)):
+		return true
+	return not _obscured_by_dense_11e(observer_model, model)
 
 ## Audit Tier-1 #4 (review doc Tab 6) — a hidden model's effective
 ## detection range against a specific observer:
@@ -1086,25 +1112,70 @@ func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model
 ##     even ones that "do not prevent it from being hidden" (13.11.01).
 ##   ▪ floor: modifiers never take detection range below 9".
 func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> float:
-	var range_in := detection_range_base_inches(unit)
-	if can_go_to_ground(unit) and _obscured_by_dense_11e(observer_model, model):
-		range_in -= GameConstants.gone_to_ground_penalty_inches()
-	# WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
-	# has +3" detection range until the end of the turn.
-	range_in += _ork_abilities().detection_range_bonus(unit)
-	# WP-C7 PURITY OF EXECUTION (Codex: Adeptus Custodes 11e, Prosecutors): a detected unit has +3" detection range.
-	range_in += load("res://scripts/codex/custodes/CustodesAbilities.gd").detection_range_bonus(unit)
-	# WP-S4 STORM CALLER (Space Wolves, Njal Stormcaller): this unit has -3" detection range until the end of the phase.
-	range_in += load("res://scripts/codex/space_wolves/SWAbilities11e.gd").detection_range_bonus(unit)
-	# WP-M2a AUSPEX TRIANGULATION SHRINES (Stormlance Task Force): a spotted unit has +3" detection range.
-	range_in += load("res://scripts/codex/space_marines/SMDetachmentsA.gd").detection_range_bonus(unit)
-	# WP-M4b CHAMELEOLINE CLOAKS (-3") / SPECIAL-ISSUE OPTICS (+6") — Codex: Space Marines 11e (SMAbilitiesB.gd).
-	range_in += load("res://scripts/codex/space_marines/SMAbilitiesB.gd").detection_range_bonus(unit)
-	# WP-M4c TRIFOLD PATH OF SHADOW (Kayvaan Shrike): this unit has -3" detection range.
-	range_in += load("res://scripts/codex/space_marines/SMAbilitiesC.gd").detection_range_bonus(unit)
-	# WP-M4a OMNI-SCRAMBLERS (detected, +3") / PRIORITY TARGET IDENTIFIED (+3" within the identified terrain feature).
-	range_in += load("res://scripts/codex/space_marines/SMAbilitiesA.gd").detection_range_bonus(unit)
-	return maxf(range_in, GameConstants.detection_range_floor_inches())
+	var b := detection_range_bounds_inches(unit)
+	if bool(b.can_go_to_ground) and _obscured_by_dense_11e(observer_model, model):
+		return float(b.lo)
+	return float(b.hi)
+
+## The only two values a hidden model's detection range can take against any
+## observer: "hi" without Gone to Ground, "lo" with it (= hi when the unit
+## cannot go to ground, 13.11.01). base − (3" Gone to Ground) + every datasheet
+## / codex modifier, in this fixed order, then the 9" floor:
+##   ▪ WP-O6 FOUND 'EM! (Codex: Orks 11e, Kommandos): the selected enemy unit
+##     has +3" detection range until the end of the turn.
+##   ▪ WP-C7 PURITY OF EXECUTION (Codex: Adeptus Custodes 11e, Prosecutors): a
+##     detected unit has +3" detection range.
+##   ▪ WP-S4 STORM CALLER (Space Wolves, Njal Stormcaller): this unit has -3"
+##     detection range until the end of the phase.
+##   ▪ WP-M2a AUSPEX TRIANGULATION SHRINES (Stormlance Task Force): a spotted
+##     unit has +3" detection range.
+##   ▪ WP-M4b CHAMELEOLINE CLOAKS (-3") / SPECIAL-ISSUE OPTICS (+6") — Codex:
+##     Space Marines 11e (SMAbilitiesB.gd).
+##   ▪ WP-M4c TRIFOLD PATH OF SHADOW (Kayvaan Shrike): this unit has -3"
+##     detection range.
+##   ▪ WP-M4a OMNI-SCRAMBLERS (detected, +3") / PRIORITY TARGET IDENTIFIED (+3"
+##     within the identified terrain feature).
+## Every modifier depends on the unit only, never on the observer.
+func detection_range_bounds_inches(unit: Dictionary) -> Dictionary:
+	var base := detection_range_base_inches(unit)
+	var bonuses := _detection_range_bonuses(unit)
+	var floor_in := GameConstants.detection_range_floor_inches()
+	var hi_raw: float = base
+	for bonus in bonuses:
+		hi_raw += bonus
+	var hi := maxf(hi_raw, floor_in)
+	var gtg := can_go_to_ground(unit)
+	var lo := hi
+	if gtg:
+		var lo_raw: float = base
+		lo_raw -= GameConstants.gone_to_ground_penalty_inches()
+		for bonus in bonuses:
+			lo_raw += bonus
+		lo = maxf(lo_raw, floor_in)
+	return {"lo": lo, "hi": hi, "can_go_to_ground": gtg}
+
+const _DETECTION_BONUS_SCRIPTS := [
+	"res://scripts/codex/orks/OrkAbilities11e.gd",
+	"res://scripts/codex/custodes/CustodesAbilities.gd",
+	"res://scripts/codex/space_wolves/SWAbilities11e.gd",
+	"res://scripts/codex/space_marines/SMDetachmentsA.gd",
+	"res://scripts/codex/space_marines/SMAbilitiesB.gd",
+	"res://scripts/codex/space_marines/SMAbilitiesC.gd",
+	"res://scripts/codex/space_marines/SMAbilitiesA.gd",
+]
+var _detection_bonus_scripts: Array = []
+
+## The datasheet / codex detection-range modifiers for `unit`, in the order of
+## detection_range_bounds_inches. Scripts are loaded lazily (no preload cycle
+## through the autoloads they reach) and kept.
+func _detection_range_bonuses(unit: Dictionary) -> Array:
+	if _detection_bonus_scripts.is_empty():
+		for path in _DETECTION_BONUS_SCRIPTS:
+			_detection_bonus_scripts.append(load(path))
+	var out: Array = []
+	for script in _detection_bonus_scripts:
+		out.append(float(script.detection_range_bonus(unit)))
+	return out
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities, loaded lazily (no preload
 ## cycle through the autoloads it reaches).

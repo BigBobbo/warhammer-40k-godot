@@ -2405,13 +2405,21 @@ func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 	var board = GameState.create_snapshot(false)
 	var tm = get_node_or_null("/root/TerrainManager")
 	var hidden_pairs := 0
+	# PERF: the 13.09 gate's observer-independent half (is the target model
+	# hidden, its detection range bounds) once per target model, not per pair.
+	var target_models: Array = target_unit.get("models", [])
+	var hidden_gates: Array = []
+	var use_gate: bool = tm != null and tm.has_method("hidden_gate_for")
+	for target_model in target_models:
+		hidden_gates.append(tm.hidden_gate_for(target_model, target_unit) if use_gate and target_model.get("alive", true) else {})
 
 	# Use enhanced LoS visualization for each model pair
 	for shooter_model in shooter_unit.get("models", []):
 		if not shooter_model.get("alive", true):
 			continue
 
-		for target_model in target_unit.get("models", []):
+		for ti in range(target_models.size()):
+			var target_model = target_models[ti]
 			if not target_model.get("alive", true):
 				continue
 
@@ -2419,8 +2427,7 @@ func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 			# detection range is NOT visible, however clear the terrain is. The
 			# terrain-only check below would paint that pair green and contradict
 			# the target list (more common since light terrain hides too).
-			if tm != null and tm.has_method("hidden_model_visible_to") \
-					and not tm.hidden_model_visible_to(target_model, target_unit, shooter_model):
+			if use_gate and not tm.hidden_gate_allows(hidden_gates[ti], target_model, shooter_model):
 				los_debug_visual.visualize_hidden_beyond_detection(shooter_model, target_model)
 				hidden_pairs += 1
 				continue
