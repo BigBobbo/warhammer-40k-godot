@@ -13,7 +13,6 @@
 374_headwoppa_devastating_wounds  # fails at 10e and 11e (11e 12/1, 10e 12/1 steps passed/failed)
 374_supa_cybork_fnp  # fails at 10e and 11e (11e 8/1, 10e 8/1 steps passed/failed)
 85b_rolloff_dramatic  # fails at 10e and 11e (11e 10/3, 10e 10/3 steps passed/failed)
-85d_rolloff_vs_ai  # fails at 10e and 11e (11e 15/5, 10e 15/5 steps passed/failed)
 85e_first_turn_rolloff  # fails at 10e and 11e (11e 12/2, 10e 12/2 steps passed/failed)
 85f_first_turn_vs_ai  # fails at 10e and 11e (11e 16/2, 10e 16/2 steps passed/failed)
 army_builder_menu_link  # fails at 10e and 11e (11e , 10e  steps passed/failed); hangs (600 s timeout) at step 5 click_node
@@ -39,7 +38,6 @@ iss064h_card_action_visibility_11e  # fails at 10e and 11e (11e 32/3, 10e 32/3 s
 iss064i_relic_setup_prompt_11e  # fails at 10e and 11e (11e 20/11, 10e 20/11 steps passed/failed)
 iss064j_mission_action_sabotage_11e  # fails at 10e and 11e (11e 64/11, 10e 64/11 steps passed/failed)
 iss065b_plunder_action_11e  # fails at 10e and 11e (11e 22/8, 10e 22/8 steps passed/failed)
-iss067_scout_reserves_deploy_11e  # fails at 10e and 11e (11e 27/4, 10e 27/4 steps passed/failed)
 iss074_aircraft_reserve_cycle_11e  # fails at 10e and 11e (11e 26/2, 10e 26/2 steps passed/failed)
 iss15_hidden_shot_stamp_11e  # fails at 10e and 11e (11e 26/9, 10e 26/9 steps passed/failed)
 iss15_indirect_band_11e  # fails at 10e and 11e (11e 30/2, 10e 30/2 steps passed/failed)
