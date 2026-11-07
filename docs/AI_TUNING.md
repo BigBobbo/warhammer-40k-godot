@@ -392,7 +392,8 @@ crowded zone still finds open ground far from the spot. A unit led by a
 character bigger than its own models (a 150 mm Wartrike) tries three growth
 plans in turn (seed a bodyguard model with the character next to it, seed
 the character, characters last); if that character has no legal cell at all
-the growth stops at once. Template legality (overlaps and coherency of every
+the growth stops at once. A seed within 1" of a seed of the same plan that
+failed is skipped (dead ends cluster), so the attempts spread over the zone. Template legality (overlaps and coherency of every
 block / attached-character variant) is outside the count budgets but bounded
 per unit signature and cached, so the first build of a unit type in a session
 is slower than later ones at the same counts and the same result.
@@ -403,8 +404,8 @@ is slower than later ones at the same counts and the same result.
 | `DEPLOY_FORMATION_MAX_EVALS` | 80000 | (int) anchor × block evaluations per drop |
 | `DEPLOY_FORMATION_MAX_FRESH` | 16000 | (int) fresh per-position legality checks per drop (cached results do not count) |
 | `DEPLOY_FORMATION_SAT_VARIANTS` | 10 | (int) attached-character slot variants tried per rotation combination |
-| `DEPLOY_FORMATION_GROW_SEEDS` | 120 | (int) seeds for the model-by-model growth fallback, all growth plans together |
-| `DEPLOY_FORMATION_MAX_GROW_WORK` | 800000 | (int) growth-fallback work units (about 1 µs each; a seed of a 7-model attached unit costs ~3-7k, of a 22-model one ~15-30k) |
+| `DEPLOY_FORMATION_GROW_SEEDS` | 180 | (int) seeds for the model-by-model growth fallback, all growth plans together |
+| `DEPLOY_FORMATION_MAX_GROW_WORK` | 1200000 | (int) growth-fallback work units (about 1 µs each; a seed of a 7-model attached unit costs ~3-7k, of a 22-model one ~15-30k). Spent in full only when no set-up is found — the alternative is Strategic Reserves |
 
 A unit for which no legal set-up was FOUND (within these budgets — not proof
 that none exists) goes to Strategic Reserves within the 50% caps
@@ -456,9 +457,11 @@ checks, all of them (plus room probes and the avoid-dense column try)
 within `DEPLOY_11E_DROP_MAX_EVALS` / `_DROP_MAX_FRESH`. Then at most two
 column-spot builds with the `DEPLOY_FORMATION_*` budgets each (growth
 included): the room-guarded one and, only if it finds nothing, the
-unconstrained last resort. `AIDecisionMaker.deploy_drop_count_bound()` is
-that sum (evaluations, fresh checks, growth work); `deploy_drop_stats()`
-records the largest counts one drop used, and the tests assert them.
+unconstrained last resort. All builds of one unit in one drop share a memo of
+per-position verdicts (they see the same board), so a position is checked
+once per drop. `AIDecisionMaker.deploy_drop_count_bound()` is the sum above
+(evaluations, fresh checks, growth work); `deploy_drop_stats()` records the
+largest counts one drop used, and the tests assert them.
 
 The K card words a spot that was not used by its reason: "not tried" (the
 drop's budget was spent before it), "no legal set-up found within the build
@@ -477,6 +480,7 @@ counted as unbuildable.
 | `DEPLOY_11E_DROP_MAX_FRESH` | 10000 | (int) builder fresh checks per drop (same) |
 | `DEPLOY_11E_ROOM_CHECKS` | 3 | (int) room-left re-probes per drop |
 | `DEPLOY_11E_ROOM_CHECK_EVALS` | 3000 | (int) evaluations per room-left probe |
+| `DEPLOY_11E_GUARD_GROW_SHARE` | 0.25 | share of the growth seeds / work the room-guarded column build may use — it is not the last resort (the unconstrained build follows with the full growth budget); 0 = blocks only |
 
 ### Deployment — scout objective choice
 

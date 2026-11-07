@@ -106,7 +106,7 @@ const PHASE_DEPLOYMENT := 1
 const DEFAULT_MAX_EVALS := 80000     # anchor x block evaluations
 const DEFAULT_MAX_FRESH := 16000     # fresh (non-memoised) per-position checks
 const DEFAULT_SAT_VARIANTS := 10     # satellite variants per character rotation combination
-const DEFAULT_GROW_SEEDS := 120      # growth-fallback seeds (all plans together)
+const DEFAULT_GROW_SEEDS := 180      # growth-fallback seeds (all plans together)
 # Growth work, in units of roughly one microsecond on this machine: one per
 # lattice cell enumerated / scored when ranking seeds, one per disc cell
 # stamped into a growth frontier and per frontier cell returned, one per
@@ -114,7 +114,7 @@ const DEFAULT_GROW_SEEDS := 120      # growth-fallback seeds (all plans together
 # fresh-check allowance (half of max_fresh on top of the search's) it bounds
 # the fallback's cost. A 7-model attached unit costs ~3-7k per seed, a
 # 22-model one ~15-30k.
-const DEFAULT_MAX_GROW_WORK := 800000
+const DEFAULT_MAX_GROW_WORK := 1200000
 const MAX_GATE_REJECTIONS := 3
 const MAX_SAT_ROTATION_COMBOS := 4
 
@@ -157,6 +157,13 @@ static func build_deployment(snapshot: Dictionary, player: int, unit_id: String,
 	    CENTRE — attached characters included — must lie in their union.
 	  avoid_polys: Array[PackedVector2Array]: no model's bounding circle may
 	    overlap any of them.
+	  avoid_models: Array of models {position, rotation, base_mm, base_type,
+	    base_dimensions}: no model may overlap any of them (exact shapes, both
+	    directions — the obstacle test; C-1 keeps a big unit's known set-up
+	    clear this way).
+	  shared_memo: Dictionary — the per-position verdict memo of the drop's
+	    other builds of this unit (same snapshot, default obstacles); ignored
+	    with explicit obstacles.
 	  anchor_region: Array[PackedVector2Array]: block anchors and growth seeds
 	    only inside these (and the zone), nearest `desired` first.
 	  max_displacement_px: no anchor / growth seed further than this from
@@ -441,6 +448,14 @@ static func _make_ctx(snapshot: Dictionary, player: int, unit_id: String, opts: 
 	ctx["bg_kws"] = bg_kws
 	ctx["bg_skip"] = bg_skip
 	ctx["merged_infil"] = merged_infil
+	# A drop's builds of ONE unit may share the per-position verdicts
+	# (opts.shared_memo, C-3): they hold only the phase predicates against the
+	# default obstacles — constraints are evaluated per build, outside the memo
+	# — so every build that shares it sees the same board. Never pass it with
+	# explicit obstacles.
+	var shared = opts.get("shared_memo", null)
+	if shared is Dictionary and not opts.has("obstacles"):
+		ctx.memo = shared
 	for mi in mlist:
 		if not ctx.memo.has(mi["class"]):
 			ctx.memo[mi["class"]] = {}
@@ -520,12 +535,20 @@ static func _make_ctx(snapshot: Dictionary, player: int, unit_id: String, opts: 
 	# whole build, so the per-build memo may fold them into its verdicts.
 	ctx["inside_polys"] = _poly_list(opts.get("inside_polys", []))
 	ctx["avoid_polys"] = _poly_list(opts.get("avoid_polys", []))
+	# avoid_models: models (position, rotation, base) no model may overlap —
+	# exact shapes, both directions, the obstacle test. Same verdicts as passing
+	# them as obstacles, but the default obstacles (and so a shared memo) stay.
+	var am: Array = []
+	for m in opts.get("avoid_models", []):
+		if m is Dictionary and m.get("position", null) != null:
+			am.append(_obstacle_entry(ctx, m))
+	ctx["avoid_models"] = am
 	ctx["max_disp"] = float(opts.get("max_displacement_px", INF))
 	ctx["constraint_rejects"] = 0
 	var tag := ""
 	if not (ctx.inside_polys as Array).is_empty():
 		tag = "inside"
-	elif not (ctx.avoid_polys as Array).is_empty():
+	elif not (ctx.avoid_polys as Array).is_empty() or not am.is_empty():
 		tag = "avoid"
 	elif float(ctx.max_disp) < INF:
 		tag = "near"
@@ -567,9 +590,10 @@ static func _circle_overlaps_polygon(center: Vector2, radius: float, poly: Packe
 			return true
 	return false
 
-static func _constraints_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2) -> bool:
+static func _constraints_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2, rot: float = 0.0) -> bool:
 	"""P0.3 spot constraints for one model at `pos` (cheap geometry, checked
-	before the phase predicates so a rejected spot costs no fresh check)."""
+	before the phase predicates so a rejected spot costs no fresh check; never
+	memoised, so the per-position memo holds the phase predicates only)."""
 	var inside: Array = ctx.inside_polys
 	if not inside.is_empty():
 		var hit := false
@@ -585,6 +609,18 @@ static func _constraints_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2) -> bo
 		var r: float = mi.info.r_out
 		for e in avoid:
 			if (e.box as Rect2).grow(r).has_point(pos) and _circle_overlaps_polygon(pos, r, e.poly):
+				ctx.constraint_rejects += 1
+				return false
+	var am: Array = ctx.get("avoid_models", [])
+	if not am.is_empty():
+		var info: Dictionary = mi.info
+		for ob in am:
+			var dd: float = pos.distance_to(ob.pos)
+			if dd > info.r_out + ob.r_out:
+				continue
+			if dd < info.r_in + ob.r_in - 1.0 \
+					or info.shape.overlaps_with(ob.shape, pos, rot, ob.pos, ob.rot) \
+					or (info.type != ob.type and ob.shape.overlaps_with(info.shape, ob.pos, ob.rot, pos, rot)):
 				ctx.constraint_rejects += 1
 				return false
 	return true
@@ -743,14 +779,16 @@ static func _grid_nearby(grid: Dictionary, pos: Vector2, query_radius: float) ->
 # =============================================================================
 
 static func _position_ok(ctx: Dictionary, mi: Dictionary, pos: Vector2, rot: float) -> bool:
+	if not _constraints_ok(ctx, mi, pos, rot):
+		return false
 	if ctx.no_memo:
-		return _constraints_ok(ctx, mi, pos) and _check_model(ctx, mi, pos, rot, null)
+		return _check_model(ctx, mi, pos, rot, null)
 	var key := Vector3i(int(round(pos.x / RASTER_PX)), int(round(pos.y / RASTER_PX)), 1 if absf(sin(rot)) > 0.5 else 0)
 	var mm: Dictionary = ctx.memo[mi["class"]]
 	if mm.has(key):
 		ctx.memo_hits += 1
 		return mm[key]
-	var ok := _constraints_ok(ctx, mi, pos) and _check_model(ctx, mi, pos, rot, null)
+	var ok := _check_model(ctx, mi, pos, rot, null)
 	mm[key] = ok
 	return ok
 
@@ -1286,7 +1324,7 @@ static func _try_seed(ctx: Dictionary, seed: Array, desired: Vector2) -> Diction
 		centre += v
 	centre /= float(n)
 	for i in range(n):
-		if not _constraints_ok(ctx, ctx.mlist[i], pts[i]) or not _check_model(ctx, ctx.mlist[i], pts[i], 0.0, null):
+		if not _constraints_ok(ctx, ctx.mlist[i], pts[i], 0.0) or not _check_model(ctx, ctx.mlist[i], pts[i], 0.0, null):
 			ctx["seed_reason"] = "model slot %d is not legal at its seed spot" % i
 			return {}
 	var offs: Array = []
@@ -1474,12 +1512,16 @@ static func _fail(ctx: Dictionary, reason: String, evals: int = 0) -> Dictionary
 # directions), is within 2" of enough placed models (1; at 10e, 2 once a 7+
 # model unit has two placed) and — at 11e — within 9" of all of them (03.03).
 # Characters are grown last, so the bodyguard alone is coherent too; the whole
-# formation is then re-checked with AttackSequence. Budgets unchanged: at most
-# grow_seeds seeds, 1.5 x max_fresh fresh checks (search included) and
-# max_grow_work work units in all (seed ranking included), no per-seed cap.
+# formation is then re-checked with AttackSequence. A unit with a character
+# bigger than its bodyguard interleaves three plans (_grow_plans); a seed
+# within 1" of a seed of the same plan that failed is skipped (GROW_SEED_NMS_PX).
+# Budgets: at most grow_seeds attempts, 1.5 x max_fresh fresh checks (search
+# included) and max_grow_work work units in all (seed ranking included), no
+# per-seed cap.
 
 const GROW_ROOM_CELLS := 6     # growth-seed free room: at least 6 lattice steps (3"), more for a bigger unit
 const GROW_ROOM_MAX_CELLS := 16  # ... and at most 16 (8")
+const GROW_SEED_NMS_PX := 40.0   # a seed within 1" of a failed seed of the same plan is skipped
 
 static func _grow_or_fail(ctx: Dictionary, desired: Vector2, why: String, evals: int) -> Dictionary:
 	if not ctx.opts.get("grow", true):
@@ -1489,7 +1531,8 @@ static func _grow_or_fail(ctx: Dictionary, desired: Vector2, why: String, evals:
 		return _success(ctx, g.cand, "grown", g.anchor, g.centroid.distance_to(desired), evals, true)
 	return _fail(ctx, "%s; %s" % [why, str(g.reason)], evals)
 
-static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, max_work: int, max_seeds: int, slots: Array = [0]) -> Dictionary:
+static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, max_work: int, max_seeds: int, slots: Array = [0],
+		all_model0: bool = false) -> Dictionary:
 	"""Growth seeds ranked by free room (L2-2). The growth lattice within
 	max_displacement_px is enumerated in (distance², y, x) order (the anchor
 	cursor; anchor_region honoured) and every cell is given ROOM = the number
@@ -1498,7 +1541,8 @@ static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, 
 	reads a cell). Seeds per requested slot, by (room desc, distance rank asc)
 	— deterministic, no sort: slot 0, the legal model-0 cells; another slot (a
 	big character, see _grow_plans), the cells where THAT model is legal,
-	tested lazily in room order until max_seeds are found. Work: 1 per lattice
+	tested lazily in room order until max_seeds are found (all_model0: the
+	slot-0 list is not capped — it costs nothing more). Work: 1 per lattice
 	cell enumerated, 1 per prefix-sum cell, 2R+1 per cell scored; the lazy
 	tests are fresh checks. {ok, reason, orders: {slot: [[cell, rot]]},
 	legal (legal model-0 cells)}."""
@@ -1581,9 +1625,10 @@ static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, 
 	for slot in slots:
 		var order: Array = []
 		var ms: Dictionary = ctx.mlist[int(slot)]
+		var cap := (1 << 30) if (all_model0 and int(slot) == 0) else max_seeds
 		for sc in range(buckets.size() - 1, -1, -1):
 			for e in buckets[sc]:
-				if order.size() >= max_seeds:
+				if order.size() >= cap:
 					break
 				if int(slot) == 0:
 					if e[1] != null:
@@ -1595,7 +1640,7 @@ static func _grow_seed_order(ctx: Dictionary, desired: Vector2, fresh_cap: int, 
 					if _position_ok(ctx, ms, e[0], rot):
 						order.append([e[0], float(rot)])
 						break
-			if order.size() >= max_seeds:
+			if order.size() >= cap:
 				break
 		orders[int(slot)] = order
 	return {"ok": true, "reason": "", "orders": orders, "legal": n_legal}
@@ -1621,7 +1666,13 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	for plan in plans:
 		if not (int(plan.seed_slot) in slots):
 			slots.append(int(plan.seed_slot))
-	var ranked := _grow_seed_order(ctx, desired, fresh_cap, max_work, max_seeds, slots)
+	# Seeds next to a dead end usually die the same way (the roomiest cells
+	# cluster), so a seed within GROW_SEED_NMS_PX of a failed seed of the same
+	# plan is skipped and the attempts spread over the zone; the ranking keeps
+	# 4x grow_seeds candidates per plan so the skips do not run the list dry.
+	var nms_px := float(ctx.opts.get("grow_nms_px", GROW_SEED_NMS_PX))
+	var cands := maxi(max_seeds * 4, 480) if nms_px > 0.0 else max_seeds
+	var ranked := _grow_seed_order(ctx, desired, fresh_cap, max_work, cands, slots, nms_px > 0.0)
 	if not bool(ranked.ok):
 		return {"ok": false, "reason": str(ranked.reason)}
 	var legal := int(ranked.legal)
@@ -1639,15 +1690,27 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	for plan in plans:
 		longest = maxi(longest, (ranked.orders.get(int(plan.seed_slot), []) as Array).size())
 	for si in range(longest):
-		for plan in plans:
+		for pi in range(plans.size()):
+			var plan: Dictionary = plans[pi]
 			var po: Array = ranked.orders.get(int(plan.seed_slot), [])
-			if si < po.size() and queue.size() < max_seeds:
-				queue.append([po[si], plan.order])
+			if si < po.size():
+				queue.append([po[si], plan.order, pi])
 	var seeds := 0
+	var failed := {}
 	var stuck := {}   # why each seed failed: "model <k>" / "coherency" / "excluded" / "gate"
 	for q in queue:
 		var e0: Array = q[0]
 		var gorder: Array = q[1]
+		if seeds >= max_seeds:
+			break
+		if nms_px > 0.0:
+			var near_fail := false
+			for fc in failed.get(int(q[2]), []):
+				if (e0[0] as Vector2).distance_to(fc) < nms_px:
+					near_fail = true
+					break
+			if near_fail:
+				continue
 		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
 			return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds of %d legal cells, roomiest first%s)" % [
 				ctx.fresh, int(ctx.grow_work), seeds, legal, _stuck_text(ctx, stuck)]}
@@ -1655,6 +1718,9 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 		var gr := _grow_from_seed(ctx, e0[0], float(e0[1]), gorder, fresh_cap, max_work)
 		if not bool(gr.ok):
 			_stuck_note(stuck, str(gr.stuck))
+			if not failed.has(int(q[2])):
+				failed[int(q[2])] = []
+			(failed[int(q[2])] as Array).append(e0[0])
 			continue
 		var placed: Array = gr.placed
 		var t := {"offs": [], "rots": [], "name": "grown"}
@@ -1755,8 +1821,6 @@ static func _grow_plans(ctx: Dictionary) -> Array:
 	switch): "auto" (above), "model0" (seed at model 0, big characters right
 	after it), "last" (seed at model 0, characters last)."""
 	var mode := str(ctx.opts.get("grow_plan", "auto"))
-	if OS.get_environment("F1_GROW_PLAN") != "" and not ctx.opts.has("grow_plan"):   # F1-EXPERIMENT (remove)
-		mode = OS.get_environment("F1_GROW_PLAN")
 	var big := _grow_big_slots(ctx)
 	var bg: Array = []
 	for i in range(ctx.n_bg):
