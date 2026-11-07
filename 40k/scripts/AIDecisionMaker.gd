@@ -1104,6 +1104,7 @@ static func _plan_deployment_action_p01(plan_name: String, placement: Dictionary
 	}
 	if not ccd.is_empty():
 		action["combined_char_data"] = ccd
+		action["_ai_description"] += " with %s" % _formation_char_names(snapshot, ccd)
 	return action
 
 # --- Formations consumption (PM-2b) -----------------------------------------
@@ -5155,6 +5156,7 @@ const DEPLOY_FORMATION_MAX_EVALS: int = 80000     # anchor x block evaluations p
 const DEPLOY_FORMATION_MAX_FRESH: int = 16000     # fresh per-position checks per drop
 const DEPLOY_FORMATION_SAT_VARIANTS: int = 10     # attached-character slot variants per rotation combination
 const DEPLOY_FORMATION_GROW_SEEDS: int = 60       # growth-fallback seeds
+const DEPLOY_FORMATION_MAX_GROW_WORK: int = 400000 # growth-fallback work units (~1 us each)
 const _FormationBuilderScript = preload("res://scripts/ai/FormationBuilder.gd")
 
 static func formation_builder_enabled() -> bool:
@@ -5173,6 +5175,7 @@ static func _formation_opts(extra: Dictionary = {}) -> Dictionary:
 		"max_fresh": get_param_int("DEPLOY_FORMATION_MAX_FRESH", DEPLOY_FORMATION_MAX_FRESH),
 		"sat_variants": get_param_int("DEPLOY_FORMATION_SAT_VARIANTS", DEPLOY_FORMATION_SAT_VARIANTS),
 		"grow_seeds": get_param_int("DEPLOY_FORMATION_GROW_SEEDS", DEPLOY_FORMATION_GROW_SEEDS),
+		"max_grow_work": get_param_int("DEPLOY_FORMATION_MAX_GROW_WORK", DEPLOY_FORMATION_MAX_GROW_WORK),
 	}
 	for k in extra:
 		opts[k] = extra[k]
@@ -5255,9 +5258,17 @@ static func _formula_formation_action(snapshot: Dictionary, player: int, unit_id
 		"model_rotations": built.model_rotations,
 		"_ai_description": "Deployed %s (%s, col %d, row %d)" % [unit_name, unit_role, col_index + 1, depth_row + 1]
 	}
-	if not (built.get("combined_char_data", {}) as Dictionary).is_empty():
-		action["combined_char_data"] = built.combined_char_data
+	var ccd: Dictionary = built.get("combined_char_data", {})
+	if not ccd.is_empty():
+		action["combined_char_data"] = ccd
+		action["_ai_description"] += " with %s" % _formation_char_names(snapshot, ccd)
 	return action
+
+static func _formation_char_names(snapshot: Dictionary, ccd: Dictionary) -> String:
+	var names: Array = []
+	for cid in ccd:
+		names.append(_dn(snapshot.get("units", {}).get(cid, {}), str(cid)))
+	return ", ".join(names)
 
 static func _build_deploy_order(snapshot: Dictionary, deploy_actions: Array, first_uid: String, plan_name: String) -> Dictionary:
 	"""UNIT-ORDER: units still to deploy — the AI's pick first, then the army list."""

@@ -84,6 +84,11 @@ const DEFAULT_MAX_EVALS := 80000     # anchor x block evaluations
 const DEFAULT_MAX_FRESH := 16000     # fresh (non-memoised) per-position checks
 const DEFAULT_SAT_VARIANTS := 10     # satellite variants per character rotation combination
 const DEFAULT_GROW_SEEDS := 60       # growth-fallback seeds
+# Growth work, in units of roughly one microsecond on this machine: one per
+# lattice cell scanned per placed model, one per candidate tried, 15 per
+# model-to-model distance in a coherency step. With the fresh-check allowance
+# (half of max_fresh on top of the search's) it bounds the fallback's cost.
+const DEFAULT_MAX_GROW_WORK := 400000
 const MAX_GATE_REJECTIONS := 3
 const MAX_SAT_ROTATION_COMBOS := 4
 
@@ -287,7 +292,7 @@ static func _make_ctx(snapshot: Dictionary, player: int, unit_id: String, opts: 
 	var ctx := {"error": "", "snapshot": snapshot, "player": player, "unit_id": unit_id, "opts": opts,
 		"meas": meas, "settings": _autoload("SettingsService"), "gs": _autoload("GameState"),
 		"shape_cache": {}, "memo": {}, "ff": {}, "fresh": 0, "memo_hits": 0, "no_memo": false,
-		"gate_rejections": 0, "gate_errors": [], "edition": GameConstants.edition}
+		"gate_rejections": 0, "gate_errors": [], "edition": GameConstants.edition, "grow_work": 0}
 	if meas == null:
 		ctx.error = "Measurement autoload unavailable"
 		return ctx
@@ -1218,6 +1223,8 @@ static func _grow_or_fail(ctx: Dictionary, desired: Vector2, why: String, evals:
 
 static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	var max_fresh := int(ctx.opts.get("max_fresh", DEFAULT_MAX_FRESH))
+	var fresh_cap: int = max_fresh + max_fresh / 2
+	var max_work := int(ctx.opts.get("max_grow_work", DEFAULT_MAX_GROW_WORK))
 	var max_seeds := int(ctx.opts.get("grow_seeds", DEFAULT_GROW_SEEDS))
 	var mlist: Array = ctx.mlist
 	var n: int = ctx.n_all
@@ -1225,8 +1232,8 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 	var cur := _anchor_cursor(_lattice(ctx.poly, GROW_STEP_PX), desired)
 	var seeds := 0
 	while true:
-		if ctx.fresh > max_fresh * 2:
-			return {"ok": false, "reason": "grow budget (fresh=%d, %d seeds)" % [ctx.fresh, seeds]}
+		if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
+			return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds)" % [ctx.fresh, int(ctx.grow_work), seeds]}
 		var seed_cell = _next_anchor(cur)
 		if seed_cell == null:
 			break
@@ -1243,9 +1250,11 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 		var placed: Array = [{"pos": seed_cell, "rot": float(r0), "mi": mlist[0]}]
 		var ok := true
 		for k in range(1, n):
+			if ctx.fresh > fresh_cap or int(ctx.grow_work) > max_work:
+				return {"ok": false, "reason": "grow budget (fresh=%d work=%d, %d seeds)" % [ctx.fresh, int(ctx.grow_work), seeds]}
 			var cen := _centroid(placed)
 			var group_n := n_bg if k < n_bg else n
-			var cells := _cells_near(placed, mlist[k], ctx.poly)
+			var cells := _cells_near(ctx, placed, mlist[k], ctx.poly)
 			cells.sort_custom(func(a, b):
 				var da: float = a.distance_squared_to(cen)
 				var db: float = b.distance_squared_to(cen)
@@ -1257,6 +1266,7 @@ static func _grow(ctx: Dictionary, desired: Vector2) -> Dictionary:
 			var best = null
 			for c in cells:
 				for rot in mlist[k].info.rots:
+					ctx.grow_work += 1
 					if not _position_ok(ctx, mlist[k], c, rot):
 						continue
 					if _overlaps_placed(c, mlist[k], rot, placed):
@@ -1329,6 +1339,7 @@ static func _coherent_step(ctx: Dictionary, pos: Vector2, mi: Dictionary, rot: f
 	var probe: Dictionary = mi.m.duplicate()
 	probe["position"] = pos
 	probe["rotation"] = rot
+	ctx.grow_work += 15 * placed.size()
 	var near := 0
 	for i in range(placed.size()):
 		var e: Dictionary = placed[i]
@@ -1342,7 +1353,7 @@ static func _coherent_step(ctx: Dictionary, pos: Vector2, mi: Dictionary, rot: f
 			near += 1
 	return near >= need
 
-static func _cells_near(placed: Array, mi: Dictionary, poly: PackedVector2Array) -> Array:
+static func _cells_near(ctx: Dictionary, placed: Array, mi: Dictionary, poly: PackedVector2Array) -> Array:
 	var reach_extra: float = GameConstants.coherency_distance_inches() * PX_PER_INCH + mi.info.r_out
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
@@ -1350,6 +1361,7 @@ static func _cells_near(placed: Array, mi: Dictionary, poly: PackedVector2Array)
 		var r: float = e.mi.info.r_out + reach_extra
 		mn = Vector2(minf(mn.x, e.pos.x - r), minf(mn.y, e.pos.y - r))
 		mx = Vector2(maxf(mx.x, e.pos.x + r), maxf(mx.y, e.pos.y + r))
+	ctx.grow_work += int(((mx.x - mn.x) / GROW_STEP_PX + 1.0) * ((mx.y - mn.y) / GROW_STEP_PX + 1.0)) * placed.size()
 	var out: Array = []
 	var y: float = ceil(mn.y / GROW_STEP_PX) * GROW_STEP_PX
 	while y <= mx.y:

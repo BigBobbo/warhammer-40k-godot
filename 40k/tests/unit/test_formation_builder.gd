@@ -85,7 +85,8 @@ func _run():
 		test_composite_deploy_validation()
 		test_budgets_and_growth()
 		test_legacy_zone_and_infiltrators()
-		test_unit_level_gate_abort()   # last: leaves the live phase in DEPLOYMENT
+		test_unit_level_gate_abort()   # leaves the live phase in DEPLOYMENT
+		test_aiplayer_retry_and_marker()
 		print("\nTotal %d ms; builder stats %s" % [Time.get_ticks_msec() - t0, str(FB.stats())])
 		GameConstants.edition = 11
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
@@ -514,3 +515,42 @@ func test_unit_level_gate_abort() -> void:
 	var r2: Dictionary = FB.build_deployment(fake, 1, uid, _zone_point(1, 0.5, 0.5))
 	_assert(not r2.ok and str(r2.reason).find("AIRCRAFT") >= 0 and int(r2.evals) <= 2,
 		"a hypothetical snapshot is judged by placement_errors, which refuses AIRCRAFT the same way")
+
+# --- J. AIPlayer: the retry after a phase rejection, and the no-legal marker ------
+
+func test_aiplayer_retry_and_marker() -> void:
+	print("\n--- J. AIPlayer retry (one builder call, refused placement excluded) and the marker ---")
+	var ai = root.get_node_or_null("AIPlayer")
+	_assert(ai != null, "AIPlayer autoload reachable")
+	if ai == null:
+		return
+	# The live phase is DEPLOYMENT (test I). A placement the phase refused — the
+	# whole unit stacked on one point — is retried ONCE through the builder.
+	var uid := "U_GRETCHIN_A"
+	GS.set_active_player(1)
+	_assert(int(GS.state.units[uid].status) == 0, "CONTROL: %s is undeployed" % uid)
+	var spot := _zone_point(1, 0.5, 0.5)
+	var bad: Array = []
+	for i in range(GS.state.units[uid].models.size()):
+		bad.append(spot)
+	var refused := {"type": "DEPLOY_UNIT", "unit_id": uid, "model_positions": bad, "model_rotations": [], "player": 1}
+	_assert(not root.get_node("PhaseManager").current_phase_instance.validate_action(refused.duplicate(true)).get("valid", true),
+		"CONTROL: the live phase refuses the stacked placement")
+	var deployed_signals: Array = []
+	var cb := func(_p, u): deployed_signals.append(str(u))
+	ai.ai_unit_deployed.connect(cb)
+	ai._handle_failed_deployment(1, refused, "simulated rejection (test)")
+	ai.ai_unit_deployed.disconnect(cb)
+	var retried := false
+	for e in ai.get_action_log():
+		if str(e.get("description", "")).contains("(retry 1)") and str(e.get("description", "")).contains("Gretchin"):
+			retried = true
+	_assert(int(GS.state.units[uid].status) == 2 and retried and uid in deployed_signals,
+		"the retry deployed the unit (status %d), logged 'Deployed … (retry 1)' and emitted ai_unit_deployed" % int(GS.state.units[uid].status))
+	# The marker is a finding, never an action: accepting it as a suggestion refuses.
+	var marker := {"type": "DEPLOY_UNIT", "unit_id": "U_STORMBOYZ_A", "model_positions": [], "_ai_no_legal_formation": true,
+		"_ai_description": "No legal set-up for Stormboyz anywhere in the deployment zone"}
+	var out: Dictionary = ai._run_accepted_suggestion(1, marker)
+	_assert(not out.get("success", true) and str(out.get("error", "")).contains("No legal set-up")
+		and int(GS.state.units["U_STORMBOYZ_A"].status) == 0,
+		"accepting a 'no legal set-up' suggestion is refused and changes nothing ('%s')" % str(out.get("error", "")))
