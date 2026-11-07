@@ -70,8 +70,9 @@
       "timeout_s": 2.0
     },
     {
-      "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+      "act": "simulate_key",
+      "keycode": "K",
+      "comment": "the Suggest (K) shortcut \u2014 the HUD button can sit off-screen on a 1280-wide window"
     },
     {
       "act": "wait_frames",
