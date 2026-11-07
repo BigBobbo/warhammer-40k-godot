@@ -140,6 +140,92 @@ func after_moving_effects(unit_id: String, _context: Dictionary) -> Array:
 		{"op": "set", "path": StateSchema.path_unit_flag(unit_id, "fights_first"), "value": true},
 	]
 
+# ── WHILE MOVING: moving through models (WP-G3) ─────────────────────
+## 03 MOVING (11e): a model "can be moved through friendly models" but "its
+## base cannot be moved through enemy models". Returns the models that block
+## the charge PATHS of unit_id ([{model, unit_id}]):
+##   ▪ every alive on-board enemy model, except AIRCRAFT models (23.02);
+##   ▪ none for a FLY charger — the engine charges FLY units over models and
+##     terrain (taking to the skies, 21.03; it already skips the terrain sweep);
+##   ▪ Codex: Orks (11e) GET OUT DA WAY! (Nobz): "While making a charge move,
+##     this unit can move through models (excluding MONSTER/VEHICLE models)" —
+##     only enemy MONSTER/VEHICLE models block.
+## Friendly models never block (03), MONSTER/VEHICLE ones included.
+static func path_blocking_models(unit_id: String, board: Dictionary) -> Array:
+	var out: Array = []
+	if GameConstants.edition < 11:
+		return out
+	var units: Dictionary = board.get("units", {})
+	var unit: Dictionary = units.get(unit_id, {})
+	if unit.is_empty():
+		return out
+	var group: Array = [unit_id]
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		group.append(str(cid))
+	for gid in group:
+		if "FLY" in units.get(gid, {}).get("meta", {}).get("keywords", []):
+			return out
+	var owner := int(unit.get("owner", 0))
+	var get_out_da_way: bool = load("res://scripts/codex/orks/OrkAbilities11e.gd").charge_moves_through_models(unit_id)  # Codex: Orks (11e) GET OUT DA WAY!
+	for oid in units:
+		var o: Dictionary = units[oid]
+		if int(o.get("owner", 0)) == owner or str(oid) in group:
+			continue
+		var st := int(o.get("status", 0))
+		if st == GameStateData.UnitStatus.UNDEPLOYED or st == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if o.get("embarked_in", null) != null and str(o.get("embarked_in", "")) != "":
+			continue
+		var kws: Array = o.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in kws:
+			continue
+		if get_out_da_way and not ("MONSTER" in kws or "VEHICLE" in kws):
+			continue
+		for m in o.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				out.append({"model": m, "unit_id": str(oid)})
+	return out
+
+## Unit id of the first blocker (path_blocking_models) the model's base passes
+## through along `path` (polyline of [x, y] / Vector2 points), "" when clear.
+## The start of the path and its end (checked by the end-overlap rule) are not
+## sampled, so ending in base contact with a target never counts as "through".
+static func path_crosses_models(model: Dictionary, path: Array, blockers: Array) -> String:
+	if blockers.is_empty() or model.is_empty() or path.size() < 2:
+		return ""
+	var meas = _measurement()
+	var radius: float = meas.base_radius_px(model.get("base_mm", 32))
+	var step: float = maxf(6.0, radius * 0.5)
+	var test: Dictionary = model.duplicate()
+	for i in range(path.size() - 1):
+		var a := _pt(path[i])
+		var b := _pt(path[i + 1])
+		var n: int = clampi(int(ceil(a.distance_to(b) / step)), 2, 400)
+		var last_seg := i == path.size() - 2
+		# Broad phase: only blockers near this segment (largest base ~ 2.5" radius).
+		var near: Array = []
+		for bl in blockers:
+			var bp := _pt(bl.model.get("position"))
+			if bp.distance_to(Geometry2D.get_closest_point_to_segment(bp, a, b)) <= radius + 140.0:
+				near.append(bl)
+		if near.is_empty():
+			continue
+		for k in range(1, n + (0 if last_seg else 1)):
+			test["position"] = a.lerp(b, float(k) / float(n))
+			for bl in near:
+				if meas.models_overlap(test, bl.model):
+					return str(bl.unit_id)
+	return ""
+
+static func _pt(p) -> Vector2:
+	if p is Vector2:
+		return p
+	if p is Array:
+		return Vector2(float(p[0]), float(p[1]))
+	if p is Dictionary:
+		return Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+	return Vector2.ZERO
+
 # ── helpers ─────────────────────────────────────────────────────────
 
 ## Every model of the Attached unit headed by unit_id: its own models plus its

@@ -3995,7 +3995,7 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 	if decision.is_empty():
 		return
 	var dtype = decision.get("type", "")
-	if dtype not in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]:
+	if dtype not in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY", "BEGIN_PULSE_JET_MOVE"]:  # (WP-G3)
 		return
 	var unit_id = decision.get("actor_unit_id", "")
 	if unit_id == "":
@@ -6860,7 +6860,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 	var movable_units = {}  # unit_id -> list of available move types
 	for a in available_actions:
 		var t = a.get("type", "")
-		if t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]:
+		if t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY", "BEGIN_PULSE_JET_MOVE"]:  # (WP-G3 Codex: Orks 11e PULSE JET MOVE)
 			var uid = a.get("actor_unit_id", a.get("unit_id", ""))
 			if uid != "":
 				if not movable_units.has(uid):
@@ -7197,6 +7197,23 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					"type": "REMAIN_STATIONARY",
 					"actor_unit_id": unit_id,
 					"_ai_description": "%s holds %s (%s)" % [unit_name, assigned_obj_id, reason]
+				}
+
+		# --- PULSE JET (WP-G3 Codex: Orks 11e, Wazdakka with Full Throttle's
+		# Pulse Jet engine): wherever the plan would advance, the pulse jet move
+		# (18" + D6, through models and terrain, no shooting penalty, -1 to be
+		# hit) is strictly better — planned at 19" (the minimum pulse roll).
+		if assignment_action == "advance" and "BEGIN_PULSE_JET_MOVE" in move_types:
+			var pj_target = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
+			var pj_approach = _objective_approach_target(unit, pj_target) if assigned_obj_pos != Vector2.INF else pj_target
+			var pj_dests = _compute_movement_toward_target(unit, unit_id, pj_approach, 19.0, snapshot, enemies, 0.0, threat_data, objectives)
+			if not pj_dests.is_empty():
+				print("AIDecisionMaker: [WP-G3] %s makes a pulse jet move toward %s" % [unit_name, assigned_obj_id])
+				return {
+					"type": "BEGIN_PULSE_JET_MOVE",
+					"actor_unit_id": unit_id,
+					"_ai_model_destinations": pj_dests,
+					"_ai_description": "%s makes a pulse jet move toward %s (%s)" % [unit_name, assigned_obj_id, assignment.get("reason", "needs extra distance")]
 				}
 
 		# --- ADVANCE DECISION ---
@@ -19837,6 +19854,9 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 		"non_target_models": [],  # enemy models we must NOT end in ER of
 		"obstacles": [],          # every other on-board model (overlap checks)
 		"placed": [],             # own models at their chosen final spots
+		# WP-G3 (11e 03): models a charge path may not pass through (enemy models;
+		# AIRCRAFT / FLY / Codex: Orks (11e) GET OUT DA WAY! exceptions in ChargeMove11e).
+		"lane_blockers": ChargeMove11e.path_blocking_models(unit_id, snapshot),
 	}
 	for uid in snapshot.get("units", {}):
 		if uid == unit_id:
@@ -20085,6 +20105,9 @@ static func _cm_feasible(ctx: Dictionary, model: Dictionary, start_pos: Vector2,
 				break
 		if not coherent:
 			return res
+	# WP-G3 (11e 03): the straight path may not pass through enemy models (validator parity; last — the costliest check).
+	if ChargeMove11e.path_crosses_models(model, [start_pos, end_pos], ctx.get("lane_blockers", [])) != "":
+		return res
 	res.ok = true
 	res.edge_in = end_edge_min
 	res.move_in = move_in

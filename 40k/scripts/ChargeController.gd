@@ -3425,6 +3425,14 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2, charge_key: 
 		print("Position would overlap with another model")
 		return false
 
+	# Check 2a (WP-G3, 11e 03): this hop may not pass through enemy models —
+	# the same ChargeMove11e gate ChargePhase applies (AIRCRAFT / FLY / Codex:
+	# Orks (11e) GET OUT DA WAY! exceptions live there).
+	var g3_hit := ChargeMove11e.path_crosses_models(model, [old_pos, new_pos], ChargeMove11e.path_blocking_models(active_unit_id, GameState.state))
+	if g3_hit != "":
+		print("ChargeController: [WP-G3] hop of %s passes through %s's models — refused" % [charge_key, g3_hit])
+		return false
+
 	# Check 2b (issue #87): no part of the model's base may extend off
 	# the battlefield during a charge move.
 	if Measurement.model_outside_board(new_pos, model):
@@ -5807,6 +5815,10 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 # (the bodyguard's models plus its attached characters), which are all mid-
 # charge themselves and are kept apart by the endpoint overlap check.
 func _collect_charge_lane_blockers() -> Array:
+	# WP-G3 Codex: Orks (11e) GET OUT DA WAY!: the unit charges through every
+	# model except enemy MONSTER/VEHICLE ones — only those block its lanes.
+	if load("res://scripts/codex/orks/OrkAbilities11e.gd").charge_moves_through_models(active_unit_id):
+		return ChargeMove11e.path_blocking_models(active_unit_id, GameState.state).map(func(b): return b.model)
 	var group_ids: Array = [active_unit_id]
 	group_ids.append_array(_get_attached_character_ids())
 	var out: Array = []

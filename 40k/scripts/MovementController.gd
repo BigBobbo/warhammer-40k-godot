@@ -138,6 +138,9 @@ var _syncing_take_to_skies: bool = false
 # units at edition >= 11 — Advance becomes a flat 24" move (no roll), ranged
 # weapons gain ASSAULT and the unit cannot charge this turn.
 var turbo_boost_checkbox: CheckBox = null
+# WP-G3 Codex: Orks (11e) PULSE JET MOVE: "Pulse Jet" button, shown while the
+# selected unit may make one (Wazdakka with Full Throttle's Pulse Jet engine).
+var pulse_jet_button: Button = null
 var advance_roll_label: Label
 
 # Flag to prevent duplicate actions when programmatically setting radio buttons
@@ -664,6 +667,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 
 	# Add dice result display (hidden initially)
 	advance_roll_label = Label.new()
+	advance_roll_label.name = "AdvanceRollLabel"  # stable path for windowed scenarios (WP-G3 pulse roll)
 	advance_roll_label.text = "Advance Roll: -"
 	advance_roll_label.visible = false
 	section.add_child(advance_roll_label)
@@ -736,6 +740,16 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	turbo_boost_checkbox.add_theme_color_override("font_color", Color(1.0, 0.45, 0.25))
 	turbo_boost_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.6, 0.35))
 	section.add_child(turbo_boost_checkbox)
+
+	# WP-G3 Codex: Orks (11e) PULSE JET MOVE (see _update_pulse_jet_visibility).
+	pulse_jet_button = Button.new()
+	pulse_jet_button.name = "PulseJetButton"
+	pulse_jet_button.text = "Pulse Jet (18\" + D6)"
+	pulse_jet_button.visible = false
+	pulse_jet_button.tooltip_text = "Pulse Jet (Full Throttle): roll one D6 and move up to 18\" + the roll, ignoring vertical distance and moving through all models and terrain. Must end unengaged. Until the end of the turn the unit cannot declare a charge or start an action; until the start of your next turn attacks that target it have -1 to hit."
+	pulse_jet_button.pressed.connect(_on_pulse_jet_pressed)
+	_WhiteDwarfTheme.apply_to_button(pulse_jet_button)
+	section.add_child(pulse_jet_button)
 
 	parent.add_child(section)
 
@@ -900,6 +914,8 @@ func _update_selected_unit_display() -> void:
 				mode_text += " — Ordered Retreat"
 		elif active_mode == "REMAIN_STATIONARY":
 			mode_text += "Remain Stationary"
+		elif active_mode == "PULSE_JET":  # WP-G3 Codex: Orks (11e)
+			mode_text += "Pulse Jet (up to %s\", through models and terrain)" % _fmt_inches(float(amd.get("move_cap_inches", 0.0)))
 		else:
 			mode_text += active_mode
 		unit_mode_label.text = mode_text
@@ -1928,6 +1944,36 @@ func _update_turbo_boost_visibility() -> void:
 func _turbo_boost_requested() -> bool:
 	return turbo_boost_checkbox != null and turbo_boost_checkbox.visible and turbo_boost_checkbox.button_pressed
 
+## WP-G3 Codex: Orks (11e) PULSE JET MOVE: the phase validator is the single
+## source of truth (PulseJetMove template + no model moved yet).
+func _pulse_jet_offered(unit_id: String) -> bool:
+	if unit_id == "" or GameConstants.edition < 11 or current_phase == null \
+			or not current_phase.has_method("_validate_begin_pulse_jet_move"):
+		return false
+	if not load("res://scripts/codex/orks/OrkAbilities11e.gd").pulse_jet_granted(unit_id):
+		return false  # cheap gate first (this runs from _update_movement_display)
+	return bool(current_phase._validate_begin_pulse_jet_move({"actor_unit_id": unit_id}).get("valid", false))
+
+func _update_pulse_jet_visibility() -> void:
+	if pulse_jet_button == null:
+		return
+	pulse_jet_button.visible = _pulse_jet_offered(active_unit_id)
+	pulse_jet_button.disabled = not pulse_jet_button.visible
+
+func _on_pulse_jet_pressed() -> void:
+	if not _pulse_jet_offered(active_unit_id):
+		print("MovementController: [WP-G3] Pulse Jet pressed but %s cannot make a pulse jet move" % active_unit_id)
+		_update_pulse_jet_visibility()
+		return
+	print("MovementController: [WP-G3] Pulse Jet chosen for %s" % active_unit_id)
+	_update_mode_buttons_state(false)
+	pulse_jet_button.visible = false
+	emit_signal("move_action_requested", {
+		"type": "BEGIN_PULSE_JET_MOVE",
+		"actor_unit_id": active_unit_id,
+		"payload": {}
+	})
+
 func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	# Check if this unit already has its mode locked
 	var mode_is_locked = false
@@ -1960,6 +2006,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		_update_shw_gamble_visibility()
 		_update_take_to_skies_visibility()
 		_update_turbo_boost_visibility()
+		_update_pulse_jet_visibility()  # WP-G3
 	else:
 		# Unit's mode is not locked, enable fresh selection
 		_update_mode_buttons_state(true)
@@ -1982,6 +2029,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		_update_shw_gamble_visibility()
 		_update_take_to_skies_visibility()
 		_update_turbo_boost_visibility()
+		_update_pulse_jet_visibility()  # WP-G3
 
 		# Update display for fresh unit
 		_update_movement_display()
@@ -2086,6 +2134,20 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 			and current_phase.get_active_move_data(unit_id).get("reactive_source", "") == "ork11e" \
 			and current_phase.has_method("get_dice_log"):
 		_update_dice_log_display(current_phase.get_dice_log())
+
+	# WP-G3 Codex: Orks (11e) PULSE JET MOVE: the pulse roll is made — lock the
+	# mode radios and show the roll and the 18" + roll cap.
+	if mode == "PULSE_JET" and current_phase and current_phase.has_method("get_active_move_data"):
+		_update_mode_buttons_state(false)
+		_set_mode_radio_for_locked_mode("PULSE_JET")  # none of the four radios is the pulse jet: clear them
+		_update_pulse_jet_visibility()
+		var pj_roll := int(current_phase.get_active_move_data(unit_id).get("pulse_roll", 0))
+		if advance_roll_label:
+			advance_roll_label.text = "Pulse Roll: %d (18\" + %d = %d\")" % [pj_roll, pj_roll, 18 + pj_roll]
+			advance_roll_label.visible = true
+		if current_phase.has_method("get_dice_log"):
+			_update_dice_log_display(current_phase.get_dice_log())
+		_update_selected_unit_display()
 
 	# Update dice log and advance roll display if it was an advance
 	if mode == "ADVANCE" and current_phase:
@@ -3776,6 +3838,7 @@ func _get_accumulated_distance_for_model(model: Dictionary) -> float:
 	return 0.0
 
 func _update_movement_display() -> void:
+	_update_pulse_jet_visibility()  # WP-G3: hidden once a model has moved / the pulse jet move began
 	# Calculate effective cap accounting for pivot cost
 	var effective_cap = move_cap_inches
 	if pivot_cost_paid:
@@ -6490,6 +6553,9 @@ func pad_menu_options() -> Array:
 			"id": "SPECIAL:" + action_type,
 			"label": str(action.get("description", action_type))
 		})
+	# WP-G3 Codex: Orks (11e) PULSE JET MOVE — dispatched like a special action.
+	if _pulse_jet_offered(active_unit_id):
+		opts.append({"id": "SPECIAL:BEGIN_PULSE_JET_MOVE", "label": "Pulse Jet (18\" + D6)"})
 	# B2 (21.03): "Take to the skies" is a FLY-only move MODIFIER, not a mode.
 	# Offer it as an in-menu toggle chip (kept LAST so its slot is stable) so a
 	# controller player can declare the fly-over — the same −2" move (0" with
