@@ -6,6 +6,7 @@
 // Node-only file loading.
 
 import { readFileSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { normName } from '../../server/public/js/lib/dckit.mjs';
@@ -25,6 +26,28 @@ const GAME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '40k'
 
 export function loadCollection(name, dir = DATA_DIR) {
   return JSON.parse(readFileSync(join(dir, `${name}.json`), 'utf8'));
+}
+
+// Terrain-layout AREA-LINK integrity (13.01 terrain areas; 2026-11 data fix).
+// The 40kdc 1.0.19 layouts were authored by point-mirroring half a board and
+// the mirror copied the links: 30 features had a parent_area_id 3-38" away
+// and 26 link_group labels joined a cluster with its mirrored twin, which
+// TerrainManager.build_area_group_map turns into terrain areas spanning the
+// board (wrong 13.09 Hidden / 13.10 exclusions). tools/check_terrain_layouts.py
+// is the one implementation: fix=false checks every
+// 40k/terrain_layouts/*.json (exit 0 = clean), fix=true repairs parent-far
+// features / split labels / area aggregates in place (byte-minimal) first.
+// Returns the checker's exit status.
+export function checkTerrainLayoutLinks({ fix = false } = {}) {
+  const checker = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'tools', 'check_terrain_layouts.py');
+  const args = ['-I', checker, '--quiet'];
+  if (fix) args.push('--fix');
+  const r = spawnSync('python3', args, { stdio: 'inherit' });
+  if (r.error) {
+    console.error(`check_terrain_layouts.py could not run: ${r.error.message}`);
+    return 1;
+  }
+  return r.status ?? 1;
 }
 
 // The game dispatches ability/enhancement behavior on EXACT names

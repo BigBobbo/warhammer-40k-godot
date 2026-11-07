@@ -16,6 +16,12 @@
 //     source piece's centroid, obj_center on the linked centre pair's
 //     midpoint AND is the no-man's-land marker nearest the board centre
 //     (the invariant MissionManager's "central" designation relies on)
+//   - area links (tools/check_terrain_layouts.py): every feature overlaps or
+//     abuts (<= 0.5") its parent area, every link_group label and every
+//     engine area group is one contiguous terrain area, every area's
+//     category/height/traits match its parented features. These are NOT
+//     dataset-faithful on purpose: the 1.0.19 links are repaired (see
+//     generate-terrain-layouts.mjs, parent_area_id / link_group).
 //
 // Run standalone (exit 1 on any failure):
 //   cd scripts/40kdc && node verify-terrain-layouts.mjs
@@ -25,7 +31,7 @@ import { readFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveLayout, polygonCentroid } from '@alpaca-software/40kdc-data';
-import { loadCollection } from './lib.mjs';
+import { loadCollection, checkTerrainLayoutLinks } from './lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const layoutDir = join(here, '..', '..', '40k', 'terrain_layouts');
@@ -160,6 +166,11 @@ export function verifyAll() {
     if (JSON.stringify(listed) !== JSON.stringify(expected)) {
       fail(`index_11e.json ids do not match the ${expected.length} dataset layouts`);
     }
+  }
+
+  // Area links: 13.01 terrain areas must be contiguous (see the header).
+  if (checkTerrainLayoutLinks() !== 0) {
+    fail('area links: python3 tools/check_terrain_layouts.py reports errors (run it with --fix)');
   }
 
   if (failures === 0) {

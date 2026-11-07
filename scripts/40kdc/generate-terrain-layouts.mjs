@@ -56,19 +56,39 @@
 //                    layouts keep the deployment-zone source (fallback).
 //                    The per-piece flags (is_objective / objective_role /
 //                    link_group) are still carried for the 14.01 rule.
+//   parent_area_id / link_group -> copied from the dataset, then REPAIRED in
+//                    the emitted JSON by tools/check_terrain_layouts.py --fix
+//                    (lib.mjs checkTerrainLayoutLinks). The 1.0.19 layouts were
+//                    authored by point-mirroring half a board and the mirror
+//                    copied the links: 30 features pointed an area 3-38" away
+//                    (26 the mirror twin of the area they stand in) and 26
+//                    link_group labels joined a cluster with its mirrored twin.
+//                    TerrainManager groups pieces by these links into 13.01
+//                    terrain areas (13.09 Hidden, 13.10 exclusions), so the
+//                    repair re-parents each such feature to the area holding
+//                    its footprint, gives each extra cluster of a label its own
+//                    label ("<label>#2", ...), and re-derives the category /
+//                    height / traits of the areas whose features changed.
+//
+// Dataset version: the 45 layouts in 40k/terrain_layouts/ were converted from
+// @alpaca-software/40kdc-data 1.0.19 (and hand-rotated in 7ae66e2). The
+// extracted 1.4.5 data in 40k/data/40kdc/ is a different layout set (46 "bm-*"
+// layouts built from 52 composite templates with composed features), which
+// convertLayout rejects by design (by-index join) — a 1.4.5 migration needs a
+// converter rework first.
 //
 // Also emits 40k/terrain_layouts/index_11e.json so TerrainManager can
 // register the 45 ids without a hardcoded list (and for future D5 UI wiring).
 //
 // Refresh: cd scripts/40kdc && node generate-terrain-layouts.mjs
-// Verify:  node verify-terrain-layouts.mjs   (spec §8 geometry gate — also run
-//          automatically at the end of this script)
+// Verify:  node verify-terrain-layouts.mjs   (spec §8 geometry gate + the
+//          area-link check — also run automatically at the end of this script)
 
 import { writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveLayout, polygonCentroid } from '@alpaca-software/40kdc-data';
-import { loadCollection } from './lib.mjs';
+import { loadCollection, checkTerrainLayoutLinks } from './lib.mjs';
 import { verifyAll } from './verify-terrain-layouts.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -247,6 +267,10 @@ function main() {
     layouts: index,
   }, null, 1) + '\n');
   console.log(`WROTE index_11e.json — ${index.length} layouts`);
+
+  // Repair the dataset's mirrored area links in what was just written (see
+  // the header: parent_area_id / link_group); the verifier re-checks them.
+  if (checkTerrainLayoutLinks({ fix: true }) !== 0) process.exit(1);
 
   // Spec §8: the geometry gate runs in the generator's flow.
   const failures = verifyAll();
