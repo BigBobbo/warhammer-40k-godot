@@ -120,6 +120,11 @@ var _obj_cache_mode: String = "on"
 # exact, deterministic point. The result carries VP and material (points lost)
 # at the start and at the end, so the driver can take deltas.
 var _override_path: String = ""
+# P0.4 (docs/AI_DEPLOYMENT_PLAN.md §8): DeploymentEval metrics latched once,
+# when a game that plays its own deployment (a predeploy fixture) leaves
+# DEPLOYMENT. Reported as `deployment_eval` (result JSON + game record
+# outcome); stays {} for games that start after deployment.
+var _deploy_eval: Dictionary = {}
 var _stop_round: int = 0
 var _vp_start: Dictionary = {}
 var _material_start: Dictionary = {}
@@ -477,6 +482,13 @@ func _kick_off() -> void:
 		_exam_watch_loop()
 		return
 
+	# P0.4: a game that starts at or before DEPLOYMENT (FORMATIONS / DEPLOYMENT
+	# / ROLL_OFF) measures its deployment once it is over. Connected after the
+	# exam early-return, so exams never latch.
+	if start_phase in [0, 1, 3] and pm.has_signal("phase_changed") \
+			and not pm.phase_changed.is_connected(_on_phase_changed_deploy_eval):
+		pm.phase_changed.connect(_on_phase_changed_deploy_eval)
+
 	pm.transition_to_phase(start_phase)
 
 	_start_ticks = Time.get_ticks_msec()
@@ -630,7 +642,40 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"start_round": _start_round,
 		"rollout_overrides": AIDecisionMaker.get_rollout_overrides(),
 		"secondary_events": _secondary_events,
+		"deployment_eval": _deploy_eval,
 	}
+
+func _on_phase_changed_deploy_eval(new_phase) -> void:
+	"""P0.4: the first phase after FORMATIONS / DEPLOYMENT / ROLL_OFF. Deferred:
+	this fires inside the routed action that placed the last unit, and
+	AIPlayer appends its reserves-fallback action-log entry only after that
+	action returns."""
+	if not _deploy_eval.is_empty() or int(new_phase) in [0, 1, 3]:
+		return
+	call_deferred("_latch_deploy_eval")
+
+func _latch_deploy_eval() -> void:
+	if not _deploy_eval.is_empty():
+		return
+	var ai = get_node_or_null("/root/AIPlayer")
+	var gel = get_node_or_null("/root/GameEventLog")
+	var alog: Array = ai.get_action_log() if ai != null else []
+	var recs: Array = ai.get_deploy_rejections() if ai != null and ai.has_method("get_deploy_rejections") else []
+	var ev: Array = gel.entries if gel != null else []
+	var out := {"wall_seconds": (Time.get_ticks_msec() - _start_ticks) / 1000.0,
+		"phase": int(GameState.get_current_phase())}
+	for seat in [1, 2]:
+		# Visibility counts stay off: they compare every enemy/own model pair.
+		var r: Dictionary = DeploymentEval.evaluate(GameState.state, seat, {})
+		r.erase("rows")
+		r["forced_reserves"] = DeploymentEval.count_forced_reserves(alog, seat)
+		r["rejected_actions"] = DeploymentEval.count_rejected_deploy_actions(recs, seat)
+		r["failed_attempts"] = DeploymentEval.count_failed_deploy_attempts(ev, seat)
+		out[str(seat)] = r
+	out["legality_violations"] = int(DeploymentEval.audit_legality(GameState.state).get("violations", -1))
+	_deploy_eval = out
+	print("[AIBench] DEPLOY_EVAL %s" % JSON.stringify(out))
+	DebugLogger.info("[AIBench] DEPLOY_EVAL", out)
 
 func _perf_seconds(ai) -> Dictionary:
 	var out := {}
