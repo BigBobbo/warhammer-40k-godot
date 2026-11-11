@@ -4,6 +4,7 @@
 import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION,
+  setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
 } from './adapter.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
@@ -21,7 +22,9 @@ const state = {
   side: 'A',                 // attacking army
   phase: 'shooting',
   setups: {},                // `${side}:${phase}` -> { targetKey, attackers: [], ruleOverrides: {}, defManual: {} }
-  sheet: null,               // null | 'results' | 'add'
+  attach: { A: null, B: null }, // per army: { [characterRosterIndex]: bodyguardRosterIndex } once edited (null = as listed)
+  sheet: null,               // null | 'results' | 'add' | 'attach' | 'join'
+  sheetArg: null,            // {side, host} for 'attach', {side, char} for 'join'
   result: null, busy: false, calcError: null,
   chartMode: null,           // 'models' | 'damage' | null (auto)
   selBar: null,
@@ -33,6 +36,7 @@ function persist() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       view: state.view, texts: state.texts, side: state.side, phase: state.phase, setups: state.setups,
+      attach: state.attach,
     }));
   } catch { /* storage full / private mode: best effort */ }
 }
@@ -43,7 +47,7 @@ function restore() {
     if (!s) return;
     Object.assign(state, {
       view: s.view ?? 'armies', texts: s.texts ?? { A: '', B: '' }, side: s.side ?? 'A',
-      phase: s.phase ?? 'shooting', setups: s.setups ?? {},
+      phase: s.phase ?? 'shooting', setups: s.setups ?? {}, attach: s.attach ?? { A: null, B: null },
     });
     for (const st of Object.values(state.setups)) for (const a of st.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
   } catch { /* corrupt: start fresh */ }
@@ -69,10 +73,45 @@ function parseArmy(side) {
   if (!text.trim()) return;
   try {
     state.armies[side] = importArmy(text);
+    if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
     console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units`);
   } catch (e) {
     state.errors[side] = e.message ?? String(e);
     console.warn(`[calc] army ${side} parse failed`, e);
+  }
+}
+
+// Attach / detach a character (roster index) to a bodyguard (roster index, null = detach)
+// in army `side`.
+function applyAttach(side, charIdx, hostIdx) {
+  const army = state.armies[side];
+  if (!army) return;
+  console.log(`[calc] army ${side}: ${rosterUnitLabel(army, charIdx)} ${hostIdx == null ? 'detached' : `attached to ${rosterUnitLabel(army, hostIdx)}`}`);
+  applyAttachments(side, withAttachment(army, charIdx, hostIdx));
+}
+
+// Install a whole attachments map, keeping every setup that pointed at the
+// affected units valid: a character that joins a unit stops being its own
+// combat unit, so whatever targeted / attacked with it now uses the joined unit.
+function applyAttachments(side, att, { edited = true } = {}) {
+  const army = state.armies[side];
+  if (!army) return;
+  const before = { ...(army.attachments ?? {}) };
+  setAttachments(army, att);
+  state.attach[side] = edited ? army.attachments : null;
+  const remap = new Map();
+  for (const [c, b] of Object.entries(army.attachments)) if (before[c] !== b && b != null) remap.set(`u${c}`, `u${b}`);
+  const valid = new Set(army.units.map(u => u.key));
+  for (const [key, st] of Object.entries(state.setups)) {
+    const [atkSide] = key.split(':');
+    if (atkSide === side) {
+      const seen = new Set();
+      st.attackers = (st.attackers ?? []).map(a => ({ ...a, unitKey: remap.get(a.unitKey) ?? a.unitKey }))
+        .filter(a => valid.has(a.unitKey) && !seen.has(a.unitKey) && seen.add(a.unitKey));
+    } else if (st.targetKey) {
+      st.targetKey = remap.get(st.targetKey) ?? st.targetKey;
+      if (!valid.has(st.targetKey)) st.targetKey = null;
+    }
   }
 }
 
@@ -207,6 +246,24 @@ function render() {
   renderSheet();
 }
 
+function attachOverview(side, army) {
+  const chars = army.roster.units.map((ru, i) => i).filter(i => joinCandidates({ ...army, attachments: {} }, i).length);
+  if (!chars.length) return '';
+  const edited = state.attach[side] != null;
+  return `<details class="more" ${edited ? 'open' : ''}><summary>Attached characters · ${Object.keys(army.attachments ?? {}).length} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+    ${chars.map(ci => {
+      const cur = army.attachments?.[ci];
+      const opts = joinCandidates({ ...army, attachments: { ...army.attachments, [ci]: undefined } }, ci);
+      return `<div class="modrow" style="margin:8px 0"><div class="lab">${esc(rosterUnitLabel(army, ci))}</div>
+        <select class="sel" data-input="attach" data-side="${side}" data-char="${ci}">
+          <option value="">Not attached</option>
+          ${opts.map(o => `<option value="${o.index}" ${o.index === cur ? 'selected' : ''}>${esc(o.name)}${o.eligible ? '' : ' (not on Leader list)'}</option>`).join('')}
+        </select></div>`;
+    }).join('')}
+    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">Reset to the list's attachments</button>` : ''}
+  </details>`;
+}
+
 function armiesView() {
   const panel = (side) => {
     const army = state.armies[side];
@@ -220,6 +277,7 @@ function armiesView() {
         <button class="btn ghost" data-action="clear" data-side="${side}">Clear</button>
       </div>
       ${err ? `<div class="warnbox err">${esc(err)}</div>` : ''}
+      ${army ? attachOverview(side, army) : ''}
       ${army ? `<details class="more"><summary>${army.units.length} units${army.warnings.length ? ` · ${army.warnings.length} import notes` : ''}</summary>
         ${army.units.map(u => `<div class="ability"><b>${esc(u.name)}</b> <span class="muted">· ${u.models} models</span></div>`).join('')}
         ${army.warnings.map(w => `<div class="tiny muted">• ${esc(w)}</div>`).join('')}
@@ -252,6 +310,17 @@ function attackView() {
     </section>`;
 }
 
+// Who is attached to this combat unit, with detach / attach / join controls.
+function attachRow(side, cu) {
+  if (!cu) return '';
+  const chars = cu.members.filter(m => m.role === 'leader');
+  const parts = chars.map(m => `<button class="chip on" data-action="detach" data-side="${side}" data-char="${m.index}" aria-label="Detach ${esc(m.dcUnit.name)}">${esc(m.dcUnit.name)} · ${m.attachRole === 'support' ? 'Support' : 'Leader'} ✕</button>`);
+  if (cu.canHost) parts.push(`<button class="chip" data-action="open-attach" data-side="${side}" data-host="${cu.index}">＋ Attach character</button>`);
+  if (cu.canJoin) parts.push(`<button class="chip" data-action="open-join" data-side="${side}" data-char="${cu.index}">＋ Join a unit</button>`);
+  if (!parts.length) return '';
+  return `<div class="modrow" style="margin-top:10px"><div class="lab">${chars.length ? 'Attached characters (tap ✕ to detach)' : 'Attached characters'}</div><div class="chips">${parts.join('')}</div></div>`;
+}
+
 function targetCard(tinfo, s) {
   const def = defArmy();
   const options = def.units.map(u => `<option value="${esc(u.key)}" ${u.key === s.targetKey ? 'selected' : ''}>${esc(u.name)} (${u.models})</option>`).join('');
@@ -263,17 +332,22 @@ function targetCard(tinfo, s) {
     const summary = defenderSummary({ ...profile, groups: built.groups.map(g => ({ ...g, InSv: g.InSv || (built.mods.invuln ?? 0) })) });
     const st = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${l}</span></div>`;
     const inv = summary.InSv ? `${summary.InSv}+` : '–';
-    const fnp = Math.min(...built.groups.map(g => g.fnp || 7), built.mods.fnp || 7);
+    // FNP on the stat line = what the bodyguard models have; a character's own FNP is listed with it
+    const bodyG = built.groups.filter(g => !g.character);
+    const fnp = Math.min(...(bodyG.length ? bodyG : built.groups).map(g => g.fnp || 7), built.mods.fnp || 7);
     body += `<div class="stats">${st(summary.T, 'T')}${st(`${summary.Sv}+`, 'Sv')}${st(inv, 'InSv')}${st(summary.W, 'W')}${st(summary.models, 'Models')}${fnp < 7 ? st(`${fnp}+`, 'FNP') : ''}</div>`;
-    const groups = profile.groups.filter(g => g.character);
-    if (groups.length) body += `<div class="tiny muted" style="margin-top:6px">Characters: ${groups.map(g => `${esc(g.name)} (W${g.W} ${g.Sv}+${g.InSv ? `/${g.InSv}++` : ''})`).join(', ')} — allocated last unless Precision.</div>`;
+    const groups = built.groups.filter(g => g.character);
+    if (groups.length) body += `<div class="tiny muted" style="margin-top:6px">Characters: ${groups.map(g => `${esc(g.name)} (T${g.T} W${g.W} ${g.Sv}+${g.InSv ? `/${g.InSv}++` : ''}${g.fnp ? `, FNP ${g.fnp}+` : ''})`).join(', ')} — allocated last unless Precision.</div>`;
+    body += attachRow(other(state.side), tinfo.cu);
     const rules = profile.rules;
     const on = enabledRules(profile, s);
     if (rules.length) {
       body += `<div class="modrow" style="margin-top:10px"><div class="lab">Detected defensive rules (tap to toggle)</div><div class="chips">
         ${rules.map(r => {
           const applies = r.phases.includes(state.phase);
-          return chip('rule', on.has(r.id), `${r.label} · ${r.source}`, `data-id="${esc(r.id)}" title="${esc(r.text)}"`).replace('class="chip', `class="chip${applies ? '' : ' dim'}`);
+          const whose = tinfo.cu.members.length > 1 && r.groupKeys ? `${r.member} only` : null;
+          const src = r.source === r.label ? null : r.source;
+          return chip('rule', on.has(r.id), [r.label, src, whose].filter(Boolean).join(' · '), `data-id="${esc(r.id)}" title="${esc(r.text)}"`).replace('class="chip', `class="chip${applies ? '' : ' dim'}`);
         }).join('')}</div>
         <div class="rule-note">Auto-on when the rule is always active; activated or conditional ones start off. Greyed = not this phase.</div></div>`;
     }
@@ -335,6 +409,7 @@ function attackerCard(e, i, tinfo) {
       <div class="grow"><div class="title ellipsis">${esc(cu.name)}</div><div class="muted tiny">${cu.models} models</div></div>
       ${i > 0 ? `<button class="icon-btn" data-action="move-up" ${sc} aria-label="Resolve earlier">↑</button>` : ''}
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
+    ${attachRow(state.side, cu)}
     <div style="margin-top:6px">${weapons}</div>
     <div class="chips" style="margin-top:8px">${sit}</div>
     <details class="more" ${e.openMods ? 'open' : ''} data-details="mods" ${sc}><summary>Modifiers, re-rolls, stratagems${nMods ? ` · ${nMods} set` : ''}</summary><div class="modgrid">
@@ -389,10 +464,41 @@ function renderSheet() {
   const host = document.getElementById('sheet');
   if (!host) return;
   if (!state.sheet) { host.innerHTML = ''; return; }
-  const content = state.sheet === 'add' ? addSheet() : resultsSheet();
+  const content = state.sheet === 'add' ? addSheet()
+    : state.sheet === 'attach' ? attachSheet()
+      : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="wrap">${content}</div></div>`;
   if (state.sheet === 'results') wireChart();
+}
+
+function attachSheet() {
+  const { side, host } = state.sheetArg ?? {};
+  const army = state.armies[side];
+  if (!army) return '';
+  const cands = attachCandidates(army, host);
+  const note = (c) => [
+    c.role === 'support' ? 'Support' : 'Leader',
+    c.eligible ? null : 'not on its Leader list',
+    c.attachedTo != null ? `now with ${rosterUnitLabel(army, c.attachedTo)}` : null,
+    c.replaces != null ? `replaces ${rosterUnitLabel(army, c.replaces)}` : null,
+  ].filter(Boolean).join(' · ');
+  return `<div class="row"><h3 class="grow">Attach to ${esc(rosterUnitLabel(army, host))}</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <p class="hint">One Leader and one Support per unit (11e). Characters that can't normally join this unit are listed last.</p>
+    ${cands.map(c => `<button class="pick ${c.eligible ? '' : 'used'}" data-action="attach" data-side="${side}" data-char="${c.index}" data-host="${host}">
+      <div class="grow"><div class="title">${esc(c.name)}</div><div class="muted tiny">${esc(note(c))}</div></div><span>＋</span></button>`).join('') ||
+      '<div class="muted small">This army has no characters that can be attached.</div>'}`;
+}
+
+function joinSheet() {
+  const { side, char } = state.sheetArg ?? {};
+  const army = state.armies[side];
+  if (!army) return '';
+  const cands = joinCandidates(army, char);
+  return `<div class="row"><h3 class="grow">${esc(rosterUnitLabel(army, char))} joins…</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    ${cands.map(c => `<button class="pick ${c.eligible ? '' : 'used'}" data-action="attach" data-side="${side}" data-char="${char}" data-host="${c.index}">
+      <div class="grow"><div class="title">${esc(c.name)}</div><div class="muted tiny">${[c.eligible ? 'on its Leader list' : 'not on its Leader list', c.replaces != null ? `replaces ${rosterUnitLabel(army, c.replaces)}` : null].filter(Boolean).map(esc).join(' · ')}</div></div><span>＋</span></button>`).join('') ||
+      '<div class="muted small">No units to join.</div>'}`;
 }
 
 function addSheet() {
@@ -554,14 +660,22 @@ app.addEventListener('click', (ev) => {
       const side = el.dataset.side;
       const ta = app.querySelector(`textarea[data-side="${side}"]`);
       state.texts[side] = ta?.value ?? '';
+      state.attach[side] = null; // a (re)loaded list starts from its own attachments
       parseArmy(side);
       return changed();
     }
     case 'clear':
       state.texts[el.dataset.side] = '';
+      state.attach[el.dataset.side] = null;
       state.armies[el.dataset.side] = null;
       for (const k of Object.keys(state.setups)) if (k.startsWith(el.dataset.side + ':') || k.startsWith(other(el.dataset.side) + ':')) state.setups[k] = { targetKey: null, attackers: [], ruleOverrides: {}, defManual: {} };
       return changed();
+    case 'reset-attach': {
+      const side = el.dataset.side;
+      const army = state.armies[side];
+      if (army) applyAttachments(side, army.defaultAttachments, { edited: false });
+      return changed();
+    }
     case 'phase':
       state.phase = el.dataset.value;
       return changed();
@@ -579,6 +693,21 @@ app.addEventListener('click', (ev) => {
     case 'close-sheet':
       state.sheet = null;
       return renderSheet();
+    case 'open-attach':
+      state.sheet = 'attach';
+      state.sheetArg = { side: el.dataset.side, host: Number(el.dataset.host) };
+      return renderSheet();
+    case 'open-join':
+      state.sheet = 'join';
+      state.sheetArg = { side: el.dataset.side, char: Number(el.dataset.char) };
+      return renderSheet();
+    case 'attach':
+      applyAttach(el.dataset.side, Number(el.dataset.char), Number(el.dataset.host));
+      state.sheet = null;
+      return changed();
+    case 'detach':
+      applyAttach(el.dataset.side, Number(el.dataset.char), null);
+      return changed();
     case 'add': {
       s.attackers.push({ uid: uidSeq++, unitKey: el.dataset.key, counts: {}, mods: {} });
       state.sheet = null;
@@ -646,6 +775,10 @@ document.addEventListener('click', (ev) => {
 
 app.addEventListener('change', (ev) => {
   const el = ev.target;
+  if (el.dataset.input === 'attach') {
+    applyAttach(el.dataset.side, Number(el.dataset.char), el.value === '' ? null : Number(el.value));
+    return changed();
+  }
   if (el.dataset.input === 'target') {
     const s = setup();
     s.targetKey = el.value || null;

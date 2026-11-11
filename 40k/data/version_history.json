@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.76.0",
+      "date": "2026-11-11",
+      "summary": "Combat Calc: attach and detach characters on both the attacking and defending units.",
+      "changes": [
+        "Tap \"+ Attach character\" on the target or an attacking unit to add a Leader or Support character (one of each per unit); tap the character chip to detach it.",
+        "A lone character target or attacker can \"Join a unit\" instead.",
+        "Attached characters add their weapons to the attack, are allocated last when defending, and keep their own toughness, saves and Feel No Pain.",
+        "The Armies tab lists every character with the unit it is attached to, so lists without attachment info (e.g. New Recruit) can be set up once; edits are remembered."
+      ]
+    },
+    {
       "version": "1.75.0",
       "date": "2026-11-11",
       "summary": "New Combat Calc web app: paste two army lists and see the odds of a shooting or fight attack on your phone.",

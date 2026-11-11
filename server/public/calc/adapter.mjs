@@ -17,15 +17,25 @@ export const DATASET_VERSION = dc.DATASET_VERSION;
 
 export function importArmy(text) {
   const { roster, report } = importText(text);
-  const units = combatUnits(roster);
+  const attachments = defaultAttachments(roster);
+  const units = combatUnits(roster, attachments);
   const unresolved = (roster.units ?? []).filter(u => !u.ref?.id).map(u => u.ref?.raw_name ?? '?');
   return {
     roster,
     faction: roster.faction_id ? factionName(roster.faction_id) : 'Unknown faction',
     name: roster.name || 'Army',
+    defaultAttachments: attachments,
+    attachments,
     units,
     warnings: [...(report?.warnings ?? []), ...unresolved.map(n => `unit not recognised: ${n}`)],
   };
+}
+
+/** Re-derive the combat units after the player changes who is attached to whom. */
+export function setAttachments(army, attachments) {
+  army.attachments = attachments;
+  army.units = combatUnits(army.roster, attachments);
+  return army;
 }
 
 function resolveUnit(roster, ru) {
@@ -38,31 +48,73 @@ function isCharacter(dcUnit) {
   return (dcUnit.keywords ?? []).some(k => /^character$/i.test(k));
 }
 
-/** Roster -> combat units. A bodyguard and the leaders attached to it are one unit. */
-export function combatUnits(roster) {
+function rosterParts(roster) {
   const parts = [];
   (roster.units ?? []).forEach((ru, i) => {
     const r = resolveUnit(roster, ru);
     if (r) parts.push({ index: i, ru, ...r });
   });
-  const taken = new Set();
-  const attachedTo = new Map(); // bodyguard index -> [leader parts]
+  return parts;
+}
+
+/** 'leader' | 'support' for a character that can be attached, else null. */
+export function attachRole(part) {
+  if (eligibleBodyguardIds(part).size === 0) return null;
+  return part.dcUnit.attachment_role === 'support' || part.ru.leader_attachment?.role === 'support' ? 'support' : 'leader';
+}
+
+/** Datasheet ids this character may join (Leader list + enhancement grants). */
+function eligibleBodyguardIds(part) {
+  const la = (dc.RAW_DATA.leaderAttachments ?? []).filter(x => x.leader_id === part.dcUnit.id);
+  const ids = new Set(la.flatMap(x => x.eligible_bodyguard_ids ?? []));
+  const enhId = part.ru.enhancement?.id ?? part.ru.enhancement?.ref?.id;
+  if (enhId) for (const b of (dc.RAW_DATA.enhancements ?? []).find(x => x.id === enhId)?.attachment_bodyguard_ids ?? []) ids.add(b);
+  return ids;
+}
+
+/**
+ * Attachments as listed in the imported army: { [characterRosterIndex]: bodyguardRosterIndex }.
+ * (GW app "Attached as" blocks; other formats usually carry none.)
+ */
+export function defaultAttachments(roster) {
+  const parts = rosterParts(roster);
+  const out = {};
+  const used = new Map(); // bodyguard index -> Set(roles)
   for (const p of parts) {
     const bgId = p.ru.leader_attachment?.bodyguard_ref?.id;
     if (!bgId) continue;
-    const bg = parts.find(q => q.ru.ref.id === bgId && q !== p && !q.ru.leader_attachment &&
-      !(attachedTo.get(q.index) ?? []).some(l => (l.ru.leader_attachment?.role ?? 'leader') === (p.ru.leader_attachment?.role ?? 'leader')));
+    const role = p.ru.leader_attachment?.role === 'support' ? 'support' : 'leader';
+    const bg = parts.find(q => q.ru.ref.id === bgId && q !== p && !q.ru.leader_attachment && !used.get(q.index)?.has(role));
     if (!bg) continue;
-    if (!attachedTo.has(bg.index)) attachedTo.set(bg.index, []);
-    attachedTo.get(bg.index).push(p);
-    taken.add(p.index);
+    if (!used.has(bg.index)) used.set(bg.index, new Set());
+    used.get(bg.index).add(role);
+    out[p.index] = bg.index;
+  }
+  return out;
+}
+
+/** Roster -> combat units. A bodyguard and the characters attached to it are one unit. */
+export function combatUnits(roster, attachments = defaultAttachments(roster)) {
+  const parts = rosterParts(roster);
+  const byIndex = new Map(parts.map(p => [p.index, p]));
+  const taken = new Set();
+  const attachedTo = new Map(); // bodyguard index -> [character parts]
+  for (const [ci, bi] of Object.entries(attachments ?? {})) {
+    const c = byIndex.get(Number(ci)), b = byIndex.get(Number(bi));
+    if (!c || !b || c === b) continue;
+    if (!attachedTo.has(b.index)) attachedTo.set(b.index, []);
+    attachedTo.get(b.index).push(c);
+    taken.add(c.index);
   }
   const seen = new Map();
   const out = [];
   for (const p of parts) {
     if (taken.has(p.index)) continue;
     const leaders = attachedTo.get(p.index) ?? [];
-    const members = [...leaders.map(l => ({ ...l, role: 'leader' })), { ...p, role: leaders.length ? 'bodyguard' : 'single' }];
+    const members = [
+      ...leaders.map(l => ({ ...l, role: 'leader', attachRole: attachRole(l) ?? 'leader' })),
+      { ...p, role: leaders.length ? 'bodyguard' : 'single' },
+    ];
     const baseName = [...leaders.map(l => l.dcUnit.name), p.dcUnit.name].join(' + ');
     const n = (seen.get(baseName) ?? 0) + 1;
     seen.set(baseName, n);
@@ -70,16 +122,98 @@ export function combatUnits(roster) {
     for (const m of members) for (const k of [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? [])]) keywords.add(k.toUpperCase());
     out.push({
       key: `u${p.index}`,
+      index: p.index,
+      baseName,
       name: baseName + (n > 1 ? ` (${n})` : ''),
       members,
       keywords: [...keywords],
       models: members.reduce((s, m) => s + (m.ru.model_count ?? 1), 0),
       points: members.reduce((s, m) => s + (m.ru.points ?? 0), 0),
+      // a lone character that could join a unit
+      canJoin: !leaders.length && attachRole(p) != null,
+      // a non-character unit that characters can join
+      canHost: !isCharacter(p.dcUnit),
     });
   }
   // label duplicates "(1)" too once a "(2)" exists
   for (const u of out) if (seen.get(u.name) > 1) u.name += ' (1)';
   return out;
+}
+
+/** Short display name of a roster unit, numbered when the army has several. */
+export function rosterUnitLabel(army, index) {
+  const parts = rosterParts(army.roster);
+  const p = parts.find(x => x.index === index);
+  if (!p) return '?';
+  const same = parts.filter(x => x.dcUnit.id === p.dcUnit.id);
+  return same.length > 1 ? `${p.dcUnit.name} (${same.indexOf(p) + 1})` : p.dcUnit.name;
+}
+
+/**
+ * Characters that could join bodyguard roster unit `bodyguardIndex`:
+ * [{index, name, role, eligible, attachedTo (roster index|null), replaces (index|null)}]
+ * Eligible ones first. Ineligible characters are listed too (the dataset's
+ * Leader lists can lag a new codex) — the player decides.
+ */
+export function attachCandidates(army, bodyguardIndex) {
+  const parts = rosterParts(army.roster);
+  const bg = parts.find(p => p.index === bodyguardIndex);
+  if (!bg) return [];
+  const att = army.attachments ?? {};
+  const out = [];
+  for (const p of parts) {
+    const role = attachRole(p);
+    if (!role || p.index === bodyguardIndex) continue;
+    const cur = att[p.index] ?? null;
+    if (cur === bodyguardIndex) continue; // already here
+    const replaces = Object.entries(att).find(([ci, bi]) => bi === bodyguardIndex &&
+      attachRole(parts.find(x => x.index === Number(ci))) === role)?.[0];
+    out.push({
+      index: p.index,
+      name: rosterUnitLabel(army, p.index),
+      role,
+      eligible: eligibleBodyguardIds(p).has(bg.dcUnit.id),
+      attachedTo: cur,
+      replaces: replaces != null ? Number(replaces) : null,
+    });
+  }
+  return out.sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.name.localeCompare(b.name));
+}
+
+/** Units a lone character could join: [{index, name, eligible, replaces}]. */
+export function joinCandidates(army, characterIndex) {
+  const parts = rosterParts(army.roster);
+  const c = parts.find(p => p.index === characterIndex);
+  const role = c ? attachRole(c) : null;
+  if (!role) return [];
+  const ids = eligibleBodyguardIds(c);
+  const att = army.attachments ?? {};
+  return parts.filter(p => p.index !== characterIndex && !isCharacter(p.dcUnit) && att[characterIndex] !== p.index)
+    .map(p => {
+      const replaces = Object.entries(att).find(([ci, bi]) => bi === p.index && Number(ci) !== characterIndex &&
+        attachRole(parts.find(x => x.index === Number(ci))) === role)?.[0];
+      return { index: p.index, name: rosterUnitLabel(army, p.index), eligible: ids.has(p.dcUnit.id), replaces: replaces != null ? Number(replaces) : null };
+    })
+    .sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.name.localeCompare(b.name));
+}
+
+/**
+ * New attachments map with `characterIndex` joined to `bodyguardIndex`
+ * (null = detach). 11e: one Leader and one Support per bodyguard — a
+ * character of the same role already there is detached.
+ */
+export function withAttachment(army, characterIndex, bodyguardIndex) {
+  const parts = rosterParts(army.roster);
+  const att = { ...(army.attachments ?? {}) };
+  delete att[characterIndex];
+  if (bodyguardIndex != null) {
+    const role = attachRole(parts.find(p => p.index === characterIndex)) ?? 'leader';
+    for (const [ci, bi] of Object.entries(att)) {
+      if (bi === bodyguardIndex && (attachRole(parts.find(p => p.index === Number(ci))) ?? 'leader') === role) delete att[ci];
+    }
+    att[characterIndex] = bodyguardIndex;
+  }
+  return att;
 }
 
 // ---------------------------------------------------------------------------

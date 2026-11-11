@@ -140,9 +140,64 @@ try {
   await page.screenshot({ path: join(SHOTS, 'calc_03_results.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
 
+  // --- attached characters: defender side (detach the Warboss, attach the Beastboss)
+  const boyzKey = await page.$eval('select[data-input="target"]', sel => sel.value);
+  await page.tap('button[data-action="detach"]:has-text("Warboss")');
+  let tgtName = await page.$eval('select[data-input="target"]', sel => sel.selectedOptions[0].textContent);
+  check('detaching the Warboss leaves Boyz (20) as the target', /^Boyz \(20\)/.test(tgtName), tgtName);
+  check('Warboss is now its own target option', await page.$eval('select[data-input="target"]', sel => [...sel.options].some(o => /^Warboss \(1\)/.test(o.textContent))));
+  await page.tap('button[data-action="open-attach"]');
+  await page.waitForSelector('.sheet .pick');
+  const attachList = await page.$$eval('.sheet .pick .title', els => els.map(e => e.textContent));
+  check('attach sheet lists the army characters', attachList.includes('Beastboss') && attachList.includes('Warboss'), attachList.join(','));
+  await page.tap('.sheet .pick:has-text("Beastboss")');
+  tgtName = await page.$eval('select[data-input="target"]', sel => sel.selectedOptions[0].textContent);
+  check('target is now Beastboss + Boyz (21)', /^Beastboss \+ Boyz \(21\)/.test(tgtName), tgtName);
+  check('target key kept (still the Boyz unit)', (await page.$eval('select[data-input="target"]', sel => sel.value)) === boyzKey);
+  await settle(page);
+  const scB = await page.evaluate(() => window.__calc.scenario());
+  check('Beastboss reaches the engine as a character group (W6, T6 kept off the bodyguard T)',
+    scB.defender.groups.some(g => g.character && g.name === 'Beastboss' && g.W === 6) && scB.defender.groups.filter(g => !g.character).every(g => g.T === 5),
+    JSON.stringify(scB.defender.groups.map(g => [g.name, g.character, g.T, g.W])));
+  const statB = await page.$$eval('.stats .stat span', els => els.map(e => e.textContent));
+  check("the Beastboss's own FNP is not shown as the unit's", !statB.includes('FNP'), statB.join(','));
+  check('chip says the FNP is the Beastboss only', await page.locator('button[data-action="rule"]', { hasText: 'Beastboss only' }).count() === 1);
+  await page.screenshot({ path: join(SHOTS, 'calc_06_defender_attach.png') });
+
+  // --- attached characters: attacker side (the Captain on Bike joins the Grey Hunters)
+  const gh = page.locator('[data-attacker]').first();
+  await gh.locator('button[data-action="open-attach"]').tap();
+  await page.waitForSelector('.sheet .pick');
+  await page.tap('.sheet .pick:has-text("Captain on Bike")');
+  const ghTitle = await page.locator('[data-attacker]').first().locator('.title').textContent();
+  check('attacker card becomes Captain on Bike + Grey Hunters', ghTitle === 'Captain on Bike + Grey Hunters', ghTitle);
+  await settle(page);
+  const scA = await page.evaluate(() => window.__calc.scenario());
+  check("the Captain's guns join the attack", scA.attackers[0].weapons.some(w => /^Captain on Bike: /.test(w.name)),
+    JSON.stringify(scA.attackers[0].weapons.map(w => w.name)));
+  await page.screenshot({ path: join(SHOTS, 'calc_07_attacker_attach.png') });
+  // detach again via the chip on the attacker card
+  await page.locator('[data-attacker]').first().locator('button[data-action="detach"]').tap();
+  check('detach restores Grey Hunters', (await page.locator('[data-attacker]').first().locator('.title').textContent()) === 'Grey Hunters');
+
+  // --- Armies tab overview: the Captain goes back to the Wulfen via the select
+  await page.tap('button[data-action="view"][data-value="armies"]');
+  const capSel = page.locator('select[data-input="attach"][data-side="A"]').filter({ has: page.locator('option', { hasText: 'Wulfen with Storm Shields' }) });
+  check('armies tab lists attachable characters', (await page.locator('select[data-input="attach"][data-side="A"]').count()) >= 4);
+  const capIdx = await page.$$eval('select[data-input="attach"][data-side="A"]', sels => sels.findIndex(s => s.closest('.modrow').textContent.includes('Captain on Bike')));
+  const sel = page.locator('select[data-input="attach"][data-side="A"]').nth(capIdx);
+  const wulfenVal = await sel.evaluate(s => [...s.options].find(o => /Wulfen/.test(o.textContent)).value);
+  await sel.selectOption(wulfenVal);
+  await page.tap('button[data-action="view"][data-value="attack"]');
+  await page.tap('button[data-action="swap"]');
+  const opts = await page.$$eval('select[data-input="target"] option', os => os.map(o => o.textContent));
+  check('swapped: Captain on Bike + Wulfen is a target again', opts.some(o => /^Captain on Bike \+ Wulfen/.test(o)), opts.join(' | '));
+  await page.tap('button[data-action="swap"]');
+
   // --- swap: Orks attack Space Wolves; fight phase; Thunderwolf storm shields auto-on
   await page.tap('button[data-action="swap"]');
   await page.tap('button[data-action="phase"][data-value="fight"]');
+  await page.waitForSelector('select[data-input="target"]');
   const tw = await page.$eval('select[data-input="target"]', (sel) =>
     [...sel.options].find(o => /Thunderwolf Cavalry \(1\)/.test(o.textContent))?.value);
   await page.selectOption('select[data-input="target"]', tw);
@@ -170,6 +225,8 @@ try {
   await page.reload();
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
   check('setup restored after reload', (await page.locator('[data-attacker]').count()) === 1);
+  const unitsB = await page.evaluate(() => window.__calc.state.armies.B.units.map(u => u.name));
+  check('edited attachments survive a reload', unitsB.includes('Beastboss + Boyz') && unitsB.includes('Warboss'), unitsB.join(' | '));
 
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
