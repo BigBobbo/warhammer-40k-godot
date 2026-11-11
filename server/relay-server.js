@@ -277,12 +277,13 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
 };
 
 // Text assets above this size are served gzip-compressed (the army-builder
 // dataset bundle is ~7.6MB raw / ~0.8MB gzipped). Compressed buffers are
 // cached in memory keyed by path+mtime.
-const GZIP_TYPES = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg']);
+const GZIP_TYPES = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg', '.webmanifest']);
 const GZIP_MIN_SIZE = 4096;
 const gzipCache = new Map(); // filePath -> { mtimeMs, buffer }
 
@@ -295,6 +296,9 @@ function serveStaticFile(req, res) {
 
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
+  // Sub-apps (e.g. /calc/ — the combat calculator) serve their own index.html.
+  if (urlPath.endsWith('/')) urlPath += 'index.html';
+  if (urlPath === '/calc') { res.writeHead(301, { Location: '/calc/' }); res.end(); return; }
 
   // Prevent directory traversal
   const filePath = path.normalize(path.join(PUBLIC_DIR, urlPath));

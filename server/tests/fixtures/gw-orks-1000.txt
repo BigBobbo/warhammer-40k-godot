@@ -1,0 +1,45 @@
+Calc Test Waaagh (1000 points)
+
+Orks
+War Horde (1 Detachment Point)
+Take and Hold
+Incursion (1000 points)
+
+Attached Units
+Attached Unit 1
+
+Warboss (70 points)
+•⁠  ⁠Attached as: Leader (Character)
+  • Warlord
+  • 1x Power klaw
+    1x Kombi-rokkit
+
+Boyz (170 points)
+•⁠  ⁠Attached as: Bodyguard
+  • 1x Nob
+    • 1x Kustom choppa
+      1x Slugga
+  • 19x Boy
+    • 19x Choppa
+      19x Slugga
+
+CHARACTERS
+
+Beastboss (85 points)
+  • 1x Beast Snagga klaw and beastchoppa
+  • 1x Shoota
+
+OTHER DATASHEETS
+
+Meganobz (100 points)
+  • 3x Meganob
+    • 3x Power klaw
+      3x Kustom shoota
+
+Flash Gitz (80 points)
+  • 5x Flash Git
+    • 5x Snazzgun
+
+Battlewagon (160 points)
+  • 1x Big shoota
+    1x Crushin' Bulk

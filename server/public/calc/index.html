@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#121211">
+  <meta name="description" content="Warhammer 40,000 (11th edition) shooting and fight odds from your pasted army lists.">
+  <title>40K Combat Calc</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./calc.css">
+</head>
+<body>
+  <div id="boot" class="wrap" style="padding:40px 12px;color:#8f8e86">Loading dataset…</div>
+  <div id="app"></div>
+  <script type="module">
+    import('./app.js')
+      .then(() => document.getElementById('boot')?.remove())
+      .catch((err) => {
+        const el = document.getElementById('boot');
+        el.textContent = 'Failed to load the calculator: ' + err.message;
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

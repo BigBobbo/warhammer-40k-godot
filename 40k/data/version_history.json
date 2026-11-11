@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.75.0",
+      "date": "2026-11-11",
+      "summary": "New Combat Calc web app: paste two army lists and see the odds of a shooting or fight attack on your phone.",
+      "changes": [
+        "Open /calc/ on the army builder server (works on phones and tablets, installable, works offline once loaded).",
+        "Paste two lists (GW app, New Recruit, ListForge...), pick attacker and defender (swap with one tap), choose a target and one or more attacking units.",
+        "Shows average models destroyed, chance to destroy the unit, damage, and a chart and table of every outcome, using 11th edition rules.",
+        "Weapon abilities apply automatically; the target's invulnerable saves, Feel No Pain, -1 Damage and -1 to wound are detected and can be switched off; add re-rolls, +1s and other stratagem effects by hand."
+      ]
+    },
+    {
       "version": "1.74.0",
       "date": "2026-11-06",
       "summary": "Smarter AI objective choice: it no longer sends a lone unit to grab an objective the enemy can take straight back.",

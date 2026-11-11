@@ -1,0 +1,215 @@
+// End-to-end test of the combat calculator (/calc/) on an emulated phone.
+//
+// Boots relay-server.js, opens /calc/ as a Pixel 7, pastes two GW-app lists,
+// then drives the player path through real taps: load armies -> Attack tab ->
+// pick a target -> add two attacking units -> toggle a modifier -> read the
+// sticky result bar -> open the results sheet -> swap attacker/defender ->
+// fight phase. Asserts the numbers against the engine run headlessly on the
+// same scenario, and that no console errors fired. Screenshots go to
+// $CALC_SHOTS (default: server/tests/screenshots/).
+//
+// Run: cd server && npm run test:e2e:calc
+import { spawn } from 'child_process';
+import { mkdtempSync, existsSync, rmSync, readFileSync, mkdirSync } from 'fs';
+import { tmpdir } from 'os';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+let pw;
+try { pw = await import('playwright'); } catch { pw = require('playwright'); }
+const { chromium, devices } = pw;
+
+const here = dirname(fileURLToPath(import.meta.url));
+const PORT = 19600 + Math.floor(Math.random() * 300);
+const BASE = `http://localhost:${PORT}`;
+const dbDir = mkdtempSync(join(tmpdir(), 'w40k-calc-e2e-'));
+const SHOTS = process.env.CALC_SHOTS ?? join(here, 'screenshots');
+mkdirSync(SHOTS, { recursive: true });
+
+let failures = 0;
+function check(label, cond, detail = '') {
+  if (cond) console.log(`  ok   ${label}`);
+  else { failures++; console.error(`  FAIL ${label}${detail ? ' — ' + detail : ''}`); }
+}
+
+const server = spawn(process.execPath, [join(here, '..', 'relay-server.js')], {
+  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db') },
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+let serverLog = '';
+server.stdout.on('data', (d) => { serverLog += d; });
+server.stderr.on('data', (d) => { serverLog += d; });
+
+async function waitForServer() {
+  for (let i = 0; i < 50; i++) {
+    try { if ((await fetch(`${BASE}/api/health`)).ok) return; } catch { /* not up */ }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  throw new Error('relay server did not come up:\n' + serverLog);
+}
+
+const PREINSTALLED = '/opt/pw-browsers/chromium';
+const SW_LIST = readFileSync(join(here, 'fixtures', 'gw-space-wolves-2000.txt'), 'utf8');
+const ORK_LIST = readFileSync(join(here, 'fixtures', 'gw-orks-1000.txt'), 'utf8');
+
+async function settle(page) {
+  // wait for the worker's final pass
+  await page.waitForFunction(() => {
+    const s = window.__calc?.state;
+    return s && !s.busy && s.result;
+  }, null, { timeout: 30000 });
+}
+
+const kpi = async (page) => page.$$eval('.resultbar .kpi b', els => els.map(e => e.textContent.trim()));
+
+try {
+  await waitForServer();
+  console.log(`server up on :${PORT}`);
+  const browser = await chromium.launch(existsSync(PREINSTALLED) ? { executablePath: PREINSTALLED } : {});
+  const ctx = await browser.newContext({ ...devices['Pixel 7'] });
+  const page = await ctx.newPage();
+  const consoleErrors = [];
+  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+  page.on('pageerror', e => consoleErrors.push(String(e)));
+
+  // --- /calc redirects / serves its own index
+  const res = await page.goto(`${BASE}/calc`);
+  check('/calc serves the calculator', res.ok() && (await page.title()) === '40K Combat Calc');
+  await page.waitForSelector('textarea[data-side="A"]', { timeout: 30000 });
+
+  // --- load both armies through the UI
+  await page.fill('textarea[data-side="A"]', SW_LIST);
+  await page.tap('button[data-action="parse"][data-side="A"]');
+  await page.fill('textarea[data-side="B"]', ORK_LIST);
+  await page.tap('button[data-action="parse"][data-side="B"]');
+  const titles = await page.$$eval('.card .title', els => els.map(e => e.textContent));
+  check('army A parsed as Space Wolves', titles.includes('Space Wolves'), titles.join(','));
+  check('army B parsed as Orks', titles.includes('Orks'), titles.join(','));
+  await page.screenshot({ path: join(SHOTS, 'calc_01_armies.png') });
+
+  await page.tap('button[data-action="view"][data-value="attack"]');
+  await page.waitForSelector('select[data-input="target"]');
+
+  // --- target: Warboss + Boyz (attached unit)
+  const targetValue = await page.$eval('select[data-input="target"]', (sel) =>
+    [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+  check('attached Warboss + Boyz offered as one target', !!targetValue);
+  await page.selectOption('select[data-input="target"]', targetValue);
+  const stats = await page.$$eval('.stats .stat', els => els.map(e => `${e.querySelector('b').textContent} ${e.querySelector('span').textContent}`));
+  check('target stat line shows T5 / Sv5+ / W1 / 21 models', ['5 T', '5+ Sv', '1 W', '21 Models'].every(x => stats.includes(x)), stats.join(' | '));
+
+  // --- add Grey Hunters and Thunderwolf Cavalry (1)
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Grey Hunters")');
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Thunderwolf Cavalry (1)")');
+  check('two attacker cards', (await page.locator('[data-attacker]').count()) === 2);
+  await settle(page);
+  const bar1 = await kpi(page);
+  check('result bar shows kills / wipe / damage', bar1.length === 3 && bar1.every(Boolean), bar1.join(' '));
+
+  // the same scenario headlessly (oracle): numbers must match exactly (same seed, same trials)
+  const sc = await page.evaluate(() => window.__calc.scenario());
+  const E = await import(new URL('../public/calc/engine.mjs', import.meta.url).href);
+  const oracle = E.simulate({ ...sc, trials: 20000 });
+  const uiResult = await page.evaluate(() => window.__calc.state.result);
+  check('UI result equals the engine on the same scenario', Math.abs(uiResult.meanKills - oracle.meanKills) < 1e-9,
+    `${uiResult.meanKills} vs ${oracle.meanKills}`);
+  check('scenario carries 2 attackers vs 3 allocation groups (Nob/Boyz merged? no: W differs)',
+    sc.attackers.length === 2 && sc.defender.groups.length === 3, JSON.stringify(sc.defender.groups.map(g => g.name)));
+
+  // --- toggle "Half range" on the Grey Hunters: rapid fire -> more kills
+  const before = uiResult.meanKills;
+  await page.locator('[data-attacker]').first().locator('button[data-key="halfRange"]').tap();
+  await settle(page);
+  const after = await page.evaluate(() => window.__calc.state.result.meanKills);
+  check('half range raises expected kills', after > before, `${before} -> ${after}`);
+  await page.screenshot({ path: join(SHOTS, 'calc_02_attack.png'), fullPage: false });
+
+  // --- results sheet
+  await page.tap('button[data-action="open-results"]');
+  await page.waitForSelector('.sheet #chart svg');
+  const nBars = await page.locator('#chart .hit').count();
+  check('histogram rendered', nBars > 3, `${nBars} bars`);
+  await page.locator('#chart .hit').nth(Math.min(5, nBars - 1)).tap();
+  const tip = await page.locator('#readout').textContent();
+  check('tapping a bar shows its odds', /exactly .* at least/.test(tip), tip);
+  check('odds table rendered', (await page.locator('table.dist tbody tr').count()) > 2);
+  await page.screenshot({ path: join(SHOTS, 'calc_03_results.png') });
+  await page.tap('.sheet button[data-action="close-sheet"]');
+
+  // --- swap: Orks attack Space Wolves; fight phase; Thunderwolf storm shields auto-on
+  await page.tap('button[data-action="swap"]');
+  await page.tap('button[data-action="phase"][data-value="fight"]');
+  const tw = await page.$eval('select[data-input="target"]', (sel) =>
+    [...sel.options].find(o => /Thunderwolf Cavalry \(1\)/.test(o.textContent))?.value);
+  await page.selectOption('select[data-input="target"]', tw);
+  const ruleChip = page.locator('button[data-action="rule"]', { hasText: '4+ invulnerable save' });
+  check('Storm Shield 4+ invuln detected and on', (await ruleChip.getAttribute('aria-pressed')) === 'true');
+  const invStat = await page.$$eval('.stats .stat', els => els.map(e => `${e.querySelector('b').textContent} ${e.querySelector('span').textContent}`));
+  check('stat line shows the enabled 4+ InSv', invStat.includes('4+ InSv'), invStat.join(' | '));
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Meganobz")');
+  await settle(page);
+  const scF = await page.evaluate(() => window.__calc.scenario());
+  check('fight phase uses the power klaws', scF.phase === 'fight' && scF.attackers[0].weapons.some(w => /Power Klaw/i.test(w.name)),
+    JSON.stringify(scF.attackers[0].weapons.map(w => w.name)));
+  check('storm shield invuln reaches the engine', scF.defender.groups.every(g => g.InSv === 4), JSON.stringify(scF.defender.groups));
+  const withShield = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  await ruleChip.tap();
+  await settle(page);
+  const noShield = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  check('turning the invuln off increases damage (AP-2 vs Sv3: 5+ armour < 4++)', noShield > withShield, `${withShield} -> ${noShield}`);
+  await ruleChip.tap();
+  await settle(page);
+  await page.screenshot({ path: join(SHOTS, 'calc_04_swap_fight.png') });
+
+  // --- state survives a reload (localStorage)
+  await page.reload();
+  await page.waitForSelector('[data-attacker]', { timeout: 30000 });
+  check('setup restored after reload', (await page.locator('[data-attacker]').count()) === 1);
+
+  // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.evaluate(async () => {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v1') && (await (await caches.open('w40k-calc-v1')).keys()).length >= 20); i++) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  });
+  await ctx.setOffline(true);
+  await page.reload();
+  await page.waitForSelector('[data-attacker]', { timeout: 30000 });
+  await settle(page);
+  check('works offline after first visit', (await kpi(page)).every(Boolean));
+  await ctx.setOffline(false);
+
+  // --- tablet layout
+  const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });
+  const tp = await tab.newPage();
+  await tp.goto(`${BASE}/calc/`);
+  await tp.fill('textarea[data-side="A"]', SW_LIST);
+  await tp.tap('button[data-action="parse"][data-side="A"]');
+  await tp.fill('textarea[data-side="B"]', ORK_LIST);
+  await tp.tap('button[data-action="parse"][data-side="B"]');
+  await tp.tap('button[data-action="view"][data-value="attack"]');
+  await tp.selectOption('select[data-input="target"]', targetValue);
+  await tp.tap('button[data-action="open-add"]');
+  await tp.tap('.pick:has-text("Grey Hunters")');
+  await tp.waitForFunction(() => window.__calc?.state.result && !window.__calc.state.busy);
+  await tp.screenshot({ path: join(SHOTS, 'calc_05_tablet_dark.png') });
+
+  check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
+  await browser.close();
+} catch (err) {
+  failures++;
+  console.error('E2E error:', err);
+} finally {
+  server.kill();
+  rmSync(dbDir, { recursive: true, force: true });
+}
+
+console.log(failures ? `\n${failures} failure(s)` : '\nall checks passed');
+console.log(`screenshots: ${SHOTS}`);
+process.exit(failures ? 1 : 0);
