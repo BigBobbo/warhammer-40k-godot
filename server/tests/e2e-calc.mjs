@@ -221,17 +221,71 @@ try {
   await settle(page);
   await page.screenshot({ path: join(SHOTS, 'calc_04_swap_fight.png') });
 
+  // --- abilities, detachment rule and stratagems (Meganobz into Thunderwolves, fight)
+  const mega = page.locator('[data-attacker]').first();
+  const gsi = mega.locator('button[data-action="arule"]', { hasText: 'Get Stuck In' });
+  check('War Horde detachment rule (Sustained Hits 1) is on automatically', (await gsi.getAttribute('aria-pressed')) === 'true');
+  const scG = await page.evaluate(() => window.__calc.scenario());
+  check('Get Stuck In reaches the engine', scG.attackers[0].mods.sustained === 1, JSON.stringify(scG.attackers[0].mods));
+  const hitEm = mega.locator('button[data-action="arule"]', { hasText: "HIT 'EM HARDER" });
+  check("Hit 'Em Harder offered, off until used", (await hitEm.count()) === 1 && (await hitEm.getAttribute('aria-pressed')) === 'false');
+  check('vehicle-only Mow ’Em Down not offered to Meganobz', (await mega.locator('button[data-action="arule"]', { hasText: "MOW 'EM DOWN" }).count()) === 0);
+  const beforeStrat = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  await hitEm.tap();
+  await settle(page);
+  const scH = await page.evaluate(() => window.__calc.scenario());
+  const afterStrat = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  check("using Hit 'Em Harder grants Lethal Hits and raises damage", scH.attackers[0].mods.lethal === true && afterStrat > beforeStrat, `${beforeStrat} -> ${afterStrat}`);
+  // defender stratagem: Armour of Contempt (-1 AP) on the Thunderwolves
+  const aoc = page.locator('button[data-action="rule"]', { hasText: 'ARMOUR OF CONTEMPT' });
+  check('Armour of Contempt offered to the defender, off', (await aoc.count()) === 1 && (await aoc.getAttribute('aria-pressed')) === 'false');
+  await aoc.tap();
+  await settle(page);
+  const withAoc = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  const scAoc = await page.evaluate(() => window.__calc.scenario());
+  check('Armour of Contempt reaches the engine (-1 AP)', scAoc.defender.mods.apReduce === 1, JSON.stringify(scAoc.defender.mods));
+  // vs the 4++ Storm Shield, AP-2 -> AP-1 still leaves 4+ as the best save: no change (correct)
+  check('vs a 4++ the -1 AP changes nothing', Math.abs(withAoc - afterStrat) < 1e-9, `${afterStrat} -> ${withAoc}`);
+  await ruleChip.tap(); await settle(page);
+  const noShieldAoc = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  await aoc.tap(); await settle(page);
+  const noShieldNoAoc = await page.evaluate(() => window.__calc.state.result.meanWounds);
+  check('without the shield, Armour of Contempt lowers the damage', noShieldAoc < noShieldNoAoc, `${noShieldNoAoc} -> ${noShieldAoc}`);
+  await aoc.tap(); await ruleChip.tap(); await settle(page);
+  await page.screenshot({ path: join(SHOTS, 'calc_08_stratagems.png') });
+  await page.tap('button[data-action="open-results"]');
+  await page.waitForSelector('.sheet #chart svg');
+  const applied = await page.locator('.sheet .section', { hasText: 'Rules applied' }).textContent();
+  check('results list the rules applied and 2CP spent', /2CP/.test(applied) && /HIT 'EM HARDER/.test(applied) && /ARMOUR OF CONTEMPT/.test(applied), applied.slice(0, 200));
+  await page.tap('.sheet button[data-action="close-sheet"]');
+  // Thunderous Charge follows the Charged chip (Thunderwolves attacking, fight)
+  await page.tap('button[data-action="swap"]');
+  await page.waitForSelector('select[data-input="target"]');
+  const mnz = await page.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /^Meganobz/.test(o.textContent))?.value);
+  await page.selectOption('select[data-input="target"]', mnz);
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Thunderwolf Cavalry (1)")');
+  const twCard = page.locator('[data-attacker]').last();
+  const tc = twCard.locator('button[data-action="arule"]', { hasText: 'Thunderous Charge' });
+  check('Thunderous Charge off before charging', (await tc.getAttribute('aria-pressed')) === 'false');
+  await twCard.locator('button[data-key="charged"]').tap();
+  check('Thunderous Charge on after ticking Charged', (await twCard.locator('button[data-action="arule"]', { hasText: 'Thunderous Charge' }).getAttribute('aria-pressed')) === 'true');
+  await settle(page);
+  await page.screenshot({ path: join(SHOTS, 'calc_09_thunderous_charge.png') });
+  await page.tap('button[data-action="swap"]');
+
   // --- state survives a reload (localStorage)
   await page.reload();
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
   check('setup restored after reload', (await page.locator('[data-attacker]').count()) === 1);
+  check('used stratagem remembered after reload', (await page.locator('[data-attacker]').first().locator('button[data-action="arule"]', { hasText: "HIT 'EM HARDER" }).getAttribute('aria-pressed')) === 'true');
   const unitsB = await page.evaluate(() => window.__calc.state.armies.B.units.map(u => u.name));
   check('edited attachments survive a reload', unitsB.includes('Beastboss + Boyz') && unitsB.includes('Warboss'), unitsB.join(' | '));
 
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v1') && (await (await caches.open('w40k-calc-v1')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v2') && (await (await caches.open('w40k-calc-v2')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });

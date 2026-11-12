@@ -12,7 +12,8 @@
     "test:e2e:codex": "node tests/e2e-codex-datasheets.mjs",
     "test:e2e:multidet": "node tests/e2e-multi-detachment.mjs",
     "test:e2e:gw-import": "node tests/e2e-gw-import-space-wolves.mjs",
-    "test:calc": "node --test tests/calc-engine.test.mjs",
+    "test:calc": "node --test tests/calc-engine.test.mjs tests/calc-rules.test.mjs",
+    "gen:calc-stratagems": "node tools/gen-calc-stratagems.mjs",
     "test:e2e:calc": "node tests/e2e-calc.mjs"
   },
   "dependencies": {

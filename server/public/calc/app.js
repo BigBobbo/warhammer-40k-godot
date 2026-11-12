@@ -5,6 +5,7 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
+  attackerRules, attackerRuleOn, buildAttacker, describeConditions,
 } from './adapter.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
@@ -128,7 +129,7 @@ function targetUnit() {
 function targetInfo() {
   const cu = targetUnit();
   if (!cu) return null;
-  const profile = defenderProfile(cu);
+  const profile = defenderProfile(cu, defArmy());
   return { cu, profile, summary: defenderSummary(profile) };
 }
 
@@ -150,6 +151,19 @@ function rowsFor(entry, tinfo) {
   return { cu, rows };
 }
 
+// Attacker rules (abilities, detachment rule, stratagems) for an attacker entry,
+// with which ones are on given its situation chips and the current target.
+function rulesFor(e, cu, tinfo) {
+  const { rules, stratText } = attackerRules(cu, atkArmy());
+  const ctx = {
+    charged: !!e.mods?.charged, stationary: !!e.mods?.stationary, halfRange: !!e.mods?.halfRange,
+    targetKeywords: tinfo?.profile.keywords ?? [], attackerKeywords: cu.keywords,
+  };
+  const inPhase = rules.filter(r => r.phases.includes(state.phase));
+  const on = new Set(inPhase.filter(r => attackerRuleOn(r, e.ruleOverrides?.[r.id], ctx)).map(r => r.id));
+  return { rules: inPhase, on, stratText };
+}
+
 function scenario() {
   const tinfo = targetInfo();
   const s = setup();
@@ -158,12 +172,8 @@ function scenario() {
   for (const e of s.attackers) {
     const { cu, rows } = rowsFor(e, tinfo);
     if (!cu) continue;
-    attackers.push({
-      name: cu.name,
-      mods: { ...e.mods },
-      weapons: rows.filter(r => r.count > 0).map(engineWeapon),
-      allVehicleMonster: allVehicleMonster(cu),
-    });
+    const { rules, on } = rulesFor(e, cu, tinfo);
+    attackers.push(buildAttacker(cu, rows, e.mods, rules, on, state.phase));
   }
   if (!attackers.some(a => a.weapons.length)) return null;
   const defender = buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), state.phase, s.defManual);
@@ -342,14 +352,14 @@ function targetCard(tinfo, s) {
     const rules = profile.rules;
     const on = enabledRules(profile, s);
     if (rules.length) {
-      body += `<div class="modrow" style="margin-top:10px"><div class="lab">Detected defensive rules (tap to toggle)</div><div class="chips">
+      body += `<div class="modrow" style="margin-top:10px"><div class="lab">Defensive rules & stratagems (tap to toggle)</div><div class="chips">
         ${rules.map(r => {
           const applies = r.phases.includes(state.phase);
           const whose = tinfo.cu.members.length > 1 && r.groupKeys ? `${r.member} only` : null;
           const src = r.source === r.label ? null : r.source;
           return chip('rule', on.has(r.id), [r.label, src, whose].filter(Boolean).join(' · '), `data-id="${esc(r.id)}" title="${esc(r.text)}"`).replace('class="chip', `class="chip${applies ? '' : ' dim'}`);
         }).join('')}</div>
-        <div class="rule-note">Auto-on when the rule is always active; activated or conditional ones start off. Greyed = not this phase.</div></div>`;
+        <div class="rule-note">Always-active rules start on; activated / conditional ones and stratagems start off. Greyed = not this phase.</div></div>`;
     }
     const m = s.defManual;
     body += `<details class="more"><summary>Defender modifiers${Object.values(m).some(v => v) ? ' · set' : ''}</summary><div class="modgrid">
@@ -363,6 +373,11 @@ function targetCard(tinfo, s) {
       ${modSeg('Feel No Pain', 'def', 'fnp', m.fnp ?? 0, [[0, 'None'], [6, '6+'], [5, '5+'], [4, '4+'], [3, '3+']])}
       ${modSeg('Feel No Pain vs mortal wounds', 'def', 'fnpMortal', m.fnpMortal ?? 0, [[0, 'None'], [6, '6+'], [5, '5+'], [4, '4+']])}
     </div></details>
+    ${(() => {
+      const txt = (profile.stratText ?? []).filter(st => /any/i.test(st.phase) || st.phase.toLowerCase().includes(state.phase));
+      return txt.length ? `<details class="more"><summary>Other defensive stratagems — set by hand (${txt.length})</summary>${txt.map(st =>
+        `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.detachment)}</span><div class="muted">${st.missing ? 'No 11e text in the dataset.' : esc(`${st.when} — ${st.effect}`)}</div></div>`).join('')}</details>` : '';
+    })()}
     <details class="more"><summary>Target abilities</summary>${abilitiesOf(tinfo.cu).map(a =>
       `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('') || '<div class="muted small">None listed.</div>'}</details>`;
   }
@@ -404,6 +419,21 @@ function attackerCard(e, i, tinfo) {
   const sc = `data-uid="${e.uid}"`;
   const ms = (label, key, val, opts) => modSeg(label, 'atk', key, val, opts).replaceAll('data-scope="atk"', `data-scope="atk" ${sc}`);
   const abil = abilitiesOf(cu);
+  const { rules, on, stratText } = rulesFor(e, cu, tinfo);
+  const ruleChip = (r) => {
+    const cond = describeConditions(r.conds);
+    const label = [r.label, r.source, r.scope === 'model' && cu.members.length > 1 ? `${r.memberName} only` : null].filter(Boolean).join(' · ');
+    return chip('arule', on.has(r.id), label, `${sc} data-id="${esc(r.id)}" title="${esc(r.text)}"`)
+      .replace('</button>', `${cond && !on.has(r.id) ? ` <span class="tiny muted">(${esc(cond)})</span>` : ''}</button>`);
+  };
+  const abilRules = rules.filter(r => r.kind !== 'stratagem');
+  const stratRules = rules.filter(r => r.kind === 'stratagem');
+  const stratTextInPhase = stratText.filter(st => st.phase && (/any/i.test(st.phase) || st.phase.toLowerCase().includes(state.phase)));
+  const rulesBlock = (abilRules.length || stratRules.length || stratTextInPhase.length) ? `
+    ${abilRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Abilities & detachment rule (auto when their condition is met — tap to override)</div><div class="chips">${abilRules.map(ruleChip).join('')}</div></div>` : ''}
+    ${stratRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Stratagems (tap to use)</div><div class="chips">${stratRules.map(ruleChip).join('')}</div></div>` : ''}
+    ${stratTextInPhase.length ? `<details class="more"><summary>Other stratagems — set by hand (${stratTextInPhase.length})</summary>${stratTextInPhase.map(st =>
+      `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.detachment)}</span><div class="muted">${st.missing ? 'No 11e text in the dataset.' : esc(`${st.when} — ${st.effect}`)}</div></div>`).join('')}</details>` : ''}` : '';
   return `<div class="card" data-attacker="${e.uid}">
     <div class="attacker-head"><div class="num">${i + 1}</div>
       <div class="grow"><div class="title ellipsis">${esc(cu.name)}</div><div class="muted tiny">${cu.models} models</div></div>
@@ -412,7 +442,8 @@ function attackerCard(e, i, tinfo) {
     ${attachRow(state.side, cu)}
     <div style="margin-top:6px">${weapons}</div>
     <div class="chips" style="margin-top:8px">${sit}</div>
-    <details class="more" ${e.openMods ? 'open' : ''} data-details="mods" ${sc}><summary>Modifiers, re-rolls, stratagems${nMods ? ` · ${nMods} set` : ''}</summary><div class="modgrid">
+    ${rulesBlock}
+    <details class="more" ${e.openMods ? 'open' : ''} data-details="mods" ${sc}><summary>Manual modifiers &amp; re-rolls${nMods ? ` · ${nMods} set` : ''}</summary><div class="modgrid">
       ${ms('Hit roll', 'hitMod', m.hitMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${ms('Wound roll', 'woundMod', m.woundMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${ms('Re-roll hits', 'rerollHits', m.rerollHits ?? 'none', [['none', 'None'], ['ones', '1s'], ['fail', 'Fails'], ['noncrit', 'Fish 6s']])}
@@ -597,6 +628,23 @@ function resultsSheet() {
     ${r.groupKills.length > 1 ? `<div class="section"><h2>By model type</h2>
       <table class="dist"><thead><tr><th>Models</th><th>Avg destroyed</th></tr></thead><tbody>
       ${r.groupKills.map(g => `<tr><td>${esc(g.name)}${g.character ? ' (character)' : ''}</td><td>${fx(g.mean, 2)} / ${g.count}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    ${(() => {
+      const used = [];
+      for (const e of s.attackers) {
+        const cu = atkArmy()?.units.find(u => u.key === e.unitKey);
+        if (!cu) continue;
+        const { rules, on } = rulesFor(e, cu, tinfo);
+        for (const ru of rules) if (on.has(ru.id)) used.push({ who: cu.name, label: ru.label, source: ru.source, cp: ru.cp ?? 0 });
+      }
+      if (tinfo) {
+        const don = enabledRules(tinfo.profile, s);
+        for (const ru of tinfo.profile.rules) if (don.has(ru.id) && ru.phases.includes(state.phase)) used.push({ who: tinfo.cu.name, label: ru.label, source: ru.source, cp: ru.cp ?? 0 });
+      }
+      if (!used.length) return '';
+      const cp = used.reduce((a, u) => a + u.cp, 0);
+      return `<div class="section"><h2>Rules applied${cp ? ` · ${cp}CP of stratagems` : ''}</h2>${used.map(u =>
+        `<div class="ability"><b>${esc(u.label)}</b> <span class="muted">· ${esc(u.source)}</span> <span class="muted tiny">(${esc(u.who)})</span></div>`).join('')}</div>`;
+    })()}
     ${r.hazardMW > 0 ? `<div class="warnbox">Hazardous: attacker suffers ${fx(r.hazardMW, 2)} mortal wounds on average.</div>` : ''}
     ${unsupported.size ? `<div class="warnbox">Not modelled: ${[...unsupported].map(esc).join('; ')}.</div>` : ''}
     ${sc ? `<div class="tiny muted" style="margin-top:10px">Defender allocation: non-character groups first (the one with the best save first), characters last. Rules: 11th edition core rules.</div>` : ''}`;
@@ -728,6 +776,17 @@ app.addEventListener('click', (ev) => {
       if (!row || row.blocked) return;
       e.counts ??= {};
       e.counts[row.id] = Math.max(0, Math.min(row.max, row.count + Number(el.dataset.delta)));
+      return changed();
+    }
+    case 'arule': {
+      const e = findEntry(el.dataset.uid);
+      if (!e) return;
+      const tinfo = targetInfo();
+      const cu = atkArmy()?.units.find(u => u.key === e.unitKey);
+      if (!cu) return;
+      const { on } = rulesFor(e, cu, tinfo);
+      e.ruleOverrides ??= {};
+      e.ruleOverrides[el.dataset.id] = !on.has(el.dataset.id);
       return changed();
     }
     case 'amod-toggle': {

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.77.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: unit abilities, leader buffs, detachment rules and stratagems now apply with a tap.",
+      "changes": [
+        "Each attacking unit lists its abilities, its leader's buffs and your detachment rule; they switch on by themselves when their condition is met (e.g. tick Charged and Thunderous Charge turns on, or a +1 to wound vs VEHICLES when the target is a vehicle).",
+        "Your detachment's stratagems that fit the unit (by keyword and phase) appear as chips: tap one to use it. The defender's stratagems (e.g. Armour of Contempt) are on the target card.",
+        "A leader's \"this model's attacks\" buffs only boost the leader's own weapons.",
+        "The results sheet lists every rule applied and the CP spent on stratagems. Stratagems the calculator can't model are listed with their text so you can set them by hand."
+      ]
+    },
+    {
       "version": "1.76.0",
       "date": "2026-11-11",
       "summary": "Combat Calc: attach and detach characters on both the attacking and defending units.",

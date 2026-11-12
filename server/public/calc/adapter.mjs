@@ -8,7 +8,13 @@
 import { conv, factionName, dc } from '../js/builder/store.js';
 import { importText } from '../js/builder/importers.js';
 import { normName, looseName } from '../js/lib/dckit.mjs';
-import { expectedDamageQuick } from './engine.mjs';
+import { expectedDamageQuick, mergeMods } from './engine.mjs';
+import { STRATAGEMS } from './stratagems-11e.mjs';
+import {
+  parseOffensive, parseDefensiveText, parseConditions, conditionsMet, describeConditions,
+  stratagemRole, stratagemPhases, stratagemEligible,
+} from './rules.mjs';
+export { describeConditions };
 
 export const DATASET_VERSION = dc.DATASET_VERSION;
 
@@ -443,42 +449,6 @@ export function abilitiesOf(cu) {
 // Activated / situational wording: detected but OFF by default.
 const ACTIVATED_RE = /\b(you can|at the start of|until the end of|until the start of|when an enemy unit|when this unit|select|once per battle|first time|psychic roll|while this unit is within|while this model is within|within range of an objective|if this unit made|if this model made|battle-shocked|in your|in the (fight|shooting|movement|command) phase)\b/i;
 
-/**
- * Parse defensive effects from one ability's rules text. Returns a list of
- * {label, apply, phases} where apply is a patch for the defender mods (unit
- * scope) or the group (model scope).
- */
-export function parseDefensiveText(text) {
-  const t = String(text ?? '').replace(/\s+/g, ' ');
-  const out = [];
-  const rangedOnly = /\branged attacks that target\b/i.test(t);
-  const meleeOnly = /\bmelee attacks that target\b/i.test(t);
-  const phases = rangedOnly ? ['shooting'] : meleeOnly ? ['fight'] : ['shooting', 'fight'];
-  let m;
-  if ((m = t.match(/(\d)\+\s*InSv/i)) || (m = t.match(/(\d)\+\s*invulnerable save/i))) {
-    out.push({ label: `${m[1]}+ invulnerable save`, apply: { InSv: Number(m[1]) }, phases });
-  }
-  const fnpRe = /Feel No Pain (\d)\+( against ([^.•;]+))?/gi;
-  while ((m = fnpRe.exec(t))) {
-    const against = (m[3] ?? '').toLowerCase();
-    const v = Number(m[1]);
-    if (against.includes('mortal') && against.includes('psychic')) out.push({ label: `FNP ${v}+ vs psychic & mortal wounds`, apply: { fnpMortal: v, fnpPsychic: v }, phases });
-    else if (against.includes('mortal')) out.push({ label: `FNP ${v}+ vs mortal wounds`, apply: { fnpMortal: v }, phases });
-    else if (against.includes('psychic')) out.push({ label: `FNP ${v}+ vs psychic attacks`, apply: { fnpPsychic: v }, phases });
-    else out.push({ label: `Feel No Pain ${v}+`, apply: { fnp: v }, phases });
-  }
-  if (/\bhave -1 D\b|-1 Damage\b|subtract 1 from the Damage/i.test(t)) out.push({ label: '-1 Damage', apply: { dr: 1 }, phases });
-  if (/halve the D(amage)?\b/i.test(t)) out.push({ label: 'Halve Damage', apply: { dr: 'half' }, phases });
-  if (/-1 to wound rolls/i.test(t) && /that target this (unit|model)/i.test(t)) {
-    if (/S greater than this (unit|model).s T|Strength .* greater than .* Toughness/i.test(t)) out.push({ label: '-1 to wound if S > T', apply: { woundModIfSGreaterT: -1 }, phases });
-    else out.push({ label: '-1 to wound', apply: { woundMod: -1 }, phases });
-  }
-  if (/-1 to hit rolls/i.test(t) && /that target this (unit|model)/i.test(t)) out.push({ label: '-1 to hit', apply: { hitMod: -1 }, phases });
-  if (/that target this (unit|model) have -1 AP/i.test(t)) out.push({ label: '-1 AP (incoming)', apply: { apReduce: 1 }, phases });
-  if (/\bStealth\b/.test(t) && !/cannot have the benefit/i.test(t)) out.push({ label: 'Stealth (cover vs ranged)', apply: { cover: true }, phases: ['shooting'] });
-  return out;
-}
-
 function parseStructured(a) {
   const e = a?.effect;
   if (!e || a.rules_text) return null;
@@ -510,7 +480,7 @@ function parseStructured(a) {
  * groups: [{key, name, member, count, W, Sv, InSv, T, character}]
  * rules:  [{id, source, label, text, auto, phases, apply, scope: 'unit'|'member', member, groupKeys}]
  */
-export function defenderProfile(cu) {
+export function defenderProfile(cu, army = null) {
   const groups = [];
   const rules = [];
   for (const m of cu.members) {
@@ -577,9 +547,30 @@ export function defenderProfile(cu) {
       });
     }
   }
+  // detachment rules (always-on ones auto) and defensive stratagems (off: they cost CP)
+  const stratText = [];
+  if (army) {
+    for (const d of detachmentRules(army)) {
+      const effects = parseDefensiveText(d.text);
+      effects.forEach((ef, k) => rules.push({
+        id: `det:${d.id}:${k}`, source: d.name, member: 'Detachment', label: ef.label, text: d.text,
+        auto: !ACTIVATED_RE.test(d.text) && !/\b(if|while)\b/i.test(d.text), phases: ef.phases, apply: ef.apply, groupKeys: null, kind: 'detachment',
+      }));
+    }
+    for (const st of armyStratagems(army)) {
+      if (stratagemRole(st) !== 'defend' || !stratagemEligible(st, cu.keywords)) continue;
+      const effects = st.missing ? [] : parseDefensiveText(st.effect);
+      if (!effects.length) { stratText.push(st); continue; }
+      effects.forEach((ef, k) => rules.push({
+        id: `strat:${st.id}:${k}`, source: `${st.name} (${st.cp}CP)`, member: 'Stratagem', label: ef.label,
+        text: `WHEN: ${st.when}\nEFFECT: ${st.effect}`, auto: false, phases: ef.phases.filter(p => stratagemPhases(st).includes(p)),
+        apply: ef.apply, groupKeys: null, kind: 'stratagem', cp: st.cp,
+      }));
+    }
+  }
   // leaders' groups listed after bodyguards
   groups.sort((x, y) => Number(x.character) - Number(y.character));
-  return { name: cu.name, keywords: cu.keywords, groups, rules };
+  return { name: cu.name, keywords: cu.keywords, groups, rules, stratText };
 }
 
 /** Summary stats for the target card / weapon defaults. */
@@ -660,4 +651,129 @@ export function buildDefender(profile, enabled, phase, manual = {}, overrides = 
     if (key) index.set(key, eg);
   }
   return { name: profile.name, keywords: profile.keywords, groups: merged, mods: out };
+}
+
+// ---------------------------------------------------------------------------
+// Detachment rules and stratagems of an army
+
+function armyDetachmentRecords(army) {
+  const out = [];
+  for (const rd of army.roster.detachments ?? []) {
+    const id = rd?.ref?.id;
+    const rec = (dc.RAW_DATA.detachments ?? []).find(d => d.id === id) ??
+      (dc.RAW_DATA.detachments ?? []).find(d => normName(d.name) === normName(rd?.ref?.raw_name ?? ''));
+    out.push({ id: id ?? normName(rd?.ref?.raw_name ?? ''), name: rec?.name ?? rd?.ref?.raw_name ?? '', record: rec });
+  }
+  return out;
+}
+
+/** Detachment rule abilities: [{id, name, text}] */
+export function detachmentRules(army) {
+  const out = [];
+  for (const d of armyDetachmentRecords(army)) {
+    const rid = d.record?.detachment_rule_id;
+    if (!rid) continue;
+    const a = (dc.RAW_DATA.abilities ?? []).find(x => x.ability_id === rid);
+    if (a) out.push({ id: rid, name: `${a.name} (${d.name})`, text: conv.safeDescribe(a) });
+  }
+  return out;
+}
+
+/** The army's detachment stratagems (Wahapedia 11e import), deduplicated. */
+export function armyStratagems(army) {
+  const dets = armyDetachmentRecords(army);
+  const ids = new Set(dets.map(d => d.id));
+  const names = new Set(dets.map(d => normName(d.name)));
+  const seen = new Set();
+  return STRATAGEMS.filter(st => (ids.has(st.detachmentId) || names.has(normName(st.detachment))) &&
+    !seen.has(st.id) && seen.add(st.id));
+}
+
+// ---------------------------------------------------------------------------
+// Attacker rules: unit / leader / enhancement abilities, detachment rules and
+// detachment stratagems that modify this unit's attacks.
+
+/**
+ * [{id, kind: 'ability'|'detachment'|'stratagem', source, member (roster index|null),
+ *   memberName, effects, apply, phases, scope, conds, text, cp, partial}]
+ * plus `stratText`: the army's attack stratagems the parser could not model.
+ */
+export function attackerRules(cu, army) {
+  const rules = [];
+  const push = (base, parsed) => {
+    if (!parsed) return false;
+    rules.push({
+      ...base,
+      effects: parsed.effects,
+      apply: parsed.effects.reduce((acc, e) => mergeMods(acc, e.apply), {}),
+      label: parsed.effects.map(e => e.label).join(', '),
+      phases: parsed.phases,
+      scope: parsed.scope,
+      conds: parsed.conds,
+      partial: parsed.partial,
+    });
+    return true;
+  };
+  for (const m of cu.members) {
+    for (const a of abilityRecords(m)) {
+      if (/^leader$/i.test(a.name)) continue;
+      push({ id: `${m.index}:${a.id}`, kind: a.type === 'detachment' ? 'detachment' : 'ability', source: a.name,
+        member: m.index, memberName: m.dcUnit.name, memberRole: m.role, text: a.text }, parseOffensive(a.text));
+    }
+  }
+  for (const d of detachmentRules(army)) {
+    push({ id: `det:${d.id}`, kind: 'detachment', source: d.name, member: null, memberName: 'Detachment', text: d.text }, parseOffensive(d.text));
+  }
+  const stratText = [];
+  for (const st of armyStratagems(army)) {
+    if (stratagemRole(st) !== 'attack' || !stratagemEligible(st, cu.keywords)) continue;
+    const parsed = st.missing ? null : parseOffensive(st.effect);
+    const ok = push({ id: `strat:${st.id}`, kind: 'stratagem', source: `${st.name} (${st.cp}CP)`, member: null,
+      memberName: 'Stratagem', text: `WHEN: ${st.when}\nEFFECT: ${st.effect}`, cp: st.cp, stratPhases: stratagemPhases(st) }, parsed);
+    if (ok) {
+      const r = rules[rules.length - 1];
+      r.phases = r.phases.filter(p => r.stratPhases.includes(p));
+      // a stratagem's own WHEN conditions ("...that made a charge move this turn") still gate it
+      const wc = parseConditions(st.when);
+      r.conds.charged ||= wc.charged;
+    } else stratText.push(st);
+  }
+  return { rules, stratText };
+}
+
+/**
+ * Is attacker rule `r` on? Stratagems only when the player switched them on;
+ * abilities / detachment rules follow their conditions unless overridden.
+ */
+export function attackerRuleOn(r, override, ctx) {
+  if (override === true) return true;
+  if (override === false) return false;
+  if (r.kind === 'stratagem') return false;
+  return conditionsMet(r.conds, { ...ctx, leading: r.memberRole === 'leader' });
+}
+
+/**
+ * Engine attacker for one attacking combat unit: manual mods + enabled rules
+ * (unit-scoped rules into the unit's mods, model-scoped ones only onto that
+ * member's weapons).
+ */
+export function buildAttacker(cu, rows, manualMods, rules, enabledIds, phase) {
+  let unitMods = { ...(manualMods ?? {}) };
+  const perMember = new Map();
+  for (const r of rules) {
+    if (!enabledIds.has(r.id) || !r.phases.includes(phase)) continue;
+    if (r.scope === 'model' && r.member != null) perMember.set(r.member, mergeMods(perMember.get(r.member) ?? {}, r.apply));
+    else unitMods = mergeMods(unitMods, r.apply);
+  }
+  return {
+    name: cu.name,
+    mods: unitMods,
+    weapons: rows.filter(r => r.count > 0).map(row => {
+      const w = engineWeapon(row);
+      const mi = Number(String(row.id).split(':')[0]);
+      if (perMember.has(mi)) w.mods = perMember.get(mi);
+      return w;
+    }),
+    allVehicleMonster: allVehicleMonster(cu),
+  };
 }

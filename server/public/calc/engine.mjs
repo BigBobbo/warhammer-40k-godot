@@ -129,11 +129,31 @@ export function woundThreshold(S, T) {
 //   trials: 20000, seed,
 // }
 
+// Combine two modifier sets (unit-wide + one weapon's own, or manual + rules):
+// numbers add (the engine caps dice modifiers later), flags OR, re-rolls take
+// the stronger, critical thresholds the lower, keyword values the higher.
+const REROLL_RANK = { none: 0, ones: 1, fail: 2, noncrit: 3 };
+export function mergeMods(a = {}, b = {}) {
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b ?? {})) {
+    if (v == null) continue;
+    const cur = out[k];
+    if (k === 'rerollHits' || k === 'rerollWounds') out[k] = (REROLL_RANK[v] ?? 0) > (REROLL_RANK[cur] ?? 0) ? v : (cur ?? v);
+    else if (k === 'critHit' || k === 'critWound') out[k] = Math.min(cur ?? 6, v);
+    else if (k === 'sustained') out[k] = Math.max(cur ?? 0, v);
+    else if (typeof v === 'boolean') out[k] = !!cur || v;
+    else if (typeof v === 'number') out[k] = (cur ?? 0) + v;
+    else out[k] = v;
+  }
+  return out;
+}
+
 function defaults(mods) {
   return {
     hitMod: 0, woundMod: 0, bsMod: 0, apMod: 0, damageMod: 0, attacksMod: 0, strengthMod: 0,
     rerollHits: 'none', rerollWounds: 'none', critHit: 6, critWound: 6,
     lethal: false, sustained: 0, dev: false, twin: false, ignoresCover: false, precision: false,
+    lance: false, cleave: 0, rapidFire: 0,  // granted: [LANCE], [CLEAVE X], +X to / grant [RAPID FIRE]
     halfRange: false, charged: false, stationary: false, overwatch: false, indirect: false,
     lethalVsDev: 'auto',
     ...(mods ?? {}),
@@ -167,9 +187,11 @@ function compile(scenario) {
     fnp: g.fnp || 0,        // per-group Feel No Pain (e.g. a leader's own FNP)
   }));
   const attackers = (scenario.attackers ?? []).map(a => {
-    const m = defaults(a.mods);
+    const unitMods = defaults(a.mods);
     const weapons = (a.weapons ?? []).filter(w => (w.count ?? 0) > 0).map(w => {
       const kw = w.kw ?? {};
+      // per-weapon modifiers (e.g. a Leader's "this model's attacks have +1 to hit")
+      const m = w.mods ? defaults(mergeMods(unitMods, w.mods)) : unitMods;
       const melee = !!w.melee;
       return {
         name: w.name,
@@ -187,11 +209,11 @@ function compile(scenario) {
         dev: !!kw.dev || m.dev,
         twin: !!kw.twin || m.twin,
         blast: kw.blast || 0,
-        cleave: kw.cleave || 0,
-        rapidFire: kw.rapidFire || 0,
+        cleave: (kw.cleave || 0) + (m.cleave || 0),  // "[CLEAVE 1], or +1 to an existing [CLEAVE]"
+        rapidFire: (kw.rapidFire || 0) + (m.rapidFire || 0),
         melta: kw.melta || 0,
         heavy: !!kw.heavy,
-        lance: !!kw.lance,
+        lance: !!kw.lance || m.lance,
         ignoresCover: !!kw.ignoresCover || m.ignoresCover,
         indirect: !!kw.indirect && m.indirect,
         precision: !!kw.precision || m.precision,
@@ -199,9 +221,10 @@ function compile(scenario) {
         psychic: !!kw.psychic,
         antiCrit: (kw.anti ?? []).reduce((best, an) =>
           kwSet.has(String(an.keyword).toUpperCase()) ? Math.min(best, an.threshold) : best, 7),
+        m,
       };
     });
-    return { name: a.name, mods: m, weapons, allVehicleMonster: !!a.allVehicleMonster };
+    return { name: a.name, mods: unitMods, weapons, allVehicleMonster: !!a.allVehicleMonster };
   });
   return { phase: scenario.phase ?? 'shooting', attackers, groups, dm };
 }
@@ -393,11 +416,11 @@ function runTrial(C, rnd, rec) {
   const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(C.groups.length).fill(0) };
 
   for (const a of C.attackers) {
-    const m = a.mods;
     const killsBefore = out.kills, woundsBefore = out.woundsLost;
     const startAlive = aliveTotal(st);
     for (const w of a.weapons) {
       if (aliveTotal(st) <= 0) break;
+      const m = w.m;
       const ranged = !w.melee;
       const ctx = {
         T: currentT(st),
