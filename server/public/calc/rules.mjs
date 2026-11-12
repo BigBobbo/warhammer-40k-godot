@@ -22,8 +22,8 @@ function firstOption(t) {
 }
 
 function phasesOf(t) {
-  const melee = /\bmelee (attacks?|weapons?)\b/i.test(t);
-  const ranged = /\branged (attacks?|weapons?)\b/i.test(t);
+  const melee = /\bmelee (attacks?|weapons?)\b/i.test(t) || /\b(in|during) (the|your) fight phase\b/i.test(t);
+  const ranged = /\branged (attacks?|weapons?)\b/i.test(t) || /\b(in|during) (the|your) shooting phase\b/i.test(t);
   if (melee && !ranged) return ['fight'];
   if (ranged && !melee) return ['shooting'];
   return ['shooting', 'fight'];
@@ -55,6 +55,20 @@ export function parseConditions(text) {
   // "If the unit has the ORKS keyword, ..." — the attacker's own keywords
   t = t.replace(/if (?:the|this|your) unit has the ([A-Za-z’' -]+?) keyword,?/gi, (_, k) => { c.selfKw.push(k.trim().toUpperCase()); return ' '; });
   t = t.replace(/for the rest of the battle,?/gi, ' ');
+  // situation the player can tick (chips on the attacker card)
+  const take = (re, fn) => { t = t.replace(re, (...a) => { fn(...a); return ' '; }); };
+  take(/(?:if|while) (?:this|your) unit is within range of (?:an|one or more) objectives?(?: markers?)?,?|(?:if|while) (?:this|your) unit (?:controls|is on) an objective(?: marker)?,?/gi, () => { c.onObjective = true; });
+  take(/if the (\w+) doctrine is active for (?:this|your) unit,?/gi, (_, d) => { c.doctrine = d.toLowerCase(); });
+  take(/that targets? an? (?:enemy )?unit (?:that is )?not below half-strength/gi, () => { c.targetNotBelowHalf = true; });
+  take(/that targets? an? (?:enemy )?unit (?:that is )?(?:at or )?below (?:its )?half-strength|if (?:that enemy unit|the target) is (?:at or )?below half-strength,?/gi, () => { c.targetBelowHalf = true; });
+  take(/that targets? an? (?:enemy )?unit that is battle-shocked|if (?:that enemy unit|the target) is battle-shocked,?/gi, () => { c.targetShocked = true; });
+  take(/that targets? an? (?:enemy )?unit within (\d+)" of (?:this|your) unit/gi, (_, n) => { c.within = Number(n); });
+  take(/while (?:this|your) unit is (?:at or )?below half-strength,?/gi, () => { c.selfBelowHalf = true; });
+  take(/if (?:this|your) unit made an ingress move this turn,?/gi, () => { c.ingress = true; });
+  take(/if (?:this|your) unit is not battle-shocked,?/gi, () => {}); // assumed (the usual case)
+  // "In the Fight phase, ..." is a phase restriction (phasesOf handles it), not a situation
+  take(/\b(?:in|during) (?:the|your) (fight|shooting) phase,?/gi, () => {});
+  t = t.replace(/\bvisible\b/gi, ' '); // attacks need visibility anyway
   for (const [re, set] of KNOWN_CONDITIONS) {
     if (re.test(t)) { set(c); t = t.replace(re, ' '); }
     re.lastIndex = 0;
@@ -66,7 +80,6 @@ export function parseConditions(text) {
     const phrase = (m[1] ?? '').trim();
     if (phrase && !/^(enemy|visible)$/i.test(phrase)) c.targetKw.push(...kwList(phrase));
     if (m[3]) c.targetNotKw.push(...kwList(m[3]));
-    if (/visible/i.test(phrase)) c.unknown = true;
   }
   t = t.replace(tgt, ' ');
   // the subject itself ("This unit's melee attacks have") is not a condition
@@ -83,6 +96,14 @@ export function conditionsMet(c, ctx) {
   if (c.stationary && !ctx.stationary) return false;
   if (c.halfRange && !ctx.halfRange) return false;
   if (c.leading && !ctx.leading) return false;
+  if (c.onObjective && !ctx.onObjective) return false;
+  if (c.doctrine && ctx.doctrine !== c.doctrine) return false;
+  if (c.targetBelowHalf && !ctx.targetBelowHalf) return false;
+  if (c.targetNotBelowHalf && ctx.targetBelowHalf) return false;
+  if (c.targetShocked && !ctx.targetShocked) return false;
+  if (c.within && !(ctx.distance != null && ctx.distance <= c.within)) return false;
+  if (c.selfBelowHalf && !ctx.selfBelowHalf) return false;
+  if (c.ingress && !ctx.ingress) return false;
   const own = new Set((ctx.attackerKeywords ?? []).map(k => k.toUpperCase()));
   if (c.selfKw?.length && !c.selfKw.every(k => own.has(k))) return false;
   const kws = new Set((ctx.targetKeywords ?? []).map(k => k.toUpperCase()));
@@ -98,6 +119,14 @@ export function describeConditions(c) {
   if (c.stationary) out.push('stationary');
   if (c.halfRange) out.push('half range');
   if (c.leading) out.push('while leading');
+  if (c.onObjective) out.push('on objective');
+  if (c.doctrine) out.push(`${c.doctrine} doctrine`);
+  if (c.targetBelowHalf) out.push('target below half');
+  if (c.targetNotBelowHalf) out.push('target not below half');
+  if (c.targetShocked) out.push('target battle-shocked');
+  if (c.within) out.push(`within ${c.within}"`);
+  if (c.selfBelowHalf) out.push('this unit below half');
+  if (c.ingress) out.push('arrived this turn');
   if (c.targetKw.length) out.push(`vs ${c.targetKw.join('/')}`);
   if (c.targetNotKw.length) out.push(`not vs ${c.targetNotKw.join('/')}`);
   if (c.unknown) out.push('situational');
@@ -148,6 +177,13 @@ export function parseOffensive(text) {
       const p = parseOffensiveOne(`${preamble} ${alt}`, full);
       if (p) alternatives.push({ ...p, text: alt.trim() });
     }
+  }
+  // mortal-wound sources ride along with (or stand in for) the attack modifiers
+  const mortal = parseMortal(full);
+  if (mortal) {
+    const ef = { label: mortal.label, apply: { mortals: [{ ...mortal.source, label: mortal.label }] } };
+    if (first) first.effects.push(ef);
+    else return { effects: [ef], phases: phasesOf(full), scope: 'unit', conds: parseConditions(full), partial: false, alternatives };
   }
   if (!first && !alternatives.length) return null;
   return first ? { ...first, alternatives } : { ...alternatives[0], alternatives: alternatives.slice(1), firstUnparsed: true };
@@ -216,8 +252,52 @@ function parseOffensiveOne(t, full) {
   conds.targetNotKw.push(...kwConds.targetNotKw);
   // weapon-specific wording ("Lightning Claws weapons have ...") is not modelled per weapon
   if (/\b[A-Z][\w’-]*(?: [A-Z][\w’-]*)* weapons (have|gain)\b/.test(t) && !/(melee|ranged) weapons/i.test(t)) conds.unknown = true;
-  const scope = /\bthis model’?s\b/i.test(t) && !/\bthis unit’?s\b/i.test(t) ? 'model' : 'unit';
+  const scope = /\b(this|that) model’?s\b/i.test(t) && !/\bthis unit’?s\b/i.test(t) ? 'model' : 'unit';
   return { effects, phases: phasesOf(t), scope, conds, partial: full.length !== t.length };
+}
+
+// ---------------------------------------------------------------------------
+// Mortal-wound sources ("Roll six D6: for each 4+, that enemy unit suffers 1
+// mortal wound", "Roll one D6: on a 2+, the target suffers D3 mortal wounds",
+// Crushing Impact's "number of D6 equal to the T characteristic"). Returns
+// {label, source:{dice, threshold, amount, cap, selfOnOne}} or null. `dice`
+// may be 'T' (attacker model's Toughness) or 'models' (one per model), which
+// the adapter resolves for the attacking unit.
+
+const NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12 };
+const ENEMY = '(?:that enemy unit|the target(?: unit)?|that unit|each enemy unit[^,.:]*?|the enemy unit|it)';
+
+export function parseMortal(text) {
+  const t = norm(text);
+  if (!/mortal wound/i.test(t)) return null;
+  const amt = `(D?\\d+(?:\\+\\d+)?|one|two|three)`;
+  const toAmount = (x) => NUM[String(x).toLowerCase()] ?? String(x).toUpperCase();
+  const capM = t.match(/to a maximum of (\d+) mortal wounds/i);
+  const cap = capM ? Number(capM[1]) : 0;
+  const selfOnOne = /for each 1, (?:your|this) unit suffers 1 mortal wound/i.test(t) ? 1 : 0;
+  let m;
+  // "Roll a number of D6 equal to the T characteristic of that model: ... for each 5+, that enemy unit suffers 1 mortal wound"
+  if ((m = t.match(new RegExp(`roll a number of D6 equal to the (?:T|Toughness) characteristic[^:]*:[^.]*?for each (\\d)\\+, ${ENEMY} suffers ${amt} mortal wounds?`, 'i')))) {
+    return { label: `${m[1]}+ per T dice: MW`, source: { dice: 'T', threshold: Number(m[1]), amount: toAmount(m[2]), cap, selfOnOne } };
+  }
+  // "for each model in your unit, roll one D6: on a 4+ ..." / "roll one D6 for each model in your unit"
+  if ((m = t.match(new RegExp(`(?:for each model in (?:this|your) unit,? roll one D6|roll one D6 for each model in (?:this|your) unit)[^:]*:[^.]*?(?:on a|for each) (\\d)\\+,? ${ENEMY} suffers ${amt} mortal wounds?`, 'i')))) {
+    return { label: `D6 per model, ${m[1]}+: ${toAmount(m[2])} MW`, source: { dice: 'models', threshold: Number(m[1]), amount: toAmount(m[2]), cap, selfOnOne } };
+  }
+  // "Roll six D6: for each 4+, that enemy unit suffers 1 mortal wound"
+  if ((m = t.match(new RegExp(`roll (\\w+) D6[^:]*:[^.]*?for each (\\d)\\+, ${ENEMY} suffers ${amt} mortal wounds?`, 'i')))) {
+    const n = NUM[m[1].toLowerCase()] ?? Number(m[1]);
+    if (n) return { label: `${n}D6, each ${m[2]}+: ${toAmount(m[3])} MW`, source: { dice: n, threshold: Number(m[2]), amount: toAmount(m[3]), cap, selfOnOne } };
+  }
+  // "Roll one D6: on a 2+, that enemy unit suffers D3 mortal wounds"
+  if ((m = t.match(new RegExp(`roll one D6[^:]*:[^.]*?on a (\\d)\\+,? ${ENEMY} suffers ${amt} mortal wounds?`, 'i')))) {
+    return { label: `D6 ${m[1]}+: ${toAmount(m[2])} MW`, source: { dice: 1, threshold: Number(m[1]), amount: toAmount(m[2]), cap, selfOnOne } };
+  }
+  // automatic: "that enemy unit suffers D3 mortal wounds"
+  if (!/\broll\b/i.test(t) && (m = t.match(new RegExp(`${ENEMY} suffers ${amt} mortal wounds?`, 'i')))) {
+    return { label: `${toAmount(m[1])} MW`, source: { dice: 0, threshold: 0, amount: toAmount(m[1]), cap, selfOnOne } };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +314,7 @@ export function parseDefensiveText(text) {
   const rangedOnly = /\branged attacks that target\b/i.test(t);
   const meleeOnly = /\bmelee attacks that target\b/i.test(t);
   const phases = rangedOnly ? ['shooting'] : meleeOnly ? ['fight'] : ['shooting', 'fight'];
-  const targetsUs = /(that )?targets? (this|your) (unit|model)/i;
+  const targetsUs = /(that )?targets? (either )?(this|your) (\w+ )?(unit|model)/i;
   let m;
   if ((m = t.match(/(\d)\+\s*InSv/i)) || (m = t.match(/(\d)\+\s*invulnerable save/i))) {
     out.push({ label: `${m[1]}+ invulnerable save`, apply: { InSv: Number(m[1]) }, phases });
@@ -257,7 +337,7 @@ export function parseDefensiveText(text) {
   if (/(-1 to hit rolls|subtract 1 from the hit roll)/i.test(t) && targetsUs.test(t)) out.push({ label: '-1 to hit', apply: { hitMod: -1 }, phases });
   if (/that target (this|your) (unit|model) have -1 AP/i.test(t) || (/worsen the Armour Penetration characteristic of that attack by 1/i.test(t) && targetsUs.test(t))) out.push({ label: '-1 AP (incoming)', apply: { apReduce: 1 }, phases });
   if (/\bStealth\b/.test(t) && !/cannot have the benefit/i.test(t)) out.push({ label: 'Stealth (cover vs ranged)', apply: { cover: true }, phases: ['shooting'] });
-  if (/(this|your) unit has the benefit of cover/i.test(t)) out.push({ label: 'Benefit of cover', apply: { cover: true }, phases: ['shooting'] });
+  if (/(this|your) unit has the benefit of cover|the target has the benefit of cover|have the benefit of cover/i.test(t)) out.push({ label: 'Benefit of cover', apply: { cover: true }, phases: ['shooting'] });
   return out;
 }
 
@@ -272,8 +352,8 @@ export function stratagemRole(s) {
   // older wording: "Your Shooting phase or the Fight phase." + the effect says who it helps
   const e = norm(s.effect);
   const tg = norm(s.target);
-  if (/enemy unit has selected its targets|selected as the target of/i.test(`${w} ${tg}`) || /(an attack|attacks?) (that )?targets? (this|your) unit/i.test(e)) return 'defend';
-  if (OFFENSIVE_SUBJECT.test(e)) return 'attack';
+  if (/enemy unit has selected its targets|selected as the target of/i.test(`${w} ${tg}`) || /(an attack|attacks?) (that )?targets? (either )?(this|your) (\w+ )?unit/i.test(e)) return 'defend';
+  if (OFFENSIVE_SUBJECT.test(e) || parseMortal(e)) return 'attack';
   return null;
 }
 
@@ -282,7 +362,7 @@ export function stratagemPhases(s) {
   const p = String(s.phase ?? '').toLowerCase();
   const out = [];
   if (p.includes('shooting') || p.includes('any')) out.push('shooting');
-  if (p.includes('fight') || p.includes('any')) out.push('fight');
+  if (p.includes('fight') || p.includes('any') || (p.includes('charge') && /mortal wound/i.test(s.effect ?? ''))) out.push('fight');
   return out;
 }
 
@@ -322,7 +402,7 @@ export function stratagemEligible(s, unitKeywords) {
   let m = w.match(/friendly (?:attached |unengaged |engaged )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*unit\b(?:\s*\(excluding ([^)]+?) units?\))?/i);
   if (!m) {
     // older wording: "TARGET: One NECRONS unit from your army ..." / "One Cryptek Infantry unit from your army"
-    m = norm(s.target).match(/^One (?:or more )?(?:unengaged |engaged |attached |other )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*(?:unit|model)s? (?:\(excluding ([^)]+?) (?:units?|models?)\) )?from your army/i);
+    m = norm(s.target).match(/^One (?:or more )?(?:friendly )?(?:unengaged |engaged |attached |other )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*(?:unit|model)s?\b(?: \(excluding ([^)]+?) (?:units?|models?)\))?/i);
     if (!m) return true;
   }
   if (!keywordPhraseMatches(m[1] ?? '', unitKeywords)) return false;

@@ -275,3 +275,28 @@ test('casualties: fewer models and a damaged model change the outcome', () => {
   near(r.totalWounds, 7, 1e-9, 'total wounds = 1 + 3 + 3');
   near(r.kills[0], (1 / 6) ** 3, 0.003, 'no kill only if all three fail to wound');
 });
+
+test('mortal-wound sources (06.02): Explosives = six D6, each 4+ one MW; spill over; FNP vs mortals', () => {
+  const sc = (mortals, groups, dmods = {}) => E.simulate({
+    attackers: [{ name: 'A', mods: { mortals }, weapons: [] }],
+    defender: { name: 'D', groups, mods: dmods }, trials: 60000, seed: 9,
+  });
+  const expl = [{ dice: 6, threshold: 4, amount: 1 }];
+  near(sc(expl, [group({ count: 20, W: 1 })]).meanKills, 3, 0.03, 'Explosives vs 1W');
+  // mortal wounds spill over (unlike Devastating Wounds): 3 MW into W2 models kill 1.5 models on average
+  near(sc(expl, [group({ count: 20, W: 2 })]).meanWounds, 3, 0.03, 'MW spill: wounds');
+  near(sc(expl, [group({ count: 20, W: 1 })], { fnpMortal: 5 }).meanWounds, 2, 0.03, 'FNP 5+ vs mortals');
+  // Crushing Impact: T10 -> ten D6, each 5+ one MW, max 6; each 1 hurts the attacker
+  const ci = sc([{ dice: 10, threshold: 5, amount: 1, cap: 6, selfOnOne: 1 }], [group({ count: 20, W: 1 })]);
+  near(ci.meanKills, 10 / 3, 0.05, 'Crushing Impact (cap rarely binds)');
+  near(ci.hazardMW, 10 / 6, 0.03, 'self MW on 1s');
+  // automatic D3
+  near(sc([{ dice: 0, amount: 'D3' }], [group({ count: 20, W: 1 })]).meanKills, 2, 0.02, 'automatic D3');
+});
+
+test('points removed: per-model points of the destroyed models', () => {
+  // 6 torrent S8 AP-6 D1 into 10 W1 models worth 10 pts: 6 * 5/6 = 5 kills = 50 pts
+  const r = run({ weapons: [weapon({ count: 6, S: 8, AP: -6, kw: { torrent: true } })], groups: [group({ count: 10, Sv: 3, ptsPerModel: 10 })] });
+  near(r.meanPoints, 50, 0.4, 'points removed');
+  assert.equal(r.totalPoints, 100);
+});

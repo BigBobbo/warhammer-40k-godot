@@ -52,7 +52,13 @@ test('choices take the first option; re-roll wording', () => {
 
 test('situational wording starts off; attacker keyword condition', () => {
   const r = R.parseOffensive('In the Fight phase, if this unit is within range of an objective, this unit’s melee attacks: • Have +1 S. • Have +1 AP.');
-  assert.equal(r.conds.unknown, true);
+  assert.equal(r.conds.onObjective, true, 'objective is a situation chip, not unknown');
+  assert.equal(r.conds.unknown, false);
+  assert.deepEqual(r.phases, ['fight']);
+  assert.equal(R.conditionsMet(r.conds, {}), false);
+  assert.equal(R.conditionsMet(r.conds, { onObjective: true }), true);
+  const hidden = R.parseOffensive('In your Shooting phase, when this unit has shot, select one enemy unit hit by those attacks. That unit’s ranged attacks have +1 to hit rolls.');
+  assert.ok(!hidden || hidden.conds.unknown, 'truly situational wording still starts off');
   const g = R.parseOffensive('If the unit has the ORKS keyword, for the rest of the battle, melee weapons equipped by all friendly units gain [SUSTAINED HITS 1].');
   assert.deepEqual(labels(g), ['Sustained Hits 1']);
   assert.equal(R.conditionsMet(g.conds, { attackerKeywords: ['ORKS', 'INFANTRY'] }), true);

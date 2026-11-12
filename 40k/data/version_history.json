@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.82.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: list library, situation chips, mortal wounds, points efficiency and a threat view.",
+      "changes": [
+        "List library (📚 on the Armies tab): save every opponent's list before the event (e.g. \"R3 – Necrons\") and load it into A or B with one tap.",
+        "Situation chips on attacking units: On an objective, doctrine active, target below half strength / battle-shocked, distance to target, arrived from reserves — abilities that depend on them now switch on automatically. Casualties that leave the target below half strength count too.",
+        "Mortal wounds: core stratagems Explosives and Crushing Impact (and abilities that inflict mortal wounds) are now calculated, spilling over between models with Feel No Pain applied. Epic Challenge gives Precision to the character only; Command Re-roll offers one hit, wound or damage die.",
+        "Points: results show average points destroyed and points destroyed per 100 points spent; the grid has Pts and Pts/100 views.",
+        "Threat view (Intel → a unit → ⚠ Biggest threats): every enemy unit's shooting and fight damage against that unit, biggest first; tap one to open the matchup."
+      ]
+    },
+    {
       "version": "1.81.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: single-die re-rolls, damage re-rolls, ignore-modifier rules and 'X or Y' choices.",

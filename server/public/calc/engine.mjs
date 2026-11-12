@@ -141,6 +141,7 @@ export function mergeMods(a = {}, b = {}) {
     if (k === 'rerollHits' || k === 'rerollWounds') out[k] = (REROLL_RANK[v] ?? 0) > (REROLL_RANK[cur] ?? 0) ? v : (cur ?? v);
     else if (k === 'critHit' || k === 'critWound') out[k] = Math.min(cur ?? 6, v);
     else if (k === 'sustained') out[k] = Math.max(cur ?? 0, v);
+    else if (Array.isArray(v)) out[k] = [...(cur ?? []), ...v];
     else if (typeof v === 'boolean') out[k] = !!cur || v;
     else if (typeof v === 'number') out[k] = (cur ?? 0) + v;
     else out[k] = v;
@@ -188,6 +189,7 @@ function compile(scenario) {
     woundsLeftFirst: g.woundsLeftFirst ?? null,
     dr: g.dr || 0,          // per-group damage reduction (e.g. Praesidium Shield models)
     fnp: g.fnp || 0,        // per-group Feel No Pain (e.g. a leader's own FNP)
+    ptsPerModel: g.ptsPerModel || 0, // for "points removed"
   }));
   const attackers = (scenario.attackers ?? []).map(a => {
     const unitMods = defaults(a.mods);
@@ -227,7 +229,16 @@ function compile(scenario) {
         m,
       };
     });
-    return { name: a.name, mods: unitMods, weapons, allVehicleMonster: !!a.allVehicleMonster };
+    // mortal-wound sources (Explosives, Crushing Impact, "D3 mortal wounds" abilities): attacker-level
+    const mortals = (unitMods.mortals ?? []).map(src => ({
+      dice: Math.max(0, Math.round(Number(src.dice) || 0)), // number of D6 rolled (0 = automatic)
+      threshold: Number(src.threshold) || 0,                 // each roll >= threshold succeeds
+      amount: parseDice(src.amount ?? 1),                    // mortal wounds per success
+      cap: Number(src.cap) || 0,                             // max mortal wounds (0 = none)
+      selfOnOne: Number(src.selfOnOne) || 0,                 // attacker suffers N MW per 1 rolled
+      label: src.label ?? 'mortal wounds',
+    }));
+    return { name: a.name, mods: unitMods, weapons, mortals, allVehicleMonster: !!a.allVehicleMonster };
   });
   return { phase: scenario.phase ?? 'shooting', attackers, groups, dm };
 }
@@ -326,8 +337,11 @@ function mortalTarget(st, precision) {
   // 06.02 priority; Precision dev wounds go to the character group first (24.28.01)
   const order = [];
   if (precision) for (const s of st) if (s.alive > 0 && s.g.character) order.push(s);
-  const nonChar = st.filter(s => s.alive > 0 && !s.g.character);
-  const chars = st.filter(s => s.alive > 0 && s.g.character);
+  // the defender picks among equal-priority models: we model one who loses the cheapest
+  // (then lowest-wound) models first
+  const cheapest = (a, b) => (a.g.ptsPerModel || 0) - (b.g.ptsPerModel || 0) || a.g.W - b.g.W;
+  const nonChar = st.filter(s => s.alive > 0 && !s.g.character).sort(cheapest);
+  const chars = st.filter(s => s.alive > 0 && s.g.character).sort(cheapest);
   for (const s of nonChar) if (groupWounded(s)) order.push(s);
   order.push(...nonChar);
   for (const s of chars) if (groupWounded(s)) order.push(s);
@@ -429,7 +443,7 @@ function runTrial(C, rnd, rec) {
   const totalStart = aliveTotal(st);
   const perAttacker = [];
   let hazardMW = 0;
-  const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0 };
+  const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0, abilityMortals: 0 };
   const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(C.groups.length).fill(0) };
 
   for (const a of C.attackers) {
@@ -440,6 +454,27 @@ function runTrial(C, rnd, rec) {
       wound: a.weapons.some(w => w.m.rerollOneWound),
       damage: a.weapons.some(w => w.m.rerollOneDamage),
     };
+    // mortal wounds from abilities / stratagems: 06.02 — one at a time, a wounded
+    // non-CHARACTER first, spilling over to the next model; FNP per wound
+    for (const src of a.mortals) {
+      let mw = 0;
+      if (src.dice === 0) mw = rollDice(src.amount, rnd);
+      else for (let i = 0; i < src.dice; i++) {
+        const r = d6(rnd);
+        if (r === 1 && src.selfOnOne) hazardMW += src.selfOnOne;
+        if (r >= src.threshold) mw += rollDice(src.amount, rnd);
+      }
+      if (src.cap) mw = Math.min(mw, src.cap);
+      steps.abilityMortals += mw;
+      for (let i = 0; i < mw; i++) {
+        const s = mortalTarget(st, false);
+        if (!s) break;
+        const fnp = Math.min(dm.fnp || 7, dm.fnpMortal || 7, s.g.fnp || 7);
+        if (fnp < 7 && d6(rnd) >= fnp) continue;
+        const idx = pickModel(s);
+        if (idx >= 0) damageModel(s, idx, 1, out);
+      }
+    }
     const startAlive = aliveTotal(st);
     for (const w of a.weapons) {
       if (aliveTotal(st) <= 0) break;
@@ -526,6 +561,9 @@ function runTrial(C, rnd, rec) {
   rec.woundsLost = out.woundsLost;
   rec.wiped = totalStart > 0 && aliveTotal(st) === 0;
   rec.killsByGroup = out.killsByGroup;
+  let pts = 0;
+  for (let i = 0; i < C.groups.length; i++) pts += out.killsByGroup[i] * (C.groups[i].ptsPerModel || 0);
+  rec.points = pts;
   rec.perAttacker = perAttacker;
   rec.hazardMW = hazardMW;
   rec.steps = steps;
@@ -545,8 +583,9 @@ export function simulate(scenario) {
   const woundHist = new Array(totalWounds + 1).fill(0);
   const groupKills = new Array(C.groups.length).fill(0);
   const perAttacker = C.attackers.map(a => ({ name: a.name, kills: 0, wounds: 0 }));
-  const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0 };
-  let wipes = 0, hazard = 0, sumKills = 0, sumWounds = 0;
+  const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0, abilityMortals: 0 };
+  let wipes = 0, hazard = 0, sumKills = 0, sumWounds = 0, sumPoints = 0;
+  const totalPoints = C.groups.reduce((acc, g) => acc + g.count * (g.ptsPerModel || 0), 0);
   const rec = {};
   for (let t = 0; t < trials; t++) {
     runTrial(C, rnd, rec);
@@ -554,6 +593,7 @@ export function simulate(scenario) {
     woundHist[Math.min(rec.woundsLost, totalWounds)]++;
     sumKills += rec.kills;
     sumWounds += rec.woundsLost;
+    sumPoints += rec.points;
     if (rec.wiped) wipes++;
     hazard += rec.hazardMW;
     for (let i = 0; i < groupKills.length; i++) groupKills[i] += rec.killsByGroup[i];
@@ -587,6 +627,8 @@ export function simulate(scenario) {
     perAttacker: perAttacker.map(p => ({ name: p.name, kills: p.kills / trials, wounds: p.wounds / trials })),
     steps,
     hazardMW: hazard / trials,
+    meanPoints: sumPoints / trials,   // expected points of models destroyed (0 when the lists carry no points)
+    totalPoints,
   };
 }
 

@@ -87,7 +87,12 @@ function entry(r, desc, source) {
   };
 }
 
-const wahapedia = readPsv(SNAPSHOT).filter(r => r.detachment && r.name);
+// detachment stratagems, plus the 11e core set (type "Core Stratagem", no detachment —
+// Explosives, Crushing Impact, Epic Challenge, Command Re-roll ...) filed under "Core".
+// The older "Core – ..." / Boarding Actions / Challenger rows are left out.
+const wahapedia = readPsv(SNAPSHOT)
+  .map(r => (!r.detachment && /^Core Stratagem/.test(r.type) ? { ...r, detachment: 'Core', detachment_id: 'core', faction_id: 'CORE' } : r))
+  .filter(r => r.detachment && r.name);
 const byKey = new Map();
 for (const r of wahapedia) {
   const desc = clean(r.description);

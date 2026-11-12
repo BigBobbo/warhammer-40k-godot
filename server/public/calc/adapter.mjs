@@ -495,6 +495,7 @@ export function defenderProfile(cu, army = null) {
         count: g.count,
         W: p.W, Sv: p.Sv, InSv: p.invuln_sv ?? 0, T: p.T,
         character: char && m.role !== 'bodyguard',
+        ptsPerModel: (m.ru.points ?? 0) / Math.max(1, m.ru.model_count ?? 1),
         wargearNames: g.wargear.map(w => looseName(conv.wres.resolve(m.factionId, w.id)?.name ?? w.id.replace(/-/g, ' '))),
       });
     });
@@ -637,9 +638,9 @@ export function buildDefender(profile, enabled, phase, manual = {}, overrides = 
     const eg = {
       name: g.name, count: g.count, W: g.W, Sv: g.Sv, InSv: g.InSv || 0, T: g.T,
       character: g.character, woundsLeftFirst: g.woundsLeftFirst ?? null,
-      dr: g.dr || 0, fnp: g.fnp || 0,
+      dr: g.dr || 0, fnp: g.fnp || 0, ptsPerModel: g.ptsPerModel || 0,
     };
-    const key = g.character ? null : [eg.W, eg.Sv, eg.InSv, eg.T, eg.dr, eg.fnp].join('|');
+    const key = g.character ? null : [eg.W, eg.Sv, eg.InSv, eg.T, eg.dr, eg.fnp, eg.ptsPerModel].join('|');
     const prev = key ? index.get(key) : null;
     if (prev && (prev.woundsLeftFirst == null || eg.woundsLeftFirst == null)) {
       prev.count += eg.count;
@@ -685,7 +686,7 @@ export function armyStratagems(army) {
   const ids = new Set(dets.map(d => d.id));
   const names = new Set(dets.map(d => normName(d.name)));
   const seen = new Set();
-  return STRATAGEMS.filter(st => (ids.has(st.detachmentId) || names.has(normName(st.detachment))) &&
+  return STRATAGEMS.filter(st => (ids.has(st.detachmentId) || names.has(normName(st.detachment)) || st.detachment === 'Core') &&
     !seen.has(st.id) && seen.add(st.id));
 }
 
@@ -732,6 +733,15 @@ export function attackerRules(cu, army) {
   }
   const stratText = [];
   for (const st of armyStratagems(army)) {
+    if (st.detachment === 'Core' && /^COMMAND RE-?ROLL$/i.test(st.name) && !st.missing) {
+      // "If you are rolling more than one dice together, select one of those dice to re-roll"
+      const base = { kind: 'stratagem', source: `${st.name} (${st.cp}CP)`, member: null, memberName: 'Stratagem',
+        text: `WHEN: ${st.when}\nEFFECT: ${st.effect}`, cp: st.cp, scope: 'unit', conds: parseConditions(''), phases: ['shooting', 'fight'], partial: false };
+      const opts = [['rerollOneHit', 'Re-roll one hit'], ['rerollOneWound', 'Re-roll one wound'], ['rerollOneDamage', 'Re-roll one damage roll']];
+      opts.forEach(([k, label], i) => rules.push({ ...base, id: `strat:${st.id}${i ? `:alt${i}` : ''}`, group: `strat:${st.id}`, option: i + 1,
+        effects: [{ label, apply: { [k]: true } }], apply: { [k]: true }, label: i ? `or: ${label}` : label }));
+      continue;
+    }
     if (stratagemRole(st) !== 'attack' || !stratagemEligible(st, cu.keywords)) continue;
     const parsed = st.missing ? null : parseOffensive(st.effect);
     const ok = push({ id: `strat:${st.id}`, kind: 'stratagem', source: `${st.name} (${st.cp}CP)`, member: null,
@@ -767,10 +777,22 @@ export function attackerRuleOn(r, override, ctx) {
 export function buildAttacker(cu, rows, manualMods, rules, enabledIds, phase) {
   let unitMods = { ...(manualMods ?? {}) };
   const perMember = new Map();
+  // a model-scoped stratagem ("Select one CHARACTER model ... that model's melee weapons") goes to the characters
+  const charMembers = cu.members.filter(m => m.role === 'leader' || (cu.members.length === 1 && (m.dcUnit.keywords ?? []).some(k => /^character$/i.test(k))));
   for (const r of rules) {
     if (!enabledIds.has(r.id) || !r.phases.includes(phase)) continue;
-    if (r.scope === 'model' && r.member != null) perMember.set(r.member, mergeMods(perMember.get(r.member) ?? {}, r.apply));
-    else unitMods = mergeMods(unitMods, r.apply);
+    const { mortals, ...apply } = r.apply;
+    if (mortals?.length) unitMods = mergeMods(unitMods, { mortals });
+    if (r.scope === 'model' && r.member != null) perMember.set(r.member, mergeMods(perMember.get(r.member) ?? {}, apply));
+    else if (r.scope === 'model' && r.member == null && charMembers.length) for (const m of charMembers) perMember.set(m.index, mergeMods(perMember.get(m.index) ?? {}, apply));
+    else unitMods = mergeMods(unitMods, apply);
+  }
+  // mortal-wound dice counted "per T" / "per model" resolve against this unit
+  if (unitMods.mortals?.length) {
+    const maxT = Math.max(...cu.members.flatMap(m => (m.dcUnit.profiles ?? []).map(p => p.T || 0)), 1);
+    unitMods.mortals = unitMods.mortals.map(src => ({
+      ...src, dice: src.dice === 'T' ? maxT : src.dice === 'models' ? cu.models : src.dice,
+    }));
   }
   return {
     name: cu.name,

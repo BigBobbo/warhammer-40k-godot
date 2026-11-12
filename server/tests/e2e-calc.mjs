@@ -288,6 +288,38 @@ try {
   await page.screenshot({ path: join(SHOTS, 'calc_14_saved.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
 
+  // --- points efficiency in the results sheet
+  await page.tap('button[data-action="open-results"]');
+  await page.waitForSelector('#pts-removed');
+  const ptsTxt = [await page.textContent('#pts-removed'), await page.textContent('#pts-eff')];
+  const rP = await page.evaluate(() => window.__calc.state.result);
+  check('results show points destroyed and per-100-pts efficiency', rP.totalPoints > 0 && /^\d+$/.test(ptsTxt[0]) && /^\d+$/.test(ptsTxt[1]), JSON.stringify({ ptsTxt, mp: rP.meanPoints, tp: rP.totalPoints }));
+  await page.tap('.sheet button[data-action="close-sheet"]');
+
+  // --- Explosives (core stratagem): mortal wounds from a Thunderwolf Cavalry unit (EXPLOSIVES keyword)
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Thunderwolf Cavalry (2)")');
+  const twc2 = page.locator('[data-attacker]').last();
+  const expl = twc2.locator('button[data-action="arule"]', { hasText: 'EXPLOSIVES' });
+  check('Explosives offered as a stratagem to an EXPLOSIVES unit', (await expl.count()) === 1 && (await expl.getAttribute('aria-pressed')) === 'false');
+  await expl.tap();
+  await settle(page);
+  const scX = await page.evaluate(() => window.__calc.scenario());
+  const rX = await page.evaluate(() => window.__calc.state.result);
+  check('Explosives reaches the engine (6D6, 4+) and inflicts mortal wounds', scX.attackers.at(-1).mods.mortals?.[0]?.dice === 6 && rX.steps.abilityMortals > 2.5 && rX.steps.abilityMortals < 3.5,
+    JSON.stringify({ m: scX.attackers.at(-1).mods.mortals, mw: rX.steps.abilityMortals }));
+  await twc2.locator('button[data-action="remove"]').tap();
+
+  // --- grid: points efficiency metric
+  await page.tap('button[data-action="open-grid"]');
+  await page.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 60000 });
+  await page.tap('button[data-action="grid-metric"][data-value="eff"]');
+  const effTxt = await page.locator('#grid-host .cell').first().textContent();
+  check('grid shows points destroyed per 100 pts', /^\d+$/.test(effTxt.trim()), effTxt);
+  await page.screenshot({ path: join(SHOTS, 'calc_15_grid_efficiency.png') });
+  await page.tap('button[data-action="grid-metric"][data-value="damage"]');
+  await page.tap('.sheet button[data-action="close-sheet"]');
+
   // --- swap: Orks attack Space Wolves; fight phase; Thunderwolf storm shields auto-on
   await page.tap('button[data-action="swap"]');
   await page.tap('button[data-action="phase"][data-value="fight"]');
@@ -375,6 +407,17 @@ try {
   check('Thunderous Charge on after ticking Charged', (await twCard.locator('button[data-action="arule"]', { hasText: 'Thunderous Charge' }).getAttribute('aria-pressed')) === 'true');
   await settle(page);
   await page.screenshot({ path: join(SHOTS, 'calc_09_thunderous_charge.png') });
+  await page.tap('button[data-action="open-add"]');
+  await page.tap('.pick:has-text("Grey Hunters")');
+  const ghF = page.locator('[data-attacker]').last();
+  const objChip = ghF.locator('button[data-action="amod-toggle"][data-key="onObjective"]');
+  const cunning = () => ghF.locator('button[data-action="arule"]', { hasText: 'Cunning Hunters' });
+  check('"On an objective" chip offered because Cunning Hunters needs it', (await objChip.count()) === 1 && (await cunning().getAttribute('aria-pressed')) === 'false');
+  await objChip.tap();
+  check('ticking "On an objective" switches Cunning Hunters on', (await cunning().getAttribute('aria-pressed')) === 'true');
+  await settle(page);
+  await page.screenshot({ path: join(SHOTS, 'calc_16_situation.png') });
+  await ghF.locator('button[data-action="remove"]').tap();
   await page.tap('button[data-action="swap"]');
 
   // --- state survives a reload (localStorage)
@@ -389,7 +432,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v6') && (await (await caches.open('w40k-calc-v6')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v7') && (await (await caches.open('w40k-calc-v7')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });
@@ -399,6 +442,41 @@ try {
   await settle(page);
   check('works offline after first visit', (await kpi(page)).every(Boolean));
   await ctx.setOffline(false);
+
+  // --- threat view: what in the Ork army hurts the Grey Hunters most
+  await page.tap('button[data-action="view"][data-value="intel"]');
+  await page.tap('button[data-action="intel-side"][data-value="A"]');
+  await page.fill('input[data-input="intel-search"]', 'grey hunters');
+  await page.locator('#intel-list .intel-unit summary').first().tap();
+  await page.locator('#intel-list button[data-action="open-threats"]').first().tap();
+  await page.waitForFunction(() => window.__calc.state.threats?.done, null, { timeout: 60000 });
+  const thr = await page.evaluate(() => { const t = window.__calc.state.threats; return { n: Object.keys(t.cells).length, total: t.total, units: t.units.length }; });
+  check('threat view ran every enemy unit in both phases', thr.n === thr.total && thr.total >= thr.units, JSON.stringify(thr));
+  const firstVals = await page.$$eval('.sheet table.threats tbody tr', trs => trs.map(tr => Math.max(...[...tr.querySelectorAll('.cell')].map(b => parseInt(b.textContent, 10) || 0))));
+  check('threats sorted, biggest first', firstVals.every((v, i) => i === 0 || v <= firstVals[i - 1]), firstVals.join(','));
+  await page.screenshot({ path: join(SHOTS, 'calc_17_threats.png') });
+  await page.locator('.sheet table.threats .cell').first().tap();
+  await page.waitForSelector('select[data-input="target"]');
+  const scT = await page.evaluate(() => ({ side: window.__calc.state.side, t: window.__calc.scenario()?.defender?.name }));
+  check('tapping a threat opens that matchup (Orks attacking the Grey Hunters)', scT.side === 'B' && scT.t === 'Grey Hunters', JSON.stringify(scT));
+
+  // --- list library: save both lists, load one into the other slot
+  await page.tap('button[data-action="view"][data-value="armies"]');
+  await page.tap('button[data-action="open-library"][data-side="A"]');
+  await page.fill('input[data-input="lib-name"]', 'R1 – Wolves');
+  await page.tap('button[data-action="lib-save"][data-side="A"]');
+  check('saved list shows in the library sheet', (await page.locator('.sheet .pick', { hasText: 'R1 – Wolves' }).count()) === 1);
+  await page.tap('.sheet button[data-action="close-sheet"]');
+  await page.tap('button[data-action="open-library"][data-side="B"]');
+  await page.fill('input[data-input="lib-name"]', 'R2 – Orks');
+  await page.tap('button[data-action="lib-save"][data-side="B"]');
+  check('library holds both lists', await page.evaluate(() => window.__calc.state.library.map(l => l.name).join('|')) === 'R2 – Orks|R1 – Wolves');
+  await page.screenshot({ path: join(SHOTS, 'calc_18_library.png') });
+  await page.locator('.sheet .pick', { hasText: 'R1 – Wolves' }).locator('button[data-action="lib-load"][data-side="B"]').tap();
+  check('loading from the library replaces army B', await page.evaluate(() => window.__calc.state.armies.B.faction) === 'Space Wolves');
+  await page.reload();
+  await page.waitForSelector('textarea[data-side="A"]');
+  check('library survives a reload', await page.evaluate(() => window.__calc.state.library.length) === 2);
 
   // --- tablet layout
   const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });

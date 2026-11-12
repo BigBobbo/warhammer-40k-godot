@@ -1,7 +1,7 @@
 // Offline support for the combat calculator: the app shell, the dataset
 // bundle and the importer modules are cached on install; everything else
 // same-origin (except /api) is served stale-while-revalidate.
-const CACHE = 'w40k-calc-v6';
+const CACHE = 'w40k-calc-v7';
 const SHELL = [
   './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs',
   './manifest.webmanifest', './icon-192.png', './icon-512.png',
