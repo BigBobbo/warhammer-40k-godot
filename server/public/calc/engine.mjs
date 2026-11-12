@@ -154,6 +154,9 @@ function defaults(mods) {
     rerollHits: 'none', rerollWounds: 'none', critHit: 6, critWound: 6,
     lethal: false, sustained: 0, dev: false, twin: false, ignoresCover: false, precision: false,
     lance: false, cleave: 0, rapidFire: 0,  // granted: [LANCE], [CLEAVE X], +X to / grant [RAPID FIRE]
+    rerollOneHit: false, rerollOneWound: false, rerollOneDamage: false, // e.g. Command Re-roll: one die per unit
+    rerollDamage: false,                    // re-roll damage rolls (re-rolled when below average)
+    ignoreHitMods: false, ignoreWoundMods: false, // "ignore any or all modifiers" -> drop the negative ones
     halfRange: false, charged: false, stationary: false, overwatch: false, indirect: false,
     lethalVsDev: 'auto',
     ...(mods ?? {}),
@@ -337,11 +340,14 @@ function hitParams(w, m, ctx) {
   return {
     torrent: w.torrent,
     snap: !!m.overwatch,
-    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + m.bsMod + ctx.coverBs)),
+    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (m.ignoreHitMods ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs))),
     failBand: w.indirect ? (m.stationary ? 3 : 5) : 1,
     critAt: m.overwatch ? 7 : Math.min(m.critHit || 6, 6),
-    mod: cap1(m.hitMod + ctx.defHitMod + (w.heavy && m.stationary ? 1 : 0)),
+    mod: m.ignoreHitMods
+      ? cap1(Math.max(0, m.hitMod) + Math.max(0, ctx.defHitMod) + (w.heavy && m.stationary ? 1 : 0))
+      : cap1(m.hitMod + ctx.defHitMod + (w.heavy && m.stationary ? 1 : 0)),
     reroll: m.overwatch || w.indirect ? 'none' : m.rerollHits,
+    canRerollOne: !m.overwatch && !w.indirect,
   };
 }
 
@@ -352,7 +358,7 @@ function evalHit(hp, r) {
   return r + hp.mod >= hp.bs ? 1 : 0;
 }
 
-function rollHit(hp, rnd) {
+function rollHit(hp, rnd, one) {
   // returns 0 miss, 1 hit, 2 critical hit
   if (hp.torrent) return 1;
   const r = d6(rnd);
@@ -361,6 +367,8 @@ function rollHit(hp, rnd) {
   if ((p === 'ones' && r === 1) || (p === 'fail' && res === 0) || (p === 'noncrit' && res < 2)) {
     return evalHit(hp, d6(rnd));
   }
+  // "re-roll one hit roll" (Command Re-roll ...): spend it on the first miss
+  if (res === 0 && one?.hit && hp.canRerollOne) { one.hit = false; return evalHit(hp, d6(rnd)); }
   return res;
 }
 
@@ -368,8 +376,10 @@ function woundParams(w, m, ctx) {
   return {
     thr: woundThreshold(w.S, ctx.T),
     critAt: Math.min(m.critWound || 6, w.antiCrit, 6),
-    mod: cap1(m.woundMod + (w.lance && m.charged ? 1 : 0) + ctx.defWoundMod +
-      (w.S > ctx.T ? ctx.defWoundModIfSgtT : 0)),
+    mod: m.ignoreWoundMods
+      ? cap1(Math.max(0, m.woundMod) + (w.lance && m.charged ? 1 : 0))
+      : cap1(m.woundMod + (w.lance && m.charged ? 1 : 0) + ctx.defWoundMod +
+        (w.S > ctx.T ? ctx.defWoundModIfSgtT : 0)),
     reroll: w.twin && m.rerollWounds !== 'noncrit' ? 'fail' : m.rerollWounds,
   };
 }
@@ -380,7 +390,7 @@ function evalWound(wp, r) {
   return r + wp.mod >= wp.thr ? 1 : 0;
 }
 
-function rollWound(wp, rnd) {
+function rollWound(wp, rnd, one) {
   // returns 0 fail, 1 wound, 2 critical wound
   const r = d6(rnd);
   const res = evalWound(wp, r);
@@ -388,11 +398,18 @@ function rollWound(wp, rnd) {
   if ((p === 'ones' && r === 1) || (p === 'fail' && res === 0) || (p === 'noncrit' && res < 2)) {
     return evalWound(wp, d6(rnd));
   }
+  if (res === 0 && one?.wound) { one.wound = false; return evalWound(wp, d6(rnd)); }
   return res;
 }
 
-function rollDamage(w, m, dm, g, rnd) {
-  let d = rollDice(w.D, rnd) + (w.melta && m.halfRange ? w.melta : 0) + (m.damageMod || 0);
+function rollDamage(w, m, dm, g, rnd, one) {
+  let base = rollDice(w.D, rnd);
+  if (w.D.n > 0 && base < diceMean(w.D)) {
+    // re-roll a below-average damage roll: always with "re-roll damage rolls", once with "re-roll one damage roll"
+    if (m.rerollDamage) base = rollDice(w.D, rnd);
+    else if (one?.damage) { one.damage = false; base = rollDice(w.D, rnd); }
+  }
+  let d = base + (w.melta && m.halfRange ? w.melta : 0) + (m.damageMod || 0);
   const dr = g.dr || dm.damageReduction;
   if (dr === 'half') d = Math.ceil(d / 2);
   else if (dr) d -= dr;
@@ -417,6 +434,12 @@ function runTrial(C, rnd, rec) {
 
   for (const a of C.attackers) {
     const killsBefore = out.kills, woundsBefore = out.woundsLost;
+    // one-die re-rolls are per attacking unit; any weapon carrying the flag may spend them
+    const one = {
+      hit: a.weapons.some(w => w.m.rerollOneHit),
+      wound: a.weapons.some(w => w.m.rerollOneWound),
+      damage: a.weapons.some(w => w.m.rerollOneDamage),
+    };
     const startAlive = aliveTotal(st);
     for (const w of a.weapons) {
       if (aliveTotal(st) <= 0) break;
@@ -443,7 +466,7 @@ function runTrial(C, rnd, rec) {
       let hits = 0, autoWounds = 0;
       const hp = hitParams(w, m, ctx);
       for (let i = 0; i < dice; i++) {
-        const h = rollHit(hp, rnd);
+        const h = rollHit(hp, rnd, w.m.rerollOneHit ? one : null);
         if (h === 0) continue;
         if (h === 2) {
           if (w.lethal && !(w.dev && m.lethalVsDev === 'roll')) autoWounds++; else hits++;
@@ -456,7 +479,7 @@ function runTrial(C, rnd, rec) {
       const devCrits = [];
       const wp = woundParams(w, m, ctx);
       for (let i = 0; i < hits; i++) {
-        const r = rollWound(wp, rnd);
+        const r = rollWound(wp, rnd, w.m.rerollOneWound ? one : null);
         if (r === 0) continue;
         if (r === 2 && w.dev) devCrits.push(1); else normalWounds++;
       }
@@ -477,7 +500,7 @@ function runTrial(C, rnd, rec) {
         const saved = r !== 1 && ((g.InSv && r >= g.InSv) || (r + saveMod - ap >= g.Sv));
         if (saved) continue;
         steps.unsaved++;
-        const dmg = rollDamage(w, m, dm, g, rnd);
+        const dmg = rollDamage(w, m, dm, g, rnd, w.m.rerollOneDamage ? one : null);
         const lost = applyFnp(dmg, fnpFor(w, dm, g, false), rnd);
         const idx = pickModel(s);
         if (lost > 0 && idx >= 0) damageModel(s, idx, lost, out);
@@ -487,7 +510,7 @@ function runTrial(C, rnd, rec) {
         const s = mortalTarget(st, w.precision);
         if (!s) break;
         steps.mortals++;
-        const mw = rollDamage(w, m, dm, s.g, rnd);
+        const mw = rollDamage(w, m, dm, s.g, rnd, w.m.rerollOneDamage ? one : null);
         const lost = applyFnp(mw, fnpFor(w, dm, s.g, true), rnd);
         const idx = pickModel(s);
         if (lost > 0 && idx >= 0) damageModel(s, idx, lost, out);

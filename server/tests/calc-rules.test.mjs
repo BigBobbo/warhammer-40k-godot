@@ -46,7 +46,8 @@ test('choices take the first option; re-roll wording', () => {
   assert.deepEqual(r.effects.map(e => e.apply), [{ rerollWounds: 'ones' }]);
   assert.equal(r.partial, true);
   const one = R.parseOffensive('This unit’s ranged attacks that target a MONSTER/VEHICLE unit can: • Re-roll one hit roll. • Re-roll one wound roll.');
-  assert.equal(one, null, 're-roll ONE die is not modelled as a full re-roll');
+  assert.deepEqual(one.effects.map(e => e.apply), [{ rerollOneHit: true }, { rerollOneWound: true }], 're-roll ONE die is a single-die re-roll, not a full one');
+  assert.equal(one.conds.unknown, false);
 });
 
 test('situational wording starts off; attacker keyword condition', () => {
@@ -148,4 +149,35 @@ test('stratagem bundle: Wahapedia export filled the gaps for index-card factions
   for (const f of ['NEC', 'TYR', 'AE', 'AM', 'CSM', 'GK', 'LoV', 'TAU']) assert.ok(withText(f) >= 30, `${f}: ${withText(f)}`);
   const keys = STRATAGEMS.map(s => `${s.detachment}|${s.name}`.toUpperCase().replace(/[^A-Z0-9|]/g, ''));
   assert.equal(new Set(keys).size, keys.length, 'no duplicate name+detachment');
+});
+
+test('choice rules: every "• Or:" option is parsed with the shared subject', () => {
+  const r = R.parseOffensive('Your unit’s melee attacks have: • [Lance]. • Or: If the assault doctrine is active for your unit, [Lance] and +1 AP.');
+  assert.deepEqual(r.effects.map(e => e.label), ['Lance']);
+  assert.equal(r.alternatives.length, 1);
+  assert.deepEqual(r.alternatives[0].effects.map(e => e.label).sort(), ['+1 AP', 'Lance']);
+  assert.deepEqual(r.alternatives[0].phases, ['fight']);
+});
+
+test('damage re-rolls and ignore-modifier wording', () => {
+  assert.deepEqual(R.parseOffensive('This unit’s ranged attacks can re-roll damage rolls.').effects.map(e => e.apply), [{ rerollDamage: true }]);
+  const mt = R.parseOffensive(STRATAGEMS.find(s => s.name === 'MOLECULAR TARGETING' && !s.missing).effect);
+  assert.deepEqual(mt.effects.map(e => e.apply), [{ ignoreHitMods: true }, { ignoreWoundMods: true }]);
+});
+
+test('engine: re-roll one hit / damage re-rolls / ignore hit modifiers', () => {
+  // 10 attacks hitting on 4+: 5 hits + one re-rolled miss (if any) hits half the time
+  const oneHit = run([W({ skill: 4 })], { rerollOneHit: true });
+  near(oneHit.steps.hits, 5 + (1 - 0.5 ** 10) * 0.5, 0.03, 'one hit re-roll');
+  // D6 damage, re-rolled when below 3.5: E = 1/2*5 + 1/2*3.5 = 4.25 (vs 3.5)
+  const dmg = run([W({ count: 1, kw: { torrent: true }, S: 8, AP: -6, D: 'D6' })], { rerollDamage: true }, [{ name: 'G', count: 1, W: 50, Sv: 7, T: 4 }]);
+  near(dmg.meanWounds / (5 / 6), 4.25, 0.03, 'damage re-roll');
+  // BS3+ with cover (BS worsened) and -1 to hit: ignoring both -> back to 4/6
+  const ign = E.simulate({ attackers: [{ name: 'A', mods: { ignoreHitMods: true }, weapons: [W({ count: 60 })] }],
+    defender: { name: 'D', groups: [{ name: 'G', count: 400, W: 1, Sv: 7, T: 4 }], mods: { cover: true, hitMod: -1 } }, trials: 40000, seed: 3 });
+  near(ign.steps.hits / 60, 4 / 6, 0.005, 'ignore hit mods');
+});
+
+test('bundle: a misspelt duplicate (UNBRIDLED FEROICITY) is merged into the game row', () => {
+  assert.equal(STRATAGEMS.filter(s => /UNBRIDLED FERO/i.test(s.name)).length, 1);
 });

@@ -700,18 +700,24 @@ export function armyStratagems(army) {
  */
 export function attackerRules(cu, army) {
   const rules = [];
+  const one = (base, p, extra = {}) => ({
+    ...base,
+    effects: p.effects,
+    apply: p.effects.reduce((acc, e) => mergeMods(acc, e.apply), {}),
+    label: p.effects.map(e => e.label).join(', '),
+    phases: p.phases,
+    scope: p.scope,
+    conds: p.conds,
+    partial: p.partial,
+    ...extra,
+  });
   const push = (base, parsed) => {
     if (!parsed) return false;
-    rules.push({
-      ...base,
-      effects: parsed.effects,
-      apply: parsed.effects.reduce((acc, e) => mergeMods(acc, e.apply), {}),
-      label: parsed.effects.map(e => e.label).join(', '),
-      phases: parsed.phases,
-      scope: parsed.scope,
-      conds: parsed.conds,
-      partial: parsed.partial,
-    });
+    const alts = parsed.alternatives ?? [];
+    // a choice rule ("X, or Y"): one rule per option, sharing a group so only one is on
+    rules.push(one(base, parsed, alts.length ? { group: base.id, option: 1 } : {}));
+    alts.forEach((a, i) => rules.push(one({ ...base, id: `${base.id}:alt${i + 1}` }, a,
+      { group: base.id, option: i + 2, label: `or: ${a.effects.map(e => e.label).join(', ')}` })));
     return true;
   };
   for (const m of cu.members) {
@@ -731,11 +737,12 @@ export function attackerRules(cu, army) {
     const ok = push({ id: `strat:${st.id}`, kind: 'stratagem', source: `${st.name} (${st.cp}CP)`, member: null,
       memberName: 'Stratagem', text: `WHEN: ${st.when}\nEFFECT: ${st.effect}`, cp: st.cp, stratPhases: stratagemPhases(st) }, parsed);
     if (ok) {
-      const r = rules[rules.length - 1];
-      r.phases = r.phases.filter(p => r.stratPhases.includes(p));
-      // a stratagem's own WHEN conditions ("...that made a charge move this turn") still gate it
       const wc = parseConditions(st.when);
-      r.conds.charged ||= wc.charged;
+      for (const r of rules.filter(x => x.id === `strat:${st.id}` || x.group === `strat:${st.id}`)) {
+        r.phases = r.phases.filter(p => r.stratPhases.includes(p));
+        // a stratagem's own WHEN conditions ("...that made a charge move this turn") still gate it
+        r.conds.charged ||= wc.charged;
+      }
     } else stratText.push(st);
   }
   return { rules, stratText };

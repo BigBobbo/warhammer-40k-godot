@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.81.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: single-die re-rolls, damage re-rolls, ignore-modifier rules and 'X or Y' choices.",
+      "changes": [
+        "Command Re-roll and rules like \"re-roll one hit / wound / damage roll\" are now modelled (one die per attacking unit, spent on the first failed roll).",
+        "\"Re-roll damage rolls\" re-rolls below-average damage; \"ignore modifiers to the Hit / Wound roll\" drops the negative ones (incl. cover).",
+        "Rules that offer a choice (\"[Lance], or with the assault doctrine [Lance] and +1 AP\") now show each option; picking one switches the other off.",
+        "New manual chips for all of these under Manual modifiers & re-rolls."
+      ]
+    },
+    {
       "version": "1.80.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: stratagem text for almost every faction, and older-style rules wording is now understood.",

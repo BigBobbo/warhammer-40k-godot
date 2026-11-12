@@ -43,7 +43,7 @@ const KNOWN_CONDITIONS = [
   [/while this model is (leading a unit|attached to a unit),?/gi, (c) => { c.leading = true; }],
 ];
 
-const UNKNOWN_CONDITION = /\b(if|while|whilst|when|each time|you can|select|within \d|within range|once per|at the start|at the end|in your|in the (shooting|fight|command|movement|charge) phase|below half|at or below|visible|quarry|terrain|ingress|doctrine|objective|battle-shocked|psychic roll|roll one|first time)\b/i;
+const UNKNOWN_CONDITION = /\b(if|while|whilst|when|each time|you can|select|within \d|within range|once per|at the start|at the end|in your|in the (shooting|fight|command|movement|charge) phase|below half|at or below|visible|quarry|terrain|ingress|doctrine|objective|battle-shocked|psychic roll|roll one d\d|roll one dice|first time)\b/i;
 
 /**
  * Pull the recognised conditions out of `t`; flags `unknown` when other
@@ -137,7 +137,23 @@ const KW_GRANTS = [
  */
 export function parseOffensive(text) {
   const full = norm(text);
-  const t = firstOption(full);
+  const first = parseOffensiveOne(firstOption(full), full);
+  // "• X. • Or: Y" — every further option, parsed with the shared subject
+  // ("Your unit's melee attacks have:") in front so it reads as a full rule
+  const parts = full.split(/•\s*Or:|\bOr:\s/);
+  const alternatives = [];
+  if (parts.length > 1) {
+    const preamble = parts[0].split('•')[0];
+    for (const alt of parts.slice(1)) {
+      const p = parseOffensiveOne(`${preamble} ${alt}`, full);
+      if (p) alternatives.push({ ...p, text: alt.trim() });
+    }
+  }
+  if (!first && !alternatives.length) return null;
+  return first ? { ...first, alternatives } : { ...alternatives[0], alternatives: alternatives.slice(1), firstUnparsed: true };
+}
+
+function parseOffensiveOne(t, full) {
   if (!OFFENSIVE_SUBJECT.test(t)) return null;
   // a debuff on enemies ("that enemy unit's attacks have -1 to hit") is not ours
   if (/(enemy|suppressed) unit/i.test(t) && /-\d to hit/i.test(t)) return null;
@@ -148,6 +164,12 @@ export function parseOffensive(text) {
 
   if ((m = t.match(/\+(\d) to hit rolls?/i) || t.match(/add (\d) to the hit roll/i))) add(`+${m[1]} to hit`, { hitMod: Number(m[1]) });
   if ((m = t.match(/\+(\d) to wound rolls?/i) || t.match(/add (\d) to the wound roll/i))) add(`+${m[1]} to wound`, { woundMod: Number(m[1]) });
+  if (/re-roll one hit roll/i.test(t)) add('Re-roll one hit', { rerollOneHit: true });
+  if (/re-roll one wound roll/i.test(t)) add('Re-roll one wound', { rerollOneWound: true });
+  if (/re-roll one damage roll/i.test(t)) add('Re-roll one damage roll', { rerollOneDamage: true });
+  else if (/re-roll (the |their |a )?damage rolls?\b/i.test(t)) add('Re-roll damage', { rerollDamage: true });
+  if (/ignore (any or all )?modifiers to[^.]*(Ballistic Skill|Weapon Skill|hit roll)/i.test(t)) add('Ignore hit modifiers', { ignoreHitMods: true });
+  if (/ignore (any or all )?modifiers to[^.]*wound roll/i.test(t)) add('Ignore wound modifiers', { ignoreWoundMods: true });
   if (/re-roll (?:a |the )?hit rolls? of 1/i.test(t)) add('Re-roll hit 1s', { rerollHits: 'ones' });
   else if (/re-roll (the |their |a )?hit rolls?\b/i.test(t) && !/re-roll one hit roll/i.test(t)) add('Re-roll hits', { rerollHits: 'fail' });
   if (/re-roll (?:a |the )?wound rolls? of 1/i.test(t)) add('Re-roll wound 1s', { rerollWounds: 'ones' });

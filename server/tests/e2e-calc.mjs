@@ -363,6 +363,15 @@ try {
   const tc = twCard.locator('button[data-action="arule"]', { hasText: 'Thunderous Charge' });
   check('Thunderous Charge off before charging', (await tc.getAttribute('aria-pressed')) === 'false');
   await twCard.locator('button[data-key="charged"]').tap();
+  // choice stratagem: picking the second option switches the first off
+  const gwm1 = twCard.locator('button[data-action="arule"]', { hasText: 'GENE-WROUGHT MIGHT' }).first();
+  const gwm2 = twCard.locator('button[data-action="arule"]', { hasText: 'or: ' }).filter({ hasText: 'GENE-WROUGHT MIGHT' });
+  await gwm1.tap();
+  check('choice option 1 on', (await twCard.locator('button[data-action="arule"]', { hasText: 'GENE-WROUGHT MIGHT' }).first().getAttribute('aria-pressed')) === 'true');
+  await page.locator('[data-attacker]').last().locator('button[data-action="arule"]', { hasText: 'or: ' }).filter({ hasText: 'GENE-WROUGHT MIGHT' }).tap();
+  const gw = page.locator('[data-attacker]').last().locator('button[data-action="arule"]', { hasText: 'GENE-WROUGHT MIGHT' });
+  check('picking "or:" option 2 switches option 1 off', (await gw.nth(0).getAttribute('aria-pressed')) === 'false' && (await gw.nth(1).getAttribute('aria-pressed')) === 'true');
+  await gw.nth(1).tap();
   check('Thunderous Charge on after ticking Charged', (await twCard.locator('button[data-action="arule"]', { hasText: 'Thunderous Charge' }).getAttribute('aria-pressed')) === 'true');
   await settle(page);
   await page.screenshot({ path: join(SHOTS, 'calc_09_thunderous_charge.png') });
@@ -380,7 +389,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v5') && (await (await caches.open('w40k-calc-v5')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v6') && (await (await caches.open('w40k-calc-v6')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });

@@ -543,7 +543,7 @@ function attackerCard(e, i, tinfo) {
     shooting && hasIndirect && chip('amod-toggle', !!m.indirect, 'Indirect (not visible)', `data-uid="${e.uid}" data-key="indirect"`),
   ].filter(Boolean).join('');
   const nMods = ['hitMod', 'woundMod', 'apMod', 'damageMod', 'attacksMod', 'bsMod'].filter(k => m[k]).length +
-    ['lethal', 'dev', 'twin', 'ignoresCover', 'precision'].filter(k => m[k]).length + (m.sustained ? 1 : 0) +
+    ['lethal', 'dev', 'twin', 'ignoresCover', 'precision', 'rerollOneHit', 'rerollOneWound', 'rerollOneDamage', 'rerollDamage', 'ignoreHitMods', 'ignoreWoundMods'].filter(k => m[k]).length + (m.sustained ? 1 : 0) +
     (m.rerollHits && m.rerollHits !== 'none' ? 1 : 0) + (m.rerollWounds && m.rerollWounds !== 'none' ? 1 : 0) +
     ((m.critHit ?? 6) !== 6 ? 1 : 0) + ((m.critWound ?? 6) !== 6 ? 1 : 0);
   const sc = `data-uid="${e.uid}"`;
@@ -592,6 +592,14 @@ function attackerCard(e, i, tinfo) {
         ${chip('amod-toggle', !!m.twin, 'Twin-linked', `${sc} data-key="twin"`)}
         ${shooting ? chip('amod-toggle', !!m.ignoresCover, 'Ignores Cover', `${sc} data-key="ignoresCover"`) : ''}
         ${chip('amod-toggle', !!m.precision, 'Precision', `${sc} data-key="precision"`)}
+      </div></div>
+      <div class="modrow"><div class="lab">Single-die re-rolls & other</div><div class="chips">
+        ${chip('amod-toggle', !!m.rerollOneHit, 'Re-roll one hit (Command Re-roll)', `${sc} data-key="rerollOneHit"`)}
+        ${chip('amod-toggle', !!m.rerollOneWound, 'Re-roll one wound', `${sc} data-key="rerollOneWound"`)}
+        ${chip('amod-toggle', !!m.rerollOneDamage, 'Re-roll one damage roll', `${sc} data-key="rerollOneDamage"`)}
+        ${chip('amod-toggle', !!m.rerollDamage, 'Re-roll damage rolls', `${sc} data-key="rerollDamage"`)}
+        ${chip('amod-toggle', !!m.ignoreHitMods, 'Ignore hit modifiers', `${sc} data-key="ignoreHitMods"`)}
+        ${chip('amod-toggle', !!m.ignoreWoundMods, 'Ignore wound modifiers', `${sc} data-key="ignoreWoundMods"`)}
       </div></div>
     </div></details>
     ${abil.length ? `<details class="more"><summary>Unit abilities (${abil.length})</summary>${abil.map(a =>
@@ -1162,9 +1170,14 @@ app.addEventListener('click', (ev) => {
       const tinfo = targetInfo();
       const cu = atkArmy()?.units.find(u => u.key === e.unitKey);
       if (!cu) return;
-      const { on } = rulesFor(e, cu, tinfo);
+      const { rules, on } = rulesFor(e, cu, tinfo);
       e.ruleOverrides ??= {};
-      e.ruleOverrides[el.dataset.id] = !on.has(el.dataset.id);
+      const id = el.dataset.id;
+      const turnOn = !on.has(id);
+      e.ruleOverrides[id] = turnOn;
+      // choice rules ("X, or Y"): picking one option switches the others off
+      const r = rules.find(x => x.id === id);
+      if (turnOn && r?.group) for (const sib of rules) if (sib.group === r.group && sib.id !== id) e.ruleOverrides[sib.id] = false;
       return changed();
     }
     case 'amod-toggle': {
