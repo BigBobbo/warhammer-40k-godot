@@ -32,6 +32,23 @@ function readPsv(path) {
 // letters and digits only: apostrophe / dash / comma variants differ between the two sources
 const loose = (x) => String(x ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
 const keyOf = (name, det) => `${loose(name)}|${loose(det)}`;
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  }
+  return d[a.length][b.length];
+}
+// same detachment and a name within 2 edits (typos like "FEROICITY") = the same stratagem
+function nearKey(k, keys) {
+  const [n, det] = k.split('|');
+  for (const other of keys) {
+    const [n2, det2] = other.split('|');
+    if (det2 === det && Math.abs(n2.length - n.length) <= 2 && editDistance(n, n2) <= 2) return other;
+  }
+  return null;
+}
 
 function clean(html) {
   return String(html ?? '')
@@ -80,18 +97,21 @@ for (const r of wahapedia) {
 const out = [];
 const seen = new Set();
 let filled = 0;
+const consumed = new Set();
 for (const r of readPsv(SRC)) {
   const k = keyOf(r.name, r.detachment);
   if (seen.has(k)) continue; // the game import repeats a few rows verbatim
   seen.add(k);
   let desc = clean(r.description);
   let source = 'game';
-  if (/not available/i.test(desc) && byKey.has(k)) { desc = byKey.get(k).desc; source = 'wahapedia-export'; filled++; }
+  const wk = byKey.has(k) ? k : nearKey(k, byKey.keys());
+  if (wk) consumed.add(wk);
+  if (/not available/i.test(desc) && wk) { desc = byKey.get(wk).desc; source = 'wahapedia-export'; filled++; }
   out.push(entry(r, desc, source));
 }
 let added = 0;
 for (const [k, { r, desc }] of byKey) {
-  if (seen.has(k)) continue;
+  if (seen.has(k) || consumed.has(k)) continue;
   out.push(entry(r, desc, 'wahapedia-export'));
   added++;
 }
