@@ -2,6 +2,14 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.79.1",
+      "date": "2026-11-12",
+      "summary": "Fix: GW app lists with units like Contemptor-Galatus Dreadnought or Caladius Annihilator Grav-Tank now import.",
+      "changes": [
+        "The GW app writes some names with a special non-breaking hyphen, so those units were reported as 'not recognised' in the Army Builder and Combat Calc. They are now matched."
+      ]
+    },
+    {
       "version": "1.79.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: matchup grid of every unit against every enemy unit, and saved scenarios.",

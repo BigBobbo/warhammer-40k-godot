@@ -17,10 +17,26 @@ import {
 import { looseName, normName } from '../lib/dckit.mjs';
 
 /**
+ * Typography the GW app / phones put into exported lists that breaks name
+ * matching: the GW app writes "Contemptor‑Galatus Dreadnought" and
+ * "Grav‑Tank" with U+2011 NON-BREAKING HYPHEN, so the datasheet name
+ * "Contemptor-Galatus Dreadnought" never matched. Unicode hyphens become
+ * "-", no-break / thin spaces become plain spaces, soft hyphens go.
+ * (En / em dashes are left alone: they separate names from points/profiles.)
+ */
+export function normalizeListText(text) {
+  return String(text ?? '')
+    .replace(/[\u2010\u2011\u2043\uFE63\uFF0D]/g, '-')
+    .replace(/[\u00A0\u2007\u202F]/g, ' ')
+    .replace(/\u00AD/g, '');
+}
+
+/**
  * Import pasted list text. Returns { roster, report } or throws with a
  * readable message.
  */
 export function importText(text, { factionOverride = null } = {}) {
+  text = normalizeListText(text);
   const notes = [];
   let roster = null;
   let source = null;

@@ -405,6 +405,14 @@ try {
   await tp.tap('.pick:has-text("Grey Hunters")');
   await tp.waitForFunction(() => window.__calc?.state.result && !window.__calc.state.busy);
   await tp.screenshot({ path: join(SHOTS, 'calc_05_tablet_dark.png') });
+  // GW app list with U+2011 non-breaking hyphens (Contemptor‑Galatus, Grav‑Tank) imports cleanly
+  await tp.tap('button[data-action="view"][data-value="armies"]');
+  await tp.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));
+  await tp.tap('button[data-action="parse"][data-side="B"]');
+  const custodes = await tp.evaluate(() => ({ units: window.__calc.state.armies.B.units.map(u => u.name), warnings: window.__calc.state.armies.B.warnings }));
+  check('non-breaking-hyphen units resolve (Caladius, 2x Contemptor-Galatus)',
+    custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
+    !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
