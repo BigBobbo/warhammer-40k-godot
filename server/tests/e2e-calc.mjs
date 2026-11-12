@@ -380,7 +380,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v4') && (await (await caches.open('w40k-calc-v4')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v5') && (await (await caches.open('w40k-calc-v5')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });

@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.80.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: stratagem text for almost every faction, and older-style rules wording is now understood.",
+      "changes": [
+        "Stratagems that only showed their name (Necrons, Tyranids, Aeldari, Astra Militarum, Chaos, Grey Knights, Votann, T'au and more) now have their full 11th edition text, from Wahapedia's latest export: 773 filled in and 285 added.",
+        "Rules written the older way (\"each time a model in your unit makes an attack, add 1 to the Hit roll\", \"each time an attack targets your unit, worsen the Armour Penetration\") now become one-tap toggles too, for both stratagems and unit abilities.",
+        "Stratagems are matched to units by the keywords in their TARGET line (e.g. a SYNAPSE-only stratagem isn't offered to Termagants)."
+      ]
+    },
+    {
       "version": "1.79.1",
       "date": "2026-11-12",
       "summary": "Fix: GW app lists with units like Contemptor-Galatus Dreadnought or Caladius Annihilator Grav-Tank now import.",
