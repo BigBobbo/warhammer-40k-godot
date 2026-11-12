@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.78.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: enemy cheat sheet, damaged targets, models in range and charge odds.",
+      "changes": [
+        "New Intel tab: every unit in either army with its stat lines, weapons, abilities, defences and attack buffs, plus the army's detachment rule and all its stratagems. Search by name, keyword or ability; one tap sets a unit as the target.",
+        "Casualties & damage on the target: set how many models are left of each type and the wounds left on a damaged model.",
+        "Models in range on each attacking unit: count only the models that can fight or shoot; attached characters stay in.",
+        "Charge odds: enter the gap to the target and see the roll needed and the chance to make it (with +1/-1 and a re-roll), plus a quick table from 3\" to 14\"."
+      ]
+    },
+    {
       "version": "1.77.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: unit abilities, leader buffs, detachment rules and stratagems now apply with a tap.",

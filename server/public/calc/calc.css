@@ -101,7 +101,7 @@ button, select, textarea, input { font: inherit; color: inherit; }
   min-width: var(--tap); min-height: var(--tap); border-radius: 10px;
   border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-size: 18px;
 }
-select.sel {
+select.sel, input.sel {
   min-height: var(--tap); border-radius: 10px; border: 1px solid var(--line);
   background: var(--surface-2); padding: 0 10px; width: 100%;
 }
@@ -243,4 +243,16 @@ table.dist th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
 
 @media (min-width: 700px) {
   .modgrid { grid-template-columns: 1fr 1fr; }
+}
+
+/* intel cards */
+.intel-unit > summary::-webkit-details-marker { display: none; }
+.intel-unit[open] > summary span.muted { transform: rotate(180deg); }
+.intel-unit table.dist td, .intel-unit table.dist th { padding: 4px 6px; }
+
+/* three tabs on a phone: drop the dataset badge (shown on the Armies tab instead) */
+@media (max-width: 460px) {
+  .badge { display: none; }
+  .tab { padding: 0 11px; }
+  .brand { font-size: 16px; }
 }

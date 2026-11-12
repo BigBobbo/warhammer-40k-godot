@@ -5,8 +5,9 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
-  attackerRules, attackerRuleOn, buildAttacker, describeConditions,
+  attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
+import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
 const TRIALS = 20000;
@@ -26,6 +27,9 @@ const state = {
   attach: { A: null, B: null }, // per army: { [characterRosterIndex]: bodyguardRosterIndex } once edited (null = as listed)
   sheet: null,               // null | 'results' | 'add' | 'attach' | 'join'
   sheetArg: null,            // {side, host} for 'attach', {side, char} for 'join'
+  charge: { gap: 9, mod: 0, reroll: false }, // charge odds tool
+  intelSide: null,           // army shown on the Intel tab (default: the defender)
+  intelQuery: '',
   result: null, busy: false, calcError: null,
   chartMode: null,           // 'models' | 'damage' | null (auto)
   selBar: null,
@@ -37,7 +41,7 @@ function persist() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       view: state.view, texts: state.texts, side: state.side, phase: state.phase, setups: state.setups,
-      attach: state.attach,
+      attach: state.attach, charge: state.charge, intelSide: state.intelSide,
     }));
   } catch { /* storage full / private mode: best effort */ }
 }
@@ -49,6 +53,7 @@ function restore() {
     Object.assign(state, {
       view: s.view ?? 'armies', texts: s.texts ?? { A: '', B: '' }, side: s.side ?? 'A',
       phase: s.phase ?? 'shooting', setups: s.setups ?? {}, attach: s.attach ?? { A: null, B: null },
+      charge: s.charge ?? { gap: 9, mod: 0, reroll: false }, intelSide: s.intelSide ?? null,
     });
     for (const st of Object.values(state.setups)) for (const a of st.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
   } catch { /* corrupt: start fresh */ }
@@ -64,6 +69,7 @@ function setup() {
   const s = state.setups[key];
   s.ruleOverrides ??= {};
   s.defManual ??= {};
+  s.defOverrides ??= {};   // targetKey -> { groupKey: {count, woundsLeftFirst} } (casualties / damage)
   return s;
 }
 
@@ -145,10 +151,21 @@ function enabledRules(profile, s) {
 function rowsFor(entry, tinfo) {
   const cu = atkArmy()?.units.find(u => u.key === entry.unitKey);
   if (!cu) return { cu: null, rows: [] };
-  const rows = attackerRows(cu, state.phase, tinfo?.summary ?? null).map(r => ({
-    ...r, count: r.blocked ? 0 : Math.min(r.max, entry.counts?.[r.id] ?? r.count),
-  }));
-  return { cu, rows };
+  const body = bodyguardModels(cu);
+  const inRange = entry.inRange != null ? Math.max(0, Math.min(body.total, entry.inRange)) : null;
+  const rows = attackerRows(cu, state.phase, tinfo?.summary ?? null).map(r => {
+    let count = r.blocked ? 0 : Math.min(r.max, entry.counts?.[r.id] ?? r.count);
+    // models in range: scale the bodyguard models' weapons; attached characters stay in
+    if (inRange != null && body.members.has(Number(String(r.id).split(':')[0]))) count = Math.round(count * inRange / Math.max(1, body.total));
+    return { ...r, count };
+  });
+  return { cu, rows, inRange, bodyTotal: body.total };
+}
+
+// The non-character part of a combat unit (what "models in range" counts).
+function bodyguardModels(cu) {
+  const ms = cu.members.filter(m => m.role !== 'leader');
+  return { members: new Set(ms.map(m => m.index)), total: ms.reduce((a, m) => a + (m.ru.model_count ?? 1), 0) };
 }
 
 // Attacker rules (abilities, detachment rule, stratagems) for an attacker entry,
@@ -176,7 +193,7 @@ function scenario() {
     attackers.push(buildAttacker(cu, rows, e.mods, rules, on, state.phase));
   }
   if (!attackers.some(a => a.weapons.length)) return null;
-  const defender = buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), state.phase, s.defManual);
+  const defender = buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), state.phase, s.defManual, s.defOverrides[s.targetKey] ?? {});
   return { phase: state.phase, attackers, defender, seed: 1234567 };
 }
 
@@ -246,14 +263,78 @@ function render() {
       <span class="badge" title="40kdc dataset version">11e · data ${esc(DATASET_VERSION)}</span>
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
+        <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
         <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>Attack</button>
       </nav>
     </div></header>
-    <main class="wrap">${state.view === 'attack' && ready ? attackView() : armiesView()}</main>
+    <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
   renderResultViews();
   renderSheet();
+}
+
+// ---- Intel: enemy cheat sheet
+
+function intelSide() {
+  let side = state.intelSide ?? other(state.side);
+  if (!state.armies[side]) side = other(side);
+  return side;
+}
+
+function intelView() {
+  const side = intelSide();
+  const army = state.armies[side];
+  const ai = armyIntel(army);
+  const byPhase = new Map();
+  for (const st of ai.stratagems) {
+    const key = /shooting|fight/i.test(st.phase) ? st.phase : 'Other phases';
+    if (!byPhase.has(key)) byPhase.set(key, []);
+    byPhase.get(key).push(st);
+  }
+  const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
+    `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
+      <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
+  return `<section class="section">
+      ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
+    </section>
+    <section class="section"><div class="card">
+      <div class="title">${esc(ai.faction)}</div>
+      <div class="muted small">${esc(ai.detachments.join(', ') || 'No detachment found')} · ${army.units.length} units</div>
+      ${ai.detachmentRules.length ? `<details class="more"><summary>Detachment rule${ai.detachmentRules.length > 1 ? 's' : ''}</summary>${ai.detachmentRules.map(d =>
+        `<div class="ability"><b>${esc(d.name)}</b><div class="muted">${esc(d.text)}</div></div>`).join('')}</details>` : ''}
+      <details class="more"><summary>Stratagems (${ai.stratagems.length})</summary>${stratHtml || '<div class="muted small">None found for these detachments.</div>'}</details>
+    </div></section>
+    <section class="section"><h2>Units</h2>
+      <input class="sel" type="search" data-input="intel-search" placeholder="Search units, keywords, abilities…" value="${esc(state.intelQuery)}" aria-label="Search units">
+      <div id="intel-list">${intelList(side)}</div>
+    </section>`;
+}
+
+function intelList(side) {
+  const army = state.armies[side];
+  const q = state.intelQuery.trim().toLowerCase();
+  const cards = [];
+  for (const cu of army.units) {
+    const it = unitIntel(cu, army);
+    const hay = [it.name, ...it.keywords, ...it.abilities.map(a => `${a.name} ${a.text}`), ...it.weapons.map(w => w.label)].join(' ').toLowerCase();
+    if (q && !hay.includes(q)) continue;
+    const line = (p) => `<tr><td>${esc(p.member === p.name ? p.name : `${p.name}`)}</td><td>${p.M}"</td><td>${p.T}</td><td>${p.Sv}+${p.InSv ? `/${p.InSv}++` : ''}</td><td>${p.W}</td><td>${p.Ld}+</td><td>${p.OC}</td></tr>`;
+    const tags = (list, cls = '') => list.map(t => `<span class="tag ${cls}">${esc(t)}</span>`).join('');
+    cards.push(`<details class="card intel-unit" style="margin-top:10px"><summary class="row" style="list-style:none;cursor:pointer;min-height:40px">
+        <div class="grow"><div class="title">${esc(it.name)}</div><div class="muted tiny">${it.models} models${it.points ? ` · ${it.points} pts` : ''}${it.fnp ? ` · FNP ${it.fnp}+` : ''}</div></div><span class="muted">▾</span></summary>
+      <table class="dist" style="margin-top:6px"><thead><tr><th>Model</th><th>M</th><th>T</th><th>Sv</th><th>W</th><th>Ld</th><th>OC</th></tr></thead><tbody>${it.stats.map(line).join('')}</tbody></table>
+      ${it.defensive.length ? `<div class="modrow" style="margin-top:8px"><div class="lab">Defences</div>${tags(it.defensive.map(d => `${d.label} · ${d.source}${d.auto ? '' : ' (situational)'}`))}</div>` : ''}
+      ${it.offensive.length ? `<div class="modrow" style="margin-top:8px"><div class="lab">Attack buffs</div>${tags(it.offensive.map(o => `${o.label} · ${o.source}${o.when ? ` (${o.when})` : ''}`))}</div>` : ''}
+      <div class="modrow" style="margin-top:8px"><div class="lab">Weapons</div>${it.weapons.map(w =>
+        `<div class="ability"><b>${w.count}× ${esc(w.label)}</b> <span class="wstats">${esc(w.range)} · ${esc(w.stats)}</span><div>${tags(w.tags)}</div></div>`).join('') || '<div class="muted small">None</div>'}</div>
+      <details class="more"><summary>Abilities (${it.abilities.length})</summary>${it.abilities.map(a =>
+        `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
+      <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
+      ${state.armies.A && state.armies.B ? `<button class="btn block" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Calculate attacks into this unit →</button>` : ''}
+    </details>`);
+  }
+  return cards.join('') || '<p class="hint">No units match.</p>';
 }
 
 function attachOverview(side, army) {
@@ -297,7 +378,7 @@ function armiesView() {
   const ready = state.armies.A && state.armies.B;
   return `${panel('A')}${panel('B')}
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
-    <p class="hint">Lists stay on this device. Works offline once loaded.</p>`;
+    <p class="hint">Lists stay on this device. Works offline once loaded. 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
 }
 
 function attackView() {
@@ -312,6 +393,7 @@ function attackView() {
         <button class="icon-btn" data-action="swap" aria-label="Swap attacker and defender">⇄</button>
         <div class="side right"><div class="lbl">Defender · ${other(state.side)}</div><div class="nm">${esc(def.faction)}</div></div>
       </div>
+      <button class="btn block ghost" style="margin-top:8px" data-action="open-charge">🎲 Charge odds</button>
     </section>
     <section class="section"><h2>Target</h2>${targetCard(tinfo, s)}</section>
     <section class="section"><h2>Attacking units${s.attackers.length > 1 ? ' · resolved in order' : ''}</h2>
@@ -338,7 +420,8 @@ function targetCard(tinfo, s) {
   if (tinfo) {
     const { profile } = tinfo;
     // stat line reflects the rules/modifiers switched on (e.g. a Storm Shield 4++)
-    const built = buildDefender(profile, enabledRules(profile, s), state.phase, s.defManual);
+    const ovr = s.defOverrides[s.targetKey] ?? {};
+    const built = buildDefender(profile, enabledRules(profile, s), state.phase, s.defManual, ovr);
     const summary = defenderSummary({ ...profile, groups: built.groups.map(g => ({ ...g, InSv: g.InSv || (built.mods.invuln ?? 0) })) });
     const st = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${l}</span></div>`;
     const inv = summary.InSv ? `${summary.InSv}+` : '–';
@@ -348,6 +431,24 @@ function targetCard(tinfo, s) {
     body += `<div class="stats">${st(summary.T, 'T')}${st(`${summary.Sv}+`, 'Sv')}${st(inv, 'InSv')}${st(summary.W, 'W')}${st(summary.models, 'Models')}${fnp < 7 ? st(`${fnp}+`, 'FNP') : ''}</div>`;
     const groups = built.groups.filter(g => g.character);
     if (groups.length) body += `<div class="tiny muted" style="margin-top:6px">Characters: ${groups.map(g => `${esc(g.name)} (T${g.T} W${g.W} ${g.Sv}+${g.InSv ? `/${g.InSv}++` : ''}${g.fnp ? `, FNP ${g.fnp}+` : ''})`).join(', ')} — allocated last unless Precision.</div>`;
+    const nDamaged = Object.values(ovr).filter(o => o && (o.count != null || o.woundsLeftFirst != null)).length;
+    body += `<details class="more" data-details="casualties" ${state.openCasualties ? 'open' : ''}><summary>Casualties & damage${nDamaged ? ' · set' : ''}</summary>
+      ${profile.groups.map(g => {
+        const o = ovr[g.key] ?? {};
+        const left = o.count ?? g.count;
+        const wl = o.woundsLeftFirst ?? g.W;
+        return `<div class="weapon"><div class="grow"><div class="wname">${esc(g.name)}${g.character ? ' <span class="muted tiny">(character)</span>' : ''}</div>
+          <div class="wstats">W${g.W} · models left</div></div>
+          <div class="stepper"><button data-action="dmg" data-group="${esc(g.key)}" data-field="count" data-delta="-1" aria-label="One fewer ${esc(g.name)}">−</button>
+          <div class="val">${left}/${g.count}</div>
+          <button data-action="dmg" data-group="${esc(g.key)}" data-field="count" data-delta="1" aria-label="One more ${esc(g.name)}">+</button></div></div>
+          ${g.W > 1 && left > 0 ? `<div class="weapon" style="border-top:0;padding-top:0"><div class="grow"><div class="wstats">Wounds left on one damaged ${esc(g.name)}</div></div>
+          <div class="stepper"><button data-action="dmg" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="-1" aria-label="Damage ${esc(g.name)}">−</button>
+          <div class="val">${wl}/${g.W}</div>
+          <button data-action="dmg" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="1" aria-label="Heal ${esc(g.name)}">+</button></div></div>` : ''}`;
+      }).join('')}
+      ${nDamaged ? `<button class="btn ghost" data-action="dmg-reset">Reset to full strength</button>` : ''}
+    </details>`;
     body += attachRow(other(state.side), tinfo.cu);
     const rules = profile.rules;
     const on = enabledRules(profile, s);
@@ -405,6 +506,12 @@ function attackerCard(e, i, tinfo) {
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="1" aria-label="More">+</button>
       </div></div>`;
   }).join('') : `<div class="muted small">No ${shooting ? 'ranged' : 'melee'} weapons.</div>`;
+  const { inRange, bodyTotal } = rowsFor(e, tinfo);
+  const rangeRow = bodyTotal > 1 ? `<div class="weapon" style="border-top:1px solid var(--line);margin-top:4px">
+      <div class="grow"><div class="wname">Models in range</div><div class="wstats">${state.phase === 'fight' ? 'Bodyguard models that can fight' : 'Bodyguard models with line of sight / range'}; attached characters stay in</div></div>
+      <div class="stepper"><button data-action="inrange" ${`data-uid="${e.uid}"`} data-delta="-1" aria-label="Fewer models in range">−</button>
+      <div class="val">${inRange ?? bodyTotal}/${bodyTotal}</div>
+      <button data-action="inrange" ${`data-uid="${e.uid}"`} data-delta="1" aria-label="More models in range">+</button></div></div>` : '';
   const sit = [
     shooting && chip('amod-toggle', !!m.halfRange, 'Half range', `data-uid="${e.uid}" data-key="halfRange"`),
     chip('amod-toggle', !!m.charged, 'Charged', `data-uid="${e.uid}" data-key="charged"`),
@@ -441,6 +548,7 @@ function attackerCard(e, i, tinfo) {
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
     ${attachRow(state.side, cu)}
     <div style="margin-top:6px">${weapons}</div>
+    ${rangeRow}
     <div class="chips" style="margin-top:8px">${sit}</div>
     ${rulesBlock}
     <details class="more" ${e.openMods ? 'open' : ''} data-details="mods" ${sc}><summary>Manual modifiers &amp; re-rolls${nMods ? ` · ${nMods} set` : ''}</summary><div class="modgrid">
@@ -496,11 +604,35 @@ function renderSheet() {
   if (!host) return;
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
+    : state.sheet === 'charge' ? chargeSheet()
     : state.sheet === 'attach' ? attachSheet()
       : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="wrap">${content}</div></div>`;
   if (state.sheet === 'results') wireChart();
+}
+
+function chargeSheet() {
+  const c = state.charge;
+  const need = chargeRollNeeded(c.gap);
+  const p = chargeOdds(need, { mod: c.mod, reroll: c.reroll });
+  const rows = [];
+  for (let g = 3; g <= 14; g++) {
+    const n = chargeRollNeeded(g);
+    rows.push(`<tr ${Math.abs(g - c.gap) < 0.01 ? 'style="font-weight:700"' : ''}><td>${g}"</td><td>${n}+</td><td>${pct(chargeOdds(n, { mod: c.mod }))}</td><td>${pct(chargeOdds(n, { mod: c.mod, reroll: true }))}</td></tr>`);
+  }
+  return `<div class="row"><h3 class="grow">Charge odds</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Gap to the nearest target</div><div class="wstats">base to base, in inches</div></div>
+      <div class="stepper"><button data-action="charge-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val">${c.gap}"</div><button data-action="charge-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
+    <div class="modrow"><div class="lab">Charge roll modifier (nets to ±1)</div>${seg('charge-mod', c.mod, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
+    <div class="chips" style="margin-top:8px">${chip('charge-reroll', c.reroll, 'Re-roll the charge (e.g. Command Re-roll)')}</div>
+    <div class="hero" style="grid-template-columns:1fr 1fr;margin-top:12px">
+      <div class="cell"><b id="charge-need">${need}+</b><span>needed on 2D6 (gap − 2" engagement range)</span></div>
+      <div class="cell"><b id="charge-p">${pct(p)}</b><span>chance to make it</span></div>
+    </div>
+    <div class="section"><h2>Quick reference${c.mod ? ` · ${c.mod > 0 ? '+' : '−'}1 to the roll` : ''}</h2>
+      <table class="dist"><thead><tr><th>Gap</th><th>Needs</th><th>Chance</th><th>With re-roll</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    <p class="hint">11e: the charge roll (2D6) is the maximum move and the unit must end engaged (within 2"), so you need the gap minus 2".</p>`;
 }
 
 function attachSheet() {
@@ -756,6 +888,60 @@ app.addEventListener('click', (ev) => {
     case 'detach':
       applyAttach(el.dataset.side, Number(el.dataset.char), null);
       return changed();
+    case 'dmg': {
+      const tinfo = targetInfo();
+      const g = tinfo?.profile.groups.find(x => x.key === el.dataset.group);
+      if (!g) return;
+      s.defOverrides[s.targetKey] ??= {};
+      const o = (s.defOverrides[s.targetKey][g.key] ??= {});
+      const d = Number(el.dataset.delta);
+      if (el.dataset.field === 'count') o.count = Math.max(0, Math.min(g.count, (o.count ?? g.count) + d));
+      else o.woundsLeftFirst = Math.max(1, Math.min(g.W, (o.woundsLeftFirst ?? g.W) + d));
+      if (o.count === g.count) delete o.count;
+      if (o.woundsLeftFirst === g.W) delete o.woundsLeftFirst;
+      state.openCasualties = true;
+      return changed();
+    }
+    case 'dmg-reset':
+      delete s.defOverrides[s.targetKey];
+      return changed();
+    case 'inrange': {
+      const e = findEntry(el.dataset.uid);
+      if (!e) return;
+      const cu = atkArmy()?.units.find(u => u.key === e.unitKey);
+      const total = cu ? bodyguardModels(cu).total : 0;
+      e.inRange = Math.max(0, Math.min(total, (e.inRange ?? total) + Number(el.dataset.delta)));
+      if (e.inRange === total) e.inRange = null;
+      return changed();
+    }
+    case 'intel-side':
+      state.intelSide = el.dataset.value;
+      state.intelQuery = '';
+      return changed({ calc: false });
+    case 'target-this': {
+      // the chosen unit becomes the target; the other army attacks
+      state.side = other(el.dataset.side);
+      const st = setup();
+      st.targetKey = el.dataset.key;
+      state.view = 'attack';
+      window.scrollTo(0, 0);
+      return changed();
+    }
+    case 'open-charge':
+      state.sheet = 'charge';
+      return renderSheet();
+    case 'charge-gap':
+      state.charge.gap = Math.max(2.5, Math.min(24, state.charge.gap + Number(el.dataset.delta)));
+      persist();
+      return renderSheet();
+    case 'charge-mod':
+      state.charge.mod = Number(el.dataset.value);
+      persist();
+      return renderSheet();
+    case 'charge-reroll':
+      state.charge.reroll = !state.charge.reroll;
+      persist();
+      return renderSheet();
     case 'add': {
       s.attackers.push({ uid: uidSeq++, unitKey: el.dataset.key, counts: {}, mods: {} });
       state.sheet = null;
@@ -848,9 +1034,15 @@ app.addEventListener('change', (ev) => {
 app.addEventListener('input', (ev) => {
   const el = ev.target;
   if (el.dataset.input === 'text') { state.texts[el.dataset.side] = el.value; persist(); }
+  if (el.dataset.input === 'intel-search') {
+    state.intelQuery = el.value;
+    const list = document.getElementById('intel-list');
+    if (list) list.innerHTML = intelList(intelSide());
+  }
 });
 app.addEventListener('toggle', (ev) => {
   const el = ev.target;
+  if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
     if (e) { e.openMods = el.open; persist(); }

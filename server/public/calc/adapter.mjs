@@ -332,8 +332,8 @@ function weaponProfiles(factionId, weaponId) {
 }
 
 function profileLine(p) {
-  const sk = p.skill == null ? 'N/A' : `${p.skill}+`;
-  return `A${p.A} ${p.melee ? 'WS' : 'BS'}${sk} S${p.S} AP${p.AP} D${p.D}`;
+  const sk = p.skill == null ? '' : ` ${p.melee ? 'WS' : 'BS'}${p.skill}+`; // torrent: no BS (auto-hits)
+  return `A${p.A}${sk} S${p.S} AP${p.AP} D${p.D}`;
 }
 
 /**
@@ -775,5 +775,63 @@ export function buildAttacker(cu, rows, manualMods, rules, enabledIds, phase) {
       return w;
     }),
     allVehicleMonster: allVehicleMonster(cu),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Enemy cheat sheet
+
+/**
+ * Everything a player wants to know about a combat unit at a glance:
+ * per-datasheet stat lines, weapons (both phases), abilities, and the rules
+ * the calculator detects (defensive + offensive).
+ */
+export function unitIntel(cu, army) {
+  const profiles = [];
+  for (const m of cu.members) {
+    for (const p of m.dcUnit.profiles ?? []) {
+      profiles.push({
+        member: m.dcUnit.name, name: p.name, role: m.role,
+        M: p.M, T: p.T, Sv: p.Sv, InSv: p.invuln_sv ?? null, W: p.W, Ld: p.Ld, OC: p.OC,
+      });
+    }
+  }
+  // collapse identical lines (Sergeant / trooper with the same stats)
+  const seenLine = new Set();
+  const stats = profiles.filter(p => {
+    const k = [p.member, p.M, p.T, p.Sv, p.InSv, p.W, p.Ld, p.OC].join('|');
+    return !seenLine.has(k) && seenLine.add(k);
+  });
+  const weapons = [...attackerRows(cu, 'shooting', null), ...attackerRows(cu, 'fight', null)]
+    .map(r => ({ label: r.label, range: r.range, stats: r.stats, tags: r.tags, count: r.max, melee: r.melee }));
+  const def = defenderProfile(cu, army);
+  const off = attackerRules(cu, army).rules.filter(r => r.kind !== 'stratagem');
+  const fnp = Math.min(...def.rules.filter(r => r.auto && r.apply.fnp).map(r => r.apply.fnp), 7);
+  return {
+    name: cu.name,
+    models: cu.models,
+    points: cu.points,
+    keywords: cu.keywords,
+    stats,
+    fnp: fnp < 7 ? fnp : null,
+    weapons,
+    abilities: abilitiesOf(cu),
+    defensive: def.rules.filter(r => r.kind !== 'stratagem' && r.kind !== 'detachment')
+      .map(r => ({ label: r.label, source: r.source, auto: r.auto })),
+    offensive: off.map(r => ({ label: r.label, source: r.source, when: describeConditions(r.conds), phases: r.phases })),
+  };
+}
+
+/** Army-level intel: detachment rules and every stratagem, grouped by phase. */
+export function armyIntel(army) {
+  const strats = armyStratagems(army).map(st => ({
+    name: st.name, cp: st.cp, phase: st.phase, detachment: st.detachment, turn: st.turn,
+    when: st.when, target: st.target, effect: st.effect, missing: st.missing, role: stratagemRole(st),
+  }));
+  return {
+    faction: army.faction,
+    detachments: armyDetachmentRecords(army).map(d => d.name).filter(Boolean),
+    detachmentRules: detachmentRules(army),
+    stratagems: strats,
   };
 }

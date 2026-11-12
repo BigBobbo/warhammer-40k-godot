@@ -258,3 +258,20 @@ test('damaged model is finished first (wounded model priority)', () => {
   const r = run({ weapons: [weapon({ S: 8, AP: -6, kw: { torrent: true } })], groups: [group({ count: 2, W: 3, Sv: 3, woundsLeftFirst: 1 })] });
   near(r.meanKills, 5 / 6, 0.01, 'kills');
 });
+
+test('charge odds (11e: roll >= gap - 2" engagement range; modifiers net ±1; full re-roll)', () => {
+  assert.equal(E.chargeRollNeeded(9), 7);
+  assert.equal(E.chargeRollNeeded(9.5), 8, 'half inches round up');
+  assert.equal(E.chargeRollNeeded(3), 2);
+  near(E.chargeOdds(7), 21 / 36, 1e-12, 'P(2D6 >= 7)');
+  near(E.chargeOdds(7, { reroll: true }), 21 / 36 + (15 / 36) * (21 / 36), 1e-12, 'with re-roll');
+  near(E.chargeOdds(9, { mod: 2 }), E.chargeOdds(8), 1e-12, '+2 nets to +1');
+  near(E.chargeOdds(12, { mod: -1 }), 0, 1e-12, '12 with -1 impossible');
+});
+
+test('casualties: fewer models and a damaged model change the outcome', () => {
+  // 3 W3 models, one already on 1 wound: 3 unsaved D1 hits kill exactly the damaged one + 2 wounds
+  const r = run({ weapons: [weapon({ count: 3, S: 8, AP: -6, kw: { torrent: true } })], groups: [group({ count: 3, W: 3, Sv: 3, woundsLeftFirst: 1 })] });
+  near(r.totalWounds, 7, 1e-9, 'total wounds = 1 + 3 + 3');
+  near(r.kills[0], (1 / 6) ** 3, 0.003, 'no kill only if all three fail to wound');
+});

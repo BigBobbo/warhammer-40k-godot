@@ -589,3 +589,24 @@ export function expectedDamageQuick(w, T, Sv, InSv) {
   const pf = Math.min(1, Math.max(1 / 6, (need - 1) / 6));
   return A * ph * pw * pf * diceMean(parseDice(w.D));
 }
+
+// ---------------------------------------------------------------------------
+// Charge odds (11e 11.02-11.04): 2D6 charge roll = maximum charge distance;
+// the charge must end engaged (engagement range 2"), so a gap of G" needs a
+// roll of at least G - 2. Charge-roll modifiers net to ±1; a re-roll
+// (e.g. Command Re-roll) re-rolls the whole charge roll.
+
+export const ENGAGEMENT_RANGE = 2;
+
+export function chargeRollNeeded(gapInches) {
+  return Math.max(2, Math.ceil(gapInches - ENGAGEMENT_RANGE - 1e-9));
+}
+
+/** Exact P(success) for a 2D6 charge needing `need`, with modifier and optional full re-roll. */
+export function chargeOdds(need, { mod = 0, reroll = false } = {}) {
+  const m = cap1(mod);
+  let p = 0;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + m >= need) p++;
+  p /= 36;
+  return reroll ? p + (1 - p) * p : p;
+}

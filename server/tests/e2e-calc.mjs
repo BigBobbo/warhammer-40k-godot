@@ -194,6 +194,54 @@ try {
   check('swapped: Captain on Bike + Wulfen is a target again', opts.some(o => /^Captain on Bike \+ Wulfen/.test(o)), opts.join(' | '));
   await page.tap('button[data-action="swap"]');
 
+  // --- Intel tab: enemy cheat sheet, search, jump to target
+  await page.tap('button[data-action="view"][data-value="intel"]');
+  await page.waitForSelector('#intel-list');
+  check('intel opens on the defending army (Orks)', (await page.locator('.card .title').first().textContent()) === 'Orks');
+  check('intel lists the detachment rule', (await page.locator('summary', { hasText: 'Detachment rule' }).count()) === 1);
+  await page.fill('input[data-input="intel-search"]', 'meganob');
+  check('search narrows to Meganobz', (await page.locator('#intel-list .intel-unit').count()) === 1);
+  await page.locator('#intel-list .intel-unit summary').first().tap();
+  const intelText = await page.locator('#intel-list .intel-unit').first().textContent();
+  check('cheat sheet shows stats, defences and weapons', /Meganob/.test(intelText) && /2\+/.test(intelText) && /-1 AP \(incoming\)/.test(intelText) && /Power Klaw/i.test(intelText), intelText.slice(0, 160));
+  await page.screenshot({ path: join(SHOTS, 'calc_10_intel.png') });
+  await page.locator('#intel-list button[data-action="target-this"]').first().tap();
+  await page.waitForSelector('select[data-input="target"]');
+  const tgtAfterIntel = await page.$eval('select[data-input="target"]', sel => sel.selectedOptions[0].textContent);
+  check('"Calculate attacks into this unit" sets the target', /^Meganobz/.test(tgtAfterIntel), tgtAfterIntel);
+
+  // --- casualties & damage on the target
+  await page.locator('details[data-details="casualties"] > summary').tap();
+  await page.tap('button[data-action="dmg"][data-field="count"][data-delta="-1"]');
+  await page.tap('button[data-action="dmg"][data-field="woundsLeftFirst"][data-delta="-1"]');
+  await page.tap('button[data-action="dmg"][data-field="woundsLeftFirst"][data-delta="-1"]');
+  await settle(page);
+  const scD = await page.evaluate(() => window.__calc.scenario());
+  const megaG = scD.defender.groups[0];
+  check('casualties reach the engine (2 Meganobz left, one on 1 wound)', megaG.count === 2 && megaG.woundsLeftFirst === 1, JSON.stringify(megaG));
+  const rD = await page.evaluate(() => window.__calc.state.result);
+  check('result counts 2 models / 4 wounds', rD.totalModels === 2 && rD.totalWounds === 4, `${rD.totalModels} models, ${rD.totalWounds} W`);
+  await page.screenshot({ path: join(SHOTS, 'calc_11_casualties.png') });
+
+  // --- models in range on the first attacker (Grey Hunters: 10 models)
+  const ghCard = page.locator('[data-attacker]').first();
+  for (let i = 0; i < 5; i++) await ghCard.locator('button[data-action="inrange"][data-delta="-1"]').tap();
+  await settle(page);
+  const scR = await page.evaluate(() => window.__calc.scenario());
+  const carb = scR.attackers[0].weapons.find(w => /Bolt Carbine/.test(w.name));
+  check('5 of 10 Grey Hunters in range -> 5 bolt carbines fire', carb?.count === 5, JSON.stringify(scR.attackers[0].weapons.map(w => [w.name, w.count])));
+
+  // --- charge odds
+  await page.tap('button[data-action="open-charge"]');
+  await page.waitForSelector('#charge-need');
+  for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g < 9; g += 0.5) await page.tap('button[data-action="charge-gap"][data-delta="0.5"]');
+  for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g > 9; g -= 0.5) await page.tap('button[data-action="charge-gap"][data-delta="-0.5"]');
+  check('9" gap needs a 7 (58%)', (await page.textContent('#charge-need')) === '7+' && (await page.textContent('#charge-p')) === '58%');
+  await page.tap('button[data-action="charge-reroll"]');
+  check('with a re-roll: 83%', (await page.textContent('#charge-p')) === '83%', await page.textContent('#charge-p'));
+  await page.screenshot({ path: join(SHOTS, 'calc_12_charge.png') });
+  await page.tap('.sheet button[data-action="close-sheet"]');
+
   // --- swap: Orks attack Space Wolves; fight phase; Thunderwolf storm shields auto-on
   await page.tap('button[data-action="swap"]');
   await page.tap('button[data-action="phase"][data-value="fight"]');
@@ -285,7 +333,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v2') && (await (await caches.open('w40k-calc-v2')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v3') && (await (await caches.open('w40k-calc-v3')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });
