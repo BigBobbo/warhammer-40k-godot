@@ -242,6 +242,52 @@ try {
   await page.screenshot({ path: join(SHOTS, 'calc_12_charge.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
 
+  // --- matchup grid (Space Wolves shooting at Orks)
+  await page.tap('button[data-action="open-grid"]');
+  await page.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 60000 });
+  const g = await page.evaluate(() => { const g = window.__calc.state.grid; return { rows: g.rows.length, cols: g.cols.length, total: g.total, cells: Object.keys(g.cells).length }; });
+  check('grid filled every matchup', g.cells === g.total && g.total === g.rows * g.cols && g.rows >= 5 && g.cols === 5, JSON.stringify(g));
+  check('grid cells rendered as buttons', (await page.locator('#grid-host .cell').count()) === g.total);
+  // a cell equals the engine on the same default scenario (oracle)
+  const cellCheck = await page.evaluate(() => {
+    const c = window.__calc; const g = c.state.grid;
+    const atk = c.atkArmy().units.find(u => u.key === g.rows[0].key);
+    const def = c.defArmy().units.find(u => u.key === g.cols[0].key);
+    return { cell: g.cells[`${atk.key}|${def.key}`], sc: c.defaultScenario(atk, def) };
+  });
+  const oracleCell = E.simulate({ ...cellCheck.sc, trials: 2000 });
+  check('grid cell = engine on the same scenario', Math.abs(oracleCell.meanWounds - cellCheck.cell.meanWounds) < 1e-9, `${cellCheck.cell.meanWounds} vs ${oracleCell.meanWounds}`);
+  await page.tap('button[data-action="grid-metric"][data-value="wipe"]');
+  check('metric switch to wipe %', /%/.test(await page.locator('#grid-host .cell').first().textContent()));
+  await page.tap('button[data-action="grid-metric"][data-value="damage"]');
+  await page.screenshot({ path: join(SHOTS, 'calc_13_grid.png') });
+  const pick = page.locator('#grid-host .cell').nth(1);
+  const pickDef = await pick.getAttribute('data-def');
+  const pickAtk = await pick.getAttribute('data-atk');
+  await pick.tap();
+  await page.waitForSelector('select[data-input="target"]');
+  const scP = await page.evaluate(() => ({ t: window.__calc.state.setups['A:shooting'].targetKey, a: window.__calc.state.setups['A:shooting'].attackers.map(x => x.unitKey) }));
+  check('tapping a cell opens that matchup', scP.t === pickDef && scP.a.length === 1 && scP.a[0] === pickAtk, JSON.stringify(scP));
+  await settle(page);
+
+  // --- saved scenarios
+  await page.tap('button[data-action="open-saved"]');
+  await page.fill('input[data-input="save-name"]', 'E2E matchup');
+  await page.tap('button[data-action="save-scenario"]');
+  check('scenario saved', await page.evaluate(() => window.__calc.state.saved.some(s => s.name === 'E2E matchup')));
+  await page.tap('.sheet button[data-action="close-sheet"]');
+  await page.locator('[data-attacker] button[data-action="remove"]').first().tap();
+  check('attacker removed before reload of scenario', (await page.locator('[data-attacker]').count()) === 0);
+  await page.tap('button[data-action="open-saved"]');
+  await page.locator('.sheet .pick', { hasText: 'E2E matchup' }).locator('button[data-action="load-scenario"]').tap();
+  await page.waitForSelector('[data-attacker]');
+  const scL = await page.evaluate(() => ({ t: window.__calc.state.setups['A:shooting'].targetKey, a: window.__calc.state.setups['A:shooting'].attackers.map(x => x.unitKey) }));
+  check('loading the scenario restores target and attacker', scL.t === pickDef && scL.a[0] === pickAtk, JSON.stringify(scL));
+  await settle(page);
+  await page.tap('button[data-action="open-saved"]');
+  await page.screenshot({ path: join(SHOTS, 'calc_14_saved.png') });
+  await page.tap('.sheet button[data-action="close-sheet"]');
+
   // --- swap: Orks attack Space Wolves; fight phase; Thunderwolf storm shields auto-on
   await page.tap('button[data-action="swap"]');
   await page.tap('button[data-action="phase"][data-value="fight"]');
@@ -326,6 +372,7 @@ try {
   await page.reload();
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
   check('setup restored after reload', (await page.locator('[data-attacker]').count()) === 1);
+  check('saved scenarios survive a reload', await page.evaluate(() => window.__calc.state.saved.length) === 1);
   check('used stratagem remembered after reload', (await page.locator('[data-attacker]').first().locator('button[data-action="arule"]', { hasText: "HIT 'EM HARDER" }).getAttribute('aria-pressed')) === 'true');
   const unitsB = await page.evaluate(() => window.__calc.state.armies.B.units.map(u => u.name));
   check('edited attachments survive a reload', unitsB.includes('Beastboss + Boyz') && unitsB.includes('Warboss'), unitsB.join(' | '));
@@ -333,7 +380,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v3') && (await (await caches.open('w40k-calc-v3')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v4') && (await (await caches.open('w40k-calc-v4')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });

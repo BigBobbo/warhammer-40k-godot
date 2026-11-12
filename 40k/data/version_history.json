@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.79.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: matchup grid of every unit against every enemy unit, and saved scenarios.",
+      "changes": [
+        "Grid (Attack tab): every one of your units against every enemy unit for the current phase, shown as % of wounds removed, average kills or wipe chance, shaded light to dark. Tap a cell to open that matchup.",
+        "Saved: name and save the current setup (target, attackers, weapons, modifiers, stratagems, casualties) and load it again later; saved scenarios stay on the device."
+      ]
+    },
+    {
       "version": "1.78.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: enemy cheat sheet, damaged targets, models in range and charge odds.",

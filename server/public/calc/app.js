@@ -29,6 +29,10 @@ const state = {
   sheetArg: null,            // {side, host} for 'attach', {side, char} for 'join'
   charge: { gap: 9, mod: 0, reroll: false }, // charge odds tool
   intelSide: null,           // army shown on the Intel tab (default: the defender)
+  grid: null,                // matchup grid: {sig, side, phase, metric, cells, rows, cols, running, done, total}
+  gridMetric: 'damage',      // 'damage' (% of wounds) | 'kills' | 'wipe'
+  saved: [],                 // saved scenarios (own localStorage key)
+  savedNote: null,
   intelQuery: '',
   result: null, busy: false, calcError: null,
   chartMode: null,           // 'models' | 'damage' | null (auto)
@@ -44,6 +48,21 @@ function persist() {
       attach: state.attach, charge: state.charge, intelSide: state.intelSide,
     }));
   } catch { /* storage full / private mode: best effort */ }
+}
+
+const SAVED_KEY = 'w40k_calc_saved_v1';
+function persistSaved() {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); } catch { /* best effort */ }
+}
+function restoreSaved() {
+  try { state.saved = JSON.parse(localStorage.getItem(SAVED_KEY) ?? '[]') ?? []; } catch { state.saved = []; }
+}
+// Which lists a scenario was made with (unit keys are only valid for them).
+function listsSignature() {
+  const str = JSON.stringify([state.texts.A, state.texts.B, state.attach]);
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
 }
 
 function restore() {
@@ -393,7 +412,11 @@ function attackView() {
         <button class="icon-btn" data-action="swap" aria-label="Swap attacker and defender">⇄</button>
         <div class="side right"><div class="lbl">Defender · ${other(state.side)}</div><div class="nm">${esc(def.faction)}</div></div>
       </div>
-      <button class="btn block ghost" style="margin-top:8px" data-action="open-charge">🎲 Charge odds</button>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <button class="btn ghost grow" data-action="open-charge">🎲 Charge</button>
+        <button class="btn ghost grow" data-action="open-grid">📊 Grid</button>
+        <button class="btn ghost grow" data-action="open-saved">💾 Saved${state.saved.length ? ` (${state.saved.length})` : ''}</button>
+      </div>
     </section>
     <section class="section"><h2>Target</h2>${targetCard(tinfo, s)}</section>
     <section class="section"><h2>Attacking units${s.attackers.length > 1 ? ' · resolved in order' : ''}</h2>
@@ -605,11 +628,125 @@ function renderSheet() {
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
     : state.sheet === 'charge' ? chargeSheet()
+    : state.sheet === 'grid' ? gridSheet()
+    : state.sheet === 'saved' ? savedSheet()
     : state.sheet === 'attach' ? attachSheet()
       : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
     <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="wrap">${content}</div></div>`;
   if (state.sheet === 'results') wireChart();
+}
+
+// ---- Matchup grid: every attacking unit against every enemy unit
+
+function defaultScenario(atkCu, defCu) {
+  const profile = defenderProfile(defCu, defArmy());
+  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile) };
+  const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
+  const { rows } = rowsFor(entry, tinfo);
+  if (!rows.some(r => r.count > 0)) return null;
+  const { rules, on } = rulesFor(entry, atkCu, tinfo);
+  return {
+    phase: state.phase,
+    attackers: [buildAttacker(atkCu, rows, {}, rules, on, state.phase)],
+    defender: buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), state.phase, {}, {}),
+    seed: 99,
+  };
+}
+
+let gridWorker = null;
+function startGrid() {
+  const sig = `${listsSignature()}|${state.side}|${state.phase}`;
+  if (state.grid?.sig === sig && (state.grid.running || state.grid.done)) return;
+  gridWorker?.terminate();
+  const atk = atkArmy().units, def = defArmy().units;
+  const batch = [];
+  const rows = [];
+  for (const a of atk) {
+    let any = false;
+    for (const d of def) {
+      const sc = defaultScenario(a, d);
+      if (sc) { batch.push({ key: `${a.key}|${d.key}`, scenario: sc }); any = true; }
+    }
+    if (any) rows.push({ key: a.key, name: a.name });
+  }
+  state.grid = { sig, side: state.side, phase: state.phase, cells: {}, rows, cols: def.map(d => ({ key: d.key, name: d.name })), running: true, done: false, total: batch.length };
+  const id = Date.now();
+  gridWorker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+  gridWorker.onmessage = (ev) => {
+    const msg = ev.data;
+    if (msg.id !== id || !state.grid || state.grid.sig !== sig) return;
+    if (msg.done) { state.grid.running = false; state.grid.done = true; console.log(`[calc] grid done: ${state.grid.total} matchups`); }
+    else state.grid.cells[msg.key] = msg.result ?? { error: msg.error };
+    if (state.sheet === 'grid') updateGrid();
+  };
+  gridWorker.postMessage({ id, batch, trials: 2000 });
+}
+
+function gridValue(c) {
+  if (!c || c.error) return null;
+  if (state.gridMetric === 'kills') return { v: c.meanKills, frac: c.meanKills / Math.max(1, c.totalModels), text: fx(c.meanKills) };
+  if (state.gridMetric === 'wipe') return { v: c.pWipe, frac: c.pWipe, text: pct(c.pWipe) };
+  const f = c.meanWounds / Math.max(1, c.totalWounds);
+  return { v: f, frac: f, text: pct(f) };
+}
+
+// sequential blue ramp (dataviz reference palette), light -> dark
+const RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95'];
+function rampColor(frac) {
+  const i = Math.max(0, Math.min(RAMP.length - 1, Math.floor(frac * RAMP.length)));
+  return { bg: RAMP[i], ink: i >= 3 ? '#ffffff' : '#0b0b0b' };
+}
+
+function gridTable() {
+  const g = state.grid;
+  if (!g) return '';
+  const short = (n) => (n.length > 18 ? `${n.slice(0, 17)}…` : n);
+  const colName = (n) => (n.length > 26 ? `${n.slice(0, 25)}…` : n); // headers wrap
+  const head = `<tr><th class="corner">${state.phase === 'fight' ? 'Fight' : 'Shooting'}</th>${g.cols.map(c => `<th title="${esc(c.name)}">${esc(colName(c.name))}</th>`).join('')}</tr>`;
+  const body = g.rows.map(r => `<tr><th title="${esc(r.name)}">${esc(short(r.name))}</th>${g.cols.map(c => {
+    const cell = g.cells[`${r.key}|${c.key}`];
+    const val = gridValue(cell);
+    if (!val) return `<td class="empty">${cell?.error ? '!' : g.running ? '…' : '–'}</td>`;
+    const col = rampColor(val.frac);
+    return `<td><button class="cell" data-action="grid-pick" data-atk="${esc(r.key)}" data-def="${esc(c.key)}" style="background:${col.bg};color:${col.ink}" title="${esc(`${r.name} → ${c.name}`)}">${esc(val.text)}</button></td>`;
+  }).join('')}</tr>`).join('');
+  return `<table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+function updateGrid() {
+  const host = document.getElementById('grid-host');
+  const prog = document.getElementById('grid-progress');
+  if (host) host.innerHTML = gridTable();
+  if (prog && state.grid) prog.textContent = state.grid.done ? `${state.grid.total} matchups · 2,000 rolls each` : `Calculating ${Object.keys(state.grid.cells).length}/${state.grid.total}…`;
+}
+
+function gridSheet() {
+  const g = state.grid;
+  return `<div class="row"><h3 class="grow">Matchup grid</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="muted small" style="margin-bottom:8px">${esc(atkArmy().faction)} (rows) attacking ${esc(defArmy().faction)} (columns) · ${state.phase}. Always-on rules only — no stratagems or situational bonuses. Tap a cell to open that matchup.</div>
+    ${seg('grid-metric', state.gridMetric, [['damage', '% wounds'], ['kills', 'Avg kills'], ['wipe', 'Wipe %']], 'compact')}
+    <div class="grid-wrap" id="grid-host">${gridTable()}</div>
+    <div class="tiny muted" id="grid-progress">${g?.done ? `${g.total} matchups · 2,000 rolls each` : `Calculating ${Object.keys(g?.cells ?? {}).length}/${g?.total ?? 0}…`}</div>`;
+}
+
+// ---- Saved scenarios
+
+function savedSheet() {
+  const s = setup();
+  const t = targetUnit();
+  const names = s.attackers.map(e => atkArmy()?.units.find(u => u.key === e.unitKey)?.name).filter(Boolean);
+  const defName = names.length && t ? `${names.join(' + ')} → ${t.name} (${state.phase})` : '';
+  const sig = listsSignature();
+  return `<div class="row"><h3 class="grow">Saved scenarios</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    ${defName ? `<div class="row" style="gap:6px"><input class="sel grow" data-input="save-name" value="${esc(defName)}" aria-label="Scenario name">
+      <button class="btn primary" data-action="save-scenario">Save</button></div>` : '<p class="hint">Set a target and attackers to save this setup.</p>'}
+    ${state.savedNote ? `<div class="warnbox">${esc(state.savedNote)}</div>` : ''}
+    <div class="section">${state.saved.length ? state.saved.map((sv, i) => `<div class="pick" style="cursor:default">
+        <div class="grow"><div class="title">${esc(sv.name)}</div>
+          <div class="muted tiny">${sv.summary ? `${fx(sv.summary.meanKills)} avg kills · ${pct(sv.summary.pWipe)} wipe · ` : ''}${new Date(sv.savedAt).toLocaleDateString()}${sv.sig !== sig ? ' · made with other lists' : ''}</div></div>
+        <button class="btn" data-action="load-scenario" data-i="${i}">Load</button>
+        <button class="icon-btn" data-action="delete-scenario" data-i="${i}" aria-label="Delete ${esc(sv.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved scenarios yet.</p>'}</div>`;
 }
 
 function chargeSheet() {
@@ -927,6 +1064,61 @@ app.addEventListener('click', (ev) => {
       window.scrollTo(0, 0);
       return changed();
     }
+    case 'open-grid':
+      state.sheet = 'grid';
+      startGrid();
+      return renderSheet();
+    case 'grid-metric':
+      state.gridMetric = el.dataset.value;
+      return renderSheet();
+    case 'grid-pick': {
+      // open that matchup: this unit is the only attacker, the column unit the target
+      s.targetKey = el.dataset.def;
+      s.attackers = [{ uid: uidSeq++, unitKey: el.dataset.atk, counts: {}, mods: {} }];
+      state.sheet = null;
+      window.scrollTo(0, 0);
+      return changed();
+    }
+    case 'open-saved':
+      state.sheet = 'saved';
+      state.savedNote = null;
+      return renderSheet();
+    case 'save-scenario': {
+      const name = app.querySelector('input[data-input="save-name"]')?.value?.trim() || 'Scenario';
+      state.saved.unshift({
+        id: Date.now(), name, savedAt: Date.now(), sig: listsSignature(),
+        side: state.side, phase: state.phase, setup: JSON.parse(JSON.stringify(s)),
+        summary: state.result ? { meanKills: state.result.meanKills, pWipe: state.result.pWipe, meanWounds: state.result.meanWounds } : null,
+      });
+      state.saved = state.saved.slice(0, 50);
+      persistSaved();
+      state.savedNote = `Saved “${name}”.`;
+      return render();
+    }
+    case 'load-scenario': {
+      const sv = state.saved[Number(el.dataset.i)];
+      if (!sv) return;
+      state.side = sv.side;
+      state.phase = sv.phase;
+      const st = JSON.parse(JSON.stringify(sv.setup));
+      for (const a of st.attackers ?? []) a.uid = uidSeq++;
+      const atkKeys = new Set(atkArmy()?.units.map(u => u.key) ?? []);
+      const defKeys = new Set(defArmy()?.units.map(u => u.key) ?? []);
+      const before = (st.attackers ?? []).length;
+      st.attackers = (st.attackers ?? []).filter(a => atkKeys.has(a.unitKey));
+      const lostTarget = st.targetKey && !defKeys.has(st.targetKey);
+      if (lostTarget) st.targetKey = null;
+      state.setups[`${sv.side}:${sv.phase}`] = st;
+      state.sheet = null;
+      if (sv.sig !== listsSignature() && (lostTarget || st.attackers.length < before)) {
+        console.warn('[calc] saved scenario made with other lists: some units are missing');
+      }
+      return changed();
+    }
+    case 'delete-scenario':
+      state.saved.splice(Number(el.dataset.i), 1);
+      persistSaved();
+      return render();
     case 'open-charge':
       state.sheet = 'charge';
       return renderSheet();
@@ -1053,6 +1245,7 @@ app.addEventListener('toggle', (ev) => {
 // Boot
 
 restore();
+restoreSaved();
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
@@ -1064,4 +1257,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy };
