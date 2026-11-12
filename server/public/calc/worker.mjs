@@ -15,6 +15,7 @@ self.onmessage = (ev) => {
         self.postMessage({ id, key: item.key, result: {
           meanKills: r.meanKills, pWipe: r.pWipe, meanWounds: r.meanWounds,
           totalModels: r.totalModels, totalWounds: r.totalWounds,
+          meanPoints: r.meanPoints, totalPoints: r.totalPoints, groupKills: r.groupKills,
         } });
       } catch (err) {
         self.postMessage({ id, key: item.key, error: String(err?.message ?? err) });
