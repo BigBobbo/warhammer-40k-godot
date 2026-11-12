@@ -113,3 +113,39 @@ test('mergeMods: numbers add, re-rolls keep the stronger, crits the lower', () =
   const m = E.mergeMods({ hitMod: 1, rerollHits: 'fail', critHit: 5 }, { hitMod: 1, rerollHits: 'ones', critHit: 6, lethal: true });
   assert.deepEqual(m, { hitMod: 2, rerollHits: 'fail', critHit: 5, lethal: true });
 });
+
+// --- older (10e-style) wording used by the index-card factions (Wahapedia export) -----------
+test('older wording: "each time a model in your unit makes an attack, add 1 to the Hit roll" etc.', () => {
+  const a = R.parseOffensive('Until the end of the phase, each time a model in your unit makes an attack, add 1 to the Hit roll and add 1 to the Wound roll.');
+  assert.deepEqual(a.effects.map(e => e.apply), [{ hitMod: 1 }, { woundMod: 1 }]);
+  const b = R.parseOffensive('Until the end of the phase, each time a friendly TYRANIDS model makes an attack that targets that enemy unit, if the attacking model’s unit is within 6" of your SYNAPSE unit, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.');
+  assert.deepEqual(b.effects.map(e => e.apply), [{ rerollHits: 'ones' }, { rerollWounds: 'ones' }]);
+  const c = R.parseOffensive('Until the end of the phase, each time a model in your unit makes a melee attack, improve the Armour Penetration characteristic of that attack by 1 and add 1 to the Strength characteristic of that attack.');
+  assert.deepEqual(c.effects.map(e => e.label), ['+1 AP', '+1 S']);
+  assert.deepEqual(c.phases, ['fight']);
+  const t = R.parseOffensive('Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit, add 1 to the Wound roll.');
+  assert.deepEqual(t.conds.targetKw, ['MONSTER', 'VEHICLE']);
+});
+
+test('older wording: defensive "each time an attack targets your unit ..."', () => {
+  assert.deepEqual(R.parseDefensiveText('Until the attacking unit has finished making its attacks, each time an attack targets your unit, worsen the Armour Penetration characteristic of that attack by 1.').map(x => x.apply), [{ apReduce: 1 }]);
+  assert.deepEqual(R.parseDefensiveText('Until the end of the phase, each time an attack targets your unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of your unit, subtract 1 from the Wound roll.').map(x => x.apply), [{ woundModIfSGreaterT: -1 }]);
+  assert.deepEqual(R.parseDefensiveText('Until the end of the phase, each time a ranged attack targets your unit, subtract 1 from the Hit roll.').map(x => x.apply), [{ hitMod: -1 }]);
+});
+
+test('older wording: role from the effect, eligibility from "TARGET: One X unit from your army"', () => {
+  const byName = (n) => STRATAGEMS.find(s => s.name === n && !s.missing);
+  const iw = byName('IRRESISTIBLE WILL');
+  assert.equal(R.stratagemRole(iw), 'attack');
+  assert.equal(R.stratagemEligible(iw, ['TYRANIDS', 'SYNAPSE', 'MONSTER']), true);
+  assert.equal(R.stratagemEligible(iw, ['TYRANIDS', 'INFANTRY']), false, 'needs SYNAPSE');
+  const rh = byName('REINFORCED HIVE NODE');
+  assert.equal(R.stratagemRole(rh), 'defend');
+});
+
+test('stratagem bundle: Wahapedia export filled the gaps for index-card factions', () => {
+  const withText = (f) => STRATAGEMS.filter(s => s.faction === f && !s.missing).length;
+  for (const f of ['NEC', 'TYR', 'AE', 'AM', 'CSM', 'GK', 'LoV', 'TAU']) assert.ok(withText(f) >= 30, `${f}: ${withText(f)}`);
+  const keys = STRATAGEMS.map(s => `${s.detachment}|${s.name}`.toUpperCase().replace(/[^A-Z0-9|]/g, ''));
+  assert.equal(new Set(keys).size, keys.length, 'no duplicate name+detachment');
+});

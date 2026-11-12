@@ -22,15 +22,15 @@ function firstOption(t) {
 }
 
 function phasesOf(t) {
-  const melee = /\bmelee (attacks|weapons)\b/i.test(t);
-  const ranged = /\branged (attacks|weapons)\b/i.test(t);
+  const melee = /\bmelee (attacks?|weapons?)\b/i.test(t);
+  const ranged = /\branged (attacks?|weapons?)\b/i.test(t);
   if (melee && !ranged) return ['fight'];
   if (ranged && !melee) return ['shooting'];
   return ['shooting', 'fight'];
 }
 
 function kwList(phrase) {
-  return String(phrase ?? '').split('/').map(s => s.trim().toUpperCase()).filter(Boolean);
+  return String(phrase ?? '').split(/\/|\s+or\s+/i).map(s => s.trim().toUpperCase()).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ export function parseConditions(text) {
   }
   // "...attacks that target a MONSTER/VEHICLE unit..." / "...a unit (excluding MONSTER/VEHICLE units)..."
   let m;
-  const tgt = /that target an? (?:enemy )?((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*unit(?:s)?\b(\s*\(excluding ([^)]+?) units?\))?/gi;
+  const tgt = /that targets? an? (?:enemy )?((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*unit(?:s)?\b(\s*\(excluding ([^)]+?) units?\))?/gi;
   while ((m = tgt.exec(t))) {
     const phrase = (m[1] ?? '').trim();
     if (phrase && !/^(enemy|visible)$/i.test(phrase)) c.targetKw.push(...kwList(phrase));
@@ -113,6 +113,9 @@ const OFFENSIVE_SUBJECT = new RegExp([
   `units?${AP.source}? (melee |ranged )?attacks (have|can|gain)`,
   `(melee|ranged) attacks (have|can|gain)`,
   `models in (this|your|that) unit (have|gain)`,
+  // older (10e-style) wording, still used by the index-card factions
+  `each time an? (friendly [^,.]*?)?(model|unit)[^,.]*? makes an? (melee |ranged )?attack`,
+  `each time (this|your) unit (shoots|fights)`,
 ].join('|'), 'i');
 
 const KW_GRANTS = [
@@ -143,12 +146,21 @@ export function parseOffensive(text) {
   let m;
   const scanAll = (re, fn) => { re.lastIndex = 0; let x; while ((x = re.exec(t))) fn(x); };
 
-  if ((m = t.match(/\+(\d) to hit rolls?/i))) add(`+${m[1]} to hit`, { hitMod: Number(m[1]) });
-  if ((m = t.match(/\+(\d) to wound rolls?/i))) add(`+${m[1]} to wound`, { woundMod: Number(m[1]) });
-  if (/re-roll hit rolls? of 1/i.test(t)) add('Re-roll hit 1s', { rerollHits: 'ones' });
-  else if (/re-roll (the |their )?hit rolls?\b/i.test(t) && !/re-roll one hit roll/i.test(t)) add('Re-roll hits', { rerollHits: 'fail' });
-  if (/re-roll wound rolls? of 1/i.test(t)) add('Re-roll wound 1s', { rerollWounds: 'ones' });
-  else if (/re-roll (the |their )?wound rolls?\b/i.test(t) && !/re-roll one wound roll/i.test(t)) add('Re-roll wounds', { rerollWounds: 'fail' });
+  if ((m = t.match(/\+(\d) to hit rolls?/i) || t.match(/add (\d) to the hit roll/i))) add(`+${m[1]} to hit`, { hitMod: Number(m[1]) });
+  if ((m = t.match(/\+(\d) to wound rolls?/i) || t.match(/add (\d) to the wound roll/i))) add(`+${m[1]} to wound`, { woundMod: Number(m[1]) });
+  if (/re-roll (?:a |the )?hit rolls? of 1/i.test(t)) add('Re-roll hit 1s', { rerollHits: 'ones' });
+  else if (/re-roll (the |their |a )?hit rolls?\b/i.test(t) && !/re-roll one hit roll/i.test(t)) add('Re-roll hits', { rerollHits: 'fail' });
+  if (/re-roll (?:a |the )?wound rolls? of 1/i.test(t)) add('Re-roll wound 1s', { rerollWounds: 'ones' });
+  else if (/re-roll (the |their |a )?wound rolls?\b/i.test(t) && !/re-roll one wound roll/i.test(t)) add('Re-roll wounds', { rerollWounds: 'fail' });
+  // older wording: "improve the Armour Penetration characteristic of that attack by 1", "add 1 to the Strength characteristic"
+  if ((m = t.match(/improve the Armour Penetration characteristic of (?:that|the|those) attacks? by (\d)/i))) add(`+${m[1]} AP`, { apMod: Number(m[1]) });
+  scanAll(/add (\d) to the (Strength|Attacks|Damage) characteristic/gi, (x) => {
+    const v = Number(x[1]);
+    const stat = x[2].toLowerCase();
+    if (stat === 'strength') add(`+${v} S`, { strengthMod: v });
+    if (stat === 'attacks') add(`+${v} A`, { attacksMod: v });
+    if (stat === 'damage') add(`+${v} D`, { damageMod: v });
+  });
   // "+1 S", "+1 S and AP", "+2 S, AP and D", bullets "• +1 D."
   scanAll(/\+(\d)\s+((?:S|A|AP|D)(?:\s*(?:,|and)\s*(?:S|A|AP|D))*)\b(?!\w)/g, (x) => {
     const v = Number(x[1]);
@@ -200,7 +212,7 @@ export function parseDefensiveText(text) {
   const rangedOnly = /\branged attacks that target\b/i.test(t);
   const meleeOnly = /\bmelee attacks that target\b/i.test(t);
   const phases = rangedOnly ? ['shooting'] : meleeOnly ? ['fight'] : ['shooting', 'fight'];
-  const targetsUs = /that target (this|your) (unit|model)/i;
+  const targetsUs = /(that )?targets? (this|your) (unit|model)/i;
   let m;
   if ((m = t.match(/(\d)\+\s*InSv/i)) || (m = t.match(/(\d)\+\s*invulnerable save/i))) {
     out.push({ label: `${m[1]}+ invulnerable save`, apply: { InSv: Number(m[1]) }, phases });
@@ -216,12 +228,12 @@ export function parseDefensiveText(text) {
   }
   if (/\bhave -1 D\b|-1 Damage\b|subtract 1 from the Damage/i.test(t)) out.push({ label: '-1 Damage', apply: { dr: 1 }, phases });
   if (/halve the D(amage)?\b/i.test(t)) out.push({ label: 'Halve Damage', apply: { dr: 'half' }, phases });
-  if (/-1 to wound rolls/i.test(t) && targetsUs.test(t)) {
+  if (/(-1 to wound rolls|subtract 1 from the wound roll)/i.test(t) && targetsUs.test(t)) {
     if (/S greater than (this|your) (unit|model).s T|Strength .* greater than .* Toughness/i.test(t)) out.push({ label: '-1 to wound if S > T', apply: { woundModIfSGreaterT: -1 }, phases });
     else out.push({ label: '-1 to wound', apply: { woundMod: -1 }, phases });
   }
-  if (/-1 to hit rolls/i.test(t) && targetsUs.test(t)) out.push({ label: '-1 to hit', apply: { hitMod: -1 }, phases });
-  if (/that target (this|your) (unit|model) have -1 AP/i.test(t)) out.push({ label: '-1 AP (incoming)', apply: { apReduce: 1 }, phases });
+  if (/(-1 to hit rolls|subtract 1 from the hit roll)/i.test(t) && targetsUs.test(t)) out.push({ label: '-1 to hit', apply: { hitMod: -1 }, phases });
+  if (/that target (this|your) (unit|model) have -1 AP/i.test(t) || (/worsen the Armour Penetration characteristic of that attack by 1/i.test(t) && targetsUs.test(t))) out.push({ label: '-1 AP (incoming)', apply: { apReduce: 1 }, phases });
   if (/\bStealth\b/.test(t) && !/cannot have the benefit/i.test(t)) out.push({ label: 'Stealth (cover vs ranged)', apply: { cover: true }, phases: ['shooting'] });
   if (/(this|your) unit has the benefit of cover/i.test(t)) out.push({ label: 'Benefit of cover', apply: { cover: true }, phases: ['shooting'] });
   return out;
@@ -235,6 +247,11 @@ export function stratagemRole(s) {
   const w = norm(s.when);
   if (/enemy unit (targets|has selected|selects)[^.]*friendly/i.test(w) || /targets? a friendly/i.test(w)) return 'defend';
   if (/friendly[^.]*is selected to (shoot|fight|attack)/i.test(w) || /selected to (shoot|fight)/i.test(w)) return 'attack';
+  // older wording: "Your Shooting phase or the Fight phase." + the effect says who it helps
+  const e = norm(s.effect);
+  const tg = norm(s.target);
+  if (/enemy unit has selected its targets|selected as the target of/i.test(`${w} ${tg}`) || /(an attack|attacks?) (that )?targets? (this|your) unit/i.test(e)) return 'defend';
+  if (OFFENSIVE_SUBJECT.test(e)) return 'attack';
   return null;
 }
 
@@ -280,8 +297,12 @@ export function keywordPhraseMatches(phrase, unitKeywords) {
 /** Does the WHEN line's "friendly X unit (excluding Y units)" fit this unit? */
 export function stratagemEligible(s, unitKeywords) {
   const w = norm(s.when);
-  const m = w.match(/friendly (?:attached |unengaged |engaged )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*unit\b(?:\s*\(excluding ([^)]+?) units?\))?/i);
-  if (!m) return true;
+  let m = w.match(/friendly (?:attached |unengaged |engaged )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*unit\b(?:\s*\(excluding ([^)]+?) units?\))?/i);
+  if (!m) {
+    // older wording: "TARGET: One NECRONS unit from your army ..." / "One Cryptek Infantry unit from your army"
+    m = norm(s.target).match(/^One (?:or more )?(?:unengaged |engaged |attached |other )*((?:[A-Za-z’'-]+(?:\/| )?)*?)\s*(?:unit|model)s? (?:\(excluding ([^)]+?) (?:units?|models?)\) )?from your army/i);
+    if (!m) return true;
+  }
   if (!keywordPhraseMatches(m[1] ?? '', unitKeywords)) return false;
   if (m[2] && keywordPhraseMatches(m[2], unitKeywords)) return false;
   return true;
