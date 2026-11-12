@@ -2,6 +2,59 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.79.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: matchup grid of every unit against every enemy unit, and saved scenarios.",
+      "changes": [
+        "Grid (Attack tab): every one of your units against every enemy unit for the current phase, shown as % of wounds removed, average kills or wipe chance, shaded light to dark. Tap a cell to open that matchup.",
+        "Saved: name and save the current setup (target, attackers, weapons, modifiers, stratagems, casualties) and load it again later; saved scenarios stay on the device."
+      ]
+    },
+    {
+      "version": "1.78.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: enemy cheat sheet, damaged targets, models in range and charge odds.",
+      "changes": [
+        "New Intel tab: every unit in either army with its stat lines, weapons, abilities, defences and attack buffs, plus the army's detachment rule and all its stratagems. Search by name, keyword or ability; one tap sets a unit as the target.",
+        "Casualties & damage on the target: set how many models are left of each type and the wounds left on a damaged model.",
+        "Models in range on each attacking unit: count only the models that can fight or shoot; attached characters stay in.",
+        "Charge odds: enter the gap to the target and see the roll needed and the chance to make it (with +1/-1 and a re-roll), plus a quick table from 3\" to 14\"."
+      ]
+    },
+    {
+      "version": "1.77.0",
+      "date": "2026-11-12",
+      "summary": "Combat Calc: unit abilities, leader buffs, detachment rules and stratagems now apply with a tap.",
+      "changes": [
+        "Each attacking unit lists its abilities, its leader's buffs and your detachment rule; they switch on by themselves when their condition is met (e.g. tick Charged and Thunderous Charge turns on, or a +1 to wound vs VEHICLES when the target is a vehicle).",
+        "Your detachment's stratagems that fit the unit (by keyword and phase) appear as chips: tap one to use it. The defender's stratagems (e.g. Armour of Contempt) are on the target card.",
+        "A leader's \"this model's attacks\" buffs only boost the leader's own weapons.",
+        "The results sheet lists every rule applied and the CP spent on stratagems. Stratagems the calculator can't model are listed with their text so you can set them by hand."
+      ]
+    },
+    {
+      "version": "1.76.0",
+      "date": "2026-11-11",
+      "summary": "Combat Calc: attach and detach characters on both the attacking and defending units.",
+      "changes": [
+        "Tap \"+ Attach character\" on the target or an attacking unit to add a Leader or Support character (one of each per unit); tap the character chip to detach it.",
+        "A lone character target or attacker can \"Join a unit\" instead.",
+        "Attached characters add their weapons to the attack, are allocated last when defending, and keep their own toughness, saves and Feel No Pain.",
+        "The Armies tab lists every character with the unit it is attached to, so lists without attachment info (e.g. New Recruit) can be set up once; edits are remembered."
+      ]
+    },
+    {
+      "version": "1.75.0",
+      "date": "2026-11-11",
+      "summary": "New Combat Calc web app: paste two army lists and see the odds of a shooting or fight attack on your phone.",
+      "changes": [
+        "Open /calc/ on the army builder server (works on phones and tablets, installable, works offline once loaded).",
+        "Paste two lists (GW app, New Recruit, ListForge...), pick attacker and defender (swap with one tap), choose a target and one or more attacking units.",
+        "Shows average models destroyed, chance to destroy the unit, damage, and a chart and table of every outcome, using 11th edition rules.",
+        "Weapon abilities apply automatically; the target's invulnerable saves, Feel No Pain, -1 Damage and -1 to wound are detected and can be switched off; add re-rolls, +1s and other stratagem effects by hand."
+      ]
+    },
+    {
       "version": "1.74.0",
       "date": "2026-11-06",
       "summary": "Smarter AI objective choice: it no longer sends a lone unit to grab an objective the enemy can take straight back.",

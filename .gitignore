@@ -74,3 +74,6 @@ bench_data/**
 !bench_data/**/campaign_*.json
 !bench_data/**/accepted_*.json
 .claude/worktrees/
+
+# Combat calc e2e screenshots (server/tests/e2e-calc.mjs)
+server/tests/screenshots/
