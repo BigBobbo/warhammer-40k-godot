@@ -271,6 +271,9 @@ table.grid .cell { width: 100%; min-width: 56px; height: 40px; border: 0; border
 /* board planner */
 .board-wrap { overflow: hidden; }
 .board-wrap svg { border-radius: 8px; user-select: none; -webkit-user-select: none; }
+/* the whole board must fit on screen (tablets in landscape too): cap the height
+   to the viewport below the sticky header; the viewBox letterboxes the width */
+.board-wrap #board-svg { max-height: calc(100dvh - 84px); }
 @media (max-width: 460px) {
   .brand-full { display: none; }
   .tab { padding: 0 10px; }

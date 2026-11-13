@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.84.0",
+      "date": "2026-11-13",
+      "summary": "Board: rotate units, change their formation, and zoom out to see the whole map on any screen.",
+      "changes": [
+        "Rotate a selected unit (15° or 45° steps); oval bases and the formation turn with it, and gaps are measured on the turned bases.",
+        "Formation: 2, 3, 5 or 10 models per row, or a single line (handy for screens).",
+        "Zoom out further than the board, which stays centred; the whole board now fits the screen on tablets held sideways too.",
+        "± zooms around the selected unit; unit names stay a readable size when zoomed in."
+      ]
+    },
+    {
       "version": "1.83.0",
       "date": "2026-11-13",
       "summary": "Combat Calc: new Board tab — plan on the official GW mission maps with your units at real size.",
