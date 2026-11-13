@@ -43,9 +43,13 @@ function halfSize(fp) {
   return { hx: fp.hw, hy: fp.hh };
 }
 
-/** Distance from a footprint's centre to its edge in direction (ux, uy) (unit vector). */
-export function edgeRadius(fp, ux, uy) {
+/** Distance from a footprint's centre to its edge in direction (ux, uy) (unit vector), footprint turned by `rot` degrees. */
+export function edgeRadius(fp, ux, uy, rot = 0) {
   if (fp.shape === 'round') return fp.r;
+  if (rot) {
+    const a = (-rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+    [ux, uy] = [ux * c - uy * s, ux * s + uy * c];
+  }
   const { hx, hy } = halfSize(fp);
   if (fp.shape === 'oval') return (hx * hy) / Math.sqrt((hy * ux) ** 2 + (hx * uy) ** 2);
   // rectangle: distance to the boundary along the ray
@@ -88,6 +92,15 @@ export function formation(members, { gap = 1, perRow = 5 } = {}) {
   return out;
 }
 
+/**
+ * A formation turned by `rot` degrees (clockwise on screen): offsets rotate
+ * about the unit's centre and every base turns with it.
+ */
+export function rotateFormation(models, rot) {
+  const a = (rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  return models.map(m => ({ ...m, dx: m.dx * c - m.dy * s, dy: m.dx * s + m.dy * c, rot }));
+}
+
 /** Closest base-to-base distance between two placed units (0 when touching / overlapping). */
 export function unitGap(a, b) {
   let best = Infinity;
@@ -97,7 +110,7 @@ export function unitGap(a, b) {
       const d = Math.hypot(bx - ax, by - ay);
       if (d === 0) return 0;
       const ux = (bx - ax) / d, uy = (by - ay) / d;
-      best = Math.min(best, d - edgeRadius(ma.fp, ux, uy) - edgeRadius(mb.fp, -ux, -uy));
+      best = Math.min(best, d - edgeRadius(ma.fp, ux, uy, ma.rot) - edgeRadius(mb.fp, -ux, -uy, mb.rot));
     }
   }
   return Math.max(0, best);
@@ -109,7 +122,7 @@ export function pointGap(u, px, py) {
   for (const m of u.models) {
     const x = u.x + m.dx, y = u.y + m.dy, d = Math.hypot(px - x, py - y);
     if (d === 0) return 0;
-    best = Math.min(best, d - edgeRadius(m.fp, (px - x) / d, (py - y) / d));
+    best = Math.min(best, d - edgeRadius(m.fp, (px - x) / d, (py - y) / d, m.rot));
   }
   return Math.max(0, best);
 }

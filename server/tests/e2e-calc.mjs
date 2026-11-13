@@ -432,7 +432,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v8') && (await (await caches.open('w40k-calc-v8')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v9') && (await (await caches.open('w40k-calc-v9')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });
@@ -506,6 +506,30 @@ try {
   await page.tap('button[data-action="board-step"][data-i="0"]');
   const d0 = (await tokens()).find(t => t.tk === bGh.tk);
   check('Turn 1 is its own step (Deploy keeps the old position)', Math.abs(t1.x - bGh2.x - 6) < 0.5 && Math.abs(d0.x - bGh2.x) < 0.01, JSON.stringify({ t1, d0 }));
+  // rotate the Grey Hunters 90° (two 45° taps): rows of 5 become a column; then a 10-wide line
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  p0 = await toScreen(bGh2.x, bGh2.y);
+  await page.mouse.click(p0.x, p0.y);
+  await page.tap('button[data-action="board-rotate"][data-deg="45"]');
+  await page.tap('button[data-action="board-rotate"][data-deg="45"]');
+  const spread = () => page.evaluate((tk) => {
+    const g = document.querySelector(`#board-svg [data-tok="${tk}"]`).getBBox();
+    return { w: g.width, h: g.height };
+  }, bGh.tk);
+  const rotated = await spread();
+  check('rotating 90° turns the formation (taller than wide)', rotated.h > rotated.w && /Facing 90°/.test(await page.textContent('#board-panel')), JSON.stringify(rotated));
+  await page.tap('button[data-action="board-rotate"][data-deg="-45"]');
+  await page.tap('button[data-action="board-rotate"][data-deg="-45"]');
+  await page.tap('button[data-action="board-formation"][data-value="10"]');
+  const line = await spread();
+  check('formation of 10 per row = a single line', line.w > 3 * line.h, JSON.stringify(line));
+  await page.tap('button[data-action="board-formation"][data-value="5"]');
+  // zoom out past the board: whole board in view, centred, and the board fits the screen
+  for (let i = 0; i < 4; i++) await page.tap('button[data-action="board-zoom"][data-z="1.4"]');
+  const zo = await page.evaluate(() => { const svg = document.getElementById('board-svg'); const [x, y, w] = svg.getAttribute('viewBox').split(' ').map(Number); return { x, w, h: svg.getBoundingClientRect().height, vh: innerHeight }; });
+  check('zooming out goes past the whole board and keeps it centred', zo.w > 45 && Math.abs(zo.x + (zo.w - 44) / 2) < 0.6 && zo.h <= zo.vh, JSON.stringify(zo));
+  await page.tap('button[data-action="board-zoom"][data-z="0"]');
+
   // ruler: 20" straight down
   await page.tap('button[data-action="board-mode"][data-value="ruler"]');
   await page.locator('#board-host').scrollIntoViewIfNeeded();
@@ -573,6 +597,20 @@ try {
   await tp.tap('.pick:has-text("Grey Hunters")');
   await tp.waitForFunction(() => window.__calc?.state.result && !window.__calc.state.busy);
   await tp.screenshot({ path: join(SHOTS, 'calc_05_tablet_dark.png') });
+  const land = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+  const lp = await land.newPage();
+  await lp.goto(`${BASE}/calc/`);
+  await lp.fill('textarea[data-side="A"]', SW_LIST);
+  await lp.tap('button[data-action="parse"][data-side="A"]');
+  await lp.fill('textarea[data-side="B"]', ORK_LIST);
+  await lp.tap('button[data-action="parse"][data-side="B"]');
+  await lp.tap('button[data-action="view"][data-value="board"]');
+  await lp.waitForSelector('#board-svg');
+  const fitL = await lp.evaluate(() => ({ h: document.getElementById('board-svg').getBoundingClientRect().height, vh: innerHeight }));
+  check('landscape tablet: the whole board fits on screen', fitL.h <= fitL.vh, JSON.stringify(fitL));
+  await lp.locator('#board-host').scrollIntoViewIfNeeded();
+  await lp.screenshot({ path: join(SHOTS, 'calc_21_board_tablet_landscape.png') });
+  await land.close();
   // GW app list with U+2011 non-breaking hyphens (Contemptor‑Galatus, Grav‑Tank) imports cleanly
   await tp.tap('button[data-action="view"][data-value="armies"]');
   await tp.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));

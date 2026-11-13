@@ -62,3 +62,17 @@ test('objective range: 3" + the 20 mm marker radius', () => {
   near(B.OBJECTIVE_RANGE, 3.787, 0.001, 'open ground');
   assert.equal(B.ENGAGEMENT_RANGE, 2);
 });
+
+test('rotation: formation offsets and oval bases turn with the unit', () => {
+  const fp = B.footprint({ shape: 'oval', width: 90, length: 52 }); // rx 1.77", ry 1.02"
+  const f = B.formation([{ count: 3, fp, label: 'Bike' }]);           // one row along x
+  const r = B.rotateFormation(f, 90);                                   // now a column along y
+  assert.ok(Math.max(...r.map(m => Math.abs(m.dx))) < 1e-9, 'all on x = 0 after 90°');
+  near(Math.max(...r.map(m => m.dy)), Math.max(...f.map(m => m.dx)), 1e-9, 'spread along y');
+  // a turned oval's long axis now points along y
+  near(B.edgeRadius(fp, 0, 1, 90), fp.rx, 1e-9, 'long axis vertical');
+  near(B.edgeRadius(fp, 1, 0, 90), fp.ry, 1e-9, 'short axis horizontal');
+  // gap between one bike and a point to its right: short side after turning
+  const one = B.rotateFormation([{ dx: 0, dy: 0, fp }], 90);
+  near(B.pointGap({ x: 0, y: 0, models: one }, 5, 0), 5 - fp.ry, 1e-9, 'gap uses the turned base');
+});

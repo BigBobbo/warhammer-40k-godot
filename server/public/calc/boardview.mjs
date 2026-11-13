@@ -8,7 +8,7 @@
 
 import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
-  footprint, formation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly,
+  footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly,
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
 
@@ -91,9 +91,17 @@ function unitInfo(side, key) {
   const ck = `${side}|${key}|${cu.name}|${cu.models}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu);
-    unitCache.set(ck, { cu, ...bu, models: formation(bu.members) });
+    unitCache.set(ck, { cu, ...bu, models: formation(bu.members), formations: new Map() });
   }
   return unitCache.get(ck);
+}
+
+// a placed unit's models: its formation width (models per row) and facing
+function tokenModels(u, pos) {
+  const per = pos.per ?? 5;
+  if (!u.formations.has(per)) u.formations.set(per, formation(u.members, { perRow: per }));
+  const base = u.formations.get(per);
+  return pos.rot ? rotateFormation(base, pos.rot) : base;
 }
 
 function placed() {
@@ -101,7 +109,7 @@ function placed() {
   for (const [tk, pos] of Object.entries(stepTokens())) {
     const [side, key] = tk.split(':');
     const u = unitInfo(side, key);
-    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, models: u.models, u });
+    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, models: tokenModels(u, pos), u });
   }
   return out;
 }
@@ -147,7 +155,10 @@ function freeSpot(side, key) {
 
 const f2 = (n) => Math.round(n * 100) / 100;
 
-function shapeSvg(fp, x, y, fill, stroke, sw) {
+function shapeSvg(fp, x, y, fill, stroke, sw, rot = 0) {
+  if (rot && fp.shape !== 'round') {
+    return `<g transform="rotate(${f2(rot)} ${f2(x)} ${f2(y)})">${shapeSvg(fp, x, y, fill, stroke, sw)}</g>`;
+  }
   if (fp.shape === 'round') return `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(fp.r)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
   if (fp.shape === 'oval') return `<ellipse cx="${f2(x)}" cy="${f2(y)}" rx="${f2(fp.rx)}" ry="${f2(fp.ry)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
   return `<rect x="${f2(x - fp.hw)}" y="${f2(y - fp.hh)}" width="${f2(fp.hw * 2)}" height="${f2(fp.hh * 2)}" rx="0.3" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" ${fp.approx ? 'stroke-dasharray="0.4 0.25"' : ''}/>`;
@@ -186,6 +197,7 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<circle cx="${o.x}" cy="${o.y}" r="0.79" fill="${C.obj}" stroke="${C.objEdge}" stroke-width="0.12"/>`);
   }
   const toks = placed();
+  const fontK = Math.max(0.55, Math.min(1.2, vb.w / (BOARD.w + 1))); // label size follows the zoom
   // range rings of the selected unit (union of per-model circles, uniform tint)
   const sel = toks.find(t => t.tk === b.sel);
   if (sel && !forExport) {
@@ -205,8 +217,8 @@ export function boardSvg({ forExport = false } = {}) {
     }, { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
     parts.push(`<g class="tok" data-tok="${t.tk}" transform="translate(${f2(t.x)},${f2(t.y)})" style="cursor:grab">`
       + `<rect x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" rx="0.6" fill="${fill}" fill-opacity="${isSel ? 0.12 : 0.04}" stroke="none"/>`
-      + t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08)).join('')
-      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? m.fp.ry ?? m.fp.hh))) - 0.35)}" font-size="0.95" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="0.25">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
+      + t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')
+      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
   }
   // gap line between two selected units
   const sel2 = toks.find(t => t.tk === b.sel2);
@@ -332,6 +344,19 @@ function selectionPanel() {
     <div class="row"><div class="grow"><div class="title" style="color:${C[s1.side]}">${esc(s1.u.cu.name)}</div>
       <div class="muted tiny">${s1.u.cu.models} models · M${u.move}"${u.ranges.length ? ` · ranges ${u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}</div></div>
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
+    <div class="row" style="gap:6px;margin-top:8px;align-items:center">
+      <span class="lab tiny muted grow">Facing ${Math.round(((s1.rot % 360) + 360) % 360)}°</span>
+      <button class="icon-btn" data-action="board-rotate" data-deg="-45" aria-label="Rotate 45° left">↺</button>
+      <button class="icon-btn" data-action="board-rotate" data-deg="-15" aria-label="Rotate 15° left">⟲</button>
+      <button class="icon-btn" data-action="board-rotate" data-deg="15" aria-label="Rotate 15° right">⟳</button>
+      <button class="icon-btn" data-action="board-rotate" data-deg="45" aria-label="Rotate 45° right">↻</button>
+    </div>
+    ${s1.models.length > 2 ? (() => {
+      const n = s1.models.length;
+      const opts = [2, 3, 5, 10].filter(k => k < n).map(k => [k, String(k)]);
+      opts.push([n, 'Line']);
+      return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
+    })() : ''}
     <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
     ${pair}
   </div>`;
@@ -365,10 +390,18 @@ function fullView() { return { x: -0.5, y: -0.5, w: BOARD.w + 1, h: BOARD.h + 1 
 function setView(v) {
   const b = boardState();
   const full = fullView();
-  const w = Math.max(6, Math.min(full.w, v.w));
+  // zoom out to 1.6x the board (room around it on any screen); once the whole
+  // board is in view, keep it centred instead of drifting with the old pan
+  const w = Math.max(6, Math.min(full.w * 1.6, v.w));
   const h = w * (full.h / full.w);
-  const x = Math.max(full.x - w * 0.25, Math.min(full.x + full.w - w * 0.75, v.x));
-  const y = Math.max(full.y - h * 0.25, Math.min(full.y + full.h - h * 0.75, v.y));
+  let x, y;
+  if (w >= full.w) {
+    x = full.x + (full.w - w) / 2;
+    y = full.y + (full.h - h) / 2;
+  } else {
+    x = Math.max(full.x - w * 0.25, Math.min(full.x + full.w - w * 0.75, v.x));
+    y = Math.max(full.y - h * 0.25, Math.min(full.y + full.h - h * 0.75, v.y));
+  }
   b.view = { x, y, w, h };
   const svg = document.getElementById('board-svg');
   if (svg) svg.setAttribute('viewBox', `${f2(x)} ${f2(y)} ${f2(w)} ${f2(h)}`);
@@ -378,7 +411,9 @@ export function zoomBoard(factor) {
   const b = boardState();
   if (!factor) { b.view = null; refreshBoard(); return; }
   const v = b.view ?? fullView();
-  const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
+  // zoom around the selected unit when there is one (otherwise the view's centre)
+  const selPos = b.sel && stepTokens()[b.sel];
+  const cx = selPos && factor < 1 ? selPos.x : v.x + v.w / 2, cy = selPos && factor < 1 ? selPos.y : v.y + v.h / 2;
   const w = v.w * factor;
   setView({ x: cx - w / 2, y: cy - (w * (fullView().h / fullView().w)) / 2, w });
 }
@@ -503,6 +538,22 @@ export function boardAction(action, el) {
       b.sel = tk; b.sel2 = null;
       persistBoard();
       return 'render';
+    }
+    case 'board-rotate': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos) return null;
+      pos.rot = (((pos.rot ?? 0) + Number(el.dataset.deg)) % 360 + 360) % 360;
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
+    case 'board-formation': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos) return null;
+      pos.per = Number(el.dataset.value);
+      persistBoard();
+      refreshBoard();
+      return null;
     }
     case 'board-remove':
       if (b.sel) delete stepTokens()[b.sel];
