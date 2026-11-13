@@ -9,6 +9,8 @@ import { conv, factionName, dc } from '../js/builder/store.js';
 import { importText } from '../js/builder/importers.js';
 import { normName, looseName } from '../js/lib/dckit.mjs';
 import { expectedDamageQuick, mergeMods } from './engine.mjs';
+import { footprint } from './board.mjs';
+import { BASE_SIZE_OVERRIDES } from '../js/lib/gameformat.mjs';
 import { STRATAGEMS } from './stratagems-11e.mjs';
 import {
   parseOffensive, parseDefensiveText, parseConditions, conditionsMet, describeConditions,
@@ -863,4 +865,24 @@ export function armyIntel(army) {
     detachmentRules: detachmentRules(army),
     stratagems: strats,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Board planner
+
+/**
+ * What the board needs to draw / reason about a combat unit:
+ * { members: [{ count, fp, label, leader }], move, ranges: [inches...], melee: bool }
+ */
+export function boardUnit(cu) {
+  const members = cu.members.map(m => {
+    const kw = [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? [])];
+    const base = BASE_SIZE_OVERRIDES[m.dcUnit.id] ?? m.dcUnit.base_size_mm;
+    return { count: m.ru.model_count ?? 1, fp: footprint(base, kw), label: m.dcUnit.name, leader: m.role === 'leader' };
+  });
+  const move = Math.min(...cu.members.map(m => Number(m.dcUnit.profiles?.[0]?.M) || 6));
+  const ranged = attackerRows(cu, 'shooting', null);
+  const ranges = [...new Set(ranged.map(r => parseFloat(r.range)).filter(n => n > 0))].sort((a, b) => a - b);
+  const rfMelta = [...new Set(ranged.filter(r => r.kw.rapidFire || r.kw.melta).map(r => parseFloat(r.range)).filter(n => n > 0))];
+  return { members, move, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0 };
 }

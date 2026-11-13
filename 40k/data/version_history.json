@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.83.0",
+      "date": "2026-11-13",
+      "summary": "Combat Calc: new Board tab — plan on the official GW mission maps with your units at real size.",
+      "changes": [
+        "Board tab: the official 11th edition GW terrain layout (3 per mission pairing) for both armies' Force Dispositions, with each side's mission, deployment zones, objectives (3\" range or the terrain they sit in) and ruins.",
+        "Place your units and your opponent's as tokens at true base size (in rows, leaders up front) and drag them around; pinch or ± to zoom.",
+        "Tap a unit to show its move, advance, charge threat, engagement range and weapon ranges; tap an enemy unit to see the gap between them and open that attack in the calculator with the distance (and half range) already set.",
+        "Ruler, plan steps (Deploy, Turn 1, Turn 2 …) saved on the phone, and Share image to send the plan."
+      ]
+    },
+    {
       "version": "1.82.0",
       "date": "2026-11-12",
       "summary": "Combat Calc: list library, situation chips, mortal wounds, points efficiency and a threat view.",
