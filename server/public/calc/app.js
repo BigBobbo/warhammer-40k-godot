@@ -8,6 +8,7 @@ import {
   attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
 const TRIALS = 20000;
@@ -303,19 +304,21 @@ function render() {
   const ready = a && b;
   app.innerHTML = `
     <header class="top"><div class="wrap">
-      <div class="brand">⚔ Combat Calc</div>
+      <div class="brand">⚔<span class="brand-full"> Combat Calc</span></div>
       <span class="badge" title="40kdc dataset version">11e · data ${esc(DATASET_VERSION)}</span>
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
         <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>Attack</button>
+        <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? '' : 'disabled'}>Board</button>
       </nav>
     </div></header>
-    <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
+    <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
   renderResultViews();
   renderSheet();
+  if (state.view === 'board') boardAfterRender();
 }
 
 // ---- Intel: enemy cheat sheet
@@ -1126,6 +1129,10 @@ app.addEventListener('click', (ev) => {
   if (!el || el.disabled) return;
   const a = el.dataset.action;
   const s = setup();
+  if (a.startsWith('board-')) {
+    if (boardAction(a, el) === 'render') changed();
+    return;
+  }
   switch (a) {
     case 'view':
       state.view = el.dataset.value;
@@ -1435,6 +1442,7 @@ document.addEventListener('click', (ev) => {
 
 app.addEventListener('change', (ev) => {
   const el = ev.target;
+  if (boardChange(el)) return changed({ calc: false });
   if (el.dataset.input === 'attach') {
     applyAttach(el.dataset.side, Number(el.dataset.char), el.value === '' ? null : Number(el.value));
     return changed();
@@ -1458,6 +1466,7 @@ app.addEventListener('input', (ev) => {
 app.addEventListener('toggle', (ev) => {
   const el = ev.target;
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
+  if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
     if (e) { e.openMods = el.open; persist(); }
@@ -1470,6 +1479,23 @@ app.addEventListener('toggle', (ev) => {
 restore();
 restoreSaved();
 restoreLibrary();
+initBoard({
+  state, esc, seg, chip, signature: listsSignature,
+  // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
+  openAttack({ side, phase, attacker, target, distance, halfRange }) {
+    state.side = side;
+    state.phase = phase;
+    const st = setup();
+    st.targetKey = target;
+    const mods = { distance, halfRange };
+    const existing = st.attackers.find(x => x.unitKey === attacker);
+    if (existing) existing.mods = { ...(existing.mods ?? {}), ...mods };
+    else st.attackers = [{ uid: uidSeq++, unitKey: attacker, counts: {}, mods }];
+    state.view = 'attack';
+    window.scrollTo(0, 0);
+    console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange})`);
+  },
+});
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
@@ -1481,4 +1507,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug };

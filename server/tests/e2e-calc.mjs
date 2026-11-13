@@ -432,7 +432,7 @@ try {
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v7') && (await (await caches.open('w40k-calc-v7')).keys()).length >= 20); i++) {
+    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v8') && (await (await caches.open('w40k-calc-v8')).keys()).length >= 20); i++) {
       await new Promise(r => setTimeout(r, 200));
     }
   });
@@ -442,6 +442,87 @@ try {
   await settle(page);
   check('works offline after first visit', (await kpi(page)).every(Boolean));
   await ctx.setOffline(false);
+
+  // --- board planner: official GW layout, tokens, rings, gap -> calculator, steps, ruler, export
+  const toScreen = (x, y) => page.evaluate(([bx, by]) => {
+    const svg = document.getElementById('board-svg');
+    const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by;
+    const q = pt.matrixTransform(svg.getScreenCTM());
+    return { x: q.x, y: q.y };
+  }, [x, y]);
+  const tokens = () => page.evaluate(() => window.__calc.board().tokens);
+  await page.tap('button[data-action="view"][data-value="board"]');
+  await page.waitForSelector('#board-svg');
+  const missionTxt = (await page.textContent('#board-mission')).replace(/\s+/g, ' ');
+  check('board picks the mission from both lists (Take and Hold vs Take and Hold)', /Battlefield Dominance/.test(missionTxt) && /Tipping Point/.test(missionTxt), missionTxt);
+  check('official layout drawn (terrain + zones)', (await page.locator('#board-svg polygon').count()) > 40);
+  await page.tap('button[data-action="board-variant"][data-value="2"]');
+  check('layout 2 uses Dawn of War', /Dawn of War/.test(await page.textContent('#board-mission')));
+  await page.tap('button[data-action="board-variant"][data-value="1"]');
+  await page.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+  await page.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Beastboss + Boyz' }).first().tap();
+  let bTk = await tokens();
+  const bGh = bTk.find(t => t.tk.startsWith('A:')), bBoyz = bTk.find(t => t.tk.startsWith('B:'));
+  check('two units placed in their own deployment zones', bTk.length === 2 && bGh.y < 30 && bBoyz.y > 30, JSON.stringify(bTk));
+  // drag the Grey Hunters 12" towards the Orks
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  let p0 = await toScreen(bGh.x, bGh.y), p1 = await toScreen(bGh.x, bGh.y + 12);
+  await page.mouse.move(p0.x, p0.y); await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(p0.x, p0.y + (p1.y - p0.y) * i / 6);
+  await page.mouse.up();
+  bTk = await tokens();
+  const bGh2 = bTk.find(t => t.tk === bGh.tk);
+  check('dragging moves the unit (~12")', Math.abs(bGh2.y - bGh.y - 12) < 0.5, `${bGh.y} -> ${bGh2.y}`);
+  // select it (tap) and show its 24" range
+  const empty = await toScreen(40, 30);
+  await page.mouse.click(empty.x, empty.y); // tap empty board: clear the selection
+  p0 = await toScreen(bGh2.x, bGh2.y);
+  await page.mouse.click(p0.x, p0.y);
+  check('tap selects the unit', (await page.evaluate(() => window.__calc.board().sel)) === bGh.tk);
+  await page.locator('button[data-action="board-ring"]', { hasText: 'Range 24"' }).tap();
+  check('24" range ring drawn', (await page.locator('#board-svg [data-ring="r24"]').count()) === 1);
+  // tap the Boyz: gap + Shoot -> calculator with that distance
+  const b0 = await toScreen(bBoyz.x, bBoyz.y);
+  await page.mouse.click(b0.x, b0.y);
+  const gapTxt = await page.textContent('#board-gap');
+  const gapIn = parseFloat(gapTxt.match(/([\d.]+)"/)[1]);
+  check('second tap measures the gap between the units', gapIn > 0 && gapIn < 40, gapTxt);
+  await page.screenshot({ path: join(SHOTS, 'calc_19_board.png') });
+  await page.tap('button[data-action="board-attack"][data-phase="shooting"]');
+  await page.waitForSelector('select[data-input="target"]');
+  const fromBoard = await page.evaluate(() => { const st = window.__calc.state.setups['A:shooting']; return { t: st.targetKey, a: st.attackers.map(x => [x.unitKey, x.mods.distance]) }; });
+  check('"Shoot →" opens the calculator: that unit into that target at the measured distance',
+    fromBoard.t === bBoyz.tk.split(':')[1] && fromBoard.a.some(([k, d]) => k === bGh.tk.split(':')[1] && Math.abs(d - gapIn) <= 0.51), JSON.stringify({ fromBoard, gapIn, boyz: bBoyz.tk, gh: bGh.tk }));
+  // plan steps: Turn 1 copies Deploy; moving in Turn 1 leaves Deploy untouched
+  await page.tap('button[data-action="view"][data-value="board"]');
+  await page.waitForSelector('#board-svg');
+  await page.tap('button[data-action="board-step-add"]');
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  p0 = await toScreen(bGh2.x, bGh2.y); p1 = await toScreen(bGh2.x + 6, bGh2.y);
+  await page.mouse.move(p0.x, p0.y); await page.mouse.down();
+  for (let i = 1; i <= 4; i++) await page.mouse.move(p0.x + (p1.x - p0.x) * i / 4, p0.y);
+  await page.mouse.up();
+  const t1 = (await tokens()).find(t => t.tk === bGh.tk);
+  await page.tap('button[data-action="board-step"][data-i="0"]');
+  const d0 = (await tokens()).find(t => t.tk === bGh.tk);
+  check('Turn 1 is its own step (Deploy keeps the old position)', Math.abs(t1.x - bGh2.x - 6) < 0.5 && Math.abs(d0.x - bGh2.x) < 0.01, JSON.stringify({ t1, d0 }));
+  // ruler: 20" straight down
+  await page.tap('button[data-action="board-mode"][data-value="ruler"]');
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  p0 = await toScreen(4, 20); p1 = await toScreen(4, 40);
+  await page.mouse.move(p0.x, p0.y); await page.mouse.down();
+  for (let i = 1; i <= 5; i++) await page.mouse.move(p0.x, p0.y + (p1.y - p0.y) * i / 5);
+  await page.mouse.up();
+  const rulerTxt = await page.locator('#board-svg #ruler-label text').textContent();
+  check('ruler measures 20.0"', rulerTxt === '20.0"', rulerTxt);
+  await page.tap('button[data-action="board-mode"][data-value="move"]');
+  // export the plan as an image (download on desktop browsers)
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.tap('button[data-action="board-share"]')]);
+  check('plan exports as a PNG', /\.png$/.test(dl.suggestedFilename()), dl.suggestedFilename());
+  await dl.saveAs(join(SHOTS, 'calc_20_board_export.png'));
+  await page.reload();
+  await page.waitForSelector('#board-svg');
+  check('board plan survives a reload (2 steps, 2 units)', await page.evaluate(() => { const b = window.__calc.board(); return b.plan.steps.length === 2 && b.tokens.length === 2; }));
 
   // --- threat view: what in the Ork army hurts the Grey Hunters most
   await page.tap('button[data-action="view"][data-value="intel"]');

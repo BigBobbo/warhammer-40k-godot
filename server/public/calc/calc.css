@@ -267,3 +267,11 @@ table.grid thead th.corner { left: 0; z-index: 3; color: var(--text-muted); }
 table.grid td { padding: 0; }
 table.grid td.empty { color: var(--text-muted); text-align: center; min-width: 56px; height: 40px; }
 table.grid .cell { width: 100%; min-width: 56px; height: 40px; border: 0; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; padding: 0 4px; }
+
+/* board planner */
+.board-wrap { overflow: hidden; }
+.board-wrap svg { border-radius: 8px; user-select: none; -webkit-user-select: none; }
+@media (max-width: 460px) {
+  .brand-full { display: none; }
+  .tab { padding: 0 10px; }
+}
