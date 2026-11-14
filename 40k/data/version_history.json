@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.73.8",
+      "date": "2026-11-14",
+      "summary": "Falling back follows the 11th-edition modes: Ordered Retreat cannot pass through enemy models, and Desperate Escape is your choice, with hazard rolls for the whole unit.",
+      "changes": [
+        "An Ordered Retreat fall-back can no longer move models through enemy models. The move is refused with a message telling you to choose Desperate Escape.",
+        "New \"Desperate Escape (move through enemy models)\" box in the movement panel, plus a matching option in the controller menu. Pick it before or after starting the fall-back, as long as no model has moved yet. It reads \"Desperate Escape (required)\" when a battle-shocked unit must use it.",
+        "Desperate Escape rolls a hazard die for every model of an attached unit, leaders included, and spreads the mortal wounds over the whole unit, bodyguard models first. The rolls appear once in the game log with their dice, and Reset Unit no longer re-rolls them.",
+        "WIND-SWIFT EVASION and Tactical Fluidity used on an engaged unit now offer Ordered Retreat or Desperate Escape; Desperate Escape makes its hazard rolls before the move and a Battle-shock test after it.",
+        "Models can move through AIRCRAFT models on any move (rule 23.02); a move still cannot end on top of one.",
+        "Online games: the guest can tick Desperate Escape after clicking Fall Back, and both players get the same hazard rolls, casualties and Battle-shock result.",
+        "Moving a model away from base contact with an enemy no longer counts as moving through it."
+      ]
+    },
+    {
       "version": "1.73.7",
       "date": "2026-11-07",
       "summary": "RAPID FIRE and MELTA half-range bonuses count an attached leader in every save; AI Hidden fixes (opt-in).",
