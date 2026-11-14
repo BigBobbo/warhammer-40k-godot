@@ -7858,6 +7858,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# --- T7-26: Heavy weapon stationary bonus (MOV-3) ---
 			# Heavy weapons get +1 to hit when the unit remains stationary. If this unit
 			# has significant Heavy firepower and targets in range, prefer staying put.
+			# FIX_HEAVY_CREEP's set-up-this-turn fire tag waits here and is printed
+			# only with a move that is returned (one tag line per changed decision:
+			# a unit the rest of the chain still holds, or whose move finds no legal
+			# placement, did not change). "" unless the flag is on.
+			var hc_setup_tag := ""
 			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
 				var heavy_data = _get_unit_heavy_weapon_data(unit)
 				if _should_hold_for_heavy_bonus(unit, centroid, target_pos, enemies, move_inches, assignment, heavy_data):
@@ -7873,7 +7878,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					# the flag is the first term, nothing else is read.
 					var hc_on: bool = get_param("FIX_HEAVY_CREEP", FIX_HEAVY_CREEP) >= 0.5 and GameConstants.edition >= 11
 					if hc_on and _heavy_creep_set_up_this_turn(unit, snapshot):
-						print("AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=move why=set_up_this_turn" % unit_name)
+						hc_setup_tag = "AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=move why=set_up_this_turn" % unit_name
 						_add_thinking_step("%s: no [HEAVY] bonus to keep — it was set up on the battlefield this turn (24.16), so it makes its planned move instead of holding still" % unit_name)
 					else:
 						if hc_on and assignment_action == "move" and ro_move.is_empty() and target_pos != Vector2.INF \
@@ -7931,6 +7936,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						if not model_dests_lo.is_empty():
 							print("AIDecisionMaker: [T7-11] %s (Lone Operative) retreating to maintain >12\" distance (closest enemy: %.1f\")" % [
 								unit_name, closest_enemy_dist])
+							if hc_setup_tag != "":
+								print(hc_setup_tag)
 							return {
 								"type": "BEGIN_NORMAL_MOVE",
 								"actor_unit_id": unit_id,
@@ -7965,6 +7972,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						var dist_to_enemy = centroid.distance_to(dd_target) / PIXELS_PER_INCH
 						print("AIDecisionMaker: [T7-11] %s (Deadly Demise D%d, doomed) moving toward enemies (%.1f\" away)" % [
 							unit_name, dd_val, dist_to_enemy])
+						if hc_setup_tag != "":
+							print(hc_setup_tag)
 						return {
 							"type": "BEGIN_NORMAL_MOVE",
 							"actor_unit_id": unit_id,
@@ -8280,6 +8289,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					if not pending_fix_tags.is_empty():
 						_debug_log_info("INDIRECT_STATIONARY %s: %d batch-1 fire tag line(s) not printed — the move they describe is not made" % [
 							unit_name, pending_fix_tags.size()])
+					if hc_setup_tag != "":
+						_debug_log_info("INDIRECT_STATIONARY %s: the [FIX_HEAVY_CREEP] set-up-this-turn tag is not printed — the unit stays put after all" % unit_name)
 					if cover_kept or not shot_kept.is_empty():
 						var ind_dropped := "cover" if cover_kept else "shot"
 						_debug_log_info("INDIRECT_STATIONARY %s: the planned %s spot is dropped — any move loses the 1-3 band" % [
@@ -8308,6 +8319,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				# The batch-1 fire tags, now that this move is the one returned.
 				for tag_line in pending_fix_tags:
 					print(tag_line)
+				if hc_setup_tag != "":
+					print(hc_setup_tag)
 				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
 				var obj_dist_inches = _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
@@ -8339,6 +8352,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				}
 			else:
 				print("AIDecisionMaker: %s cannot find valid move toward %s" % [unit_name, assigned_obj_id])
+				if hc_setup_tag != "":
+					_debug_log_info("HEAVY_CREEP %s: the set-up-this-turn tag is not printed — its planned move found no legal placement" % unit_name)
 
 		# --- Fallback: remain stationary ---
 		if "REMAIN_STATIONARY" in move_types:
