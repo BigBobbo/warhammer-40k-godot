@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.85.0",
+      "date": "2026-11-14",
+      "summary": "Board: put a photo of the real table under the map and trace your models onto it.",
+      "changes": [
+        "Table photo: take or pick a photo, tap the 4 table corners (a loupe helps you hit them) and the photo is flattened onto the board at true scale.",
+        "Show the photo, the map, or both; tokens go see-through over the photo so you can line them up with the real models.",
+        "One photo per plan step, kept on your device; Turn fixes a photo that came out the wrong way round, Corners lets you re-mark it.",
+        "Nudge a selected unit 0.5\" at a time and see its exact position.",
+        "Fix: dragging a unit no longer resets its facing and formation."
+      ]
+    },
+    {
       "version": "1.84.0",
       "date": "2026-11-13",
       "summary": "Board: rotate units, change their formation, and zoom out to see the whole map on any screen.",

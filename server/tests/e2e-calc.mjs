@@ -10,7 +10,7 @@
 //
 // Run: cd server && npm run test:e2e:calc
 import { spawn } from 'child_process';
-import { mkdtempSync, existsSync, rmSync, readFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, existsSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -547,6 +547,104 @@ try {
   await page.reload();
   await page.waitForSelector('#board-svg');
   check('board plan survives a reload (2 steps, 2 units)', await page.evaluate(() => { const b = window.__calc.board(); return b.plan.steps.length === 2 && b.tokens.length === 2; }));
+
+  // --- table photo: a synthetic photo of the table taken from one end (perspective), corners tapped
+  // anticlockwise (must not mirror), flattened under the map; a magenta "model" at board (30, 45)
+  // must land at (30, 45)
+  const PC = [[330, 140], [1080, 150], [1340, 930], [70, 915]]; // table corners in the 1400x1000 photo
+  const photoB64 = await page.evaluate(async (pc) => {
+    const { boardSvg } = await import('/calc/boardview.mjs');
+    const P = await import('/calc/photo.mjs');
+    const svgText = boardSvg({ forExport: true }).replace(/viewBox="[^"]*"/, 'viewBox="0 0 44 60"');
+    const img = new Image();
+    img.src = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
+    await img.decode();
+    const bc = document.createElement('canvas'); bc.width = 880; bc.height = 1200;
+    const bg = bc.getContext('2d'); bg.drawImage(img, 0, 0, 880, 1200);
+    bg.fillStyle = '#ff00ff'; bg.beginPath(); bg.arc(30 * 20, 45 * 20, 15, 0, 7); bg.fill();
+    const H = P.homography(pc, [[0, 0], [880, 0], [880, 1200], [0, 1200]]);
+    const out = P.warpToBoard(bg.getImageData(0, 0, 880, 1200), H, { w: 1400, h: 1000 }, 1);
+    for (let i = 0; i < out.data.length; i += 4) if (out.data[i + 3] === 0) { out.data[i] = 60; out.data[i + 1] = 45; out.data[i + 2] = 35; out.data[i + 3] = 255; }
+    const c = document.createElement('canvas'); c.width = 1400; c.height = 1000;
+    c.getContext('2d').putImageData(new ImageData(out.data, 1400, 1000), 0, 0);
+    return c.toDataURL('image/jpeg', 0.92).split(',')[1];
+  }, PC);
+  const photoFile = join(SHOTS, 'calc_synthetic_table_photo.jpg');
+  writeFileSync(photoFile, Buffer.from(photoB64, 'base64'));
+  await page.locator('#board-photo-bar').scrollIntoViewIfNeeded();
+  await page.setInputFiles('input[data-input="board-photo"]', photoFile);
+  await page.waitForSelector('.photo-ov #photo-svg image');
+  const imgToScreen = (x, y) => page.evaluate(([ix, iy]) => {
+    const svg = document.getElementById('photo-svg');
+    const pt = svg.createSVGPoint(); pt.x = ix; pt.y = iy;
+    const q = pt.matrixTransform(svg.getScreenCTM());
+    return { x: q.x, y: q.y };
+  }, [x, y]);
+  // the downscale keeps 1400 px (under the 1600 cap), so photo px = image px
+  for (const i of [0, 3, 2, 1]) { const q = await imgToScreen(...PC[i]); await page.mouse.click(q.x, q.y); }
+  check('corner screen: 4 corners placed, "Use photo" enabled', await page.isEnabled('.photo-ov [data-ov="ok"]'));
+  // drag a corner a little and back: the loupe shows while the finger is down
+  let q0 = await imgToScreen(...PC[2]);
+  await page.mouse.move(q0.x, q0.y); await page.mouse.down(); await page.mouse.move(q0.x - 6, q0.y - 6);
+  check('loupe shows while dragging a corner', await page.evaluate(() => [...document.querySelectorAll('#photo-svg g[clip-path]')].some(g => g.getAttribute('visibility') === 'visible')));
+  await page.screenshot({ path: join(SHOTS, 'calc_22_photo_corners.png') });
+  await page.mouse.move(q0.x, q0.y); await page.mouse.up();
+  await page.tap('.photo-ov [data-ov="ok"]');
+  await page.waitForSelector('#board-svg #board-photo', { timeout: 15000 });
+  check('overlay closed after "Use photo"', (await page.locator('.photo-ov').count()) === 0);
+  const samplePhoto = () => page.evaluate(async () => {
+    const im = document.querySelector('#board-svg #board-photo');
+    const img = new Image(); img.src = im.getAttribute('href'); await img.decode();
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data, ppi = c.width / 44;
+    let n = 0, sx = 0, sy = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      const o = (y * c.width + x) * 4;
+      if (d[o] > 200 && d[o + 1] < 90 && d[o + 2] > 200) { n++; sx += x; sy += y; }
+    }
+    const px = (bx, by) => { const o = (Math.floor(by * ppi) * c.width + Math.floor(bx * ppi)) * 4; return [d[o], d[o + 1], d[o + 2]]; };
+    return { w: c.width, h: c.height, magenta: n ? { x: (sx / n + 0.5) / ppi, y: (sy / n + 0.5) / ppi, n } : null, corner: px(0.6, 0.6), farCorner: px(43.4, 59.4) };
+  });
+  const ph = await samplePhoto();
+  const err = ph.magenta ? Math.hypot(ph.magenta.x - 30, ph.magenta.y - 45) : Infinity;
+  check('photo flattened onto the board: the model at (30, 45) lands within 0.25"', err <= 0.25, JSON.stringify(ph));
+  check('board corners line up (table mat, not the dark floor, at both corners)', ph.corner.reduce((a, b) => a + b) > 450 && ph.farCorner.reduce((a, b) => a + b) > 450, JSON.stringify(ph));
+  console.log(`  photo trace error at the marker: ${err.toFixed(3)}" (photo ${ph.w}x${ph.h})`);
+  // map over the photo: Photo only -> map hidden; back to Photo + map
+  await page.tap('button[data-action="board-photo-map"][data-value="photo"]');
+  check('"Photo" hides the map layer', await page.getAttribute('#board-svg #board-map', 'opacity') === '0');
+  await page.tap('button[data-action="board-photo-map"][data-value="both"]');
+  // wrong way round? Turn cycles which corner is the map's top-left; 4 turns = back where we started
+  for (let i = 1; i <= 4; i++) {
+    await page.tap('button[data-action="board-photo-turn"]');
+    await page.waitForFunction((n) => window.__calc.board().photo?.turn === n % 4, i);
+  }
+  const ph2 = await samplePhoto();
+  check('Turn x4 returns to the original photo', ph2.magenta && Math.hypot(ph2.magenta.x - 30, ph2.magenta.y - 45) <= 0.25, JSON.stringify(ph2.magenta));
+  // trace: drag the Grey Hunters onto the magenta model; facing survives the drag; nudge moves 0.5"
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  let ghPos = (await tokens()).find(t => t.tk === bGh.tk);
+  if ((await page.evaluate(() => window.__calc.board().sel)) !== bGh.tk) { const q = await toScreen(ghPos.x, ghPos.y); await page.mouse.click(q.x, q.y); }
+  await page.tap('button[data-action="board-rotate"][data-deg="45"]');
+  await page.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+  p0 = await toScreen(ghPos.x, ghPos.y); p1 = await toScreen(30, 45);
+  await page.mouse.move(p0.x, p0.y); await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(p0.x + (p1.x - p0.x) * i / 6, p0.y + (p1.y - p0.y) * i / 6);
+  await page.mouse.up();
+  ghPos = (await tokens()).find(t => t.tk === bGh.tk);
+  check('dragging keeps the unit\'s facing (45°)', ghPos.rot === 45 && Math.hypot(ghPos.x - 30, ghPos.y - 45) < 0.6, JSON.stringify(ghPos));
+  if ((await page.evaluate(() => window.__calc.board().sel)) !== bGh.tk) { const q = await toScreen(ghPos.x, ghPos.y); await page.mouse.click(q.x, q.y); }
+  await page.tap('button[data-action="board-nudge"][data-dx="0.5"]');
+  const nud = (await tokens()).find(t => t.tk === bGh.tk);
+  check('nudge → moves the unit 0.5" and shows its position', Math.abs(nud.x - ghPos.x - 0.5) < 1e-6 && /from left/.test(await page.textContent('#board-pos')), JSON.stringify({ ghPos, nud }));
+  await page.tap('button[data-action="board-nudge"][data-dx="-0.5"]');
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_23_board_photo.png') });
+  await page.reload();
+  await page.waitForSelector('#board-svg');
+  await page.waitForSelector('#board-svg #board-photo', { timeout: 15000 });
+  check('table photo survives a reload (stored on the device)', (await page.evaluate(() => window.__calc.board().photo?.taps?.length)) === 4);
 
   // --- threat view: what in the Ork army hurts the Grey Hunters most
   await page.tap('button[data-action="view"][data-value="intel"]');
