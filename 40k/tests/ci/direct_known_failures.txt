@@ -32,7 +32,6 @@ tests/unit/test_ai_deployment_collision.gd  # 11/1 at 10e and 11e (exits 0 despi
 tests/unit/test_ai_deployment_visuals.gd  # 25/1 at 10e and 11e (exits 0 despite the failure)
 tests/unit/test_ai_stratagem_evaluation.gd  # 38/1 at 10e and 11e (reroll battle-shock at Ld 7+)
 tests/unit/test_ai_terrain_deployment.gd  # 19/1 at 10e and 11e (exits 0 despite the failure)
-tests/unit/test_ai_threat_range_awareness.gd  # 34/3 at 10e and 11e
 tests/unit/test_battlewagon_base_shape.gd  # 27/2 at 10e and 11e (exits 0 despite the failure)
 tests/unit/test_reroll_support.gd  # hangs (>240 s) at 10e and 11e
 tests/integration/test_escape_main_menu.gd  # 4/1 at 10e and 11e

@@ -12,6 +12,11 @@ const PX_PER_INCH: float = 40.0
 static func _exclusion_distance_inches() -> float:
 	return GameConstants.infiltrators_min_enemy_distance_inches()
 
+## The label drawn on the boundary, from the same accessor as the geometry: a
+## literal "9\" exclusion" sat on the 8" line for the whole of 11e.
+static func exclusion_label_text() -> String:
+	return "%d\" exclusion" % int(_exclusion_distance_inches())
+
 # Dashed line style
 const DASH_LENGTH: float = 12.0
 const GAP_LENGTH: float = 8.0
@@ -36,6 +41,11 @@ var _exclusion_polygons: Array = []  # Array of PackedVector2Array
 var _pulse_time: float = 0.0
 var _is_active: bool = false
 var _default_font: Font = null
+## The label text the last _draw() actually drew on the board ("" until a label
+## is drawn) and where (this node's local = board px; Vector2.INF until drawn),
+## so windowed scenarios can assert — and frame — what the player sees.
+var _last_label_text: String = ""
+var _last_label_pos: Vector2 = Vector2.INF
 
 func _ready() -> void:
 	z_index = -4  # Just above deployment zones (-5)
@@ -43,7 +53,8 @@ func _ready() -> void:
 	set_process(false)
 
 func show_exclusion(enemy_zone_poly_inches: Array) -> void:
-	"""Compute and show the 9-inch exclusion boundary around the enemy deployment zone."""
+	"""Compute and show the Infiltrators exclusion boundary (the edition's
+	stand-off, _exclusion_distance_inches()) around the enemy deployment zone."""
 	_exclusion_polygons.clear()
 
 	if enemy_zone_poly_inches.size() < 3:
@@ -60,7 +71,7 @@ func show_exclusion(enemy_zone_poly_inches: Array) -> void:
 
 	var offset_px = _exclusion_distance_inches() * PX_PER_INCH
 
-	# Use Geometry2D.offset_polygon to expand outward by 9 inches
+	# Use Geometry2D.offset_polygon to expand outward by the stand-off
 	# Positive delta = outward expansion (Godot uses CCW winding for outward)
 	# Try both directions and pick the one that's larger (outward expansion)
 	var expanded_pos = Geometry2D.offset_polygon(enemy_poly_px, offset_px)
@@ -106,7 +117,7 @@ func show_exclusion(enemy_zone_poly_inches: Array) -> void:
 	set_process(true)
 	visible = true
 	queue_redraw()
-	print("[InfiltratorExclusionVisual] Showing 9\" exclusion boundary (%d polygons)" % _exclusion_polygons.size())
+	print("[InfiltratorExclusionVisual] Showing %s boundary (%d polygons)" % [exclusion_label_text(), _exclusion_polygons.size()])
 
 func hide_exclusion() -> void:
 	"""Hide the exclusion boundary."""
@@ -154,7 +165,7 @@ func _draw() -> void:
 			# Draw dashed line
 			_draw_dashed_line(p1, p2, pulse_alpha, march_offset)
 
-		# Draw "9\" exclusion" label on the longest non-board edge
+		# Draw the "<stand-off>\" exclusion" label on the longest non-board edge
 		_draw_exclusion_label(poly, board_width_px, board_height_px, edge_threshold, pulse_alpha)
 
 func _is_board_edge(p1: Vector2, p2: Vector2, board_w: float, board_h: float, threshold: float) -> bool:
@@ -189,7 +200,7 @@ func _draw_dashed_line(p1: Vector2, p2: Vector2, pulse_alpha: float, march_offse
 		pos += segment_length
 
 func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: float, threshold: float, pulse_alpha: float) -> void:
-	"""Draw a '9\" limit' label on the longest non-board edge."""
+	"""Draw the exclusion_label_text() label on the longest non-board edge."""
 	if not _default_font:
 		return
 
@@ -213,7 +224,8 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 	if not found or best_length < 40.0:
 		return
 
-	var label_text = "9\" exclusion"
+	var label_text = exclusion_label_text()
+	_last_label_text = label_text
 	var midpoint = (best_p1 + best_p2) / 2.0
 
 	# Offset label slightly away from the enemy zone (toward valid placement area)
@@ -231,6 +243,7 @@ func _draw_exclusion_label(poly: PackedVector2Array, board_w: float, board_h: fl
 		outward = -perpendicular
 
 	var label_pos = midpoint + outward * 14
+	_last_label_pos = label_pos
 
 	var text_size = _default_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE)
 	var bg_rect = Rect2(

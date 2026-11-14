@@ -10,7 +10,7 @@
   "disable_ai": true,
   "edition": 11,
   "rng_seed": 42,
-  "description": "P0.2 rules distances (11e 24.32 SCOUT MOVE: end more than 8\" horizontally from all enemy units). The AI's suggested Scout move uses the 8-9\" band its old hard-coded 9\" refused, and the Scout prompts read 8\" (they said 9\" for the whole of 11e). Setup by script: only P2's Kommandos and P1's Kommandos (each re-formed as a coherent 2x5 block - the fixture's 16.9\" lines are not 11e-coherent) and one P1 model (Kaptin Badrukk, 40mm) stay on the board; Badrukk sits 13.25\" from the P2 Kommandos' centroid toward the objective the AI first picks. P2 clicks Suggest: the card proposes BEGIN_SCOUT_MOVE (at the old 9\" the AI skipped). Accept: the real ScoutPhase stages and confirms every model; the closest Kommando ends 8-9\" from the enemy base to base. The step hands over to P1, who clicks their Kommandos in the list: the status line and unit card say 'must end >8\" from enemies'. No ERROR in the debug log.",
+  "description": "P0.2 rules distances (11e 24.32 SCOUT MOVE: end more than 8\" horizontally from all enemy units). The AI's suggested Scout move uses the 8-9\" band its old hard-coded 9\" refused, and the Scout prompts read 8\" (they said 9\" for the whole of 11e). Setup by script: only P2's Kommandos and P1's Kommandos (each re-formed as a coherent 2x5 block - the fixture's 16.9\" lines are not 11e-coherent) and one P1 model (Kaptin Badrukk, 40mm) stay on the board; Badrukk sits 13.25\" from the P2 Kommandos' centroid toward the objective the AI first picks. P2 clicks Suggest: the card proposes BEGIN_SCOUT_MOVE (at the old 9\" the AI skipped). Accept: the real ScoutPhase stages and confirms every model; the closest Kommando ends 8-9\" from the enemy base to base. The step hands over to P1, who clicks their Kommandos in the list: the unit card says 'must end >8\" from enemies' (D9) - the only Scout stand-off text the player sees there. (The per-unit status line Main._on_unit_selected writes is replaced by the generic 'select a scout unit' prompt in the same call - its trailing update_ui() - so no step can observe it; the static scan in test_iss002 section D pins that string.) No ERROR in the debug log.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -186,12 +186,6 @@
       "act": "execute_script",
       "script": "str(main._scout_active_unit_id)",
       "equals": "MIR_U_KOMMANDOS_H"
-    },
-    {
-      "act": "execute_script",
-      "script": "not str(main.status_label.text).contains(\">9\\\"\")",
-      "equals": true,
-      "comment": "the status line (the generic 'select a scout unit' prompt by now) never shows the 10e >9\""
     },
     {
       "act": "execute_script",

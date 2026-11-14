@@ -458,11 +458,15 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	parent.add_child(drag_clamp_help)
 
 	# The same idea pointed the other way, for reserves arriving from off-table:
-	# without it, dropping a model at exactly 9" from the enemy means finding an
-	# invisible line with the cursor.
-	_placement_clamp_checkbox = _add_checkbox_row(parent, "Hold Deep Strike placement outside the 9\" exclusion zone", "_on_placement_clamp_toggled")
+	# without it, dropping a model at exactly the stand-off from the enemy means
+	# finding an invisible line with the cursor.
+	# The stand-off is the edition's (11e 20.04 / 24.09 / 24.20: 8"; 10e: 9"),
+	# read from GameConstants — the reserves and Infiltrators accessors agree
+	# at both editions. A literal 9" here described the 10e rule in 11e games.
+	var exclusion_in := int(GameConstants.reinforcement_min_enemy_distance_inches())
+	_placement_clamp_checkbox = _add_checkbox_row(parent, "Hold Deep Strike placement outside the %d\" exclusion zone" % exclusion_in, "_on_placement_clamp_toggled")
 	var placement_clamp_help = Label.new()
-	placement_clamp_help.text = "On: aiming a Deep Strike / Reserves / Infiltrators drop inside the 9\" enemy exclusion zone parks the model on the boundary — as close to the enemy as the rules allow — with a dashed line back to your cursor. Off: the ghost follows the cursor into the zone, turns red, and the drop is rejected. Controller placement is always clamped."
+	placement_clamp_help.text = "On: aiming a Deep Strike / Reserves / Infiltrators drop inside the %d\" enemy exclusion zone parks the model on the boundary — as close to the enemy as the rules allow — with a dashed line back to your cursor. Off: the ghost follows the cursor into the zone, turns red, and the drop is rejected. Controller placement is always clamped." % exclusion_in
 	placement_clamp_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	placement_clamp_help.custom_minimum_size = Vector2(620, 0)
 	placement_clamp_help.add_theme_font_size_override("font_size", 16)

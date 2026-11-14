@@ -50,7 +50,9 @@ static func type_short(reserve_type: String) -> String:
 
 static func type_hint(reserve_type: String) -> String:
 	if reserve_type == "deep_strike":
-		return "Arrives anywhere more than 9\" horizontally from enemy models."
+		# 11e 24.09 / 20.04: more than 8" horizontally from all enemy units
+		# (10e: 9") — the engine's own accessor, not a literal.
+		return "Arrives anywhere more than %d\" horizontally from enemy models." % int(GameConstants.reinforcement_min_enemy_distance_inches())
 	return "Arrives wholly within 6\" of a battlefield edge, outside enemy deployment zone."
 
 

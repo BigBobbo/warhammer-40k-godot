@@ -46,6 +46,8 @@ func _run_tests():
 	test_compute_scout_movement_respects_distance_limit()
 	test_enemy_distance_check_9_inches()
 	test_scout_movement_reduces_fraction_when_blocked()
+	test_scout_staging_order_front_first()
+	test_scout_staging_order_edge_cases()
 
 # =========================================================================
 # Helper: Create a test snapshot with scout units and objectives
@@ -548,3 +550,38 @@ func test_scout_movement_reduces_fraction_when_blocked():
 		# It's also acceptable to skip if no fraction works (depends on geometry)
 		print("  (Info: No valid movement found — all fractions too close to enemy)")
 		_assert(true, "Returning empty is acceptable when all moves violate 9\" rule")
+
+# =========================================================================
+# scout_staging_order (L4-2): AIPlayer stages a Scout plan front-first
+# =========================================================================
+
+func test_scout_staging_order_front_first():
+	"""A rigid move stages the models furthest along it first (the engine checks
+	each staged model against its unstaged siblings' ORIGINAL spots); equal
+	projections keep model order."""
+	# Two rows 60px apart, moving +y by exactly one row: a/b land on c/d's starts.
+	var origins = {"a": Vector2(100, 100), "b": Vector2(160, 100), "c": Vector2(100, 160), "d": Vector2(160, 160)}
+	var dests = {"a": [100.0, 160.0], "b": [160.0, 160.0], "c": [100.0, 220.0], "d": [160.0, 220.0]}
+	var order = AIDecisionMaker.scout_staging_order(dests, origins)
+	_assert(order == ["c", "d", "a", "b"], "+y move: front row (c, d) before the back row, ties in model order (got %s)" % str(order))
+	# The same block moving -y: model order is already front-first.
+	var dests_up = {"a": [100.0, 40.0], "b": [160.0, 40.0], "c": [100.0, 100.0], "d": [160.0, 100.0]}
+	var order_up = AIDecisionMaker.scout_staging_order(dests_up, origins)
+	_assert(order_up == ["a", "b", "c", "d"], "-y move: model order is front-first already (got %s)" % str(order_up))
+	# A diagonal move orders by the projection, not by one axis.
+	var dests_diag = {"a": [130.0, 130.0], "b": [190.0, 130.0], "c": [130.0, 190.0], "d": [190.0, 190.0]}
+	var order_diag = AIDecisionMaker.scout_staging_order(dests_diag, origins)
+	_assert(order_diag[0] == "d" and order_diag[3] == "a", "diagonal (+x, +y) move: d (furthest along) first, a last (got %s)" % str(order_diag))
+
+func test_scout_staging_order_edge_cases():
+	"""No movement keeps model order; a model with no origin goes last; {x, y}
+	dictionary origins are read like Vector2."""
+	var origins = {"a": Vector2(100, 100), "b": Vector2(100, 160)}
+	var still = AIDecisionMaker.scout_staging_order({"a": [100.0, 100.0], "b": [100.0, 160.0]}, origins)
+	_assert(still == ["a", "b"], "no movement: model order (got %s)" % str(still))
+	var no_origin = AIDecisionMaker.scout_staging_order({"x": [500.0, 500.0], "a": [100.0, 160.0], "b": [100.0, 220.0]}, origins)
+	_assert(no_origin == ["b", "a", "x"], "a model with no origin stages last (got %s)" % str(no_origin))
+	var dict_origins = {"a": {"x": 100, "y": 100}, "b": {"x": 100, "y": 160}}
+	var from_dicts = AIDecisionMaker.scout_staging_order({"a": [100.0, 160.0], "b": [100.0, 220.0]}, dict_origins)
+	_assert(from_dicts == ["b", "a"], "{x, y} origins: front (b) first (got %s)" % str(from_dicts))
+	_assert(AIDecisionMaker.scout_staging_order({}, {}).is_empty(), "empty plan: empty order")

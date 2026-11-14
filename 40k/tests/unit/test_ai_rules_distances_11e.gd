@@ -14,6 +14,10 @@ extends SceneTree
 # (one 32mm model + one 60mm oval, base_dimensions length 35.5 / width 60):
 # measured by models[0]'s base, the AI put the larger base inside the
 # stand-off once the 1" of 9" slack was gone.
+# Also (W4 review): a 28.5mm Scout Squad (L4-1 — int(base_mm) measured it as
+# 28mm, 0.0098" short, and the engine refused the end) and the staging ORDER
+# of a Scout plan (L4-2 — the engine checks each staged model against its
+# unstaged siblings' original spots, so AIPlayer stages front-first).
 #
 # Run: godot --headless --script tests/unit/test_ai_rules_distances_11e.gd
 
@@ -39,7 +43,9 @@ func _check(label: String, cond: bool, detail: String = "") -> void:
 
 # -- fixtures ---------------------------------------------------------------
 
-func _model(mid: String, pos, base_mm: int, base_type: String = "circular", dims: Dictionary = {}) -> Dictionary:
+## base_mm is untyped on purpose: a typed int turned a 28.5mm base into 28,
+## which is how the int(base_mm) truncation in the AI's Scout stand-off hid.
+func _model(mid: String, pos, base_mm, base_type: String = "circular", dims: Dictionary = {}) -> Dictionary:
 	return {"id": mid, "alive": true, "base_mm": base_mm, "base_type": base_type, "base_dimensions": dims,
 		"position": pos, "wounds": 2, "current_wounds": 2}
 
@@ -83,7 +89,9 @@ func _load_units_into_gs(snap: Dictionary) -> void:
 ## SET_SCOUT_MODEL_DEST validated (per-model stand-off, distance cap, overlap)
 ## and processed, then CONFIRM_SCOUT_MOVE validated (stand-off again, overlap,
 ## coherency). "" = the engine accepts the whole move, else the first error.
-func _engine_scout_verdict(snap: Dictionary, uid: String, dests: Dictionary, scout_in: float) -> String:
+## order: the model ids in staging order (default: the dictionary's own order,
+## i.e. model order — what AIPlayer did before it staged front-first).
+func _engine_scout_verdict(snap: Dictionary, uid: String, dests: Dictionary, scout_in: float, order: Array = []) -> String:
 	_load_units_into_gs(snap)
 	var sp = load("res://phases/ScoutPhase.gd").new()
 	var orig := {}
@@ -91,7 +99,8 @@ func _engine_scout_verdict(snap: Dictionary, uid: String, dests: Dictionary, sco
 		orig[m.id] = m.position
 	sp.active_scout_moves = {uid: {"scout_distance": scout_in, "staged_positions": {}, "original_positions": orig}}
 	var err := ""
-	for mid in dests:
+	var ids: Array = order if not order.is_empty() else dests.keys()
+	for mid in ids:
 		var p = dests[mid]
 		var act := {"type": "SET_SCOUT_MODEL_DEST", "unit_id": uid, "model_id": mid,
 			"destination": {"x": float(p[0]), "y": float(p[1])}}
@@ -229,6 +238,97 @@ func _test_first_model_larger_scout(ed: int) -> void:
 		_check("ed 10: ends >= 9\" (%.2f)" % edge, edge >= 9.0)
 	var v := _engine_scout_verdict(snap, "mx", dests, 6.0)
 	_check("ed %d: the REAL ScoutPhase accepts set-dest AND confirm (per-model confirm)" % ed, v == "", v)
+
+## model_id -> origin Vector2 from the snapshot unit (what AIPlayer captures
+## before staging).
+func _origins(snap: Dictionary, uid: String) -> Dictionary:
+	var out := {}
+	for m in snap.units[uid].models:
+		var p = m.position
+		out[m.id] = p if p is Vector2 else Vector2(float(p.x), float(p.y))
+	return out
+
+func _test_scout_285mm_float_base(ed: int) -> void:
+	# L4-1: five 28.5mm Scout Squad models (the U_SCOUT_SQUAD_A base) in a line,
+	# the objective straight ahead, one 32mm enemy placed so the FULL 6" move
+	# ends 0.004" OUTSIDE the stand-off when the base is truncated to 28mm and
+	# 0.0058" INSIDE it with the real 28.5mm base. int(base_mm) picked the full
+	# move and the engine refused m3 (the partial move then failed coherency at
+	# confirm); measured untruncated, the AI drops to the 75% move.
+	print("\n-- L4-1 scout: 28.5mm bases measured untruncated (edition %d) --" % ed)
+	var so := GameConstants.scout_min_enemy_distance_inches()
+	var r_trunc := (28.0 / 2.0) / 25.4
+	var r_real := (28.5 / 2.0) / 25.4
+	var ye := 1460.0 - PPI * (so + 0.004 + r_trunc + R32)
+	var snap := _snap([Vector2(880, 1000)])
+	var ms := []
+	var k := 0
+	for x in [760.0, 820.0, 880.0, 940.0, 1000.0]:
+		k += 1
+		ms.append(_model("m%d" % k, Vector2(x, 1700), 28.5))
+	snap.units["ss"] = _unit("ss", 2, GameStateData.UnitStatus.DEPLOYED, ms, _scout_abilities())
+	snap.units["en"] = _unit("en", 1, GameStateData.UnitStatus.DEPLOYED, [_model("e1", Vector2(880, ye), 32)])
+	_load_units_into_gs(snap)
+	var unit: Dictionary = snap.units["ss"]
+	var enemies := AIDecisionMaker._get_enemy_units(snap, 2)
+	# The geometry IS the defect's window: m3's full-move end measured both ways.
+	var gap_px := Vector2(880, 1460).distance_to(Vector2(880, ye)) / PPI
+	var edge_trunc := gap_px - r_trunc - R32
+	var edge_real := gap_px - r_real - R32
+	print("    full move: m3 ends %.4f\" from the enemy by a 28mm radius, %.4f\" by the real 28.5mm" % [edge_trunc, edge_real])
+	_check("ed %d: the full move sits in the 28mm-vs-28.5mm window (%.4f >= %.0f > %.4f)" % [ed, edge_trunc, so, edge_real],
+		edge_trunc >= so and edge_real < so)
+	var dests: Dictionary = AIDecisionMaker._compute_scout_movement(unit, "ss", Vector2(880, 1000), 6.0, snap, enemies)
+	_check("ed %d: AI found a scout move" % ed, not dests.is_empty())
+	if dests.is_empty():
+		return
+	var edge := _min_edge(unit, dests, enemies)
+	print("    m3 -> y=%.1f, per-model min edge (28.5mm radius) %.4f\"" % [float(dests["m3"][1]), edge])
+	_check("ed %d: every model, measured with its real 28.5mm base, ends beyond %.0f\" (%.4f)" % [ed, so, edge], edge >= so)
+	_check("ed %d: the 75%% move (m3 y=1520 +-1), not the full move the engine refuses" % ed,
+		absf(float(dests["m3"][1]) - 1520.0) <= 1.0, str(dests["m3"]))
+	var v := _engine_scout_verdict(snap, "ss", dests, 6.0, AIDecisionMaker.scout_staging_order(dests, _origins(snap, "ss")))
+	_check("ed %d: the REAL ScoutPhase accepts every staged model and the confirm" % ed, v == "", v)
+
+func _test_scout_staging_front_first(ed: int) -> void:
+	# L4-2: a 2x5 block of 32mm models with rows 1.5" apart, row-major in model
+	# order with rows running +y (FormationBuilder's block layout), scouting +y
+	# (the top-zone seat), the enemy placed so only the 25% move — exactly one
+	# row pitch — is legal. Every back-row model's end is a front-row model's
+	# START. The engine checks each staged model against its unstaged siblings'
+	# ORIGINAL spots: in model order the back row was refused and a split unit
+	# confirmed; front-first (AIDecisionMaker.scout_staging_order, as AIPlayer
+	# now stages) every model stages.
+	print("\n-- L4-2 scout: staging order, a 25%% move toward later-ordered models (edition %d) --" % ed)
+	var so := GameConstants.scout_min_enemy_distance_inches()
+	# The front row's 25% end is 0.3" outside the stand-off; its 50% end 1.2" inside.
+	var ye := 520.0 + PPI * (so + 0.3 + 2.0 * R32)
+	var snap := _snap([Vector2(880, 1200)])
+	var ms := []
+	for i in range(10):
+		ms.append(_model("m%d" % (i + 1), Vector2(760.0 + 60.0 * float(i % 5), 400.0 + 60.0 * float(i / 5)), 32))
+	snap.units["sc"] = _unit("sc", 1, GameStateData.UnitStatus.DEPLOYED, ms, _scout_abilities())
+	snap.units["en"] = _unit("en", 2, GameStateData.UnitStatus.DEPLOYED, [_model("e1", Vector2(880, ye), 32)])
+	_load_units_into_gs(snap)
+	var unit: Dictionary = snap.units["sc"]
+	var enemies := AIDecisionMaker._get_enemy_units(snap, 1)
+	var dests: Dictionary = AIDecisionMaker._compute_scout_movement(unit, "sc", Vector2(880, 1200), 6.0, snap, enemies)
+	_check("ed %d: AI found a scout move" % ed, not dests.is_empty())
+	if dests.is_empty():
+		return
+	print("    m1 -> y=%.1f, m6 -> y=%.1f" % [float(dests["m1"][1]), float(dests["m6"][1])])
+	_check("ed %d: the 25%% move, one row pitch (m1 400 -> 460, m6's start)" % ed,
+		absf(float(dests["m1"][1]) - 460.0) <= 1.0 and absf(float(dests["m6"][1]) - 520.0) <= 1.0, str(dests))
+	var order: Array = AIDecisionMaker.scout_staging_order(dests, _origins(snap, "sc"))
+	print("    staging order: %s" % str(order))
+	_check("ed %d: the front row (m6..m10) stages before the back row (model order within a row)" % ed,
+		order.slice(0, 5) == ["m6", "m7", "m8", "m9", "m10"] and order.slice(5) == ["m1", "m2", "m3", "m4", "m5"], str(order))
+	var v_model_order := _engine_scout_verdict(snap, "sc", dests, 6.0)
+	print("    staged in model order (the old AIPlayer order): %s" % (v_model_order if v_model_order != "" else "accepted"))
+	_check("ed %d: control - in model order the engine refuses a back-row model (the defect this guards against)" % ed,
+		v_model_order.contains("overlap"), v_model_order)
+	var v := _engine_scout_verdict(snap, "sc", dests, 6.0, order)
+	_check("ed %d: staged front-first, the REAL ScoutPhase stages all 10 models and confirms" % ed, v == "", v)
 
 # -- F3 / F4: reserve arrivals -----------------------------------------------
 
@@ -501,6 +601,8 @@ func _initialize():
 		_test_scout_skip_becomes_move(ed)
 		_test_mixed_base_scout(ed)
 		_test_first_model_larger_scout(ed)
+		_test_scout_285mm_float_base(ed)
+		_test_scout_staging_front_first(ed)
 		_test_ds_ring_arrival(ed)
 		_test_mixed_base_reserves(ed)
 		_test_sr_edge_strip_candidate(ed)

@@ -102,7 +102,7 @@
     { "act": "execute_script", "script": "main._settings_menu._on_tab_pressed(3)" },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.is_visible_in_tree()", "equals": true },
-    { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.text", "equals": "Hold Deep Strike placement outside the 9\" exclusion zone" },
+    { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.text", "equals": "Hold Deep Strike placement outside the 8\" exclusion zone", "comment": "11e 20.04 / 24.09 stand-off from GameConstants (the label said the 10e 9\" for the whole of 11e)" },
     { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.button_pressed", "equals": true },
     { "act": "screenshot", "label": "06_settings_controls_toggle" },
     { "act": "execute_script", "multiline": true, "script": "# The checkbox drives the real setter, so a player turning it off turns the\n# clamp off for the placement already in progress.\nvar sm = tree.current_scene._settings_menu\nsm._placement_clamp_checkbox.button_pressed = false\nsm._placement_clamp_checkbox.toggled.emit(false)\nreturn SettingsService.placement_clamp_to_exclusion", "equals": false },
