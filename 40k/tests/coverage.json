@@ -11759,14 +11759,15 @@
     },
     {
       "id": "ai.suggestion.move_shape_notes",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader, ai_stay_engaged, ai_indirect_stationary.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_move_shape_telemon_gantry, ai_move_for_charge, ai_move_for_charge_leader, ai_stay_engaged, ai_indirect_stationary, ai_heavy_creep.",
       "scenarios": [
         "ai_move_cover",
         "ai_move_shape_telemon_gantry",
         "ai_move_for_charge",
         "ai_move_for_charge_leader",
         "ai_stay_engaged",
-        "ai_indirect_stationary"
+        "ai_indirect_stationary",
+        "ai_heavy_creep"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11788,9 +11789,10 @@
     },
     {
       "id": "rules.11e.benefit_of_cover_13_08",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_cover, ai_heavy_creep.",
       "scenarios": [
-        "ai_move_cover"
+        "ai_move_cover",
+        "ai_heavy_creep"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11821,9 +11823,10 @@
     },
     {
       "id": "rules.11e.obscuring_13_10",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_move_for_shot, ai_heavy_creep.",
       "scenarios": [
-        "ai_move_for_shot"
+        "ai_move_for_shot",
+        "ai_heavy_creep"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -12352,6 +12355,26 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "RULES"
+    },
+    {
+      "id": "ai.movement.heavy_creep",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_heavy_creep.",
+      "scenarios": [
+        "ai_heavy_creep"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.11e.heavy_24_16",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ai_heavy_creep.",
+      "scenarios": [
+        "ai_heavy_creep"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

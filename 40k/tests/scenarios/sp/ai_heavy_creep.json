@@ -1,0 +1,297 @@
+{
+  "id": "ai_heavy_creep",
+  "covers": [
+    "ai.movement.heavy_creep",
+    "ai.suggestion.move_shape_notes",
+    "rules.11e.heavy_24_16",
+    "rules.11e.benefit_of_cover_13_08",
+    "rules.11e.obscuring_13_10"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "disable_ai": true,
+  "edition": 11,
+  "rng_seed": 7,
+  "description": "FIX_HEAVY_CREEP (ships OFF): a unit T7-26 would freeze for its [HEAVY] +1 to hit makes a Normal move of 3\" or less instead when that buys cover, its objective's range or a firing lane and keeps every [HEAVY] target - 11e 24.16: [HEAVY] adds 1 to the hit roll if the unit is unengaged, was not set up this turn and no model in it moved more than 3\" (10e needed it to Remain Stationary). Same position as exam mv10: Custodian Guard Beta carries a constructed 36\" BS 4+ [HEAVY] heavy bolter just north of area-medium-7, a LIGHT (obscuring, 13.10) area it is not within, so it cannot see its only target, Custodian Guard Alpha, and T7-26 freezes it for +1 to hit on nothing. With tests/bench_profiles/heavy_creep_on.json loaded, the real Suggest (K) card for Beta reads 'Custodian Guard Beta moves toward obj... (creeping N\" to keep its [HEAVY] +1 to hit, into cover...)' with the 'How this turn's move was shaped' note (no model moves more than 3\", the Benefit of Cover, the new sight line). Clearing the profile restores the shipped default: T7-26's 'holds for Heavy weapon bonus'. Reloading restores the creep; the player clicks the card's Accept and the game carries it out - the engine then records a Normal move of 1-3\" (flags.moved_max_inches), [HEAVY] still applies, every model has the Benefit of Cover and Alpha is an eligible target. The guard: Custodian Guard Delta, the same gun with its target already in sight and no terrain within reach, still holds for its Heavy weapon bonus.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Same position as exam mv10_creep_to_keep_heavy (without the profile\n# line): Custodian Guard Beta with a constructed 36\" BS 4+ [HEAVY] heavy\n# bolter just north of area-medium-7 (a LIGHT area), its only target\n# Custodian Guard Alpha (P2) in the open corridor south of it - every line\n# between them crosses area-medium-7 (13.10) - and Delta (the same gun) in\n# the open on the north edge with Custodian Guard Beta (P2) in sight.\nvar st = GameState.state\n# No 2000-pt fixture fields a [HEAVY] weapon, so two Custodian Guard squads\n# swap their guardian spears' ranged profile for a constructed heavy bolter\n# (36\", A3, BS 4+, S5, AP-1, D2, [HEAVY]; the melee profile is kept).\n# granted_by makes every model carry it whatever the resolved loadout says\n# (RulesEngine._get_model_weapon_ids); unique names, because a weapon id\n# resolves by name across the board.\nvar hb = {\"name\": \"Exam heavy bolter\", \"type\": \"Ranged\", \"range\": \"36\", \"attacks\": \"3\", \"ballistic_skill\": \"4\", \"strength\": \"5\", \"ap\": \"-1\", \"damage\": \"2\", \"special_rules\": \"heavy\", \"abilities\": [{\"id\": \"heavy\"}], \"granted_by\": \"exam\"}\nvar hbd = hb.duplicate(true)\nhbd[\"name\"] = \"Exam heavy bolter D\"\nvar arm = {\"U_CUSTODIAN_GUARD_B\": hb, \"U_CUSTODIAN_GUARD_D\": hbd}\nfor uid in arm:\n\tvar u = st.units[uid]\n\tvar kept = []\n\tfor w in u.meta.weapons:\n\t\tif str(w.get(\"type\", \"\")).to_lower() != \"ranged\":\n\t\t\tkept.append(w)\n\tkept.append(arm[uid])\n\tu.meta.weapons = kept\n# Beta just north of area-medium-7 (a LIGHT terrain area, x 1120-1360,\n# y 360-520: an obscuring area, 13.10) with every base outside it; its only\n# reachable target, Custodian Guard Alpha (P2), stands in the open corridor\n# south of it (between the Center ruin and area-medium-35), so every line\n# between them crosses area-medium-7. Delta in the open on the north edge,\n# far from every terrain area, with a clear line to Custodian Guard Beta\n# (P2) on the east-edge lane past area-large-2.\nvar place = {\n\t\"U_CUSTODIAN_GUARD_B\": [Vector2(1160, 320), Vector2(1226, 320), Vector2(1292, 320), Vector2(1193, 265), Vector2(1259, 265)],\n\t\"U_CUSTODIAN_GUARD_D\": [Vector2(1560, 220), Vector2(1626, 220), Vector2(1692, 220), Vector2(1593, 160), Vector2(1659, 160)],\n\t\"U_CUSTODIAN_GUARD_A_P2\": [Vector2(1160, 1330), Vector2(1226, 1330), Vector2(1160, 1395), Vector2(1226, 1395), Vector2(1193, 1460)],\n\t\"U_CUSTODIAN_GUARD_B_P2\": [Vector2(1640, 1150), Vector2(1704, 1150), Vector2(1640, 1214), Vector2(1704, 1214), Vector2(1672, 1278)],\n}\nfor uid in place:\n\tvar k = 0\n\tfor m in st.units[uid].models:\n\t\tm.position = {\"x\": place[uid][k].x, \"y\": place[uid][k].y}\n\t\tk += 1\n\tif st.units[uid].has(\"flags\"):\n\t\tst.units[uid].flags.erase(\"last_shot_idx\")\n\t\tst.units[uid].flags.erase(\"shot_recently\")\n# Park everyone else, stacked per unit. Player 1 alternates between\n# obj_home_1's ruin (area-large-14) and obj_nml_1's ruin (area-large-2), so\n# both are already held; player 2 goes to the south-east corner, more than\n# 42\" from Beta and Delta.\nvar alt = 0\nfor uid in st.units:\n\tif place.has(uid):\n\t\tcontinue\n\tvar u = st.units[uid]\n\tvar q = 0\n\tvar spot = alt % 2\n\tif int(u.get(\"owner\", 0)) == 1:\n\t\talt += 1\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tif int(u.get(\"owner\", 0)) == 1:\n\t\t\tif spot == 0:\n\t\t\t\tm.position = {\"x\": 600.0 + 40.0 * float(q % 5), \"y\": 300.0}\n\t\t\telse:\n\t\t\t\tm.position = {\"x\": 1450.0 + 40.0 * float(q % 4), \"y\": 540.0}\n\t\telse:\n\t\t\tm.position = {\"x\": 1500.0 + 40.0 * float(q % 5), \"y\": 2300.0}\n\t\tq += 1\nreturn TerrainManager.area_at(Vector2(1240.0, 440.0)).get(\"id\", \"\")",
+      "equals": "area-medium-7",
+      "comment": "the exam's board: weapon swap, placements, parking; returns the light area south of Beta"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# FIX_HEAVY_CREEP ships OFF: load the opt-in profile AFTER configure()\n# (configure wipes profiles).\nvar f = FileAccess.open(\"res://tests/bench_profiles/heavy_creep_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nreturn prof.parameters.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/AIControlsRow/AISuggestionButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")",
+      "comment": "the K card follows Custodian Guard Beta (card unit focus)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Beta moves toward obj\") and main._ai_suggestion_panel.full_text.contains(\"to keep its [HEAVY] +1 to hit\")",
+      "equals": true,
+      "comment": "the K card's action line: Beta creeps toward its objective to keep its [HEAVY] +1 to hit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"How this turn's move was shaped\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"no model moves more than 3\\\"\")",
+      "equals": true,
+      "comment": "the move note names 24.16's 3\" limit"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Benefit of Cover\")",
+      "equals": true,
+      "comment": "...and the cover it creeps into (13.08)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Engine-level check of the same suggestion: a Normal move carrying the\n# 3\" re-plan cap, no model further than 2.9\" (straight line), every\n# destination centre inside area-medium-7.\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nif str(d.get(\"type\", \"\")) != \"BEGIN_NORMAL_MOVE\" or not is_equal_approx(float(d.get(\"_ai_move_cap_inches\", 0.0)), 3.0):\n\treturn false\nvar dests: Dictionary = d.get(\"_ai_model_destinations\", {})\nif dests.size() != 5:\n\treturn false\nvar models: Array = AIDecisionMaker._get_alive_models_with_positions(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"])\nif AIDecisionMaker._destinations_max_move_inches(models, dests) > 2.9:\n\treturn false\nfor mid in dests:\n\tvar p = Vector2(float(dests[mid][0]), float(dests[mid][1]))\n\tif str(TerrainManager.area_at(p).get(\"id\", \"\")) != \"area-medium-7\":\n\t\treturn false\nreturn true",
+      "equals": true,
+      "comment": "engine-level: BEGIN_NORMAL_MOVE, _ai_move_cap_inches 3, <= 2.9\" per model, all in area-medium-7"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_heavy_creep_on",
+      "comment": "the K card: 'Custodian Guard Beta moves toward obj... creeping N\" to keep its [HEAVY] +1 to hit, into cover' and its move note"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Close-up: Beta north of area-medium-7 with its short move arrows into\n# it, framed between the game log and the K card (41% of the width).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1240.0, 470.0), false, Vector2(0.41, 0.5))\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_heavy_creep_closeup",
+      "comment": "Beta's move arrows of 3\" or less end inside area-medium-7"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# SHIPPED-DEFAULT CHECK: clearing the profile leaves FIX_HEAVY_CREEP at 0 -\n# T7-26's unchanged hold, no cap key, no creep wording.\nAIDecisionMaker.clear_player_profile(1)\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Beta holds for Heavy weapon bonus\") and not d.has(\"_ai_move_cap_inches\") and not str(d.get(\"_ai_description\", \"\")).contains(\"to keep its [HEAVY]\")",
+      "equals": true,
+      "comment": "shipped default (flag 0): T7-26's REMAIN_STATIONARY, unchanged"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Beta holds for Heavy weapon bonus\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"no model moves more than 3\\\"\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame Beta (no move arrows: it holds) and the light area south of it.\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1240.0, 470.0), false, Vector2(0.41, 0.5))\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_heavy_creep_off",
+      "comment": "profile cleared: Beta's K card is T7-26's hold for the Heavy weapon bonus again"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Reload the profile: the creep returns.\nvar f = FileAccess.open(\"res://tests/bench_profiles/heavy_creep_on.json\", FileAccess.READ)\nvar prof = JSON.parse_string(f.get_as_text())\nf.close()\nAIDecisionMaker.load_player_profile(1, prof)\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nreturn str(d.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\" and str(d.get(\"_ai_description\", \"\")).contains(\"to keep its [HEAVY] +1 to hit\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_B\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main._ai_suggestion_panel._decision.get(\"type\", \"\")) == \"BEGIN_NORMAL_MOVE\" and str(main._ai_suggestion_panel._decision.get(\"actor_unit_id\", \"\")) == \"U_CUSTODIAN_GUARD_B\" and not main._ai_suggestion_panel._accept_btn.disabled",
+      "equals": true,
+      "comment": "the card shows Beta's creep and its Accept button is live"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AISuggestionBreakdownPanel/Body/Footer/Row/AcceptButton",
+      "comment": "the player accepts the suggestion: the game carries out the creep exactly as the AI would (AIPlayer stages each model, then confirms)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ENGINE truth after the accepted move: a Normal move (not Remain\n# Stationary, not an Advance) whose longest model move is 1-3\" by the\n# engine's own count, [HEAVY] still applies (24.16), every centre in a\n# terrain area (13.08), and Alpha is an eligible target of the heavy bolter.\nvar u = GameState.state.units[\"U_CUSTODIAN_GUARD_B\"]\nvar f = u.get(\"flags\", {})\nif not bool(f.get(\"moved\", false)) or bool(f.get(\"remained_stationary\", false)) or bool(f.get(\"advanced\", false)):\n\treturn -1.0\nvar mx = float(f.get(\"moved_max_inches\", 99.0))\nif mx < 1.0 or mx > 3.0:\n\treturn -2.0\nif not ModifierStack.heavy_applies_11e(u, GameState.state):\n\treturn -3.0\nif not TerrainManager.unit_has_cover_11e(u, {}):\n\treturn -4.0\nvar snap = GameState.create_snapshot()\nsnap.units.U_CUSTODIAN_GUARD_B.flags[\"in_engagement\"] = false\nvar elig = RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", snap, false)\nif not elig.has(\"U_CUSTODIAN_GUARD_A_P2\") or not (\"exam_heavy_bolter_ranged\" in elig.U_CUSTODIAN_GUARD_A_P2.get(\"weapons_in_range\", [])):\n\treturn -5.0\nreturn mx",
+      "expect_min": 1.0,
+      "expect_max": 3.0,
+      "comment": "returns flags.moved_max_inches (negative = which engine check broke)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame Beta inside area-medium-7 and Custodian Guard Alpha in the corridor\n# south of it (the line it now has).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1240.0, 900.0), false, Vector2(0.41, 0.5))\nvar vs = m.get_viewport().get_visible_rect().size\nm.zoom_camera_notch(false, Vector2(vs.x * 0.41, vs.y * 0.5))\nm.zoom_camera_notch(false, Vector2(vs.x * 0.41, vs.y * 0.5))\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_heavy_creep_executed",
+      "comment": "after Accept: Beta's five models stand inside area-medium-7 (moved 3\" or less), Alpha in the open corridor to the south"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The guard: Delta (same gun, its target already in sight, no terrain within\n# reach) still holds for its Heavy bonus - no move of 3\" or less buys it enough.\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_D\")\nreturn str(d.get(\"type\", \"\")) == \"REMAIN_STATIONARY\" and str(d.get(\"_ai_description\", \"\")).begins_with(\"Custodian Guard Delta holds for Heavy weapon bonus\") and not d.has(\"_ai_move_cap_inches\")",
+      "equals": true,
+      "comment": "guard: T7-26's unchanged hold for Delta with the profile on"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_unit_focus(\"U_CUSTODIAN_GUARD_D\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text",
+      "comment": "logged for the transcript: Delta's card"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"Custodian Guard Delta holds for Heavy weapon bonus\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel.full_text.contains(\"to keep its [HEAVY]\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Frame Delta on the north edge (no move arrows: it holds).\nvar m = tree.current_scene\nm.focus_on_world_point(Vector2(1630.0, 400.0), false, Vector2(0.41, 0.5))\nreturn true"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "04_heavy_creep_guard_holds",
+      "comment": "Delta's K card: still holds for the Heavy weapon bonus (nothing a 3\" move buys)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.clear_player_profile(1)\ntree.current_scene.reset_camera()\nreturn true",
+      "equals": true
+    }
+  ]
+}
