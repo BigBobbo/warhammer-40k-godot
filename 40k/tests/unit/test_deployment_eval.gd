@@ -18,6 +18,13 @@ extends SceneTree
 # count must be exactly 1. So do an accepted K-card suggestion and the reserves
 # fallback refused by the 50% caps.
 #
+# audit_legality is the P0 gate's legality oracle, and every other caller (the
+# E2E latch, the gate scenario, the harness) only expects 0 violations — so
+# here EVERY violation kind is made to fire: zone, overlap (within and between
+# units), coherency, a MOUNTED base on a solid piece (wall), a base off the
+# board, a character out of its attached unit (the 19.01 merge) and
+# Infiltrators too close to an enemy model (24.20, with the legal case beside).
+#
 # Run with: godot --headless --path . -s tests/unit/test_deployment_eval.gd
 #
 # NOTE: nothing autoload-dependent is preloaded (see test_ai_plan_deployment.gd
@@ -90,6 +97,7 @@ func _run():
 		test_home_objective()
 		test_positions_digest()
 		test_audit_legality()
+		test_audit_legality_wall_board_attached_infiltrators()
 		AI.enabled = false
 		AI.ai_players = {1: false, 2: false}
 		AI._seat_dm.clear()
@@ -150,6 +158,83 @@ func _find_spot(want_hidden: bool, inside_player_zone: int = 0) -> Vector2:
 							ok = false
 					if ok:
 						return Vector2(xi, yi)
+	return Vector2.INF
+
+func _solid_blocker(player: int) -> Dictionary:
+	"""A dense solid feature (taller than 2", the engine's own predicate) whose
+	centre blocks a 40 mm MOUNTED base but not an INFANTRY one there -- the
+	test_formation_builder finder. Prefers one where that base stands wholly in
+	`player`'s zone. Returns {id, centre (px), in_zone} or {}."""
+	var poly: PackedVector2Array = DE.zone_polygon_px(GS.state, player)
+	var fallback := {}
+	for piece in TM.terrain_features:
+		if not TM._is_solid_blocker_11e(piece, 2.0):
+			continue
+		var pp: PackedVector2Array = piece.get("polygon", PackedVector2Array())
+		if pp.size() < 3:
+			continue
+		var c := Vector2.ZERO
+		for v in pp:
+			c += v
+		c /= float(pp.size())
+		c = (c / 20.0).round() * 20.0
+		if not Geometry2D.is_point_in_polygon(c, pp):
+			continue
+		var probe := {"base_mm": 40, "base_type": "circular", "position": c, "rotation": 0.0}
+		if MEAS.model_overlaps_any_wall(probe, ["MOUNTED", "CHARACTER"]) and not MEAS.model_overlaps_any_wall(probe, ["INFANTRY"]):
+			var found := {"id": str(piece.get("id", "?")), "centre": c, "in_zone": MEAS.shape_wholly_in_polygon(c, probe, 0.0, poly)}
+			if found.in_zone:
+				return found
+			if fallback.is_empty():
+				fallback = found
+	return fallback
+
+func _open_single_spot(player: int, away_from: Array, min_dist_in: float) -> Vector2:
+	"""A spot (inches) where one 32 mm INFANTRY model stands wholly inside
+	`player`'s zone, clear of every terrain piece and wall, at least
+	min_dist_in (centre to centre) from every point of away_from (inches)."""
+	var poly: PackedVector2Array = DE.zone_polygon_px(GS.state, player)
+	for yi in range(2, 59):
+		for xi in range(2, 43):
+			var p := Vector2(float(xi), float(yi))
+			var far_enough := true
+			for q in away_from:
+				if p.distance_to(q) < min_dist_in:
+					far_enough = false
+			if not far_enough:
+				continue
+			var m := _model("s", p.x, p.y)
+			m["position"] = p * PX
+			if MEAS.shape_wholly_in_polygon(m.position, m, 0.0, poly) and TM.pieces_model_within(m).is_empty() \
+					and not MEAS.model_overlaps_any_wall(m, ["INFANTRY"]):
+				return p
+	return Vector2.INF
+
+func _no_mans_land_spot(player: int, clear_in: float) -> Vector2:
+	"""A spot (inches) for a 3-model line along +x of 32 mm INFANTRY models,
+	clear of terrain and walls, every base wholly OUTSIDE `player`'s own zone
+	and more than clear_in (base edge) from the enemy zone: where only an
+	Infiltrators unit may be set up (24.20). Measured here with Geometry2D,
+	not with the audit's own Infiltrators code."""
+	var own: PackedVector2Array = DE.zone_polygon_px(GS.state, player)
+	var enemy: PackedVector2Array = DE.zone_polygon_px(GS.state, 3 - player)
+	var r_px := (32.0 / 2.0) / 25.4 * PX
+	for yi in range(2, 59):
+		for xi in range(2, 40):
+			var ok := true
+			for k in [0, 1, 2]:
+				var m := _model("n", xi + 1.4 * k, float(yi))
+				m["position"] = Vector2((xi + 1.4 * k) * PX, yi * PX)
+				if DE._dist_to_polygon_px(m.position, own) <= r_px:
+					ok = false
+				elif DE._dist_to_polygon_px(m.position, enemy) - r_px <= clear_in * PX:
+					ok = false
+				elif not TM.pieces_model_within(m).is_empty() or MEAS.model_overlaps_any_wall(m, ["INFANTRY"]):
+					ok = false
+				if not ok:
+					break
+			if ok:
+				return Vector2(xi, yi)
 	return Vector2.INF
 
 # --- live deployment set-up for the AIPlayer contract tests ---
@@ -509,3 +594,99 @@ func test_audit_legality() -> void:
 	skip["U"] = _unit(1, "U", ["INFANTRY"], 10, ST_UNDEPLOYED, [_model("a", P.x + 0.5, P.y)])
 	_assert(int(DE.audit_legality(_state(skip)).violations) == 0, "reserves / undeployed units are not on the table and are skipped")
 	_assert(int(DE.audit_legality(_state(ov), 2).models) == 0, "player filter: P2 audits none of P1's models")
+
+func test_audit_legality_wall_board_attached_infiltrators() -> void:
+	# Every other caller (the E2E latch, the gate scenario, the harness) only
+	# expects 0 violations, so these are the only proof that the wall, board,
+	# attached-unit (19.01 merge) and Infiltrators (24.20) branches can fire.
+	print("\n-- audit_legality: the wall, board, attached-unit and Infiltrators branches fire --")
+	var P := _find_spot(false, 1)
+	if P == Vector2.INF:
+		_assert(false, "an open 3-model line exists inside the P1 zone (needed by every case below)")
+		return
+
+	# wall: a MOUNTED base on a dense solid piece, judged with its OWN unit's keywords
+	var blocker := _solid_blocker(1)
+	_assert(not blocker.is_empty(), "the fixture has a dense solid piece that blocks a 40 mm MOUNTED base but not an INFANTRY one (%s, centre in the P1 zone: %s)"
+		% [str(blocker.get("id", "none")), str(blocker.get("in_zone", false))])
+	if not blocker.is_empty():
+		var c: Vector2 = blocker.centre
+		var rider := _model("a", c.x / PX, c.y / PX)
+		rider["base_mm"] = 40
+		var on_wall := {"W": _unit(1, "Rider", ["MOUNTED", "CHARACTER"], 10, ST_DEPLOYED, [rider])}
+		var aw: Dictionary = DE.audit_legality(_state(on_wall))
+		_assert(int(aw.wall) >= 1, "a MOUNTED model on the solid piece %s is caught: wall %d (%s)" % [blocker.id, int(aw.wall), str(aw.problems)])
+		_assert(not bool(blocker.in_zone) or int(aw.violations) == int(aw.wall), "... and, its base being wholly in the P1 zone, that is its only violation (%d)" % int(aw.violations))
+		var on_wall_inf := on_wall.duplicate(true)
+		on_wall_inf.W.meta.keywords = ["INFANTRY"]
+		_assert(int(DE.audit_legality(_state(on_wall_inf)).wall) == 0, "the same spot is no wall violation for an INFANTRY unit (each model is judged with its own unit's keywords)")
+
+	# board: a model whose base hangs past the battlefield edge
+	var edge := {"E": _unit(1, "Edge", ["INFANTRY"], 10, ST_DEPLOYED, [_model("a", -1.0, P.y)])}
+	var ab: Dictionary = DE.audit_legality(_state(edge))
+	_assert(int(ab.board) >= 1 and str(ab.problems).contains("off the board"), "a model off the board is caught: board %d (%s)" % [int(ab.board), str(ab.problems)])
+
+	# attached unit: bodyguard + its CHARACTER judged as ONE unit (19.01 + 03.03)
+	var att := {"BG": _unit(1, "Bodyguard", ["INFANTRY"], 10, ST_DEPLOYED, [_model("a", P.x, P.y), _model("b", P.x + 1.4, P.y)]),
+		"CH": _unit(1, "Leader", ["INFANTRY", "CHARACTER"], 10, ST_DEPLOYED, [_model("a", P.x + 2.8, P.y)])}
+	att.BG["attachment_data"] = {"attached_characters": ["CH"]}
+	att.CH["attached_to"] = "BG"
+	var a_ok: Dictionary = DE.audit_legality(_state(att))
+	_assert(int(a_ok.violations) == 0 and int(a_ok.models) == 3, "an attached unit set up together: 0 violations over 3 models (%s)" % str(a_ok.problems))
+	var far := _open_single_spot(1, [P, P + Vector2(1.4, 0.0)], 12.0)
+	_assert(far != Vector2.INF, "an open spot in the P1 zone 12\"+ from the bodyguard exists (%s)" % str(far))
+	if far != Vector2.INF:
+		att.CH.models[0].position = {"x": far.x * PX, "y": far.y * PX}
+		var a_far: Dictionary = DE.audit_legality(_state(att))
+		_assert(int(a_far.incoherent_units) == 1 and int(a_far.violations) == 1 and str(a_far.problems).contains("attached unit judged as one"),
+			"its character %.1f\" from the bodyguard: the attached unit is out of coherency, and nothing else is wrong (%s)"
+			% [minf(far.distance_to(P), far.distance_to(P + Vector2(1.4, 0.0))), str(a_far.problems)])
+		var loose := att.duplicate(true)
+		loose.BG.erase("attachment_data")
+		loose.CH["attached_to"] = null
+		_assert(int(DE.audit_legality(_state(loose)).incoherent_units) == 0,
+			"the same two units NOT attached are each coherent on their own -- the 1 above is the 19.01 merge")
+
+	# Infiltrators: the audit reads the ability from the LIVE GameState (by unit id)
+	var live_sb: Dictionary = GS.state.units.get("U_STORMBOYZ_A", {})
+	_assert(not live_sb.is_empty() and int(live_sb.get("owner", 0)) == 1 and not GS.unit_has_infiltrators("U_STORMBOYZ_A"),
+		"precondition: the fixture's U_STORMBOYZ_A belongs to P1 and has no Infiltrators of its own")
+	var S := _no_mans_land_spot(1, 9.0)
+	_assert(S != Vector2.INF, "an open no man's land spot for a 3-model line, outside the P1 zone and 9\"+ from the P2 zone, exists (%s)" % str(S))
+	if live_sb.is_empty() or S == Vector2.INF:
+		return
+	var foe_y := S.y + 5.0 if S.y + 5.0 <= 58.0 else S.y - 5.0   # 5" from the first model, on the board
+	var near := {"U_STORMBOYZ_A": _unit(1, "Stormboyz", ["INFANTRY"], 10, ST_DEPLOYED,
+			[_model("a", S.x, S.y), _model("b", S.x + 1.4, S.y), _model("c", S.x + 2.8, S.y)]),
+		"FOE": _unit(2, "Foe", ["INFANTRY"], 10, ST_DEPLOYED, [_model("a", S.x, foe_y)])}
+	var a_plain: Dictionary = DE.audit_legality(_state(near), 1)
+	_assert(int(a_plain.zone) == 3 and int(a_plain.infiltrators) == 0,
+		"without Infiltrators, the unit outside its zone is 3 zone violations (zone %d, infiltrators %d)" % [int(a_plain.zone), int(a_plain.infiltrators)])
+	var meta: Dictionary = live_sb.get("meta", {})
+	var had_abilities := meta.has("abilities")
+	var saved_abilities: Array = (meta.get("abilities", []) as Array).duplicate(true)
+	var with_infil: Array = saved_abilities.duplicate(true)
+	with_infil.append({"name": "Infiltrators"})
+	meta["abilities"] = with_infil
+	_assert(GS.unit_has_infiltrators("U_STORMBOYZ_A"), "test set-up: the live U_STORMBOYZ_A now has Infiltrators")
+	var a_near: Dictionary = DE.audit_legality(_state(near), 1)
+	_assert(int(a_near.infiltrators) >= 1 and int(a_near.zone) == 0 and str(a_near.problems).contains("from enemy model FOE"),
+		"Infiltrators 5\" (centre to centre) from an enemy model are caught: infiltrators %d (%s)" % [int(a_near.infiltrators), str(a_near.problems)])
+	# The enemy model moves to the P2 zone corner farthest from the unit: every
+	# base of the line is 9"+ from that zone, so 8"+ from a model on its edge.
+	var clear := near.duplicate(true)
+	var ez: PackedVector2Array = DE.zone_polygon_px(GS.state, 2)
+	var corner: Vector2 = ez[0] if ez.size() > 0 else Vector2.INF
+	for v in ez:
+		if v.distance_to(S * PX) > corner.distance_to(S * PX):
+			corner = v
+	_assert(ez.size() >= 3, "the fixture has a P2 deployment zone polygon (%d vertices)" % ez.size())
+	clear.FOE.models[0].position = {"x": corner.x, "y": corner.y}
+	var a_clear: Dictionary = DE.audit_legality(_state(clear), 1)
+	_assert(int(a_clear.violations) == 0 and int(a_clear.models) == 3,
+		"the same Infiltrators outside their zone, more than 8\" from the enemy zone and every enemy model: 0 violations (%s)" % str(a_clear.problems))
+	if had_abilities:
+		meta["abilities"] = saved_abilities
+	else:
+		meta.erase("abilities")
+	_assert(not GS.unit_has_infiltrators("U_STORMBOYZ_A"), "test set-up undone: the live unit has no Infiltrators again")

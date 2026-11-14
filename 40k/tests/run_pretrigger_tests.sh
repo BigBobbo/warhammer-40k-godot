@@ -33,6 +33,11 @@
 #     the end-to-end AI deployment gate, the 11e terrain picker, and the
 #     DeploymentEval metrics + rejected-placement contract (every refused
 #     deployment action is counted at the source by AIPlayer)
+#   - P0 terrain data: every shipped layout folds into contiguous 13.01
+#     terrain-area groups, no feature stands in another group's area, and every
+#     area's category / height / traits match its features (the parent, group
+#     and area-aggregate rules of tools/check_terrain_layouts.py, which no CI
+#     job runs)
 #   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
 #   - Wahapedia 11e codex import (Custodes + Orks): codex characteristics,
@@ -356,6 +361,7 @@ TESTS=(
     "tests/unit/test_ai_deploy_terrain_11e.gd"
     "tests/unit/test_deployment_eval.gd"
     "tests/unit/test_fixture_boards_current.gd"
+    "tests/unit/test_terrain_layout_area_groups.gd"
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"
     "tests/test_fight_phase_scope_end_fight_11e.gd"

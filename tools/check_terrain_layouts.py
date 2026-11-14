@@ -22,6 +22,16 @@ Checks -- ERROR (exit status 1):
   parent-not-area   the parent piece is not piece_class "area"
   parent-far        LOOSE criterion: the feature polygon neither overlaps nor
                     comes within ABUT_TOL (0.5") of its parent's polygon
+  parent-wrong-area the feature touches its parent but fails the STRICT
+                    criterion (centroid outside it or < 50% of its footprint
+                    inside it), and its MAJORITY AREA -- the area holding
+                    >= 50% of its footprint, and more of it than the parent --
+                    resolves to a DIFFERENT engine group than the parent. The
+                    engine then folds the feature into the wrong 13.01 area
+                    exactly as for parent-far: e.g. a dense ruin wall parented
+                    to the light area it leans against makes that area dense
+                    (INFANTRY in it become Hidden, 13.09) and a model touching
+                    the wall ignores the light area's footprint (13.10)
   link-split        the pieces sharing one link_group label do not form one
                     connected cluster (<= ABUT_TOL adjacency, transitive)
   group-split       an engine group (keys resolved exactly like
@@ -35,16 +45,24 @@ Checks -- ERROR (exit status 1):
 Reported, not failing (--strict makes parent-minority an ERROR):
   parent-minority   STRICT criterion: the feature touches its parent but its
                     centroid is outside it or < 50% of its footprint is inside
-                    it. When the area holding most of it is in the SAME group
-                    (a link_group sibling half) the engine result is identical.
+                    it, and it is not parent-wrong-area: either the area
+                    holding most of it is in the SAME group (a link_group
+                    sibling half -- the engine result is identical), or no
+                    area holds a majority of it (ambiguous; review by hand).
   parentless-inside a feature without parent_area_id lies mostly inside an
                     area; the engine treats it as its own 13.01 area.
   link-overrides-parent  a feature's link_group puts it in a different group
                     than its parent area (link_group wins in the engine).
 
-The LOOSE criterion is what the engine cares about (30 features / 8 files on
-the pre-fix data); the STRICT one also counts features that straddle the
-boundary of two linked halves (56 / 17 pre-fix: the 30 plus 26 same-group).
+What the engine cares about is the GROUP a feature lands in, and the gap alone
+cannot see a wrong group: LOOSE (parent-far) catches a parent that is nowhere
+near the feature, parent-wrong-area a parent that touches it while the feature
+stands in an area of another group. That slip is easy to make -- 134 parented
+features in 36 of the shipped layouts lie within 0.5" of an area of another
+engine group. On the pre-fix data LOOSE found 30 features in 8 files; STRICT
+also counts the features that straddle the boundary of two linked halves (56
+in 17 files: the 30 plus 26 same-group straddlers); no pre-fix feature was
+parent-wrong-area (the recon_1 walls were 3.3" and 5.7" from their parent).
 
 Usage (from the repo root):
   python3 tools/check_terrain_layouts.py               # report; exit 1 on ERROR
@@ -53,13 +71,15 @@ Usage (from the repo root):
   python3 tools/check_terrain_layouts.py --fix         # repair in place, then re-check
   python3 tools/check_terrain_layouts.py --layouts-dir DIR --only NAME [--only NAME]
 
---fix re-parents every parent-far feature to the area holding most of its
-footprint (must be >= 50% and unique), gives every extra cluster of a split
-link_group label its own label ("<label>#2", "#3", ... in file order; the
-first cluster keeps the original), and re-derives the aggregate fields of the
-areas whose children changed. It only rewrites files whose JSON round-trips
-byte-identically through json.dumps(indent=1), so the diff is exactly the
-repaired fields. Stdlib only.
+--fix re-parents every parent-far and parent-wrong-area feature to the area
+holding most of its footprint (must be >= 50% and unique), gives every extra
+cluster of a split link_group label its own label ("<label>#2", "#3", ... in
+file order; the first cluster keeps the original), and re-derives the
+aggregate fields of the areas whose children changed. It repeats that on a
+file until nothing is left to repair (at most FIX_PASSES passes: splitting a
+label can leave a feature in the wrong group). It only rewrites files whose
+JSON round-trips byte-identically through json.dumps(indent=1), so the diff is
+exactly the repaired fields. Stdlib only.
 """
 
 import argparse
@@ -73,8 +93,9 @@ ABUT_TOL = 0.5          # inches: "overlaps or abuts"
 MAJORITY = 0.5          # fraction of a feature's footprint
 BOARD_W, BOARD_H = 44.0, 60.0   # portrait 11e board (point mirror centre 22,30)
 CATEGORY_RANK = {"exposed": 0, "light": 1, "dense": 2}
-ERROR_CHECKS = ("parent-missing", "parent-not-area", "parent-far", "link-split",
-                "group-split", "area-aggregate")
+ERROR_CHECKS = ("parent-missing", "parent-not-area", "parent-far", "parent-wrong-area",
+                "link-split", "group-split", "area-aggregate")
+FIX_PASSES = 4          # --fix: max repair passes per file (a relabel can need a 2nd)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DIR = os.path.join(REPO, "40k", "terrain_layouts")
@@ -308,6 +329,8 @@ def check_layout(name, data):
         c_in = point_in_poly(centroid(polys[fid]), polys[parent_id])
         touch = touching_areas(fid)
         best = touch[0] if touch else None
+        # --fix target: the area holding >= 50% of the footprint, strictly more than any other
+        fix_to = best[0] if best and best[1] >= MAJORITY and (len(touch) == 1 or touch[1][1] < best[1]) else None
         if gap > ABUT_TOL:
             mirror_twin = poly_distance(point_mirror(polys[fid]), polys[parent_id]) <= ABUT_TOL
             where = ("%s (%.0f%% of its footprint)" % (best[0], best[1] * 100)) if best else "no area"
@@ -316,17 +339,35 @@ def check_layout(name, data):
                 % (parent_id, gap, where, "HITS" if mirror_twin else "misses"),
                 parent=parent_id, gap_in=round(gap, 3), sits_in=best[0] if best else None,
                 sits_in_fraction=round(best[1], 3) if best else 0.0, point_mirror_twin=mirror_twin)
-            if best and best[1] >= MAJORITY and (len(touch) == 1 or touch[1][1] < best[1]):
-                sugg["reparent"][fid] = best[0]
+            if fix_to:
+                sugg["reparent"][fid] = fix_to
         elif (not c_in) or frac < MAJORITY:
-            same = bool(best) and group_of.get(best[0]) == group_of.get(parent_id)
-            add("parent-minority", fid,
-                "touches parent %s but only %.0f%% inside (centroid %s); %.0f%% in %s -- %s"
-                % (parent_id, frac * 100, "inside" if c_in else "outside",
-                   best[1] * 100 if best else 0, best[0] if best else "-",
-                   "same engine group (no behavioural effect)" if same else "DIFFERENT engine group"),
-                parent=parent_id, parent_fraction=round(frac, 3), majority_area=best[0] if best else None,
-                same_group=same)
+            parent_group = group_of.get(parent_id)
+            best_group = group_of.get(best[0]) if best else None
+            same = bool(best) and best_group == parent_group
+            if best and not same and best[1] >= MAJORITY and best[1] > frac:
+                # Touching is not enough: the feature stands in an area of ANOTHER engine group,
+                # so the engine folds it into the wrong 13.01 area (same effect as parent-far).
+                add("parent-wrong-area", fid,
+                    "touches parent %s (%.2f\" gap, %.0f%% inside, centroid %s) but %.0f%% of it stands in %s, "
+                    "a DIFFERENT engine group (%s, the parent's is %s)%s"
+                    % (parent_id, gap, frac * 100, "inside" if c_in else "outside", best[1] * 100, best[0],
+                       best_group, parent_group, "" if fix_to else "; no unique majority area, --fix leaves it"),
+                    parent=parent_id, gap_in=round(gap, 3), parent_fraction=round(frac, 3),
+                    majority_area=best[0], majority_fraction=round(best[1], 3),
+                    majority_group=best_group, parent_group=parent_group, fixable=bool(fix_to))
+                if fix_to:
+                    sugg["reparent"][fid] = fix_to
+            else:
+                add("parent-minority", fid,
+                    "touches parent %s but only %.0f%% inside (centroid %s); %.0f%% in %s -- %s"
+                    % (parent_id, frac * 100, "inside" if c_in else "outside",
+                       best[1] * 100 if best else 0, best[0] if best else "-",
+                       "same engine group (no behavioural effect)" if same
+                       else "DIFFERENT engine group, but no area holds >= 50% of it and more than the parent "
+                            "(ambiguous: review by hand)"),
+                    parent=parent_id, parent_fraction=round(frac, 3), majority_area=best[0] if best else None,
+                    same_group=same)
         if p.get("link_group") and parent is not None and group_of[fid] != resolve_group_key(parent, by_id):
             add("link-overrides-parent", fid,
                 "link_group %r puts it in %s, its parent %s resolves to %s"
@@ -429,7 +470,8 @@ def main(argv=None):
     ap.add_argument("--only", action="append", default=[], help="layout id (file stem); repeatable")
     ap.add_argument("--strict", action="store_true", help="parent-minority findings fail too")
     ap.add_argument("--json", metavar="PATH", help="write all findings as JSON")
-    ap.add_argument("--fix", action="store_true", help="repair parent-far / link-split / aggregates in place")
+    ap.add_argument("--fix", action="store_true",
+                    help="repair parent-far / parent-wrong-area / link-split / aggregates in place")
     ap.add_argument("--quiet", action="store_true", help="summary only")
     args = ap.parse_args(argv)
 
@@ -452,7 +494,15 @@ def main(argv=None):
             if dumps(data) != text:
                 print("REFUSING to rewrite %s: it does not round-trip byte-identically" % path)
                 continue
-            fix_log += apply_fix(path, data, sugg)
+            # Repeat until clean: splitting a label can put a touching feature in another
+            # group than its parent (parent-wrong-area), which the next pass re-parents.
+            for _pass in range(FIX_PASSES):
+                if not sugg["reparent"] and not sugg["relabel"]:
+                    break
+                fix_log += apply_fix(path, data, sugg)
+                _, sugg = check_layout(os.path.basename(path)[:-5], data)
+            if sugg["reparent"] or sugg["relabel"]:
+                print("WARNING %s: still has repairs pending after %d --fix passes" % (path, FIX_PASSES))
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(dumps(data))
         print("--fix applied %d change(s):" % len(fix_log))
@@ -477,14 +527,15 @@ def main(argv=None):
             print("%s %-18s %-38s %-34s %s" % (level, f["check"], f["layout"], f["piece"][:34], f["message"]))
         print()
     n_loose, l_loose = tally(("parent-far",))
-    n_strict, l_strict = tally(("parent-far", "parent-minority"))
+    n_strict, l_strict = tally(("parent-far", "parent-wrong-area", "parent-minority"))
     same = [f for f in all_findings if f["check"] == "parent-minority" and f.get("same_group")]
     print("checked %d layout file(s) in %s" % (len(files), os.path.relpath(args.layouts_dir, os.getcwd())))
     print("  LOOSE  parent-far (feature >%.1f\" from its parent): %d feature(s) in %d layout(s)" % (ABUT_TOL, n_loose, l_loose))
-    print("  STRICT parent-far + parent-minority (centroid outside / <50%% inside parent): %d feature(s) in %d layout(s)"
+    print("  STRICT parent-far + parent-wrong-area + parent-minority (centroid outside / <50%% inside parent):"
+          " %d feature(s) in %d layout(s)"
           " -- %d of the minority cases share the engine group of the area holding them" % (n_strict, l_strict, len(same)))
-    for chk in ("parent-missing", "parent-not-area", "link-split", "group-split", "area-aggregate",
-                "parentless-inside", "link-overrides-parent"):
+    for chk in ("parent-wrong-area", "parent-missing", "parent-not-area", "link-split", "group-split",
+                "area-aggregate", "parentless-inside", "link-overrides-parent"):
         n, l = tally((chk,))
         print("  %-22s %d finding(s) in %d layout(s)" % (chk, n, l))
     if args.json:

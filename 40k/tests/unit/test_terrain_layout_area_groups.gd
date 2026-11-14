@@ -20,11 +20,20 @@ extends SceneTree
 #   * 26 link_group labels in 21 files were shared by a cluster and its
 #     mirrored twin (6.5-45" apart), merging separate areas into one group.
 # tools/check_terrain_layouts.py is the offline checker / fixer (and also
-# checks each area's generator-derived category/height/traits). This test pins
-# the same invariant through the ENGINE (load_terrain_layout +
+# checks each area's generator-derived category/height/traits); no CI job runs
+# it, so this test carries its parent, group and area-aggregate rules into CI.
+# It pins the same invariant through the ENGINE (load_terrain_layout +
 # build_area_group_map + Geometry2D) and pins the player-visible effects:
-#   A. all layouts: parent within 0.5"; each engine group contiguous;
-#      each area's category = the densest feature parented to it
+#   A. all layouts: parent within 0.5" (checker parent-far), and a feature that
+#      straddles its parent (centroid outside it or < 50% inside it) does not
+#      stand in an area of ANOTHER engine group -- the area holding >= 50% of
+#      it, and more of it than the parent, shares the parent's group (checker
+#      parent-wrong-area: touching the wrong area is not enough); each engine
+#      group contiguous; each area's category = the densest feature parented
+#      to it (engine category_of); and each area's category / height_inches /
+#      height / traits = the generator's aggregate of its features, computed
+#      from the raw layout JSON exactly as the checker's area-aggregate
+#      (_area_aggregate mirrors check_terrain_layouts.area_aggregate)
 #   B. take_and_hold_mirror_1: a model standing in area-medium-7 no longer
 #      excludes the far corner walls / area-medium-8 (37" away). On this
 #      layout the defect changed exclusion sets only: an engine sweep found no
@@ -35,15 +44,22 @@ extends SceneTree
 #      dense area-medium-9.
 #   D. reconnaissance_vs_reconnaissance_2: a model in area-medium-29 no longer
 #      sees through the separate areas that shared link_group "2".
+#   E. negative controls for A, applied in memory: a dense wall re-parented to
+#      the light area it leans against (0.18" away; both areas re-derived, so
+#      only the wrong-area rule can see it), and an area whose height / traits
+#      went stale while its category stayed right -- both are caught.
 # Every focused check also re-applies the pre-fix values in memory and asserts
-# the defect reproduces ([pre-fix] lines), so the test cannot pass vacuously.
+# the defect reproduces ([pre-fix] / [mutation] lines), so the test cannot pass
+# vacuously.
 #
 # Run with: godot --headless --path . -s tests/unit/test_terrain_layout_area_groups.gd
 
 const LAYOUT_DIR := "res://terrain_layouts"
 const PX := 40.0                  # Measurement.PX_PER_INCH
 const ABUT_TOL_PX := 0.5 * PX     # "overlaps or abuts": within 0.5"
+const MAJORITY := 0.5             # fraction of a feature's footprint (checker MAJORITY)
 const CATEGORY_RANK := {"exposed": 0, "light": 1, "dense": 2}
+const AGGREGATE_FIELDS := ["category", "height_inches", "height", "traits"]
 
 var _pass_count := 0
 var _fail_count := 0
@@ -83,6 +99,8 @@ func _run_tests():
 	test_mirror_1_far_walls_not_excluded()
 	test_recon_1_home_ruin_hides_and_obscures()
 	test_recon_vs_recon_2_link_group_split()
+	test_wrong_area_parent_is_caught()
+	test_stale_area_aggregate_is_caught()
 
 	tm.current_layout = prev_layout
 	tm.terrain_features = prev_terrain
@@ -135,10 +153,155 @@ static func _clusters(ids: Array, by_id: Dictionary) -> Array:
 		comps.append(comp)
 	return comps
 
+## Polygon area (shoelace, absolute).
+static func _poly_area(poly: PackedVector2Array) -> float:
+	var s := 0.0
+	for i in range(poly.size()):
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % poly.size()]
+		s += a.x * b.y - b.x * a.y
+	return absf(s) / 2.0
+
+## Fraction of the feature's footprint inside the area polygon (the checker's
+## overlap_fraction). The intersection of two simple polygons has no holes, so
+## the pieces Geometry2D returns are summed as they are.
+static func _overlap_fraction(feature: PackedVector2Array, area: PackedVector2Array) -> float:
+	var fa := _poly_area(feature)
+	if fa == 0.0:
+		return 0.0
+	var inside := 0.0
+	for piece in Geometry2D.intersect_polygons(feature, area):
+		inside += _poly_area(piece)
+	return minf(1.0, inside / fa)
+
+## Vertex average (the checker's centroid()).
+static func _vertex_centroid(poly: PackedVector2Array) -> Vector2:
+	var c := Vector2.ZERO
+	for v in poly:
+		c += v
+	return c / float(maxi(1, poly.size()))
+
+## check_terrain_layouts parent-wrong-area, for a feature that touches its
+## parent: "" when the feature passes the STRICT criterion (centroid inside the
+## parent and >= 50% of it inside), or when the area holding most of it shares
+## the parent's engine group, or when no area holds >= 50% of it and more of it
+## than the parent. Otherwise the feature stands in an area of ANOTHER group
+## and the engine folds it into the wrong 13.01 area: returns the violation.
+## out_straddle (size-1 Array) counts the features that fail STRICT.
+func _wrong_area(p: Dictionary, parent: Dictionary, features: Array, group_map: Dictionary, out_straddle: Array) -> String:
+	var frac := _overlap_fraction(p.polygon, parent.polygon)
+	var c_in := Geometry2D.is_point_in_polygon(_vertex_centroid(p.polygon), parent.polygon)
+	if c_in and frac >= MAJORITY:
+		return ""
+	out_straddle[0] = int(out_straddle[0]) + 1
+	# The majority area: most of the footprint, then the smaller gap, then the id
+	# (the checker's touching_areas sort), among the areas within 0.5".
+	var best_id := ""
+	var best_frac := -1.0
+	var best_gap := INF
+	for a in features:
+		if str(a.get("piece_class", "")) != "area":
+			continue
+		var gap := _poly_gap(p.polygon, a.polygon)
+		if gap > ABUT_TOL_PX:
+			continue
+		var f := _overlap_fraction(p.polygon, a.polygon)
+		var aid := str(a.get("id", ""))
+		if f > best_frac or (f == best_frac and (gap < best_gap or (gap == best_gap and aid < best_id))):
+			best_id = aid
+			best_frac = f
+			best_gap = gap
+	if best_id == "" or group_map.get(best_id) == group_map.get(str(parent.get("id", ""))):
+		return ""
+	if best_frac < MAJORITY or best_frac <= frac:
+		return ""
+	return "%s -> %s (touches it, %.0f%% inside, centroid %s) but %.0f%% of it stands in %s, engine group %s != the parent's %s" % [
+		str(p.get("id", "")), str(parent.get("id", "")), frac * 100.0, "inside" if c_in else "outside",
+		best_frac * 100.0, best_id, str(group_map.get(best_id)), str(group_map.get(str(parent.get("id", ""))))]
+
+## check_terrain_layouts.height_category / area_aggregate, line for line: the
+## category / height_inches / height / traits the generator
+## (scripts/40kdc/generate-terrain-layouts.mjs areaContents, pieceGameplay,
+## pieceTraits, heightCategory) derives for an area from its parented features.
+static func _height_category(h) -> String:
+	return "low" if h < 2 else ("medium" if h <= 4 else "tall")
+
+static func _area_aggregate(children: Array) -> Dictionary:
+	var cat := "exposed"
+	var max_h = 0
+	for c in children:
+		var cc := str(c.get("category", "exposed"))
+		if int(CATEGORY_RANK.get(cc, 0)) > int(CATEGORY_RANK[cat]):
+			cat = cc
+		max_h = max(max_h, c.get("height_inches", 0))
+	var traits: Array = []
+	if cat == "dense":
+		traits.append("obscuring")
+	traits.append("difficult_ground")
+	return {"category": cat, "height_inches": max_h, "height": _height_category(max_h), "traits": traits}
+
+## Python `!=` semantics for JSON values: int and float compare by value, any
+## other type mismatch is "different" (GDScript would raise on it), arrays
+## compare element by element.
+static func _same_value(a, b) -> bool:
+	var num := [TYPE_INT, TYPE_FLOAT]
+	if typeof(a) in num and typeof(b) in num:
+		return float(a) == float(b)
+	if typeof(a) != typeof(b):
+		return false
+	if typeof(a) == TYPE_ARRAY:
+		if a.size() != b.size():
+			return false
+		for i in range(a.size()):
+			if not _same_value(a[i], b[i]):
+				return false
+		return true
+	return a == b
+
+## The checker's area-aggregate check over a layout's RAW JSON pieces -- the
+## bytes the checker reads (the engine copies category / height_inches /
+## traits onto its runtime pieces as they are, but parses `height` into
+## height_category with a "tall" fallback, so the raw file is the exact
+## mirror). Same piece filter (polygon of >= 3 vertices) and children (pieces
+## of class "feature" with a parent_area_id) as check_layout.
+static func _aggregate_violations(raw_pieces: Array) -> Array:
+	var pieces: Array = []
+	for p in raw_pieces:
+		if p is Dictionary and p.get("polygon", []) is Array and (p.get("polygon", []) as Array).size() >= 3:
+			pieces.append(p)
+	var kids := {}
+	for p in pieces:
+		var pa = p.get("parent_area_id", null)
+		if str(p.get("piece_class", "")) != "feature" or pa == null or str(pa) == "":
+			continue
+		if not kids.has(str(pa)):
+			kids[str(pa)] = []
+		kids[str(pa)].append(p)
+	var bad: Array = []
+	for a in pieces:
+		if str(a.get("piece_class", "")) != "area":
+			continue
+		var want: Dictionary = _area_aggregate(kids.get(str(a.get("id", "")), []))
+		var diffs: Array = []
+		for k in AGGREGATE_FIELDS:
+			if not _same_value(a.get(k, null), want[k]):
+				diffs.append("%s %s -> %s" % [k, str(a.get(k, null)), str(want[k])])
+		if not diffs.is_empty():
+			bad.append("%s: %s" % [str(a.get("id", "")), ", ".join(diffs)])
+	return bad
+
+static func _raw_layout(layout: String) -> Dictionary:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string("%s/%s.json" % [LAYOUT_DIR, layout]))
+	return parsed if parsed is Dictionary else {}
+
 ## The invariant over one feature set. Returns the violations as strings:
-##   parent  — feature not within 0.5" of its parent (or parent missing / not an area)
+##   parent  — feature not within 0.5" of its parent (or parent missing / not
+##             an area), or touching its parent while standing in an area of
+##             another engine group (_wrong_area)
 ##   group   — an engine group made of separate clusters
 ##   category— an area whose category is not the densest of its parented features
+##   straddle— count of features that fail STRICT (centroid outside / < 50%
+##             inside their parent) but touch it -- the ones _wrong_area judged
 func _violations(features: Array, group_map: Dictionary) -> Dictionary:
 	var by_id := _by_id(features)
 	var parent_bad: Array = []
@@ -146,6 +309,7 @@ func _violations(features: Array, group_map: Dictionary) -> Dictionary:
 	var category_bad: Array = []
 	var densest := {}
 	var n_parented := 0
+	var straddle: Array = [0]
 	for p in features:
 		if str(p.get("piece_class", "")) != "feature" or str(p.get("parent_area_id", "")) == "":
 			continue
@@ -161,6 +325,10 @@ func _violations(features: Array, group_map: Dictionary) -> Dictionary:
 		var gap := _poly_gap(p.polygon, parent.polygon)
 		if gap > ABUT_TOL_PX:
 			parent_bad.append("%s -> %s (%.1f\" away)" % [pid, parent_id, gap / PX])
+		else:
+			var wrong := _wrong_area(p, parent, features, group_map, straddle)
+			if wrong != "":
+				parent_bad.append(wrong)
 		var cat := str(tm.category_of(p))
 		if not densest.has(parent_id) or int(CATEGORY_RANK.get(cat, 0)) > int(CATEGORY_RANK.get(densest[parent_id], 0)):
 			densest[parent_id] = cat
@@ -180,7 +348,8 @@ func _violations(features: Array, group_map: Dictionary) -> Dictionary:
 		var want := str(densest.get(aid, "exposed"))
 		if str(tm.category_of(p)) != want:
 			category_bad.append("%s is %s, its features make it %s" % [aid, tm.category_of(p), want])
-	return {"parent": parent_bad, "group": group_bad, "category": category_bad, "parented": n_parented}
+	return {"parent": parent_bad, "group": group_bad, "category": category_bad, "parented": n_parented,
+		"straddle": int(straddle[0])}
 
 static func _model(id: String, pos_px: Vector2, base_mm: int = 32) -> Dictionary:
 	return {"id": id, "alive": true, "base_mm": base_mm, "base_type": "circular",
@@ -230,6 +399,8 @@ func test_all_layouts_invariant() -> void:
 	_assert(names.size() >= 47, "found %d layout files (45 GW + legacy fallback + test field)" % names.size())
 	var total_parented := 0
 	var total_groups := 0
+	var total_straddle := 0
+	var total_areas := 0
 	for layout in names:
 		tm.load_terrain_layout(layout)
 		_assert(tm.current_layout == layout, "%s: loads as itself (no fallback)" % layout)
@@ -237,18 +408,30 @@ func test_all_layouts_invariant() -> void:
 		var gm: Dictionary = tm.build_area_group_map(feats)
 		var v := _violations(feats, gm)
 		total_parented += int(v.parented)
+		total_straddle += int(v.straddle)
 		var keys := {}
 		for pid in gm:
 			keys[gm[pid]] = true
 		total_groups += keys.size()
-		_assert(v.parent.is_empty(), "%s: every parented feature overlaps/abuts its parent area (%d checked)%s"
-			% [layout, v.parented, "" if v.parent.is_empty() else " -- " + ", ".join(v.parent)])
+		_assert(v.parent.is_empty(), "%s: every parented feature overlaps/abuts its parent area and does not stand in another group's area (%d checked, %d straddle their parent)%s"
+			% [layout, v.parented, v.straddle, "" if v.parent.is_empty() else " -- " + ", ".join(v.parent)])
 		_assert(v.group.is_empty(), "%s: every engine area group is one contiguous area (%d groups)%s"
 			% [layout, keys.size(), "" if v.group.is_empty() else " -- " + "; ".join(v.group)])
 		_assert(v.category.is_empty(), "%s: every area's category is the densest of its features%s"
 			% [layout, "" if v.category.is_empty() else " -- " + "; ".join(v.category)])
+		var raw := _raw_layout(layout)
+		var raw_pieces: Array = raw.get("pieces", []) if raw.get("pieces", null) is Array else []
+		for rp in raw_pieces:
+			if rp is Dictionary and str(rp.get("piece_class", "")) == "area":
+				total_areas += 1
+		var agg := _aggregate_violations(raw_pieces)
+		_assert(raw.get("pieces", null) is Array and agg.is_empty(),
+			"%s: every area's category / height_inches / height / traits are the generator's aggregate of its features (raw JSON, checker area-aggregate)%s"
+			% [layout, "" if agg.is_empty() else " -- " + "; ".join(agg)])
 	_assert(total_parented >= 1260, "checked %d parented features across all layouts (not vacuous)" % total_parented)
-	print("  (%d layouts, %d parented features, %d engine groups)" % [names.size(), total_parented, total_groups])
+	_assert(total_areas >= 700, "checked the aggregate fields of %d areas across all layouts (not vacuous)" % total_areas)
+	print("  (%d layouts, %d parented features, %d of them straddle their parent and went through the wrong-area rule, %d engine groups, %d areas)"
+		% [names.size(), total_parented, total_straddle, total_groups, total_areas])
 
 # ── B. take_and_hold_mirror_1 ───────────────────────────────────────────
 
@@ -361,3 +544,92 @@ func test_recon_vs_recon_2_link_group_split() -> void:
 	print("  AFTER visible=%s   BEFORE (one shared label) visible=%s" % [vis_after, vis_before])
 	_assert(not vis_after, "after: the area 13\" south (area-long-line-35 / -43) obscures the model in area-medium-29")
 	_assert(vis_before, "[pre-fix] with one shared label the model ignored that separate area and saw through it")
+
+# ── E. negative controls for invariant A ────────────────────────────────
+
+## The runtime fields an area's aggregate lands in (JSON `height` is the
+## engine's height_category).
+func _rederive_area_fields(area_ids: Array) -> Dictionary:
+	var kids := {}
+	for p in tm.terrain_features:
+		if str(p.get("piece_class", "")) == "feature" and str(p.get("parent_area_id", "")) != "":
+			if not kids.has(str(p.parent_area_id)):
+				kids[str(p.parent_area_id)] = []
+			kids[str(p.parent_area_id)].append(p)
+	var fields := {}
+	for aid in area_ids:
+		var want: Dictionary = _area_aggregate(kids.get(aid, []))
+		fields[aid] = {"category": want.category, "height_inches": float(want.height_inches),
+			"height_category": want.height, "traits": want.traits}
+	return fields
+
+func test_wrong_area_parent_is_caught() -> void:
+	print("\n-- E1. invariant A: a wall parented to the area it only LEANS against is caught --")
+	# disruption_vs_reconnaissance_3: the dense corner-ruin-left-31 stands wholly in
+	# area-large-29 and its edge passes 0.18" from the light area-medium-35.
+	tm.load_terrain_layout("disruption_vs_reconnaissance_3")
+	var by_id := _by_id(tm.terrain_features)
+	var wall: Dictionary = by_id["corner-ruin-left-31"]
+	var home: Dictionary = by_id["area-large-29"]
+	var lean: Dictionary = by_id["area-medium-35"]
+	var gm: Dictionary = tm.build_area_group_map(tm.terrain_features)
+	_assert(str(wall.get("parent_area_id", "")) == "area-large-29" and _overlap_fraction(wall.polygon, home.polygon) > 0.99,
+		"shipped data: corner-ruin-left-31 stands wholly in its parent area-large-29")
+	var gap := _poly_gap(wall.polygon, lean.polygon)
+	_assert(gap <= ABUT_TOL_PX and _overlap_fraction(wall.polygon, lean.polygon) == 0.0,
+		"precondition: it touches area-medium-35 (%.2f\" away) without standing in it" % (gap / PX))
+	_assert(gm["area-medium-35"] != gm["area-large-29"] and str(tm.category_of(lean)) == "light",
+		"precondition: area-medium-35 is a separate, light engine group")
+
+	# The slip: parent the wall to the area it leans against, then re-derive both
+	# areas the generator's way, as a regenerated layout would carry them
+	# (area-medium-35 turns dense). Same mutation as the L5 verifier's l51_mutate.py.
+	var saved := _apply_fields({"corner-ruin-left-31": {"parent_area_id": "area-medium-35"}})
+	var saved_areas := _apply_fields(_rederive_area_fields(["area-large-29", "area-medium-35"]))
+	var gm_bad: Dictionary = tm.build_area_group_map(tm.terrain_features)
+	var v := _violations(tm.terrain_features, gm_bad)
+	print("  [mutation] parent violations: %s" % str(v.parent))
+	_assert(gm_bad["corner-ruin-left-31"] == gm_bad["area-medium-35"] and str(tm.category_of(lean)) == "dense",
+		"[mutation] the engine folds the dense wall into area-medium-35's group and makes that empty area dense")
+	_assert(v.group.is_empty() and v.category.is_empty(),
+		"[mutation] the gap, contiguity and category checks are blind to it (it touches its wrong parent; areas re-derived)")
+	_assert(v.parent.size() == 1 and str(v.parent[0]).begins_with("corner-ruin-left-31 -> area-medium-35")
+		and str(v.parent[0]).contains("area-large-29"),
+		"[mutation] the wrong-area rule flags it: 100%% of it stands in area-large-29, another engine group (%s)" % str(v.parent))
+	_restore_fields(saved_areas)
+	_restore_fields(saved)
+	var v_back := _violations(tm.terrain_features, tm.build_area_group_map(tm.terrain_features))
+	_assert(v_back.parent.is_empty() and str(tm.category_of(lean)) == "light", "restored: the layout is clean again")
+
+func test_stale_area_aggregate_is_caught() -> void:
+	print("\n-- E2. invariant A: an area whose height / traits went stale is caught --")
+	# take_and_hold_vs_reconnaissance_1: the home ruins area-large-7/8 hold 5" dense
+	# walls. Put back the pre-fix height / height_inches / traits but keep the right
+	# category -- what a partial revert or a hand re-parent leaves behind (the L5
+	# verifier's l52_mutate.py). Charge / move climb costs read the stale height.
+	var raw := _raw_layout("take_and_hold_vs_reconnaissance_1")
+	var raw_pieces: Array = raw.get("pieces", []) if raw.get("pieces", null) is Array else []
+	_assert(not raw_pieces.is_empty() and _aggregate_violations(raw_pieces).is_empty(),
+		"shipped data: every area of take_and_hold_vs_reconnaissance_1 matches its features")
+	var by_id := _by_id(raw_pieces)
+	for aid in ["area-large-7", "area-large-8"]:
+		var a: Dictionary = by_id[aid]
+		_assert(str(a.get("category", "")) == "dense" and str(a.get("height", "")) == "tall",
+			"shipped data: %s is dense and tall (its walls are 5\")" % aid)
+		a["height"] = "low"
+		a["height_inches"] = 0
+		a["traits"] = ["difficult_ground"]
+	var bad := _aggregate_violations(raw_pieces)
+	print("  [mutation] aggregate violations: %s" % str(bad))
+	_assert(bad.size() == 2 and str(bad[0]).begins_with("area-large-7:") and str(bad[1]).begins_with("area-large-8:")
+		and str(bad[0]).contains("height low -> tall") and str(bad[0]).contains("height_inches 0 -> 5")
+		and str(bad[0]).contains("traits"),
+		"[mutation] the aggregate check flags both areas' height, height_inches and traits")
+	var cat_blind := true
+	for aid in ["area-large-7", "area-large-8"]:
+		var densest := "exposed"
+		for p in raw_pieces:
+			if str(p.get("parent_area_id", "")) == aid and int(CATEGORY_RANK.get(str(tm.category_of(p)), 0)) > int(CATEGORY_RANK[densest]):
+				densest = str(tm.category_of(p))
+		cat_blind = cat_blind and str(tm.category_of(by_id[aid])) == densest
+	_assert(cat_blind, "[mutation] the category check alone (the invariant before the aggregate check) is blind to it")

@@ -141,6 +141,11 @@ from the raw layout piece and its template** and join by index/id.
 The package is already installed under `scripts/40kdc/node_modules` and pinned in
 `scripts/40kdc/package.json`. Reuse `scripts/40kdc/lib.mjs`'s `loadCollection`.
 
+The pipeline also needs **python3** (stdlib only): the generator ends by running
+`tools/check_terrain_layouts.py --fix` through `lib.mjs` `checkTerrainLayoutLinks`
+to repair `parent_area_id` / `link_group` in the emitted JSON (§6), and exits 1
+if python3 is missing or a check still fails.
+
 ---
 
 ## 3. The board transform (dataset 60×44 landscape → game 44×60 portrait)
@@ -275,7 +280,8 @@ layout registration (`DEPLOYMENT_TYPES`-style list, and the
 | piece `height` | `height_inches` override else template `default_height_inches` | `<2"→"low"`, `2–4"→"medium"`, `>4"→"tall"` (confirm thresholds against `TerrainManager._parse_height_category` / height-inches usage `:356,792`) |
 | piece `traits` | `terrain_area_keywords` (override else template default) + `terrain_category` | `obscuring` keyword or `dense` category → `"obscuring"`; `light`/area templates → `"difficult_ground"`; `hidden`/`plunging-fire` → see D-unknown (§9.5) |
 | piece `floor` | `resolveLayout().floor` | direct (0 = ground) |
-| piece `is_objective` / `objective_role` / `link_group` | raw piece fields | direct |
+| piece `is_objective` / `objective_role` | raw piece fields | direct |
+| piece `parent_area_id` / `link_group` | raw piece fields, then **repaired** in the emitted JSON by `tools/check_terrain_layouts.py --fix` | NOT direct. The 1.0.19 layouts were authored by point-mirroring half a board and the mirror copied these links, which `TerrainManager.build_area_group_map` folds into 13.01 terrain areas spanning the board (wrong 13.09 Hidden / 13.10 exclusions). The generator's last step (`lib.mjs` `checkTerrainLayoutLinks({ fix: true })`, which runs the checker with **python3**) re-parents every feature that is far from its parent or stands in an area of another group to the area holding its footprint, gives each extra cluster of a split label its own `"<label>#k"` label, re-derives those areas' `category` / `height` / `height_inches` / `traits`, and fails the run if any error check is left. See the `parent_area_id / link_group` note in the generator header (`generate-terrain-layouts.mjs:59-71`). A converter rework must keep this step. |
 | objective position | raw piece `objective.position` (parent-relative → resolve) or piece centroid, transposed | D3 |
 | layout `recommended_deployments` | `deployment_pattern_id` → game id | via the ID_MAP already in `generate-deployment-zones.mjs` (e.g. `search-and-destroy`→`search_and_destroy`) |
 | layout `mission_matchup_id`, `variant` | raw layout fields | direct (for D5 wiring) |
@@ -308,8 +314,10 @@ verify them against how the engine reads height/traits (`TerrainManager.gd`
    `MissionManager` / `DeploymentZoneData.get_objectives` prefer the layout's.
 5. **Selection wiring (D5).** Update `MainMenu.gd` to resolve matchup→layout and
    default the deployment dropdown.
-6. **Regenerate + run.** `cd scripts/40kdc && node generate-terrain-layouts.mjs`.
-   Build the import cache (`godot --headless --path 40k --import`), launch the
+6. **Regenerate + run.** `cd scripts/40kdc && node generate-terrain-layouts.mjs`
+   (needs python3 for its link-repair step, §6); afterwards
+   `python3 tools/check_terrain_layouts.py` from the repo root must report
+   `RESULT: PASS`. Build the import cache (`godot --headless --path 40k --import`), launch the
    game windowed (see `CLAUDE.md` "You CAN run the game…"), load a converted
    layout, screenshot, and eyeball geometry against the dataset (use
    `tools/render_layout.py` to PNG-render the game JSON for a side-by-side, and
