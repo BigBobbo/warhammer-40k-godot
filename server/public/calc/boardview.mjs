@@ -11,6 +11,7 @@ import {
   footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly,
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
+import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -74,6 +75,17 @@ function plan() {
   b.plans[k] ??= { steps: [{ name: 'Deploy', tokens: {} }], cur: 0 };
   return b.plans[k];
 }
+
+// one table photo per plan step
+function photoKey() {
+  const p = plan();
+  return p ? `${planKey()}#${p.cur}` : null;
+}
+function currentPhoto() {
+  return photoFor(photoKey(), BOARD, () => { refreshBoard(); });
+}
+// how much of the map to draw over a photo
+const MAP_OVER_PHOTO = { photo: 0, both: 0.45, map: 1 };
 
 function stepTokens() {
   const p = plan();
@@ -181,6 +193,10 @@ export function boardSvg({ forExport = false } = {}) {
   const vb = forExport || !b.view ? { x: -0.5, y: -0.5, w: BOARD.w + 1, h: BOARD.h + 1 } : b.view;
   const parts = [];
   parts.push(`<rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="${C.mat}" stroke="${C.edge}" stroke-width="0.12"/>`);
+  const photo = currentPhoto();
+  const photoMode = photo ? (b.settings.photoMap ?? 'both') : 'map';
+  if (photo && photoMode !== 'map') parts.push(`<image id="board-photo" href="${forExport ? photo.dataUrl : photo.url}" x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" preserveAspectRatio="none"/>`);
+  parts.push(`<g id="board-map" opacity="${MAP_OVER_PHOTO[photoMode] ?? 1}">`);
   for (const z of dep?.zones ?? []) {
     const side = zoneOf('A') === z.player ? 'A' : 'B';
     parts.push(`<polygon points="${z.poly.map(p => p.join(',')).join(' ')}" fill="${C[side]}" fill-opacity="0.13" stroke="${C[side]}" stroke-opacity="0.55" stroke-width="0.08"/>`);
@@ -196,6 +212,9 @@ export function boardSvg({ forExport = false } = {}) {
     else parts.push(`<circle cx="${o.x}" cy="${o.y}" r="${f2(OBJECTIVE_RANGE)}" fill="${C.objRing}" stroke="${C.objEdge}" stroke-width="0.08"/>`);
     parts.push(`<circle cx="${o.x}" cy="${o.y}" r="0.79" fill="${C.obj}" stroke="${C.objEdge}" stroke-width="0.12"/>`);
   }
+  parts.push('</g>');
+  // over a photo the bases are see-through so the real models show underneath
+  const tokAlpha = photo && photoMode !== 'map' ? 0.5 : 1;
   const toks = placed();
   const fontK = Math.max(0.55, Math.min(1.2, vb.w / (BOARD.w + 1))); // label size follows the zoom
   // range rings of the selected unit (union of per-model circles, uniform tint)
@@ -217,7 +236,7 @@ export function boardSvg({ forExport = false } = {}) {
     }, { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
     parts.push(`<g class="tok" data-tok="${t.tk}" transform="translate(${f2(t.x)},${f2(t.y)})" style="cursor:grab">`
       + `<rect x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" rx="0.6" fill="${fill}" fill-opacity="${isSel ? 0.12 : 0.04}" stroke="none"/>`
-      + t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')
+      + `<g fill-opacity="${tokAlpha}">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')}</g>`
       + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
   }
   // gap line between two selected units
@@ -303,6 +322,7 @@ export function boardView() {
         ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
       </div>
+      <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;margin-top:8px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
         <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
@@ -310,6 +330,52 @@ export function boardView() {
         <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
     </section>
     <section class="section" id="board-panel">${selectionPanel()}</section>`;
+}
+
+function photoBar() {
+  const b = boardState();
+  const p = plan();
+  if (!p) return '';
+  const photo = currentPhoto();
+  const pick = (label, cls) => `<label class="btn ${cls}" style="cursor:pointer">${label}<input type="file" accept="image/*" data-input="board-photo" hidden></label>`;
+  if (!photo) {
+    return `<div class="row" style="gap:6px;align-items:center">${pick('📷 Table photo', 'ghost')}
+      <span class="tiny muted grow">Trace the real table: photo from above, tap the 4 corners, then drag the tokens onto the models.</span></div>`;
+  }
+  return `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center">
+      ${ctx.seg('board-photo-map', b.settings.photoMap ?? 'both', [['photo', 'Photo'], ['both', 'Photo + map'], ['map', 'Map']], 'compact')}
+      <button class="btn ghost" data-action="board-photo-adjust">✥ Corners</button>
+      <button class="btn ghost" data-action="board-photo-turn" aria-label="Turn the photo">↻ Turn</button>
+      ${pick('📷 New', 'ghost')}
+      <button class="icon-btn" data-action="board-photo-remove" aria-label="Remove the photo">✕</button>
+    </div>
+    <div class="tiny muted" style="margin-top:2px">Photo for <b>${ctx.esc(p.steps[p.cur].name)}</b> · terrain on the photo not matching the map? The table differs from the GW layout — trust the photo. Tap bases, not heads: tall models lean in photos.</div>`;
+}
+
+// little map for the corner screen: zones, and corners numbered 1-4 clockwise from the top-left
+function cornerDiagram(next) {
+  const l = currentLayout();
+  const dep = l && DEPLOYMENTS[l.deployment];
+  const zones = (dep?.zones ?? []).map(z => {
+    const side = zoneOf('A') === z.player ? 'A' : 'B';
+    return `<polygon points="${z.poly.map(p => p.join(',')).join(' ')}" fill="${C[side]}" fill-opacity="0.35"/>`;
+  }).join('');
+  const terrain = (l?.pieces ?? []).map(p => `<polygon points="${p.poly.map(q => q.join(',')).join(' ')}" fill="${C.feature}" fill-opacity="0.45"/>`).join('');
+  const pts = [[0, 0], [BOARD.w, 0], [BOARD.w, BOARD.h], [0, BOARD.h]];
+  const marks = pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === next ? 6 : 4.5}" fill="${i === next ? C.sel : '#ffffff'}" stroke="#000" stroke-width="0.8"/>`
+    + `<text x="${x}" y="${y + 2.6}" font-size="7" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">${i + 1}</text>`).join('');
+  return `<svg viewBox="-7 -7 58 74" width="58" height="74"><rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="${C.mat}" stroke="#000" stroke-width="0.6"/>${zones}${terrain}${marks}</svg>`;
+}
+
+async function photoTask(fn, label) {
+  try {
+    const ok = await fn();
+    if (ok !== false) persistBoard();
+  } catch (err) {
+    console.warn(`[calc] photo ${label} failed`, err);
+    alert(`Could not use that photo (${err?.message ?? err}).`);
+  }
+  refreshBoard();
 }
 
 function selectionPanel() {
@@ -351,6 +417,13 @@ function selectionPanel() {
       <button class="icon-btn" data-action="board-rotate" data-deg="15" aria-label="Rotate 15° right">⟳</button>
       <button class="icon-btn" data-action="board-rotate" data-deg="45" aria-label="Rotate 45° right">↻</button>
     </div>
+    <div class="row" style="gap:6px;margin-top:6px;align-items:center">
+      <span class="lab tiny muted grow" id="board-pos">${s1.x.toFixed(1)}" from left · ${s1.y.toFixed(1)}" from top</span>
+      <button class="icon-btn" data-action="board-nudge" data-dx="-0.5" data-dy="0" aria-label="Nudge left">←</button>
+      <button class="icon-btn" data-action="board-nudge" data-dx="0" data-dy="-0.5" aria-label="Nudge up">↑</button>
+      <button class="icon-btn" data-action="board-nudge" data-dx="0" data-dy="0.5" aria-label="Nudge down">↓</button>
+      <button class="icon-btn" data-action="board-nudge" data-dx="0.5" data-dy="0" aria-label="Nudge right">→</button>
+    </div>
     ${s1.models.length > 2 ? (() => {
       const n = s1.models.length;
       const opts = [2, 3, 5, 10].filter(k => k < n).map(k => [k, String(k)]);
@@ -370,6 +443,8 @@ export function refreshBoard() {
   if (host) host.innerHTML = boardSvg();
   const panel = document.getElementById('board-panel');
   if (panel) panel.innerHTML = selectionPanel();
+  const bar = document.getElementById('board-photo-bar');
+  if (bar) bar.innerHTML = photoBar();
   wireBoard();
 }
 
@@ -464,7 +539,7 @@ function wireBoard() {
     if (gesture.kind === 'drag') {
       if (Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) > 0.2) gesture.moved = true;
       const x = Math.max(0, Math.min(BOARD.w, p.x - gesture.dx)), y = Math.max(0, Math.min(BOARD.h, p.y - gesture.dy));
-      stepTokens()[gesture.tk] = { x, y };
+      Object.assign(stepTokens()[gesture.tk], { x, y }); // keep facing and formation
       gesture.el.setAttribute('transform', `translate(${f2(x)},${f2(y)})`);
     } else if (gesture.kind === 'pan') {
       const v0 = gesture.view0;
@@ -596,6 +671,35 @@ export function boardAction(action, el) {
     case 'board-share':
       shareImage();
       return null;
+    case 'board-nudge': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos) return null;
+      pos.x = Math.max(0, Math.min(BOARD.w, pos.x + Number(el.dataset.dx)));
+      pos.y = Math.max(0, Math.min(BOARD.h, pos.y + Number(el.dataset.dy)));
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
+    case 'board-photo-map':
+      b.settings.photoMap = el.dataset.value;
+      persistBoard();
+      refreshBoard();
+      return null;
+    case 'board-photo-adjust': {
+      const key = photoKey();
+      photoTask(() => adjustPhoto(key, BOARD, { diagram: cornerDiagram }), 'adjust');
+      return null;
+    }
+    case 'board-photo-turn': {
+      const key = photoKey();
+      photoTask(() => turnPhoto(key, BOARD), 'turn');
+      return null;
+    }
+    case 'board-photo-remove': {
+      const key = photoKey();
+      photoTask(() => removePhoto(key), 'remove');
+      return null;
+    }
     default:
       return null;
   }
@@ -603,6 +707,13 @@ export function boardAction(action, el) {
 
 export function boardChange(el) {
   const b = boardState();
+  if (el.dataset.input === 'board-photo') {
+    const file = el.files?.[0];
+    const key = photoKey();
+    el.value = '';
+    if (file && key) photoTask(() => startPhoto(file, key, BOARD, { diagram: cornerDiagram }), 'import');
+    return false;
+  }
   if (el.dataset.input === 'board-disp') {
     b.settings[`disp${el.dataset.side}`] = el.value;
     b.sel = b.sel2 = null;
@@ -666,6 +777,6 @@ async function shareImage() {
 
 // for tests
 export function _boardDebug() {
-  return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2 };
+  return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug() };
 }
 export { footprint };
