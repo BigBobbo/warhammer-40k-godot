@@ -66,7 +66,8 @@ func _build_ui() -> void:
 
 	# Deep Strike button
 	var ds_button = Button.new()
-	ds_button.text = "Deep Strike (anywhere >9\" from enemies)"
+	# 11e: more than 8" (10e: 9") — read the edition-aware accessor, not a literal.
+	ds_button.text = "Deep Strike (anywhere >%d\" from enemies)" % int(GameConstants.reinforcement_min_enemy_distance_inches())
 	ds_button.add_theme_font_size_override("font_size", 18)
 	ds_button.custom_minimum_size = Vector2(0, 40)
 	ds_button.pressed.connect(_on_deep_strike_chosen)

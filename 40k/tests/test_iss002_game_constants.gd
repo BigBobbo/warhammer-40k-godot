@@ -339,11 +339,6 @@ const UI_STANDOFF_FIXED_FILES = [
 ]
 
 const UI_STANDOFF_PENDING = {
-	# A separate fix formats this toast with infiltrate_standoff.
-	"res://scripts/DeploymentController.gd": ["Infiltrators must be >9\\\" from enemy deployment zone"],
-	# P2-80 Deep Strike vs Strategic Reserves choice (Main.gd shows it): the
-	# button should format GameConstants.reinforcement_min_enemy_distance_inches().
-	"res://dialogs/DeepStrikePlacementDialog.gd": ["Deep Strike (anywhere >9\\\" from enemies)"],
 	# Callidus Assassin ability description. The engine returns the unit through
 	# the normal Reinforcements gate (8" at 11e); the 11e datasheet value is
 	# unverified, so this one waits for a rules check.
