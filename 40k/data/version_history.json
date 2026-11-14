@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.86.0",
+      "date": "2026-11-14",
+      "summary": "Board: line of sight and cover, danger zones, and a shoot-charge-fight calculator for the whole turn.",
+      "changes": [
+        "Line of sight between two units on the board using the 11e terrain rules (obscuring areas, solid ruins): Clear, Partly visible or Blocked, how many models see, and whether the target gets the benefit of cover. Close calls say \"check on the table\".",
+        "Shoot from the board now also passes cover and the number of your models that can see into the calculator.",
+        "Danger next turn: shade where the enemy can shoot (move + range, hatched) or charge (red: likely / possible), and see which enemy units threaten the selected unit.",
+        "Shoot, charge and fight: one turn against one target. Shooting casualties carry into the fight, with the chance the charge lands and the unit is destroyed.",
+        "The photo buttons line up properly."
+      ]
+    },
+    {
       "version": "1.85.0",
       "date": "2026-11-14",
       "summary": "Board: put a photo of the real table under the map and trace your models onto it.",

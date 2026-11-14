@@ -11,6 +11,7 @@ import {
   footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly,
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
+import { sightVerdict, threatTo, chargeReach } from './sight.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -213,6 +214,7 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<circle cx="${o.x}" cy="${o.y}" r="0.79" fill="${C.obj}" stroke="${C.objEdge}" stroke-width="0.12"/>`);
   }
   parts.push('</g>');
+  if (!forExport || b.danger) parts.push(dangerSvg(b));
   // over a photo the bases are see-through so the real models show underneath
   const tokAlpha = photo && photoMode !== 'map' ? 0.5 : 1;
   const toks = placed();
@@ -250,6 +252,38 @@ export function boardSvg({ forExport = false } = {}) {
   if (!forExport) parts.push(`<g id="ruler-layer">${rulerSvg(b.ruler)}</g>`);
   const size = forExport ? 'width="880" height="1200"' : '';
   return `<svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="${f2(vb.x)} ${f2(vb.y)} ${f2(vb.w)} ${f2(vb.h)}" ${size} preserveAspectRatio="xMidYMid meet" style="touch-action:none;display:block;width:100%;height:auto;background:${forExport ? '#ffffff' : 'transparent'}">${parts.join('')}</svg>`;
+}
+
+// Next-turn danger from one army: where its units can shoot after a normal
+// move (M + longest range) and charge (M + 2D6 + 2" engagement: likely >= 80%,
+// possible >= 40%). Terrain and line of sight are ignored and the edge is
+// blurred ~1": a planning envelope, not a measurement.
+function dangerSvg(b) {
+  const side = b.danger;
+  if (!side) return '';
+  const kinds = b.dangerKinds ?? { shoot: true, charge: true };
+  const layers = { shoot: [], likely: [], possible: [] };
+  for (const t of placed().filter(x => x.side === side)) {
+    const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
+    const likely = t.u.melee ? chargeReach(t.u.move, 0.8) : null, possible = t.u.melee ? chargeReach(t.u.move, 0.4) : null;
+    for (const m of t.models) {
+      const r = Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0);
+      const cx = f2(t.x + m.dx), cy = f2(t.y + m.dy);
+      if (kinds.shoot && maxR) layers.shoot.push(`<circle cx="${cx}" cy="${cy}" r="${f2(t.u.move + maxR + r)}"/>`);
+      if (kinds.charge && possible) layers.possible.push(`<circle cx="${cx}" cy="${cy}" r="${f2(possible + r)}"/>`);
+      if (kinds.charge && likely) layers.likely.push(`<circle cx="${cx}" cy="${cy}" r="${f2(likely + r)}"/>`);
+    }
+  }
+  const col = C[side];
+  // shooting reach is hatched (it often covers most of the board), charges are solid
+  return `<defs><filter id="dz-blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="0.5"/></filter>`
+    + `<pattern id="dz-hatch" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.25" height="1.4" fill="${col}"/></pattern></defs>`
+    + `<g id="danger-layer" data-from="${side}" pointer-events="none">`
+    + (layers.shoot.length ? `<g data-dz="shoot" fill="url(#dz-hatch)" opacity="0.3">${layers.shoot.join('')}</g>` : '')
+    + `<g filter="url(#dz-blur)">`
+    + (layers.possible.length ? `<g data-dz="charge-possible" fill="#c0392b" opacity="0.12">${layers.possible.join('')}</g>` : '')
+    + (layers.likely.length ? `<g data-dz="charge-likely" fill="#c0392b" opacity="0.2">${layers.likely.join('')}</g>` : '')
+    + '</g></g>';
 }
 
 function rulerSvg(r) {
@@ -318,6 +352,7 @@ export function boardView() {
       <div class="row" style="gap:6px;flex-wrap:wrap">
         ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
       </div>
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
         ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
@@ -330,6 +365,15 @@ export function boardView() {
         <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
     </section>
     <section class="section" id="board-panel">${selectionPanel()}</section>`;
+}
+
+function dangerBar() {
+  const b = boardState();
+  const kinds = b.dangerKinds ?? { shoot: true, charge: true };
+  return `<span class="lab tiny muted">⚠ Danger next turn</span>
+    ${ctx.seg('board-danger', b.danger ?? 'off', [['off', 'Off'], ['A', 'From A'], ['B', 'From B']], 'compact')}
+    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}
+    <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
 }
 
 function photoBar() {
@@ -398,12 +442,14 @@ function selectionPanel() {
   if (s2) {
     const gap = unitGap(s1, s2);
     const enemy = s1.side !== s2.side;
+    const sight = enemy ? pairSight(s1, s2) : null;
     pair = `<div class="card" style="margin-top:8px"><div class="title">${esc(s1.u.cu.name)} → ${esc(s2.u.cu.name)}</div>
       <div class="small" id="board-gap">Gap: <b>${gap.toFixed(1)}"</b> (closest bases)${gap <= ENGAGEMENT_RANGE ? ' · engaged' : ''}</div>
+      ${sight ? sightHtml(sight, s1, s2) : ''}
       ${enemy ? `<div class="row" style="gap:6px;margin-top:8px">
         ${u.ranges.length ? `<button class="btn primary grow" data-action="board-attack" data-phase="shooting">🎯 Shoot →</button>` : ''}
         ${u.melee ? `<button class="btn primary grow" data-action="board-attack" data-phase="fight">⚔ Fight →</button>` : ''}
-      </div><div class="tiny muted" style="margin-top:4px">Opens the calculator with this gap as the distance${u.halfRangeWeapons.length ? ' (half range set from it)' : ''}.</div>` : ''}
+      </div>${u.melee ? `<button class="btn ghost block" style="margin-top:6px" data-action="board-attack" data-phase="chain">⚡ ${u.ranges.length ? 'Shoot, charge and fight' : 'Charge and fight'} this turn →</button>` : ''}<div class="tiny muted" style="margin-top:4px">Opens the calculator with this gap as the distance${u.halfRangeWeapons.length ? ' (half range set from it)' : ''}${sight ? ', cover and the models that can see' : ''}.</div>` : ''}
     </div>`;
   }
   return `<div class="card">
@@ -432,7 +478,45 @@ function selectionPanel() {
     })() : ''}
     <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
     ${pair}
+    ${threatHtml(s1, toks)}
   </div>`;
+}
+
+// line of sight from s1 to s2 (shooting): any of s1's models within its longest range
+function pairSight(s1, s2) {
+  const l = currentLayout();
+  if (!l || !s1.u.ranges.length) return null;
+  const range = Math.max(...s1.u.ranges);
+  const unitOf = (t) => ({ x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [] });
+  const v = sightVerdict(unitOf(s1), unitOf(s2), l.pieces, { range });
+  // models that can see AND are in range, not counting attached leaders (the calculator's "models in range")
+  const body = s1.models.filter(m => !m.leader).length;
+  const seeingBody = v.seeingMask.filter((on, i) => on && !s1.models[i].leader).length;
+  return { ...v, range, body, seeingBody };
+}
+
+function sightHtml(v, s1, s2) {
+  const lab = { clear: '✅ Clear', partial: '◐ Partly visible', blocked: '⛔ Blocked' }[v.verdict];
+  return `<div class="small" id="board-sight" data-verdict="${v.verdict}" data-borderline="${v.borderline ? 1 : 0}" style="margin-top:4px">
+      Line of sight: <b>${lab}</b> · ${v.targetSeen}/${v.targetTotal} target models visible · ${v.attackersSeeing}/${v.attackerTotal} of yours see them within ${v.range}"
+      <br>Benefit of cover: <b>${v.cover ? `yes (${v.coverWhy})` : 'no'}</b>${v.hidden ? ` · <b>may be Hidden</b> (more than 15" away in dense terrain, if it has not shot)` : ''}
+      ${v.borderline ? '<br><span style="color:var(--warn)">⚠ Borderline — moving either unit ½" changes this. Check on the table.</span>' : ''}
+      <br><span class="tiny muted">11e terrain rules on the map's footprints; model heights, windows and floors are not modelled.</span></div>`;
+}
+
+// enemy units that threaten s1 next turn (normal move + shooting range / charge roll)
+function threatHtml(s1, toks) {
+  const rows = toks.filter(t => t.side !== s1.side).map(t => ({ t, th: threatTo(t, s1, { move: t.u.move, ranges: t.u.ranges, melee: t.u.melee }) }))
+    .filter(x => x.th.shoot || (x.th.charge ?? 0) >= 0.03)
+    .sort((a, b) => (b.th.charge ?? 0) - (a.th.charge ?? 0) || a.th.gap - b.th.gap);
+  if (!toks.some(t => t.side !== s1.side)) return '';
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  return `<div class="lab tiny muted" style="margin-top:8px">Threatened next turn by</div>
+    <div id="board-threats" class="small">${rows.length ? rows.map(({ t, th }) => `<div class="row" style="gap:6px"><span class="grow" style="color:${C[t.side]}">${ctx.esc(shortName(t.u.cu.name))}</span>
+      ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn)">(just)</span>' : ''}</span>` : ''}
+      ${th.charge != null && th.charge >= 0.03 ? `<span>⚔ charge ${pct(th.charge)}</span>` : ''}</div>`).join('')
+      : '<span class="muted">Nothing can reach it next turn (move + range / charge).</span>'}
+      <div class="tiny muted">After a normal move, ignoring terrain and line of sight.</div></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +529,8 @@ export function refreshBoard() {
   if (panel) panel.innerHTML = selectionPanel();
   const bar = document.getElementById('board-photo-bar');
   if (bar) bar.innerHTML = photoBar();
+  const dbar = document.getElementById('board-danger-bar');
+  if (dbar) dbar.innerHTML = dangerBar();
   wireBoard();
 }
 
@@ -665,7 +751,13 @@ export function boardAction(action, el) {
       if (!s1 || !s2 || s1.side === s2.side) return null;
       const gap = unitGap(s1, s2);
       const half = s1.u.halfRangeWeapons.length ? gap <= Math.min(...s1.u.halfRangeWeapons) / 2 : false;
-      ctx.openAttack({ side: s1.side, phase: el.dataset.phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half });
+      const chain = el.dataset.phase === 'chain';
+      const phase = chain ? 'shooting' : el.dataset.phase;
+      const sight = phase === 'shooting' ? pairSight(s1, s2) : null;
+      ctx.openAttack({
+        chain, side: s1.side, phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half,
+        ...(sight ? { cover: sight.cover, inRange: sight.seeingBody < sight.body ? sight.seeingBody : null } : {}),
+      });
       return 'render';
     }
     case 'board-share':
@@ -677,6 +769,16 @@ export function boardAction(action, el) {
       pos.x = Math.max(0, Math.min(BOARD.w, pos.x + Number(el.dataset.dx)));
       pos.y = Math.max(0, Math.min(BOARD.h, pos.y + Number(el.dataset.dy)));
       persistBoard();
+      refreshBoard();
+      return null;
+    }
+    case 'board-danger':
+      b.danger = el.dataset.value === 'off' ? null : el.dataset.value;
+      refreshBoard();
+      return null;
+    case 'board-danger-kind': {
+      b.dangerKinds ??= { shoot: true, charge: true };
+      b.dangerKinds[el.dataset.k] = !b.dangerKinds[el.dataset.k];
       refreshBoard();
       return null;
     }
@@ -777,6 +879,7 @@ async function shareImage() {
 
 // for tests
 export function _boardDebug() {
-  return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug() };
+  return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
+    units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null };
 }
 export { footprint };

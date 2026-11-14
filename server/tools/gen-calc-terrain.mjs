@@ -27,6 +27,9 @@ for (const f of readdirSync(join(ROOT, 'terrain_layouts')).filter(f => f.endsWit
     pieces: j.pieces.map(p => ({
       id: p.id,
       cls: p.piece_class,                 // 'area' | 'feature'
+      cat: p.category ?? null,            // 'exposed' | 'light' | 'dense' (13.03-13.05)
+      parent: p.parent_area_id ?? null,   // feature -> its terrain area
+      link: p.link_group ?? null,         // halves of one area
       h: p.height_inches ?? null,
       height: p.height ?? null,           // 'tall' | 'medium' | ...
       traits: p.traits ?? [],
