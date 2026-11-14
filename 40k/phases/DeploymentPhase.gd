@@ -202,10 +202,28 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	# Per WH40K 11th-edition core rules (03.03), a deployed unit is in coherency only while
 	# every model is within 2" horizontally / 5" vertically of at least one other model AND
 	# within 9" horizontally / 5" vertically of every other model in the unit.
+	#
+	# L1-3: a COMPOSITE_DEPLOY that sets up attached CHARACTER models with the
+	# bodyguard (non-empty combined_char_data) is ONE unit (19.01), so its
+	# coherency is judged once, over bodyguard + characters, by
+	# _validate_combined_char_data. Checking the bodyguard on its own here as
+	# well made the effective rule "bodyguard coherent alone AND merged
+	# coherent" — stricter than 19.01 — and refused legal set-ups the
+	# placement UI (which checks the merged set) let the player confirm, e.g.
+	# a trooper whose only model within 2" is the leader. A plain DEPLOY_UNIT,
+	# or a COMPOSITE_DEPLOY with no character positions (embark / attach_data
+	# only, or an empty combined_char_data — which the merged check skips),
+	# keeps the bodyguard-only check.
+	var ccd_for_coherency = action.get("combined_char_data", null)
+	var merged_check_decides: bool = str(action.get("type", "")) == "COMPOSITE_DEPLOY" \
+			and ccd_for_coherency is Dictionary and not ccd_for_coherency.is_empty()
 	if not unit.is_empty() and model_positions.size() > 1:
-		var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
-		if not coherency_check.valid:
-			errors.append_array(coherency_check.errors)
+		if merged_check_decides:
+			log_phase_message("Coherency of %s is judged with its attached character(s) as one unit (19.01) — skipping the bodyguard-only check" % str(unit_id))
+		else:
+			var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
+			if not coherency_check.valid:
+				errors.append_array(coherency_check.errors)
 
 	return {"valid": errors.size() == 0, "errors": errors}
 

@@ -158,6 +158,21 @@ func process_action(action: Dictionary) -> Dictionary:
 # Validation Methods
 # ========================================
 
+## 11e (19.01/24.22/24.34) per-role attachment slots: a bodyguard takes one
+## LEADER unit and one SUPPORT unit. Returns the first of `existing_ids` (the
+## characters already declared on the bodyguard, in declaration order) holding
+## the same role as `character`, or "" when that role's slot is still free.
+## The ONE implementation of the rule for both _validate_declare_leader_attachment
+## and get_available_actions (L7-3: the offer used the 10e dual-leader rule at
+## 11e, so the AI was offered a second leader it was then refused, and looped
+## in Formations for good).
+func _same_role_attachment_11e(character: Dictionary, existing_ids: Array) -> String:
+	var new_role = CharacterAttachmentManager.attachment_role(character)
+	for existing_id in existing_ids:
+		if CharacterAttachmentManager.attachment_role(get_unit(str(existing_id))) == new_role:
+			return str(existing_id)
+	return ""
+
 func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	var errors = []
 	var character_id = action.get("character_id", "")
@@ -239,12 +254,12 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if existing_leaders_on_bg.size() > 0 and GameConstants.edition >= 11:
 		# 11e (19.01/24.22/24.34): one LEADER unit AND one SUPPORT unit per
 		# bodyguard — slots are per-role, mirroring CharacterAttachmentManager.can_attach.
+		# Shared with get_available_actions (L7-3) so the offer and this check
+		# can never disagree.
 		var new_role = CharacterAttachmentManager.attachment_role(character)
-		for existing_id in existing_leaders_on_bg:
-			var existing_role = CharacterAttachmentManager.attachment_role(get_unit(existing_id))
-			if existing_role == new_role:
-				errors.append("Bodyguard already has a %s unit attached: %s" % [new_role, existing_id])
-				break
+		var same_role_id := _same_role_attachment_11e(character, existing_leaders_on_bg)
+		if same_role_id != "":
+			errors.append("Bodyguard already has a %s unit attached: %s" % [new_role, same_role_id])
 		if errors.is_empty():
 			DebugLogger.info(str("FormationsPhase: 11e %s attachment approved - %s joins %s on %s" % [new_role, character_id, str(existing_leaders_on_bg), bodyguard_id]))
 	elif existing_leaders_on_bg.size() > 0:
@@ -1329,8 +1344,18 @@ func get_available_actions() -> Array:
 					if formations["leader_attachments"][existing_char_id] == bg_id:
 						leaders_on_bg.append(existing_char_id)
 
-				if leaders_on_bg.size() >= 1:
-					# Check if dual-leader is allowed (BODYGUARD ability + 20 models)
+				if leaders_on_bg.size() >= 1 and GameConstants.edition >= 11:
+					# L7-3: at 11e offer a second attachment only into a FREE role
+					# slot — the same per-role rule _validate_declare_leader_attachment
+					# applies (_same_role_attachment_11e). The 10e dual-leader offer
+					# below (BODYGUARD ability + 20 models + a WARBOSS) is refused by
+					# that 11e check ("Bodyguard already has a leader unit attached"),
+					# and the AI, which picks from these offers, then re-chose it
+					# forever and never confirmed Formations.
+					if _same_role_attachment_11e(get_unit(char_id), leaders_on_bg) != "":
+						continue
+				elif leaders_on_bg.size() >= 1:
+					# 10e: check if dual-leader is allowed (BODYGUARD ability + 20 models)
 					var bg_unit = get_unit(bg_id)
 					var bg_abilities = bg_unit.get("meta", {}).get("abilities", [])
 					var has_bodyguard_ability = false
