@@ -2,12 +2,17 @@
 //  - single scenario: a quick pass first so the phone shows a number at once,
 //    then the full run;
 //  - batch (matchup grid): one result per cell, posted as each finishes.
-import { simulate } from './engine.mjs';
+import { simulate, simulateChain } from './engine.mjs';
 
 const QUICK = 3000;
 
 self.onmessage = (ev) => {
-  const { id, scenario, trials, batch } = ev.data;
+  const { id, scenario, trials, batch, chain } = ev.data;
+  if (chain) {
+    try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, trials: trials ?? 20000 }) }); }
+    catch (err) { self.postMessage({ id, chain: true, error: String(err?.stack ?? err) }); }
+    return;
+  }
   if (batch) {
     for (const item of batch) {
       try {
