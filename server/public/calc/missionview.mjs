@@ -6,16 +6,18 @@
 // app.js owns the shared state and calls in through initMission().
 
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES } from './missions-11e.mjs';
-import { armyProfile, cardDead } from './forecast.mjs';
+import { armyProfile, cardDead, POSITION_CARDS, RATING } from './forecast.mjs';
 import { abilitiesOf } from './adapter.mjs';
-import { boardContext } from './boardview.mjs';
+import { boardContext, boardPlans } from './boardview.mjs';
+import { unitFacts as positionFacts, exposure, planWarnings } from './planeval.mjs';
 
 let ctx = null;            // { state, esc, seg, chip }
 const LS_KEY = 'w40k_calc_mission_v1';
 const other = (p) => (p === 'A' ? 'B' : 'A');
 const KILL_RATES = [[0.8, 'Low'], [1.3, 'Even'], [2, 'High']];
 const ACTION_P = [[0.9, 'Easy'], [0.7, 'OK'], [0.45, 'Hard']];
-const SKILL = [[1.3, 'Easy'], [1, 'Normal'], [0.6, 'Hard'], [0, 'Never']];
+const RATE_OPTS = [[RATING.easy, 'Easy'], [RATING.normal, 'Normal'], [RATING.hard, 'Hard'], [RATING.never, 'Never']];
+const RATE_LABEL = Object.fromEntries(RATE_OPTS.map(([v, l]) => [v, l]));
 
 export function initMission(c) {
   ctx = c;
@@ -30,8 +32,10 @@ function ms() {
   s.mission ??= {
     me: 'A', first: null, battleReady: { A: true, B: true },
     modes: { A: { mode: 'tactical', fixed: [] }, B: { mode: 'tactical', fixed: [] } },
-    killRate: { A: 1.3, B: 1.3 }, actionP: { A: 0.7, B: 0.7 }, skill: { A: {}, B: {} },
+    killRate: { A: 1.3, B: 1.3 }, actionP: { A: 0.7, B: 0.7 }, rate: { A: {}, B: {} },
     plans: {}, game: newGame(), sheetSide: null, cardOpen: null,
+    source: 'grid',          // objectives / positions from the grid, or a board plan (its index)
+    enemyFrom: 'board',      // enemy positions from the board plan, or the grid toggles
   };
   return s.mission;
 }
@@ -40,7 +44,7 @@ function newGame() {
 }
 function persist() {
   const m = ms();
-  const { result, levers, busy, ...keep } = m;
+  const { result, levers, busy, compare, pairs, ...keep } = m;
   try { localStorage.setItem(LS_KEY, JSON.stringify(keep)); } catch { /* best effort */ }
 }
 
@@ -121,6 +125,85 @@ function plan() {
 }
 
 // ---------------------------------------------------------------------------
+// Board plans -> forecast board model
+
+function geo() {
+  const bc = boardContext();
+  const l = bc.layout, dep = bc.deployment;
+  if (!l || !dep) return null;
+  const pick = (list, X) => list?.find(z => z.player === (X === 'A' ? bc.zoneA : bc.zoneB))?.poly ?? null;
+  return {
+    zones: { A: pick(dep.zones, 'A'), B: pick(dep.zones, 'B') },
+    territories: { A: pick(dep.territories, 'A'), B: pick(dep.territories, 'B') },
+    pieces: l.pieces, objectives: l.objectives,
+  };
+}
+
+// unit-vs-unit odds (P destroyed by shooting / in a fight), worked out once per pair of lists
+function pairSig() {
+  const st = ctx.state;
+  return ['A', 'B'].map(X => st.armies[X]?.units.map(u => u.key + u.name + u.models).join(',')).join('|');
+}
+let pairsPending = false;
+function ensurePairs() {
+  const m = ms();
+  const sig = pairSig();
+  if (m.pairs?.sig === sig || pairsPending || !ctx.pairOdds) return m.pairs?.sig === sig;
+  const st = ctx.state, jobs = [];
+  for (const X of ['A', 'B']) for (const a of st.armies[X].units) for (const d of st.armies[other(X)].units)
+    for (const phase of ['shooting', 'fight']) jobs.push({ key: `${X}:${a.key}>${other(X)}:${d.key}|${phase}`, atkSide: X, atkKey: a.key, defKey: d.key, phase });
+  pairsPending = true;
+  ctx.pairOdds(jobs).then((res) => {
+    const table = {};
+    for (const [k, v] of Object.entries(res)) {
+      const [ad, phase] = k.split('|');
+      const [atk, def] = ad.split('>');
+      ((table[atk] ??= {})[def] ??= { shoot: 0, fight: 0 })[phase === 'shooting' ? 'shoot' : 'fight'] = v.pWipe ?? 0;
+    }
+    ms().pairs = { sig, table };
+    pairsPending = false;
+    scheduleForecast();
+  });
+  return false;
+}
+
+/** The forecast's board model for plan `vi`: units per round with measured facts, and exposure. */
+function boardModel(vi) {
+  const m = ms(), g = geo();
+  const plan = boardPlans()[vi];
+  if (!g || !plan) return null;
+  const steps = plan.steps;
+  const rounds = {}, pDie = {};
+  const stepFor = (r) => steps[Math.min(r, steps.length - 1)];
+  for (let r = 1; r <= RULES.rounds; r++) {
+    const st = stepFor(r);
+    rounds[r] = {};
+    for (const X of ['A', 'B']) {
+      const use = st[X].length && (X === m.me || m.enemyFrom === 'board');
+      rounds[r][X] = use ? st[X].map(u => ({ name: u.name, f: positionFacts(u, X, g) })) : null;
+    }
+    pDie[r] = {};
+    if (m.pairs?.table) {
+      for (const X of ['A', 'B']) {
+        const Y = other(X);
+        if (!rounds[r][X] || !rounds[r][Y]) continue;
+        // planned positions are where units are after moving: no extra move
+        const atk = st[Y].map(u => ({ ...u, move: 0 }));
+        const e = exposure(st[X], atk, m.pairs.table);
+        pDie[r][X] = Object.fromEntries(st[X].map(u => [u.name, e[u.key] ?? 0]));
+      }
+    }
+  }
+  return { rounds, pDie, warnings: planWarnings(steps, g), stepsPlanned: steps.length, name: plan.name };
+}
+function sourcePlan() {
+  const m = ms();
+  if (m.source === 'grid') return null;
+  const plans = boardPlans();
+  return plans[Number(m.source)] ? Number(m.source) : null;
+}
+
+// ---------------------------------------------------------------------------
 // Forecast request (run by the worker)
 
 function inProgress() {
@@ -139,14 +222,16 @@ export function forecastParams(over = {}) {
   const player = (X) => ({
     mission: bc.missions[X], mode: m.modes[X].mode, fixed: m.modes[X].fixed,
     army: (X === 'A' ? pa : pb).profile, killRate: over.killRate?.[X] ?? m.killRate[X], actionP: m.actionP[X],
-    skill: m.skill[X], battleReady: m.battleReady[X],
+    rate: m.rate[X], battleReady: m.battleReady[X],
     start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[other(X)].destroyed } : null,
   });
   const next = g.next ?? first ?? 'A';
+  const vi = over.boardPlan === undefined ? sourcePlan() : over.boardPlan;
   return {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
     plan: over.plan ?? plan(), first,
+    boardPlan: vi == null ? null : boardModel(vi),
     startRound: live ? g.round : 1, startTurn: live && first ? (next === first ? 0 : 1) : 0,
     trials: over.trials ?? 4000, seed: 20261116,
   };
@@ -155,6 +240,8 @@ export function forecastParams(over = {}) {
 // what-ifs from "my" side: each is a tweak of the plan or the trading rates
 function leverParams() {
   const m = ms(), me = m.me, opp = other(me);
+  // with a board plan the comparison between plans is the "what if"
+  if (sourcePlan() != null) return [];
   const objs = objectives(), base = plan();
   const clone = () => JSON.parse(JSON.stringify(base));
   const out = [];
@@ -191,6 +278,7 @@ export function scheduleForecast() {
   timer = setTimeout(runForecast, 150);
 }
 function runForecast() {
+  if (boardPlans().length) ensurePairs();
   const P = forecastParams();
   const m = ms();
   reqId++;
@@ -203,7 +291,8 @@ function runForecast() {
       const mm = ms();
       if (ev.data.error) { console.error('[calc] forecast error', ev.data.error); mm.busy = false; refresh(); return; }
       mm.result = ev.data.base;
-      mm.levers = ev.data.variants;
+      mm.levers = ev.data.variants.filter(v => !v.compare);
+      mm.compare = ev.data.variants.filter(v => v.compare);
       mm.busy = false;
       const r = mm.result;
       console.log(`[calc] forecast: A ${r.A.mean.toFixed(1)} (${r.A.p10}-${r.A.p90}) vs B ${r.B.mean.toFixed(1)} (${r.B.p10}-${r.B.p90}), A wins ${(r.pWinA * 100).toFixed(0)}%`);
@@ -211,7 +300,9 @@ function runForecast() {
     };
   }
   m.busy = true;
-  worker.postMessage({ id: reqId, forecast: { base: P, variants: leverParams() } });
+  const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
+    ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
+  worker.postMessage({ id: reqId, forecast: { base: P, variants: [...leverParams(), ...compare.map(c => ({ ...c, compare: true }))] } });
 }
 
 function refresh() {
@@ -248,7 +339,7 @@ export function missionView() {
       </details>
     </div></section>
     <section class="section"><h2>Forecast</h2><div id="mission-forecast">${forecastHtml()}</div></section>
-    <section class="section"><h2>Objective plan</h2>${planHtml()}</section>
+    <section class="section"><h2>Plan</h2>${sourceHtml()}${planHtml()}</section>
     <section class="section"><h2>Secondary cards</h2><div id="mission-cards">${cardsHtml()}</div></section>
     <section class="section"><h2>Game in progress</h2>${trackerHtml()}</section>`;
 }
@@ -291,7 +382,19 @@ function forecastHtml() {
     <div class="tiny muted">Primary + secondary per round${live ? '' : ''}; totals include Battle Ready. ${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}.</div>
     ${levers ? `<div class="lab tiny muted" style="margin-top:10px">What changes the result</div>
       <table class="dist" id="fc-levers"><thead><tr><th>If you…</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>${levers}</tbody></table>` : ''}
-    <p class="hint">A planning model: objectives come from your plan below, kills from the trading rates, positional cards from army speed and size. Card VP and the 45 / 15-per-round caps are exact.</p>`;
+    ${compareHtml(me, opp)}
+    <p class="hint">A planning model: objectives and positions come from your plan (grid or board), kills from the trading rates or the planned positions, and cards that depend on positions from your ratings when no board plan is used. Card VP and the 45 / 15-per-round caps are exact.</p>`;
+}
+
+function compareHtml(me, opp) {
+  const m = ms(), esc = ctx.esc;
+  const rows = (m.compare ?? []).filter(c => c.result);
+  if (rows.length < 2) return '';
+  const best = Math.max(...rows.map(c => (me === 'A' ? c.result.pWinA : c.result.pWinB)));
+  return `<div class="lab tiny muted" style="margin-top:10px">Your plans compared</div>
+    <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
+    ${rows.map(c => { const w = me === 'A' ? c.result.pWinA : c.result.pWinB; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${w === best ? ' ★' : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
+    </tbody></table>`;
 }
 
 function verdict(pWin, pLose, margin) {
@@ -320,6 +423,32 @@ function rangeChart(r, me) {
   return svg + '</svg>';
 }
 
+function sourceHtml() {
+  const m = ms(), esc = ctx.esc;
+  const plans = boardPlans();
+  const opts = [['grid', 'Objective grid'], ...plans.map(p => [String(p.index), `Board: ${p.name}`])];
+  const vi = sourcePlan();
+  let extra = '';
+  if (vi != null) {
+    const bm = boardModel(vi);
+    const warn = (bm?.warnings ?? []).filter(w => w.side === m.me || m.enemyFrom === 'board');
+    // only placed units count: say so when part of an army is missing from the plan
+    const plan = boardPlans()[vi];
+    const placedNames = (X) => new Set(plan.steps.flatMap(st => st[X].map(u => u.name)));
+    const missing = ['A', 'B'].filter(X => X === m.me || m.enemyFrom === 'board').map(X => {
+      const n = ctx.state.armies[X].units.length, p = placedNames(X).size;
+      return p < n ? `${X}: ${p} of ${n} units placed` : null;
+    }).filter(Boolean);
+    extra = `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Enemy (${other(m.me)}) positions</div>
+        ${ctx.seg('mission-enemy-from', m.enemyFrom, [['board', 'From the board plan'], ['toggles', 'From the grid below']], 'compact')}</div>
+      <div class="tiny muted" id="mission-board-note">Measured on the board plan <b>${esc(bm?.name ?? '')}</b>: who controls each objective (OC of units in range), Behind Enemy Lines, quarters, edges, centre and No Man's Land, and how exposed each unit is to the enemy's planned units. Steps map to battle rounds (Turn 1 = round 1; the last step carries on).${bm && bm.stepsPlanned < 2 ? ' <b>Only the deployment is planned</b> — add turns on the Board tab.' : ''}${m.pairs?.table ? '' : ' Working out unit-vs-unit odds…'}</div>
+      ${missing.length ? `<div class="small" style="color:var(--warn);margin-top:4px" id="mission-plan-missing">Only units placed on the board count (${missing.join(' · ')}) — place the rest on the Board tab or they hold nothing and score nothing.</div>` : ''}
+      ${warn.length ? `<ul class="keep warn" id="mission-plan-warnings">${warn.slice(0, 8).map(w => `<li${w.info ? ' class="info"' : ''}>${esc(w.step)} · ${w.side} ${esc(w.unit)}: ${esc(w.msg)}</li>`).join('')}</ul>` : ''}`;
+  }
+  return `<div class="modrow"><div class="lab tiny muted">Objectives and positions from</div>${ctx.seg('mission-source', m.source, opts, 'compact')}</div>
+    ${plans.length ? '' : '<div class="tiny muted">Plan unit positions per turn on the Board tab (＋ Next turn, ＋ Copy plan) to forecast from them.</div>'}${extra}`;
+}
+
 function planHtml() {
   const objs = objectives(), p = plan();
   if (!objs.length) return '<p class="hint">Pick a layout on the Board tab.</p>';
@@ -329,7 +458,9 @@ function planHtml() {
   };
   return `<table class="plan" id="mission-plan"><thead><tr><th>Objective</th>${[1, 2, 3, 4, 5].map(r => `<th>R${r}</th>`).join('')}</tr></thead>
     <tbody>${objs.map(o => `<tr><td>${ctx.esc(o.label)}</td>${[1, 2, 3, 4, 5].map(r => cell(r, o)).join('')}</tr>`).join('')}</tbody></table>
-    <div class="tiny muted">Who controls each objective in each battle round: tap to cycle A → B → ½ (contested, a coin flip). Rounds already played are ignored once you track the game below.</div>`;
+    <div class="tiny muted">${sourcePlan() != null
+      ? `With a board plan this grid is only used for the enemy when their positions come “from the grid” (or a round where a side has no units placed): ${other(ms().me)}'s cells say where they will be.`
+      : 'Who controls each objective in each battle round: tap to cycle A → B → ½ (contested, a coin flip).'} Rounds already played are ignored once you track the game below.</div>`;
 }
 
 // ---- secondary cards: matchup sheet, keep-ready, hit list
@@ -361,26 +492,33 @@ function cardsHtml() {
     const s = res[c.id];
     return { c, dead, perDraw: dead ? 0 : (s?.perDraw ?? null), quick: s?.quickRate ?? null };
   }).sort((a, b) => (a.dead - b.dead) || ((b.perDraw ?? -1) - (a.perDraw ?? -1)));
-  const skill = m.skill[side] ?? {};
+  const rate = m.rate[side] ?? {};
   const row = ({ c, dead, perDraw, quick }) => {
     const open = m.cardOpen === `${side}:${c.id}`;
     // strong = pays well AND usually scores straight away; hard = slow or low
-    const tag = dead ? '<span class="pill bad">Dead</span>' : perDraw == null ? '' : perDraw >= 3.5 && quick >= 0.6 ? '<span class="pill good">Strong</span>' : perDraw >= 2.5 && quick >= 0.35 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
+    const position = POSITION_CARDS.includes(c.id);
+    const tag = dead ? '<span class="pill bad">Dead</span>'
+      // where-your-units-are cards: never guessed, the player rates them
+      : position && sourcePlan() != null && (side === m.me || m.enemyFrom === 'board') ? '<span class="pill good">Board plan</span>'
+      : position ? (rate[c.id] == null ? '<span class="pill ask">You rate it</span>' : `<span class="pill">Rated ${RATE_LABEL[rate[c.id]] ?? ''}</span>`)
+      : perDraw == null ? '' : perDraw >= 3.5 && quick >= 0.6 ? '<span class="pill good">Strong</span>' : perDraw >= 2.5 && quick >= 0.35 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''}</td>
       <td>${tag}</td><td>${dead ? '–' : perDraw == null ? '…' : fmt(perDraw, 1)}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
       ${open ? `<tr class="card-detail"><td colspan="4"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
         ${c.fixedText ? `<div class="tiny muted">Fixed: ${esc(c.fixedText)}</div>` : ''}
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
-          : c.kind === 'kill' ? '' : `<div class="modrow"><div class="lab tiny muted">How easy is this for ${side} on this table?</div>${ctx.seg('mission-skill', skill[c.id] ?? 1, SKILL, `compact" data-side="${side}" data-id="${c.id}`)}</div>`}</td></tr>` : ''}`;
+          : !position ? `<div class="tiny muted" style="margin-top:4px">${c.kind === 'kill' ? 'Scored from units destroyed in the forecast (trading rates) and which enemy units are valid targets.' : 'Scored from the objective plan.'}</div>`
+          : `<div class="tiny muted" style="margin-top:4px">Depends on where ${side}'s units are. The app doesn't measure positions here, so it uses your rating: how often can ${side} manage this on this table? (Normal = about half the turns it is active.)</div>
+             <div class="modrow">${ctx.seg('mission-rate', rate[c.id] ?? '', RATE_OPTS, `compact" data-side="${side}" data-id="${c.id}`)}</div>`}</td></tr>` : ''}`;
   };
   // keep-ready: my best live non-kill cards by expected VP over the game
   const mine = m.result?.[m.me]?.cards ?? {};
-  const ready = SECONDARIES.filter(c => KEEP_READY[c.id] && !cardDead(c.id, profileOf(other(m.me)).profile))
+  const ready = SECONDARIES.filter(c => KEEP_READY[c.id] && !cardDead(c.id, profileOf(other(m.me)).profile) && (m.rate[m.me]?.[c.id] ?? 1) > 0)
     .map(c => ({ c, ev: (mine[c.id]?.perDraw ?? 0) * (mine[c.id]?.drawRate ?? 0) }))
     .sort((a, b) => b.ev - a.ev).slice(0, 5);
   return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
     <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
-    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (cards stay active until scored). Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a card for its text and to say how easy it is on this table.</div>
+    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up in the forecast (cards stay active until scored). Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Cards marked <b>You rate it</b> depend on unit positions, which are not measured here — tap one to rate it; until then it counts as Normal.</div>
     ${side === m.me ? `<div class="lab tiny muted" style="margin-top:10px">Keep ready for</div><ul class="keep" id="mission-keep">${ready.map(x => `<li><b>${esc(x.c.name)}</b> — ${esc(KEEP_READY[x.c.id])}</li>`).join('')}</ul>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">${side === m.me ? 'Hit list: enemy units worth secondary VP' : 'Your units they score from'}</div>${hitListHtml(side)}`;
 }
@@ -467,7 +605,9 @@ export function missionAction(action, el) {
       refresh();
       return null;
     }
-    case 'mission-skill': m.skill[X][el.dataset.id] = Number(el.dataset.value); break;
+    case 'mission-rate': m.rate[X][el.dataset.id] = Number(el.dataset.value); break;
+    case 'mission-source': m.source = el.dataset.value; break;
+    case 'mission-enemy-from': m.enemyFrom = el.dataset.value; break;
     case 'mission-round': g.round = Number(el.dataset.value); break;
     case 'mission-next': g.next = el.dataset.value; break;
     case 'mission-hand': {
@@ -517,5 +657,5 @@ export function missionAfterRender() {
 // for tests
 export function _missionDebug() {
   const m = ms();
-  return { me: m.me, result: m.result, levers: m.levers, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, params: forecastParams({ trials: 10 }) };
+  return { me: m.me, result: m.result, levers: m.levers, compare: m.compare, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, source: m.source, pairsReady: !!m.pairs?.table, board: sourcePlan() != null ? boardModel(sourcePlan()) : null, params: forecastParams({ trials: 10 }) };
 }

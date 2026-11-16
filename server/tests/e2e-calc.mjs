@@ -760,6 +760,49 @@ try {
     && mi.result.A.cards['assassination'] === undefined && mi.result.A.mean >= 9 + 5 && /17 cards left|16 cards left/.test(await page.textContent('#odds-A')), JSON.stringify({ g: mi.game.A, odds: await page.textContent('#odds-A') }));
   await page.locator('[data-player="A"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_29_mission_tracker.png') });
+
+  // --- board plans drive the forecast: copy a plan, put the Grey Hunters in B's deployment zone
+  await page.tap('button[data-action="view"][data-value="board"]');
+  await page.waitForSelector('#board-svg');
+  await page.tap('button[data-action="board-plan-copy"]');
+  check('Copy plan adds an "Aggressive" plan', (await page.locator('#board-variants .chip', { hasText: 'Aggressive' }).count()) === 1);
+  // find a spot where the whole unit (every base) fits inside B's zone, and put it there in every step
+  const into = await page.evaluate(async (gh) => {
+    const { boardContext, boardPlans } = await import('/calc/boardview.mjs');
+    const { baseWhollyWithin } = await import('/calc/planeval.mjs');
+    const bc = boardContext();
+    const z = bc.deployment.zones.find(q => q.player === bc.zoneB).poly;
+    const p = window.__calc.board().plan;
+    for (const st of p.steps) if (st.tokens[gh]) Object.assign(st.tokens[gh], { rot: 0, per: 5 });
+    const u = boardPlans()[1].steps.flatMap(st => st.A).find(x => x.key === gh);
+    const r = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0);
+    for (let y = 1; y < 60; y += 0.5) for (let x = 1; x < 44; x += 0.5) {
+      if (u.models.every(m => baseWhollyWithin(x + m.dx, y + m.dy, r(m.fp), z))) {
+        for (const st of p.steps) if (st.tokens[gh]) Object.assign(st.tokens[gh], { x, y });
+        return { x, y };
+      }
+    }
+    return null;
+  }, bGh.tk);
+  await page.tap('button[data-action="view"][data-value="mission"]');
+  await page.waitForSelector('button[data-action="mission-source"][data-value="1"]');
+  await page.tap('button[data-action="mission-source"][data-value="1"]');
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.board && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 120000 });
+  mi = await page.evaluate(() => window.__calc.mission());
+  const ghFacts = mi.board.rounds[1].A?.find(u => /Grey Hunters/.test(u.name))?.f;
+  check('board plan: the Grey Hunters are measured wholly inside B\'s deployment zone', ghFacts?.inEnemyDZ === true, JSON.stringify({ ghFacts, into }));
+  check('position cards say "Board plan" instead of a rating', /Board plan/.test(await page.textContent('#mission-cards tr.card-row[data-card="behind-enemy-lines"]')));
+  check('plans compared side by side (grid, Main, Aggressive)', (await page.locator('#fc-compare tbody tr').count()) === 3);
+  const bel = mi.result[mi.me].cards['behind-enemy-lines'];
+  const ghName = mi.board.rounds[1].A.find(u => /Grey Hunters/.test(u.name)).name;
+  const ghDie = [1, 2, 3, 4, 5].map(r => mi.board.pDie[r]?.A?.[ghName] ?? null);
+  console.log('  Grey Hunters in their zone: chance destroyed each round', JSON.stringify(ghDie), 'BEL', JSON.stringify(bel));
+  check('Behind Enemy Lines scores from the plan (while the unit survives there)', bel && bel.perDraw > 0, JSON.stringify(bel));
+  await page.locator('#mission-board-note').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_31_mission_board_plan.png') });
+  await page.locator('#fc-compare').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_32_mission_plans_compared.png') });
+  await page.tap('button[data-action="mission-source"][data-value="grid"]');
   await page.tap('button[data-action="mission-reset"]');
   await page.tap('button[data-action="view"][data-value="board"]');
   await page.waitForSelector('#board-svg');

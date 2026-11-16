@@ -724,6 +724,30 @@ function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
     seed: 99,
   };
 }
+// Unit-vs-unit odds for the Mission tab's board plans: P(target destroyed)
+// when one unit shoots / fights another, default rules, a quick batch run.
+let pairWorker = null, pairReq = 0;
+function pairOdds(jobs) {
+  return new Promise((resolve) => {
+    const items = [];
+    for (const j of jobs) {
+      const A = state.armies[j.atkSide], D = state.armies[other(j.atkSide)];
+      const ac = A?.units.find(u => u.key === j.atkKey), dc = D?.units.find(u => u.key === j.defKey);
+      const sc = ac && dc ? defaultScenarioFor(A, D, ac, dc, j.phase) : null;
+      if (sc) items.push({ key: j.key, scenario: sc });
+    }
+    const res = {};
+    const id = ++pairReq;
+    if (!items.length) { resolve(res); return; }
+    pairWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    pairWorker.onmessage = (ev) => {
+      if (ev.data.id !== id) return;
+      if (ev.data.done) { console.log(`[calc] unit-vs-unit odds: ${Object.keys(res).length} pairs`); resolve(res); } else if (ev.data.result) res[ev.data.key] = ev.data.result;
+    };
+    pairWorker.postMessage({ id, batch: items, trials: 400 });
+  });
+}
+
 function defaultScenario(atkCu, defCu) {
   return defaultScenarioFor(atkArmy(), defArmy(), atkCu, defCu, state.phase);
 }
@@ -1651,7 +1675,7 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
-initMission({ state, esc, seg, chip });
+initMission({ state, esc, seg, chip, pairOdds });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';

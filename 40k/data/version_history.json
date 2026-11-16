@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.88.0",
+      "date": "2026-11-16",
+      "summary": "Mission tab: forecast from your board plans, compare plans, and no more guessed odds for position-based secondaries.",
+      "changes": [
+        "Plans on the Board tab: copy a plan (e.g. Aggressive / Defensive), rename or delete it; each has its own turns.",
+        "Forecast from a board plan: who controls each objective comes from the OC of your units in range, and Behind Enemy Lines, Engage on All Fronts, Outflank, Centre Ground, Display of Might, Beacon and Plunder are measured from where your units are.",
+        "Units get destroyed in the forecast based on which enemy units can reach them (shooting range, charge odds) and how likely those enemies are to wipe them out.",
+        "Enemy positions come from the board plan, or from the objective grid if you only plan your own army.",
+        "Your plans compared side by side: win chance and VP for the grid and each board plan.",
+        "Plan warnings: moves longer than a unit can make, and reserves arriving in the enemy deployment zone before round 3 or within 9\" of the enemy.",
+        "Without a board plan, position-based secondaries are no longer guessed: they show 'You rate it' and use your Easy / Normal / Hard / Never rating."
+      ]
+    },
+    {
       "version": "1.87.0",
       "date": "2026-11-16",
       "summary": "Combat Calc: new Mission tab with a VP forecast for both players, a secondary-card planner and an in-game tracker.",

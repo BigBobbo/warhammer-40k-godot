@@ -66,7 +66,12 @@ for (const f of readdirSync(join(ROOT, 'deployment_zones')).filter(f => f.endsWi
   // reuse an 11e id (crucible_of_battle_new.json, "stepped zones", is not 11e
   // and used to overwrite the real Crucible of Battle).
   if (!/40kdc 11e dataset/.test(j.description ?? '')) { console.log(`skipping non-11e deployment file ${f}`); continue; }
-  deployments[j.id] = { name: j.name, zones: j.zones.map(z => ({ player: z.player, poly: z.poly.map(p => [r2(p.x), r2(p.y)]) })) };
+  deployments[j.id] = {
+    name: j.name,
+    zones: j.zones.map(z => ({ player: z.player, poly: z.poly.map(p => [r2(p.x), r2(p.y)]) })),
+    // each player's territory (their half of the battlefield, 11e)
+    territories: (j.territories ?? []).map(t => ({ player: t.player, poly: t.poly.map(p => [r2(p.x), r2(p.y)]) })),
+  };
 }
 
 const missions = Object.fromEntries(arr(rd(join(ROOT, 'data', '40kdc', 'missions.json'))).map(m => [m.id, m.name]));
