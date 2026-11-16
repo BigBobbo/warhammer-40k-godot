@@ -5,11 +5,13 @@
 //
 // It is a planning model, not a game engine: who controls each objective in
 // each battle round comes from the plan (A / B / contested), kills come from
-// a per-turn rate, and positional secondaries from simple heuristics on the
-// army's speed and size (each adjustable). Card VP values and the caps are
-// exact (missions-11e.mjs). Pure module, unit-tested (tests/calc-forecast.test.mjs).
+// a per-turn rate, and cards that depend on where units are (Behind Enemy
+// Lines, Outflank, ...) from the player's own rating of them — the app does
+// not guess positions. Card VP values and the caps are exact
+// (missions-11e.mjs). Pure module, unit-tested (tests/calc-forecast.test.mjs).
 
 import { RULES, SECONDARIES, SECONDARY_BY_ID, PRIMARIES } from './missions-11e.mjs';
+import { sideFacts } from './planeval.mjs';
 
 const other = (p) => (p === 'A' ? 'B' : 'A');
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -198,13 +200,23 @@ const END_OF_BATTLE = {
   'Smoke and Mirrors': (c) => ((c.ms.decoyed ?? 0) >= 4 ? 10 : 0),
 };
 
-function quarters(c) {
-  // units spread over table quarters: more (and faster) units reach more quarters
-  const s = c.army.spread;
-  const p4 = clamp01((0.05 + 0.45 * s) * (c.r === 1 ? 0.5 : 1));
-  const p3 = clamp01((0.3 + 0.45 * s) * (c.r === 1 ? 0.6 : 1));
+// Cards that depend on where your units are. Without a board plan the app does
+// not guess: each scores from YOUR rating of it (default "Normal" = 50% per
+// turn for its lower tier, half that for its upper tier). With a board plan
+// (c.pos) they are measured from the planned positions.
+export const POSITION_CARDS = ['behind-enemy-lines', 'engage-on-all-fronts', 'outflank', 'centre-ground', 'display-of-might', 'beacon', 'plunder'];
+export const RATING = { easy: 0.75, normal: 0.5, hard: 0.25, never: 0 };
+function rated(c, id, lo, hi) {
+  const p = clamp01(c.rate?.[id] ?? RATING.normal);
   const x = c.rnd();
-  return x < p4 ? 4 : x < p3 ? 3 : 2;
+  return x < p / 2 ? hi : x < p ? lo : 0;
+}
+function quarters(c) {
+  // Reconnaissance Sweep (a primary): from the board plan, else your Engage on All Fronts rating
+  if (c.pos) return c.pos.quarters;
+  const p = clamp01(c.rate?.['engage-on-all-fronts'] ?? RATING.normal);
+  const x = c.rnd();
+  return x < p / 2 ? 4 : x < p ? 3 : 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -212,9 +224,8 @@ function quarters(c) {
 // scored from the simulated kills). Returns VP for this scoring moment.
 
 function scoreSecondary(id, c) {
-  const s = c.army.spread, r = c.r;
-  const skill = c.skill[id] ?? 1;
-  const roll = (p) => c.rnd() < clamp01(p * skill);
+  const r = c.r, pos = c.pos;
+  const roll = (p) => c.rnd() < clamp01(p);
   switch (id) {
     case 'no-prisoners': return Math.min(5, 2 * c.kills.length);
     case 'overwhelming-force': return Math.min(5, 3 * c.kills.filter(v => v.onObj).length);
@@ -222,34 +233,31 @@ function scoreSecondary(id, c) {
     case 'bring-it-down': return c.kills.some(v => v.w10 > 0) ? 5 : 0;
     case 'a-grievous-blow': return c.kills.some(v => v.ss13) ? 5 : 0;
     case 'a-tempting-target': return c.h.total && roll(c.temptingP) ? 5 : 0;
-    case 'beacon': return roll(r === 1 ? 0.25 : 0.45) ? 5 : roll(0.45) ? 3 : 0;
-    case 'behind-enemy-lines': {
-      const m = r === 1 ? 0.05 : (0.35 * c.army.reserves + 0.15 * c.army.fast) * (r >= 3 ? 1.3 : 1);
-      const n = poisson(m * skill, c.rnd);
-      return Math.min(5, 3 * n);
-    }
-    case 'burden-of-trust': return Math.min(5, 2 * c.h.total);
-    case 'centre-ground': {
-      if (c.h.central) return roll(0.45) ? 5 : roll(0.85) ? 3 : 0;
-      return roll(c.centralContested ? 0.25 : 0.05) ? 3 : 0;
-    }
-    case 'cleanse': { const n = binom(c.h.nonHome, c.pAct, c.rnd); return n >= 2 ? 5 : n === 1 ? 2 : 0; }
     case 'defend-stronghold': {
       if (r < 2 || !c.h.home) return 0;
-      const clear = roll(r === 2 ? 0.8 : r === 3 ? 0.6 : 0.5);
+      // +2 if no enemy unit is in your deployment zone: from the board plan, else even odds
+      const clear = pos?.dzKnown ? !pos.enemyInMyDZ : roll(0.5);
       return 3 + (clear ? 2 : 0);
     }
+    case 'beacon': return pos ? (pos.outsideTerritory ? 5 : pos.outsideDZ ? 3 : 0) : rated(c, id, 3, 5);
+    case 'behind-enemy-lines': return pos ? Math.min(5, 3 * pos.inEnemyDZ) : rated(c, id, 3, 5);
+    case 'burden-of-trust': return Math.min(5, 2 * c.h.total);
+    case 'centre-ground': {
+      if (pos?.centreKnown) return pos.centre3 && !pos.enemyCentre6 ? 5 : pos.centre3 && !pos.enemyCentre3 ? 3 : 0;
+      return rated(c, id, 3, 5);
+    }
+    case 'cleanse': { const n = binom(c.h.nonHome, c.pAct, c.rnd); return n >= 2 ? 5 : n === 1 ? 2 : 0; }
     case 'display-of-might': {
-      const p = clamp01(0.45 + 0.15 * (c.h.nml - c.hOpp.nml));
-      return c.timing === 'opp' ? (roll(p) ? 5 : 0) : (roll(p) ? 2 : 0);
+      const met = pos?.nmlKnown ? pos.nmlMine > pos.nmlEnemy : c.rnd() < clamp01(c.rate?.[id] ?? RATING.normal);
+      return met ? (c.timing === 'opp' ? 5 : 2) : 0;
     }
-    case 'engage-on-all-fronts': { const q = quarters(c); return c.fixedMode ? (q >= 4 ? 4 : q >= 3 ? 2 : 0) : (q >= 4 ? 5 : q >= 3 ? 3 : 0); }
+    case 'engage-on-all-fronts': {
+      const q = pos ? pos.quarters : (rated(c, id, 3, 4) || 2);
+      return c.fixedMode ? (q >= 4 ? 4 : q >= 3 ? 2 : 0) : (q >= 4 ? 5 : q >= 3 ? 3 : 0);
+    }
     case 'forward-position': return c.h.oppHome || c.h.exp + c.h.oppExp >= 2 ? 5 : 0;
-    case 'outflank': {
-      if (r === 1) return roll(0.15) ? 3 : 0;
-      return roll(0.15 + 0.35 * s) ? 5 : roll(0.4 + 0.3 * s) ? 3 : 0;
-    }
-    case 'plunder': return roll(c.pAct * (r === 1 ? 0.25 : 0.45 + 0.25 * s)) ? 5 : 0;
+    case 'outflank': return pos ? (pos.flankOpposite ? 5 : pos.flank ? 3 : 0) : rated(c, id, 3, 5);
+    case 'plunder': return pos ? (pos.terrainOutside && roll(c.pAct) ? 5 : 0) : (rated(c, id, 5, 5));
     case 'secure-no-mans-land': return c.h.nml >= 2 ? 5 : 0;
     default: return 0;
   }
@@ -352,14 +360,72 @@ function simulateGame(P, rnd) {
     }
     owners[r] = { own, centralContested };
   }
+  // board plan: units at their planned positions, surviving units hold objectives
+  const BP = P.boardPlan ?? null;
+  const alive = (X) => new Set(S[other(X)].enemyAlive.map(u => u.name));
+  const plannedUnits = (r, X) => {
+    const us = BP?.rounds?.[r]?.[X];
+    if (!us) return null;
+    const live = alive(X);
+    return us.filter(u => live.has(u.name));
+  };
+  function boardOwners(r) {
+    const cells = P.plan?.[r] ?? {};
+    const ua = plannedUnits(r, 'A'), ub = plannedUnits(r, 'B');
+    if (!ua && !ub) return null;
+    const own = {};
+    let centralContested = false;
+    for (const o of P.objectives) {
+      const oc = (us) => us.reduce((a, u) => a + (u.f.objs.includes(o.id) ? u.f.oc : 0), 0);
+      const coin = () => (rnd() < 0.5 ? 'A' : 'B');
+      let w;
+      if (ua && ub) {
+        const a = oc(ua), b = oc(ub);
+        w = a > b ? 'A' : b > a ? 'B' : a > 0 ? coin() : '';
+        if (a > 0 && a === b && o.cls === 'central') centralContested = true;
+      } else {
+        // one army planned on the board, the other from the objective plan toggles
+        const Pl = ua ? 'A' : 'B', U = other(Pl), mine = oc(ua ?? ub), v = cells[o.id] ?? 'c';
+        w = v === Pl ? (mine > 0 ? Pl : '') : mine > 0 ? coin() : U;
+        if (o.cls === 'central' && v === 'c') centralContested = true;
+      }
+      own[o.id] = w;
+    }
+    return { own, centralContested };
+  }
+  const posFor = (r, X) => {
+    const us = plannedUnits(r, X);
+    if (!us) return null;
+    const en = plannedUnits(r, other(X));
+    return sideFacts(us.map(u => u.f), en ? en.map(u => u.f) : null);
+  };
+  // the board kills: each target dies with its exposure to the attacker's planned positions
+  const boardKills = (r, Y, list) => {
+    const p = BP?.pDie?.[r]?.[Y];
+    if (!p) return null;
+    const out = [];
+    const facts = new Map((BP.rounds?.[r]?.[Y] ?? []).map(u => [u.name, u.f]));
+    for (let i = list.length - 1; i >= 0; i--) {
+      const pr = p[list[i].name] ?? 0;
+      if (pr > 0 && rnd() < pr) {
+        const v = list.splice(i, 1)[0];
+        v.onObj = (facts.get(v.name)?.objs.length ?? 0) > 0;
+        out.push(v);
+      }
+    }
+    return out;
+  };
+  const lastOwn = { A: {}, B: {} };
   for (let r = startRound; r <= RULES.rounds; r++) {
-    const { own, centralContested } = owners[r];
-    const prevOwn = owners[r - 1]?.own ?? {};
     for (let t = 0; t < 2; t++) {
       if (r === startRound && t < (P.startTurn ?? 0)) continue;
       const X = order[t], Y = other(X), sx = S[X], sy = S[Y];
       sx.turnNo++; sy.turnNo++;
+      const { own, centralContested } = boardOwners(r) ?? owners[r];
+      const prevOwn = lastOwn[X];
+      lastOwn[X] = own;
       const hx = holdings(P.objectives, own, X), hy = holdings(P.objectives, own, Y);
+      const posX = posFor(r, X), posY = posFor(r, Y);
       // --- Command phase: draw
       if (sx.pl.mode !== 'fixed') {
         const skipDraw = r === startRound && t === (P.startTurn ?? 0) && P.startAfterDraw;
@@ -368,9 +434,10 @@ function simulateGame(P, rnd) {
       // --- kills this turn (by the active player; some fight-back by the other)
       const lamX = (sx.pl.killRate ?? 1.3) * ROUND_KILL[t === 0 ? 'first' : 'second'][r - 1];
       const lamY = 0.25 * (sy.pl.killRate ?? 1.3);
-      const killsX = pickVictims(sx.enemyAlive, poisson(lamX, rnd), rnd);
+      const fromBoard = boardKills(r, Y, sx.enemyAlive);
+      const killsX = fromBoard ?? pickVictims(sx.enemyAlive, poisson(lamX, rnd), rnd);
       const killsY = pickVictims(sy.enemyAlive, poisson(lamY, rnd), rnd);
-      for (const v of killsX) v.onObj = rnd() < (P.fObj ?? 0.45);
+      if (!fromBoard) for (const v of killsX) v.onObj = rnd() < (P.fObj ?? 0.45);
       for (const v of killsY) v.onObj = rnd() < (P.fObj ?? 0.45);
       // --- primary (active player): Command phase + end of turn
       // objectives you hold now that you did not hold last round (your own home excluded)
@@ -378,7 +445,7 @@ function simulateGame(P, rnd) {
       const fn = PRIMARY_FN[sx.pl.mission];
       let primGain = 0;
       if (fn) {
-        const ctx = { r, h: hx, hOpp: hy, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: sx.pl.actionP ?? 0.7, ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length };
+        const ctx = { r, h: hx, hOpp: hy, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: sx.pl.actionP ?? 0.7, ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX };
         const v = fn(ctx);
         primGain += (v.C ?? 0) + (v.EOT ?? 0);
         if (r === RULES.rounds && t === 1) {
@@ -389,8 +456,8 @@ function simulateGame(P, rnd) {
       addPrimary(sx, r, primGain);
       // --- secondaries at the end of this turn: active player first
       const lastTurn = r === RULES.rounds && t === 1;
-      scoreSecondaries(sx, r, 'own', { h: hx, hOpp: hy, kills: killsX, centralContested, rnd, P, lastTurn });
-      scoreSecondaries(sy, r, 'opp', { h: hy, hOpp: hx, kills: killsY, centralContested, rnd, P, lastTurn });
+      scoreSecondaries(sx, r, 'own', { h: hx, hOpp: hy, kills: killsX, centralContested, rnd, P, lastTurn, pos: posX });
+      scoreSecondaries(sy, r, 'opp', { h: hy, hOpp: hx, kills: killsY, centralContested, rnd, P, lastTurn, pos: posY });
       // Y's units destroyed this turn = Y's "friendly units destroyed in the previous turn" on its next turn
       sy.lostPrev = killsX.length;
       if (r === RULES.rounds && t === 1) {
@@ -426,7 +493,7 @@ function addSecondary(s, r, vp) {
 function scoreSecondaries(s, r, timing, env) {
   const pl = s.pl;
   const c = {
-    r, timing, h: env.h, hOpp: env.hOpp, kills: env.kills, rnd: env.rnd, army: pl.army, skill: pl.skill ?? {},
+    r, timing, h: env.h, hOpp: env.hOpp, kills: env.kills, rnd: env.rnd, army: pl.army, rate: pl.rate ?? {}, pos: env.pos ?? null,
     pAct: pl.actionP ?? 0.7, centralContested: env.centralContested, temptingP: env.P.temptingP?.[s.X] ?? 0.45,
     enemyCharsLeft: s.enemyAlive.reduce((a, u) => a + u.characters, 0), enemyHadChars: s.enemyHadChars,
   };
@@ -474,7 +541,7 @@ function scoreSecondaries(s, r, timing, env) {
 /**
  * P: {
  *   players: { A: { mission, mode: 'tactical'|'fixed', fixed: [ids], army: armyProfile(...),
- *                   killRate (enemy units / turn), actionP (0..1), skill: { cardId: multiplier },
+ *                   killRate (enemy units / turn), actionP (0..1), rate: { positionCardId: 0..1 (RATING) },
  *                   battleReady, start: { hand, used, primary, secondary, destroyed: [unit names] } }, B: {...} },
  *   objectives: [{ id, cls, side }], plan: { [round]: { [objId]: 'A'|'B'|'c' } },
  *   first: 'A'|'B'|null, startRound, startTurn, trials, seed, fObj

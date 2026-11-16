@@ -69,18 +69,27 @@ function planKey() {
   return l ? `${l.id}|${ctx.signature()}` : null;
 }
 
-function plan() {
+// Plans for this layout + lists: several variants (e.g. "Main", "Aggressive"),
+// each a list of steps (Deploy, Turn 1, ...).
+function planRoot() {
   const b = boardState();
   const k = planKey();
   if (!k) return null;
-  b.plans[k] ??= { steps: [{ name: 'Deploy', tokens: {} }], cur: 0 };
-  return b.plans[k];
+  let root = b.plans[k] ?? { steps: [{ name: 'Deploy', tokens: {} }], cur: 0 };
+  if (root.steps) root = { variants: [{ name: 'Main', steps: root.steps, cur: root.cur ?? 0 }], v: 0 }; // older single-plan saves
+  b.plans[k] = root;
+  return root;
 }
+function plan() {
+  const root = planRoot();
+  return root ? root.variants[Math.min(root.v, root.variants.length - 1)] : null;
+}
+const VARIANT_NAMES = ['Aggressive', 'Defensive', 'Plan C', 'Plan D', 'Plan E'];
 
-// one table photo per plan step
+// one table photo per plan step (the first plan keeps the original keys)
 function photoKey() {
-  const p = plan();
-  return p ? `${planKey()}#${p.cur}` : null;
+  const root = planRoot(), p = plan();
+  return p ? (root.v ? `${planKey()}#v${root.v}#${p.cur}` : `${planKey()}#${p.cur}`) : null;
 }
 function currentPhoto() {
   return photoFor(photoKey(), BOARD, () => { refreshBoard(); });
@@ -104,7 +113,9 @@ function unitInfo(side, key) {
   const ck = `${side}|${key}|${cu.name}|${cu.models}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu);
-    unitCache.set(ck, { cu, ...bu, models: formation(bu.members), formations: new Map() });
+    // Objective Control: each model's OC (datasheet), summed over the unit
+    const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
+    unitCache.set(ck, { cu, ...bu, oc, models: formation(bu.members), formations: new Map() });
   }
   return unitCache.get(ck);
 }
@@ -356,6 +367,12 @@ export function boardView() {
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
         ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
+      </div>
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
+        <span class="lab tiny muted">Plan</span>
+        ${planRoot() ? planRoot().variants.map((vv, i) => `<button class="chip ${i === planRoot().v ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`).join('') : ''}
+        <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
+        ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;margin-top:8px">${boardSvg()}</div>
@@ -736,6 +753,37 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-plan-pick': {
+      const root = planRoot();
+      root.v = Number(el.dataset.i);
+      b.sel = b.sel2 = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-plan-copy': {
+      // a copy of the current plan to try something else (e.g. aggressive vs defensive)
+      const root = planRoot(), cur = plan();
+      const used = new Set(root.variants.map(x => x.name));
+      const name = VARIANT_NAMES.find(n => !used.has(n)) ?? `Plan ${root.variants.length + 1}`;
+      root.variants.push({ name, steps: JSON.parse(JSON.stringify(cur.steps)), cur: cur.cur });
+      root.v = root.variants.length - 1;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-plan-rename': {
+      const cur = plan();
+      const name = (globalThis.prompt?.('Name this plan', cur.name) ?? '').trim();
+      if (name) { cur.name = name.slice(0, 24); persistBoard(); }
+      return 'render';
+    }
+    case 'board-plan-delete': {
+      const root = planRoot();
+      if (root.variants.length < 2 || !(globalThis.confirm?.(`Delete the plan "${plan().name}"?`) ?? true)) return null;
+      root.variants.splice(root.v, 1);
+      root.v = Math.max(0, root.v - 1);
+      persistBoard();
+      return 'render';
+    }
     case 'board-step-add': {
       const p = plan();
       if (!p) return null;
@@ -875,6 +923,26 @@ async function shareImage() {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+// for the Mission tab: every plan for this layout + lists, each step's units
+// at their planned positions (only units placed on the board in that step)
+export function boardPlans() {
+  const root = planRoot();
+  if (!root) return [];
+  return root.variants.map((vv, vi) => ({
+    index: vi, name: vv.name,
+    steps: vv.steps.map(st => {
+      const out = { name: st.name, A: [], B: [] };
+      for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
+        const [side, key] = tk.split(':');
+        const u = unitInfo(side, key);
+        if (!u) continue;
+        out[side].push({ key: tk, name: u.cu.name, x: pos.x, y: pos.y, models: tokenModels(u, pos), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: u.cu.points ?? 0 });
+      }
+      return out;
+    }),
+  }));
 }
 
 // for the Mission tab: the mission, layout and which deployment zone is A's

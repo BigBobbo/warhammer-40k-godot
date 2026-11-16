@@ -315,3 +315,6 @@ td.up { color: var(--text-primary); }
 td.down { color: var(--text-muted); }
 .tabs .tab { padding-left: 10px; padding-right: 10px; }
 .chip.nocheck::before { content: none; }
+.pill.ask { border-style: dashed; color: var(--text-primary); }
+ul.keep.warn li { color: var(--warn); }
+ul.keep.warn li.info { color: var(--text-muted); }

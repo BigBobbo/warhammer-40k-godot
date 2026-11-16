@@ -13,7 +13,7 @@ self.onmessage = (ev) => {
     // game VP forecast: the base plan, then each what-if
     try {
       const { base, variants } = ev.data.forecast;
-      const out = { id, base: forecast(base), variants: (variants ?? []).map(v => ({ key: v.key, label: v.label, result: v.P ? forecast(v.P) : null })) };
+      const out = { id, base: forecast(base), variants: (variants ?? []).map(v => ({ key: v.key, label: v.label, compare: !!v.compare, result: v.P ? forecast(v.P) : null })) };
       self.postMessage(out);
     } catch (err) { self.postMessage({ id, error: String(err?.stack ?? err) }); }
     return;
