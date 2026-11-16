@@ -14,6 +14,17 @@ const rd = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const arr = (x) => (Array.isArray(x) ? x : Object.values(x)[0]);
 const r2 = (v) => Math.round(v * 100) / 100;
 
+// 11e cards with two central objectives (see the file's _comment)
+const SIX = new Set(rd(join(here, 'data', 'gdm-11e-six-objective-layouts.json')).layouts);
+const centroid = (poly) => {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [x0, y0] = poly[j], [x1, y1] = poly[i], f = x0 * y1 - x1 * y0;
+    a += f; cx += (x0 + x1) * f; cy += (y0 + y1) * f;
+  }
+  return a ? [cx / (3 * a), cy / (3 * a)] : poly[0];
+};
+
 const layouts = [];
 for (const f of readdirSync(join(ROOT, 'terrain_layouts')).filter(f => f.endsWith('.json')).sort()) {
   const j = rd(join(ROOT, 'terrain_layouts', f));
@@ -23,7 +34,17 @@ for (const f of readdirSync(join(ROOT, 'terrain_layouts')).filter(f => f.endsWit
     matchup: j.mission_matchup_id,
     variant: j.variant,
     deployment: (j.recommended_deployments ?? [])[0] ?? null,
-    objectives: (j.objectives ?? []).map(o => ({ id: o.id, x: r2(o.position[0]), y: r2(o.position[1]), zone: o.zone, host: o.source_pieces ?? [] })),
+    objectives: (j.objectives ?? []).flatMap(o => {
+      const role = o.zone !== 'no_mans_land' ? 'home' : o.id === 'obj_center' ? 'central' : 'expansion';
+      const one = { id: o.id, role, x: r2(o.position[0]), y: r2(o.position[1]), zone: o.zone, host: o.source_pieces ?? [] };
+      if (role !== 'central' || !SIX.has(j.id) || (o.source_pieces ?? []).length !== 2) return [one];
+      // two central objectives: one on each central terrain piece
+      return o.source_pieces.map((pid, i) => {
+        const piece = j.pieces.find(p => p.id === pid);
+        const [x, y] = centroid(piece.polygon);
+        return { id: `obj_center_${i + 1}`, role, x: r2(x), y: r2(y), zone: o.zone, host: [pid] };
+      });
+    }),
     pieces: j.pieces.map(p => ({
       id: p.id,
       cls: p.piece_class,                 // 'area' | 'feature'
@@ -41,6 +62,10 @@ for (const f of readdirSync(join(ROOT, 'terrain_layouts')).filter(f => f.endsWit
 const deployments = {};
 for (const f of readdirSync(join(ROOT, 'deployment_zones')).filter(f => f.endsWith('.json'))) {
   const j = rd(join(ROOT, 'deployment_zones', f));
+  // 11th edition only: the official 40kdc 11e geometry. Skip legacy files that
+  // reuse an 11e id (crucible_of_battle_new.json, "stepped zones", is not 11e
+  // and used to overwrite the real Crucible of Battle).
+  if (!/40kdc 11e dataset/.test(j.description ?? '')) { console.log(`skipping non-11e deployment file ${f}`); continue; }
   deployments[j.id] = { name: j.name, zones: j.zones.map(z => ({ player: z.player, poly: z.poly.map(p => [r2(p.x), r2(p.y)]) })) };
 }
 

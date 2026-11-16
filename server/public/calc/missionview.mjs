@@ -88,8 +88,9 @@ function objectives() {
   const homeOf = (s) => homes.find(h => h.side === s);
   const out = [];
   for (const o of l.objectives) {
-    if (o.zone !== 'no_mans_land') { const side = sideOfZone(o.zone); out.push({ id: o.id, cls: 'home', side, label: `${side} home` }); continue; }
-    if (Math.hypot(o.x - 22, o.y - 30) <= 4) { out.push({ id: o.id, cls: 'central', side: null, label: 'Centre' }); continue; }
+    // roles come from the official 11e cards (home / central / expansion); some layouts have two centrals
+    if (o.role === 'home' || o.zone !== 'no_mans_land') { const side = sideOfZone(o.zone); out.push({ id: o.id, cls: 'home', side, label: `${side} home` }); continue; }
+    if (o.role === 'central') { out.push({ id: o.id, cls: 'central', side: null, label: 'Centre' }); continue; }
     const hA = homeOf('A'), hB = homeOf('B');
     const side = !hA || !hB ? null : Math.hypot(o.x - hA.x, o.y - hA.y) <= Math.hypot(o.x - hB.x, o.y - hB.y) ? 'A' : 'B';
     out.push({ id: o.id, cls: 'exp', side, label: `${side}-side` });

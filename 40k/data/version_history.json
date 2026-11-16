@@ -11,7 +11,8 @@
         "Objective plan: tap who you expect to hold each objective in each round; the forecast follows it.",
         "Secondary cards for this matchup (all 18 GW 11e cards, checked against the official cards): dead cards, average VP if drawn, how often each scores quickly, a keep-ready list and a hit list of enemy units worth secondary VP.",
         "In-game tracker: cards drawn, scored and discarded, the score, and the chance of each remaining card coming up; the forecast re-runs from the current round.",
-        "Primary scoring for all 25 primary missions and the 45 VP / 15 VP-per-round caps; Battle Ready +10."
+        "Primary scoring for all 25 primary missions and the 45 VP / 15 VP-per-round caps; Battle Ready +10.",
+        "Board fixes (11th edition only, checked against all 45 official layout cards): Crucible of Battle deployment zones now match the 11e card (the bottom zone was up to 3\" too small), and the 24 layouts with 6 objectives now have both central objectives instead of one."
       ]
     },
     {

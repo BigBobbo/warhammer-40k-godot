@@ -1,0 +1,13 @@
+{
+  "_comment": "Layouts whose official GDM 2026 (11e) card shows 6 objectives: two central objectives, one on each central terrain piece (card footer '60\" x 44\" board · <deployment> · 6 objectives', gdmissions.app/11th/layouts, checked 2026-11-16). The game's layout files merge them into one centre objective hosted by both pieces.",
+  "layouts": [
+    "disruption_vs_purge_the_foe_1", "disruption_vs_purge_the_foe_2", "disruption_vs_purge_the_foe_3",
+    "disruption_vs_reconnaissance_1", "disruption_vs_reconnaissance_2", "disruption_vs_reconnaissance_3",
+    "purge_the_foe_vs_priority_assets_1", "purge_the_foe_vs_priority_assets_2", "purge_the_foe_vs_priority_assets_3",
+    "purge_the_foe_vs_purge_the_foe_1", "purge_the_foe_vs_purge_the_foe_2", "purge_the_foe_vs_purge_the_foe_3",
+    "purge_the_foe_vs_reconnaissance_1", "purge_the_foe_vs_reconnaissance_2", "purge_the_foe_vs_reconnaissance_3",
+    "reconnaissance_vs_reconnaissance_1", "reconnaissance_vs_reconnaissance_2", "reconnaissance_vs_reconnaissance_3",
+    "take_and_hold_vs_priority_assets_1", "take_and_hold_vs_priority_assets_2", "take_and_hold_vs_priority_assets_3",
+    "take_and_hold_vs_purge_the_foe_1", "take_and_hold_vs_purge_the_foe_2", "take_and_hold_vs_purge_the_foe_3"
+  ]
+}

@@ -76,3 +76,24 @@ test('rotation: formation offsets and oval bases turn with the unit', () => {
   const one = B.rotateFormation([{ dx: 0, dy: 0, fp }], 90);
   near(B.pointGap({ x: 0, y: 0, models: one }, 5, 0), 5 - fp.ry, 1e-9, 'gap uses the turned base');
 });
+
+test('11e only: Crucible of Battle zones are the official 40kdc 11e geometry (not the legacy "stepped" file)', () => {
+  const z = B.DEPLOYMENTS.crucible_of_battle.zones;
+  assert.deepEqual(z.find(q => q.player === 1).poly, [[44, 0], [0, 30], [0, 0]]);
+  assert.deepEqual(z.find(q => q.player === 2).poly, [[0, 60], [44, 30], [44, 60]]);
+});
+
+test('11e only: objective counts match the official cards (21 layouts with 5, 24 with 6 = two central objectives)', () => {
+  const counts = {};
+  for (const l of B.LAYOUTS) counts[l.objectives.length] = (counts[l.objectives.length] ?? 0) + 1;
+  assert.deepEqual(counts, { 5: 21, 6: 24 });
+  for (const l of B.LAYOUTS) {
+    const roles = l.objectives.map(o => o.role).sort().join(',');
+    assert.ok(roles === 'central,expansion,expansion,home,home' || roles === 'central,central,expansion,expansion,home,home', `${l.id}: ${roles}`);
+    // every home objective sits in its own deployment zone
+    for (const o of l.objectives.filter(x => x.role === 'home')) {
+      const zone = B.DEPLOYMENTS[l.deployment].zones.find(z => z.player === (o.zone === 'player1' ? 1 : 2));
+      assert.ok(B.inPoly(o.x, o.y, zone.poly), `${l.id} ${o.id}`);
+    }
+  }
+});
