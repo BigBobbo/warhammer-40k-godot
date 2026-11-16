@@ -445,6 +445,7 @@ function attackView() {
       </div>
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn ghost grow" data-action="open-charge">🎲 Charge</button>
+        <button class="btn ghost grow" data-action="open-chain">⚡ Turn</button>
         <button class="btn ghost grow" data-action="open-grid">📊 Grid</button>
         <button class="btn ghost grow" data-action="open-saved">💾 Saved${state.saved.length ? ` (${state.saved.length})` : ''}</button>
       </div>
@@ -691,6 +692,7 @@ function renderSheet() {
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
     : state.sheet === 'charge' ? chargeSheet()
+    : state.sheet === 'chain' ? chainSheet()
     : state.sheet === 'grid' ? gridSheet()
     : state.sheet === 'library' ? librarySheet()
     : state.sheet === 'threats' ? threatsSheet()
@@ -900,6 +902,123 @@ function savedSheet() {
           <div class="muted tiny">${sv.summary ? `${fx(sv.summary.meanKills)} avg kills · ${pct(sv.summary.pWipe)} wipe · ` : ''}${new Date(sv.savedAt).toLocaleDateString()}${sv.sig !== sig ? ' · made with other lists' : ''}</div></div>
         <button class="btn" data-action="load-scenario" data-i="${i}">Load</button>
         <button class="icon-btn" data-action="delete-scenario" data-i="${i}" aria-label="Delete ${esc(sv.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved scenarios yet.</p>'}</div>`;
+}
+
+// ---- Turn chain: this side's shooting into the target, then one unit charges it and fights
+
+// a scenario for another phase / setup than the one on screen (the builders read state.phase + setup())
+function scenarioFor(phase, tempSetup = null) {
+  const savedPhase = state.phase, key = `${state.side}:${phase}`, savedSetup = state.setups[key];
+  state.phase = phase;
+  if (tempSetup) state.setups[key] = tempSetup;
+  try { return scenario(); } finally {
+    state.phase = savedPhase;
+    if (tempSetup) { if (savedSetup) state.setups[key] = savedSetup; else delete state.setups[key]; }
+  }
+}
+
+function chainChargers() {
+  return (atkArmy()?.units ?? []).filter(cu => attackerRows(cu, 'fight', null).length > 0);
+}
+
+function chainInputs() {
+  const shootKey = `${state.side}:shooting`;
+  const ss = state.setups[shootKey] ?? { targetKey: null, attackers: [] };
+  const c = state.chain;
+  const targetKey = ss.targetKey ?? setup().targetKey;
+  if (!targetKey || !c?.chargerKey) return null;
+  const fightKey = `${state.side}:fight`;
+  const fs = state.setups[fightKey] ?? {};
+  const prev = (fs.attackers ?? []).find(e => e.unitKey === c.chargerKey);
+  const entry = { ...(prev ?? { uid: -1, unitKey: c.chargerKey, counts: {} }), mods: { ...(prev?.mods ?? {}), charged: true } };
+  const fightSetup = {
+    targetKey, attackers: [entry], ruleOverrides: fs.ruleOverrides ?? {}, defManual: { ...(fs.defManual ?? {}) },
+    defOverrides: ss.defOverrides ?? {},
+  };
+  const shoot = ss.targetKey === targetKey && ss.attackers?.length ? scenarioFor('shooting', { ...ss, ruleOverrides: ss.ruleOverrides ?? {}, defManual: ss.defManual ?? {}, defOverrides: ss.defOverrides ?? {} }) : null;
+  const fight = scenarioFor('fight', fightSetup);
+  if (!fight) return null;
+  return { shoot, fight, charge: { gap: c.gap, mod: c.mod, reroll: c.reroll }, seed: 4242 };
+}
+
+let chainWorker = null, chainReq = 0;
+function runChain() {
+  const inp = chainInputs();
+  chainReq++;
+  state.chainResult = null;
+  if (!inp) { state.chainBusy = false; return; }
+  if (chainWorker && state.chainBusy) { chainWorker.terminate(); chainWorker = null; }
+  if (!chainWorker) {
+    chainWorker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    chainWorker.onmessage = (ev) => {
+      if (ev.data.id !== chainReq) return;
+      state.chainBusy = false;
+      if (ev.data.error) console.error('[calc] chain error', ev.data.error);
+      state.chainResult = ev.data.result ?? null;
+      console.log(`[calc] turn chain: shoot ${state.chainResult?.meanShoot?.toFixed(2)} + fight ${state.chainResult?.meanFight?.toFixed(2)}, charge ${state.chainResult?.pChargeGivenSurvive?.toFixed(3)}, destroyed ${state.chainResult?.pWipe?.toFixed(3)}`);
+      if (state.sheet === 'chain') renderSheet();
+    };
+  }
+  state.chainBusy = true;
+  chainWorker.postMessage({ id: chainReq, chain: inp, trials: 20000 });
+}
+
+function openChain(opts = {}) {
+  const ss = state.setups[`${state.side}:shooting`];
+  const chargers = chainChargers();
+  const prefer = opts.chargerKey ?? state.chain?.chargerKey;
+  const fromShoot = (ss?.attackers ?? []).map(e => e.unitKey).find(k => chargers.some(cu => cu.key === k));
+  const chargerKey = chargers.some(cu => cu.key === prefer) ? prefer : (fromShoot ?? chargers[0]?.key ?? null);
+  const entry = (ss?.attackers ?? []).find(e => e.unitKey === chargerKey);
+  state.chain = { mod: 0, reroll: false, ...(state.chain ?? {}), chargerKey, gap: opts.gap ?? entry?.mods?.distance ?? state.chain?.gap ?? 6 };
+  state.sheet = 'chain';
+  runChain();
+  renderSheet();
+}
+
+function chainSheet() {
+  const c = state.chain ?? {};
+  const r = state.chainResult;
+  const ss = state.setups[`${state.side}:shooting`];
+  const tgt = defArmy()?.units.find(u => u.key === (ss?.targetKey ?? setup().targetKey));
+  const shooters = (ss?.targetKey === tgt?.key ? ss?.attackers ?? [] : []).map(e => atkArmy()?.units.find(u => u.key === e.unitKey)?.name).filter(Boolean);
+  const chargers = chainChargers();
+  const need = chargeRollNeeded(c.gap ?? 0);
+  let body;
+  if (!tgt) body = '<p class="hint">Pick a target on the Attack tab (Shooting) first.</p>';
+  else if (!chargers.length) body = '<p class="hint">No unit in this army has melee weapons.</p>';
+  else if (!r) body = `<p class="muted small">${state.chainBusy ? 'Simulating…' : 'Nothing to simulate.'}</p>`;
+  else {
+    const d = { mode: 'models', exact: r.kills, atLeast: r.killsAtLeast, full: r.totalModels };
+    let last = d.exact.length - 1;
+    while (last > 0 && d.exact[last] < 0.0005) last--;
+    const dd = { ...d, exact: d.exact.slice(0, last + 1), atLeast: d.atLeast.slice(0, last + 1) };
+    body = `<div class="hero">
+        <div class="cell"><b id="chain-total">${fx(r.meanKills)}</b><span>avg models destroyed this turn of ${r.totalModels}</span></div>
+        <div class="cell"><b id="chain-wipe">${pct(r.pWipe)}</b><span>chance it is destroyed this turn</span></div>
+        <div class="cell"><b id="chain-charge">${pct(r.pChargeGivenSurvive)}</b><span>charge lands (${need}+ on 2D6${c.reroll ? ', re-roll' : ''})</span></div>
+      </div>
+      <div class="pipeline" style="margin-top:8px">
+        <div><b>${fx(r.meanShoot)}</b><span>Shooting kills</span></div>
+        <div><b>${pct(r.pWipeShoot)}</b><span>Destroyed by shooting</span></div>
+        <div><b>${fx(r.meanFight)}</b><span>Fight kills (avg over all turns)</span></div>
+        <div><b>${fx(r.meanKills)}</b><span>Total</span></div>
+      </div>
+      <div class="section"><h2>Chance of exactly N models destroyed this turn</h2><div class="chart">${chartSvg(dd)}</div></div>
+      <table class="dist"><thead><tr><th>Models</th><th>Exactly</th><th>At least</th></tr></thead><tbody>
+      ${dd.exact.map((p, k) => ({ k, p, ge: dd.atLeast[k] })).filter(x => x.p >= 0.005 || (x.ge >= 0.005 && x.ge < 0.995)).map(x => `<tr><td>${x.k}</td><td>${pct(x.p)}</td><td>${pct(x.ge)}</td></tr>`).join('')}</tbody></table>`;
+  }
+  return `<div class="row"><h3 class="grow">⚡ Shoot → Charge → Fight</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="small">Target: <b>${esc(tgt?.name ?? '—')}</b> · Shooting: <b>${shooters.length ? shooters.map(esc).join(', ') : 'none'}</b></div>
+    <div class="tiny muted">Shooting uses the units, weapons and rules set on the Attack tab (Shooting). The charger's fight uses its Fight setup, with "charged this turn" on.</div>
+    ${chargers.length ? `<div class="modrow" style="margin-top:8px"><div class="lab">Charging unit</div>
+      <select class="sel" data-input="chain-charger" aria-label="Charging unit">${chargers.map(cu => `<option value="${esc(cu.key)}" ${cu.key === c.chargerKey ? 'selected' : ''}>${esc(cu.name)}</option>`).join('')}</select></div>
+    <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Charge distance</div><div class="wstats">closest bases after shooting, in inches</div></div>
+      <div class="stepper"><button data-action="chain-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val" id="chain-gap">${c.gap}"</div><button data-action="chain-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
+    <div class="modrow"><div class="lab">Charge roll modifier</div>${seg('chain-mod', c.mod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
+    <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>` : ''}
+    <div style="margin-top:10px">${body}</div>
+    <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. Not modelled: Overwatch, the target fighting back, models lost by the charger.</p>`;
 }
 
 function chargeSheet() {
@@ -1329,6 +1448,20 @@ app.addEventListener('click', (ev) => {
       state.saved.splice(Number(el.dataset.i), 1);
       persistSaved();
       return render();
+    case 'open-chain':
+      return openChain();
+    case 'chain-gap':
+      state.chain.gap = Math.max(1, Math.min(24, state.chain.gap + Number(el.dataset.delta)));
+      runChain();
+      return renderSheet();
+    case 'chain-mod':
+      state.chain.mod = Number(el.dataset.value);
+      runChain();
+      return renderSheet();
+    case 'chain-reroll':
+      state.chain.reroll = !state.chain.reroll;
+      runChain();
+      return renderSheet();
     case 'open-charge':
       state.sheet = 'charge';
       return renderSheet();
@@ -1443,6 +1576,11 @@ document.addEventListener('click', (ev) => {
 app.addEventListener('change', (ev) => {
   const el = ev.target;
   if (boardChange(el)) return changed({ calc: false });
+  if (el.dataset.input === 'chain-charger') {
+    state.chain.chargerKey = el.value;
+    runChain();
+    return renderSheet();
+  }
   if (el.dataset.input === 'attach') {
     applyAttach(el.dataset.side, Number(el.dataset.char), el.value === '' ? null : Number(el.value));
     return changed();
@@ -1482,18 +1620,24 @@ restoreLibrary();
 initBoard({
   state, esc, seg, chip, signature: listsSignature,
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
-  openAttack({ side, phase, attacker, target, distance, halfRange }) {
+  // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
+  openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
     state.side = side;
     state.phase = phase;
     const st = setup();
     st.targetKey = target;
     const mods = { distance, halfRange };
-    const existing = st.attackers.find(x => x.unitKey === attacker);
-    if (existing) existing.mods = { ...(existing.mods ?? {}), ...mods };
-    else st.attackers = [{ uid: uidSeq++, unitKey: attacker, counts: {}, mods }];
+    let entry = st.attackers.find(x => x.unitKey === attacker);
+    if (entry) entry.mods = { ...(entry.mods ?? {}), ...mods };
+    else { entry = { uid: uidSeq++, unitKey: attacker, counts: {}, mods }; st.attackers = [entry]; }
+    if (cover !== undefined) {
+      st.defManual = { ...(st.defManual ?? {}), cover: !!cover };
+      entry.inRange = inRange ?? null;
+    }
     state.view = 'attack';
     window.scrollTo(0, 0);
-    console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange})`);
+    if (chain) setTimeout(() => openChain({ chargerKey: attacker, gap: distance }), 0);
+    console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
 parseArmy('A');

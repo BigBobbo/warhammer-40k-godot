@@ -437,8 +437,8 @@ function fnpFor(w, dm, g, mortal) {
   return t >= 7 ? 0 : t;
 }
 
-function runTrial(C, rnd, rec) {
-  const st = newTargetState(C.groups);
+function runTrial(C, rnd, rec, init = null) {
+  const st = init ?? newTargetState(C.groups);  // init: a target already damaged earlier this turn (simulateChain)
   const dm = C.dm;
   const totalStart = aliveTotal(st);
   const perAttacker = [];
@@ -629,6 +629,81 @@ export function simulate(scenario) {
     hazardMW: hazard / trials,
     meanPoints: sumPoints / trials,   // expected points of models destroyed (0 when the lists carry no points)
     totalPoints,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public: one turn against one target — shoot, then charge, then fight
+//
+// chain: {
+//   shoot: scenario | null,   // shooting attacks first (any units)
+//   fight: scenario,          // the charging unit's fight (mods.charged set by the caller)
+//   charge: { gap, mod, reroll },  // 2D6 (+mod, nets to ±1) >= gap - 2" engagement range
+//   trials, seed,
+// }
+// The target's casualties and damaged model carry from the shooting into the
+// fight. A target destroyed by shooting cannot be charged. Fights back /
+// overwatch / the attacker's own losses are not modelled.
+function carryState(st, groups) {
+  const next = newTargetState(groups);
+  for (const s2 of next) {
+    const s1 = st.find(x => x.g.name === s2.g.name && x.g.W === s2.g.W && x.models.length === s2.models.length);
+    if (s1) { s2.models = s1.models.slice(); s2.alive = s1.alive; }
+  }
+  return next;
+}
+
+export function simulateChain(chain) {
+  const C1 = chain.shoot ? compile(chain.shoot) : null;
+  const C2 = compile(chain.fight);
+  const trials = Math.max(1, chain.trials ?? 20000);
+  const rnd = mulberry32(chain.seed ?? 0x5EED);
+  const need = chargeRollNeeded(chain.charge?.gap ?? 0);
+  const cmod = cap1(chain.charge?.mod ?? 0);
+  const groups0 = (C1 ?? C2).groups;
+  const totalModels = groups0.reduce((a, g) => a + g.count, 0);
+  const hist = new Array(totalModels + 1).fill(0);
+  let sumShoot = 0, sumFight = 0, sumPts = 0, wipedShoot = 0, wipedEnd = 0, survived = 0, charged = 0;
+  const rec = {};
+  for (let t = 0; t < trials; t++) {
+    let st = newTargetState(groups0);
+    let kills = 0, pts = 0;
+    if (C1) {
+      runTrial(C1, rnd, rec, st);
+      kills += rec.kills; sumShoot += rec.kills; pts += rec.points;
+    }
+    if (aliveTotal(st) === 0) {
+      wipedShoot++; wipedEnd++;
+    } else {
+      survived++;
+      const roll = () => d6(rnd) + d6(rnd) + cmod;
+      let ok = roll() >= need;
+      if (!ok && chain.charge?.reroll) ok = roll() >= need;
+      if (ok) {
+        charged++;
+        st = carryState(st, C2.groups);
+        runTrial(C2, rnd, rec, st);
+        kills += rec.kills; sumFight += rec.kills; pts += rec.points;
+        if (aliveTotal(st) === 0) wipedEnd++;
+      }
+    }
+    hist[Math.min(kills, totalModels)]++;
+    sumPts += pts;
+  }
+  const exact = hist.map(c => c / trials);
+  const atLeast = new Array(exact.length).fill(0);
+  for (let i = exact.length - 1, acc = 0; i >= 0; i--) { acc += exact[i]; atLeast[i] = acc; }
+  return {
+    trials, totalModels, need,
+    meanShoot: sumShoot / trials,
+    meanFight: sumFight / trials,
+    meanKills: (sumShoot + sumFight) / trials,
+    meanPoints: sumPts / trials,
+    pWipeShoot: wipedShoot / trials,
+    pWipe: wipedEnd / trials,
+    pChargeGivenSurvive: survived ? charged / survived : 0,
+    pCharge: charged / trials,
+    kills: exact, killsAtLeast: atLeast,
   };
 }
 

@@ -646,6 +646,74 @@ try {
   await page.waitForSelector('#board-svg #board-photo', { timeout: 15000 });
   check('table photo survives a reload (stored on the device)', (await page.evaluate(() => window.__calc.board().photo?.taps?.length)) === 4);
 
+  // --- line of sight + cover (11e terrain on the map), danger zones, threats, turn chain
+  await page.tap('button[data-action="board-photo-map"][data-value="map"]');
+  if ((await page.locator('details[data-details="board-tray"]').getAttribute('open')) === null) await page.locator('details[data-details="board-tray"] > summary').tap();
+  await page.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Meganobz' }).tap();
+  const mnTk = (await tokens()).find(t => t.tk.startsWith('B:') && t.tk !== bBoyz.tk).tk;
+  // find one spot where the Meganobz are hidden from the Grey Hunters behind terrain, and one in plain sight
+  const spots = await page.evaluate(async ({ gh, mn }) => {
+    const S = await import('/calc/sight.mjs');
+    const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+    const d = window.__calc.board();
+    const pieces = LAYOUTS.find(l => l.id === d.layout).pieces;
+    const U = Object.fromEntries(d.units.map(u => [u.tk, u]));
+    const att = { ...U[gh], x: 22, y: 30, models: U[gh].models.map(m => ({ ...m })) };
+    const range = Math.max(...U[gh].ranges);
+    let blocked = null, clear = null;
+    for (let y = 4; y <= 56 && !(blocked && clear); y += 1) for (let x = 3; x <= 41 && !(blocked && clear); x += 1) {
+      const tgt = { ...U[mn], x, y };
+      const v = S.sightVerdict(att, tgt, pieces, { range });
+      if (!blocked && v.verdict === 'blocked' && !v.borderline && Math.hypot(x - 22, y - 30) < range) blocked = { x, y, v };
+      if (!clear && v.verdict === 'clear' && !v.borderline && !v.cover && Math.hypot(x - 22, y - 30) < range - 6) clear = { x, y, v };
+    }
+    return { blocked, clear };
+  }, { gh: bGh.tk, mn: mnTk });
+  check('found a blocked and a clear spot on this layout', !!(spots.blocked && spots.clear), JSON.stringify(spots));
+  const placeAt = (tk, x, y) => page.evaluate(([t, px, py]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[t], { x: px, y: py }); }, [tk, x, y]);
+  const pairUp = async () => {
+    await page.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    const empty = await toScreen(43, 59.5); await page.mouse.click(empty.x, empty.y);
+    const toks2 = await tokens();
+    for (const tk of [bGh.tk, mnTk]) { const t = toks2.find(x => x.tk === tk); const q = await toScreen(t.x, t.y); await page.mouse.click(q.x, q.y); }
+  };
+  await page.evaluate(([t]) => { const p = window.__calc.board().plan; p.steps[p.cur].tokens[t].rot = 0; }, [bGh.tk]);
+  await placeAt(bGh.tk, 22, 30);
+  await placeAt(mnTk, spots.blocked.x, spots.blocked.y);
+  await pairUp();
+  let sightEl = page.locator('#board-sight');
+  check('pair card shows line of sight: Blocked behind terrain', await sightEl.getAttribute('data-verdict') === 'blocked' && /Blocked/.test(await sightEl.textContent()), await sightEl.textContent().catch(() => 'no #board-sight'));
+  await placeAt(mnTk, spots.clear.x, spots.clear.y);
+  await pairUp();
+  sightEl = page.locator('#board-sight');
+  check('…and Clear in the open, no cover', await sightEl.getAttribute('data-verdict') === 'clear' && /Benefit of cover: no/.test(await sightEl.textContent()), await sightEl.textContent());
+  await page.locator('#board-panel').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_24_board_sight.png') });
+  // danger zones from the Orks + who threatens the Grey Hunters
+  await page.tap('button[data-action="board-danger"][data-value="B"]');
+  check('danger zones drawn from army B (shooting + charge bands)', (await page.locator('#board-svg #danger-layer[data-from="B"] [data-dz]').count()) >= 2);
+  check('Grey Hunters list the Ork units that threaten them next turn', /charge \d+%|🎯/.test(await page.textContent('#board-threats')), await page.textContent('#board-threats'));
+  await page.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+  await page.screenshot({ path: join(SHOTS, 'calc_25_board_danger.png') });
+  await page.tap('button[data-action="board-danger"][data-value="off"]');
+  // board -> turn chain (shoot, charge, fight) with this gap; cover + models seeing passed to the calculator
+  await pairUp();
+  const chainGap = parseFloat((await page.textContent('#board-gap')).match(/([\d.]+)"/)[1]);
+  await page.tap('button[data-action="board-attack"][data-phase="chain"]');
+  await page.waitForSelector('#chain-total', { timeout: 60000 });
+  const ch = await page.evaluate(() => ({ r: window.__calc.state.chainResult, c: window.__calc.state.chain, setup: window.__calc.state.setups[`${window.__calc.state.side}:shooting`] }));
+  check('turn chain opens from the board: Grey Hunters shoot, charge and fight the Meganobz', ch.c.chargerKey === bGh.tk.split(':')[1] && ch.setup.targetKey === mnTk.split(':')[1] && Math.abs(ch.c.gap - Math.round(chainGap)) < 0.01, JSON.stringify({ c: ch.c, t: ch.setup.targetKey }));
+  check('chain result: total = shooting + fight, odds in range', ch.r && Math.abs(ch.r.meanKills - ch.r.meanShoot - ch.r.meanFight) < 1e-9 && ch.r.pChargeGivenSurvive > 0 && ch.r.pChargeGivenSurvive <= 1 && ch.r.pWipe <= 1, JSON.stringify(ch.r && { s: ch.r.meanShoot, f: ch.r.meanFight, p: ch.r.pChargeGivenSurvive }));
+  check('board passed cover = no for a target in plain sight', ch.setup.defManual?.cover === false);
+  const p0Charge = ch.r.pChargeGivenSurvive;
+  for (let i = 0; i < 6; i++) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+  await page.waitForFunction((p) => window.__calc.state.chainResult && window.__calc.state.chainResult.pChargeGivenSurvive < p, p0Charge, { timeout: 60000 });
+  check('a longer charge lowers the odds', true);
+  await page.screenshot({ path: join(SHOTS, 'calc_26_turn_chain.png') });
+  await page.tap('.sheet button[data-action="close-sheet"]');
+  await page.tap('button[data-action="view"][data-value="board"]');
+  await page.waitForSelector('#board-svg');
+
   // --- threat view: what in the Ork army hurts the Grey Hunters most
   await page.tap('button[data-action="view"][data-value="intel"]');
   await page.tap('button[data-action="intel-side"][data-value="A"]');

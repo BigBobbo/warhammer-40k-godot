@@ -300,3 +300,49 @@ test('points removed: per-model points of the destroyed models', () => {
   near(r.meanPoints, 50, 0.4, 'points removed');
   assert.equal(r.totalPoints, 100);
 });
+
+// ---------------------------------------------------------------------------
+// Turn chain: shoot -> charge -> fight
+
+test('turn chain: casualties carry from shooting into the fight; charge odds; no fight when the charge cannot succeed', () => {
+  // target: 10 x 1W, no save. Shooting: 6 attacks hitting on 3+, wounding on 2+ (S8 vs T4): 6*(2/3)*(5/6) = 3.333 kills.
+  // Fight: 6 attacks WS3 S4 vs T4: 6*(2/3)*(1/2) = 2 kills (target never drops below 6 models here... mean stays 2 unless wiped)
+  const def = { name: 'D', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const shoot = { phase: 'shooting', attackers: [{ name: 'S', mods: {}, weapons: [weapon({ count: 6, S: 8 })] }], defender: def };
+  const fight = { phase: 'fight', attackers: [{ name: 'F', mods: { charged: true }, weapons: [weapon({ count: 6, melee: true })] }], defender: def };
+  // gap 2" -> needs 2+ -> always charges
+  const sure = E.simulateChain({ shoot, fight, charge: { gap: 2 }, trials: TRIALS, seed: 7 });
+  near(sure.meanShoot, 6 * (2 / 3) * (5 / 6), 0.03, 'shooting kills');
+  near(sure.pChargeGivenSurvive, 1, 1e-9, 'gap 2" always makes it');
+  near(sure.meanFight, 2, 0.03, 'fight kills on the survivors');
+  near(sure.meanKills, sure.meanShoot + sure.meanFight, 1e-9, 'total = shooting + fight');
+  near(sure.kills.reduce((a, b) => a + b, 0), 1, 1e-9, 'distribution sums to 1');
+  // gap 9" -> needs 7+ on 2D6 = 21/36; with a re-roll 1-(15/36)^2
+  const nine = E.simulateChain({ shoot: null, fight, charge: { gap: 9 }, trials: TRIALS, seed: 7 });
+  near(nine.pCharge, 21 / 36, 0.01, '7+ to charge');
+  near(nine.meanFight, 2 * 21 / 36, 0.03, 'fight only when the charge lands');
+  const rr = E.simulateChain({ shoot: null, fight, charge: { gap: 9, reroll: true }, trials: TRIALS, seed: 7 });
+  near(rr.pCharge, 1 - (15 / 36) ** 2, 0.01, 're-rolled charge');
+  // gap 20" -> needs 18: never; total = shooting alone
+  const far = E.simulateChain({ shoot, fight, charge: { gap: 20 }, trials: TRIALS, seed: 7 });
+  assert.equal(far.pCharge, 0);
+  assert.equal(far.meanFight, 0);
+  near(far.meanKills, 6 * (2 / 3) * (5 / 6), 0.03, 'shooting only');
+});
+
+test('turn chain: a target destroyed by shooting is not charged; the damaged model carries over', () => {
+  // 1 model with 6 W, no save. Shooting: 3 auto-hits (torrent) S8 D1 wounding on 2+: 2.5 W lost on average.
+  // Fight: 10 attacks WS2+... D1: the fight finishes it more often when the shooting already hurt it.
+  const def = { name: 'D', keywords: [], groups: [group({ count: 1, W: 6 })], mods: {} };
+  const shoot = { phase: 'shooting', attackers: [{ name: 'S', mods: {}, weapons: [weapon({ count: 3, skill: null, S: 8, kw: { torrent: true } })] }], defender: def };
+  const fight = { phase: 'fight', attackers: [{ name: 'F', mods: {}, weapons: [weapon({ count: 4, melee: true, skill: 2, S: 8 })] }], defender: def };
+  const fightOnly = E.simulateChain({ shoot: null, fight, charge: { gap: 2 }, trials: TRIALS, seed: 3 });
+  const chained = E.simulateChain({ shoot, fight, charge: { gap: 2 }, trials: TRIALS, seed: 3 });
+  assert.ok(chained.pWipe > fightOnly.pWipe + 0.2, `damage carried over: ${chained.pWipe} vs ${fightOnly.pWipe}`);
+  // 6 W from 3 shots is impossible, so shooting never wipes it
+  assert.equal(chained.pWipeShoot, 0);
+  const big = { ...shoot, attackers: [{ name: 'S', mods: {}, weapons: [weapon({ count: 12, skill: null, S: 8, D: '3', kw: { torrent: true } })] }] };
+  const overkill = E.simulateChain({ shoot: big, fight, charge: { gap: 2 }, trials: 20000, seed: 3 });
+  assert.ok(overkill.pWipeShoot > 0.99);
+  assert.ok(overkill.pCharge < 0.01, 'nothing left to charge');
+});
