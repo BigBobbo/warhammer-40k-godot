@@ -3,11 +3,21 @@
 //    then the full run;
 //  - batch (matchup grid): one result per cell, posted as each finishes.
 import { simulate, simulateChain } from './engine.mjs';
+import { forecast } from './forecast.mjs';
 
 const QUICK = 3000;
 
 self.onmessage = (ev) => {
   const { id, scenario, trials, batch, chain } = ev.data;
+  if (ev.data.forecast) {
+    // game VP forecast: the base plan, then each what-if
+    try {
+      const { base, variants } = ev.data.forecast;
+      const out = { id, base: forecast(base), variants: (variants ?? []).map(v => ({ key: v.key, label: v.label, result: v.P ? forecast(v.P) : null })) };
+      self.postMessage(out);
+    } catch (err) { self.postMessage({ id, error: String(err?.stack ?? err) }); }
+    return;
+  }
   if (chain) {
     try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, trials: trials ?? 20000 }) }); }
     catch (err) { self.postMessage({ id, chain: true, error: String(err?.stack ?? err) }); }
