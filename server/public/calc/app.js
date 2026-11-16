@@ -9,6 +9,7 @@ import {
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, _missionDebug } from './missionview.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
 const TRIALS = 20000;
@@ -311,14 +312,16 @@ function render() {
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
         <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>Attack</button>
         <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? '' : 'disabled'}>Board</button>
+        <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
-    <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
+    <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'mission' && ready ? missionView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
   renderResultViews();
   renderSheet();
   if (state.view === 'board') boardAfterRender();
+  if (state.view === 'mission') missionAfterRender();
 }
 
 // ---- Intel: enemy cheat sheet
@@ -1248,6 +1251,10 @@ app.addEventListener('click', (ev) => {
   if (!el || el.disabled) return;
   const a = el.dataset.action;
   const s = setup();
+  if (a.startsWith('mission-')) {
+    if (missionAction(a, el) === 'render') changed({ calc: false });
+    return;
+  }
   if (a.startsWith('board-')) {
     if (boardAction(a, el) === 'render') changed();
     return;
@@ -1576,6 +1583,9 @@ document.addEventListener('click', (ev) => {
 app.addEventListener('change', (ev) => {
   const el = ev.target;
   if (boardChange(el)) return changed({ calc: false });
+  const mc = missionChange(el);
+  if (mc === 'quiet') return persist();
+  if (mc) return changed({ calc: false });
   if (el.dataset.input === 'chain-charger') {
     state.chain.chargerKey = el.value;
     runChain();
@@ -1594,6 +1604,7 @@ app.addEventListener('change', (ev) => {
 });
 app.addEventListener('input', (ev) => {
   const el = ev.target;
+  if (el.dataset.input === 'mission-score') { missionChange(el); return; }
   if (el.dataset.input === 'text') { state.texts[el.dataset.side] = el.value; persist(); }
   if (el.dataset.input === 'intel-search') {
     state.intelQuery = el.value;
@@ -1640,6 +1651,7 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
+initMission({ state, esc, seg, chip });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
@@ -1651,4 +1663,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug };

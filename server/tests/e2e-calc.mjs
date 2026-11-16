@@ -714,6 +714,56 @@ try {
   await page.tap('button[data-action="view"][data-value="board"]');
   await page.waitForSelector('#board-svg');
 
+  // --- Mission tab: forecast for both players, objective plan, secondary card sheet, in-game tracker
+  await page.tap('button[data-action="view"][data-value="mission"]');
+  await page.waitForSelector('#fc-win', { timeout: 60000 });
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.levers?.length >= 4; }, null, { timeout: 60000 });
+  let mi = await page.evaluate(() => window.__calc.mission());
+  check('mission tab names both primaries and classifies the objectives (2 homes, centre, expansions)', /plays/.test(await page.textContent('#mission-names'))
+    && mi.objectives.filter(o => o.cls === 'home').length === 2 && mi.objectives.some(o => o.cls === 'central'), JSON.stringify(mi.objectives));
+  check('forecast: a VP range for each player, win chance and lead by round', mi.result.A.p10 <= mi.result.A.p50 && mi.result.A.p50 <= mi.result.A.p90
+    && Math.abs(mi.result.pWinA + mi.result.pWinB + mi.result.pDraw - 1) < 1e-9 && (await page.locator('#fc-lead .cell').count()) === 5, JSON.stringify({ A: mi.result.A.mean, B: mi.result.B.mean }));
+  check('caps respected (each player at most 100 VP; 15 per round per source)', ['A', 'B'].every(X => mi.result[X].p90 <= 100 && mi.result[X].prim.every(v => v <= 15) && mi.result[X].sec.every(v => v <= 15)));
+  check('what-ifs listed (objectives, trading)', (await page.locator('#fc-levers tbody tr').count()) >= 4);
+  await page.screenshot({ path: join(SHOTS, 'calc_27_mission_forecast.png') });
+  // plan: give A the centre from round 2 -> A's chance goes up
+  const winBefore = mi.result.pWinA;
+  const centre = mi.objectives.find(o => o.cls === 'central').id;
+  for (let r = 2; r <= 5; r++) {
+    // cycle the cell until it shows A
+    for (let k = 0; k < 3 && (await page.evaluate(([rr, o]) => window.__calc.mission().plan[rr][o], [r, centre])) !== 'A'; k++) {
+      await page.tap(`button[data-action="mission-plan"][data-r="${r}"][data-o="${centre}"]`);
+    }
+  }
+  await page.waitForFunction((w) => { const m = window.__calc.mission(); return m.result && !m.busy && m.result.pWinA > w + 0.05; }, winBefore, { timeout: 60000 });
+  check('holding the centre in the plan raises the win chance', true);
+  // secondary card sheet
+  await page.locator('#mission-cards').scrollIntoViewIfNeeded();
+  check('card sheet lists all 18 secondaries', (await page.locator('#mission-cards tr.card-row').count()) === 18);
+  await page.tap('#mission-cards button[data-action="mission-card"][data-id="behind-enemy-lines"]');
+  check('tapping a card shows its rules text', /deployment zone/.test(await page.textContent('#mission-cards tr.card-detail')));
+  check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
+  await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
+  // in-game tracker: A drew Assassination and Secure No Man's Land in round 2, scored one; primary 9
+  await page.tap('button[data-action="mission-round"][data-value="2"]');
+  await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
+  await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'secure-no-mans-land');
+  check('drawn cards show as active', (await page.locator('#hand-A .chip').count()) === 2);
+  await page.tap('#hand-A button[data-id="assassination"][data-do="scored"]');
+  await page.fill('input[data-input="mission-score"][data-side="A"][data-k="primary"]', '9');
+  await page.fill('input[data-input="mission-score"][data-side="A"][data-k="secondary"]', '5');
+  await page.locator('#mission-names').tap();
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 9 && m.game.A.secondary === 5 && m.result.A.prim[0] === 0; }, null, { timeout: 60000 });
+  check('both score boxes keep what was typed (no re-render between them)', (await page.inputValue('input[data-input="mission-score"][data-side="A"][data-k="secondary"]')) === '5');
+  mi = await page.evaluate(() => window.__calc.mission());
+  check('tracker: scored card is out of the deck, the forecast restarts from round 2 with the score carried', mi.game.A.used.includes('assassination') && mi.game.A.hand.join() === 'secure-no-mans-land'
+    && mi.result.A.cards['assassination'] === undefined && mi.result.A.mean >= 9 + 5 && /17 cards left|16 cards left/.test(await page.textContent('#odds-A')), JSON.stringify({ g: mi.game.A, odds: await page.textContent('#odds-A') }));
+  await page.locator('[data-player="A"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_29_mission_tracker.png') });
+  await page.tap('button[data-action="mission-reset"]');
+  await page.tap('button[data-action="view"][data-value="board"]');
+  await page.waitForSelector('#board-svg');
+
   // --- threat view: what in the Ork army hurts the Grey Hunters most
   await page.tap('button[data-action="view"][data-value="intel"]');
   await page.tap('button[data-action="intel-side"][data-value="A"]');

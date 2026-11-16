@@ -877,6 +877,16 @@ async function shareImage() {
   }
 }
 
+// for the Mission tab: the mission, layout and which deployment zone is A's
+export function boardContext() {
+  const l = currentLayout();
+  return {
+    layout: l, deployment: l ? DEPLOYMENTS[l.deployment] : null,
+    dispA: dispOf('A'), dispB: dispOf('B'), missions: missionsFor(dispOf('A'), dispOf('B')),
+    zoneA: zoneOf('A'), zoneB: zoneOf('B'), colors: { A: C.A, B: C.B },
+  };
+}
+
 // for tests
 export function _boardDebug() {
   return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),

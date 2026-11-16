@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.87.0",
+      "date": "2026-11-16",
+      "summary": "Combat Calc: new Mission tab with a VP forecast for both players, a secondary-card planner and an in-game tracker.",
+      "changes": [
+        "Forecast: likely final score for you and your opponent (range), win chance, chance you are ahead after each battle round, and VP by round.",
+        "What changes the result: holding one more objective, taking their home, trading harder or playing safer, shown as the change in win chance.",
+        "Objective plan: tap who you expect to hold each objective in each round; the forecast follows it.",
+        "Secondary cards for this matchup (all 18 GW 11e cards, checked against the official cards): dead cards, average VP if drawn, how often each scores quickly, a keep-ready list and a hit list of enemy units worth secondary VP.",
+        "In-game tracker: cards drawn, scored and discarded, the score, and the chance of each remaining card coming up; the forecast re-runs from the current round.",
+        "Primary scoring for all 25 primary missions and the 45 VP / 15 VP-per-round caps; Battle Ready +10.",
+        "Board fixes (11th edition only, checked against all 45 official layout cards): Crucible of Battle deployment zones now match the 11e card (the bottom zone was up to 3\" too small), and the 24 layouts with 6 objectives now have both central objectives instead of one."
+      ]
+    },
+    {
       "version": "1.86.0",
       "date": "2026-11-14",
       "summary": "Board: line of sight and cover, danger zones, and a shoot-charge-fight calculator for the whole turn.",

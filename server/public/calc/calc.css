@@ -287,3 +287,31 @@ table.grid .cell { width: 100%; min-width: 56px; height: 40px; border: 0; border
 .photo-ov-foot { display: flex; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: #1a1a19; }
 .photo-ov .btn.ghost { color: #f0efec; border-color: #383835; }
 label.btn { display: inline-flex; align-items: center; justify-content: center; }
+/* mission tab: player series colours (validated: light vs surface-1, dark vs surface-1) */
+:root { --side-a: #3987e5; --side-b: #e0672f; }
+@media (prefers-color-scheme: light) { :root { --side-a: #2a78d6; --side-b: #d95926; } }
+table.plan { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.plan th, table.plan td { padding: 3px 2px; text-align: center; }
+table.plan th:first-child, table.plan td:first-child { text-align: left; padding-left: 0; }
+table.plan th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
+.plan-cell { width: 100%; min-width: 40px; min-height: 40px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font-weight: 700; cursor: pointer; }
+.plan-cell.a { background: color-mix(in srgb, var(--side-a) 22%, var(--surface-1)); border-color: var(--side-a); }
+.plan-cell.b { background: color-mix(in srgb, var(--side-b) 22%, var(--surface-1)); border-color: var(--side-b); }
+.plan-cell.c { color: var(--text-muted); }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-secondary); white-space: nowrap; }
+.pill.good { border-color: var(--accent); color: var(--text-primary); }
+.pill.bad { border-color: var(--critical); color: var(--critical); }
+.pill.weak { color: var(--text-muted); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+ul.keep { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+ul.keep li { margin: 4px 0; }
+.linkish { background: none; border: 0; padding: 0; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+table.dist.cards td:nth-child(2) { text-align: left; }
+.chip .mini { margin-left: 4px; min-width: 28px; min-height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
+.chip.on .mini { font-weight: 700; }
+input.num { width: 100%; min-height: 40px; margin-top: 4px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); padding: 0 10px; font-size: 16px; }
+.hero.lead .cell b { font-size: 17px; }
+td.up { color: var(--text-primary); }
+td.down { color: var(--text-muted); }
+.tabs .tab { padding-left: 10px; padding-right: 10px; }
+.chip.nocheck::before { content: none; }
