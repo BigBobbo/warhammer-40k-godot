@@ -744,6 +744,25 @@ try {
   check('tapping a card shows its rules text', /deployment zone/.test(await page.textContent('#mission-cards tr.card-detail')));
   check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
   await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
+  // your own estimate of a card's VP if drawn (max shown), and the Assumptions buttons work
+  await page.tap('#mission-cards button[data-action="mission-card"][data-id="assassination"]');
+  check('card sheet shows each card\'s max (5)', (await page.textContent('#mission-cards tr.card-row[data-card="assassination"]')).includes('5'));
+  for (let i = 0; i < 12; i++) await page.tap('#mission-cards button[data-action="mission-est"][data-id="assassination"][data-delta="-0.5"]');
+  for (let i = 0; i < 6; i++) await page.tap('#mission-cards button[data-action="mission-est"][data-id="assassination"][data-delta="0.5"]');
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return !m.busy && m.result && Math.abs((m.result[m.me].cards.assassination?.perDraw ?? 0) - 3) < 0.35; }, null, { timeout: 60000 });
+  check('setting Assassination to 3 / 5 makes the forecast use 3 VP if drawn', /3\.0/.test(await page.textContent(`#est-${(await page.evaluate(() => window.__calc.mission().me))}-assassination`))
+    && /Your estimate/.test(await page.textContent('#mission-cards tr.card-row[data-card="assassination"]')));
+  await page.screenshot({ path: join(SHOTS, 'calc_33_card_estimate.png') });
+  await page.tap('#mission-cards button[data-action="mission-est-auto"][data-id="assassination"]');
+  check('"Use the app\'s" clears your estimate', await page.evaluate(() => window.__calc.state.mission.est[window.__calc.state.mission.me].assassination === undefined));
+  await page.locator('details.more summary', { hasText: 'Assumptions' }).tap();
+  await page.tap('button[data-action="mission-mode"][data-value="fixed"]');
+  await page.tap('button[data-action="mission-kills"][data-value="2"]');
+  const asm = await page.evaluate(() => ({ mode: window.__calc.state.mission.modes.A.mode, kills: window.__calc.state.mission.killRate.A }));
+  check('Assumptions buttons change the setting (Fixed, trading)', asm.mode === 'fixed' && asm.kills === 2, JSON.stringify(asm));
+  await page.tap('button[data-action="mission-mode"][data-value="tactical"]');
+  await page.tap('button[data-action="mission-kills"][data-value="1.3"]');
+
   // in-game tracker: A drew Assassination and Secure No Man's Land in round 2, scored one; primary 9
   await page.tap('button[data-action="mission-round"][data-value="2"]');
   await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
@@ -784,6 +803,21 @@ try {
     }
     return null;
   }, bGh.tk);
+  // the board shows who controls each objective in this step (OC of units in range)
+  const centreObj = await page.evaluate(async (gh) => {
+    const { boardContext } = await import('/calc/boardview.mjs');
+    const o = boardContext().layout.objectives.find(x => x.role === 'central');
+    const p = window.__calc.board().plan;
+    const keep = { ...p.steps[p.cur].tokens[gh] };
+    Object.assign(p.steps[p.cur].tokens[gh], { x: o.x, y: o.y });
+    return { id: o.id, keep };
+  }, bGh.tk);
+  await page.tap(`button[data-action="board-step"][data-i="${await page.evaluate(() => window.__calc.board().plan.cur)}"]`);
+  const ctl = await page.evaluate((id) => { const g = document.querySelector(`#obj-control [data-obj="${id}"]`); return g && { control: g.dataset.control, oca: +g.dataset.oca, ocb: +g.dataset.ocb }; }, centreObj.id);
+  check('board: the centre objective shows A in control with the Grey Hunters\' OC', ctl?.control === 'A' && ctl.oca >= 10, JSON.stringify(ctl));
+  await page.locator('#board-host').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_34_board_objective_control.png') });
+  await page.evaluate(([gh, keep]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[gh], keep); }, [bGh.tk, centreObj.keep]);
   await page.tap('button[data-action="view"][data-value="mission"]');
   await page.waitForSelector('button[data-action="mission-source"][data-value="1"]');
   await page.tap('button[data-action="mission-source"][data-value="1"]');

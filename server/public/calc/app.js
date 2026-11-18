@@ -1640,6 +1640,9 @@ app.addEventListener('toggle', (ev) => {
   const el = ev.target;
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
+  // Mission tab panels stay open while their buttons re-draw the page
+  if (el.dataset?.details === 'mission-assume' && state.mission) state.mission.openAssume = el.open;
+  if (el.dataset?.details?.startsWith('mission-dead-') && state.mission) (state.mission.openDead ??= {})[el.dataset.details.slice(-1)] = el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
     if (e) { e.openMods = el.open; persist(); }

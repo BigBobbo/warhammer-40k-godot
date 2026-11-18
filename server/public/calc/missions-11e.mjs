@@ -74,6 +74,10 @@ export const SECONDARIES = [
   { id: 'secure-no-mans-land', name: 'Secure No Man’s Land', timing: 'own', kind: 'hold',
     text: '5 VP if you control two or more objectives in No Man’s Land.' },
 ];
+// Most VP one tactical card can pay when it scores (checked on every card: the
+// higher tier, the "max 5VP" cap, or 3 + 2 for Defend Stronghold), and the
+// per-game cap for a FIXED card.
+for (const c of SECONDARIES) { c.max = 5; if (c.fixed) c.fixedMax = RULES.fixedCardCap; }
 export const SECONDARY_BY_ID = Object.fromEntries(SECONDARIES.map(c => [c.id, c]));
 export const FIXED_IDS = SECONDARIES.filter(c => c.fixed).map(c => c.id);
 

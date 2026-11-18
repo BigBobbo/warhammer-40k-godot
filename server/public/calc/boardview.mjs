@@ -12,6 +12,7 @@ import {
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach } from './sight.mjs';
+import { inRange } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -252,6 +253,23 @@ export function boardSvg({ forExport = false } = {}) {
       + `<g fill-opacity="${tokAlpha}">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')}</g>`
       + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
   }
+  // who controls each objective in this step: OC of each army's units in range
+  // (on the hosting terrain area, or within 3" + the marker); the Mission tab's
+  // board-plan forecast uses the same measurement
+  parts.push('<g id="obj-control" pointer-events="none">');
+  for (const o of l.objectives) {
+    const oc = { A: 0, B: 0 };
+    for (const t of toks) if (t.u.oc && inRange(t, o, l.pieces)) oc[t.side] += t.u.oc;
+    if (!oc.A && !oc.B) continue;
+    const ctl = oc.A > oc.B ? 'A' : oc.B > oc.A ? 'B' : 'tie';
+    const col = ctl === 'tie' ? '#777' : C[ctl];
+    const w = 4.6 * fontK, h = 1.25 * fontK, y = o.y + 1.1;
+    parts.push(`<g data-obj="${o.id}" data-control="${ctl}" data-oca="${oc.A}" data-ocb="${oc.B}">`
+      + `<circle cx="${o.x}" cy="${o.y}" r="1.05" fill="none" stroke="${col}" stroke-width="0.3"/>`
+      + `<rect x="${f2(o.x - w / 2)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" rx="${f2(0.3 * fontK)}" fill="#ffffff" stroke="${col}" stroke-width="0.1"/>`
+      + `<text x="${o.x}" y="${f2(y + h * 0.75)}" font-size="${f2(0.8 * fontK)}" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" fill="${C.text}">A ${oc.A} · B ${oc.B}</text></g>`);
+  }
+  parts.push('</g>');
   // gap line between two selected units
   const sel2 = toks.find(t => t.tk === b.sel2);
   if (sel && sel2) {
