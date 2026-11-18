@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.90.0",
+      "date": "2026-11-18",
+      "summary": "Combat Calc shows its version and picks up new versions straight away.",
+      "changes": [
+        "The app version (e.g. v1.90.0) is shown at the top and on the Armies tab.",
+        "When there is signal the app always loads its newest version; it only uses the saved offline copy when offline or on a very slow connection.",
+        "When a new version arrives while the app is open, a banner offers to reload into it. Lists and plans are kept."
+      ]
+    },
+    {
       "version": "1.89.0",
       "date": "2026-11-18",
       "summary": "Mission tab: set your own VP-if-drawn for any secondary (shown against its max), objective control shown on the board, and fixes for buttons that did nothing.",
