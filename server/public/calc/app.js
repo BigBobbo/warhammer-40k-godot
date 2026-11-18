@@ -8,6 +8,7 @@ import {
   attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { CALC_VERSION } from './version.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, _missionDebug } from './missionview.mjs';
 
@@ -305,8 +306,8 @@ function render() {
   const ready = a && b;
   app.innerHTML = `
     <header class="top"><div class="wrap">
-      <div class="brand">⚔<span class="brand-full"> Combat Calc</span></div>
-      <span class="badge" title="40kdc dataset version">11e · data ${esc(DATASET_VERSION)}</span>
+      <div class="brand">⚔<span class="brand-full"> Combat Calc</span><span class="ver-mini" id="app-version-mini">v${esc(CALC_VERSION)}</span></div>
+      <span class="badge" id="app-version" title="App version · 40kdc dataset ${esc(DATASET_VERSION)}">v${esc(CALC_VERSION)}</span>
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
@@ -431,7 +432,7 @@ function armiesView() {
   const ready = state.armies.A && state.armies.B;
   return `${panel('A')}${panel('B')}
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
-    <p class="hint">Lists stay on this device. Works offline once loaded. 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
+    <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
 }
 
 function attackView() {
@@ -1686,7 +1687,22 @@ render();
 scheduleCalc();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[calc] service worker not registered', err));
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+    // check for a new version whenever the app comes back to the foreground
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(err => console.warn('[calc] service worker not registered', err));
+  // a new version took over: offer to reload into it (lists and plans are saved)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || document.getElementById('update-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'update-banner';
+    bar.className = 'update-banner';
+    bar.innerHTML = '<span class="grow">A new version of the app is ready.</span><button class="btn primary" id="update-reload">Reload</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('#update-reload').addEventListener('click', () => location.reload());
+    console.log('[calc] new version available');
+  });
 }
 
 // test / debugging hook

@@ -1,9 +1,12 @@
 // Offline support for the combat calculator: the app shell, the dataset
-// bundle and the importer modules are cached on install; everything else
-// same-origin (except /api) is served stale-while-revalidate.
-const CACHE = 'w40k-calc-v14';
+// bundle and the importer modules are cached on install. Requests go to the
+// network first (so a new version is picked up as soon as there is signal)
+// and fall back to the cache when offline or after a short timeout.
+// The cache name carries the app version (version.mjs).
+const CACHE = 'w40k-calc-1.90.0';
+const NETWORK_TIMEOUT_MS = 3500;
 const SHELL = [
-  './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs',
+  './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs', './version.mjs',
   './manifest.webmanifest', './icon-192.png', './icon-512.png',
   '/js/builder/store.js', '/js/builder/importers.js',
   '/js/lib/canon.mjs', '/js/lib/data-patches.mjs', '/js/lib/dckit.mjs', '/js/lib/detachment-rules.mjs',
@@ -28,10 +31,13 @@ self.addEventListener('fetch', (ev) => {
   if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   ev.respondWith(caches.open(CACHE).then(async (cache) => {
     const cached = await cache.match(req, { ignoreSearch: true });
-    const network = fetch(req).then((res) => {
+    const network = fetch(req, { cache: 'no-cache' }).then((res) => {
       if (res.ok) cache.put(req, res.clone());
       return res;
-    }).catch(() => cached);
-    return cached ?? network;
+    });
+    if (!cached) return network;
+    // network first; the cached copy if the network fails or is slow
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(cached), NETWORK_TIMEOUT_MS));
+    return Promise.race([network.catch(() => cached), timeout]);
   }));
 });

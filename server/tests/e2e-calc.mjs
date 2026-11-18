@@ -443,6 +443,22 @@ try {
   check('works offline after first visit', (await kpi(page)).every(Boolean));
   await ctx.setOffline(false);
 
+  // version shown, and a new version is picked up on the next load (network first, offline copy as fallback)
+  const { CALC_VERSION } = await import(new URL('../public/calc/version.mjs', import.meta.url).href);
+  check('header shows the app version (under the icon on a phone)', (await page.textContent('#app-version-mini')).trim() === `v${CALC_VERSION}` && await page.isVisible('#app-version-mini'));
+  const vFile = join(here, '..', 'public', 'calc', 'version.mjs');
+  const vOrig = readFileSync(vFile, 'utf8');
+  try {
+    writeFileSync(vFile, vOrig.replace(CALC_VERSION, '9.9.9'));
+    await page.reload();
+    await page.waitForSelector('#app-version-mini');
+    check('a new version is used on the next load even with the offline copy installed', (await page.textContent('#app-version-mini')).trim() === 'v9.9.9', await page.textContent('#app-version-mini'));
+  } finally {
+    writeFileSync(vFile, vOrig);
+  }
+  await page.reload();
+  await page.waitForSelector('#app-version-mini');
+
   // --- board planner: official GW layout, tokens, rings, gap -> calculator, steps, ruler, export
   const toScreen = (x, y) => page.evaluate(([bx, by]) => {
     const svg = document.getElementById('board-svg');

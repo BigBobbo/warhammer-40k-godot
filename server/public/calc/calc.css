@@ -251,8 +251,11 @@ table.dist th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
 .intel-unit table.dist td, .intel-unit table.dist th { padding: 4px 6px; }
 
 /* three tabs on a phone: drop the dataset badge (shown on the Armies tab instead) */
+.ver-mini { display: none; }
 @media (max-width: 460px) {
   .badge { display: none; }
+  /* the app version under the icon instead (no room for the badge) */
+  .ver-mini { display: block; font-size: 10px; font-weight: 500; color: var(--text-muted); line-height: 1; margin-top: 1px; }
   .tab { padding: 0 11px; }
   .brand { font-size: 16px; }
 }
@@ -320,3 +323,4 @@ ul.keep.warn li { color: var(--warn); }
 ul.keep.warn li.info { color: var(--text-muted); }
 .pill.mine { border-color: var(--accent); background: var(--series-1-wash); color: var(--text-primary); }
 .row.est .stepper .val { min-width: 74px; text-align: center; }
+.update-banner { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 80; display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
