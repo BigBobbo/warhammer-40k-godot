@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.89.0",
+      "date": "2026-11-18",
+      "summary": "Mission tab: set your own VP-if-drawn for any secondary (shown against its max), objective control shown on the board, and fixes for buttons that did nothing.",
+      "changes": [
+        "Secondary cards: each card shows its max (5 VP) and you can set your own 'VP if drawn' estimate (e.g. Assassination 3 of 5); the forecast uses it, and 'Use the app's' goes back.",
+        "Board: each objective shows the OC of each army's units in range for the current step and who controls it, the same measurement the board-plan forecast uses.",
+        "Fix: the card difficulty buttons, Tactical / Fixed, units destroyed per turn and mission action buttons did nothing when tapped.",
+        "Fix: the Assumptions panel no longer closes after every change."
+      ]
+    },
+    {
       "version": "1.88.0",
       "date": "2026-11-16",
       "summary": "Mission tab: forecast from your board plans, compare plans, and no more guessed odds for position-based secondaries.",

@@ -16,8 +16,7 @@ const LS_KEY = 'w40k_calc_mission_v1';
 const other = (p) => (p === 'A' ? 'B' : 'A');
 const KILL_RATES = [[0.8, 'Low'], [1.3, 'Even'], [2, 'High']];
 const ACTION_P = [[0.9, 'Easy'], [0.7, 'OK'], [0.45, 'Hard']];
-const RATE_OPTS = [[RATING.easy, 'Easy'], [RATING.normal, 'Normal'], [RATING.hard, 'Hard'], [RATING.never, 'Never']];
-const RATE_LABEL = Object.fromEntries(RATE_OPTS.map(([v, l]) => [v, l]));
+
 
 export function initMission(c) {
   ctx = c;
@@ -32,7 +31,7 @@ function ms() {
   s.mission ??= {
     me: 'A', first: null, battleReady: { A: true, B: true },
     modes: { A: { mode: 'tactical', fixed: [] }, B: { mode: 'tactical', fixed: [] } },
-    killRate: { A: 1.3, B: 1.3 }, actionP: { A: 0.7, B: 0.7 }, rate: { A: {}, B: {} },
+    killRate: { A: 1.3, B: 1.3 }, actionP: { A: 0.7, B: 0.7 }, rate: { A: {}, B: {} }, est: { A: {}, B: {} },
     plans: {}, game: newGame(), sheetSide: null, cardOpen: null,
     source: 'grid',          // objectives / positions from the grid, or a board plan (its index)
     enemyFrom: 'board',      // enemy positions from the board plan, or the grid toggles
@@ -222,7 +221,7 @@ export function forecastParams(over = {}) {
   const player = (X) => ({
     mission: bc.missions[X], mode: m.modes[X].mode, fixed: m.modes[X].fixed,
     army: (X === 'A' ? pa : pb).profile, killRate: over.killRate?.[X] ?? m.killRate[X], actionP: m.actionP[X],
-    rate: m.rate[X], battleReady: m.battleReady[X],
+    rate: m.rate[X], vpEst: m.est?.[X] ?? {}, battleReady: m.battleReady[X],
     start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[other(X)].destroyed } : null,
   });
   const next = g.next ?? first ?? 'A';
@@ -331,7 +330,7 @@ export function missionView() {
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
         <div><div class="lab tiny muted">First turn</div>${ctx.seg('mission-first', m.first ?? 'roll', [['A', 'A'], ['B', 'B'], ['roll', 'Roll-off']], 'compact')}</div>
       </div>
-      <details class="more" style="margin-top:8px"><summary>Assumptions (modes, trading, actions)</summary>
+      <details class="more" style="margin-top:8px" data-details="mission-assume" ${m.openAssume ? 'open' : ''}><summary>Assumptions (modes, trading, actions)</summary>
         ${modeRow('A')}${modeRow('B')}
         ${['A', 'B'].map(X => `<div class="modrow"><div class="lab">${X}: units destroyed per turn</div>${ctx.seg('mission-kills', m.killRate[X], KILL_RATES, `compact" data-side="${X}`)}</div>`).join('')}
         ${['A', 'B'].map(X => `<div class="modrow"><div class="lab">${X}: mission actions (Cleanse, Plunder, ${esc(PRIMARIES[bc.missions[X]]?.action ? bc.missions[X] : 'primary actions')})</div>${ctx.seg('mission-action', m.actionP[X], ACTION_P, `compact" data-side="${X}`)}</div>`).join('')}
@@ -492,35 +491,53 @@ function cardsHtml() {
     const s = res[c.id];
     return { c, dead, perDraw: dead ? 0 : (s?.perDraw ?? null), quick: s?.quickRate ?? null };
   }).sort((a, b) => (a.dead - b.dead) || ((b.perDraw ?? -1) - (a.perDraw ?? -1)));
-  const rate = m.rate[side] ?? {};
+  const est = m.est?.[side] ?? {};
+  const fixedMode = m.modes[side].mode === 'fixed';
   const row = ({ c, dead, perDraw, quick }) => {
     const open = m.cardOpen === `${side}:${c.id}`;
     // strong = pays well AND usually scores straight away; hard = slow or low
     const position = POSITION_CARDS.includes(c.id);
     const tag = dead ? '<span class="pill bad">Dead</span>'
       // where-your-units-are cards: never guessed, the player rates them
+      : est[c.id] != null && !fixedMode ? '<span class="pill mine">Your estimate</span>'
       : position && sourcePlan() != null && (side === m.me || m.enemyFrom === 'board') ? '<span class="pill good">Board plan</span>'
-      : position ? (rate[c.id] == null ? '<span class="pill ask">You rate it</span>' : `<span class="pill">Rated ${RATE_LABEL[rate[c.id]] ?? ''}</span>`)
+      : position ? '<span class="pill ask">You rate it</span>'
       : perDraw == null ? '' : perDraw >= 3.5 && quick >= 0.6 ? '<span class="pill good">Strong</span>' : perDraw >= 2.5 && quick >= 0.35 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''}</td>
-      <td>${tag}</td><td>${dead ? '–' : perDraw == null ? '…' : fmt(perDraw, 1)}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
-      ${open ? `<tr class="card-detail"><td colspan="4"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
+      <td>${tag}</td><td>${dead ? '–' : perDraw == null ? '…' : fmt(perDraw, 1)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
+      ${open ? `<tr class="card-detail"><td colspan="5"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
         ${c.fixedText ? `<div class="tiny muted">Fixed: ${esc(c.fixedText)}</div>` : ''}
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
-          : !position ? `<div class="tiny muted" style="margin-top:4px">${c.kind === 'kill' ? 'Scored from units destroyed in the forecast (trading rates) and which enemy units are valid targets.' : 'Scored from the objective plan.'}</div>`
-          : `<div class="tiny muted" style="margin-top:4px">Depends on where ${side}'s units are. The app doesn't measure positions here, so it uses your rating: how often can ${side} manage this on this table? (Normal = about half the turns it is active.)</div>
-             <div class="modrow">${ctx.seg('mission-rate', rate[c.id] ?? '', RATE_OPTS, `compact" data-side="${side}" data-id="${c.id}`)}</div>`}</td></tr>` : ''}`;
+          : `<div class="tiny muted" style="margin-top:4px">${est[c.id] != null ? 'Using your estimate.'
+              : c.kind === 'kill' ? 'App estimate: from units destroyed in the forecast and which enemy units are valid targets.'
+              : position ? (sourcePlan() != null && (side === m.me || m.enemyFrom === 'board') ? 'App estimate: measured from the board plan.' : 'Depends on where units are, which is not measured here: the app assumes it scores about half the turns it is active. Set your own estimate.')
+              : 'App estimate: from the objective plan.'}</div>
+            ${fixedMode ? '<div class="tiny muted">Taken as Fixed: your estimate applies to Tactical play only.</div>' : estimateHtml(c, side, est[c.id], perDraw)}`}</td></tr>` : ''}`;
   };
   // keep-ready: my best live non-kill cards by expected VP over the game
   const mine = m.result?.[m.me]?.cards ?? {};
-  const ready = SECONDARIES.filter(c => KEEP_READY[c.id] && !cardDead(c.id, profileOf(other(m.me)).profile) && (m.rate[m.me]?.[c.id] ?? 1) > 0)
+  const ready = SECONDARIES.filter(c => KEEP_READY[c.id] && !cardDead(c.id, profileOf(other(m.me)).profile) && (m.est?.[m.me]?.[c.id] ?? 1) > 0)
     .map(c => ({ c, ev: (mine[c.id]?.perDraw ?? 0) * (mine[c.id]?.drawRate ?? 0) }))
     .sort((a, b) => b.ev - a.ev).slice(0, 5);
   return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
-    <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
-    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up in the forecast (cards stay active until scored). Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Cards marked <b>You rate it</b> depend on unit positions, which are not measured here — tap one to rate it; until then it counts as Normal.</div>
+    <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
+    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a card to set your own estimate — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character.</div>
     ${side === m.me ? `<div class="lab tiny muted" style="margin-top:10px">Keep ready for</div><ul class="keep" id="mission-keep">${ready.map(x => `<li><b>${esc(x.c.name)}</b> — ${esc(KEEP_READY[x.c.id])}</li>`).join('')}</ul>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">${side === m.me ? 'Hit list: enemy units worth secondary VP' : 'Your units they score from'}</div>${hitListHtml(side)}`;
+}
+
+// your own estimate of a card's VP if drawn, from 0 up to its max, in 0.5 VP steps
+function estimateHtml(c, side, value, appValue) {
+  const v = value ?? null;
+  const shown = v ?? (appValue == null ? null : Math.round(appValue * 2) / 2);
+  return `<div class="row est" style="gap:8px;margin-top:6px;align-items:center" data-side="${side}" data-id="${c.id}">
+      <span class="lab small grow">Your estimate: VP if drawn</span>
+      <div class="stepper"><button data-action="mission-est" data-delta="-0.5" data-side="${side}" data-id="${c.id}" aria-label="Less">−</button>
+        <div class="val" id="est-${side}-${c.id}">${shown == null ? '–' : fmt(shown, 1)}<span class="tiny muted"> / ${c.max}</span></div>
+        <button data-action="mission-est" data-delta="0.5" data-side="${side}" data-id="${c.id}" aria-label="More">+</button></div>
+      ${v != null ? `<button class="btn ghost" data-action="mission-est-auto" data-side="${side}" data-id="${c.id}">Use the app's</button>` : ''}
+    </div>
+    <div class="tiny muted">${v != null ? `The forecast now gives this card ${fmt(v, 1)} of its ${c.max} VP on average when drawn (it pays ${c.max} VP in ${Math.round((100 * v) / c.max)}% of games).` : `Starts from the app's estimate${appValue == null ? '' : ` (${fmt(appValue, 1)})`}; + / − to set your own.`}</div>`;
 }
 
 function hitListHtml(side) {
@@ -560,7 +577,7 @@ function trackerHtml() {
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
         : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Assumptions'}.</div>`}
-      <details class="more" style="margin-top:6px"><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
+      <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${m.openDead?.[X] ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
         <div class="chips">${ctx.state.armies[X].units.map(u => ctx.chip('mission-dead', g[X].destroyed.includes(u.name), u.name, `data-side="${X}" data-name="${esc(u.name)}"`)).join('')}</div></details>
     </div>`;
   };
@@ -579,7 +596,9 @@ function trackerHtml() {
 
 export function missionAction(action, el) {
   const m = ms(), g = m.game;
-  const X = el.dataset.side;
+  // segmented buttons carry the army / card on their row, not on the button
+  const X = el.dataset.side ?? el.closest('[data-side]')?.dataset.side;
+  if (!el.dataset.id && el.closest('[data-id]')) el.dataset.id = el.closest('[data-id]').dataset.id;
   switch (action) {
     case 'mission-me': m.me = el.dataset.value; m.sheetSide = null; break;
     case 'mission-first': m.first = el.dataset.value === 'roll' ? null : el.dataset.value; break;
@@ -606,6 +625,16 @@ export function missionAction(action, el) {
       return null;
     }
     case 'mission-rate': m.rate[X][el.dataset.id] = Number(el.dataset.value); break;
+    case 'mission-est': {
+      // first press starts from the app's current estimate (rounded to 0.5)
+      m.est ??= { A: {}, B: {} };
+      const id = el.dataset.id, max = SECONDARY_BY_ID[id]?.max ?? 5;
+      const app = m.result?.[X]?.cards?.[id]?.perDraw;
+      const cur = m.est[X][id] ?? (app == null ? max / 2 : Math.round(app * 2) / 2);
+      m.est[X][id] = Math.max(0, Math.min(max, cur + Number(el.dataset.delta)));
+      break;
+    }
+    case 'mission-est-auto': delete m.est[X][el.dataset.id]; break;
     case 'mission-source': m.source = el.dataset.value; break;
     case 'mission-enemy-from': m.enemyFrom = el.dataset.value; break;
     case 'mission-round': g.round = Number(el.dataset.value); break;

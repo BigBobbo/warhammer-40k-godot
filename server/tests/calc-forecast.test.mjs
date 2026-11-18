@@ -96,3 +96,14 @@ test('deterministic for a seed', () => {
   const P = { players: { A: { mission: 'Meatgrinder', army: ARMY_A }, B: { mission: 'Punishment', army: ARMY_B } }, objectives: OBJS, plan: planAll({}), trials: 300, seed: 7 };
   assert.deepEqual(F.forecast(P).A.hist, F.forecast(P).A.hist);
 });
+
+test('your estimate of a card: the forecast gives it exactly that VP if drawn (it pays its max with estimate / max odds)', () => {
+  assert.ok(M.SECONDARIES.every(c => c.max === 5), 'every 11e tactical secondary pays at most 5 VP when it scores');
+  const pl = (army, vpEst) => ({ mission: 'Battlefield Dominance', army, killRate: 1.3, vpEst });
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const r = F.forecast({ players: { A: pl(ARMY_A, { assassination: 3, 'no-prisoners': 0 }), B: pl(ARMY_B) }, objectives: OBJS, plan, trials: 4000 });
+  const a = r.A.cards.assassination;
+  assert.ok(Math.abs(a.perDraw - 3) < 0.25, `Assassination ${a.perDraw}`);
+  assert.ok(Math.abs(a.quickRate - 0.6) < 0.05, `scores at its first chance in 3/5 of draws: ${a.quickRate}`);
+  assert.equal(r.A.cards['no-prisoners']?.perDraw ?? 0, 0, 'estimate 0 = never scores');
+});

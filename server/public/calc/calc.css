@@ -318,3 +318,5 @@ td.down { color: var(--text-muted); }
 .pill.ask { border-style: dashed; color: var(--text-primary); }
 ul.keep.warn li { color: var(--warn); }
 ul.keep.warn li.info { color: var(--text-muted); }
+.pill.mine { border-color: var(--accent); background: var(--series-1-wash); color: var(--text-primary); }
+.row.est .stepper .val { min-width: 74px; text-align: center; }

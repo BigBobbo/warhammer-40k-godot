@@ -298,6 +298,10 @@ function drawWithRules(st, r, enemyArmy, rnd, stats) {
     if (cardDead(id, enemyArmy) || deadNow(id, st)) { st.used.push(id); continue; }
     st.hand.push(id);
     st.drawnAt[id] = st.turnNo;
+    // the player's own estimate of this card's VP if drawn: it pays its max with
+    // probability estimate / max, at its first chance, so the average is the estimate
+    const est = st.pl.vpEst?.[id];
+    if (est != null && st.pl.mode !== 'fixed') st.estWin[id] = rnd() < Math.max(0, Math.min(1, est / (c.max ?? 5)));
     stats[id] ??= { drawn: 0, vp: 0, scored: 0, quick: 0 };
     stats[id].drawn++;
     return;
@@ -333,7 +337,7 @@ function simulateGame(P, rnd) {
     S[X] = {
       X, pl, deck: SECONDARIES.map(c => c.id).filter(id => !out.has(id)), hand: [...(start.hand ?? [])], used: [...(start.used ?? [])],
       prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
-      fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0,
+      fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
       enemyAlive: null, enemyHadChars: false,
     };
   }
@@ -511,9 +515,11 @@ function scoreSecondaries(s, r, timing, env) {
     // Display of Might scores at the end of either turn (2 VP yours, 5 VP theirs)
     if (!(when === 'any' || when === timing || id === 'display-of-might')) continue;
     if (card.minRound && r < card.minRound) continue;
-    let vp = scoreSecondary(id, { ...c, timing });
+    let vp;
+    if (id in s.estWin) vp = s.estWin[id] ? card.max ?? 5 : 0;
+    else vp = scoreSecondary(id, { ...c, timing });
     // Display of Might: hold the 2 VP at the end of your turn when the 5 VP at the end of theirs is likely
-    if (id === 'display-of-might' && timing === 'own' && vp > 0 && r < RULES.rounds && c.rnd() < 0.5) vp = 0;
+    if (id === 'display-of-might' && !(id in s.estWin) && timing === 'own' && vp > 0 && r < RULES.rounds && c.rnd() < 0.5) vp = 0;
     if (vp > 0) {
       const g = addSecondary(s, r, vp);
       s.hand.splice(s.hand.indexOf(id), 1);
@@ -529,7 +535,7 @@ function scoreSecondaries(s, r, timing, env) {
     for (const id of [...s.hand]) {
       const card = SECONDARY_BY_ID[id];
       if (card.timing !== 'opp') continue;
-      const vp = scoreSecondary(id, { ...c, timing: 'opp' });
+      const vp = id in s.estWin ? (s.estWin[id] ? card.max ?? 5 : 0) : scoreSecondary(id, { ...c, timing: 'opp' });
       if (vp > 0) { const g = addSecondary(s, r, vp); s.hand.splice(s.hand.indexOf(id), 1); s.used.push(id); s.stats[id] ??= { drawn: 0, vp: 0, scored: 0 }; s.stats[id].vp += g; s.stats[id].scored++; }
     }
   }
@@ -542,6 +548,7 @@ function scoreSecondaries(s, r, timing, env) {
  * P: {
  *   players: { A: { mission, mode: 'tactical'|'fixed', fixed: [ids], army: armyProfile(...),
  *                   killRate (enemy units / turn), actionP (0..1), rate: { positionCardId: 0..1 (RATING) },
+ *                   vpEst: { cardId: the player's estimate of VP if drawn (0..max) },
  *                   battleReady, start: { hand, used, primary, secondary, destroyed: [unit names] } }, B: {...} },
  *   objectives: [{ id, cls, side }], plan: { [round]: { [objId]: 'A'|'B'|'c' } },
  *   first: 'A'|'B'|null, startRound, startTurn, trials, seed, fObj
