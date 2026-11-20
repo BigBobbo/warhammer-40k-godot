@@ -46,6 +46,7 @@ func _run_tests():
 	test_marked_for_death_all_dead()
 	test_while_active_no_enemies()
 	test_while_active_with_enemies()
+	test_while_active_moved_is_not_destroyed()
 
 # =========================================================================
 # Helpers
@@ -283,3 +284,29 @@ func test_while_active_with_enemies():
 	# staged later) — the design intent is simply "comfortably above the 0.20
 	# discard bar while enemies are alive", so pin that instead of == 1.0.
 	_assert(score >= 0.5, "While-active clearly keepable with enemies alive (got: %.2f)" % score)
+
+func test_while_active_moved_is_not_destroyed():
+	# UnitStatus 3 is MOVED (4 SHOT, 5 CHARGED, 6 FOUGHT, 7 IN_RESERVES) — none
+	# of them is "destroyed". A kill card with no kills by round 3 is marked
+	# down however much the enemy has moved about.
+	var mission = {"id": "no_prisoners", "name": "No Prisoners", "scoring": {"when": "while_active"}}
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "my_unit", 2, [], 5, true)
+	_add_unit(snapshot, "enemy_a", 1, [], 5, true)
+	_add_unit(snapshot, "enemy_b", 1, [], 5, true)
+	for st in [3, 4, 5, 6, 7]:
+		snapshot["units"]["enemy_a"]["status"] = st
+		snapshot["units"]["enemy_b"]["status"] = st
+		var score = AIDecisionMaker._evaluate_mission_achievability(snapshot, mission, 2, 3)
+		_assert(score < 0.20, "R3, no enemy unit destroyed, enemy status %d: kill card marked down below the discard bar (got: %.2f)" % [st, score])
+	# one enemy unit below half strength: a kill is coming, keep it
+	for i in range(3):
+		snapshot["units"]["enemy_a"]["models"][i]["alive"] = false
+	var half = AIDecisionMaker._evaluate_mission_achievability(snapshot, mission, 2, 3)
+	_assert(half >= 0.30 and half < 0.75, "R3, an enemy unit below half strength: kept (got: %.2f)" % half)
+	# one enemy unit actually destroyed (no model alive): the card is live
+	for m in snapshot["units"]["enemy_a"]["models"]:
+		m["alive"] = false
+	snapshot["units"]["enemy_a"]["status"] = 2
+	var killed = AIDecisionMaker._evaluate_mission_achievability(snapshot, mission, 2, 3)
+	_assert(killed >= 0.80, "R3, one enemy unit destroyed: the kill card is live (got: %.2f)" % killed)

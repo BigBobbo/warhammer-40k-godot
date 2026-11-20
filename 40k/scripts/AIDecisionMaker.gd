@@ -23878,7 +23878,11 @@ static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dicti
 
 	# While-active missions (No Prisoners, Overwhelming Force) score passively on kills.
 	# T18-1: Scale achievability by whether any enemy units have been destroyed.
-	# Check if any opponent units are actually dead (status >= 3 = DESTROYED or later).
+	# Check if any opponent units are actually dead: a unit with models and none
+	# of them alive. (This used to read `status >= 3`, but UnitStatus has no
+	# DESTROYED value — 3 is MOVED — so any enemy unit that had moved, shot,
+	# charged, fought or sat in reserves counted as a kill and a kill card with
+	# no kills by round 3 was never marked down.)
 	if timing == "while_active":
 		var enemy_alive = _count_alive_units_for_player(units, opponent)
 		if enemy_alive == 0:
@@ -23897,21 +23901,17 @@ static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dicti
 			if typeof(owner) == TYPE_FLOAT:
 				owner = int(owner)
 			if owner == opponent:
-				var status = u.get("status", 0)
-				if typeof(status) == TYPE_FLOAT:
-					status = int(status)
-				if status >= 3:  # DESTROYED or later
+				var alive_m = 0
+				var total_m = 0
+				for m in u.get("models", []):
+					total_m += 1
+					if m.get("alive", true):
+						alive_m += 1
+				if total_m > 0 and alive_m == 0:
 					enemy_destroyed_count += 1
-				else:
-					# Check if unit is below half strength
-					var alive_m = 0
-					var total_m = 0
-					for m in u.get("models", []):
-						total_m += 1
-						if m.get("alive", true):
-							alive_m += 1
-					if total_m > 0 and alive_m > 0 and alive_m * 2 < total_m:
-						enemy_below_half += 1
+				elif total_m > 0 and alive_m * 2 < total_m:
+					# below half strength: a kill is coming
+					enemy_below_half += 1
 		if enemy_destroyed_count == 0 and battle_round >= 3:
 			# T19-4: If enemies are below half-strength, kills are likely — don't discard yet
 			if enemy_below_half >= 1:
