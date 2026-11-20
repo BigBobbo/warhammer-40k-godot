@@ -1,0 +1,11 @@
+{
+  "_comment": "Real 11th edition tournament score statistics used to calibrate the Combat Calc forecast (tests/calc-calibration.test.mjs). Aggregates only.",
+  "source": "Stat Check 'The Meta' dashboard (https://www.stat-check.com/the-meta), 11th edition, events of 25+ players, launch (June 2026) to mid-November 2026; read 2026-11-20. First-turn figures: 40k-analytics (https://40k-analytics.github.io/stateofthegame/, 151,665 matches, 17 Nov 2026) and Listhammer (https://listhammer.info/stats, 12,743 games).",
+  "playerGames": 94739,
+  "score": { "mean": 77.0, "sd": 21.1, "p10": 45, "p25": 62, "p50": 83, "p75": 95, "p90": 100, "pExactly100": 0.15, "pAtLeast90": 0.382, "pUnder50": 0.134, "pUnder60": 0.222 },
+  "margin": { "meanAbs": 29.8, "sd": 36.8, "impliedCorrelation": -0.52 },
+  "winnerMean": 91.3, "loserMean": 62.3,
+  "draws": { "low": 0.019, "high": 0.033 },
+  "firstTurn": { "pWin": 0.512, "meanMargin": 2.7 },
+  "notes": "Scores under 20 are hidden on the dashboard (about 3.7% of rows) and blowouts are often entered as 100, so the 100 spike is somewhat inflated and the true mean is 75-77."
+}

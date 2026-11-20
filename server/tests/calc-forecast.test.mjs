@@ -12,6 +12,14 @@ const ARMY_B = F.armyProfile([u('Boyz', { models: 21, bodyguardModels: 20, chara
 const OBJS = [{ id: 'hA', cls: 'home', side: 'A' }, { id: 'eA', cls: 'exp', side: 'A' }, { id: 'c', cls: 'central', side: null }, { id: 'eB', cls: 'exp', side: 'B' }, { id: 'hB', cls: 'home', side: 'B' }];
 const planAll = (cells) => Object.fromEntries([1, 2, 3, 4, 5].map(r => [r, typeof cells === 'function' ? cells(r) : cells]));
 // fixed mode with no cards = no secondaries; killRate 0 = no kills: primary only
+// a typical 13-unit tournament list (for the statistical tests: small test armies wipe each other out)
+const big = (name, pts, o = {}) => ({ name, models: 5, points: pts, ...o });
+const BIG = () => F.armyProfile([
+  big('Warlord', 110, { models: 1, characters: 1, charactersW4: 1 }), big('Leader + squad', 260, { models: 11, characters: 1, charactersW4: 1, bodyguardModels: 10 }),
+  big('Battleline 1', 160, { models: 10 }), big('Battleline 2', 160, { models: 10 }), big('Horde', 200, { models: 20, bodyguardModels: 20 }),
+  big('Elite 1', 190), big('Elite 2', 190), big('Fast 1', 120, { fast: true }), big('Fast 2', 120, { fast: true }),
+  big('Tank 1', 190, { models: 1, w10: 1 }), big('Tank 2', 180, { models: 1, w10: 1 }), big('Scouts', 70, { reserves: true }), big('Cheap', 50),
+]);
 const quiet = (mission, army) => ({ mission, army, mode: 'fixed', fixed: [], killRate: 0, battleReady: false });
 const SURE = { home: 1, other: 1 }; // the plan happens exactly
 
@@ -95,13 +103,16 @@ test('deck: next-draw odds and a known hand / used pile carried into the forecas
 });
 
 test('plan uncertainty: planned objectives are sometimes lost, so one extra objective helps but does not decide everything', () => {
+  // two equal armies: the plan is what differs
   const plan = planAll(r => ({ hA: 'A', hB: 'B', eA: r >= 2 ? 'A' : 'c', eB: r >= 2 ? 'B' : 'c', c: 'c' }));
   const more = planAll(r => ({ hA: 'A', hB: 'B', eA: r >= 2 ? 'A' : 'c', eB: r >= 2 ? 'B' : 'c', c: r >= 2 ? 'A' : 'c' }));
-  const pl = (army) => ({ mission: 'Battlefield Dominance', army, killRate: 1.3 });
-  const base = F.forecast({ players: { A: pl(ARMY_A), B: pl(ARMY_B) }, objectives: OBJS, plan, trials: 2000 });
-  const up = F.forecast({ players: { A: pl(ARMY_A), B: pl(ARMY_B) }, objectives: OBJS, plan: more, trials: 2000 });
-  assert.ok(up.pWinA > base.pWinA + 0.15, `${base.pWinA} -> ${up.pWinA}`);
-  assert.ok(up.pWinA < 0.995, `not a certainty: ${up.pWinA}`);
+  const pl = () => ({ mission: 'Immovable Object', army: BIG(), killRate: 1.3 });
+  const base = F.forecast({ players: { A: pl(), B: pl() }, objectives: OBJS, plan, trials: 3000 });
+  const up = F.forecast({ players: { A: pl(), B: pl() }, objectives: OBJS, plan: more, trials: 3000 });
+  assert.ok(Math.abs(base.pWinA - 0.5) < 0.05, `equal armies, mirrored plan: ${base.pWinA}`);
+  assert.ok(up.pWinA > base.pWinA + 0.08, `${base.pWinA} -> ${up.pWinA}`);
+  assert.ok(up.pWinA < 0.9, `not a certainty: ${up.pWinA}`);
+  assert.ok(up.A.primMean > base.A.primMean + 2 && up.B.primMean < base.B.primMean - 1, `more primary for A, less for B: ${base.A.primMean}/${base.B.primMean} -> ${up.A.primMean}/${up.B.primMean}`);
 });
 
 test('deterministic for a seed', () => {
@@ -111,11 +122,19 @@ test('deterministic for a seed', () => {
 
 test('your estimate of a card: the forecast gives it exactly that VP if drawn (it pays its max with estimate / max odds)', () => {
   assert.ok(M.SECONDARIES.every(c => c.max === 5), 'every 11e tactical secondary pays at most 5 VP when it scores');
-  const pl = (army, vpEst) => ({ mission: 'Battlefield Dominance', army, killRate: 1.3, vpEst });
+  const pl = (army, vpEst, killRate = 0) => ({ mission: 'Battlefield Dominance', army, killRate, vpEst });
   const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  // no losses: exactly the estimate
   const r = F.forecast({ players: { A: pl(ARMY_A, { assassination: 3, 'no-prisoners': 0 }), B: pl(ARMY_B) }, objectives: OBJS, plan, trials: 4000 });
   const a = r.A.cards.assassination;
-  assert.ok(Math.abs(a.perDraw - 3) < 0.25, `Assassination ${a.perDraw}`);
-  assert.ok(Math.abs(a.quickRate - 0.6) < 0.05, `scores at its first chance in 3/5 of draws: ${a.quickRate}`);
+  assert.ok(Math.abs(a.perDraw - 3) < 0.2, `Assassination ${a.perDraw}`);
+  assert.ok(Math.abs(a.quickRate - 0.6) < 0.04, `scores at its first chance in 3/5 of draws: ${a.quickRate}`);
   assert.equal(r.A.cards['no-prisoners']?.perDraw ?? 0, 0, 'estimate 0 = never scores');
+  // in a real game (units are destroyed): still close to the estimate; a little less, because
+  // a card drawn after your army is gone cannot be scored
+  const g = F.forecast({ players: { A: pl(BIG(), { 'behind-enemy-lines': 3 }, 1.3), B: pl(BIG(), {}, 1.3) }, objectives: OBJS, plan, trials: 4000 });
+  const b = g.A.cards['behind-enemy-lines'];
+  assert.ok(b.perDraw > 2.6 && b.perDraw <= 3.1, `Behind Enemy Lines with losses: ${b.perDraw}`);
+  // what a card pays (perDraw) is not cut by the 15-per-round / 45 VP limits; what it adds (perDrawNet) is
+  assert.ok(b.perDrawNet <= b.perDraw + 1e-9, `${b.perDrawNet} <= ${b.perDraw}`);
 });
