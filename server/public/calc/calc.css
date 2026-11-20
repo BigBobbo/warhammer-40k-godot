@@ -443,3 +443,8 @@ table.dist.scoresheet tr.cur td { background: var(--series-1-wash); }
 table.dist.scoresheet tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
 details.more.card { padding: 10px 12px; }
 #table-flag { cursor: default; }
+
+/* how current the rules data is (Armies tab) */
+.datastamp { line-height: 1.4; }
+.datastamp .ok { color: var(--text-secondary); }
+.datastamp .warn { color: var(--warn-ink); }

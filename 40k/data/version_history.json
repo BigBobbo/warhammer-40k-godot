@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.98.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: see how current the rules data is, and a points check on your list",
+      "changes": [
+        "Armies: each loaded army now says which rules data its datasheets come from and the date of that data (for example Codex: Space Marines, 21 Oct 2026)",
+        "Armies: a points check compares the points in your pasted list with the rules data, datasheet by datasheet (wargear and enhancements included), and names any that differ — a sign that a datasheet changed after the data was made",
+        "Intel: every unit shows the date of its datasheet, with a warning on units whose points differ",
+        "Mission: the list of what the forecast is built from now includes the datasheet dates of both armies"
+      ]
+    },
+    {
       "version": "1.97.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: table tools — clock, command points, score sheet, undo, table mode",

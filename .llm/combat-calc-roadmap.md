@@ -140,11 +140,27 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
       two players side by side (CSS grid areas on `.mlay.play`).
       Not validated on a real device: the wake lock (refused in headless Chromium;
       the e2e uses a stand-in that counts the calls).
-- [ ] **8. Rules data** — data date stamp; update the calc's dataset to 1.5.1.
+- [ ] **8. Rules data** — data stamp + points check BUILT in v1.98.0, browser-tested,
+      pushed (box not ticked: see "Commit gate"). `adapter.mjs` `dataProvenance()` /
+      `pointsCheck()` / `armyData()`; tests/calc-data.test.mjs. Each datasheet record
+      carries its source: `source: "wahapedia-11e@<date>"` (this project's codex
+      import: Space Marines / Space Wolves, Orks, Custodes, 16 and 21 Oct 2026) or
+      the 40kdc `game_version.dataslate` (launch = 20 Jun 2026). The user's real
+      Space Wolves list matches the data on all 12 datasheets.
+      **Dataset update to 1.5.1 NOT done, on purpose**: it is not a points patch
+      (against the game's data: 1074 of 1104 units differ, stratagem / enhancement /
+      detachment ids reorganised), the browser bundle is shared with the Army
+      Builder, and the builder's codex overlay is a diff against 1.4.5 that mirrors
+      the Godot game's `40k/data/40kdc`. Updating it means re-running the game's
+      data pipeline (extract, local patches, Wahapedia import, overlay generator)
+      and re-validating the game: a task of its own, needs the user's go-ahead.
 
 Ideas noted but not planned: exposure heat map; terrain set-up measurements;
-coherency / legality inspector; sync by code between devices; post-game
-calibration from the user's own logged games; player-edge (skill) setting.
+coherency / legality inspector; post-game calibration from the user's own
+logged games (the score sheet of 1.97 would feed it); line of sight in the
+forecast's kill estimates; stratagems / CP in the forecast; layouts for
+phones narrower than 360 px.
+Done since this list was written: sync by code (1.94), player-edge setting (1.92).
 
 ## Stage 2 notes (forecast model, v1.92.0)
 

@@ -5,7 +5,8 @@
 // Reuses the Army Builder's importer and patched 40kdc dataset (store.js /
 // importers.js), so every list format the builder accepts works here too.
 
-import { conv, factionName, dc } from '../js/builder/store.js';
+import { conv, factionName, dc, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
+import { CODEX_OVERLAY_FACTIONS } from '../js/lib/data-patches.mjs';
 import { importText } from '../js/builder/importers.js';
 import { normName, looseName } from '../js/lib/dckit.mjs';
 import { expectedDamageQuick, mergeMods } from './engine.mjs';
@@ -19,6 +20,98 @@ import {
 export { describeConditions };
 
 export const DATASET_VERSION = dc.DATASET_VERSION;
+
+// ---------------------------------------------------------------------------
+// How current is the rules data?
+//
+// Every datasheet record says where it comes from: the 40kdc dataset (its
+// game_version names a rules snapshot with a date) or a codex datasheet this
+// project brought in from Wahapedia (source "wahapedia-11e@<date>"). The app
+// shows that date, and checks the points in the pasted list against the
+// data: points change with the rules, so other points mean the datasheet
+// may have changed since the data was made.
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** 2026-10-21 -> "21 Oct 2026" */
+export function fmtDataDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : 'date not known';
+}
+const SLATE_LABEL = { launch: '11th edition launch data', 'pre-launch-provisional': 'provisional data from before the 11th edition launch' };
+
+/** Where a datasheet record comes from, and from when. */
+export function recordStamp(dcUnit) {
+  const src = /@(\d{4}-\d{2}-\d{2})$/.exec(dcUnit?.source ?? '');
+  if (src) {
+    const codex = CODEX_OVERLAY_FACTIONS[dcUnit.faction_id]?.codex?.replace(/\s*\(11th edition\)/, '') ?? 'Codex datasheet';
+    return { kind: 'codex', date: src[1], label: `${codex} (Wahapedia)` };
+  }
+  const slate = dcUnit?.game_version?.dataslate ?? null;
+  const gv = (dc.RAW_DATA.gameVersions ?? []).find(g => g.dataslate === slate);
+  return { kind: 'base', date: gv?.effective_date ?? null, label: `40kdc ${dc.DATASET_VERSION}: ${SLATE_LABEL[slate] ?? gv?.label ?? 'dataset'}` };
+}
+
+/** The newest date in the whole rules data (dataset snapshots and codex datasheets). */
+export function dataNewest() {
+  const dates = [...(dc.RAW_DATA.gameVersions ?? []).map(g => g.effective_date)];
+  for (const u of dc.RAW_DATA.units ?? []) { const m = /@(\d{4}-\d{2}-\d{2})$/.exec(u.source ?? ''); if (m) dates.push(m[1]); }
+  return dates.filter(Boolean).sort().pop() ?? null;
+}
+
+/** Provenance and points check of an army, worked out once per set of units. */
+const DATA_CACHE = new WeakMap();   // army.units (replaced when attachments change) -> { prov, pts }
+export function armyData(army) {
+  let d = DATA_CACHE.get(army.units);
+  if (!d) { d = { prov: dataProvenance(army), pts: pointsCheck(army) }; DATA_CACHE.set(army.units, d); }
+  return d;
+}
+
+/** The rules data behind an army: per datasheet, and grouped (newest first). */
+export function dataProvenance(army) {
+  const units = [];
+  for (const cu of army.units) for (const m of cu.members) units.push({ unit: cu.key, name: m.dcUnit.name, ...recordStamp(m.dcUnit) });
+  const by = new Map();
+  for (const u of units) {
+    const k = `${u.label}|${u.date}`;
+    if (!by.has(k)) by.set(k, { kind: u.kind, label: u.label, date: u.date, count: 0, names: [] });
+    const g = by.get(k); g.count++; g.names.push(u.name);
+  }
+  const groups = [...by.values()].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
+  const dates = units.map(u => u.date).filter(Boolean).sort();
+  return { dataset: dc.DATASET_VERSION, units, groups, oldest: dates[0] ?? null, newest: dates[dates.length - 1] ?? null };
+}
+
+/**
+ * The points in the pasted list against the rules data: the datasheet at its
+ * size (any of its price steps for a 1st, 2nd, 3rd... copy), its priced
+ * wargear and its enhancement. A unit with no points in the list, or with an
+ * enhancement the data does not know, is not checked.
+ */
+export function pointsCheck(army) {
+  const out = { checked: 0, mismatches: [] };
+  for (const cu of army.units) for (const m of cu.members) {
+    const ru = m.ru;
+    if (ru.points == null) continue;
+    const data = unitData(m.dcUnit.id, m.factionId ?? army.roster.faction_id);
+    if (!data) continue;
+    const enhId = ru.enhancement?.id ?? ru.enhancement?.ref?.id ?? null;
+    const enh = enhId ? (dc.RAW_DATA.enhancements ?? []).find(e => e.id === enhId) : null;
+    if (ru.enhancement && (!enh || !Number.isFinite(enh.cost))) continue;
+    const want = new Set();
+    for (let ordinal = 1; ordinal <= 4; ordinal++) {
+      let pts = NaN;
+      try { pts = unitBasePoints(data, ru.model_count ?? 1, countsOf(ru), ordinal); } catch { /* no price for this size */ }
+      if (Number.isFinite(pts) && pts > 0) want.add(pts + (enh?.cost ?? 0));
+    }
+    if (!want.size) continue;
+    out.checked++;
+    if (!want.has(ru.points)) {
+      out.mismatches.push({ unit: cu.key, name: m.dcUnit.name, models: ru.model_count ?? 1, list: ru.points, data: [...want].sort((a, b) => a - b),
+        enhancement: enh ? { name: enh.name, cost: enh.cost } : null, ...recordStamp(m.dcUnit) });
+    }
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Import

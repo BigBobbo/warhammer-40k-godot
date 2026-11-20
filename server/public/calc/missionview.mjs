@@ -7,7 +7,7 @@
 
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
-import { abilitiesOf } from './adapter.mjs';
+import { abilitiesOf, armyData, fmtDataDate } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
 import { layoutLetter } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
@@ -806,7 +806,9 @@ function basisHtml() {
   };
   const nEst = Object.keys(m.est?.[me] ?? {}).length;
   const noData = POSITION_CARDS.filter(id => !REAL_RATES[id]).map(id => SECONDARY_BY_ID[id].name);
-  const row = (kind, title, text) => `<li class="basis ${kind}"><span class="pill ${kind === 'rule' ? 'good' : kind === 'you' ? 'mine' : kind === 'calc' ? '' : 'ask'}">${kind === 'rule' ? 'Rules' : kind === 'you' ? 'Your input' : kind === 'calc' ? 'Calculator' : kind === 'data' ? 'Real games' : 'Assumption'}</span> <b>${title}</b> — ${text}</li>`;
+  const row = (kind, title, text) => `<li class="basis ${kind}"><span class="pill ${kind === 'rule' ? 'good' : kind === 'you' ? 'mine' : kind === 'calc' ? '' : 'ask'}">${kind === 'rule' ? 'Rules' : kind === 'you' ? 'Your input' : kind === 'calc' ? 'Calculator' : kind === 'data' ? 'Real games' : kind === 'stamp' ? 'Rules data' : 'Assumption'}</span> <b>${title}</b> — ${text}</li>`;
+  // how old the datasheets behind the calculator's numbers are
+  const stamp = (X) => { const d = armyData(ctx.state.armies[X]); return `${X}: ${d.prov.groups.map(g => `${esc(g.label)}, ${fmtDataDate(g.date)}`).join(' and ')}${d.pts.mismatches.length ? ` <span style="color:var(--warn-ink)">(⚠ ${d.pts.mismatches.length} datasheet${d.pts.mismatches.length > 1 ? 's' : ''} with other points in the list than in the data: see the Armies tab)</span>` : ''}`; };
   return `<details class="more" data-details="mission-basis" ${isOpen('mission-basis') ? 'open' : ''} id="fc-basis"><summary>What this forecast is built from</summary>
     <ul class="keep basis-list">
       ${row('rule', 'Scoring', 'card VP and timing, the deck (draw two a turn, cards stay until scored), the 15 VP per round and 45 VP limits, end-of-battle VP, Battle Ready. Exact.')}
@@ -814,6 +816,7 @@ function basisHtml() {
       ${row(kr[me].from === 'you' && kr[opp].from === 'you' ? 'you' : 'calc', 'Units destroyed', `${killLine(me, 'you destroy')}; ${killLine(opp, 'they destroy')}. ${vi != null && m.enemyFrom === 'board' ? 'With both armies on the board plan, each unit attacks the best target it reaches from where you put it (range and charge reach; line of sight is not checked).' : 'An army destroys less as it shrinks, and a destroyed unit holds nothing.'}`)}
       ${row('data', 'Cards that depend on where units are', `${nEst ? `${nEst} use your own estimate; the others` : 'they'} use how often tournament players scored the equivalent 10th edition card (${esc(REAL_RATES_SOURCE)}), × ${MODEL.cardPlay} because 11th edition cards are kept until scored. No such data for ${esc(noData.join(', '))}: ${Math.round(50 * MODEL.cardPlay)}%. Set your own value on any card.`)}
       ${row('assume', 'How the battle goes', `in every simulated game one side gets on top and that compounds. Set so that the scores match 94,739 real 11th edition tournament results: average 77 VP, average winning margin 30 VP, 13% of scores under 50. ${(m.edge ?? 0) === 0 ? 'Both players are taken as equally good (change it under Assumptions).' : `You set ${m.edge > 0 ? 'yourself' : 'your opponent'} as the stronger player.`}`)}
+      ${row('stamp', 'Datasheets', `${stamp(me)}. ${stamp(opp)}. Stats and points changed after these dates are not in the numbers.`)}
       ${row('assume', 'Not in the forecast', 'stratagems and command points, army rules that change scoring, and how well each unit does a mission action (one chance for all: Assumptions).')}
     </ul></details>`;
 }

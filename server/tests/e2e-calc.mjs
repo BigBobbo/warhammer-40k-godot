@@ -1367,6 +1367,35 @@ try {
     await tctx.close();
   }
 
+  // --- how current the rules data is: where each army's datasheets come from and from when, and the
+  // points in the pasted list against the data (the Space Wolves list is a real export of the official app)
+  {
+    const dctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const dp = await dctx.newPage();
+    await dp.goto(`${BASE}/calc/`);
+    await dp.fill('textarea[data-side="A"]', SW_LIST);
+    await dp.tap('button[data-action="parse"][data-side="A"]');
+    await dp.fill('textarea[data-side="B"]', ORK_LIST);
+    await dp.tap('button[data-action="parse"][data-side="B"]');
+    const txt = async (q) => (await dp.textContent(q)).replace(/\s+/g, ' ').trim();
+    check('Armies: each army says which rules data it uses and its date', /Rules data: Codex: Space Marines \(Wahapedia\), 21 Oct 2026 — all 12 datasheets\./.test(await txt('#data-A')) && /Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026 — all 6 datasheets\./.test(await txt('#data-B')), `${await txt('#data-A')} | ${await txt('#data-B')}`);
+    check('Armies: a real list from the official app costs what the data says, datasheet by datasheet', /✓ Points: all 12 datasheets cost what the rules data says\./.test(await txt('#points-A')), await txt('#points-A'));
+    check('Armies: other points in the list than in the data are named with both numbers', /3 of 6 datasheets cost something else in your list than in the rules data — Warboss 70 \(data 100\), Meganobz 100 \(data 105 or 145\), Flash Gitz 80 \(data 110 or 150\)\./.test(await txt('#points-B')), await txt('#points-B'));
+    check('Armies: the footer names the dataset and its newest date', /rules data: 40kdc \d+\.\d+\.\d+ with codex datasheets, newest 21 Oct 2026/.test(await txt('#data-footer')), await txt('#data-footer'));
+    await dp.locator('#data-B').scrollIntoViewIfNeeded();
+    await dp.screenshot({ path: join(SHOTS, 'calc_57_rules_data.png') });
+    await dp.tap('button[data-action="view"][data-value="intel"]');
+    await dp.tap('button[data-action="intel-side"][data-value="B"]');
+    const stamps = await dp.$$eval('.intel-unit [data-stamp]', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+    check('Intel: every unit shows the date of its datasheet; the ones with other points are flagged', stamps.length === 5 && stamps.every(t => /^Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026\./.test(t)) && stamps.filter(t => /pts in your list/.test(t)).length === 3
+      && stamps.some(t => /Warboss: 70 pts in your list, 100 in the data — check this datasheet/.test(t)), JSON.stringify(stamps));
+    await dp.tap('button[data-action="view"][data-value="mission"]');
+    await dp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    await dp.locator('details[data-details="mission-basis"] summary').tap();
+    check('"What this forecast is built from" names the datasheet dates of both armies', /A: Codex: Space Marines \(Wahapedia\), 21 Oct 2026\. B: Codex: Orks \(Wahapedia\), 16 Oct 2026 \(⚠ 3 datasheets with other points/.test(await txt('#fc-basis li.basis.stamp')), await txt('#fc-basis li.basis.stamp'));
+    await dctx.close();
+  }
+
   // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
   // every view at 360 px (most Android phones) and 412 px
   {

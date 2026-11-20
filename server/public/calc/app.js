@@ -3,7 +3,7 @@
 // Worker (worker.mjs -> engine.mjs).
 import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
-  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION,
+  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
@@ -399,8 +399,11 @@ function intelList(side) {
   const army = state.armies[side];
   const q = state.intelQuery.trim().toLowerCase();
   const cards = [];
+  const { prov, pts } = armyData(army);
   for (const cu of army.units) {
     const it = unitIntel(cu, army);
+    const stamps = [...new Map(prov.units.filter(u => u.unit === cu.key).map(u => [`${u.label}|${u.date}`, u])).values()];
+    const off = pts.mismatches.filter(m => m.unit === cu.key);
     const hay = [it.name, ...it.keywords, ...it.abilities.map(a => `${a.name} ${a.text}`), ...it.weapons.map(w => w.label)].join(' ').toLowerCase();
     if (q && !hay.includes(q)) continue;
     const line = (p) => `<tr><td>${esc(p.member === p.name ? p.name : `${p.name}`)}</td><td>${p.M}"</td><td>${p.T}</td><td>${p.Sv}+${p.InSv ? `/${p.InSv}++` : ''}</td><td>${p.W}</td><td>${p.Ld}+</td><td>${p.OC}</td></tr>`;
@@ -415,6 +418,7 @@ function intelList(side) {
       <details class="more"><summary>Abilities (${it.abilities.length})</summary>${it.abilities.map(a =>
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
+      <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
       ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
@@ -455,6 +459,7 @@ function armiesView() {
         <button class="btn ghost" data-action="clear" data-side="${side}">Clear</button>
       </div>
       ${err ? `<div class="warnbox err">${esc(err)}</div>` : ''}
+      ${army ? dataStampHtml(side, army) : ''}
       ${army ? attachOverview(side, army) : ''}
       ${army ? `<details class="more"><summary>${army.units.length} units${army.warnings.length ? ` · ${army.warnings.length} import notes` : ''}</summary>
         ${army.units.map(u => `<div class="ability"><b>${esc(u.name)}</b> <span class="muted">· ${u.models} models</span></div>`).join('')}
@@ -467,7 +472,22 @@ function armiesView() {
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
     ${eventCard()}
     ${backupCard()}
-    <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
+    <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.</p>`;
+}
+
+// ---- how current the rules data behind an army is (adapter.mjs armyData)
+const orList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}` : String(xs[0]));
+function dataStampHtml(side, army) {
+  const { prov, pts } = armyData(army);
+  const n = prov.units.length;
+  const groups = prov.groups.map(g => `${prov.groups.length > 1 ? `${g.count} ` : ''}${esc(g.label)}, ${fmtDataDate(g.date)}`).join(' · ');
+  const bad = pts.mismatches;
+  const points = !pts.checked ? '<div class="muted">Points: the list gives no points to check.</div>'
+    : !bad.length ? `<div class="ok" id="points-${side}">✓ Points: ${pts.checked === n ? `all ${n}` : `${pts.checked} of ${n}`} datasheets cost what the rules data says${pts.checked === n ? '' : ' (the others cannot be checked)'}.</div>`
+      : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
+          ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
+          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
+  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}</div>`;
 }
 
 // ---- backup / restore / move to another device (backup.mjs)
