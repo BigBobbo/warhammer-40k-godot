@@ -78,11 +78,14 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--seed", type=int, default=9001)
     ap.add_argument("--max-seconds", type=float, default=1500)
+    ap.add_argument("--only", default="", help="only the cases that have a trace in this dir (pair an earlier run)")
     ap.add_argument("--alt", action="store_true", help="play the measured alternative (forced once) instead of the AI's own line")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     ud = userdata_dir()
     jobs = jobs_from_measured(a.limit)
+    if a.only:
+        jobs = [j for j in jobs if os.path.exists(os.path.join(a.only, j["job"] + ".json"))]
     with concurrent.futures.ThreadPoolExecutor(max_workers=a.lanes) as pool:
         for r in pool.map(lambda j: one(j, a.seed, ud, a.out, a.max_seconds, a.alt), jobs):
             print(json.dumps(r), flush=True)
