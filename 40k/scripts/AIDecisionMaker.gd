@@ -1984,6 +1984,17 @@ const FORECAST_PLAN: float = 0.0
 # scores the VP of that window) instead of the ownership projection. 0 = the
 # ownership projection. Only read when FORECAST_PLAN is on.
 const FORECAST_POSSIM: float = 0.0
+# FORECAST_POSSIM_TURNS: player turns the look-ahead plays before holding
+# ownership as it stands (0 = the whole window). 1 = price only what a move
+# takes or loses THIS turn — the part paired real games bear out (r 0.44 at
+# this turn's end, 0.07 across the window when every turn is played).
+# FORECAST_POSSIM_DAMAGE: 0 = no shooting / melee in the look-ahead (reach only).
+# FORECAST_PLAN_ABS_GAP: 1 = a close call is a runner-up within
+# FORECAST_PLAN_MAX_GAP either way; 0 also re-opens every assignment that
+# coordination moved off the unit's own best objective.
+const FORECAST_POSSIM_TURNS: int = 0
+const FORECAST_POSSIM_DAMAGE: float = 1.0
+const FORECAST_PLAN_ABS_GAP: float = 0.0
 const FORECAST_PLAN_SWAPS: int = 4
 const FORECAST_PLAN_MAX_GAP: float = 3.0
 const FORECAST_PLAN_MIN_GAIN: float = 1.0
@@ -23433,6 +23444,7 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		return assignments
 	# close calls: assigned move/hold units whose best OTHER objective scores within MAX_GAP
 	var max_gap := get_param("FORECAST_PLAN_MAX_GAP", FORECAST_PLAN_MAX_GAP)
+	var abs_gap_only: bool = get_param("FORECAST_PLAN_ABS_GAP", FORECAST_PLAN_ABS_GAP) >= 0.5
 	var calls: Array = []
 	for uid in assignments:
 		var a: Dictionary = assignments[uid]
@@ -23453,7 +23465,7 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		var gap: float = float(a.get("score", 0.0)) - float(best_alt.score)
 		# negative = the unit's own best was redirected by coordination; the
 		# forecast weighs that too
-		if gap <= max_gap:
+		if gap <= max_gap and (abs_gap_only == false or absf(gap) <= max_gap):
 			calls.append({"uid": str(uid), "alt": best_alt, "gap": gap})
 	if calls.is_empty():
 		return assignments
@@ -23461,10 +23473,12 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 	calls = calls.slice(0, get_param_int("FORECAST_PLAN_SWAPS", FORECAST_PLAN_SWAPS))
 	var use_ps: bool = get_param("FORECAST_POSSIM", FORECAST_POSSIM) >= 0.5
 	var ps_world: Dictionary = _possim_world(snapshot) if use_ps else {}
+	var ps_opts := {"sim_turns": get_param_int("FORECAST_POSSIM_TURNS", FORECAST_POSSIM_TURNS),
+		"damage": get_param("FORECAST_POSSIM_DAMAGE", FORECAST_POSSIM_DAMAGE) >= 0.5}
 	var window := "margin after round %d" % mini(battle_round + 1, MAX_BATTLE_ROUNDS_AI) if use_ps else "final margin"
 	var base_m := 0.0
 	if use_ps:
-		base_m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, assignments), player, P).margin)
+		base_m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, assignments), player, P, ps_opts).margin)
 	else:
 		var base_proj := _forecast_plan_projection(evaluations, assignments, player)
 		base_m = _forecast_margin_of(_forecast_with_plan(P, base_proj.cells, base_proj.conf, battle_round), player)
@@ -23481,7 +23495,7 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		alt_assign[call.uid] = na
 		var m := 0.0
 		if use_ps:
-			m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, alt_assign), player, P).margin)
+			m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, alt_assign), player, P, ps_opts).margin)
 		else:
 			var proj := _forecast_plan_projection(evaluations, alt_assign, player)
 			m = _forecast_margin_of(_forecast_with_plan(P, proj.cells, proj.conf, battle_round), player)

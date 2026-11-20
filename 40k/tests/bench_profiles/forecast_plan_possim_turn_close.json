@@ -1,0 +1,14 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "rules": [],
+  "profile_name": "Forecast plan via position look-ahead, this turn only, close calls only",
+  "description": "As forecast_plan_possim_turn, and only runner-ups within FORECAST_PLAN_MAX_GAP either way are tried (FORECAST_PLAN_ABS_GAP = 1): assignments that coordination redirected by more than that stand.",
+  "parameters": {
+    "FORECAST_PLAN": 1.0,
+    "FORECAST_POSSIM": 1.0,
+    "FORECAST_POSSIM_TURNS": 1.0,
+    "FORECAST_POSSIM_DAMAGE": 0.0,
+    "FORECAST_PLAN_ABS_GAP": 1.0
+  }
+}

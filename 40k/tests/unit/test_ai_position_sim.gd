@@ -148,6 +148,20 @@ func _run():
 	_check((r_k.units.K1.pos as Vector2) == Vector2(20, 20) and (r_k.units.K2.pos as Vector2).distance_to(Vector2(20, 50)) < (w_k.units.K2.pos as Vector2).distance_to(Vector2(20, 50)),
 		"two units sharing an objective: the nearer one keeps it, the other moves on")
 
+	# --- this turn only (sim_turns = 1): later turns hold ownership as it stands
+	var w_t := _world({"A": _u(1, Vector2(20, 30)), "E": _u(2, Vector2(20, 60))})
+	var r_t1: Dictionary = PS.run(w_t, go, {"damage": false, "policy": true, "sim_turns": 1})
+	var r_all: Dictionary = PS.run(w_t, go, {"damage": false, "policy": true})
+	_check(r_t1.turns.size() == 4 and str(r_t1.turns[1].own_end) == str(r_t1.turns[0].own_end) and str(r_t1.turns[3].own_end) == str(r_t1.turns[0].own_end),
+		"sim_turns 1: still 4 rows for the window, ownership frozen after this turn")
+	_check(str(r_t1.turns[0].own_end) == str(r_all.turns[0].own_end), "and this turn is played exactly as in the full look-ahead")
+	_check((r_t1.units.E.pos as Vector2) == Vector2(20, 60) and (r_all.units.E.pos as Vector2) != Vector2(20, 60),
+		"the enemy's reply is not played (it is in the full look-ahead)")
+	var sh2 := _u(1, Vector2(20, 40))
+	sh2.shoot = {"E": [[24.0, 8.0]]}
+	var r_t1d: Dictionary = PS.run(_world({"S": sh2, "E": _u(2, Vector2(20, 51))}), {"S": {"mode": "stay", "goal_obj": ""}}, {"damage": true, "policy": false, "sim_turns": 1})
+	_check(r_t1d.turns[0].has("lam") and not r_t1d.turns[1].has("lam"), "expected kills are given for the played turn only; later turns keep the forecast's own rates")
+
 	# --- into the forecast
 	var objs := [{"id": "obj_a", "cls": "central", "side": 0}, {"id": "obj_b", "cls": "home", "side": 2}]
 	var army := FC.army_profile([{"name": "X", "models": 5, "characters": 0, "characters_w4": 0, "w10": 0, "ss13": false, "aircraft": false}])

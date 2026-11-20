@@ -39,6 +39,9 @@ const DEFAULTS := {
 	"ctrl_c": 5.5,       # control reach from the unit's centre, inches ...
 	"ctrl_m": 3.0,       # ... plus this many times its models' mean spread
 	"stick": 0.7,        # an objective nobody out-OCs stays with its last controller this often
+	"sim_turns": 0,      # play only this many player turns, then hold ownership as it stands
+	                     # to the end of the window (0 = play every turn). 1 = "what does
+	                     # this move take or lose THIS turn" — the part real games bear out
 	"sat_penalty": 1.5,  # turns added to an objective the side already out-OCs
 }
 
@@ -220,6 +223,15 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 			if r == start_round and t == 0 and active != first:
 				continue
 			var row := {"round": r, "side": side, "own_start": prev_own.duplicate(true)}
+			if int(opts.sim_turns) > 0 and turns.size() >= int(opts.sim_turns):
+				# past the played turns: nothing moves, ownership stands, and the
+				# forecast keeps its own kill rates (no "lam")
+				row["own_end"] = prev_own.duplicate(true)
+				if bool(opts.get("trace", false)):
+					row["units"] = (turns[turns.size() - 1] as Dictionary).get("units", {})
+					row["oc_end"] = (turns[turns.size() - 1] as Dictionary).get("oc_end", {})
+				turns.append(row)
+				continue
 			var kills := {1: 0.0, 2: 0.0, "scale": float(opts.lethality)}
 			# --- Movement
 			var committed := {1: {}, 2: {}}

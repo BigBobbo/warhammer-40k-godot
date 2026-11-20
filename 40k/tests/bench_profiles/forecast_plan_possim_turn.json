@@ -1,0 +1,13 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "rules": [],
+  "profile_name": "Forecast plan via position look-ahead, this turn only",
+  "description": "FORECAST_PLAN + FORECAST_POSSIM with FORECAST_POSSIM_TURNS = 1 and no damage: a plan swap is priced only by what it takes or loses this turn (reach), ownership then held to the end of next round.",
+  "parameters": {
+    "FORECAST_PLAN": 1.0,
+    "FORECAST_POSSIM": 1.0,
+    "FORECAST_POSSIM_TURNS": 1.0,
+    "FORECAST_POSSIM_DAMAGE": 0.0
+  }
+}
