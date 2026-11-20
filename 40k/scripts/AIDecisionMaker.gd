@@ -23049,6 +23049,7 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 # =============================================================================
 
 const _AIForecast = preload("res://scripts/AIForecast.gd")
+const _AIPositionSim = preload("res://scripts/AIPositionSim.gd")
 
 static func _forecast_cp_value(snapshot: Dictionary, player: int, gained_after_turn: bool) -> float:
 	"""VP worth of one CP. A CP gained at the end of this turn is only worth
@@ -23237,6 +23238,118 @@ static func _apply_forecast_horizon(snapshot: Dictionary, evaluations: Array, pl
 			ev["priority"] = float(ev.priority) + add
 			print("AIDecisionMaker: [FORECAST-HORIZON] %s: swing %+.1f VP over %d rounds -> priority +%.1f (now %.1f)" % [
 				ev.id, float(swings[ev.id]), rounds_left, add, float(ev.priority)])
+
+# --- position look-ahead (AIPositionSim) -------------------------------------
+#
+# The forecast alone sees objective ownership, not positions (README: it
+# scored r = 0.00 against 138 measured rollouts). These build AIPositionSim's
+# world from a snapshot and price a set of movement intents by the VP margin
+# at the end of the next battle round — the same window a rollout measures.
+
+static func _possim_world(snapshot: Dictionary) -> Dictionary:
+	"""Every unit on the table as AIPositionSim sees it (inches)."""
+	var t0 := Time.get_ticks_usec()
+	var all_units: Dictionary = snapshot.get("units", {})
+	var units := {}
+	for uid in all_units:
+		var unit: Dictionary = all_units[uid]
+		if unit.get("embarked_in", null) != null:
+			continue
+		var c := _get_unit_centroid(unit)
+		if c == Vector2.INF:
+			continue
+		var alive_models := _get_alive_models_with_positions(unit)
+		if alive_models.is_empty():
+			continue
+		var stats: Dictionary = unit.get("meta", {}).get("stats", {})
+		var spread := 0.0
+		var wounds := 0.0
+		for m in alive_models:
+			spread += _get_model_position(m).distance_to(c)
+			wounds += float(m.get("current_wounds", m.get("wounds", stats.get("wounds", 1))))
+		spread = spread / float(alive_models.size()) / PIXELS_PER_INCH
+		units[str(uid)] = {
+			"side": int(unit.get("owner", 0)), "pos": c / PIXELS_PER_INCH,
+			"move": float(stats.get("move", 6)),
+			"oc": float(maxi(0, int(stats.get("objective_control", 0))) * alive_models.size()),
+			"wounds": maxf(1.0, wounds), "radius": clampf(spread + 0.6, 0.6, 5.0),
+			"seeker": _is_melee_seeker(unit), "charger": _unit_has_real_melee_weapon(unit),
+			"shoot": {}, "melee": {},
+		}
+	for uid in units:
+		var unit: Dictionary = all_units[uid]
+		var ranged: Array = []
+		for w in unit.get("meta", {}).get("weapons", []):
+			if str(w.get("type", "")).to_lower() == "ranged":
+				var rng_in := _get_weapon_range_inches(w)
+				if rng_in > 0.0:
+					ranged.append([w, rng_in, float(_weapon_carrier_count(unit, w))])
+		var has_melee: bool = _unit_has_melee_weapons(unit)
+		for tid in units:
+			if int(units[tid].side) == int(units[uid].side):
+				continue
+			var target: Dictionary = all_units[tid]
+			var rows: Array = []
+			for rw in ranged:
+				# empty shooter = no range check (the sim applies range itself)
+				var d: float = _estimate_weapon_damage(rw[0], target, snapshot, {}) * float(rw[2])
+				if d > 0.0:
+					rows.append([float(rw[1]), d])
+			if not rows.is_empty():
+				units[uid].shoot[tid] = rows
+			if has_melee:
+				var md: float = _estimate_melee_damage(unit, target, snapshot)
+				if md > 0.0:
+					units[uid].melee[tid] = md
+	var objectives: Array = []
+	for od in snapshot.get("board", {}).get("objectives", []):
+		var op := _objective_pos_by_id(snapshot, str(od.get("id", "")))
+		if op != Vector2.INF:
+			objectives.append({"id": str(od.get("id", "")), "pos": op / PIXELS_PER_INCH})
+	var order: Dictionary = _AIForecast.turn_order(snapshot)
+	print("AIDecisionMaker: [POSSIM] world: %d units, %d objectives (%d ms)" % [
+		units.size(), objectives.size(), (Time.get_ticks_usec() - t0) / 1000])
+	return {"units": units, "objectives": objectives, "first": int(order.first),
+		"active": int(order.active), "round": int(order.round)}
+
+static func _possim_intent(snapshot: Dictionary, a: Dictionary) -> Dictionary:
+	"""One movement assignment as an AIPositionSim intent."""
+	var action := str(a.get("action", "move"))
+	var oid := str(a.get("objective_id", ""))
+	if action == "attack":
+		return {"mode": "advance" if bool(a.get("attack_advance", false)) else "move",
+			"target": str(a.get("attack_target_id", "")), "goal_obj": ""}
+	if action == "hold" or action == "screen" or bool(a.get("already_on_obj", false)) and action != "advance" and action != "move":
+		return {"mode": "stay", "goal_obj": ""}
+	var pos = a.get("objective_pos", Vector2.INF)
+	if not (pos is Vector2) or pos == Vector2.INF:
+		pos = _objective_pos_by_id(snapshot, oid)
+	if pos == Vector2.INF:
+		return {"mode": "stay", "goal_obj": ""}
+	return {"mode": "advance" if action == "advance" else "move", "goal": (pos as Vector2) / PIXELS_PER_INCH, "goal_obj": oid}
+
+static func _possim_intents(snapshot: Dictionary, assignments: Dictionary) -> Dictionary:
+	var out := {}
+	for uid in assignments:
+		out[str(uid)] = _possim_intent(snapshot, assignments[uid])
+	return out
+
+static func _possim_margin(snapshot: Dictionary, world: Dictionary, intents: Dictionary, player: int,
+		P: Dictionary, sim_opts: Dictionary = {}) -> Dictionary:
+	"""VP margin (player minus opponent) at the end of the next battle round
+	for these intents: AIPositionSim plays the turns, the forecast scores them."""
+	var battle_round := int(world.get("round", 1))
+	var opts: Dictionary = sim_opts.duplicate()
+	if not opts.has("end_round"):
+		opts["end_round"] = mini(battle_round + 1, _AIForecast.ROUNDS)
+	var sim: Dictionary = _AIPositionSim.run(world, intents, opts)
+	var P2: Dictionary = P.duplicate()
+	P2["turn_plan"] = sim.turns
+	P2["end_round"] = int(opts.end_round)
+	P2["crn"] = true
+	var r: Dictionary = _AIForecast.forecast(P2)
+	var opp := 2 if player == 1 else 1
+	return {"margin": float(r.mean[player]) - float(r.mean[opp]), "sim": sim}
 
 # --- FORECAST-PLAN -----------------------------------------------------------
 

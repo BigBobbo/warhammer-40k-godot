@@ -559,6 +559,21 @@ static func _dup_units(units: Array) -> Array:
 		out.append(u.duplicate())
 	return out
 
+static func _sample_owners(objectives: Array, probs: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+	"""One owner per objective from {obj_id: [p1, p2]} (the rest: nobody). One
+	draw per objective whatever the numbers, so two plans stay on common
+	random numbers."""
+	var own := {}
+	for o in objectives:
+		var u := rng.randf()
+		var pr = probs.get(o.id, null)
+		if pr == null:
+			own[o.id] = 0
+			continue
+		var p1: float = float(pr[0])
+		own[o.id] = 1 if u < p1 else (2 if u < p1 + float(pr[1]) else 0)
+	return own
+
 static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
 	var first: int = int(P.get("first", 0))
 	if first != 1 and first != 2:
@@ -647,10 +662,26 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 	if P.has("prev_own"):
 		last_own = (P.prev_own as Dictionary).duplicate(true)
 	var f_obj: float = float(P.get("f_obj", 0.45))
-	for r in range(start_round, ROUNDS + 1):
+	# turn_plan (AIPositionSim): the next player turns, in play order from the
+	# start turn. Each entry: own_start / own_end {obj_id: [p1, p2]} = chance
+	# each player controls it at the Command phase / at the end of that turn,
+	# lam {1: x, 2: y} = expected units destroyed BY each player that turn.
+	# The state after one turn is the state at the next one's Command phase, so
+	# each boundary is sampled once. Turns past the list use the round model.
+	var turn_plan: Array = P.get("turn_plan", [])
+	var tp_states: Array = []
+	for k in range(turn_plan.size()):
+		var tp: Dictionary = turn_plan[k]
+		if k == 0:
+			tp_states.append(_sample_owners(objectives, tp.get("own_start", {}), rng))
+		tp_states.append(_sample_owners(objectives, tp.get("own_end", {}), rng))
+	var end_round: int = clampi(int(P.get("end_round", ROUNDS)), start_round, ROUNDS)
+	var turn_k := -1
+	for r in range(start_round, end_round + 1):
 		for t in range(2):
 			if r == start_round and t < start_turn:
 				continue
+			turn_k += 1
 			var X: int = order[t]
 			var Y: int = other(X)
 			var sx: Dictionary = S[X]
@@ -658,6 +689,11 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 			sx.turn_no += 1
 			sy.turn_no += 1
 			var own: Dictionary = owners[r]
+			var own_c: Dictionary = own  # at this turn's Command phase
+			var planned: bool = turn_k < turn_plan.size()
+			if planned:
+				own_c = tp_states[turn_k]
+				own = tp_states[turn_k + 1]
 			var prev_own: Dictionary = last_own[X]
 			last_own[X] = own
 			var hx := _holdings(objectives, own, X)
@@ -671,6 +707,10 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 			# --- kills this turn (by the active player; some fight-back by the other)
 			var lam_x: float = float(sx.pl.get("kill_rate", DEFAULT_KILL_RATE)) * float(ROUND_KILL["first" if t == 0 else "second"][r - 1])
 			var lam_y: float = 0.25 * float(sy.pl.get("kill_rate", DEFAULT_KILL_RATE))
+			if planned and (turn_plan[turn_k] as Dictionary).has("lam"):
+				var tl: Dictionary = turn_plan[turn_k].lam
+				lam_x = float(tl.get(X, lam_x))
+				lam_y = float(tl.get(Y, lam_y))
 			var kills_x := _pick_victims(sx.enemy_alive, _poisson(lam_x, rng), rng)
 			var kills_y := _pick_victims(sy.enemy_alive, _poisson(lam_y, rng), rng)
 			for v in kills_x:
@@ -690,6 +730,14 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 				"enemy_alive": sx.enemy_alive.size(), "rate": sx.pl.get("rate", {})}
 			if mission != "":
 				var v2 := _primary(mission, ctx)
+				if planned:
+					# Command-phase VP reads the holdings at the START of the turn
+					# (mission state is advanced by the end-of-turn call only)
+					var ctx_c: Dictionary = ctx.duplicate()
+					ctx_c["h"] = _holdings(objectives, own_c, X)
+					ctx_c["h_opp"] = _holdings(objectives, own_c, Y)
+					ctx_c["ms"] = (sx.ms as Dictionary).duplicate(true)
+					v2["C"] = int(_primary(mission, ctx_c).C)
 				# starting mid-turn after the Command phase: its VP is already banked
 				var c_vp: int = 0 if (r == start_round and t == start_turn and bool(P.get("skip_command_primary", false))) else int(v2.C)
 				prim_gain += c_vp + int(v2.EOT)
@@ -739,7 +787,14 @@ static func forecast(P: Dictionary) -> Dictionary:
 	var margin := 0.0
 	var cards := {1: {}, 2: {}}
 	var tag := {1: 0.0, 2: 0.0}
+	# crn: reseed every trial, so two forecasts that differ in one input stay
+	# on common random numbers trial by trial (their difference is then far
+	# less noisy than two independent runs)
+	var crn: bool = bool(P.get("crn", false))
+	var base_seed: int = int(P.get("seed", 0xC0FFEE))
 	for _i in range(trials):
+		if crn:
+			rng.seed = base_seed + 7919 * (_i + 1)
 		var g := _simulate_game(P, rng)
 		for X in [1, 2]:
 			tag[X] += float(g[X].tag_vp)

@@ -128,9 +128,48 @@ func _run():
 		row["pred"] = alt_m - base_m
 		row["cells_changed"] = str(bp.cells) != str(ap.cells)
 		row["score_gap"] = float(a_now.get("score", 0.0)) - float(alt.get("score", 0.0))
+		# --- position look-ahead (AIPositionSim): the base is the choice the
+		# rollout actually measured (the case's logged decision), not whatever
+		# this rebuilt plan happens to pick for the unit
+		var world: Dictionary = AIDM._possim_world(snap)
+		if world.units.has(uid):
+			var intents: Dictionary = AIDM._possim_intents(snap, assignments)
+			var sig: Dictionary = case.get("signature", {})
+			var chosen := str(case.get("chosen_option", ""))
+			var base_it := {"mode": "stay", "goal_obj": ""}
+			var sig_adv: bool = str(sig.get("type", "")) == "BEGIN_ADVANCE"
+			var words := chosen.split(" ")
+			if str(sig.get("type", "")) == "REMAIN_STATIONARY" or chosen.begins_with("Hold"):
+				pass
+			elif (chosen.begins_with("Move ") or chosen.begins_with("Advance ")) and words.size() > 1 and AIDM._objective_pos_by_id(snap, words[1]) != Vector2.INF:
+				base_it = {"mode": "advance" if sig_adv else "move", "goal": AIDM._objective_pos_by_id(snap, words[1]) / 40.0, "goal_obj": words[1]}
+			elif str(sig.get("choice", "")).begins_with("pos:"):
+				var xy := str(sig.choice).substr(4).split(",")
+				base_it = {"mode": "advance" if sig_adv else "move", "goal": Vector2(float(xy[0]), float(xy[1])) / 40.0, "goal_obj": ""}
+			var alt_mode := str(job.get("mode", "move"))
+			var alt_it := {"mode": "stay", "goal_obj": ""}
+			if alt_mode != "hold":
+				alt_it = {"mode": "advance" if alt_mode == "advance" else "move", "goal": AIDM._objective_pos_by_id(snap, oid) / 40.0, "goal_obj": oid}
+			var bi: Dictionary = intents.duplicate()
+			bi[uid] = base_it
+			var ai2: Dictionary = intents.duplicate()
+			ai2[uid] = alt_it
+			P["trials"] = trials
+			for variant in [["a0", {"damage": false, "policy": false}], ["a1", {"damage": false, "policy": true}],
+					["b0", {"damage": true, "policy": false}], ["b1", {"damage": true, "policy": true}]]:
+				var mb: Dictionary = AIDM._possim_margin(snap, world, bi, player, P, variant[1])
+				var ma: Dictionary = AIDM._possim_margin(snap, world, ai2, player, P, variant[1])
+				row["ps_" + variant[0]] = float(ma.margin) - float(mb.margin)
+				if variant[0] == "b1":
+					row["x_base"] = float(mb.sim.units[uid].x)
+					row["x_alt"] = float(ma.sim.units[uid].x)
+			row["base_intent"] = "%s %s" % [base_it.mode, base_it.goal_obj]
+			row["alt_intent"] = "%s %s" % [alt_it.mode, alt_it.goal_obj]
+			row["rebuilt_matches_logged"] = str(a_now.get("objective_id", "")) == str(base_it.goal_obj)
 		out.store_line(JSON.stringify(row))
 		done += 1
-		print("PREFILTER %s pred %+.2f (%s -> %s, cells changed %s)" % [job.job, alt_m - base_m, row.ai_objective, oid, str(row.cells_changed)])
+		print("PREFILTER %s pred %+.2f (%s -> %s, cells changed %s) possim a0 %+.2f a1 %+.2f b0 %+.2f b1 %+.2f" % [job.job, alt_m - base_m, row.ai_objective, oid, str(row.cells_changed),
+			float(row.get("ps_a0", 0.0)), float(row.get("ps_a1", 0.0)), float(row.get("ps_b0", 0.0)), float(row.get("ps_b1", 0.0))])
 	out.close()
 	print("PREFILTER done %d/%d" % [done, jobs.size()])
 	quit(0)

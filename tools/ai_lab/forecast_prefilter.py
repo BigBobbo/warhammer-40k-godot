@@ -94,7 +94,50 @@ def report(rows: list[dict]) -> str:
         mp = sum(r["E"] for r in pos) / len(pos) if pos else float("nan")
         mn = sum(r["E"] for r in neg) / len(neg) if neg else float("nan")
         lines.append("  screen pred >= %.1f: %3d pass (mean measured E %+.2f) / %3d rejected (mean E %+.2f)" % (th, len(pos), mp, len(neg), mn))
+    lines.append(score_models(ok))
     return "\n".join(lines)
+
+
+def boot_ci(xs, ys, n=2000, seed=11):
+    import random
+    rnd = random.Random(seed)
+    k = len(xs)
+    vals = []
+    for _ in range(n):
+        idx = [rnd.randrange(k) for _ in range(k)]
+        c = corr([xs[i] for i in idx], [ys[i] for i in idx])
+        if c == c:
+            vals.append(c)
+    vals.sort()
+    return (vals[int(0.025 * len(vals))], vals[int(0.975 * len(vals))]) if vals else (float("nan"), float("nan"))
+
+
+def score_models(ok: list[dict], keys=None) -> str:
+    """Position look-ahead (AIPositionSim) predictions vs the measured E. The
+    measured E is itself noisy (12 seeds a case): `ceiling` is the best r any
+    predictor could reach against it."""
+    rows = [r for r in ok if r.get("ps_a0") is not None]
+    if len(rows) < 5:
+        return "  position look-ahead: not run"
+    ys = [r["E"] for r in rows]
+    se2 = [((r["ci"][1] - r["ci"][0]) / 3.92) ** 2 for r in rows]
+    my = sum(ys) / len(ys)
+    var = sum((y - my) ** 2 for y in ys) / (len(ys) - 1)
+    ceiling = math.sqrt(max(0.0, 1 - (sum(se2) / len(se2)) / var))
+    out = ["  position look-ahead vs measured E (n=%d, noise ceiling r = %.2f)" % (len(rows), ceiling),
+           "    model            r   [95%% boot]     Spearman  clear: right/wrong/zero   top-20%% mean E  bottom-20%% mean E"]
+    clear = [r for r in rows if r.get("class") in ("clear", "harmful")]
+    for key in (keys or sorted(k for k in rows[0] if k.startswith("ps_"))):
+        xs = [float(r.get(key, 0.0)) for r in rows]
+        lo, hi = boot_ci(xs, ys)
+        right = sum(1 for r in clear if abs(r[key]) >= 0.25 and (r[key] > 0) == (r["E"] > 0))
+        zero = sum(1 for r in clear if abs(r[key]) < 0.25)
+        order = sorted(rows, key=lambda r: r[key])
+        k = max(1, len(rows) // 5)
+        out.append("    %-12s %+.2f  [%+.2f, %+.2f]   %+.2f      %2d / %2d / %2d              %+.2f           %+.2f" % (
+            key, corr(xs, ys), lo, hi, spearman(xs, ys), right, len(clear) - right - zero, zero,
+            sum(r["E"] for r in order[-k:]) / k, sum(r["E"] for r in order[:k]) / k))
+    return "\n".join(out)
 
 
 def main() -> int:
