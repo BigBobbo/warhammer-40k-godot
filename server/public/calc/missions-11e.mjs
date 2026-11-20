@@ -81,6 +81,14 @@ export const SECONDARIES = [
 // higher tier, the "max 5VP" cap, or 3 + 2 for Defend Stronghold), and the
 // per-game cap for a FIXED card.
 for (const c of SECONDARIES) { c.max = 5; if (c.fixed) c.fixedMax = RULES.fixedCardCap; }
+// The VP a tactical card can pay when it is scored (for the in-game tracker's
+// "+3 / +5" buttons): per-unit and tiered cards have more than one value.
+const VPS = {
+  beacon: [3, 5], 'behind-enemy-lines': [3, 5], 'burden-of-trust': [2, 4, 5], 'centre-ground': [3, 5], cleanse: [2, 5],
+  'defend-stronghold': [3, 5], 'display-of-might': [2, 5], 'engage-on-all-fronts': [3, 5], 'no-prisoners': [2, 4, 5],
+  outflank: [3, 5], 'overwhelming-force': [3, 5],
+};
+for (const c of SECONDARIES) c.vps = VPS[c.id] ?? [5];
 export const SECONDARY_BY_ID = Object.fromEntries(SECONDARIES.map(c => [c.id, c]));
 
 // Real-game scoring rates of the equivalent 10th edition card: the share of

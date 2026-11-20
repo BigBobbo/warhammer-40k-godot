@@ -359,7 +359,33 @@ export function boardView() {
   const onBoard = new Set(toks.map(t => t.tk));
   const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`))
     .map(u => `<button class="chip" data-action="board-place" data-side="${side}" data-key="${esc(u.key)}" style="border-color:${C[side]}">＋ ${esc(u.name)}</button>`).join('');
-  return `
+  const left = st.armies.A.units.length + st.armies.B.units.length - toks.length;
+  // The map comes first (one column on a phone; the left pane on a tablet): the plan
+  // steps and the units still to place sit right above it, everything else below / beside.
+  const wideNow = ctx.wide?.() ?? false;
+  // plan steps, Move / Ruler and the units still to place: above the map on a phone
+  // (one swipeable line), at the top of the side pane on a tablet (the map gets the height)
+  const stepsRow = `<div class="row" style="gap:6px;flex-wrap:wrap">
+        ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
+        <button class="chip" data-action="board-step-add">＋ Next turn</button>
+        <span class="grow"></span>
+        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
+      </div>`;
+  const trayHtml = left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
+        <span class="tiny muted" style="flex:none">Place ${left}:</span>${tray('A')}${tray('B')}</div>` : '';
+  return `<div id="board-dock" class="board-dock">${dockHtml()}</div><div class="blay"><div class="col map">
+    <section class="section b-steps">
+      ${wideNow ? '' : stepsRow + trayHtml}
+      <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
+      <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
+        <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
+        <button class="icon-btn" data-action="board-zoom" data-z="1.4" aria-label="Zoom out">－</button>
+        <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
+    </section>
+    </div><div class="col side">
+    ${wideNow ? `<section class="section">${stepsRow}</section>` : ''}
+    <section class="section" id="board-panel">${selectionPanel()}</section>
+    ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
     <section class="section"><div class="card">
       <div class="row" style="gap:8px">
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
@@ -372,20 +398,8 @@ export function boardView() {
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
       </div>
     </div></section>
-    <section class="section"><details class="more card" ${b.trayClosed ? '' : 'open'} data-details="board-tray" style="margin:0">
-      <summary>Place units · ${st.armies.A.units.length + st.armies.B.units.length - toks.length} not on the board</summary>
-      <div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div><div class="chips">${tray('A') || '<span class="muted small">All on the board.</span>'}</div>
-      <div class="lab tiny muted" style="margin-top:8px">B · ${esc(st.armies.B.faction)}</div><div class="chips" style="margin-bottom:6px">${tray('B') || '<span class="muted small">All on the board.</span>'}</div>
-    </details></section>
     <section class="section">
-      <div class="row" style="gap:6px;flex-wrap:wrap">
-        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
-      </div>
-      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
-      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
-        ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
-        <button class="chip" data-action="board-step-add">＋ Next turn</button>
-      </div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
         <span class="lab tiny muted">Plan</span>
         ${planRoot() ? planRoot().variants.map((vv, i) => `<button class="chip ${i === planRoot().v ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`).join('') : ''}
@@ -393,13 +407,8 @@ export function boardView() {
         ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
-      <div class="board-wrap card" id="board-host" style="padding:4px;margin-top:8px">${boardSvg()}</div>
-      <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
-        <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
-        <button class="icon-btn" data-action="board-zoom" data-z="1.4" aria-label="Zoom out">－</button>
-        <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
     </section>
-    <section class="section" id="board-panel">${selectionPanel()}</section>`;
+  </div></div>`;
 }
 
 function dangerBar() {
@@ -455,6 +464,33 @@ async function photoTask(fn, label) {
     alert(`Could not use that photo (${err?.message ?? err}).`);
   }
   refreshBoard();
+}
+
+// Phone: the selected unit's main actions stay at the bottom of the screen, so the
+// map does not scroll away (the full panel is below the map; on a tablet it is beside it).
+function dockHtml() {
+  const b = boardState();
+  const esc = ctx.esc;
+  const toks = placed();
+  const s1 = toks.find(t => t.tk === b.sel);
+  if (!s1) return '';
+  const s2 = toks.find(t => t.tk === b.sel2);
+  const u = s1.u;
+  const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
+  const rings = [ringChip('move', `Move ${u.move}"`), u.melee ? ringChip('charge', 'Charge') : '', ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`))].join('');
+  let pair = '';
+  if (s2) {
+    const gap = unitGap(s1, s2), enemy = s1.side !== s2.side;
+    pair = `<span class="small" id="dock-gap">→ ${esc(s2.u.cu.name)}: <b>${gap.toFixed(1)}"</b></span>
+      ${enemy && u.ranges.length ? '<button class="chip on nocheck" data-action="board-attack" data-phase="shooting">🎯 Shoot →</button>' : ''}
+      ${enemy && u.melee ? '<button class="chip on nocheck" data-action="board-attack" data-phase="fight">⚔ Fight →</button>' : ''}`;
+  }
+  return `<div class="dock-in"><div class="row" style="gap:8px">
+      <b class="grow ellipsis" style="color:${C[s1.side]}">${esc(u.cu.name)}</b>
+      <button class="icon-btn" data-action="board-rotate" data-deg="-15" aria-label="Rotate 15° left">⟲</button>
+      <button class="icon-btn" data-action="board-rotate" data-deg="15" aria-label="Rotate 15° right">⟳</button>
+      <button class="icon-btn" data-action="board-deselect" aria-label="Clear the selection">✕</button></div>
+    <div class="dock-chips">${pair}${rings}</div></div>`;
 }
 
 function selectionPanel() {
@@ -562,6 +598,8 @@ export function refreshBoard() {
   if (host) host.innerHTML = boardSvg();
   const panel = document.getElementById('board-panel');
   if (panel) panel.innerHTML = selectionPanel();
+  const dock = document.getElementById('board-dock');
+  if (dock) dock.innerHTML = dockHtml();
   const bar = document.getElementById('board-photo-bar');
   if (bar) bar.innerHTML = photoBar();
   const dbar = document.getElementById('board-danger-bar');
@@ -758,6 +796,10 @@ export function boardAction(action, el) {
       return 'render';
     case 'board-ring':
       b.rings[el.dataset.k] = !b.rings[el.dataset.k];
+      refreshBoard();
+      return null;
+    case 'board-deselect':
+      b.sel = b.sel2 = null;
       refreshBoard();
       return null;
     case 'board-zoom':

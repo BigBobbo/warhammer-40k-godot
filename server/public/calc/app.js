@@ -301,6 +301,11 @@ function modSeg(label, scope, key, value, options) {
 // ---------------------------------------------------------------------------
 // Views
 
+// tablet / laptop: two panes side by side (the phone keeps one column)
+const WIDE_Q = window.matchMedia('(min-width: 900px)');
+const wide = () => WIDE_Q.matches;
+WIDE_Q.addEventListener?.('change', () => { console.log(`[calc] layout: ${wide() ? 'two panes' : 'one column'}`); render(); });
+
 function render() {
   const a = state.armies.A, b = state.armies.B;
   const ready = a && b;
@@ -358,7 +363,7 @@ function intelView() {
     </div></section>
     <section class="section"><h2>Units</h2>
       <input class="sel" type="search" data-input="intel-search" placeholder="Search units, keywords, abilities…" value="${esc(state.intelQuery)}" aria-label="Search units">
-      <div id="intel-list">${intelList(side)}</div>
+      <div id="intel-list" class="intel-grid">${intelList(side)}</div>
     </section>`;
 }
 
@@ -430,7 +435,7 @@ function armiesView() {
     </div></section>`;
   };
   const ready = state.armies.A && state.armies.B;
-  return `${panel('A')}${panel('B')}
+  return `<div class="lay2"><div class="col">${panel('A')}</div><div class="col">${panel('B')}</div></div>
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
     <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
 }
@@ -439,7 +444,7 @@ function attackView() {
   const s = setup();
   const atk = atkArmy(), def = defArmy();
   const tinfo = targetInfo();
-  return `
+  return `<div class="lay2 attack"><div class="col">
     <section class="section">
       ${seg('phase', state.phase, [['shooting', 'Shooting'], ['fight', 'Fight']])}
       <div class="card matchup" style="margin-top:10px">
@@ -458,7 +463,8 @@ function attackView() {
     <section class="section"><h2>Attacking units${s.attackers.length > 1 ? ' · resolved in order' : ''}</h2>
       ${s.attackers.map((e, i) => attackerCard(e, i, tinfo)).join('')}
       <button class="btn block" style="margin-top:10px" data-action="open-add">＋ Add attacking unit</button>
-    </section>`;
+    </section></div>
+    ${wide() ? '<aside class="col pane" id="attack-pane" aria-label="Result"></aside>' : ''}</div>`;
 }
 
 // Who is attached to this combat unit, with detach / attach / join controls.
@@ -686,6 +692,15 @@ function renderResultViews() {
       <div class="kpi"><b>${pct(r.pWipe)}</b><span>unit destroyed</span></div>
       <div class="kpi"><b>${fx(r.meanWounds)}</b><span>avg damage</span></div>
     </div>`;
+  }
+  // wide screens: the full result sits beside the set-up instead of a bar + sheet
+  const pane = document.getElementById('attack-pane');
+  if (pane) {
+    bar.innerHTML = '';
+    pane.className = `col pane ${state.busy ? 'busy' : ''}`;
+    pane.innerHTML = r && !state.calcError ? resultsSheet() : `<div class="card">${inner}</div>`;
+    if (r) wireChart();
+    return;
   }
   bar.innerHTML = `<div class="resultbar ${state.busy ? 'busy' : ''}"><div class="wrap">${inner}
     <button class="btn primary" data-action="open-results" ${r ? '' : 'disabled'}>Details</button></div></div>`;
@@ -1322,6 +1337,7 @@ app.addEventListener('click', (ev) => {
       state.sheet = 'add';
       return renderSheet();
     case 'open-results':
+      if (document.getElementById('attack-pane')) return;   // already on screen (wide layout)
       state.sheet = 'results';
       state.selBar = null;
       return renderSheet();
@@ -1644,9 +1660,7 @@ app.addEventListener('toggle', (ev) => {
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   // Mission tab panels stay open while their buttons re-draw the page
-  if (el.dataset?.details === 'mission-assume' && state.mission) state.mission.openAssume = el.open;
-  if (el.dataset?.details === 'mission-basis' && state.mission) state.mission.openBasis = el.open;
-  if (el.dataset?.details?.startsWith('mission-dead-') && state.mission) (state.mission.openDead ??= {})[el.dataset.details.slice(-1)] = el.open;
+  if (el.dataset?.details?.startsWith('mission-') && state.mission) (state.mission.open ??= {})[el.dataset.details] = el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
     if (e) { e.openMods = el.open; persist(); }
@@ -1660,7 +1674,7 @@ restore();
 restoreSaved();
 restoreLibrary();
 initBoard({
-  state, esc, seg, chip, signature: listsSignature,
+  state, esc, seg, chip, signature: listsSignature, wide,
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
   openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
@@ -1682,7 +1696,7 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
-initMission({ state, esc, seg, chip, pairOdds });
+initMission({ state, esc, seg, chip, pairOdds, wide });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';

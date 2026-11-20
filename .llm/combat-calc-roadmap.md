@@ -104,7 +104,7 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
       (matchup-aware) instead of a flat default; real-game card rates (10e
       equivalents, labelled) instead of a flat 50%; calibration test against
       the 11e numbers above; "what this forecast is built from" panel.
-- [ ] **3. Find things / tablet** — Mission split into Plan / Cards / Play;
+- [x] **3. Find things / tablet** (v1.93.0) — Mission split into Plan / Cards / Play;
       tablet two-pane layouts; map-first Board with a unit strip on the phone.
 - [ ] **4. Backup and restore** (file), persistent storage.
 - [ ] **5. Less setup** — event mode: my list pinned, opponent roster (paste

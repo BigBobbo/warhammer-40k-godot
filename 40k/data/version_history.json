@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.93.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: easier to find things — Mission split into Plan, Cards and Play, the map first on the Board tab, and two panes on a tablet",
+      "changes": [
+        "Mission tab: three views instead of one long page — Plan (forecast, objective plan, what-ifs), Cards (the secondary deck against this army) and Play (the game on the table). The forecast headline stays pinned at the top of all three",
+        "Play view: +1 / +5 score buttons, each card in hand shows what it can pay (tap +3 or +5 and it is added to your secondary VP), a Turn done button that moves to the other player and the next battle round",
+        "Board tab: the map is now the first thing on the page, with the units still to place in one swipeable line above it. Tap a unit and its main actions (ranges, gap, Shoot, Fight) stay pinned at the bottom of the screen, so the map does not scroll away",
+        "Tablet and laptop (900 px and wider): two panes — map with its controls beside it, forecast beside the objective plan, attack set-up beside the full result, army lists side by side",
+        "Phone page lengths: Mission 4.8 screens down to about 2 per view; Board 2.1 down to 1.6"
+      ]
+    },
+    {
       "version": "1.92.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: the game forecast is rebuilt so you can trust it — it knows which army is stronger and is checked against real 11th edition tournament results",

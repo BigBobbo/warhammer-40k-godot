@@ -29,6 +29,8 @@ export function initMission(c) {
       // saves from before 1.92: keep a kill rate the player chose by hand, else use the calculator's
       if (!saved.killAuto) ms().killAuto = { A: (saved.killRate?.A ?? 1.3) === 1.3, B: (saved.killRate?.B ?? 1.3) === 1.3 };
       if (saved.edge == null) ms().edge = 0;
+      // panel memory moved to one map in 1.93
+      ms().open ??= { ...(saved.openAssume ? { 'mission-assume': true } : {}), ...(saved.openBasis ? { 'mission-basis': true } : {}) };
     }
   } catch { /* fresh */ }
 }
@@ -358,33 +360,61 @@ function runForecast() {
   worker.postMessage({ id: reqId, forecast: { base: P, variants: [...leverParams(), ...compare.map(({ note, ...c }) => ({ ...c, compare: true }))] } });
 }
 
+// the parts of the page that follow the forecast: re-drawn in place when a run finishes
+const HOSTS = {
+  'fc-mini': () => miniHtml(), 'mission-forecast': () => heroHtml(), 'mission-more': () => moreHtml(), 'mission-rounds': () => roundsHtml(),
+  'mission-basis-host': () => basisHtml(), 'mission-cards': () => cardsHtml(), 'mission-cards-side': () => cardsSideHtml(),
+};
 function refresh() {
-  const host = document.getElementById('mission-forecast');
-  if (host) host.innerHTML = forecastHtml();
-  const sheet = document.getElementById('mission-cards');
-  if (sheet) sheet.innerHTML = cardsHtml();
+  for (const [id, html] of Object.entries(HOSTS)) {
+    const host = document.getElementById(id);
+    if (host) host.innerHTML = html();
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Views
 
+const TABS = [['plan', 'Plan'], ['cards', 'Cards'], ['play', 'Play']];
+// collapsible panels keep their state while the page re-draws (app.js records the toggles)
+const isOpen = (k, dflt = false) => ms().open?.[k] ?? dflt;
+
 export function missionView() {
-  const st = ctx.state, m = ms(), esc = ctx.esc;
+  const st = ctx.state, m = ms();
   if (!st.armies.A || !st.armies.B) return '<p class="hint">Load both armies first.</p>';
-  const bc = boardContext();
+  const tab = TABS.some(t => t[0] === m.tab) ? m.tab : 'plan';
+  return `<div class="mission-top" id="mission-top">${ctx.seg('mission-tab', tab, TABS)}<div id="fc-mini">${miniHtml()}</div></div>
+    ${tab === 'plan' ? planView() : tab === 'cards' ? cardsView() : playView()}`;
+}
+
+// one line that stays on screen in every Mission view: the forecast headline
+function miniHtml() {
+  const m = ms(), r = m.result;
+  if (!r) return `<div class="fc-mini muted">${m.busy ? 'Simulating the game…' : 'No forecast yet: pick a layout on the Board tab.'}</div>`;
   const me = m.me, opp = other(me);
+  const pWin = me === 'A' ? r.pWinA : r.pWinB;
+  return `<button class="fc-mini" data-action="mission-tab" data-value="plan" aria-label="Forecast headline: open the plan">
+    <span><b id="fc-mini-win">${pct(pWin)}</b> you win</span><span><b>${fmt(r[me].mean)}</b> – <b>${fmt(r[opp].mean)}</b> VP</span>
+    <span class="muted">${inProgress() ? `from round ${m.game.round}` : 'whole game'}${m.busy ? ' · updating…' : ''}</span></button>`;
+}
+
+// ---- Plan: set-up, forecast, objective plan, what-ifs
+function planView() {
+  const st = ctx.state, m = ms(), esc = ctx.esc;
+  const bc = boardContext();
+  const me = m.me;
   const modeRow = (X) => `<div class="modrow"><div class="lab">${X} · ${esc(st.armies[X].faction)} secondaries</div>
       ${ctx.seg('mission-mode', m.modes[X].mode, [['tactical', 'Tactical'], ['fixed', 'Fixed']], `compact" data-side="${X}`)}
       ${m.modes[X].mode === 'fixed' ? `<div class="chips" style="margin-top:6px">${FIXED_IDS.map(id => ctx.chip('mission-fixed', m.modes[X].fixed.includes(id), SECONDARY_BY_ID[id].name, `data-side="${X}" data-id="${id}"`)).join('')}</div>` : ''}</div>`;
-  return `
-    <section class="section"><div class="card">
+  return `<div class="mlay plan"><div class="col">
+    <section class="section a-setup o1"><div class="card">
       <div class="small" id="mission-names"><b style="color:var(--side-a)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
         <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · layout ${bc.layout?.variant ?? '?'} — change it on the Board tab.</div></div>
       <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
         <div><div class="lab tiny muted">First turn</div>${ctx.seg('mission-first', m.first ?? 'roll', [['A', 'A'], ['B', 'B'], ['roll', 'Roll-off']], 'compact')}</div>
       </div>
-      <details class="more" style="margin-top:8px" data-details="mission-assume" ${m.openAssume ? 'open' : ''}><summary>Assumptions (modes, trading, actions, skill)</summary>
+      <details class="more" style="margin-top:8px" data-details="mission-assume" ${isOpen('mission-assume') ? 'open' : ''}><summary>Assumptions (modes, trading, actions, skill)</summary>
         ${modeRow('A')}${modeRow('B')}
         ${['A', 'B'].map(X => { const k = killRateOf(X); return `<div class="modrow"><div class="lab">${X}: units destroyed per turn${k.from === 'calc' ? ' — Auto is from the calculator' : ''}</div>${ctx.seg('mission-kills', m.killAuto?.[X] === false ? m.killRate[X] : 'auto', [['auto', k.from === 'calc' ? `Auto ${fmt(k.rate, 1)}` : 'Auto'], ...KILL_RATES], `compact" data-side="${X}`)}</div>`; }).join('')}
         <div class="modrow"><div class="lab">Who is the stronger player? (+ slightly, ++ clearly)</div>${ctx.seg('mission-edge', m.edge ?? 0, EDGES, 'compact')}</div>
@@ -392,55 +422,111 @@ export function missionView() {
         <div class="chips" style="margin-top:6px">${['A', 'B'].map(X => ctx.chip('mission-ready', m.battleReady[X], `${X} Battle Ready (+10)`, `data-side="${X}"`)).join('')}</div>
       </details>
     </div></section>
-    <section class="section"><h2>Forecast</h2><div id="mission-forecast">${forecastHtml()}</div></section>
-    <section class="section"><h2>Plan</h2>${sourceHtml()}${planHtml()}</section>
-    <section class="section"><h2>Secondary cards</h2><div id="mission-cards">${cardsHtml()}</div></section>
-    <section class="section"><h2>Game in progress</h2>${trackerHtml()}</section>`;
+    <section class="section a-hero o2"><h2>Forecast</h2><div id="mission-forecast">${heroHtml()}</div></section>
+    <section class="section a-rounds o5"><div id="mission-rounds">${roundsHtml()}</div></section>
+    <section class="section a-basis o6"><div id="mission-basis-host">${basisHtml()}</div></section>
+    </div><div class="col">
+    <section class="section a-grid o3"><h2>Objective plan</h2>${sourceHtml()}${planHtml()}</section>
+    <section class="section a-more o4"><div id="mission-more">${moreHtml()}</div></section>
+  </div></div>`;
+}
+
+// ---- Cards: the secondary deck against this army, what to keep ready, what to kill
+function cardsView() {
+  return `<div class="mlay cards">
+    <div class="col"><section class="section a-sheet"><h2>Secondary cards</h2><div id="mission-cards">${cardsHtml()}</div></section></div>
+    <div class="col"><section class="section a-side"><div id="mission-cards-side">${cardsSideHtml()}</div></section></div>
+  </div>`;
+}
+
+// ---- Play: the game on the table (round, scores, cards in hand), and the forecast from here
+function playView() {
+  const m = ms(), g = m.game, me = m.me, opp = other(me);
+  const who = (X) => `${X}${X === me ? ' · me' : ''}`;
+  return `<div class="mlay play"><div class="col">
+    <section class="section a-bar"><div class="card" id="play-bar">
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div><div class="lab tiny muted">Battle round</div>${ctx.seg('mission-round', g.round, [1, 2, 3, 4, 5].map(r => [r, String(r)]), 'compact')}</div>
+        <div><div class="lab tiny muted">Turn of</div>${ctx.seg('mission-next', g.next ?? m.first ?? 'A', [['A', who('A')], ['B', who('B')]], 'compact')}</div>
+        <button class="btn primary" data-action="mission-turn-done" id="play-turn-done">Turn done ▶</button>
+      </div>
+      ${m.first == null ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="small">Who took the first turn?</span>${ctx.seg('mission-first', 'roll', [['A', who('A')], ['B', who('B')]], 'compact')}</div>` : ''}
+      <div class="tiny muted" style="margin-top:6px">Enter scores and cards as you play: the forecast re-runs from this point. “Turn done” moves to the other player (and to the next battle round after the second turn).</div>
+    </div></section>
+    <section class="section a-me">${playerCard(me)}</section>
+    </div><div class="col">
+    <section class="section a-opp">${playerCard(opp)}</section>
+    <section class="section a-fc"><h2>From here</h2><div id="mission-forecast">${heroHtml()}</div>
+      <button class="btn ghost" style="margin-top:10px" data-action="mission-reset">Reset game</button></section>
+  </div></div>`;
 }
 
 function fmt(n, d = 0) { return (Math.round(n * 10 ** d) / 10 ** d).toFixed(d); }
 const pct = (p) => (p >= 0.995 ? '>99%' : p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
-function forecastHtml() {
-  const m = ms(), r = m.result, esc = ctx.esc;
-  if (!r) return `<p class="muted small">${m.busy ? 'Simulating the game…' : 'Pick a layout on the Board tab to forecast.'}</p>`;
+function fcParts() {
+  const m = ms(), r = m.result;
+  if (!r) return null;
   const me = m.me, opp = other(me);
-  const R = { me: r[me], opp: r[opp] };
-  const pWin = me === 'A' ? r.pWinA : r.pWinB, pLose = me === 'A' ? r.pWinB : r.pWinA;
-  const margin = me === 'A' ? r.margin : { p10: -r.margin.p90, p50: -r.margin.p50, p90: -r.margin.p10 };
-  const live = inProgress();
-  const leadRow = r.lead.map((l, i) => {
-    const ahead = me === 'A' ? l.A : l.B;
-    return `<div class="cell"><b>${pct(ahead)}</b><span>R${i + 1}</span></div>`;
-  }).join('');
+  return { m, r, me, opp, pWin: me === 'A' ? r.pWinA : r.pWinB, pLose: me === 'A' ? r.pWinB : r.pWinA,
+    margin: me === 'A' ? r.margin : { p10: -r.margin.p90, p50: -r.margin.p50, p90: -r.margin.p10 } };
+}
+
+// the headline: win chance, both scores with their ranges, what it means
+function heroHtml() {
+  const f = fcParts(), m = ms();
+  if (!f) return `<p class="muted small">${m.busy ? 'Simulating the game…' : 'Pick a layout on the Board tab to forecast.'}</p>`;
+  const { r, me, opp, pWin, pLose, margin } = f;
+  const ft = r.firstTurn;
+  const mine = (p) => (p == null ? null : me === 'A' ? p : 1 - p);
+  const pFirst = mine(me === 'A' ? ft?.pWinAFirst : ft?.pWinASecond), pSecond = mine(me === 'A' ? ft?.pWinASecond : ft?.pWinAFirst);
+  return `<div class="hero" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="cell"><b id="fc-win">${pct(pWin)}</b><span>you win${r.pDraw >= 0.005 ? ` · draw ${pct(r.pDraw)}` : ''}</span></div>
+      <div class="cell"><b id="fc-me">${fmt(r[me].mean)}</b><span>your VP (${r[me].p10}–${r[me].p90})</span></div>
+      <div class="cell"><b id="fc-opp">${fmt(r[opp].mean)}</b><span>their VP (${r[opp].p10}–${r[opp].p90})</span></div>
+    </div>
+    <div class="small" style="margin-top:6px" id="fc-verdict">${verdict(pWin, pLose, margin)}</div>
+    <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
+    ${m.first == null && !inProgress() && pFirst != null && pSecond != null ? `<div class="small" style="margin-top:6px" id="fc-first">First turn is a roll-off after deployment: you win <b>${pct(pFirst)}</b> going first, <b>${pct(pSecond)}</b> going second.</div>` : ''}
+    <div class="tiny muted" style="margin-top:4px">${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}. The range is where 8 games in 10 end.</div>`;
+}
+
+// round by round: who leads, VP per round, units left
+function roundsHtml() {
+  const f = fcParts();
+  if (!f) return '';
+  const { r, me, opp } = f;
+  const leadRow = r.lead.map((l, i) => `<div class="cell"><b>${pct(me === 'A' ? l.A : l.B)}</b><span>R${i + 1}</span></div>`).join('');
   // end-of-battle primary VP (not under the 15 VP per round limit) get their own column when a mission has them
   const hasEnd = (r.A.primEnd ?? 0) > 0.05 || (r.B.primEnd ?? 0) > 0.05;
   const roundRows = [[me, 'You'], [opp, 'Opp']].map(([X, lab]) => `<tr><td><span class="swatch" style="background:var(--side-${X.toLowerCase()})"></span>${lab} · ${X}</td>
       ${r[X].prim.map((p, i) => `<td>${fmt(p + r[X].sec[i])}<span class="tiny muted"> ${fmt(p)}+${fmt(r[X].sec[i])}</span></td>`).join('')}${hasEnd ? `<td>${fmt(r[X].primEnd ?? 0)}</td>` : ''}<td><b>${fmt(r[X].mean)}</b></td></tr>`).join('');
+  return `<details class="more" data-details="mission-rounds" ${isOpen('mission-rounds', ctx.wide?.() ?? false) ? 'open' : ''}><summary>Round by round (who leads, VP, units left)</summary>
+    <div class="lab tiny muted" style="margin-top:8px">Chance you are ahead after each battle round</div>
+    <div class="hero lead" id="fc-lead" style="grid-template-columns:repeat(5,1fr)">${leadRow}</div>
+    <table class="dist" style="margin-top:8px"><thead><tr><th>VP by round</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th>${hasEnd ? '<th>End</th>' : ''}<th>Total</th></tr></thead><tbody>${roundRows}</tbody></table>
+    <div class="tiny muted">Primary + secondary per round${hasEnd ? '; End = primary VP scored at the end of the battle (not under the 15 VP per round limit)' : ''}; totals include Battle Ready.</div>
+    ${battleHtml(r, me)}
+  </details>`;
+}
+
+// what would change the result: the what-ifs, and your plans side by side
+function moreHtml() {
+  const f = fcParts();
+  if (!f) return '';
+  const { m, r, me, opp, pWin } = f;
+  const esc = ctx.esc;
   const levers = (m.levers ?? []).map(l => {
     const lr = l.result;
     if (!lr) return '';
     const dWin = (me === 'A' ? lr.pWinA : lr.pWinB) - pWin;
-    const dMe = lr[me].mean - R.me.mean, dOpp = lr[opp].mean - R.opp.mean;
+    const dMe = lr[me].mean - r[me].mean, dOpp = lr[opp].mean - r[opp].mean;
     const sign = (x, d = 0) => `${x >= 0 ? '+' : '−'}${fmt(Math.abs(x), d)}`;
     return `<tr data-lever="${l.key}"><td>${esc(l.label)}</td><td class="${dWin >= 0 ? 'up' : 'down'}"><b>${sign(dWin * 100)}%</b></td><td>${sign(dMe, 1)}</td><td>${sign(dOpp, 1)}</td></tr>`;
   }).join('');
-  return `<div class="hero" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="cell"><b id="fc-win">${pct(pWin)}</b><span>you win${r.pDraw >= 0.005 ? ` · draw ${pct(r.pDraw)}` : ''}</span></div>
-      <div class="cell"><b id="fc-me">${fmt(R.me.mean)}</b><span>your VP (${R.me.p10}–${R.me.p90})</span></div>
-      <div class="cell"><b id="fc-opp">${fmt(R.opp.mean)}</b><span>their VP (${R.opp.p10}–${R.opp.p90})</span></div>
-    </div>
-    <div class="small" style="margin-top:6px" id="fc-verdict">${verdict(pWin, pLose, margin)}</div>
-    <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
-    ${battleHtml(r, me)}
-    <div class="lab tiny muted" style="margin-top:8px">Chance you are ahead after each battle round</div>
-    <div class="hero lead" id="fc-lead" style="grid-template-columns:repeat(5,1fr)">${leadRow}</div>
-    <table class="dist" style="margin-top:8px"><thead><tr><th>VP by round</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th>${hasEnd ? '<th>End</th>' : ''}<th>Total</th></tr></thead><tbody>${roundRows}</tbody></table>
-    <div class="tiny muted">Primary + secondary per round${hasEnd ? '; End = primary VP scored at the end of the battle (not under the 15 VP per round limit)' : ''}; totals include Battle Ready. ${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}.</div>
-    ${levers ? `<div class="lab tiny muted" style="margin-top:10px">What changes the result</div>
+  return `${levers ? `<h2 class="sub">What changes the result</h2>
       <table class="dist" id="fc-levers"><thead><tr><th>If you…</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>${levers}</tbody></table>` : ''}
-    ${compareHtml(me, opp)}
-    ${basisHtml()}`;
+    ${compareHtml(me, opp)}`;
 }
 
 // how the simulated battles go: units left, wipe-outs, first / second turn
@@ -448,13 +534,9 @@ function battleHtml(r, me) {
   const m = ms(), opp = other(me);
   const total = (X) => profileOf(X)?.profile.count ?? 0;
   const leftRow = (X, lab) => `<tr><td><span class="swatch" style="background:var(--side-${X.toLowerCase()})"></span>${lab}</td>${r[X].unitsLeft.map(v => `<td>${fmt(v, 1)}</td>`).join('')}<td>${pct(r[X].pTabled)}</td></tr>`;
-  const ft = r.firstTurn;
-  const mine = (p) => (p == null ? null : me === 'A' ? p : 1 - p);
-  const pFirst = mine(me === 'A' ? ft?.pWinAFirst : ft?.pWinASecond), pSecond = mine(me === 'A' ? ft?.pWinASecond : ft?.pWinAFirst);
-  const live = inProgress();
   return `<div class="lab tiny muted" style="margin-top:8px">Units left at the end of each battle round (you start with ${total(me)}, they with ${total(opp)})</div>
     <table class="dist" id="fc-units"><thead><tr><th></th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Wiped out</th></tr></thead><tbody>${leftRow(me, 'You')}${leftRow(opp, 'Opp')}</tbody></table>
-    ${m.first == null && !live && pFirst != null && pSecond != null ? `<div class="small" style="margin-top:6px" id="fc-first">First turn is a roll-off after deployment: you win <b>${pct(pFirst)}</b> going first, <b>${pct(pSecond)}</b> going second.</div>` : ''}`;
+`;
 }
 
 // where every part of the forecast comes from: rules, your input, the calculator, or an assumption
@@ -471,7 +553,7 @@ function basisHtml() {
   const nEst = Object.keys(m.est?.[me] ?? {}).length;
   const noData = POSITION_CARDS.filter(id => !REAL_RATES[id]).map(id => SECONDARY_BY_ID[id].name);
   const row = (kind, title, text) => `<li class="basis ${kind}"><span class="pill ${kind === 'rule' ? 'good' : kind === 'you' ? 'mine' : kind === 'calc' ? '' : 'ask'}">${kind === 'rule' ? 'Rules' : kind === 'you' ? 'Your input' : kind === 'calc' ? 'Calculator' : kind === 'data' ? 'Real games' : 'Assumption'}</span> <b>${title}</b> — ${text}</li>`;
-  return `<details class="more" style="margin-top:8px" data-details="mission-basis" ${m.openBasis ? 'open' : ''} id="fc-basis"><summary>What this forecast is built from</summary>
+  return `<details class="more" data-details="mission-basis" ${isOpen('mission-basis') ? 'open' : ''} id="fc-basis"><summary>What this forecast is built from</summary>
     <ul class="keep basis-list">
       ${row('rule', 'Scoring', 'card VP and timing, the deck (draw two a turn, cards stay until scored), the 15 VP per round and 45 VP limits, end-of-battle VP, Battle Ready. Exact.')}
       ${row('you', 'Objectives', vi != null ? `measured from your board plan “${esc(plans[vi]?.name ?? '')}”: the units you placed hold what they are in range of, at the end of every turn.` : 'your objective grid below. A planned objective is not certain: you lose it now and then, more often when your army is the weaker one.')}
@@ -490,7 +572,7 @@ function compareHtml(me, opp) {
   // the best complete plan gets the star: a plan with units missing is not comparable
   const complete = rows.filter(c => !planNotes[c.key]);
   const best = Math.max(...(complete.length ? complete : rows).map(win));
-  return `<div class="lab tiny muted" style="margin-top:10px">Your plans compared</div>
+  return `<h2 class="sub" style="margin-top:14px">Your plans compared</h2>
     <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
     ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
     </tbody></table>`;
@@ -620,16 +702,24 @@ function cardsHtml() {
               : onBoard ? 'App estimate: from the objectives your units hold on the board plan.' : 'App estimate: from your objective plan; when the plan does not give it, you play for the card at the real-game rate.'}</div>${realLine}
             ${fixedMode ? '<div class="tiny muted">Taken as Fixed: your estimate applies to Tactical play only.</div>' : estimateHtml(c, side, est[c.id], perDraw)}`}</td></tr>` : ''}`;
   };
+  return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
+    <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
+    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a VP if drawn number to set your own (0 up to Max) — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character; pick “app” to go back. Tap a card name for its rules.</div>
+`;
+}
+
+// beside the sheet: what to keep ready for, and the units that feed the kill cards
+function cardsSideHtml() {
+  const m = ms(), esc = ctx.esc;
+  const side = m.sheetSide ?? m.me;
+  if (!profileOf(other(m.me)) || !profileOf(m.me)) return '';
   // keep-ready: my best live non-kill cards by expected VP over the game
   const mine = m.result?.[m.me]?.cards ?? {};
   const ready = SECONDARIES.filter(c => KEEP_READY[c.id] && !cardDead(c.id, profileOf(other(m.me)).profile) && (m.est?.[m.me]?.[c.id] ?? 1) > 0)
     .map(c => ({ c, ev: (mine[c.id]?.perDraw ?? 0) * (mine[c.id]?.drawRate ?? 0) }))
     .sort((a, b) => b.ev - a.ev).slice(0, 5);
-  return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
-    <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
-    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a VP if drawn number to set your own (0 up to Max) — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character; pick “app” to go back. Tap a card name for its rules.</div>
-    ${side === m.me ? `<div class="lab tiny muted" style="margin-top:10px">Keep ready for</div><ul class="keep" id="mission-keep">${ready.map(x => `<li><b>${esc(x.c.name)}</b> — ${esc(KEEP_READY[x.c.id])}</li>`).join('')}</ul>` : ''}
-    <div class="lab tiny muted" style="margin-top:10px">${side === m.me ? 'Hit list: enemy units worth secondary VP' : 'Your units they score from'}</div>${hitListHtml(side)}`;
+  return `${side === m.me ? `<h2 class="sub">Keep ready for</h2><ul class="keep" id="mission-keep">${ready.map(x => `<li><b>${esc(x.c.name)}</b> — ${esc(KEEP_READY[x.c.id])}</li>`).join('')}</ul>` : ''}
+    <h2 class="sub" style="margin-top:14px">${side === m.me ? 'Hit list: enemy units worth secondary VP' : 'Your units they score from'}</h2>${hitListHtml(side)}`;
 }
 
 // the VP-if-drawn cell: tap the number to pick your own value (0 to max in 0.5
@@ -673,38 +763,34 @@ function hitListHtml(side) {
 
 // ---- in-game tracker
 
-function trackerHtml() {
+// one player's side of the table: scores (steppers), the cards in hand with what
+// they can pay, the draw box, units destroyed
+function playerCard(X) {
   const m = ms(), g = m.game, esc = ctx.esc;
-  const deckOf = (X) => SECONDARIES.map(c => c.id).filter(id => !g[X].hand.includes(id) && !g[X].used.includes(id));
-  const playerCard = (X) => {
-    const deck = deckOf(X);
-    const mode = m.modes[X].mode;
-    return `<div class="card" style="margin-top:8px" data-player="${X}">
-      <div class="title" style="color:var(--side-${X.toLowerCase()})">${X} · ${esc(ctx.state.armies[X].faction)}</div>
-      <div class="row" style="gap:8px;margin-top:6px">
-        <label class="grow small">Primary VP <input class="num" type="number" inputmode="numeric" min="0" max="45" data-input="mission-score" data-side="${X}" data-k="primary" value="${g[X].primary}"></label>
-        <label class="grow small">Secondary VP <input class="num" type="number" inputmode="numeric" min="0" max="45" data-input="mission-score" data-side="${X}" data-k="secondary" value="${g[X].secondary}"></label>
-      </div>
-      ${mode === 'tactical' ? `<div class="lab tiny muted" style="margin-top:8px">Active cards</div>
-        <div class="chips" id="hand-${X}">${g[X].hand.length ? g[X].hand.map(id => `<span class="chip on nocheck">${esc(SECONDARY_BY_ID[id].name)}
-          <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="scored" aria-label="Scored ${esc(SECONDARY_BY_ID[id].name)}">✓</button>
-          <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="discard" aria-label="Discard ${esc(SECONDARY_BY_ID[id].name)}">✕</button></span>`).join('') : '<span class="muted small">None.</span>'}</div>
+  const deck = SECONDARIES.map(c => c.id).filter(id => !g[X].hand.includes(id) && !g[X].used.includes(id));
+  const mode = m.modes[X].mode;
+  const score = (k, label) => `<div class="grow"><div class="lab tiny muted">${label}</div><div class="stepper score">
+      <button data-action="mission-score-step" data-side="${X}" data-k="${k}" data-delta="-1" aria-label="${X} ${label} minus 1">−</button>
+      <input class="num" type="number" inputmode="numeric" min="0" max="45" data-input="mission-score" data-side="${X}" data-k="${k}" value="${g[X][k]}" aria-label="${X} ${label}">
+      <button data-action="mission-score-step" data-side="${X}" data-k="${k}" data-delta="1" aria-label="${X} ${label} plus 1">+</button>
+      <button data-action="mission-score-step" data-side="${X}" data-k="${k}" data-delta="5" aria-label="${X} ${label} plus 5">+5</button></div></div>`;
+  const total = g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0);
+  const handRow = (id) => { const c = SECONDARY_BY_ID[id]; return `<div class="hand-row" data-card="${id}"><span class="grow">${esc(c.name)}</span>
+      ${c.vps.map(v => `<button class="mini score" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="scored" data-vp="${v}" aria-label="${esc(c.name)} scored ${v} VP">+${v}</button>`).join('')}
+      <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="discard" aria-label="Discard ${esc(c.name)}">✕</button></div>`; };
+  return `<div class="card" data-player="${X}">
+      <div class="row"><div class="title grow" style="color:var(--side-${X.toLowerCase()})">${X} · ${esc(ctx.state.armies[X].faction)}${X === m.me ? ' (me)' : ''}</div>
+        <div class="small"><b id="play-total-${X}">${total}</b> VP${m.battleReady[X] ? ' <span class="tiny muted">incl. 10</span>' : ''}</div></div>
+      <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap">${score('primary', 'Primary VP')}${score('secondary', 'Secondary VP')}</div>
+      ${mode === 'tactical' ? `<div class="lab tiny muted" style="margin-top:10px">Cards in hand — tap what a card scored (it is added to the secondary VP), ✕ to discard</div>
+        <div id="hand-${X}">${g[X].hand.length ? g[X].hand.map(handRow).join('') : '<span class="muted small">None.</span>'}</div>
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
-        ${g[X].hand.length ? '<div class="tiny muted">✓ scored · ✕ discarded. Discarding at the end of your own turn gives 1CP in total (at most 1 extra CP per battle round at events).</div>' : ''}
+        ${g[X].hand.length ? '<div class="tiny muted">Discarding at the end of your own turn gives 1CP in total (at most 1 extra CP per battle round at events).</div>' : ''}
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
-        : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Assumptions'}.</div>`}
-      <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${m.openDead?.[X] ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
+        : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Plan → Assumptions'}.</div>`}
+      <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${isOpen(`mission-dead-${X}`) ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
         <div class="chips">${ctx.state.armies[X].units.map(u => ctx.chip('mission-dead', g[X].destroyed.includes(u.name), u.name, `data-side="${X}" data-name="${esc(u.name)}"`)).join('')}</div></details>
     </div>`;
-  };
-  return `<div class="card">
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <div><div class="lab tiny muted">Battle round</div>${ctx.seg('mission-round', g.round, [1, 2, 3, 4, 5].map(r => [r, String(r)]), 'compact')}</div>
-        <div><div class="lab tiny muted">Next to play</div>${ctx.seg('mission-next', g.next ?? m.first ?? 'A', [['A', 'A'], ['B', 'B']], 'compact')}</div>
-      </div>
-      <div class="tiny muted" style="margin-top:6px">Enter the score and cards as you play; the forecast re-runs from this point.</div>
-      <button class="btn ghost" style="margin-top:6px" data-action="mission-reset">Reset game</button>
-    </div>${playerCard(m.me)}${playerCard(other(m.me))}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -764,8 +850,23 @@ export function missionAction(action, el) {
       const id = el.dataset.id;
       g[X].hand = g[X].hand.filter(h => h !== id);
       if (!g[X].used.includes(id)) g[X].used.push(id);
+      // "+5": the card was scored for that much (✕ = discarded, no VP)
+      if (el.dataset.do === 'scored' && el.dataset.vp) g[X].secondary = Math.min(RULES.secondaryCap, g[X].secondary + Number(el.dataset.vp));
       break;
     }
+    case 'mission-score-step': {
+      const k = el.dataset.k === 'primary' ? 'primary' : 'secondary';
+      g[X][k] = Math.max(0, Math.min(45, (g[X][k] || 0) + Number(el.dataset.delta)));
+      break;
+    }
+    case 'mission-turn-done': {
+      // to the other player; after the second turn of a round, to the next battle round
+      const cur = g.next ?? m.first ?? 'A', first = m.first ?? cur;
+      if (cur !== first && g.round < RULES.rounds) g.round++;
+      g.next = other(cur);
+      break;
+    }
+    case 'mission-tab': m.tab = el.dataset.value; toTop = true; persist(); return 'render';
     case 'mission-dead': {
       const n = el.dataset.name, d = g[X].destroyed;
       if (d.includes(n)) d.splice(d.indexOf(n), 1); else d.push(n);
@@ -807,7 +908,9 @@ export function missionChange(el) {
 }
 
 let lastSig = '';
+let toTop = false;   // a new Mission view starts at its top
 export function missionAfterRender() {
+  if (toTop) { toTop = false; window.scrollTo(0, 0); }
   // re-forecast when anything it depends on changed (lists, layout on the Board tab, plan, tracker)
   const P = forecastParams({ trials: 0 });
   const sig = P ? JSON.stringify(P) : '';

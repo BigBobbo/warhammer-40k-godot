@@ -71,7 +71,7 @@ button, select, textarea, input { font: inherit; color: inherit; }
 
 /* ---- generic blocks */
 .section { margin: 14px 0; }
-.section > h2 {
+.section > h2, .section h2.sub {
   font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
   color: var(--text-muted); margin: 0 0 6px 2px; font-weight: 600;
 }
@@ -329,3 +329,53 @@ select.est-pick.mine { border-color: var(--accent); background: var(--series-1-w
 ul.basis-list { list-style: none; padding-left: 0; }
 ul.basis-list li { margin: 8px 0; line-height: 1.35; }
 ul.basis-list .pill { margin-right: 4px; }
+
+/* ---- Mission: Plan / Cards / Play with the forecast headline pinned under the tabs */
+.mission-top { position: sticky; top: calc(53px + env(safe-area-inset-top)); z-index: 15; background: var(--bg); margin: 0 -12px; padding: 8px 12px 6px; border-bottom: 1px solid var(--line); }
+.fc-mini { display: flex; gap: 4px 14px; align-items: baseline; flex-wrap: wrap; width: 100%; margin-top: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; font-size: 13px; text-align: left; }
+button.fc-mini { cursor: pointer; }
+.fc-mini b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.fc-mini .muted { margin-left: auto; font-size: 12px; }
+.hand-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.hand-row .mini { min-width: 44px; min-height: 38px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; }
+.hand-row .mini.score { border-color: var(--accent); font-weight: 600; }
+.stepper.score { gap: 4px; }
+.stepper.score input.num { width: 62px; min-height: 40px; margin-top: 0; text-align: center; padding: 0 4px; }
+.stepper.score button { font-size: 16px; }
+
+/* ---- two panes on tablets and laptops; the phone keeps one column in reading order */
+.lay2 > .col, .mlay > .col, .blay > .col { display: contents; }
+.mlay { display: flex; flex-direction: column; }
+.mlay .o1 { order: 1; } .mlay .o2 { order: 2; } .mlay .o3 { order: 3; } .mlay .o4 { order: 4; } .mlay .o5 { order: 5; } .mlay .o6 { order: 6; }
+@media (min-width: 900px) {
+  .wrap { max-width: 1320px; padding: 0 20px; }
+  .mission-top { margin: 0 -20px; padding-left: 20px; padding-right: 20px; display: flex; gap: 14px; align-items: center; }
+  .mission-top .seg { flex: none; min-width: 320px; }
+  .mission-top #fc-mini { flex: 1; }
+  .mission-top .fc-mini { margin-top: 0; }
+  .lay2, .mlay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 28px; align-items: start; }
+  .lay2 > .col, .mlay > .col, .blay > .col { display: block; min-width: 0; }
+  .lay2.attack { grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); }
+  .lay2.attack .pane { position: sticky; top: 66px; max-height: calc(100dvh - 78px); overflow: auto; margin-top: 14px; padding-right: 4px; }
+  .lay2.attack .pane.busy .hero .cell b { opacity: .55; }
+  .lay2.attack .pane [data-action="close-sheet"] { display: none; }
+  .intel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 14px; align-items: start; }
+  /* Board: the map on the left fills the height, the controls scroll beside it */
+  .blay { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 0 20px; align-items: start; }
+  .blay > .col.map { position: sticky; top: 60px; }
+  .blay .board-wrap #board-svg { max-height: calc(100dvh - 150px); width: auto; max-width: 100%; display: block; margin: 0 auto; }
+  .unit-strip.wrap { flex-wrap: wrap; overflow: visible; }
+  .unit-strip.wrap .chip { white-space: normal; text-align: left; max-width: 100%; }
+}
+/* units still to place: one swipeable line above the map */
+.unit-strip { display: flex; gap: 6px; align-items: center; overflow-x: auto; margin-top: 8px; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.unit-strip .chip { flex: none; white-space: nowrap; }
+/* phone: the selected unit's actions pinned to the bottom edge (the tablet has the side pane) */
+.board-dock:empty { display: none; }
+.board-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface-1); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(0,0,0,.18); padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+.dock-in { max-width: 760px; margin: 0 auto; }
+.dock-chips { display: flex; gap: 6px; align-items: center; overflow-x: auto; margin-top: 6px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.dock-chips .chip, .dock-chips span { flex: none; white-space: nowrap; }
+@media (min-width: 900px) { .board-dock { display: none; } }
+/* keep the end of the Board page clear of the pinned dock */
+@media (max-width: 899px) { #board-dock:not(:empty) + .blay { padding-bottom: 124px; } }
