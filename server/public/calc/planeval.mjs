@@ -134,7 +134,8 @@ export function exposure(targets, attackers, pair) {
 /**
  * Plan sanity: moves between consecutive steps longer than the unit can
  * make (normal move + advance or + charge), and reserves arriving in the
- * enemy deployment zone before round 3 or within 9" of enemy units.
+ * enemy deployment zone before round 3 or not more than 8" from enemy units
+ * (11e 20.04 Ingress move).
  * steps: [{ name, A: [unit], B: [unit] }] in order; -> [{ step, side, unit, msg }]
  */
 export function planWarnings(steps, geo) {
@@ -154,8 +155,8 @@ export function planWarnings(steps, geo) {
           const round = i; // step i = battle round i
           const ms = abs(u);
           if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives in the enemy deployment zone before round 3 (not allowed in 11e)' });
-          const near = (steps[i][Y] ?? []).some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r < 9)));
-          if (near) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives within 9" of an enemy unit' });
+          const near = (steps[i][Y] ?? []).some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r <= 8)));
+          if (near) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives within 8" of an enemy unit (it must be more than 8" away)' });
         }
       }
     }

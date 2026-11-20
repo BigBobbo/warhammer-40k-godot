@@ -34,6 +34,9 @@
 //  Heavy, Lance, Ignores Cover, Indirect Fire, Precision, Hazardous.
 //  15.09 Snap shooting (overwatch): hits only on an unmodified 6, no critical
 //  hits, no hit re-rolls (Torrent still auto-hits).
+//  22.05 Plunging Fire — a ranged attack from a terrain section 3" or more
+//  high (or by a TOWERING model within 12") at a unit with models on ground
+//  level IMPROVES BS by 1 (a characteristic change, like cover).
 
 // ---------------------------------------------------------------------------
 // RNG (seedable so tests are reproducible)
@@ -159,6 +162,7 @@ function defaults(mods) {
     rerollDamage: false,                    // re-roll damage rolls (re-rolled when below average)
     ignoreHitMods: false, ignoreWoundMods: false, // "ignore any or all modifiers" -> drop the negative ones
     halfRange: false, charged: false, stationary: false, overwatch: false, indirect: false,
+    plunging: false,                        // 22.05 Plunging Fire: BS improved by 1 (ranged)
     lethalVsDev: 'auto',
     ...(mods ?? {}),
   };
@@ -354,7 +358,7 @@ function hitParams(w, m, ctx) {
   return {
     torrent: w.torrent,
     snap: !!m.overwatch,
-    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (m.ignoreHitMods ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs))),
+    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (m.ignoreHitMods ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs) - (ctx.plungeBs ?? 0))),
     failBand: w.indirect ? (m.stationary ? 3 : 5) : 1,
     critAt: m.overwatch ? 7 : Math.min(m.critHit || 6, 6),
     mod: m.ignoreHitMods
@@ -483,6 +487,7 @@ function runTrial(C, rnd, rec, init = null) {
       const ctx = {
         T: currentT(st),
         coverBs: ranged && (dm.cover || w.indirect) && !w.ignoresCover ? 1 : 0,
+        plungeBs: ranged && m.plunging ? 1 : 0,
         defHitMod: dm.hitMod,
         defWoundMod: dm.woundMod,
         defWoundModIfSgtT: dm.woundModIfSGreaterT,

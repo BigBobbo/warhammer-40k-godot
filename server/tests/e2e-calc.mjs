@@ -128,6 +128,18 @@ try {
   check('half range raises expected kills', after > before, `${before} -> ${after}`);
   await page.screenshot({ path: join(SHOTS, 'calc_02_attack.png'), fullPage: false });
 
+  // --- "Plunging fire" (22.05, +1 BS from a tall terrain section): more hits; off again afterwards
+  const plungeChip = page.locator('[data-attacker]').first().locator('button[data-key="plunging"]');
+  await plungeChip.tap();
+  await settle(page);
+  const plunged = await page.evaluate(() => ({ kills: window.__calc.state.result.meanKills, hits: window.__calc.state.result.steps.hits }));
+  const hitsBefore = (await page.evaluate(() => window.__calc.scenario())).attackers[0].mods.plunging;
+  check('plunging fire chip is on in the scenario and raises expected kills', hitsBefore === true && plunged.kills > after, `${after} -> ${plunged.kills}`);
+  await page.screenshot({ path: join(SHOTS, 'calc_36_plunging_fire.png'), fullPage: false });
+  await plungeChip.tap();
+  await settle(page);
+  check('plunging fire off: back to the half-range result', Math.abs((await page.evaluate(() => window.__calc.state.result.meanKills)) - after) < 1e-9);
+
   // --- results sheet
   await page.tap('button[data-action="open-results"]');
   await page.waitForSelector('.sheet #chart svg');

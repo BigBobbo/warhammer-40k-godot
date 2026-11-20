@@ -336,7 +336,7 @@ function simulateGame(P, rnd) {
     const out = new Set([...(start.used ?? []), ...(start.hand ?? [])]);
     S[X] = {
       X, pl, deck: SECONDARIES.map(c => c.id).filter(id => !out.has(id)), hand: [...(start.hand ?? [])], used: [...(start.used ?? [])],
-      prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
+      prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
       fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
       enemyAlive: null, enemyHadChars: false,
     };
@@ -447,17 +447,18 @@ function simulateGame(P, rnd) {
       // objectives you hold now that you did not hold last round (your own home excluded)
       const newly = hx.ids.filter(id => prevOwn[id] !== X && !(objById[id].cls === 'home' && objById[id].side === X)).length;
       const fn = PRIMARY_FN[sx.pl.mission];
-      let primGain = 0;
+      let primGain = 0, endGain = 0;
       if (fn) {
         const ctx = { r, h: hx, hOpp: hy, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: sx.pl.actionP ?? 0.7, ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX };
         const v = fn(ctx);
         primGain += (v.C ?? 0) + (v.EOT ?? 0);
         if (r === RULES.rounds && t === 1) {
           // end of battle (after the last turn): both players' end-of-battle VP
-          primGain += END_OF_BATTLE[sx.pl.mission]?.(ctx) ?? 0;
+          endGain = END_OF_BATTLE[sx.pl.mission]?.(ctx) ?? 0;
         }
       }
       addPrimary(sx, r, primGain);
+      addPrimaryEnd(sx, endGain);
       // --- secondaries at the end of this turn: active player first
       const lastTurn = r === RULES.rounds && t === 1;
       scoreSecondaries(sx, r, 'own', { h: hx, hOpp: hy, kills: killsX, centralContested, rnd, P, lastTurn, pos: posX });
@@ -469,7 +470,7 @@ function simulateGame(P, rnd) {
         const fy = PRIMARY_FN[sy.pl.mission];
         if (fy) {
           const ctxY = { r, h: hy, hOpp: hx, kills: [], lostPrev: 0, newly: 0, pAct: sy.pl.actionP ?? 0.7, ms: sy.ms, rnd, army: sy.pl.army, enemyAlive: sy.enemyAlive.length };
-          addPrimary(sy, r, END_OF_BATTLE[sy.pl.mission]?.(ctxY) ?? 0);
+          addPrimaryEnd(sy, END_OF_BATTLE[sy.pl.mission]?.(ctxY) ?? 0);
         }
       }
     }
@@ -477,7 +478,7 @@ function simulateGame(P, rnd) {
   const res = {};
   for (const X of ['A', 'B']) {
     const s = S[X];
-    res[X] = { prim: s.prim, sec: s.sec, primTotal: s.primTotal, secTotal: s.secTotal, total: s.primTotal + s.secTotal + (s.pl.battleReady === false ? 0 : RULES.battleReady), stats: s.stats, first: first === X };
+    res[X] = { prim: s.prim, sec: s.sec, primEnd: s.primEnd, primTotal: s.primTotal, secTotal: s.secTotal, total: s.primTotal + s.secTotal + (s.pl.battleReady === false ? 0 : RULES.battleReady), stats: s.stats, first: first === X };
   }
   return res;
 }
@@ -486,6 +487,12 @@ function addPrimary(s, r, vp) {
   const room = Math.min(RULES.primaryRoundCap - s.prim[r - 1], RULES.primaryCap - s.primTotal);
   const g = Math.max(0, Math.min(room, vp));
   s.prim[r - 1] += g; s.primTotal += g;
+}
+// VP scored "at the end of the battle" are not under the 15 VP per battle round
+// limit (Event Companion v1.2 FAQ) — only the 45 VP primary maximum.
+function addPrimaryEnd(s, vp) {
+  const g = Math.max(0, Math.min(RULES.primaryCap - s.primTotal, vp ?? 0));
+  s.primEnd += g; s.primTotal += g;
 }
 function addSecondary(s, r, vp) {
   const room = Math.min(RULES.secondaryRoundCap - s.sec[r - 1], RULES.secondaryCap - s.secTotal);
@@ -559,7 +566,7 @@ export function forecast(P) {
   const rnd = mulberry32(P.seed ?? 0xC0FFEE);
   const maxVp = RULES.primaryCap + RULES.secondaryCap + RULES.battleReady;
   const hist = { A: new Array(maxVp + 1).fill(0), B: new Array(maxVp + 1).fill(0) };
-  const sums = { A: { prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], total: 0, sq: 0 }, B: { prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], total: 0, sq: 0 } };
+  const sums = { A: { prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, total: 0, sq: 0 }, B: { prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, total: 0, sq: 0 } };
   const lead = [0, 0, 0, 0, 0].map(() => ({ A: 0, B: 0, tie: 0 }));
   const cards = { A: {}, B: {} };
   let winA = 0, winB = 0, draw = 0;
@@ -571,6 +578,7 @@ export function forecast(P) {
       hist[X][Math.min(maxVp, t)]++;
       sums[X].total += g[X].total; sums[X].sq += g[X].total ** 2;
       for (let r = 0; r < 5; r++) { sums[X].prim[r] += g[X].prim[r]; sums[X].sec[r] += g[X].sec[r]; }
+      sums[X].primEnd += g[X].primEnd;
       for (const [id, s] of Object.entries(g[X].stats)) {
         const a = (cards[X][id] ??= { drawn: 0, vp: 0, scored: 0, quick: 0 });
         a.drawn += s.drawn; a.vp += s.vp; a.scored += s.scored; a.quick += s.quick ?? 0;
@@ -580,6 +588,7 @@ export function forecast(P) {
     ca += P.players.A.start?.secondary ?? 0; cb += P.players.B.start?.secondary ?? 0;
     for (let r = 0; r < 5; r++) {
       ca += g.A.prim[r] + g.A.sec[r]; cb += g.B.prim[r] + g.B.sec[r];
+      if (r === 4) { ca += g.A.primEnd; cb += g.B.primEnd; } // end-of-battle VP count after round 5
       if (ca > cb) lead[r].A++; else if (cb > ca) lead[r].B++; else lead[r].tie++;
     }
     diffs.push(g.A.total - g.B.total);
@@ -592,7 +601,7 @@ export function forecast(P) {
       mean: m, sd: Math.sqrt(Math.max(0, sums[X].sq / trials - m * m)),
       p10: pct(hist[X], 0.1), p50: pct(hist[X], 0.5), p90: pct(hist[X], 0.9),
       hist: hist[X].map(c => c / trials),
-      prim: sums[X].prim.map(v => v / trials), sec: sums[X].sec.map(v => v / trials),
+      prim: sums[X].prim.map(v => v / trials), sec: sums[X].sec.map(v => v / trials), primEnd: sums[X].primEnd / trials,
       cards: Object.fromEntries(Object.entries(cards[X]).map(([id, a]) => [id, { perDraw: a.drawn ? a.vp / a.drawn : 0, drawRate: a.drawn / trials, scoreRate: a.drawn ? a.scored / a.drawn : 0, quickRate: a.drawn ? a.quick / a.drawn : 0 }])),
     };
   };

@@ -72,6 +72,18 @@ test('plan warnings: too-long moves and reserves arriving early in the enemy zon
   assert.ok(w.some(x => x.unit === 'A:ds' && /before round 3/.test(x.msg)), JSON.stringify(w));
 });
 
+test('plan warnings: reserves must arrive more than 8" from enemy units (11e 20.04)', () => {
+  // 32 mm bases: edge gap = centre gap - 1.26"
+  const enemy = unit('B:y', 22, 40, 1), held = unit('A:x', 22, 5, 1);
+  const at = (gap) => [
+    { name: 'Deploy', A: [held], B: [enemy] }, { name: 'Turn 1', A: [held], B: [enemy] },
+    { name: 'Turn 2', A: [held, unit('A:ds', 22, 40 - gap - 1.26, 1)], B: [enemy] },
+  ];
+  assert.ok(!E.planWarnings(at(8.4), GEO).some(w => w.unit === 'A:ds'), '8.4" away is legal');
+  const w = E.planWarnings(at(7.6), GEO);
+  assert.ok(w.some(x => x.unit === 'A:ds' && /more than 8"/.test(x.msg)), JSON.stringify(w));
+});
+
 test('forecast board mode: Behind Enemy Lines and objectives measured from the plan, not rated', () => {
   const army = (names) => F.armyProfile(names.map(n => ({ name: n, models: 5 })));
   const A = army(['a', 'b']), Bp = army(['x']);

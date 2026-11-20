@@ -49,6 +49,18 @@ test('Immovable Object: central for 3 VP every turn, 5 VP per non-home objective
   assert.deepEqual(r.A.prim.map(Math.round), [3, 8, 8, 8, 8]);
 });
 
+test('end-of-battle VP are not under the 15 VP per round limit (Event Companion FAQ), only the 45 VP maximum', () => {
+  // Punishment: 4 VP for a non-home objective + 5 VP for more objectives = 9 a round from R2; end of battle 8 VP for their home
+  const all = planAll({ hA: 'A', eA: 'A', c: 'A', eB: 'A', hB: 'A' });
+  const r = F.forecast({ players: { A: quiet('Punishment', ARMY_A), B: quiet('Punishment', ARMY_B) }, objectives: OBJS, plan: all, first: 'A', trials: 10, confidence: SURE });
+  assert.deepEqual(r.A.prim.map(Math.round), [0, 9, 9, 9, 9], 'per-round VP');
+  assert.equal(Math.round(r.A.primEnd), 8, 'the 8 VP end-of-battle bonus is not cut by the round limit');
+  assert.equal(r.A.mean, 44);
+  // Outmanoeuvre is at 15 a round and 45 by round 3: nothing can go over 45
+  const o = F.forecast({ players: { A: quiet('Vanguard Operation', ARMY_A), B: quiet('Vanguard Operation', ARMY_B) }, objectives: OBJS, plan: all, first: 'A', trials: 200, confidence: SURE });
+  assert.ok(o.A.mean <= 45 + 1e-9, `primary maximum holds: ${o.A.mean}`);
+});
+
 test('kills drive kill primaries and secondaries; caps hold for every game', () => {
   const pl = (army) => ({ mission: 'Meatgrinder', army, killRate: 2, mode: 'tactical' });
   const r = F.forecast({ players: { A: pl(ARMY_A), B: pl(ARMY_B) }, objectives: OBJS, plan: planAll({ hA: 'A', hB: 'B', eA: 'c', eB: 'c', c: 'c' }), trials: 1500 });

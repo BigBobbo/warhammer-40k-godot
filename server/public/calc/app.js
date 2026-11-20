@@ -599,6 +599,8 @@ function attackerCard(e, i, tinfo) {
     chip('amod-toggle', !!m.charged, 'Charged', `data-uid="${e.uid}" data-key="charged"`),
     shooting && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
     shooting && chip('amod-toggle', !!m.overwatch, 'Snap shooting', `data-uid="${e.uid}" data-key="overwatch"`),
+    // 22.05: from a terrain section 3"+ high (or TOWERING within 12") at models on ground level
+    shooting && chip('amod-toggle', !!m.plunging, 'Plunging fire (+1 BS)', `data-uid="${e.uid}" data-key="plunging" title="Plunging Fire: this unit shoots from a terrain section 3 inches or more high (or is TOWERING within 12 inches) at a unit with models on ground level. BS improves by 1."`),
     shooting && hasIndirect && chip('amod-toggle', !!m.indirect, 'Indirect (not visible)', `data-uid="${e.uid}" data-key="indirect"`),
   ].filter(Boolean).join('');
   const nMods = ['hitMod', 'woundMod', 'apMod', 'damageMod', 'attacksMod', 'bsMod'].filter(k => m[k]).length +

@@ -132,6 +132,21 @@ test('benefit of cover worsens BS by 1 (13.08), ignores cover negates it', () =>
   near(r3.steps.hits, 13.333, 0.05, 'melee unaffected');
 });
 
+test('plunging fire improves BS by 1 (22.05): ranged only, cancels cover, BS stays 2+ at best', () => {
+  // BS3 -> 2+: 20 * 5/6 = 16.667
+  const r = run({ weapons: [weapon({ count: 20 })], groups: pool(), amods: { plunging: true } });
+  near(r.steps.hits, 16.667, 0.05, 'plunging hits');
+  // with the benefit of cover the two cancel: BS3 -> 3+: 13.333
+  const r2 = run({ weapons: [weapon({ count: 20 })], groups: pool(), amods: { plunging: true }, dmods: { cover: true } });
+  near(r2.steps.hits, 13.333, 0.05, 'plunging + cover');
+  // BS2 cannot improve past 2+: 16.667
+  const r3 = run({ weapons: [weapon({ count: 20, skill: 2 })], groups: pool(), amods: { plunging: true } });
+  near(r3.steps.hits, 16.667, 0.05, 'BS2 stays 2+');
+  // nothing in melee
+  const r4 = run({ weapons: [weapon({ count: 20, melee: true })], groups: pool(), amods: { plunging: true }, phase: 'fight' });
+  near(r4.steps.hits, 13.333, 0.05, 'melee unaffected');
+});
+
 test('cover stacks with a -1 hit modifier (characteristic is not dice-capped)', () => {
   // BS3 -> 4+ (cover) and -1 to hit -> needs 5+ : 20 * 2/6 = 6.667
   const r = run({ weapons: [weapon({ count: 20 })], groups: pool(), dmods: { cover: true, hitMod: -1 } });

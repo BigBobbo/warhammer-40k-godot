@@ -5,8 +5,11 @@
 // Rules used by the forecast (forecast.mjs):
 //  - Tactical: draw 2 face-up at the start of your Command phase; no hand
 //    limit. Once per battle (end of your Command phase) pay 1CP to swap one.
-//    End of each turn: score any active card whose conditions are met (then it
-//    is discarded); on your turn you may discard cards for 1CP.
+//    End of each player's turn (both players check): score any active card
+//    whose conditions are met (it is then discarded). Then, on your own turn,
+//    you may discard one or more active cards to GAIN 1CP (events: at most
+//    1CP per battle round from anything other than the Core CP).
+//    VP scored "at the end of the battle" ignore the 15 VP per round limit.
 //  - Fixed: 2 of the FIXED cards, never discarded, max 20 VP per card.
 //  - Caps: primary 45 (15 per battle round), secondary 45 (15 per battle
 //    round), Battle Ready 10. Five battle rounds.

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.91.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: four rules corrections found in a full review against the 11th edition rules and the Event Companion",
+      "changes": [
+        "Forecast: primary VP scored at the end of the battle are no longer cut by the 15 VP per round limit (Event Companion ruling); they show in their own End column",
+        "Attack calculator: new Plunging fire chip (+1 BS when shooting from a terrain section 3\" or more high at models on ground level)",
+        "Board plans: units arriving from reserves are checked against the 11th edition distance (more than 8\" from enemy units, was 9\")",
+        "Mission tracker: the note on discarding cards now says what the rules say (discard at the end of your own turn to gain 1CP)"
+      ]
+    },
+    {
       "version": "1.90.1",
       "date": "2026-11-20",
       "summary": "Combat Calc: tap the \"VP if drawn\" number to set your own estimate",

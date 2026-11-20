@@ -358,8 +358,10 @@ function forecastHtml() {
     const ahead = me === 'A' ? l.A : l.B;
     return `<div class="cell"><b>${pct(ahead)}</b><span>R${i + 1}</span></div>`;
   }).join('');
+  // end-of-battle primary VP (not under the 15 VP per round limit) get their own column when a mission has them
+  const hasEnd = (r.A.primEnd ?? 0) > 0.05 || (r.B.primEnd ?? 0) > 0.05;
   const roundRows = [[me, 'You'], [opp, 'Opp']].map(([X, lab]) => `<tr><td><span class="swatch" style="background:var(--side-${X.toLowerCase()})"></span>${lab} · ${X}</td>
-      ${r[X].prim.map((p, i) => `<td>${fmt(p + r[X].sec[i])}<span class="tiny muted"> ${fmt(p)}+${fmt(r[X].sec[i])}</span></td>`).join('')}<td><b>${fmt(r[X].mean)}</b></td></tr>`).join('');
+      ${r[X].prim.map((p, i) => `<td>${fmt(p + r[X].sec[i])}<span class="tiny muted"> ${fmt(p)}+${fmt(r[X].sec[i])}</span></td>`).join('')}${hasEnd ? `<td>${fmt(r[X].primEnd ?? 0)}</td>` : ''}<td><b>${fmt(r[X].mean)}</b></td></tr>`).join('');
   const levers = (m.levers ?? []).map(l => {
     const lr = l.result;
     if (!lr) return '';
@@ -377,8 +379,8 @@ function forecastHtml() {
     <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
     <div class="lab tiny muted" style="margin-top:8px">Chance you are ahead after each battle round</div>
     <div class="hero lead" id="fc-lead" style="grid-template-columns:repeat(5,1fr)">${leadRow}</div>
-    <table class="dist" style="margin-top:8px"><thead><tr><th>VP by round</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Total</th></tr></thead><tbody>${roundRows}</tbody></table>
-    <div class="tiny muted">Primary + secondary per round${live ? '' : ''}; totals include Battle Ready. ${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}.</div>
+    <table class="dist" style="margin-top:8px"><thead><tr><th>VP by round</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th>${hasEnd ? '<th>End</th>' : ''}<th>Total</th></tr></thead><tbody>${roundRows}</tbody></table>
+    <div class="tiny muted">Primary + secondary per round${hasEnd ? '; End = primary VP scored at the end of the battle (not under the 15 VP per round limit)' : ''}; totals include Battle Ready. ${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}.</div>
     ${levers ? `<div class="lab tiny muted" style="margin-top:10px">What changes the result</div>
       <table class="dist" id="fc-levers"><thead><tr><th>If you…</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>${levers}</tbody></table>` : ''}
     ${compareHtml(me, opp)}
@@ -584,6 +586,7 @@ function trackerHtml() {
           <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="scored" aria-label="Scored ${esc(SECONDARY_BY_ID[id].name)}">✓</button>
           <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="discard" aria-label="Discard ${esc(SECONDARY_BY_ID[id].name)}">✕</button></span>`).join('') : '<span class="muted small">None.</span>'}</div>
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
+        ${g[X].hand.length ? '<div class="tiny muted">✓ scored · ✕ discarded. Discarding at the end of your own turn gives 1CP in total (at most 1 extra CP per battle round at events).</div>' : ''}
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
         : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Assumptions'}.</div>`}
       <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${m.openDead?.[X] ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
