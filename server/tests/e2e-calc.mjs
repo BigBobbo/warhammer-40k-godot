@@ -248,9 +248,15 @@ try {
   await page.waitForSelector('#charge-need');
   for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g < 9; g += 0.5) await page.tap('button[data-action="charge-gap"][data-delta="0.5"]');
   for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g > 9; g -= 0.5) await page.tap('button[data-action="charge-gap"][data-delta="-0.5"]');
-  check('9" gap needs a 7 (58%)', (await page.textContent('#charge-need')) === '7+' && (await page.textContent('#charge-p')) === '58%');
+  // 11.04: the target must be within the charge roll before the unit moves: 9" needs a 9 (28%), not a 7 (58%)
+  check('9" gap needs a 9 (28%)', (await page.textContent('#charge-need')) === '9+' && (await page.textContent('#charge-p')) === '28%', `${await page.textContent('#charge-need')} ${await page.textContent('#charge-p')}`);
   await page.tap('button[data-action="charge-reroll"]');
-  check('with a re-roll: 83%', (await page.textContent('#charge-p')) === '83%', await page.textContent('#charge-p'));
+  check('with a re-roll: 48%', (await page.textContent('#charge-p')) === '48%', await page.textContent('#charge-p'));
+  // modifiers add up (02.02.01): +2 makes it a 7+ (58%; 83% with the re-roll)
+  await page.tap('button[data-action="charge-mod"][data-value="2"]');
+  check('+2 to the charge roll: 83% with the re-roll', (await page.textContent('#charge-p')) === '83%', await page.textContent('#charge-p'));
+  await page.tap('button[data-action="charge-mod"][data-value="0"]');
+  check('the charge tool states the rule (11.04) and lists "over 12" as not chargeable', /11\.04/.test(await page.textContent('#charge-rule')) && /over 12"\s*—\s*cannot be charged/.test((await page.textContent('#sheet')).replace(/\s+/g, ' ')), (await page.textContent('#sheet')).replace(/\s+/g, ' ').slice(-400));
   await page.screenshot({ path: join(SHOTS, 'calc_12_charge.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
 
@@ -732,11 +738,18 @@ try {
   await page.waitForSelector('#chain-total', { timeout: 60000 });
   const ch = await page.evaluate(() => ({ r: window.__calc.state.chainResult, c: window.__calc.state.chain, setup: window.__calc.state.setups[`${window.__calc.state.side}:shooting`] }));
   check('turn chain opens from the board: Grey Hunters shoot, charge and fight the Meganobz', ch.c.chargerKey === bGh.tk.split(':')[1] && ch.setup.targetKey === mnTk.split(':')[1] && Math.abs(ch.c.gap - Math.round(chainGap)) < 0.01, JSON.stringify({ c: ch.c, t: ch.setup.targetKey }));
-  check('chain result: total = shooting + fight, odds in range', ch.r && Math.abs(ch.r.meanKills - ch.r.meanShoot - ch.r.meanFight) < 1e-9 && ch.r.pChargeGivenSurvive > 0 && ch.r.pChargeGivenSurvive <= 1 && ch.r.pWipe <= 1, JSON.stringify(ch.r && { s: ch.r.meanShoot, f: ch.r.meanFight, p: ch.r.pChargeGivenSurvive }));
+  check('chain result: total = shooting + fight, odds in range', ch.r && Math.abs(ch.r.meanKills - ch.r.meanShoot - ch.r.meanFight) < 1e-9 && ch.r.pChargeGivenSurvive >= 0 && ch.r.pChargeGivenSurvive <= 1 && ch.r.pWipe <= 1, JSON.stringify(ch.r && { s: ch.r.meanShoot, f: ch.r.meanFight, p: ch.r.pChargeGivenSurvive }));
   check('board passed cover = no for a target in plain sight', ch.setup.defManual?.cover === false);
-  const p0Charge = ch.r.pChargeGivenSurvive;
-  for (let i = 0; i < 6; i++) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
-  await page.waitForFunction((p) => window.__calc.state.chainResult && window.__calc.state.chainResult.pChargeGivenSurvive < p, p0Charge, { timeout: 60000 });
+  // 11.04: the target must be within 12" and within the charge roll - from more than 12" there is no charge
+  if (ch.c.gap > 12) check(`${ch.c.gap}" on the board: the chain says the charge cannot be made`, ch.r.pChargeGivenSurvive === 0 && ch.r.meanFight === 0 && /more than 12": cannot be charged/.test(await page.textContent('#chain-need')), await page.textContent('#chain-need'));
+  // at 9" it is a 9+ on 2D6: 28% (the old "gap - 2" rule made it 58%)
+  for (let g = ch.c.gap; g > 9; g -= 0.5) await page.tap('button[data-action="chain-gap"][data-delta="-0.5"]');
+  for (let g = ch.c.gap; g < 9; g += 0.5) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+  await page.waitForFunction(() => { const s = window.__calc.state; return s.chain.gap === 9 && s.chainResult && !s.chainBusy; }, null, { timeout: 60000 });
+  const p0Charge = await page.evaluate(() => window.__calc.state.chainResult.pChargeGivenSurvive);
+  check('a 9" charge in the chain lands about 28% of the time (9+ on 2D6)', Math.abs(p0Charge - 10 / 36) < 0.02 && /9\+ on 2D6/.test(await page.textContent('#chain-need')), `${p0Charge} | ${await page.textContent('#chain-need')}`);
+  for (let i = 0; i < 4; i++) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+  await page.waitForFunction((p) => { const s = window.__calc.state; return s.chain.gap === 11 && s.chainResult && !s.chainBusy && s.chainResult.pChargeGivenSurvive < p; }, p0Charge, { timeout: 60000 });
   check('a longer charge lowers the odds', true);
   await page.screenshot({ path: join(SHOTS, 'calc_26_turn_chain.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
@@ -1524,6 +1537,118 @@ try {
   check('non-breaking-hyphen units resolve (Caladius, 2x Contemptor-Galatus)',
     custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
     !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
+
+  // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
+  {
+    const wctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const wp = await wctx.newPage();
+    wp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`choice: ${m.text()}`); });
+    wp.on('pageerror', e => consoleErrors.push(`choice: ${e}`));
+    await wp.goto(`${BASE}/calc/`);
+    await wp.waitForSelector('textarea[data-side="A"]');
+    await wp.fill('textarea[data-side="A"]', SW_LIST); await wp.tap('button[data-action="parse"][data-side="A"]');
+    await wp.fill('textarea[data-side="B"]', ORK_LIST); await wp.tap('button[data-action="parse"][data-side="B"]');
+    await wp.tap('button[data-action="view"][data-value="attack"]');
+    await wp.tap('button[data-action="phase"][data-value="fight"]');
+    const pickTarget = async (re) => {
+      const v = await wp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source);
+      await wp.selectOption('select[data-input="target"]', v);
+    };
+    const rowsOf = (card) => card.locator('.weapon[data-row]').evaluateAll(els => els.map(e => ({
+      name: e.querySelector('.wname').textContent.trim(), val: e.querySelector('.stepper .val').textContent.trim(),
+      auto: !!e.querySelector('.tag.auto'), hand: !!e.querySelector('.tag.byhand'), blocked: e.querySelector('.tag.warn')?.textContent.trim() ?? null,
+      why: e.querySelector('.choice-why')?.textContent.trim() ?? null })));
+    const row = (rows, re) => rows.find(r => re.test(r.name));
+    // Wulfen against Boyz: before 1.100 the app picked the Hunter profile, blocked it, and no hammer attacked
+    await pickTarget(/Warboss \+ Boyz/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Wulfen with Storm Shields")');
+    await settle(wp);
+    const wulfen = wp.locator('[data-attacker]').last();
+    let rs = await rowsOf(wulfen);
+    check('Wulfen vs Boyz: all 10 thunder hammers attack with the normal profile (chosen by the app)',
+      row(rs, /Hammer – Melee/).val === '10/10' && row(rs, /Hammer – Melee/).auto && row(rs, /Hammer – Hunter/).val === '0/10', JSON.stringify(rs));
+    check('the Hunter profile says why it is not used: it only targets Monster or Vehicle units',
+      row(rs, /Hammer – Hunter/).blocked === 'Hunter profile: only targets Monster or Vehicle units', JSON.stringify(row(rs, /Hunter/)));
+    const scW = await wp.evaluate(() => window.__calc.scenario());
+    check('the engine gets the 10 hammers (2 attacks each)', scW.attackers[0].weapons.some(w => /Thunder Hammer – Melee/.test(w.name) && w.count === 10), JSON.stringify(scW.attackers[0].weapons.map(w => [w.name, w.count])));
+    const killsBoyz = await wp.evaluate(() => window.__calc.state.result.meanKills);
+    check('Wulfen now kill well over 5 Boyz on average (it was 2.6 with the Captain alone)', killsBoyz > 5, String(killsBoyz));
+    await wp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await wp.screenshot({ path: join(SHOTS, 'calc_60_choice_wulfen_boyz.png') });
+    // the same unit against a Vehicle: the Hunter profile, without the user doing anything
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Wulfen vs Battlewagon: the Hunter profile is used for all 10 (chosen by the app)',
+      row(rs, /Hammer – Hunter/).val === '10/10' && row(rs, /Hammer – Hunter/).auto && row(rs, /Hammer – Melee/).val === '0/10' && /at least as good in every way/.test(row(rs, /Hammer – Melee/).why ?? ''), JSON.stringify(rs));
+    await wp.screenshot({ path: join(SHOTS, 'calc_61_choice_wulfen_wagon.png') });
+    // by hand: one model takes the normal profile -> the Hunter count goes down with it (10 hammers in all)
+    await wp.locator('[data-attacker]').last().locator('.weapon', { hasText: 'Hammer – Melee' }).locator('button[data-delta="1"]').tap();
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('by hand: +1 on the normal profile takes one from the Hunter profile (1 + 9), both marked "set by hand"',
+      row(rs, /Hammer – Melee/).val === '1/10' && row(rs, /Hammer – Hunter/).val === '9/10' && row(rs, /Hammer – Melee/).hand && row(rs, /Hammer – Hunter/).hand, JSON.stringify(rs));
+    // a count set by hand is for that target: against the Boyz the app chooses again (no "0 hammers" trap)
+    await pickTarget(/Warboss \+ Boyz/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('a new target: the app chooses again (10 normal), the hand-set split is not carried over',
+      row(rs, /Hammer – Melee/).val === '10/10' && row(rs, /Hammer – Melee/).auto, JSON.stringify(rs));
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('back on the Battlewagon the hand-set split is still there, with the way back to "auto"',
+      row(rs, /Hammer – Melee/).val === '1/10' && (await wp.locator('button[data-action="count-auto"]').count()) === 1, JSON.stringify(rs));
+    await wp.tap('button[data-action="count-auto"]');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('"Let the app choose again" restores the choice', row(rs, /Hammer – Hunter/).val === '10/10' && row(rs, /Hammer – Hunter/).auto, JSON.stringify(rs));
+    // Logan Grimnar: Sweep against the horde, Strike against the vehicle - with the numbers behind it
+    await wp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await pickTarget(/Warboss \+ Boyz/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Logan Grimnar")');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    const sweep = row(rs, /Sweep/), strike = row(rs, /Strike/);
+    const num = (s) => Number((s ?? '').match(/about ([\d.]+) wounds/)?.[1]);
+    check('Logan vs Boyz: Sweep is used, Strike is not, and both rows show what they would do',
+      sweep.val === '1/1' && sweep.auto && strike.val === '0/1' && /^Used/.test(sweep.why) && /^Not used/.test(strike.why) && num(sweep.why) > num(strike.why) + 2, JSON.stringify({ sweep, strike }));
+    check('his squad is not part of that choice: 9 hammers and the lightning claws attack', row(rs, /^Thunder Hammer$/).val === '9/9' && row(rs, /Lightning Claws/).val === '1/1' && !row(rs, /^Thunder Hammer$/).auto, JSON.stringify(rs));
+    await wp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await wp.screenshot({ path: join(SHOTS, 'calc_62_choice_logan_boyz.png') });
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Logan vs Battlewagon: Strike', row(rs, /Strike/).val === '1/1' && row(rs, /Strike/).auto && row(rs, /Sweep/).val === '0/1', JSON.stringify(rs));
+    // shooting: krak at the vehicle, frag at the horde
+    await wp.tap('button[data-action="phase"][data-value="shooting"]');
+    await pickTarget(/Battlewagon/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Scout Squad (1)")');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Scouts vs Battlewagon: the missile launcher fires krak', row(rs, /Krak/).val === '1/1' && row(rs, /Frag/).val === '0/1', JSON.stringify(rs));
+    await pickTarget(/Warboss \+ Boyz/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Scouts vs Boyz: frag; pistols stay out while the other weapons fire (24.07)', row(rs, /Frag/).val === '1/1' && row(rs, /Krak/).val === '0/1' && row(rs, /Bolt Pistol/).val === '0/5', JSON.stringify(rs));
+    check('the card explains the choice once', /uses the option that removes the most wounds from this target/.test(await wp.locator('[data-attacker]').last().locator('.choice-foot').textContent()));
+    // the matchup grid makes the same choice (in the worker)
+    await wp.tap('button[data-action="phase"][data-value="fight"]');
+    const cell = await wp.evaluate(async () => {
+      const { simulate } = await import('/calc/engine.mjs');
+      const { resolveScenario } = await import('/calc/choose.mjs');
+      const st = window.__calc.state;
+      const wulfen = st.armies.A.units.find(u => /Wulfen/.test(u.name)), boyz = st.armies.B.units.find(u => /Boyz/.test(u.name));
+      const sc = window.__calc.defaultScenario(wulfen, boyz);
+      const out = resolveScenario(sc);
+      return { deferred: !!sc.attackers[0].choice || sc.attackers[0].weapons.some(w => /– Melee/.test(w.name)), weapons: out.attackers[0].weapons.map(w => [w.name, w.count]), kills: simulate({ ...out, trials: 2000 }).meanKills };
+    });
+    check('grid / forecast odds: Wulfen vs Boyz use the 10 hammers too', cell.weapons.some(([n, c]) => /Thunder Hammer – Melee/.test(n) && c === 10) && cell.kills > 5, JSON.stringify(cell));
+    await wctx.close();
+  }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();

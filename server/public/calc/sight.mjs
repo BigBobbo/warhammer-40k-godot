@@ -225,23 +225,31 @@ export function p2d6(n) {
 /**
  * How unit `enemy` threatens unit `me` next turn.
  * shoot: enemy's longest range reaches me after a normal move (gap <= M + range);
- * charge: P(the charge roll after a normal move ends within engagement range).
- * -> { gap, shoot: { range, margin } | null, charge: number | null }
+ * charge: P(the charge roll after a normal move is enough). 11.04: the charge
+ *   target must be within the charge roll (and within 12") before the charge
+ *   move, so the roll must be at least the gap that is left after the normal
+ *   move — not that gap minus the 2" engagement range. A normal move cannot
+ *   end engaged, so more than 2" are always left: at least a 3 is needed.
+ *   Units that are already engaged (gap <= engagement) fight without a charge.
+ * -> { gap, shoot: { range, margin } | null, charge: number | null, engaged: boolean }
  */
 export function threatTo(enemy, me, { move, ranges = [], melee = false, engagement = 2 }) {
   let gap = Infinity;
   for (const ma of enemy.models) for (const mb of me.models) gap = Math.min(gap, gapBetween(modelAbs(enemy, ma), modelAbs(me, mb)));
   const maxR = ranges.length ? Math.max(...ranges) : 0;
   const shoot = maxR > 0 && gap <= move + maxR ? { range: maxR, margin: move + maxR - gap } : null;
-  // charge: needs (gap - move - engagement) on 2D6 after moving straight in (2 is the minimum roll)
-  const need = Math.max(2, Math.ceil(gap - move - engagement - 1e-9));
-  const charge = melee && need <= 12 ? p2d6(need) : null;
-  return { gap, shoot, charge };
+  const engaged = gap <= engagement + 1e-9;
+  const need = Math.max(3, Math.ceil(gap - move - 1e-9));
+  const charge = !melee ? null : engaged ? 1 : need <= 12 ? p2d6(need) : null;
+  return { gap, shoot, charge, engaged };
 }
 
-/** Charge reach (inches from the enemy's bases) achieved with at least probability p. */
-export function chargeReach(move, p, engagement = 2) {
+/**
+ * Charge reach (inches from the enemy's bases) achieved with at least probability p:
+ * a normal move, then a charge roll of at least what is left (11.04).
+ */
+export function chargeReach(move, p) {
   let best = null;
   for (let n = 2; n <= 12; n++) if (p2d6(n) >= p) best = n;
-  return best == null ? null : move + best + engagement;
+  return best == null ? null : move + best;
 }

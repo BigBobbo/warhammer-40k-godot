@@ -210,3 +210,34 @@ Done since this list was written: sync by code (1.94), player-edge setting (1.92
 - Score-or-hold: partial payouts are held until round 4 (MODEL.holdUntil).
 - Known limits: line of sight is not used in kill estimates; stratagems / CP
   are not modelled; a board plan only knows the units placed on it.
+
+## Round 3: rules audit (user: "Implement all in order", 20 Nov 2026)
+
+The audit of 20 Nov found 11 places where the numbers disagreed with the 11th
+edition rules, 6 new aids and 4 ease-of-use items. Status in words (no boxes
+ticked: see "Commit gate" above). Rule texts: `core.txt` (Wahapedia, 20 Nov) and
+the rules appendix (02.02.01 Modifiers, fetched the same day).
+
+- Fix 1, charge odds (11.04): BUILT in v1.100.0, browser-tested. The target
+  must be within the charge roll (and within 12") before the unit moves: need =
+  ceil(gap), not gap - 2. Charge-roll modifiers add up (02.02.01 limits hit and
+  wound rolls only); the roll cannot be more than 12.
+- Fix 2, weapon choice: BUILT in v1.100.0, browser-tested. User asked for a
+  GENERIC fix ("always, the optimal profiles are chosen"). `choose.mjs` scores
+  every legal option with the calculator's own engine against the real target,
+  then checks the pick with the whole unit's attack. Structure: one melee weapon
+  per model (04.01), one profile per weapon and Hunter profiles (04.01.03),
+  close-quarters weapons or the others (24.07), Extra Attacks (24.11), a ranged
+  weapon need not be fired (04.02). Score = wounds removed - own expected
+  Hazardous wounds. Proof: `tests/audit-weapon-choice.mjs` checks every datasheet
+  (1,109) against 8 targets in both phases with an independent simulation; a
+  sample of it runs with the unit tests. The first version failed 26 of 2,371
+  checked choices, the second 15 of 6,065, both fixed (whole-unit pass; profiles
+  on either side of "close-quarters or not"; optional Hazardous guns).
+- Fix 3, detachment rules: BUILT in v1.100.0. Linked by `ability.detachment_id`
+  (373 detachment records have no `detachment_rule_id`); codex records replace
+  the provisional one. Parser reads "Attacks made by friendly X/Y/Z units have".
+- Fix 4, wargear: BUILT in v1.100.0. "+1 W" (Storm Shield) on the carriers;
+  wargear that is not in the list is listed switched off, not given to all.
+- Engine: a hazard roll for every Hazardous weapon selected (24.15), also when
+  the target was destroyed first.

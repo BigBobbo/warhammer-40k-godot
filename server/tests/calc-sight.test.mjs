@@ -83,11 +83,21 @@ test('threat next turn: shooting envelope and charge odds after a normal move', 
   const t = S.threatTo(enemy, me, { move: 6, ranges: [12, 18], melee: true });
   assert.ok(Math.abs(t.gap - gap) < 1e-9);
   assert.ok(t.shoot && Math.abs(t.shoot.margin - (24 - gap)) < 1e-9, 'M6 + 18" reaches');
-  // needs ceil(gap - 6 - 2) = 11 on 2D6 = 3/36
-  assert.ok(Math.abs(t.charge - 3 / 36) < 1e-12, String(t.charge));
+  // 11.04: the roll must be at least what is left after the move. 18.74" - 6" = 12.74": more than 12", no charge
+  assert.equal(t.charge, null, String(t.charge));
+  // with an 8" move 10.74" are left: an 11 on 2D6 = 3/36 (the old "gap - 2" rule gave a 9: 28%)
+  const t8 = S.threatTo(enemy, me, { move: 8, ranges: [], melee: true });
+  assert.ok(Math.abs(t8.charge - 3 / 36) < 1e-12, String(t8.charge));
+  // a normal move cannot end engaged: more than 2" are always left, so at least a 3 is needed
+  const close = S.threatTo(unit(20, 5), unit(20, 5 + 32 / 25.4 + 4), { move: 10, ranges: [], melee: true });
+  assert.ok(Math.abs(close.gap - 4) < 1e-9 && Math.abs(close.charge - 35 / 36) < 1e-12 && !close.engaged, JSON.stringify(close));
+  // already engaged: no charge needed
+  const eng = S.threatTo(unit(20, 5), unit(20, 5 + 32 / 25.4 + 1.5), { move: 6, ranges: [], melee: true });
+  assert.ok(eng.engaged && eng.charge === 1, JSON.stringify(eng));
   assert.equal(S.threatTo(enemy, me, { move: 6, ranges: [12] }).shoot, null, '6 + 12 = 18 < gap');
   assert.equal(S.p2d6(7), 21 / 36);
-  assert.equal(S.chargeReach(6, 0.8), 6 + 5 + 2, '2D6 >= 5 is 83%');
+  assert.equal(S.chargeReach(6, 0.8), 6 + 5, '2D6 >= 5 is 83%: targets up to 5" from where the move ends');
+  assert.equal(S.chargeReach(6, 0.4), 6 + 8, '2D6 >= 8 is 42%');
 });
 
 test('performance: 10 vs 20 models across a real GW layout in well under a second', () => {

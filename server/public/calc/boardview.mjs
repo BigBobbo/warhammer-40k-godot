@@ -319,7 +319,7 @@ export function boardSvg({ forExport = false } = {}) {
 }
 
 // Next-turn danger from one army: where its units can shoot after a normal
-// move (M + longest range) and charge (M + 2D6 + 2" engagement: likely >= 80%,
+// move (M + longest range) and charge (M + the 2D6 charge roll: likely >= 80%,
 // possible >= 40%). Terrain and line of sight are ignored and the edge is
 // blurred ~1": a planning envelope, not a measurement.
 function dangerSvg(b) {

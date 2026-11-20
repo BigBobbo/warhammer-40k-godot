@@ -142,9 +142,11 @@ test('threat options: what a unit can do from where it stands (range, charge rea
   // the gun stands still (planned position): 24" reaches "near" (about 23" away), not "far" (about 47")
   assert.deepEqual(g.opts.map(o => o.t), ['B:near']);
   assert.ok(Math.abs(g.opts[0].mu - 4) < 1e-9 && Math.abs(g.opts[0].w - 0.2) < 1e-9, JSON.stringify(g.opts[0]));
-  // the blade has no gun: only the charge (about 3" to go: a 2D6 roll of 2+, certain) and the fight
+  // the blade has no gun: only the charge (2.74" to go: a 3+ on 2D6, 35 in 36 — a double 1 is never
+  // enough, 11.02.01) and the fight
   assert.equal(b.opts[0].t, 'B:near');
-  assert.ok(Math.abs(b.opts[0].mu - 8) < 1e-6 && Math.abs(b.opts[0].w - 0.5) < 1e-6, JSON.stringify(b.opts[0]));
+  const ch = 35 / 36;
+  assert.ok(Math.abs(b.opts[0].mu - 8 * ch) < 1e-6 && Math.abs(b.opts[0].w - 0.5 * ch) < 1e-6, JSON.stringify(b.opts[0]));
 });
 
 test('forecast board mode with threats: units attack from their planned positions; dead attackers stop, focus fire kills', () => {

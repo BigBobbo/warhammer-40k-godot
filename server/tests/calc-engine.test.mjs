@@ -274,14 +274,27 @@ test('damaged model is finished first (wounded model priority)', () => {
   near(r.meanKills, 5 / 6, 0.01, 'kills');
 });
 
-test('charge odds (11e: roll >= gap - 2" engagement range; modifiers net ±1; full re-roll)', () => {
-  assert.equal(E.chargeRollNeeded(9), 7);
-  assert.equal(E.chargeRollNeeded(9.5), 8, 'half inches round up');
-  assert.equal(E.chargeRollNeeded(3), 2);
+test('charge odds (11e 11.04: the roll must be at least the gap, and the gap 12" or less; modifiers add up; full re-roll)', () => {
+  // 11.04 example B: more than 7" away cannot be selected on a roll of 7, "even though the
+  // charging unit could end its charge move within 2" of this unit"
+  assert.equal(E.chargeRollNeeded(9), 9);
+  assert.equal(E.chargeRollNeeded(7), 7, 'exactly 7" away is within 7"');
+  assert.equal(E.chargeRollNeeded(7.1), 8, 'more than 7" away needs an 8');
+  assert.equal(E.chargeRollNeeded(8.5), 9, 'half inches round up');
+  assert.equal(E.chargeRollNeeded(2.5), 3, 'just outside the 2" engagement range: a double 1 is never enough (11.02.01)');
   near(E.chargeOdds(7), 21 / 36, 1e-12, 'P(2D6 >= 7)');
+  near(E.chargeOdds(E.chargeRollNeeded(9)), 10 / 36, 1e-12, 'a 9" charge (e.g. out of reserves) is 28%, not 58%');
+  near(E.chargeOdds(E.chargeRollNeeded(6)), 26 / 36, 1e-12, 'a 6" charge is 72%');
   near(E.chargeOdds(7, { reroll: true }), 21 / 36 + (15 / 36) * (21 / 36), 1e-12, 'with re-roll');
-  near(E.chargeOdds(9, { mod: 2 }), E.chargeOdds(8), 1e-12, '+2 nets to +1');
+  // 02.02.01: all modifiers are cumulative; only hit rolls and wound rolls are limited to ±1
+  near(E.chargeOdds(9, { mod: 2 }), E.chargeOdds(7), 1e-12, '+2 to the charge roll is +2');
+  near(E.chargeOdds(9, { mod: -2 }), E.chargeOdds(11), 1e-12, '-2 (e.g. a FLY unit that takes to the skies, 21.03)');
   near(E.chargeOdds(12, { mod: -1 }), 0, 1e-12, '12 with -1 impossible');
+  near(E.chargeOdds(12, { mod: 3 }), E.chargeOdds(9), 1e-12, 'a 12" charge with +3 needs a 9');
+  // "within 12" of your unit and within the maximum distance": more than 12" is never a charge target
+  assert.equal(E.chargeRollNeeded(12.5), 13);
+  assert.equal(E.chargeOdds(13, { mod: 2 }), 0, 'more than 12" away: no charge, whatever the modifier');
+  assert.equal(E.chargeOdds(12), 1 / 36, 'exactly 12": a double 6');
 });
 
 test('casualties: fewer models and a damaged model change the outcome', () => {
@@ -317,6 +330,18 @@ test('points removed: per-model points of the destroyed models', () => {
 });
 
 // ---------------------------------------------------------------------------
+test('Hazardous (24.15): one hazard roll for each weapon SELECTED, also when the target is destroyed before it attacks', () => {
+  // weapon 1 destroys the single 1-wound model every time (60 auto-hitting S8 attacks, no save);
+  // the Hazardous weapon after it has nothing left to attack, but it was selected: 4 hazard rolls, each failing on 1-2
+  const haz = weapon({ name: 'H', count: 4, kw: { hazardous: true } });
+  const r = run({ weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } }), haz], groups: [group({ count: 1 })] });
+  near(r.pWipe, 1, 1e-9, 'destroyed by the first weapon');
+  near(r.hazardMW, 4 / 3, 0.02, '4 hazard rolls, 1 mortal wound on 1-2');
+  // a unit of MONSTER / VEHICLE models takes 3 for each failed roll (06.03)
+  const big = run({ attackers: [{ name: 'A', mods: {}, allVehicleMonster: true, weapons: [haz] }], groups: pool() });
+  near(big.hazardMW, 4, 0.05, '3 mortal wounds for each failed roll');
+});
+
 // Turn chain: shoot -> charge -> fight
 
 test('turn chain: casualties carry from shooting into the fight; charge odds; no fight when the charge cannot succeed', () => {
@@ -332,12 +357,19 @@ test('turn chain: casualties carry from shooting into the fight; charge odds; no
   near(sure.meanFight, 2, 0.03, 'fight kills on the survivors');
   near(sure.meanKills, sure.meanShoot + sure.meanFight, 1e-9, 'total = shooting + fight');
   near(sure.kills.reduce((a, b) => a + b, 0), 1, 1e-9, 'distribution sums to 1');
-  // gap 9" -> needs 7+ on 2D6 = 21/36; with a re-roll 1-(15/36)^2
+  // gap 9" -> needs 9+ on 2D6 = 10/36 (11.04: the target must be within the roll); with a re-roll 1-(26/36)^2
   const nine = E.simulateChain({ shoot: null, fight, charge: { gap: 9 }, trials: TRIALS, seed: 7 });
-  near(nine.pCharge, 21 / 36, 0.01, '7+ to charge');
-  near(nine.meanFight, 2 * 21 / 36, 0.03, 'fight only when the charge lands');
+  assert.equal(nine.need, 9);
+  near(nine.pCharge, 10 / 36, 0.01, '9+ to charge');
+  near(nine.meanFight, 2 * 10 / 36, 0.03, 'fight only when the charge lands');
   const rr = E.simulateChain({ shoot: null, fight, charge: { gap: 9, reroll: true }, trials: TRIALS, seed: 7 });
-  near(rr.pCharge, 1 - (15 / 36) ** 2, 0.01, 're-rolled charge');
+  near(rr.pCharge, 1 - (26 / 36) ** 2, 0.01, 're-rolled charge');
+  // modifiers add up (no ±1 limit on charge rolls): +2 turns the 9+ into a 7+
+  const plus2 = E.simulateChain({ shoot: null, fight, charge: { gap: 9, mod: 2 }, trials: TRIALS, seed: 7 });
+  near(plus2.pCharge, 21 / 36, 0.01, '9" with +2');
+  // more than 12" away is not a charge target, even with a modifier that would reach
+  const tooFar = E.simulateChain({ shoot: null, fight, charge: { gap: 12.5, mod: 2 }, trials: TRIALS, seed: 7 });
+  assert.equal(tooFar.pCharge, 0, 'more than 12"');
   // gap 20" -> needs 18: never; total = shooting alone
   const far = E.simulateChain({ shoot, fight, charge: { gap: 20 }, trials: TRIALS, seed: 7 });
   assert.equal(far.pCharge, 0);

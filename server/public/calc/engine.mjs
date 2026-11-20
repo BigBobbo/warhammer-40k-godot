@@ -555,10 +555,11 @@ function runTrial(C, rnd, rec, init = null) {
         const idx = pickModel(s);
         if (lost > 0 && idx >= 0) damageModel(s, idx, lost, out);
       }
-      // --- hazardous (after the unit's attacks; counted for the attacker)
-      if (w.hazardous) {
-        for (let c = 0; c < w.count; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
-      }
+    }
+    // --- hazardous (24.15): after the unit has resolved all of its attacks, one hazard roll for each
+    // [HAZARDOUS] weapon SELECTED - also for a weapon whose target was destroyed before it attacked
+    for (const w of a.weapons) {
+      if (w.hazardous) for (let c = 0; c < w.count; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
     }
     perAttacker.push({ kills: out.kills - killsBefore, wounds: out.woundsLost - woundsBefore });
   }
@@ -643,7 +644,7 @@ export function simulate(scenario) {
 // chain: {
 //   shoot: scenario | null,   // shooting attacks first (any units)
 //   fight: scenario,          // the charging unit's fight (mods.charged set by the caller)
-//   charge: { gap, mod, reroll },  // 2D6 (+mod, nets to ±1) >= gap - 2" engagement range
+//   charge: { gap, mod, reroll },  // 2D6 (+mod) >= gap, and the gap is 12" or less (see chargeRollNeeded)
 //   trials, seed,
 // }
 // The target's casualties and damaged model carry from the shooting into the
@@ -664,7 +665,7 @@ export function simulateChain(chain) {
   const trials = Math.max(1, chain.trials ?? 20000);
   const rnd = mulberry32(chain.seed ?? 0x5EED);
   const need = chargeRollNeeded(chain.charge?.gap ?? 0);
-  const cmod = cap1(chain.charge?.mod ?? 0);
+  const cmod = chain.charge?.mod ?? 0;
   const groups0 = (C1 ?? C2).groups;
   const totalModels = groups0.reduce((a, g) => a + g.count, 0);
   const hist = new Array(totalModels + 1).fill(0);
@@ -681,9 +682,10 @@ export function simulateChain(chain) {
       wipedShoot++; wipedEnd++;
     } else {
       survived++;
-      const roll = () => d6(rnd) + d6(rnd) + cmod;
-      let ok = roll() >= need;
-      if (!ok && chain.charge?.reroll) ok = roll() >= need;
+      // more than 12": not a legal charge target (the dice are still rolled, so the seed stream stays the same)
+      const roll = () => Math.min(CHARGE_MAX, d6(rnd) + d6(rnd) + cmod) >= need && need <= CHARGE_MAX;
+      let ok = roll();
+      if (!ok && chain.charge?.reroll) ok = roll();
       if (ok) {
         charged++;
         st = carryState(st, C2.groups);
@@ -736,22 +738,34 @@ export function expectedDamageQuick(w, T, Sv, InSv) {
 }
 
 // ---------------------------------------------------------------------------
-// Charge odds (11e 11.02-11.04): 2D6 charge roll = maximum charge distance;
-// the charge must end engaged (engagement range 2"), so a gap of G" needs a
-// roll of at least G - 2. Charge-roll modifiers net to ±1; a re-roll
-// (e.g. Command Re-roll) re-rolls the whole charge roll.
+// Charge odds (11e 11.02-11.04; modifiers 02.02.01).
+//
+// The 2D6 charge roll is the MAXIMUM DISTANCE of the charge move, and a charge
+// target must be within 12" of the unit AND within that maximum distance
+// BEFORE the unit moves (11.04, "Before moving"). Example B of 11.04: a unit
+// more than 7" away cannot be selected on a roll of 7, "even though the
+// charging unit could end its charge move within 2" of this unit". So a gap
+// of G" needs a roll of at least G (rounded up) — not G minus the 2"
+// engagement range — and a target more than 12" away cannot be charged.
+//
+// Modifiers to the charge roll are cumulative: the ±1 limit is for hit rolls
+// and wound rolls only (02.02.01). "Charge rolls cannot be greater than 12."
+// A re-roll (e.g. Command Re-roll) re-rolls the whole charge roll.
 
 export const ENGAGEMENT_RANGE = 2;
+/** A charge target must be within 12" (11.04), and a charge roll cannot be more than 12 (02.02.01). */
+export const CHARGE_MAX = 12;
 
+/** The 2D6 roll (after modifiers) a charge over a gap of `gapInches` needs; more than CHARGE_MAX = cannot be charged. */
 export function chargeRollNeeded(gapInches) {
-  return Math.max(2, Math.ceil(gapInches - ENGAGEMENT_RANGE - 1e-9));
+  return Math.max(2, Math.ceil(gapInches - 1e-9));
 }
 
-/** Exact P(success) for a 2D6 charge needing `need`, with modifier and optional full re-roll. */
+/** Exact P(success) for a 2D6 charge needing `need`, with the sum of the modifiers and an optional full re-roll. */
 export function chargeOdds(need, { mod = 0, reroll = false } = {}) {
-  const m = cap1(mod);
+  if (need > CHARGE_MAX) return 0;
   let p = 0;
-  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + m >= need) p++;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (Math.min(CHARGE_MAX, a + b + mod) >= need) p++;
   p /= 36;
   return reroll ? p + (1 - p) * p : p;
 }

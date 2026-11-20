@@ -5,9 +5,10 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
-  attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
+  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
-import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
+import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
@@ -196,18 +197,68 @@ function enabledRules(profile, s) {
   return on;
 }
 
-function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase) {
+// The engine defender of the target as it is set up on the Attack tab (rules on, casualties, manual modifiers).
+function currentDefender(tinfo, phase = state.phase) {
+  const s = setup();
+  return buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), phase, s.defManual, s.defOverrides[s.targetKey] ?? {});
+}
+
+// Weapon choice (choose.mjs): the engine scores every legal option against this target. Remembered per
+// problem (unit + rules + situation + target as set up), so a re-render costs nothing.
+const choiceCache = new Map();
+function chooseCached(problem) {
+  const key = JSON.stringify(problem);
+  let hit = choiceCache.get(key);
+  if (!hit) {
+    hit = chooseWeapons(problem, { context: 'always' });     // one unit, on the page: always checked with its whole attack
+    if (hit.sims) console.log(`[calc] weapon choice: ${problem.attacker?.name} (${problem.phase}) - ${hit.sims} option run(s)`);
+    choiceCache.set(key, hit);
+    if (choiceCache.size > 400) choiceCache.delete(choiceCache.keys().next().value);
+  }
+  return hit;
+}
+
+/**
+ * The weapon rows of an attacker entry with the number of weapons that attack.
+ * A count set by hand wins; the others are chosen (the best legal weapons and
+ * profiles against this target). opt.defer: do not choose here (the worker does,
+ * for the grid and the unit-against-unit odds) - rows then carry the first guess.
+ * Each row: count (after "models in range"), full (before it), manual, fam
+ * (family of rows whose counts depend on each other, or null), note (the
+ * scores behind the choice).
+ */
+function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase, opt = {}) {
   const cu = army?.units.find(u => u.key === entry.unitKey);
   if (!cu) return { cu: null, rows: [] };
   const body = bodyguardModels(cu);
   const inRange = entry.inRange != null ? Math.max(0, Math.min(body.total, entry.inRange)) : null;
-  const rows = attackerRows(cu, phase, tinfo?.summary ?? null).map(r => {
-    let count = r.blocked ? 0 : Math.min(r.max, entry.counts?.[r.id] ?? r.count);
+  const base = attackerRows(cu, phase, tinfo?.summary ?? null, { shooting: entry.mods?.shootingType ?? 'normal' });
+  let problem = null, auto = null;
+  if (tinfo && base.length) {
+    tinfo.defender ??= currentDefender(tinfo, phase);
+    const { rules, on } = rulesFor(entry, cu, tinfo, army, phase);
+    problem = choiceProblem(cu, base, entry.mods, rules, on, phase, tinfo.defender, tinfo.summary);
+    if (!opt.defer) auto = chooseCached(problem);
+  }
+  const fam = auto?.families ?? (problem ? families(problem) : new Map());
+  // Which profile or weapon is best depends on the target: counts set by hand for rows that are a choice
+  // hold for the target they were set against only (a Hunter profile set by hand would otherwise make no
+  // attacks against the next target). Counts of weapons with nothing to choose stay.
+  const tkey = tinfo?.cu?.key ?? null;
+  const stale = entry.countsFor != null && tkey != null && entry.countsFor !== tkey;
+  const manualOf = (r) => { const v = entry.counts?.[r.id]; return v == null || (stale && fam.get(r.id) != null) ? null : v; };
+  // a family with one count set by hand is set by hand as a whole (its other rows: 0)
+  const byHand = new Set(base.filter(r => fam.get(r.id) != null && manualOf(r) != null).map(r => fam.get(r.id)));
+  const rows = base.map(r => {
+    const f = fam.get(r.id) ?? null;
+    const manual = manualOf(r);
+    const chosen = f != null && byHand.has(f) ? 0 : (auto?.counts[r.id] ?? r.count);
+    const full = r.blocked ? 0 : Math.min(r.max, manual ?? chosen);
     // models in range: scale the bodyguard models' weapons; attached characters stay in
-    if (inRange != null && body.members.has(Number(String(r.id).split(':')[0]))) count = Math.round(count * inRange / Math.max(1, body.total));
-    return { ...r, count };
+    const count = inRange != null && body.members.has(Number(String(r.id).split(':')[0])) ? Math.round(full * inRange / Math.max(1, body.total)) : full;
+    return { ...r, count, full, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
   });
-  return { cu, rows, inRange, bodyTotal: body.total };
+  return { cu, rows, inRange, bodyTotal: body.total, problem, stale };
 }
 
 // Casualties set on the target leave it below half strength?
@@ -693,8 +744,37 @@ function targetCard(tinfo, s) {
     ${body}</div>`;
 }
 
+// How a weapon row that is a choice (several profiles, one melee weapon per model, sidearm or main weapon)
+// got its count: chosen by the app (with what it was compared on) or set by hand.
+function choiceTag(r) {
+  if (r.fam == null || r.blocked) return '';
+  if (r.manual) return '<span class="tag byhand">set by hand</span>';
+  return r.full > 0 ? '<span class="tag auto" title="Chosen by the app: the best legal option against this target, with this unit\'s rules and situation">✓ auto: best here</span>' : '';
+}
+function choiceWhy(r) {
+  const n = r.note;
+  if (r.fam == null || r.blocked || r.manual || !n) return '';
+  if (!n.sim) return r.full > 0 ? '' : '<div class="tiny muted choice-why">Not used: another option is at least as good in every way</div>';
+  const haz = n.hazard > 0.005 ? `, after ${fx(n.hazard)} of your own expected from Hazardous` : '';
+  return `<div class="tiny muted choice-why">${r.full > 0 ? 'Used' : 'Not used'}: about ${fx(n.net)} wounds here if all ${r.max > 1 ? `${r.max} ` : ''}attack with it${haz}</div>`;
+}
+
+// Under the weapons of an attacker: what "auto" means (once, when the unit has a choice), the way back to
+// it after a change by hand, and a warning for a set-up the rules do not allow.
+function choiceFoot(e, rows, problem) {
+  const hasChoice = rows.some(r => r.fam != null);
+  const byHand = rows.some(r => r.manual);
+  const both = problem && overSidearms(problem, Object.fromEntries(rows.map(r => [r.id, r.full])));
+  if (!hasChoice && !byHand) return '';
+  const inContext = rows.some(r => r.note?.inContext && !r.manual);
+  return `<div class="choice-foot tiny muted">${hasChoice ? 'Where a model must choose (one profile of a weapon, one melee weapon, its close-quarters weapons or its other weapons) the app uses the option that removes the most wounds from this target. Change a count to choose yourself.' : ''}
+    ${inContext ? ' <span class="choice-ctx">This unit is likely to destroy the target, so the choice was checked with all its attacks together: damage that is not needed does not count.</span>' : ''}
+    ${byHand ? ` <button class="linkish" data-action="count-auto" data-uid="${e.uid}">↺ Let the app choose again</button>` : ''}
+    ${both ? '<div class="warn" style="color:var(--warn-ink)">⚠ A model shoots its close-quarters weapons or its other ranged weapons, not both (24.07).</div>' : ''}</div>`;
+}
+
 function attackerCard(e, i, tinfo) {
-  const { cu, rows } = rowsFor(e, tinfo);
+  const { cu, rows, problem } = rowsFor(e, tinfo);
   if (!cu) return '';
   const m = e.mods ?? {};
   const shooting = state.phase === 'shooting';
@@ -702,10 +782,10 @@ function attackerCard(e, i, tinfo) {
   const weapons = rows.length ? rows.map(r => {
     const unsupported = r.unsupported.length ? r.unsupported.map(t => `<span class="tag warn" title="Not modelled by the calculator">${esc(t)} ⚠</span>`).join('') : '';
     const tags = r.tags.filter(t => !r.unsupported.includes(t)).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    return `<div class="weapon ${r.count ? '' : 'off'}">
+    return `<div class="weapon ${r.count ? '' : 'off'}" data-row="${esc(r.id)}"${r.fam != null ? ` data-fam="${esc(r.fam)}"` : ''}>
       <div class="grow"><div class="wname">${esc(r.label)}</div>
         <div class="wstats">${esc(r.range)} · ${esc(r.stats)}</div>
-        <div>${tags}${unsupported}${r.blocked ? `<span class="tag warn">${esc(r.blocked)}</span>` : ''}</div></div>
+        <div>${tags}${unsupported}${r.blocked ? `<span class="tag warn">${esc(r.blocked)}</span>` : ''}${choiceTag(r)}</div>${choiceWhy(r)}</div>
       <div class="stepper">
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="-1" aria-label="Fewer">−</button>
         <div class="val">${r.count}/${r.max}</div>
@@ -779,6 +859,7 @@ function attackerCard(e, i, tinfo) {
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
     ${attachRow(state.side, cu)}
     <div style="margin-top:6px">${weapons}</div>
+    ${choiceFoot(e, rows, problem)}
     ${rangeRow}
     <div class="chips" style="margin-top:8px">${sit}</div>
     ${situation || distRow ? `<div class="modrow" style="margin-top:8px"><div class="lab">Situation (switches matching abilities on)</div><div class="chips">${situation}</div>${distRow}</div>` : ''}
@@ -871,17 +952,17 @@ function renderSheet() {
 // Default matchup (always-on rules only) between any two armies, in any phase.
 function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const profile = defenderProfile(defCu, defArmyObj);
-  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile) };
+  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {});
+  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile), defender };
   const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
-  const { rows } = rowsFor(entry, tinfo, atkArmyObj, phase);
-  if (!rows.some(r => r.count > 0)) return null;
+  // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
+  const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
+  if (!rows.some(r => r.usable !== false && r.max > 0)) return null;
   const { rules, on } = rulesFor(entry, atkCu, tinfo, atkArmyObj, phase);
-  return {
-    phase,
-    attackers: [buildAttacker(atkCu, rows, {}, rules, on, phase)],
-    defender: buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {}),
-    seed: 99,
-  };
+  const attacker = buildAttacker(atkCu, rows, {}, rules, on, phase);
+  if (problem && decisions(problem).length) attacker.choice = { groups: problem.groups, rows: problem.rows, shooting: problem.shooting, target: problem.target };
+  else if (!attacker.weapons.length) return null;
+  return { phase, attackers: [attacker], defender, seed: 99 };
 }
 // Unit-vs-unit odds for the Mission tab's board plans: P(target destroyed)
 // when one unit shoots / fights another, default rules, a quick batch run.
@@ -1182,7 +1263,7 @@ function chainSheet() {
     body = `<div class="hero">
         <div class="cell"><b id="chain-total">${fx(r.meanKills)}</b><span>avg models destroyed this turn of ${r.totalModels}</span></div>
         <div class="cell"><b id="chain-wipe">${pct(r.pWipe)}</b><span>chance it is destroyed this turn</span></div>
-        <div class="cell"><b id="chain-charge">${pct(r.pChargeGivenSurvive)}</b><span>charge lands (${need}+ on 2D6${c.reroll ? ', re-roll' : ''})</span></div>
+        <div class="cell"><b id="chain-charge">${pct(r.pChargeGivenSurvive)}</b><span id="chain-need">${need > CHARGE_MAX ? `more than ${CHARGE_MAX}": cannot be charged` : `charge lands (${need}+ on 2D6${c.mod ? `, ${fmtMod(c.mod)}` : ''}${c.reroll ? ', re-roll' : ''})`}</span></div>
       </div>
       <div class="pipeline" style="margin-top:8px">
         <div><b>${fx(r.meanShoot)}</b><span>Shooting kills</span></div>
@@ -1201,33 +1282,38 @@ function chainSheet() {
       <select class="sel" data-input="chain-charger" aria-label="Charging unit">${chargers.map(cu => `<option value="${esc(cu.key)}" ${cu.key === c.chargerKey ? 'selected' : ''}>${esc(cu.name)}</option>`).join('')}</select></div>
     <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Charge distance</div><div class="wstats">closest bases after shooting, in inches</div></div>
       <div class="stepper"><button data-action="chain-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val" id="chain-gap">${c.gap}"</div><button data-action="chain-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
-    <div class="modrow"><div class="lab">Charge roll modifier</div>${seg('chain-mod', c.mod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
+    <div class="modrow"><div class="lab">Charge roll modifiers, added up</div>${seg('chain-mod', c.mod ?? 0, CHARGE_MODS, 'compact')}</div>
     <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>` : ''}
     <div style="margin-top:10px">${body}</div>
     <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. Not modelled: Overwatch, the target fighting back, models lost by the charger.</p>`;
 }
+
+/** Charge-roll modifiers add up (02.02.01: only hit and wound rolls are limited to ±1). */
+const CHARGE_MODS = [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '+1'], [2, '+2']];
+const fmtMod = (m) => `${m > 0 ? '+' : '−'}${Math.abs(m)}`;
 
 function chargeSheet() {
   const c = state.charge;
   const need = chargeRollNeeded(c.gap);
   const p = chargeOdds(need, { mod: c.mod, reroll: c.reroll });
   const rows = [];
-  for (let g = 3; g <= 14; g++) {
+  for (let g = 3; g <= CHARGE_MAX; g++) {
     const n = chargeRollNeeded(g);
     rows.push(`<tr ${Math.abs(g - c.gap) < 0.01 ? 'style="font-weight:700"' : ''}><td>${g}"</td><td>${n}+</td><td>${pct(chargeOdds(n, { mod: c.mod }))}</td><td>${pct(chargeOdds(n, { mod: c.mod, reroll: true }))}</td></tr>`);
   }
+  rows.push(`<tr ${c.gap > CHARGE_MAX ? 'style="font-weight:700"' : ''}><td>over ${CHARGE_MAX}"</td><td>—</td><td colspan="2">cannot be charged</td></tr>`);
   return `<div class="row"><h3 class="grow">Charge odds</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
     <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Gap to the nearest target</div><div class="wstats">base to base, in inches</div></div>
       <div class="stepper"><button data-action="charge-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val">${c.gap}"</div><button data-action="charge-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
-    <div class="modrow"><div class="lab">Charge roll modifier (nets to ±1)</div>${seg('charge-mod', c.mod, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
+    <div class="modrow"><div class="lab">Charge roll modifiers, added up</div>${seg('charge-mod', c.mod, CHARGE_MODS, 'compact')}</div>
     <div class="chips" style="margin-top:8px">${chip('charge-reroll', c.reroll, 'Re-roll the charge (e.g. Command Re-roll)')}</div>
     <div class="hero" style="grid-template-columns:1fr 1fr;margin-top:12px">
-      <div class="cell"><b id="charge-need">${need}+</b><span>needed on 2D6 (gap − 2" engagement range)</span></div>
+      <div class="cell"><b id="charge-need">${need > CHARGE_MAX ? '—' : `${need}+`}</b><span>${need > CHARGE_MAX ? `more than ${CHARGE_MAX}": cannot be charged` : 'needed on 2D6: the gap, rounded up'}</span></div>
       <div class="cell"><b id="charge-p">${pct(p)}</b><span>chance to make it</span></div>
     </div>
-    <div class="section"><h2>Quick reference${c.mod ? ` · ${c.mod > 0 ? '+' : '−'}1 to the roll` : ''}</h2>
+    <div class="section"><h2>Quick reference${c.mod ? ` · ${fmtMod(c.mod)} to the roll` : ''}</h2>
       <table class="dist"><thead><tr><th>Gap</th><th>Needs</th><th>Chance</th><th>With re-roll</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
-    <p class="hint">11e: the charge roll (2D6) is the maximum move and the unit must end engaged (within 2"), so you need the gap minus 2".</p>`;
+    <p class="hint" id="charge-rule">11th edition (11.04): the charge roll is the maximum distance, and the target must be within that distance — and within ${CHARGE_MAX}" — before the unit moves. A roll that would only bring the unit to within 2" is not enough. Modifiers to the charge roll add up (the ±1 limit is for hit and wound rolls); the roll cannot be more than 12. A FLY unit that takes to the skies to move over models or terrain has −2" (21.03).</p>`;
 }
 
 function attachSheet() {
@@ -1707,10 +1793,27 @@ app.addEventListener('click', (ev) => {
     case 'count': {
       const e = findEntry(el.dataset.uid);
       if (!e) return;
-      const row = rowsFor(e, targetInfo()).rows.find(r => r.id === el.dataset.row);
+      const tinfo = targetInfo();
+      const { rows, problem, stale } = rowsFor(e, tinfo);
+      const row = rows.find(r => r.id === el.dataset.row);
       if (!row || row.blocked) return;
       e.counts ??= {};
-      e.counts[row.id] = Math.max(0, Math.min(row.max, row.count + Number(el.dataset.delta)));
+      const delta = Number(el.dataset.delta);
+      if (problem && row.fam != null) {
+        // rows of one family share weapons or models (profiles of one weapon, the melee weapons of one model):
+        // from the first change by hand the whole family is set by hand, and a count that goes up takes from the others
+        if (stale) for (const r of rows) if (r.fam != null) delete e.counts[r.id];   // set for another target
+        e.countsFor = tinfo?.cu?.key ?? null;
+        const cur = Object.fromEntries(rows.map(r => [r.id, r.full]));
+        Object.assign(e.counts, adjustCount(problem, cur, row.id, delta));
+      } else e.counts[row.id] = Math.max(0, Math.min(row.max, row.full + delta));
+      return changed();
+    }
+    case 'count-auto': {
+      const e = findEntry(el.dataset.uid);
+      if (!e) return;
+      e.counts = {};
+      delete e.countsFor;
       return changed();
     }
     case 'arule': {
