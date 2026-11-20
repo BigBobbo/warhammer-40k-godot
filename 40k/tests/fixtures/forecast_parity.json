@@ -1520,12 +1520,12 @@
    },
    "trials": 20000,
    "js": {
-    "mean1": 87.1229,
-    "mean2": 69.0746,
-    "sd1": 7.001449534917715,
-    "sd2": 8.926681065211174,
-    "p_win1": 0.9268,
-    "p_win2": 0.0639
+    "mean1": 87.0944,
+    "mean2": 76.15485,
+    "sd1": 6.963130663717433,
+    "sd2": 9.160980923323683,
+    "p_win1": 0.80865,
+    "p_win2": 0.1696
    }
   },
   {
@@ -2206,12 +2206,12 @@
    },
    "trials": 20000,
    "js": {
-    "mean1": 75.8601,
-    "mean2": 71.94435,
-    "sd1": 8.12632315318558,
-    "sd2": 11.551080169295862,
-    "p_win1": 0.58865,
-    "p_win2": 0.38715
+    "mean1": 82.85245,
+    "mean2": 71.82575,
+    "sd1": 8.079429373260187,
+    "sd2": 11.624800511729227,
+    "p_win1": 0.7502,
+    "p_win2": 0.22825
    }
   },
   {
@@ -2943,6 +2943,375 @@
     "sd2": 10.689645091278768,
     "p_win1": 0.5561,
     "p_win2": 0.4216
+   }
+  },
+  {
+   "name": "game_tune_Triangulation",
+   "first": 1,
+   "seed": 20,
+   "players": {
+    "1": {
+     "mission": "Triangulation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.9,
+     "rate": {},
+     "start": {},
+     "tune": {
+      "tri_from_round": 1,
+      "quarters_shape": [
+       0,
+       0.45,
+       0.9,
+       1.5,
+       1.1
+      ],
+      "quarters_full": 0.1,
+      "intel_once": true
+     }
+    },
+    "2": {
+     "mission": "Reconnaissance Sweep",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.9,
+     "rate": {},
+     "start": {},
+     "tune": {
+      "tri_from_round": 1,
+      "quarters_shape": [
+       0,
+       0.45,
+       0.9,
+       1.5,
+       1.1
+      ],
+      "quarters_full": 0.1,
+      "intel_once": true
+     }
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 89.4752,
+    "mean2": 62.8107,
+    "sd1": 5.685770392831513,
+    "sd2": 7.559614111183204,
+    "p_win1": 0.99625,
+    "p_win2": 0.0025
+   }
+  },
+  {
+   "name": "game_tune_Gather Intel",
+   "first": 1,
+   "seed": 21,
+   "players": {
+    "1": {
+     "mission": "Gather Intel",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.9,
+     "rate": {},
+     "start": {},
+     "tune": {
+      "tri_from_round": 1,
+      "quarters_shape": [
+       0,
+       0.45,
+       0.9,
+       1.5,
+       1.1
+      ],
+      "quarters_full": 0.1,
+      "intel_once": true
+     }
+    },
+    "2": {
+     "mission": "Death Trap",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.9,
+     "rate": {},
+     "start": {},
+     "tune": {
+      "tri_from_round": 1,
+      "quarters_shape": [
+       0,
+       0.45,
+       0.9,
+       1.5,
+       1.1
+      ],
+      "quarters_full": 0.1,
+      "intel_once": true
+     }
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 86.1027,
+    "mean2": 81.3409,
+    "sd1": 6.895727134247669,
+    "sd2": 7.9942096038319574,
+    "p_win1": 0.6509,
+    "p_win2": 0.31425
+   }
+  },
+  {
+   "name": "midgame_mission_progress",
+   "first": 1,
+   "start_round": 3,
+   "start_turn": 0,
+   "start_after_draw": true,
+   "seed": 30,
+   "players": {
+    "1": {
+     "mission": "Triangulation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {
+      "primary": 14,
+      "secondary": 8,
+      "ms": {
+       "tri": 2
+      }
+     },
+     "tune": {
+      "tri_from_round": 1,
+      "quarters_shape": [
+       0,
+       0.45,
+       0.9,
+       1.5,
+       1.1
+      ],
+      "quarters_full": 0.1,
+      "intel_once": true
+     }
+    },
+    "2": {
+     "mission": "Death Trap",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {
+      "primary": 20,
+      "secondary": 6,
+      "ms": {
+       "traps": 5
+      }
+     }
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 74.7488,
+    "mean2": 70.22355,
+    "sd1": 4.204104965387978,
+    "sd2": 7.307562890423837,
+    "p_win1": 0.6702,
+    "p_win2": 0.29035
    }
   }
  ]

@@ -49,6 +49,20 @@ test('Immovable Object: central for 3 VP every turn, 5 VP per non-home objective
   assert.deepEqual(r.A.prim.map(Math.round), [3, 8, 8, 8, 8]);
 });
 
+test('Death Trap: every unit can trap an area, so round 1 is a burst and later rounds a trickle', () => {
+  // no objectives held beyond home and no kills: only the Booby Trap VP
+  const plan = planAll({ hA: 'A', eA: 'B', c: 'B', eB: 'B', hB: 'B' });
+  const pl = (actionP) => ({ ...quiet('Death Trap', ARMY_A), actionP });
+  const r = F.forecast({ players: { A: pl(0.7), B: quiet('Battlefield Dominance', ARMY_B) }, objectives: OBJS, plan, first: 'A', trials: 4000, confidence: SURE });
+  // R1: up to 4 areas at 2 VP, half of them on an objective (+3): about 10; R2-R3 about 3.7; R4-R5 about 1
+  assert.ok(r.A.prim[0] > 8.5 && r.A.prim[0] < 11, `R1 ${r.A.prim[0]}`);
+  assert.ok(r.A.prim[1] > 2.5 && r.A.prim[1] < 5 && r.A.prim[2] > 2.5 && r.A.prim[2] < 5, `R2-R3 ${r.A.prim[1]} ${r.A.prim[2]}`);
+  assert.ok(r.A.prim[3] < 2 && r.A.prim[4] < 2, `R4-R5 ${r.A.prim[3]} ${r.A.prim[4]}`);
+  // a player who never does the action scores nothing from it
+  const none = F.forecast({ players: { A: pl(0), B: quiet('Battlefield Dominance', ARMY_B) }, objectives: OBJS, plan, first: 'A', trials: 200, confidence: SURE });
+  assert.deepEqual(none.A.prim, [0, 0, 0, 0, 0]);
+});
+
 test('kills drive kill primaries and secondaries; caps hold for every game', () => {
   const pl = (army) => ({ mission: 'Meatgrinder', army, killRate: 2, mode: 'tactical' });
   const r = F.forecast({ players: { A: pl(ARMY_A), B: pl(ARMY_B) }, objectives: OBJS, plan: planAll({ hA: 'A', hB: 'B', eA: 'c', eB: 'c', c: 'c' }), trials: 1500 });

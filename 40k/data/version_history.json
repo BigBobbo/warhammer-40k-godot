@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.90.3",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: the Death Trap forecast counts every area you can trap",
+      "changes": [
+        "Mission forecast, Death Trap: every unit can Booby Trap a terrain area, so the forecast now expects a burst on turn 1 (up to 4 areas, about 10 VP at the normal action rating), one or two a turn in rounds 2-3 and few after that. It used to assume one trap a turn and came out at about half the VP of real games.",
+        "A kill only counts for Death Trap in terrain trapped on an earlier turn."
+      ]
+    },
+    {
       "version": "1.90.2",
       "date": "2026-11-20",
       "summary": "AI: kill secondaries are judged on real kills",

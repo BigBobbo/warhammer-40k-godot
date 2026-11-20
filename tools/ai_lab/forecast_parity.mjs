@@ -73,6 +73,23 @@ scenarios.push({
 const pid = (p) => (p === 1 || p === '1' ? 'A' : p === 2 || p === '2' ? 'B' : null);
 const cid = (id) => id.replace(/_/g, '-');
 const cids = (a) => (a ?? []).map(cid);
+// the game's tuning (AIForecast.GAME_TUNE / GAME_ACTION_P) on the cards it changes
+const GAME_TUNE = { tri_from_round: 1, quarters_shape: [0.0, 0.45, 0.9, 1.5, 1.1], quarters_full: 0.1, intel_once: true };
+[['Triangulation', 'Reconnaissance Sweep'], ['Gather Intel', 'Death Trap']].forEach(([a, b], i) => scenarios.push({
+  name: `game_tune_${a}`, first: 1, seed: 20 + i,
+  players: { 1: pl(a, { action_p: 0.9, tune: GAME_TUNE }), 2: pl(b, { action_p: 0.9, tune: GAME_TUNE }) },
+  objectives: OBJ, plan: basePlan(), trials: TRIALS,
+}));
+// mission progress carried into a mid-game start
+scenarios.push({
+  name: 'midgame_mission_progress', first: 1, start_round: 3, start_turn: 0, start_after_draw: true, seed: 30,
+  players: {
+    1: pl('Triangulation', { tune: GAME_TUNE, start: { primary: 14, secondary: 8, ms: { tri: 2 } } }),
+    2: pl('Death Trap', { start: { primary: 20, secondary: 6, ms: { traps: 5 } } }),
+  },
+  objectives: OBJ, plan: basePlan(), trials: TRIALS,
+});
+
 function toJs(s) {
   const P = { objectives: s.objectives.map(o => ({ id: o.id, cls: o.cls, side: pid(o.side) })), plan: {}, trials: s.trials, seed: s.seed,
     first: pid(s.first), startRound: s.start_round, startTurn: s.start_turn, startAfterDraw: s.start_after_draw, confidence: s.confidence, players: {} };
@@ -82,9 +99,10 @@ function toJs(s) {
     const a = army(k === 1 ? 'A' : 'B');
     P.players[pid(k)] = {
       mission: p.mission, mode: p.mode, fixed: cids(p.fixed), killRate: p.kill_rate, actionP: p.action_p,
+      tune: p.tune ? { triFromRound: p.tune.tri_from_round, quartersShape: p.tune.quarters_shape, quartersFull: p.tune.quarters_full, intelOnce: p.tune.intel_once } : undefined,
       rate: Object.fromEntries(Object.entries(p.rate ?? {}).map(([id, v]) => [cid(id), v])),
       army: { units: a.units.map(u => ({ ...u, charactersW4: u.characters_w4 })) },
-      start: { hand: cids(p.start?.hand), used: cids(p.start?.used), primary: p.start?.primary, secondary: p.start?.secondary, destroyed: p.start?.destroyed ?? [] },
+      start: { hand: cids(p.start?.hand), used: cids(p.start?.used), primary: p.start?.primary, secondary: p.start?.secondary, destroyed: p.start?.destroyed ?? [], ms: p.start?.ms },
     };
   }
   return P;

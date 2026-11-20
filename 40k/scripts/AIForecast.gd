@@ -57,6 +57,18 @@ const RATING_NORMAL := 0.5
 # Expected kills per turn are scaled by round: the first player's R1 is light.
 const ROUND_KILL := {"first": [0.45, 1.0, 1.1, 1.0, 0.9], "second": [0.75, 1.05, 1.1, 1.0, 0.9]}
 const DEFAULT_KILL_RATE := 1.3
+# How THIS GAME (and its AI) plays the action cards, where that differs from
+# the app's defaults — read off the per-rule VP events of 246 recorded games
+# (tools/ai_lab/README.md). build_from_snapshot applies them; a bare forecast()
+# keeps the app's defaults, which the parity test holds to the JS.
+#   action_p        the AI completes a card action whenever it can (Triangulate,
+#                   Sabotage, Decoy and Consecrate score on 86-100% of turns)
+#   tri_from_round  the engine offers Triangulate from round 1
+#   quarters_*      Reconnaissance Sweep: 3+ quarters on 0 / 22 / 44 / 78 / 56%
+#                   of turns by round at the normal rating, all 4 on a tenth of those
+#   intel_once      Gather Intel: one token per no-man's-land objective
+const GAME_ACTION_P := 0.9
+const GAME_TUNE := {"tri_from_round": 1, "quarters_shape": [0.0, 0.45, 0.9, 1.5, 1.1], "quarters_full": 0.1, "intel_once": true}
 
 static func other(p: int) -> int:
 	return 2 if p == 1 else 1
@@ -184,6 +196,7 @@ static func _primary(name: String, c: Dictionary) -> Dictionary:
 	var nk: int = c.kills.size()
 	var ms: Dictionary = c.ms
 	var p_act: float = c.p_act
+	var tune: Dictionary = c.get("tune", {})
 	match name:
 		"Battlefield Dominance":
 			return {"EOT": 2 if (r <= 2 and _more(c)) else 0,
@@ -225,7 +238,12 @@ static func _primary(name: String, c: Dictionary) -> Dictionary:
 		"Gather Intel":
 			var eot := 6 if (r == 1 and h.central > 0) else 0
 			if r >= 2:
-				var done := _binom(h.nml, p_act, rng)
+				# tune.intel_once: one token per no-man's-land objective, ever (the
+				# game's rule: real games pay ~12 VP in round 2, then almost nothing)
+				var can: int = h.nml
+				if bool(tune.get("intel_once", false)):
+					can = mini(can, maxi(0, int(c.get("n_nml", 3)) - int(ms.get("markers", 0))))
+				var done := _binom(can, p_act, rng)
 				ms["markers"] = int(ms.get("markers", 0)) + done
 				if done > 0 and h.opp_home > 0:
 					ms["marker_opp_home"] = true
@@ -241,7 +259,9 @@ static func _primary(name: String, c: Dictionary) -> Dictionary:
 			return {"EOT": (4 if rng.randf() < p_act else 0) + (5 if (r >= 2 and rng.randf() < 0.5 * p_act) else 0),
 				"C": ((4 if h.non_home > 0 else 0) + (4 if _more(c) else 0)) if r >= 2 else 0}
 		"Triangulation":
-			if r >= 2 and h.total > 0 and rng.randf() < p_act:
+			# tune.tri_from_round: the card's action starts in round 2; the game
+			# lets it start in round 1 (so 2 objectives are triangulated by R2)
+			if r >= int(tune.get("tri_from_round", 2)) and h.total > 0 and rng.randf() < p_act:
 				var tri: int = int(ms.get("tri", 0))
 				ms["tri"] = mini(h.total + tri, tri + 1)
 			var t: int = int(ms.get("tri", 0))
@@ -268,14 +288,24 @@ static func _primary(name: String, c: Dictionary) -> Dictionary:
 			return {"EOT": (2 + int(ms.get("links", 0))) if h.central > 0 else 0,
 				"C": (4 + (4 if h.central > 0 else 0)) if (r >= 2 and h.non_home > 0) else 0}
 		"Death Trap":
+			# 2 VP per terrain area trapped this turn (+3 if it holds an
+			# objective) and every unit can trap one: a burst on the first turn
+			# (the areas the army starts in), one or two a turn while it spreads
+			# out, then few are left. 246 recorded games: 13.8 / 4.3 / 3.9 / 0.9 /
+			# 1.5 VP by round. A kill only counts in terrain trapped EARLIER.
+			var traps: int = int(ms.get("traps", 0))
 			var dt := 0
-			if rng.randf() < p_act:
-				dt += 2
-				if rng.randf() < 0.5:
-					dt += 3
-				ms["traps"] = int(ms.get("traps", 0)) + 1
-			if int(ms.get("traps", 0)) > 0 and _any_kill_roll(c.kills, 0.3, rng):
+			if traps > 0 and _any_kill_roll(c.kills, 0.45, rng):
 				dt += 3
+			var nt: int = 0
+			if r == 1:
+				nt = _binom(4, p_act, rng)
+			elif r <= 3:
+				nt = _binom(2, 0.75 * p_act, rng)
+			else:
+				nt = _binom(1, 0.4 * p_act, rng)
+			dt += 2 * nt + 3 * _binom(nt, 0.5, rng)
+			ms["traps"] = traps + nt
 			return {"EOT": dt, "C": 4 if (r >= 2 and h.non_home > 0) else 0}
 		"Delaying Action":
 			return {"EOT": 2 * nk + (3 if (r >= 2 and h.central > 0 and (h.exp + h.opp_exp) > 0) else 0),
@@ -324,8 +354,15 @@ static func _rated(c: Dictionary, id: String, lo: int, hi: int) -> int:
 
 static func _quarters(c: Dictionary) -> int:
 	var p: float = clampf(float(c.rate.get("engage_on_all_fronts", RATING_NORMAL)), 0.0, 1.0)
+	# tune.quarters_shape: the chance by round (an army is not in 3 table
+	# quarters on turn 1); tune.quarters_full: the share of those that is all 4
+	var tune: Dictionary = c.get("tune", {})
+	var shape: Array = tune.get("quarters_shape", [])
+	if shape.size() >= int(c.r):
+		p = clampf(p * float(shape[int(c.r) - 1]), 0.0, 1.0)
+	var full: float = float(tune.get("quarters_full", 0.5))
 	var x: float = c.rng.randf()
-	return 4 if x < p / 2.0 else (3 if x < p else 2)
+	return 4 if x < p * full else (3 if x < p else 2)
 
 # ---------------------------------------------------------------------------
 # Secondary cards: VP for this scoring moment
@@ -605,7 +642,10 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 			"X": X, "pl": pl, "deck": deck, "hand": hand, "used": (start.get("used", []) as Array).duplicate(),
 			"prim": [0, 0, 0, 0, 0], "sec": [0, 0, 0, 0, 0],
 			"prim_total": int(start.get("primary", 0)), "sec_total": int(start.get("secondary", 0)),
-			"fixed_vp": (start.get("fixed_vp", {}) as Dictionary).duplicate(), "ms": {}, "stats": {},
+			"fixed_vp": (start.get("fixed_vp", {}) as Dictionary).duplicate(),
+			# start.ms: mission progress so far (tri, traps, markers, links,
+			# consecrated, decoyed) when the forecast starts mid-game
+			"ms": (start.get("ms", {}) as Dictionary).duplicate(), "stats": {},
 			"lost_prev": 0, "drawn_at": {}, "turn_no": 0, "enemy_alive": [], "enemy_had_chars": false,
 			"tagged": "", "tag_vp": 0,
 		}
@@ -634,8 +674,11 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 				S[xd].tagged = id
 	var objectives: Array = P.objectives
 	var obj_by_id := {}
+	var n_nml := 0
 	for o in objectives:
 		obj_by_id[o.id] = o
+		if o.cls != "home":
+			n_nml += 1
 	var conf_home: float = float(P.get("confidence", {}).get("home", 0.95))
 	var conf_other: float = float(P.get("confidence", {}).get("other", 0.8))
 	var obj_conf: Dictionary = P.get("obj_confidence", {})
@@ -727,7 +770,8 @@ static func _simulate_game(P: Dictionary, rng: RandomNumberGenerator) -> Diction
 			var prim_gain := 0
 			var ctx := {"r": r, "h": hx, "h_opp": hy, "kills": kills_x, "lost_prev": sx.lost_prev, "newly": newly,
 				"p_act": float(sx.pl.get("action_p", 0.7)), "ms": sx.ms, "rng": rng,
-				"enemy_alive": sx.enemy_alive.size(), "rate": sx.pl.get("rate", {})}
+				"enemy_alive": sx.enemy_alive.size(), "rate": sx.pl.get("rate", {}),
+				"tune": sx.pl.get("tune", {}), "n_nml": n_nml}
 			if mission != "":
 				var v2 := _primary(mission, ctx)
 				if planned:
@@ -1008,9 +1052,20 @@ static func build_from_snapshot(snapshot: Dictionary, opts: Dictionary = {}) -> 
 		if bool(st.get("initialized", false)):
 			start["deck"] = deck
 		var card: Dictionary = primaries.get(str(X), {})
+		# mission progress so far (the game's own bookkeeping)
+		var pst: Dictionary = mm.get("primary_state_11e", {}).get(str(X), {})
+		if not pst.is_empty():
+			start["ms"] = {
+				"tri": (pst.get("triangulated", []) as Array).size(),
+				"traps": (pst.get("trapped", []) as Array).size(),
+				"markers": (pst.get("intel_tokens", []) as Array).size(),
+				"links": int(_num(pst.get("operation_markers"), 0)),
+				"consecrated": (pst.get("consecrated", []) as Array).size(),
+				"decoyed": (pst.get("decoyed", []) as Array).size()}
 		players[X] = {"mission": str(card.get("name", "")), "mode": mode,
 			"fixed": hand if mode == "fixed" else [], "army": army.army,
-			"kill_rate": kr, "action_p": 0.7, "rate": rates.get(X, {}), "start": start}
+			"kill_rate": kr, "action_p": GAME_ACTION_P, "tune": GAME_TUNE.duplicate(true),
+			"rate": rates.get(X, {}), "start": start}
 	# a unit destroyed is dead for the enemy's kill cards
 	for X in [1, 2]:
 		players[X].start["destroyed"] = army_from_snapshot(snapshot, X).destroyed

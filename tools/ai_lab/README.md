@@ -468,7 +468,7 @@ half move on, and damage x0.7 with half of in-range shooting having line of sigh
 |---|---|
 | Ownership per turn end vs real games (Brier, lower is better) | 0.26 vs 0.49 for "nothing changes"; 0.18 / 0.26 / 0.29 / 0.38 by turn |
 | Same without the movement policy / without damage | 0.32 / 0.26 — where units walk matters, damage barely does |
-| Forecast VP from REAL ownership and kills | primary r = 0.76 (MAE 2.5 VP), secondary r = 0.66. Under-scored as the AI plays them: Death Trap 8.3 vs 16.1, Triangulation 7.1 vs 12.8 |
+| Forecast VP from REAL ownership and kills | primary r = 0.76 (MAE 2.5 VP), secondary r = 0.66. Under-scored as the AI plays them: Death Trap 8.3 vs 16.1, Triangulation 7.1 vs 12.8 — fixed below: r = 0.93, MAE 1.3 |
 | Predicted vs measured rollout effect E, 138 cases (ceiling 0.78) | full sim r = +0.12 [-0.02, +0.27]; without damage +0.17 [-0.04, +0.35]; reach only +0.09. Ownership-only forecast: 0.00 |
 | Real change from the forced move, today's AI (88 paired games, B minus A) vs the sim's | ownership at the end of THIS turn r = +0.43 [+0.08, +0.68]; over the whole window r = +0.07 [-0.14, +0.26]; sign right on 15 of the 46 cases where ownership really swung |
 | Real ownership swing -> real VP change (what a perfect sim could reach) | r = +0.63 |
@@ -491,6 +491,32 @@ asymmetric fixture lost 8 VP a game. `FORECAST_PLAN` and `FORECAST_POSSIM`
 stay 0, and there is still no rollout pre-filter: r vs measured E is 0.12-0.17
 against a 0.3 bar. The sim, the truth traces and the sweep tools stay as lab
 instruments (the ownership -> VP table above is a to-do list for the forecast).
+
+### Mission scoring fixed from recorded games — 2026-11-20
+
+Every VP award in a recorded game carries its mission, timing and rule
+(`vp_events`), so 246 season games give the real VP per rule per round. Four
+cards were off by more than a couple of VP a turn:
+
+| Card | Real (by round) | Was | Now |
+|---|---|---|---|
+| Death Trap, Booby Trap VP | 13.8 / 4.3 / 3.9 / 0.9 / 1.5 | one trap a turn, ~2.5 flat | up to 4 areas on turn 1, one or two in R2-R3, few after; kill bonus only in terrain trapped earlier (app and game) |
+| Triangulation tiers | 0 / 6 / 8.7 / 9.3 / 9.3 | action from round 2 | `tune.tri_from_round` = 1 in the game (the engine offers it in round 1) |
+| Reconnaissance Sweep quarters | 3+ quarters on 0 / 22 / 44 / 78 / 56% of turns, all 4 rarely | 50% flat, half of them all 4 | `tune.quarters_shape`, `tune.quarters_full` in the game |
+| Gather Intel tokens | 12.2 in R2, then ~1 | 7 per held NML objective every turn | `tune.intel_once` in the game: one token per objective |
+
+`AIForecast.build_from_snapshot` applies `GAME_TUNE`, `GAME_ACTION_P` = 0.9
+(the AI completes an action on 86-100% of turns) and seeds mission progress
+(`start.ms`) from the game's own bookkeeping; a bare `forecast()` keeps the
+app's defaults and the parity test (31 scenarios, 3 new) holds the GDScript to
+`forecast.mjs` for both. Checked out of sample on the 102 real-game windows:
+primary VP r 0.76 -> **0.93**, mean abs error 2.5 -> **1.3** (Death Trap 15.4
+vs 16.1, Triangulation 13.0 vs 12.8, Reconnaissance Sweep 5.8 vs 5.5).
+
+Still off, not changed: secondaries run ~2 VP high per two-round window
+(10.5 vs 8.4); Punishment's Condemned kills pay on 42-83% of turns against
+~25% forecast; the AI never scores Vanguard Operation's terrain action or
+Surveil the Foe's action, which the forecast credits.
 
 ## Not built yet
 

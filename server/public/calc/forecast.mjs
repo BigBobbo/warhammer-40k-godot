@@ -121,7 +121,9 @@ const PRIMARY_FN = {
   'Gather Intel': (c) => {
     let eot = c.r === 1 && c.h.central ? 6 : 0;
     if (c.r >= 2) {
-      const done = binom(c.h.nml, c.pAct, c.rnd);
+      // tune.intelOnce: one token per no-man's-land objective, ever
+      const can = c.tune?.intelOnce ? Math.min(c.h.nml, Math.max(0, (c.nNml ?? 3) - (c.ms.markers ?? 0))) : c.h.nml;
+      const done = binom(can, c.pAct, c.rnd);
       c.ms.markers = (c.ms.markers ?? 0) + done;
       if (done && c.h.oppHome) c.ms.markerOppHome = true;
       eot += 7 * done;
@@ -138,7 +140,8 @@ const PRIMARY_FN = {
     C: c.r >= 2 ? (c.h.nonHome ? 4 : 0) + (more(c) ? 4 : 0) : 0,
   }),
   'Triangulation': (c) => {
-    if (c.r >= 2 && c.h.total && c.rnd() < c.pAct) c.ms.tri = Math.min(c.h.total + (c.ms.tri ?? 0), (c.ms.tri ?? 0) + 1);
+    // tune.triFromRound: the action starts in round 2 (the Godot game allows it from round 1)
+    if (c.r >= (c.tune?.triFromRound ?? 2) && c.h.total && c.rnd() < c.pAct) c.ms.tri = Math.min(c.h.total + (c.ms.tri ?? 0), (c.ms.tri ?? 0) + 1);
     const n = c.ms.tri ?? 0;
     return { EOT: c.r >= 2 ? (n >= 3 ? 10 : n === 2 ? 6 : n === 1 ? 3 : 0) : 0, C: c.r >= 2 && c.h.nonHome ? 4 : 0 };
   },
@@ -163,9 +166,16 @@ const PRIMARY_FN = {
     return { EOT: c.h.central ? 2 + (c.ms.links ?? 0) : 0, C: c.r >= 2 && c.h.nonHome ? 4 + (c.h.central ? 4 : 0) : 0 };
   },
   'Death Trap': (c) => {
+    // 2 VP per terrain area trapped this turn (+3 if it holds an objective), and
+    // every unit can trap one: a burst on the first turn (the areas the army
+    // starts in), one or two a turn while it spreads out, then few are left.
+    // A kill only counts in terrain trapped on an EARLIER turn.
+    const traps = c.ms.traps ?? 0;
     let eot = 0;
-    if (c.rnd() < c.pAct) { eot += 2; if (c.rnd() < 0.5) eot += 3; c.ms.traps = (c.ms.traps ?? 0) + 1; }
-    if (c.ms.traps && c.kills.some(() => c.rnd() < 0.3)) eot += 3;
+    if (traps && c.kills.some(() => c.rnd() < 0.45)) eot += 3;
+    const n = c.r === 1 ? binom(4, c.pAct, c.rnd) : c.r <= 3 ? binom(2, 0.75 * c.pAct, c.rnd) : binom(1, 0.4 * c.pAct, c.rnd);
+    eot += 2 * n + 3 * binom(n, 0.5, c.rnd);
+    c.ms.traps = traps + n;
     return { EOT: eot, C: c.r >= 2 && c.h.nonHome ? 4 : 0 };
   },
   'Delaying Action': (c) => ({ EOT: 2 * c.kills.length + (c.r >= 2 && c.h.central && (c.h.exp + c.h.oppExp) ? 3 : 0), C: c.r >= 2 && c.h.nonHome ? 4 : 0 }),
@@ -214,9 +224,13 @@ function rated(c, id, lo, hi) {
 function quarters(c) {
   // Reconnaissance Sweep (a primary): from the board plan, else your Engage on All Fronts rating
   if (c.pos) return c.pos.quarters;
-  const p = clamp01(c.rate?.['engage-on-all-fronts'] ?? RATING.normal);
+  let p = clamp01(c.rate?.['engage-on-all-fronts'] ?? RATING.normal);
+  // tune.quartersShape: the chance by round; tune.quartersFull: the share of those that is all 4
+  const shape = c.tune?.quartersShape;
+  if (shape && shape.length >= c.r) p = clamp01(p * shape[c.r - 1]);
+  const full = c.tune?.quartersFull ?? 0.5;
   const x = c.rnd();
-  return x < p / 2 ? 4 : x < p ? 3 : 2;
+  return x < p * full ? 4 : x < p ? 3 : 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +351,7 @@ function simulateGame(P, rnd) {
     S[X] = {
       X, pl, deck: SECONDARIES.map(c => c.id).filter(id => !out.has(id)), hand: [...(start.hand ?? [])], used: [...(start.used ?? [])],
       prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
-      fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
+      fixedVp: {}, ms: { ...(start.ms ?? {}) }, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
       enemyAlive: null, enemyHadChars: false,
     };
   }
@@ -348,6 +362,7 @@ function simulateGame(P, rnd) {
     S[X].enemyHadChars = enemy.units.some(u => u.characters > 0);
   }
   const objById = Object.fromEntries(P.objectives.map(o => [o.id, o]));
+  const nNml = P.objectives.filter(o => o.cls !== 'home').length;
   const owners = [];
   const startRound = P.startRound ?? 1;
   for (let r = 1; r <= RULES.rounds; r++) {
@@ -449,7 +464,7 @@ function simulateGame(P, rnd) {
       const fn = PRIMARY_FN[sx.pl.mission];
       let primGain = 0;
       if (fn) {
-        const ctx = { r, h: hx, hOpp: hy, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: sx.pl.actionP ?? 0.7, ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX };
+        const ctx = { r, h: hx, hOpp: hy, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: sx.pl.actionP ?? 0.7, ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX, tune: sx.pl.tune, nNml };
         const v = fn(ctx);
         primGain += (v.C ?? 0) + (v.EOT ?? 0);
         if (r === RULES.rounds && t === 1) {
