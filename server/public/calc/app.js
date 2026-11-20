@@ -6,7 +6,9 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
+  phaseSheetInput,
 } from './adapter.mjs';
+import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
@@ -35,7 +37,9 @@ const state = {
   sheet: null,               // null | 'results' | 'add' | 'attach' | 'join'
   sheetArg: null,            // {side, host} for 'attach', {side, char} for 'join'
   charge: { gap: 9, mod: 0, reroll: false }, // charge odds tool
-  intelSide: null,           // army shown on the Intel tab (default: the defender)
+  intelSide: null,           // army shown on the Intel tab (default: the defender; "By phase": your own army)
+  intelMode: 'units',        // 'units' (datasheets) | 'phase' (what the army does, phase by phase)
+  intelPhase: 'all',         // the phase shown in "By phase": 'all' or a phase id of phasesheet.mjs
   grid: null,                // matchup grid: {sig, side, phase, metric, cells, rows, cols, running, done, total}
   gridMetric: 'damage',      // 'damage' (% of wounds) | 'kills' | 'wipe'
   saved: [],                 // saved scenarios (own localStorage key)
@@ -55,6 +59,7 @@ function persist() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       view: state.view, texts: state.texts, side: state.side, phase: state.phase, setups: state.setups,
       attach: state.attach, charge: state.charge, intelSide: state.intelSide,
+      intelMode: state.intelMode, intelPhase: state.intelPhase,
     }));
   } catch { /* storage full / private mode: best effort */ }
 }
@@ -103,6 +108,7 @@ function restore() {
       view: s.view ?? 'armies', texts: s.texts ?? { A: '', B: '' }, side: s.side ?? 'A',
       phase: s.phase ?? 'shooting', setups: s.setups ?? {}, attach: s.attach ?? { A: null, B: null },
       charge: s.charge ?? { gap: 9, mod: 0, reroll: false }, intelSide: s.intelSide ?? null,
+      intelMode: s.intelMode === 'phase' ? 'phase' : 'units', intelPhase: s.intelPhase ?? 'all',
     });
     for (const st of Object.values(state.setups)) for (const a of st.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
   } catch { /* corrupt: start fresh */ }
@@ -402,6 +408,9 @@ function render() {
     <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'mission' && ready ? missionView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
+  // Intel > By phase: the strip of phases is one row that scrolls sideways; keep the chosen phase in view
+  const strip = document.getElementById('phase-strip'), chosen = strip?.querySelector('.chip.on');
+  if (chosen) strip.scrollLeft = Math.max(0, chosen.offsetLeft - strip.offsetLeft - (strip.clientWidth - chosen.offsetWidth) / 2);
   renderResultViews();
   renderSheet();
   if (state.view === 'board') boardAfterRender();
@@ -412,9 +421,69 @@ function render() {
 // ---- Intel: enemy cheat sheet
 
 function intelSide() {
-  let side = state.intelSide ?? other(state.side);
+  // the datasheets are an enemy cheat sheet; "By phase" is first of all for your own army
+  let side = state.intelSide ?? (state.intelMode === 'phase' ? (state.mission?.me ?? 'A') : other(state.side));
   if (!state.armies[side]) side = other(side);
   return side;
+}
+
+// ---- Intel > By phase: what the army does in each phase, with ticks for once-per-battle rules
+
+const SHEETS = new WeakMap();      // army.units (replaced when attachments change) -> sheet
+function sheetOf(army) {
+  let s = SHEETS.get(army.units);
+  if (!s) { s = phaseSheet(phaseSheetInput(army)); SHEETS.set(army.units, s); }
+  return s;
+}
+const usedOnce = (side) => state.mission?.game?.once?.[side] ?? {};
+
+/** "Scout Squad ×2, Grey Hunters" */
+function sheetUnits(e) {
+  if (e.all) return 'all units';
+  const n = new Map();
+  for (const u of e.units) { const k = u.name.replace(/ \(\d+\)$/, ''); n.set(k, (n.get(k) ?? 0) + 1); }
+  return [...n].map(([k, c]) => (c > 1 ? `${k} ×${c}` : k)).join(', ');
+}
+function tickChips(e, side) {
+  const used = usedOnce(side);
+  return `<div class="chips ticks">${ticksOf(e).map(t => `<button class="chip tick ${used[t.id] ? 'on' : ''}" data-action="mission-once" data-side="${side}" data-tick="${esc(t.id)}" aria-pressed="${used[t.id] ? 'true' : 'false'}">${esc(t.label || 'Used')}</button>`).join('')}</div>`;
+}
+function sheetEntry(e, side) {
+  const once = e.usage?.per === 'battle';
+  const tags = `${e.kind === 'army' ? `<span class="tag">${e.armyRule ? 'army rule' : e.key.startsWith('det:') ? 'detachment rule' : 'army'}</span>` : e.kind === 'core' ? '<span class="tag">core</span>' : ''}${e.usage ? `<span class="tag ${once ? 'auto' : ''}">${esc(usageLabel(e.usage))}</span>` : ''}`;
+  if (e.kind === 'stratagem') {
+    return `<div class="ability sheet-entry" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b> <span class="muted tiny">${e.cp}CP · ${esc(e.turn || '')} · ${esc(e.phaseText)} · ${esc(e.detachment || '')}</span>${tags}
+      <div class="muted">${e.missing ? 'No 11th edition text in the rules data.' : `<b>When:</b> ${esc(e.when)}<br><b>Target:</b> ${esc(e.target)}<br><b>Effect:</b> ${esc(e.effect)}`}</div>${once ? tickChips(e, side) : ''}</div>`;
+  }
+  const units = sheetUnits(e);
+  return `<div class="ability sheet-entry" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b> ${tags}${units ? ` <span class="muted tiny">${esc(units)}</span>` : ''}
+    <div class="muted ruletext">${esc(e.raw)}</div>${e.by === 'data' ? '<div class="tiny muted">The rule’s words do not name a phase: this one comes from the rules data (provisional).</div>' : ''}${once ? tickChips(e, side) : ''}</div>`;
+}
+function phaseSheetHtml(side) {
+  const army = state.armies[side];
+  const sheet = sheetOf(army);
+  const used = usedOnce(side);
+  const shown = sheet.phases.some(p => p.id === state.intelPhase) ? state.intelPhase : 'all';
+  const ticks = sheet.once.flatMap(e => ticksOf(e));
+  const left = ticks.filter(t => !used[t.id]).length;
+  const strip = `<div class="chips" id="phase-strip">${[{ id: 'all', short: 'All', n: sheet.count }, ...sheet.phases.map(p => ({ id: p.id, short: p.short, n: p.entries.length }))].map(p =>
+    `<button class="chip nocheck ${p.id === shown ? 'on' : ''}" data-action="intel-phase" data-value="${p.id}" aria-pressed="${p.id === shown}" ${p.n ? '' : 'disabled'}>${esc(p.short)} <span class="muted">${p.n}</span></button>`).join('')}</div>`;
+  const card = (p) => {
+    const rules = p.entries.filter(e => e.kind !== 'stratagem'), strats = p.entries.filter(e => e.kind === 'stratagem');
+    if (!p.entries.length) return '';
+    return `<div class="card phase-card" data-phase="${p.id}" style="margin-top:10px"><div class="title">${esc(p.name)} <span class="muted small">· ${p.entries.length}</span></div>
+      ${p.hint ? `<div class="muted tiny">${esc(p.hint)}</div>` : ''}
+      ${rules.map(e => sheetEntry(e, side)).join('')}
+      ${strats.length ? `<details class="more" ${shown === 'all' ? '' : 'open'}><summary>Stratagems (${strats.length})</summary>${strats.map(e => sheetEntry(e, side)).join('')}</details>` : ''}</div>`;
+  };
+  return `<section class="section" id="phase-sheet"><div class="card">
+      <div class="title">${esc(army.faction)}, phase by phase</div>
+      <div class="muted small">${sheet.count} rules of this list: army and detachment rules, abilities, core abilities and stratagems, by the phase they are used in. The phase is read from each rule’s own words.</div>
+      ${sheet.once.length ? `<div class="modrow" id="once-card" style="margin-top:10px"><div class="lab">Once per battle · <b id="once-left">${left} of ${ticks.length}</b> left · tap when used</div>
+        ${sheet.once.map(e => `<div class="once-row" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b>${tickChips(e, side)}</div>`).join('')}
+        ${left < ticks.length ? `<button class="btn ghost" data-action="mission-once-reset" data-side="${side}" id="once-reset">New battle: clear the ticks</button>` : ''}</div>` : ''}
+    </div></section>
+    <section class="section">${strip}${sheet.phases.filter(p => shown === 'all' || p.id === shown).map(card).join('')}</section>`;
 }
 
 function intelView() {
@@ -430,13 +499,17 @@ function intelView() {
   const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
-  return `${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+  const phaseMode = state.intelMode === 'phase';
+  return `<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
+    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
-    <section class="section"><div class="card">
+    ${phaseMode ? phaseSheetHtml(side) : `<section class="section"><div class="card">
       <div class="title">${esc(ai.faction)}</div>
       <div class="muted small">${esc(ai.detachments.join(', ') || 'No detachment found')} · ${army.units.length} units</div>
+      ${ai.armyRules.length ? `<details class="more" id="intel-army-rule"><summary>Army rule${ai.armyRules.length > 1 ? 's' : ''}: ${esc(ai.armyRules.map(d => d.name).join(', '))}</summary>${ai.armyRules.map(d =>
+        `<div class="ability"><b>${esc(d.name)}</b><div class="muted ruletext">${esc(d.text)}</div></div>`).join('')}</details>` : ''}
       ${ai.detachmentRules.length ? `<details class="more"><summary>Detachment rule${ai.detachmentRules.length > 1 ? 's' : ''}</summary>${ai.detachmentRules.map(d =>
         `<div class="ability"><b>${esc(d.name)}</b><div class="muted">${esc(d.text)}</div></div>`).join('')}</details>` : ''}
       <details class="more"><summary>Stratagems (${ai.stratagems.length})</summary>${stratHtml || '<div class="muted small">None found for these detachments.</div>'}</details>
@@ -444,7 +517,7 @@ function intelView() {
     <section class="section"><h2>Units</h2>
       <input class="sel" type="search" data-input="intel-search" placeholder="Search units, keywords, abilities…" value="${esc(state.intelQuery)}" aria-label="Search units">
       <div id="intel-list" class="intel-grid">${intelList(side)}</div>
-    </section>`;
+    </section>`}`;
 }
 
 function intelList(side) {
@@ -1731,6 +1804,20 @@ app.addEventListener('click', (ev) => {
       state.intelSide = el.dataset.value;
       state.intelQuery = '';
       return changed({ calc: false });
+    case 'intel-mode':
+      state.intelMode = el.dataset.value === 'phase' ? 'phase' : 'units';
+      return changed({ calc: false });
+    case 'intel-phase': {
+      state.intelPhase = el.dataset.value;
+      changed({ calc: false });
+      // the chosen phase starts right under the strip
+      const strip = document.getElementById('phase-strip');
+      if (strip) {
+        const top = strip.getBoundingClientRect().top + window.scrollY - (document.querySelector('header.top')?.offsetHeight ?? 53);
+        if (window.scrollY > top) window.scrollTo(0, top);
+      }
+      return;
+    }
     case 'target-this': {
       // the chosen unit becomes the target; the other army attacks
       state.side = other(el.dataset.side);

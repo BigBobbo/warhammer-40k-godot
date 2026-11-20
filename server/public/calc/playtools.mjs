@@ -130,6 +130,7 @@ export function ensureGame(g, { fresh = false } = {}) {
   g.log ??= [];                 // one entry per finished turn: what each player scored in it
   g.turnsDone ??= 0;            // turns closed with "Turn done"
   g.drawn ??= 0;
+  g.once ??= { A: {}, B: {} };  // once-per-battle rules ticked as used (Intel > By phase): { tickId: true }
   return g;
 }
 

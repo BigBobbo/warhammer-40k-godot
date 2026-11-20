@@ -769,10 +769,11 @@ try {
   check('what-ifs listed (objectives, trading)', (await page.locator('#fc-levers tbody tr').count()) >= 4);
   await page.screenshot({ path: join(SHOTS, 'calc_27_mission_forecast.png') });
   // the forecast knows the armies: the 2,000-point list is the clear favourite over the 665-point one,
-  // and its units destroyed per turn come from the calculator
-  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
+  // and its units destroyed per turn come from the calculator. (Read once the unit-vs-unit odds are in:
+  // until then the forecast on screen uses the same default kill rate for both armies.)
   await page.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 120000 });
   mi = await page.evaluate(() => window.__calc.mission());
+  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
   check('units destroyed per turn come from the calculator for both armies', mi.killRate.A.from === 'calc' && mi.killRate.B.from === 'calc' && mi.killRate.A.rate > mi.killRate.B.rate && mi.params.players.A.killRate === null && !!mi.params.fracs,
     JSON.stringify(mi.killRate));
   check('units left by round and wipe-out chance are shown', (await page.locator('#fc-units tbody tr').count()) === 2 && mi.result.B.pTabled > mi.result.A.pTabled && mi.result.B.unitsLeft[4] < mi.result.B.unitsLeft[0]);
@@ -1945,6 +1946,119 @@ try {
     });
     check('grid / forecast odds: Wulfen vs Boyz use the 10 hammers too', cell.weapons.some(([n, c]) => /Thunder Hammer – Melee/.test(n) && c === 10) && cell.kills > 5, JSON.stringify(cell));
     await wctx.close();
+  }
+
+  // --- my army, phase by phase (1.104): Intel > By phase, once-per-battle ticks
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet: ${m.text()}`); });
+    pp.on('pageerror', e => consoleErrors.push(`phase sheet: ${e}`));
+    await pp.goto(`${BASE}/calc/`);
+    await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.waitForSelector('#intel-mode');
+    const txt = async (q) => (await pp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const names = (phase, strat = false) => pp.$$eval(`.phase-card[data-phase="${phase}"] ${strat ? 'details' : ':scope > '} .sheet-entry > b`.replace(':scope >  ', ''), els => els.map(e => e.textContent.trim()));
+    // the datasheets are the enemy's (as before); the army rule is now on its card
+    // the matchup brief: what their list has that you plan around
+    const trick = await txt('#brief-tricks');
+    check('brief: "Plan around" names the Ork unit with a Torrent weapon and its range', /Torrent in overwatch Meganobz \(.* 6"\)/.test(trick) && /hit automatically \(24\.37\)/.test(trick) && (await pp.locator('#brief-tricks [data-trick]').count()) === 1 && /Plan around \(1\)/.test(await txt('details[data-details="brief-tricks"] > summary')), trick);
+    await pp.locator('#brief-tricks').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_74_brief_tricks.png') });
+    check('Intel opens on the enemy datasheets, with its army rule', /B · Orks/.test(await txt('.seg button.on[data-action="intel-side"]')) && /Army rule: Waaagh!/.test(await txt('#intel-army-rule > summary')), await txt('#intel-army-rule > summary'));
+    await pp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await pp.waitForSelector('#phase-sheet');
+    check('"By phase" shows YOUR army first', /A · Space Wolves/.test(await txt('.seg button.on[data-action="intel-side"]')) && /Space Wolves, phase by phase/.test(await txt('#phase-sheet .title')), await txt('#phase-sheet .title'));
+    const strip = await pp.$$eval('#phase-strip .chip', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+    check('a chip per phase with the number of rules', strip.length === 9 && /^All 52$/.test(strip[0]) && /^Command 6$/.test(strip[2]) && /^Fight 16$/.test(strip[6]) && /^Opp\. turn 17$/.test(strip[7]), strip.join(' | '));
+    // once per battle: the three doctrines, and the extra Assault doctrine of Assault Mastery
+    const ticks = await pp.$$eval('#once-card .chip.tick', els => els.map(e => e.textContent.trim()));
+    check('once per battle: each combat doctrine, plus the additional Assault doctrine from Assault Mastery', ticks.join('|') === 'Assault doctrine|Assault doctrine (Assault Mastery)|Devastator doctrine|Tactical doctrine' && /4 of 4/.test(await txt('#once-left')), ticks.join('|'));
+    // one phase at a time
+    await pp.tap('#phase-strip button[data-value="fight"]');
+    await pp.waitForFunction(() => document.querySelectorAll('.phase-card').length === 1);
+    const fight = await pp.$$eval('.phase-card[data-phase="fight"] > .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('Fight phase: the rules that work after a charge are there, with their units', ['Thunderous Charge', 'Terminatus Assault', 'Full-throttle Assault', 'Into the Fray', 'Legendary Slayers (Saga of the Beastslayer)'].every(n => fight.includes(n)) && /Thunderwolf Cavalry/.test(await txt('.sheet-entry[data-entry="ab:thunderous-charge"]')), fight.join(' | '));
+    const fstr = await pp.$$eval('.phase-card[data-phase="fight"] details .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('Fight phase stratagems are open when one phase is shown', fstr.includes('EPIC CHALLENGE') && fstr.includes('ARMOUR OF CONTEMPT') && await pp.$eval('.phase-card[data-phase="fight"] details', d => d.open), fstr.join(' | '));
+    await pp.screenshot({ path: join(SHOTS, 'calc_71_phase_fight.png') });
+    await pp.tap('#phase-strip button[data-value="enemy"]');
+    await pp.waitForSelector('.phase-card[data-phase="enemy"]');
+    const opp = await pp.$$eval('.phase-card[data-phase="enemy"] details .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('the opponent’s turn: reactions in the order of their turn', opp[0] === 'FIRE OVERWATCH' && opp.includes('COUNTEROFFENSIVE') && opp.includes('HEROIC INTERVENTION') && opp.indexOf('FIRE OVERWATCH') < opp.indexOf('SMOKESCREEN') && opp.indexOf('SMOKESCREEN') < opp.indexOf('COUNTEROFFENSIVE'), opp.join(' | '));
+    // ticks: used ones are kept with the game, and a new game clears them
+    await pp.tap('#phase-strip button[data-value="command"]');
+    await pp.waitForSelector('.phase-card[data-phase="command"]');
+    check('Command phase: the army rule first, with its ticks in place', (await pp.$$eval('.phase-card[data-phase="command"] > .sheet-entry > b', els => els.map(e => e.textContent.trim())))[0] === 'Combat Doctrines' && (await pp.locator('.phase-card[data-phase="command"] .sheet-entry[data-entry="army:combat-doctrines"] .chip.tick').count()) === 4 && /ASSAULT DOCTRINE: When this unit/.test(await txt('.sheet-entry[data-entry="army:combat-doctrines"] .ruletext')));
+    await pp.locator('.phase-card[data-phase="command"] .chip.tick', { hasText: 'Devastator doctrine' }).tap();
+    await pp.waitForFunction(() => /3 of 4/.test(document.querySelector('#once-left')?.textContent ?? ''));
+    const pressed = await pp.$$eval('#once-card .chip.tick', els => els.map(e => e.getAttribute('aria-pressed')));
+    check('a tick marks the doctrine as used, in the list at the top too', pressed.join() === 'false,false,true,false' && (await pp.locator('#once-reset').count()) === 1, pressed.join());
+    await pp.evaluate(() => window.scrollTo(0, 0));
+    await pp.screenshot({ path: join(SHOTS, 'calc_72_phase_once.png') });
+    await pp.reload();
+    await pp.waitForSelector('#phase-sheet');
+    check('after a reload: still "By phase", the Command phase, and the tick', /3 of 4/.test(await txt('#once-left')) && (await pp.locator('.phase-card').count()) === 1 && (await pp.getAttribute('.phase-card', 'data-phase')) === 'command');
+    // the opponent's army: Waaagh! once per battle
+    await pp.tap('button[data-action="intel-side"][data-value="B"]');
+    await pp.waitForFunction(() => /Orks, phase by phase/.test(document.querySelector('#phase-sheet .title')?.textContent ?? ''));
+    check('the enemy army by phase: Waaagh! is once per battle', /Waaagh!/.test(await txt('#once-card')) && /1 of 1/.test(await txt('#once-left')), await txt('#once-card'));
+    await pp.tap('#phase-strip button[data-value="enemy"]');
+    await pp.waitForSelector('.phase-card[data-phase="enemy"]');
+    const def = await pp.$$eval('.phase-card[data-phase="enemy"] > .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('what protects the Orks when you attack them', ['Arrogant Invulnerability', 'Mobile Fortress', 'Deadly Demise D6', 'Feel No Pain 6+'].every(n => def.includes(n)), def.join(' | '));
+    await pp.tap('button[data-action="intel-side"][data-value="A"]');
+    await pp.waitForFunction(() => /Space Wolves, phase by phase/.test(document.querySelector('#phase-sheet .title')?.textContent ?? ''));
+    // seen from the other side of the table: the Space Wolves list has three things to plan around
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.waitForSelector('button[data-action="mission-me"][data-value="B"]');
+    await pp.tap('button[data-action="mission-me"][data-value="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('button[data-action="intel-mode"][data-value="units"]');
+    await pp.waitForSelector('#brief-tricks');
+    const tr2 = await pp.$$eval('#brief-tricks [data-trick]', els => els.map(e => `${e.dataset.trick}: ${e.querySelector('.tiny').textContent.trim()}`));
+    check('as the Ork player: Deep Strike, Infiltrators and Scouts of the Space Wolves list', tr2.join(' | ') === 'deepStrike: Logan Grimnar + Ancient in Terminator Armour + Terminator Assault Squad | infiltrators: Scout Squad ×2 | scouts: Scout Squad 6" ×2', tr2.join(' | '));
+    await pp.locator('#brief-tricks').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_75_brief_tricks_sw.png') });
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-me"][data-value="A"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await pp.waitForSelector('#phase-sheet');
+    // a new game clears the ticks
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await pp.waitForSelector('#play-reset');
+    await pp.locator('#play-reset').scrollIntoViewIfNeeded();
+    pp.once('dialog', d => d.accept());
+    await pp.tap('#play-reset');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.waitForSelector('#phase-sheet');
+    check('a new game clears the once-per-battle ticks', /4 of 4/.test(await txt('#once-left')) && (await pp.locator('#once-reset').count()) === 0, await txt('#once-left'));
+    // table mode keeps the sheet (rules reference), all phases
+    await pp.tap('#phase-strip button[data-value="all"]');
+    await pp.waitForFunction(() => document.querySelectorAll('.phase-card').length === 8);
+    check('all phases: 8 cards, stratagems folded', (await pp.locator('.phase-card').count()) === 8 && !(await pp.$eval('.phase-card[data-phase="fight"] details', d => d.open)));
+    await pctx.close();
+  }
+  // tablet, landscape: the sheet uses the width
+  {
+    const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const tp = await tctx.newPage();
+    tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet tablet: ${m.text()}`); });
+    tp.on('pageerror', e => consoleErrors.push(`phase sheet tablet: ${e}`));
+    await tp.goto(`${BASE}/calc/`);
+    await tp.waitForSelector('textarea[data-side="A"]');
+    await tp.fill('textarea[data-side="A"]', SW_LIST); await tp.tap('button[data-action="parse"][data-side="A"]');
+    await tp.tap('button[data-action="view"][data-value="intel"]');
+    await tp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await tp.waitForSelector('#phase-sheet');
+    check('one army loaded: the sheet works without an opponent', /Space Wolves, phase by phase/.test(await tp.textContent('#phase-sheet .title')) && (await tp.locator('.phase-card').count()) === 8);
+    await tp.screenshot({ path: join(SHOTS, 'calc_73_phase_tablet.png') });
+    await tctx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

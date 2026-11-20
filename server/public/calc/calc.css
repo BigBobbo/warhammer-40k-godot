@@ -458,3 +458,14 @@ details.more.card { padding: 10px 12px; }
 .datastamp { line-height: 1.4; }
 .datastamp .ok { color: var(--text-secondary); }
 .datastamp .warn { color: var(--warn-ink); }
+
+/* Intel > By phase */
+.ruletext { white-space: pre-line; }
+.sheet-entry .tag { margin-left: 4px; }
+.chips.ticks { margin-top: 6px; }
+.chip.tick.on { text-decoration: line-through; opacity: .8; }
+.once-row { padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+#phase-strip { position: sticky; top: calc(53px + env(safe-area-inset-top)); z-index: 5; background: var(--bg); margin: 0 -12px; padding: 6px 12px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#phase-strip::-webkit-scrollbar { display: none; }
+#phase-strip .chip { flex: 0 0 auto; }
+#phase-strip .chip:disabled { opacity: .4; }

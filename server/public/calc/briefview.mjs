@@ -8,7 +8,7 @@
 //
 // app.js owns the shared state and calls in through initBrief().
 
-import { boardUnit, armyIntel } from './adapter.mjs';
+import { boardUnit, armyIntel, armyTricks } from './adapter.mjs';
 import { PRIMARIES } from './missions-11e.mjs';
 import { boardContext } from './boardview.mjs';
 import { layoutLetter, dispositionName } from './board.mjs';
@@ -16,6 +16,7 @@ import { matchupData, registerHost } from './missionview.mjs';
 import { roundLabel } from './eventview.mjs';
 
 let ctx = null;            // { state, esc, wide }
+const TRICKS = new WeakMap();   // army.units -> armyTricks(army)
 // sections fold on a phone (the threats stay open); app.js records the toggles in state.briefOpen
 const fold = (key, title, body, dflt) => `<details class="more brief-sec" data-details="brief-${key}" ${(ctx.state.briefOpen?.[key] ?? dflt) ? 'open' : ''}><summary>${title}</summary>${body}</details>`;
 const other = (p) => (p === 'A' ? 'B' : 'A');
@@ -80,6 +81,8 @@ export function briefHtml() {
   const dead = { mine: d.dead(me), theirs: d.dead(opp) };
   const wideNow = ctx.wide?.() ?? false;
   const watch = armyIntel(theirs).stratagems.filter(s => /opponent/i.test(s.turn ?? '') && !s.missing).slice(0, 8);
+  // what their list has that changes how you deploy and move (cached: the lists do not change while the brief is open)
+  const tricks = (TRICKS.get(theirs.units) ?? TRICKS.set(theirs.units, armyTricks(theirs)).get(theirs.units));
   return `<div class="card brief-card" id="brief">
       <div class="row"><div class="title grow">Matchup brief</div>${label ? `<span class="pill good" id="brief-round">${esc(label)}</span>` : `<span class="pill">Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'}</span>`}</div>
       <div class="small" style="margin-top:6px"><b style="color:var(--side-${me.toLowerCase()})">You</b> · ${esc(mine.faction)} · ${esc(dispositionName(me === 'A' ? bc.dispA : bc.dispB))}: ${primary(me)}</div>
@@ -93,6 +96,8 @@ export function briefHtml() {
     <div class="lay2 brief"><div class="col">
       <section class="section">${fold('threats', 'Their biggest threats', `${d.pairs ? threats : '<p class="muted small">Working out unit-vs-unit odds…</p>'}
         <div class="tiny muted">Share of your unit removed by one attack with default rules (no stratagems), each of their units on the target it hurts most.</div>`, true)}</section>
+      ${tricks.length ? `<section class="section">${fold('tricks', `Plan around (${tricks.length})`, `<div id="brief-tricks">${tricks.map(t =>
+        `<div class="ability" data-trick="${t.id}"><b>${esc(t.name)}</b> <span class="muted tiny">${esc(t.units.join(', '))}</span><div class="muted">${esc(t.note)}</div></div>`).join('')}</div>`, true)}</section>` : ''}
       <section class="section">${fold('answers', 'Your best answers', d.pairs ? answers : '<p class="muted small">Working out unit-vs-unit odds…</p>', wideNow)}</section>
     </div><div class="col">
       <section class="section">${fold('cards', `Secondary cards — ${dead.mine.length ? `${dead.mine.length} dead for you` : 'none dead for you'}`, `

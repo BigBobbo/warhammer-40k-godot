@@ -696,6 +696,69 @@ export function abilitiesOf(cu) {
   return out;
 }
 
+// Core abilities the phase sheet writes itself, with the rule in a line (phasesheet.mjs coreEntries);
+// Leader and Support are choices made when the list is written.
+const CORE_ON_SHEET = /^(leader|support|deep-strike|infiltrators|scouts-\d|lone-operative|stealth|fights-first|firing-deck-\d|damaged-\d|deadly-demise-|feel-no-pain-\d)/;
+let PHASE_MAP = null;
+/** The rules data's phase mapping by id ("provisional", 40kdc community): Map 'type:id' -> phases. */
+function phaseMap() {
+  if (!PHASE_MAP) {
+    PHASE_MAP = new Map();
+    for (const m of dc.RAW_DATA.phaseMappings ?? []) PHASE_MAP.set(`${m.source_type}:${m.source_id}`, m.phases ?? []);
+  }
+  return PHASE_MAP;
+}
+
+/**
+ * What phasesheet.mjs needs to sort an army's rules by phase: every unit's abilities (with the model that has
+ * them), its core abilities, the detachment rules, the stratagems, and the phase mapping of the rules data.
+ */
+export function phaseSheetInput(army) {
+  const pm = phaseMap();
+  const rules = armyRules(army);
+  const atArmyLevel = new Set([...rules, ...detachmentRules(army)].map(r => r.id));
+  const units = army.units.map(cu => {
+    const abilities = [];
+    let fnp = 0;
+    cu.members.forEach((m, mi) => {
+      for (const a of abilityRecords(m)) {
+        if (atArmyLevel.has(a.id)) continue;                         // the army rule and the detachment rules: listed once
+        if (a.type === 'core') {
+          const x = /^feel-no-pain-(\d)/.exec(String(a.id));
+          if (x) fnp = fnp ? Math.min(fnp, Number(x[1])) : Number(x[1]);
+          if (CORE_ON_SHEET.test(String(a.id))) continue;
+        }
+        // a rule of another detachment on a datasheet ("units with this ability"): an army-wide rule
+        abilities.push({ id: a.id, name: a.name, text: a.text, type: a.type === 'detachment' ? 'faction' : a.type, owner: { id: `${cu.key}:${mi}`, name: m.dcUnit.name, unit: cu.name } });
+      }
+    });
+    return { id: cu.key, name: cu.name, flags: { ...coreFlags(cu), fnp }, abilities };
+  });
+  return {
+    units,
+    armyRules: rules,
+    detachmentRules: detachmentRules(army),
+    stratagems: armyStratagems(army),
+    mapped: (id, type = 'ability') => pm.get(`${type}:${id}`) ?? null,
+  };
+}
+
+/**
+ * The army rule(s) of the list's faction (Combat Doctrines, Waaagh!, Martial Ka'tah): [{ id, name, text }].
+ * From the faction record's faction_rule_ids; a chapter without its own takes its parent faction's.
+ */
+export function armyRules(army) {
+  const facs = dc.RAW_DATA.factions ?? [];
+  const f = facs.find(x => x.id === army.roster.faction_id);
+  const ids = f?.faction_rule_ids?.length ? f.faction_rule_ids : facs.find(x => x.id === f?.parent_faction_id)?.faction_rule_ids ?? [];
+  const out = [];
+  for (const id of ids) {
+    const a = (dc.RAW_DATA.abilities ?? []).find(x => x.ability_id === id);
+    if (a) out.push({ id, name: a.name, text: conv.safeDescribe(a) });
+  }
+  return out;
+}
+
 // Activated / situational wording: detected but OFF by default.
 const ACTIVATED_RE = /\b(you can|at the start of|until the end of|until the start of|when an enemy unit|when this unit|select|once per battle|first time|psychic roll|while this unit is within|while this model is within|within range of an objective|if this unit made|if this model made|battle-shocked|in your|in the (fight|shooting|movement|command) phase)\b/i;
 
@@ -1204,6 +1267,7 @@ export function armyIntel(army) {
   return {
     faction: army.faction,
     detachments: armyDetachmentRecords(army).map(d => d.name).filter(Boolean),
+    armyRules: armyRules(army),
     detachmentRules: detachmentRules(army),
     stratagems: strats,
   };
@@ -1235,6 +1299,43 @@ export function coreFlags(cu) {
     deadlyDemise: first(/^deadly-demise-(.+)$/)?.[1].toUpperCase() ?? null,
     firingDeck: Number(first(/^firing-deck-(\d+)/)?.[1] ?? 0),
   };
+}
+
+/**
+ * What an army has that changes how you deploy and move against it (the matchup brief): only what the list
+ * really has. -> [{ id, name, units: ['Scout Squad ×2', ...], note }]
+ * Rules read in the core rules text: 24.09 Deep Strike, 24.20 Infiltrators, 24.32 Scout move, 24.24 Lone
+ * Operative, 12.04 Fights First, 24.37 Torrent + 15.09 snap shooting, 10.07 indirect shooting.
+ */
+export function armyTricks(army) {
+  const by = { deepStrike: [], infiltrators: [], scouts: [], lone: [], fightsFirst: [], torrent: [], indirect: [] };
+  for (const cu of army.units) {
+    const f = coreFlags(cu);
+    const name = cu.name.replace(/ \(\d+\)$/, '');
+    if (f.deepStrike) by.deepStrike.push(name);
+    if (f.infiltrators) by.infiltrators.push(name);
+    if (f.scouts) by.scouts.push(`${name} ${f.scouts}"`);
+    if (f.loneOperative) by.lone.push(`${name} ${f.loneOperative}"`);
+    // the ability itself, or a rule of the unit that gives it ("... has the Fights First ability")
+    const ff = f.fightsFirst ? null : abilitiesOf(cu).find(x => /\bfights first\b/i.test(`${x.name} ${x.text}`));
+    if (f.fightsFirst) by.fightsFirst.push(name); else if (ff) by.fightsFirst.push(`${name} (${ff.name})`);
+    const guns = attackerRows(cu, 'shooting', null);
+    const list = (rows) => [...new Set(rows.map(r => `${r.label} ${r.range}`))].join(', ');
+    const tor = guns.filter(r => r.kw?.torrent), ind = guns.filter(r => r.kw?.indirect);
+    if (tor.length) by.torrent.push(`${name} (${list(tor)})`);
+    if (ind.length) by.indirect.push(`${name} (${list(ind)})`);
+  }
+  const tally = (l) => { const n = new Map(); for (const x of l) n.set(x, (n.get(x) ?? 0) + 1); return [...n].map(([k, c]) => (c > 1 ? `${k} ×${c}` : k)); };
+  const rows = [
+    ['deepStrike', 'Deep Strike', 'From battle round 2 they can arrive anywhere more than 8" from your units, inside your deployment zone too (24.09).'],
+    ['infiltrators', 'Infiltrators', 'They deploy anywhere more than 8" from your deployment zone and your units (24.20): expect them on the middle objectives.'],
+    ['scouts', 'Scouts', 'Before the first turn they move this far, and end more than 8" from your units (24.32).'],
+    ['lone', 'Lone Operative', 'Not visible to your models from further away than this (24.24): you have to get that close to shoot it.'],
+    ['fightsFirst', 'Fights First', 'Fights in the Fights First step without charging (12.04): in your turn it strikes after your first charging unit, before your others.'],
+    ['torrent', 'Torrent in overwatch', 'Torrent attacks hit automatically (24.37), while other weapons hit only on a 6 in Fire Overwatch (15.09). Counted at full effect here: stay out of the range shown, or charge something else first.'],
+    ['indirect', 'Indirect Fire', 'Can shoot units it cannot see (10.07): it then hits only on a 6, or on a 4+ if it stood still and another of their units sees the target; the target has cover.'],
+  ];
+  return rows.filter(([id]) => by[id].length).map(([id, name, note]) => ({ id, name, units: tally(by[id]), note }));
 }
 
 /**

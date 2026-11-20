@@ -287,3 +287,23 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   starting strength); the results sheet and the chain show the chance the
   target is at or below half strength and fails 2D6 against Ld (08.03), and
   the same for the charger after the fight back.
+- Aid 3, my army phase by phase: BUILT in v1.104.0, browser-tested. Intel has a
+  "By phase" view (`phasesheet.mjs`, pure; `adapter.phaseSheetInput`). The phase
+  comes from the rule's words first ("In your Command phase", "melee attacks",
+  a charge-move condition = Fight phase, "attacks that target this unit" = the
+  opponent's turn), the rules data's `phaseMappings` only when the words say
+  nothing. Stratagems go by turn + WHEN line. Once-per-battle rules get ticks,
+  kept with the game (`game.once`, cleared by a new game): each combat doctrine,
+  plus the extra Assault doctrine of Assault Mastery; Waaagh!. The army rule
+  comes from `factions[].faction_rule_ids` (`adapter.armyRules`) and is now on
+  the Intel army card too (it was shown nowhere before).
+- Aid 4, enemy tricks: BUILT in v1.104.0. `adapter.armyTricks` -> the brief's
+  "Plan around" list: Deep Strike, Infiltrators, Scouts, Lone Operative, Fights
+  First, Torrent weapons (overwatch) and Indirect Fire, with units and ranges.
+  Rule numbers read in the core rules text (Scouts is 24.31, the Scout move
+  24.32). Torrent in overwatch: 24.37 "automatically hits" against 15.09 "only
+  hits on an unmodified 6" - no FAQ found; the calculator counts it at full
+  effect and the note says so.
+- Test note: the e2e check "forecast favours the much bigger army" read the
+  forecast before the unit-vs-unit odds were in (a race that failed once in 7
+  runs); it now waits for them first.

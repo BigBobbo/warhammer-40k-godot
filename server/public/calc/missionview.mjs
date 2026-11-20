@@ -1167,6 +1167,9 @@ export function missionAction(action, el) {
     case 'mission-cp': remember(`${X} CP`); g[X].cp = Math.max(0, (g[X].cp || 0) + Number(el.dataset.delta)); persist(); return 'render';
     case 'mission-cp-discard': remember(`${X} CP for a discard`); PT.extraCp(g, X); g[X].cpAsk = false; persist(); return 'render';
     case 'mission-swap': remember(`${X} card swap`); g[X].swapped = g.round; g[X].swapPending = true; g[X].cp = Math.max(0, (g[X].cp || 0) - 1); persist(); return 'render';
+    // once-per-battle rules ticked as used (Intel > By phase)
+    case 'mission-once': { const o = (g.once ??= { A: {}, B: {} }); const id = el.dataset.tick; if (o[X][id]) delete o[X][id]; else o[X][id] = true; persist(); return 'render'; }
+    case 'mission-once-reset': (g.once ??= { A: {}, B: {} })[X] = {}; persist(); return 'render';
     case 'mission-undo': {
       const u = PT.popUndo(m.undo);
       if (!u) return 'render';

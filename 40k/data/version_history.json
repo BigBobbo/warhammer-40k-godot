@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.104.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: your army phase by phase, and what to plan around in the enemy list",
+      "changes": [
+        "Intel has a new By phase view: every rule of a list (army rule, detachment rules, abilities, core abilities, stratagems) under the phase it is used in, with a list for the opponent's turn.",
+        "Once-per-battle rules have tick boxes: each combat doctrine, Waaagh! and the like. A new game clears them.",
+        "The army rule (Combat Doctrines, Waaagh!, Martial Ka'tah) is now shown on the Intel army card.",
+        "Matchup brief: a Plan around list of what the enemy list has: Deep Strike, Infiltrators, Scouts, Lone Operative, Fights First, Torrent weapons for overwatch and Indirect Fire, with the units and ranges."
+      ]
+    },
+    {
       "version": "1.103.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: what a charge costs you, and battle-shock odds",
