@@ -107,7 +107,7 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 - [x] **3. Find things / tablet** (v1.93.0) — Mission split into Plan / Cards / Play;
       tablet two-pane layouts; map-first Board with a unit strip on the phone.
 - [x] **4. Backup and restore** (v1.94.0): file + 6-character transfer code via `POST/GET /api/calc-transfer` (sqlite, 1 h), persistent storage.
-- [ ] **5. Less setup** — event mode: my list pinned, opponent roster (paste
+- [x] **5. Less setup** (v1.95.0: eventview.mjs, briefview.mjs, lists.mjs; board `reusablePlan()`) — event mode: my list pinned, opponent roster (paste
       many lists), layout letter per round, one tap to start a round; reuse my
       deployment against a new opponent; automatic matchup brief.
 - [ ] **6. Decisions** — Fixed vs Tactical comparison; going first vs second;

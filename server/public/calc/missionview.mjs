@@ -9,6 +9,7 @@ import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, 
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
+import { layoutLetter } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 
 let ctx = null;            // { state, esc, seg, chip }
@@ -177,10 +178,26 @@ function ensurePairs() {
     }
     ms().pairs = { sig, table };
     pairsPending = false;
+    refresh();
     scheduleForecast();
   });
   return false;
 }
+
+// ---- for the matchup brief (briefview.mjs) and the event card (eventview.mjs)
+export function matchupData() {
+  const m = ms(), st = ctx.state;
+  if (st.armies.A && st.armies.B) ensurePairs();
+  const ready = m.pairs?.table && m.pairs.sig === pairSig();
+  return {
+    me: m.me, pairs: ready ? m.pairs.table : null, result: m.result ?? null, busy: !!m.busy,
+    dead: (X) => SECONDARIES.filter(c => cardDead(c.id, profileOf(other(X)).profile)).map(c => c.name),
+    hitList: (X) => hitListHtml(X),
+  };
+}
+export function registerHost(id, fn) { HOSTS[id] = fn; }
+export function missionNewGame() { const m = ms(); m.game = newGame(); m.tab = 'plan'; persist(); }
+export const missionInProgress = () => inProgress();
 
 // units destroyed per turn, from the calculator (null until the unit-vs-unit odds are in)
 function autoKill() {
@@ -409,7 +426,7 @@ function planView() {
   return `<div class="mlay plan"><div class="col">
     <section class="section a-setup o1"><div class="card">
       <div class="small" id="mission-names"><b style="color:var(--side-a)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
-        <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · layout ${bc.layout?.variant ?? '?'} — change it on the Board tab.</div></div>
+        <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'} — change it on the Board tab.</div></div>
       <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
         <div><div class="lab tiny muted">First turn</div>${ctx.seg('mission-first', m.first ?? 'roll', [['A', 'A'], ['B', 'B'], ['roll', 'Roll-off']], 'compact')}</div>

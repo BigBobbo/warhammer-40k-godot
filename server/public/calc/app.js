@@ -11,7 +11,9 @@ import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, _missionDebug } from './missionview.mjs';
+import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
+import { initBrief, briefHtml } from './briefview.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
 const TRIALS = 20000;
@@ -77,6 +79,19 @@ function listsSignature() {
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
+}
+
+function hashStr(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+// one army's list and attachments (a plan made with this list can be reused against another opponent)
+function sideSig(X) { return hashStr(JSON.stringify([state.texts[X], state.attach[X]])); }
+// "Orks – Calc Test Waaagh"
+function listLabel(X) {
+  const a = state.armies[X];
+  return a ? `${a.faction}${a.name && a.name !== 'Army' ? ` – ${a.name}` : ''}` : '';
 }
 
 function restore() {
@@ -254,8 +269,8 @@ function newWorker() {
   const w = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
   w.onmessage = (ev) => {
     const { id, final, result, error } = ev.data;
-    if (id !== reqId) return;
     if (final) workerBusy = false;
+    if (id !== reqId) return;   // an answer for an older set-up: never shown as the current one
     if (error) { state.calcError = error; state.busy = false; console.error('[calc] engine error', error); }
     else { state.result = result; state.calcError = null; state.busy = !final; }
     renderResultViews();
@@ -265,7 +280,11 @@ function newWorker() {
 
 function scheduleCalc() {
   clearTimeout(calcTimer);
-  state.busy = true; // the bar dims at once; tests and players never read a stale number as fresh
+  // The set-up changed: whatever is still being calculated is for the old one. Dim the bar
+  // at once and drop that answer when it arrives, so a stale number is never read as fresh
+  // (before 1.95 it could be, for the 120 ms until the new run started).
+  reqId++;
+  state.busy = true;
   calcTimer = setTimeout(runCalc, 120);
 }
 
@@ -328,7 +347,7 @@ function render() {
   renderResultViews();
   renderSheet();
   if (state.view === 'board') boardAfterRender();
-  if (state.view === 'mission') missionAfterRender();
+  if (state.view === 'mission' || (state.view === 'intel' && a && b)) missionAfterRender();
 }
 
 // ---- Intel: enemy cheat sheet
@@ -352,7 +371,8 @@ function intelView() {
   const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
-  return `<section class="section">
+  return `${state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+    <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
     <section class="section"><div class="card">
@@ -438,6 +458,7 @@ function armiesView() {
   const ready = state.armies.A && state.armies.B;
   return `<div class="lay2"><div class="col">${panel('A')}</div><div class="col">${panel('B')}</div></div>
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
+    ${eventCard()}
     ${backupCard()}
     <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
 }
@@ -1392,7 +1413,17 @@ app.addEventListener('click', (ev) => {
     if (boardAction(a, el) === 'render') changed();
     return;
   }
+  if (a.startsWith('event-')) {
+    if (eventAction(a, el) === 'render') changed();
+    return;
+  }
   switch (a) {
+    case 'brief-grid':
+      // "every unit vs every unit": my army attacking theirs, from the brief
+      state.side = state.mission?.me ?? 'A';
+      state.sheet = 'grid';
+      startGrid();
+      return renderSheet();
     case 'backup-save': return void saveBackupFile();
     case 'backup-send': return void sendBackup();
     case 'backup-receive': return void receiveBackup();
@@ -1729,6 +1760,7 @@ app.addEventListener('change', (ev) => {
     el.value = '';
     return;
   }
+  if (eventChange(el)) return el.dataset.input === 'event-name' ? undefined : changed({ calc: false });
   if (boardChange(el)) return changed({ calc: false });
   const mc = missionChange(el);
   if (mc === 'quiet') return persist();
@@ -1763,6 +1795,8 @@ app.addEventListener('toggle', (ev) => {
   const el = ev.target;
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
   if (el.dataset?.details === 'backup') state.openBackup = el.open;
+  if (el.dataset?.details === 'event' && state.event) state.event.open = el.open;
+  if (el.dataset?.details?.startsWith('brief-')) (state.briefOpen ??= {})[el.dataset.details.slice(6)] = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   // Mission tab panels stay open while their buttons re-draw the page
   if (el.dataset?.details?.startsWith('mission-') && state.mission) (state.mission.open ??= {})[el.dataset.details] = el.open;
@@ -1780,6 +1814,8 @@ restoreSaved();
 restoreLibrary();
 initBoard({
   state, esc, seg, chip, signature: listsSignature, wide,
+  // one army's list (for "use my deployment against another opponent")
+  sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
   openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
@@ -1802,6 +1838,8 @@ initBoard({
   },
 });
 initMission({ state, esc, seg, chip, pairOdds, wide });
+initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress });
+initBrief({ state, esc, wide });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
@@ -1833,4 +1871,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug, event: _eventDebug };

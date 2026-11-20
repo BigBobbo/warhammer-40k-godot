@@ -8,7 +8,7 @@
 
 import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
-  footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly,
+  footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach } from './sight.mjs';
@@ -78,8 +78,43 @@ function planRoot() {
   if (!k) return null;
   let root = b.plans[k] ?? { steps: [{ name: 'Deploy', tokens: {} }], cur: 0 };
   if (root.steps) root = { variants: [{ name: 'Main', steps: root.steps, cur: root.cur ?? 0 }], v: 0 }; // older single-plan saves
+  // which layout and lists this plan belongs to (to offer my deployment against another opponent)
+  const l = currentLayout();
+  if (l && ctx.sideSig) root.meta = { layout: l.id, a: ctx.sideSig('A'), b: ctx.sideSig('B'), aName: ctx.listName?.('A') ?? '', bName: ctx.listName?.('B') ?? '' };
   b.plans[k] = root;
   return root;
+}
+
+const sideTokens = (root, X) => root.variants.reduce((n, vv) => n + vv.steps.reduce((m, st) => m + Object.keys(st.tokens ?? {}).filter(tk => tk.startsWith(`${X}:`)).length, 0), 0);
+/** A plan I made on this layout with the same list of mine against another opponent (the newest with units placed). */
+function reusablePlan() {
+  const b = boardState(), root = planRoot(), l = currentLayout();
+  const me = ctx.me?.() ?? 'A';
+  if (!root || !l || !ctx.sideSig || sideTokens(root, me) > 0) return null;
+  const mySig = ctx.sideSig(me), key = me === 'A' ? 'a' : 'b';
+  let best = null;
+  for (const [k, r] of Object.entries(b.plans)) {
+    if (r === root || !r?.variants || r.meta?.layout !== l.id || r.meta[key] !== mySig) continue;
+    const n = sideTokens(r, me);
+    if (n > 0 && (!best || n > best.n)) best = { k, root: r, n, vs: r.meta[me === 'A' ? 'bName' : 'aName'] || 'another opponent' };
+  }
+  return best;
+}
+/** Copy my side of that plan here (every variant and step); the enemy's tokens here stay. */
+function reusePlan() {
+  const src = reusablePlan();
+  const root = planRoot();
+  if (!src || !root) return false;
+  const me = ctx.me?.() ?? 'A';
+  const mineOnly = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => tk.startsWith(`${me}:`)).map(([tk, pos]) => [tk, { ...pos }]));
+  const theirs = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => !tk.startsWith(`${me}:`)));
+  root.variants = src.root.variants.map((sv, vi) => ({
+    name: sv.name, cur: 0,
+    steps: sv.steps.map((st, si) => ({ name: st.name, tokens: { ...theirs(root.variants[vi]?.steps[si]?.tokens ?? root.variants[0]?.steps[Math.min(si, (root.variants[0]?.steps.length ?? 1) - 1)]?.tokens), ...mineOnly(st.tokens) } })),
+  }));
+  root.v = 0;
+  console.log(`[board] reused my deployment from the plan vs ${src.vs}: ${src.n} unit positions`);
+  return true;
 }
 function plan() {
   const root = planRoot();
@@ -363,6 +398,7 @@ export function boardView() {
   // The map comes first (one column on a phone; the left pane on a tablet): the plan
   // steps and the units still to place sit right above it, everything else below / beside.
   const wideNow = ctx.wide?.() ?? false;
+  const reuse = reusablePlan();
   // plan steps, Move / Ruler and the units still to place: above the map on a phone
   // (one swipeable line), at the top of the side pane on a tablet (the map gets the height)
   const stepsRow = `<div class="row" style="gap:6px;flex-wrap:wrap">
@@ -376,6 +412,7 @@ export function boardView() {
   return `<div id="board-dock" class="board-dock">${dockHtml()}</div><div class="blay"><div class="col map">
     <section class="section b-steps">
       ${wideNow ? '' : stepsRow + trayHtml}
+      ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
         <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
@@ -391,7 +428,7 @@ export function boardView() {
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
-      <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout 1'], [2, 'Layout 2'], [3, 'Layout 3']], 'compact')}</div>
+      <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
       <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:${C.A}">blue</span> zone</span></div>
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
@@ -798,6 +835,9 @@ export function boardAction(action, el) {
       b.rings[el.dataset.k] = !b.rings[el.dataset.k];
       refreshBoard();
       return null;
+    case 'board-reuse':
+      if (reusePlan()) persistBoard();
+      return 'render';
     case 'board-deselect':
       b.sel = b.sel2 = null;
       refreshBoard();
@@ -959,7 +999,7 @@ async function shareImage() {
     const dep = l ? DEPLOYMENTS[l.deployment]?.name : '';
     g.fillStyle = '#1b1b1a';
     g.font = '600 24px system-ui, sans-serif';
-    g.fillText(`${p?.steps[p.cur]?.name ?? 'Plan'} · ${dispositionName(dispOf('A'))} vs ${dispositionName(dispOf('B'))} · Layout ${l?.variant ?? ''} · ${dep ?? ''}`, 16, 28);
+    g.fillText(`${p?.steps[p.cur]?.name ?? 'Plan'} · ${dispositionName(dispOf('A'))} vs ${dispositionName(dispOf('B'))} · Layout ${l ? layoutLetter(l.variant) : ''} · ${dep ?? ''}`, 16, 28);
     g.font = '18px system-ui, sans-serif';
     g.fillStyle = C.A; g.fillText(`■ A ${ctx.state.armies.A?.faction ?? ''}: ${ms.A ?? ''}`, 16, 54);
     g.fillStyle = C.B; g.fillText(`■ B ${ctx.state.armies.B?.faction ?? ''}: ${ms.B ?? ''}`, 450, 54);
@@ -1006,6 +1046,23 @@ export function boardPlans() {
 }
 
 // for the Mission tab: the mission, layout and which deployment zone is A's
+/** Event / round set-up: the layout letter of the round, dispositions back to what the lists say. */
+export function boardSetup({ variant = null, listDispositions = false } = {}) {
+  const b = boardState();
+  if (variant != null) b.settings.variant = variant;
+  if (listDispositions) { delete b.settings.dispA; delete b.settings.dispB; }
+  b.sel = b.sel2 = null;
+  persistBoard();
+}
+/** Layout ids on which a plan holds units of my list (signature `sig` on side X). */
+export function plannedLayouts(X, sig) {
+  const out = new Set();
+  for (const r of Object.values(boardState().plans)) {
+    if (r?.variants && r.meta?.[X === 'A' ? 'a' : 'b'] === sig && sideTokens(r, X) > 0) out.add(r.meta.layout);
+  }
+  return out;
+}
+
 export function boardContext() {
   const l = currentLayout();
   return {

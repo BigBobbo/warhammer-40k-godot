@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.95.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: set up an event once — opponents' lists, the layout of each round, one tap to start a round, an automatic matchup brief, and your deployment reused",
+      "changes": [
+        "Armies tab, Event: paste every list you may face (one or many at once) and set the layout letter (A / B / C) of each round. Each opponent shows your primary, their primary and the three deployments that pairing gives",
+        "Start a round with one tap: the opponent becomes army B, the board gets that round's layout and you land on the matchup brief",
+        "Matchup brief (top of the Intel tab): the missions and deployment, the forecast headline, their biggest threats to your units with how far they reach, your best attack on each of their big units, dead secondary cards, units worth secondary VP, and the stratagems they can use in your turn",
+        "Board: when you meet a new opponent on a layout you already planned with the same list, it offers your deployment again (Use my deployment); a preparation table shows which layouts you have planned",
+        "Layouts are now named A / B / C, as in the event packs (were 1 / 2 / 3)",
+        "Fixed: for a moment after a change the attack result could show the old number as if it were current"
+      ]
+    },
+    {
       "version": "1.94.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: back up your lists and plans, and move them between phone, tablet and laptop with a code",

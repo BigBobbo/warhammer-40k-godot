@@ -209,7 +209,7 @@ try {
   // --- Intel tab: enemy cheat sheet, search, jump to target
   await page.tap('button[data-action="view"][data-value="intel"]');
   await page.waitForSelector('#intel-list');
-  check('intel opens on the defending army (Orks)', (await page.locator('.card .title').first().textContent()) === 'Orks');
+  check('intel opens with the matchup brief, then the defending army (Orks)', (await page.locator('.card .title').first().textContent()) === 'Matchup brief' && (await page.locator('.card:not(.brief-card) .title').first().textContent()) === 'Orks');
   check('intel lists the detachment rule', (await page.locator('summary', { hasText: 'Detachment rule' }).count()) === 1);
   await page.fill('input[data-input="intel-search"]', 'meganob');
   check('search narrows to Meganobz', (await page.locator('#intel-list .intel-unit').count()) === 1);
@@ -1065,6 +1065,57 @@ try {
     await t2.waitForFunction(() => /No backup with this code/.test(document.getElementById('backup-msg')?.textContent ?? ''));
     check('a wrong code says so and changes nothing', await t2.evaluate(() => window.__calc.state.library.length === 2));
     await tctx.close();
+  }
+
+  // --- event: opponents' lists, layout letter per round, one tap to start a round, the matchup brief, my deployment reused
+  {
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.fill('textarea[data-side="A"]', SW_LIST);
+    await page.tap('button[data-action="parse"][data-side="A"]');
+    await page.locator('#event-card > summary').tap();
+    const before = await page.evaluate(() => window.__calc.state.library.length);
+    await page.fill('#event-paste', `${ORK_LIST}\n\n${readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8')}`);
+    await page.tap('button[data-action="event-add"]');
+    let evd = await page.evaluate(() => window.__calc.event());
+    const cust = evd.roster.find(r => /Custodes/.test(r.name)), orks = evd.roster.find(r => /Calc Test Waaagh/.test(r.name));
+    check('pasting two lists at once adds both opponents, with faction and Force Disposition read from the list', evd.roster.length === before + 2 && cust?.faction === 'Adeptus Custodes' && orks?.faction === 'Orks' && cust.disp === 'take-and-hold' && /2 lists added/.test(await page.textContent('#event-msg')), JSON.stringify(evd.roster.map(r => [r.name, r.faction, r.disp])));
+    check('each opponent shows the primaries and the three deployments of that pairing', /You: Battlefield Dominance · they: Battlefield Dominance/.test(await page.textContent(`#event-roster [data-opp="${cust.id}"]`)) && /A Tipping Point · B Dawn of War · C Search and Destroy/.test(await page.textContent(`#event-roster [data-opp="${cust.id}"]`)));
+    // round 2 is on layout B against the Custodes
+    await page.tap('#event-rounds [data-round="2"] button[data-action="event-layout"][data-value="2"]');
+    await page.selectOption('#event-rounds [data-round="2"] select[data-input="event-opp"]', String(cust.id));
+    check('the round row says what the round will be', /You: Battlefield Dominance · they: Battlefield Dominance · Dawn of War/.test(await page.textContent('#event-rounds [data-round="2"]')));
+    await page.locator('#event-rounds').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_45_event.png') });
+    await page.tap('#event-rounds [data-round="2"] button[data-action="event-start"]');
+    await page.waitForSelector('#brief');
+    const started = await page.evaluate(() => ({ view: window.__calc.state.view, b: window.__calc.state.armies.B.faction, layout: window.__calc.board().layout, round: window.__calc.event().round }));
+    check('"Start" loads the opponent as army B, sets the round\'s layout and opens the matchup brief', started.view === 'intel' && started.b === 'Adeptus Custodes' && /^take_and_hold_mirror_2$/.test(started.layout) && started.round === 2
+      && /Round 2 · Layout B/.test(await page.textContent('#brief-round')) && /Dawn of War · Layout B/.test(await page.textContent('#brief-deploy')), JSON.stringify(started));
+    await page.waitForSelector('#brief-threats tbody tr', { timeout: 120000 });
+    await page.waitForFunction(() => /you win/.test(document.getElementById('brief-forecast')?.textContent ?? ''), null, { timeout: 120000 });
+    const brief = await page.evaluate(() => ({ threats: [...document.querySelectorAll('#brief-threats tbody tr')].map(r => r.textContent.replace(/\s+/g, ' ').trim()), answers: document.querySelectorAll('#brief-answers tbody tr').length, text: document.getElementById('brief-host').textContent }));
+    check('brief: their biggest threats (with reach), my best answers, dead cards, the forecast headline',
+      brief.threats.length >= 2 && /Caladius|Contemptor|Shield-Captain/.test(brief.threats[0]) && /M\d+"/.test(brief.threats[0]) && brief.answers >= 3 && /Dead for (you|them)|No dead cards/.test(brief.text) && /you win/.test(brief.text), JSON.stringify(brief.threats));
+    await page.locator('#brief').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_46_matchup_brief.png'), fullPage: true });
+    // plan my deployment for this layout, then meet another opponent on the same layout: it is offered again
+    await page.tap('button[data-action="view"][data-value="board"]');
+    await page.waitForSelector('#board-svg');
+    await page.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const ghPos = (await tokens()).find(t => t.tk.startsWith('A:'));
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.tap('#event-rounds [data-round="3"] button[data-action="event-layout"][data-value="2"]');
+    await page.selectOption('#event-rounds [data-round="3"] select[data-input="event-opp"]', String(orks.id));
+    check('preparation table marks layout B against Take and Hold as planned', (await page.locator('#event-coverage button.cov.done').count()) === 1 && /deployment planned/.test(await page.getAttribute('#event-coverage button.cov.done', 'aria-label')));
+    await page.tap('#event-rounds [data-round="3"] button[data-action="event-start"]');
+    await page.waitForSelector('#brief');
+    await page.tap('button[data-action="view"][data-value="board"]');
+    await page.waitForSelector('#board-reuse');
+    check('new opponent, same layout: the board offers my deployment from the other game', /against Adeptus Custodes/.test(await page.textContent('#board-reuse')) && (await tokens()).length === 0, await page.textContent('#board-reuse'));
+    await page.screenshot({ path: join(SHOTS, 'calc_47_reuse_deployment.png') });
+    await page.tap('button[data-action="board-reuse"]');
+    const reused = (await tokens()).find(t => t.tk === ghPos.tk);
+    check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
   }
 
   // --- tablet layout

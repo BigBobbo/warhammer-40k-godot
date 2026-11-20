@@ -139,6 +139,20 @@ export function missionsFor(dispA, dispB) {
   return { A: m(dispA, dispB), B: m(dispB, dispA) };
 }
 
+/**
+ * A round against an opponent with disposition `opp`, for a list with
+ * disposition `mine`: both primaries and the three layouts (A, B, C) of that
+ * pairing (null where the data has none).
+ */
+export function matchupFor(mine, opp) {
+  const ms = missionsFor(mine, opp);
+  const lays = layoutsFor(mine, opp);
+  return { mine: ms.A, theirs: ms.B, layouts: [1, 2, 3].map(v => lays.find(l => l.variant === v) ?? null) };
+}
+
+/** The official name of a layout variant: 1 / 2 / 3 = Layout A / B / C (Event Companion). */
+export const layoutLetter = (variant) => 'ABC'[(variant ?? 1) - 1] ?? String(variant);
+
 export function dispositionName(id) {
   return DISPOSITIONS.find(d => d.id === id)?.name ?? id;
 }

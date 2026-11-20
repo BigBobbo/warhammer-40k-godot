@@ -379,3 +379,17 @@ button.fc-mini { cursor: pointer; }
 @media (min-width: 900px) { .board-dock { display: none; } }
 /* keep the end of the Board page clear of the pinned dock */
 @media (max-width: 899px) { #board-dock:not(:empty) + .blay { padding-bottom: 124px; } }
+
+/* ---- event card + matchup brief */
+.event-round { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.event-round.on { background: var(--series-1-wash); margin: 0 -8px; padding: 6px 8px; border-radius: 8px; }
+.event-round .seg { flex: none; }
+.event-round .seg button { min-width: 34px; }
+button.cov { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; min-height: 44px; border-radius: 8px; border: 1px dashed var(--line); background: var(--surface-2); color: var(--text-muted); font: inherit; cursor: pointer; padding: 3px 2px; }
+button.cov.done { border-style: solid; border-color: var(--accent); color: var(--text-primary); background: var(--series-1-wash); }
+button.cov .tiny { font-size: 10px; line-height: 1.1; }
+#event-coverage td { padding: 3px; vertical-align: middle; }
+table.dist.brief td { vertical-align: top; text-align: left; }
+table.dist.brief td:last-child, table.dist.brief th:last-child { text-align: right; white-space: nowrap; }
+.brief-card .fc-mini { margin-top: 8px; }
+details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 600; }
