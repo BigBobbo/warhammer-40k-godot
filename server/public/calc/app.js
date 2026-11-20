@@ -3,14 +3,17 @@
 // Worker (worker.mjs -> engine.mjs).
 import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
-  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION,
+  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { CALC_VERSION } from './version.mjs';
+import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, syncWake, _missionDebug } from './missionview.mjs';
+import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
+import { initBrief, briefHtml } from './briefview.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
 const TRIALS = 20000;
@@ -76,6 +79,19 @@ function listsSignature() {
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
+}
+
+function hashStr(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+// one army's list and attachments (a plan made with this list can be reused against another opponent)
+function sideSig(X) { return hashStr(JSON.stringify([state.texts[X], state.attach[X]])); }
+// "Orks – Calc Test Waaagh"
+function listLabel(X) {
+  const a = state.armies[X];
+  return a ? `${a.faction}${a.name && a.name !== 'Army' ? ` – ${a.name}` : ''}` : '';
 }
 
 function restore() {
@@ -253,8 +269,8 @@ function newWorker() {
   const w = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
   w.onmessage = (ev) => {
     const { id, final, result, error } = ev.data;
-    if (id !== reqId) return;
     if (final) workerBusy = false;
+    if (id !== reqId) return;   // an answer for an older set-up: never shown as the current one
     if (error) { state.calcError = error; state.busy = false; console.error('[calc] engine error', error); }
     else { state.result = result; state.calcError = null; state.busy = !final; }
     renderResultViews();
@@ -264,7 +280,11 @@ function newWorker() {
 
 function scheduleCalc() {
   clearTimeout(calcTimer);
-  state.busy = true; // the bar dims at once; tests and players never read a stale number as fresh
+  // The set-up changed: whatever is still being calculated is for the old one. Dim the bar
+  // at once and drop that answer when it arrives, so a stale number is never read as fresh
+  // (before 1.95 it could be, for the 120 ms until the new run started).
+  reqId++;
+  state.busy = true;
   calcTimer = setTimeout(runCalc, 120);
 }
 
@@ -301,9 +321,21 @@ function modSeg(label, scope, key, value, options) {
 // ---------------------------------------------------------------------------
 // Views
 
+// tablet / laptop: two panes side by side (the phone keeps one column)
+const WIDE_Q = window.matchMedia('(min-width: 900px)');
+const wide = () => WIDE_Q.matches;
+WIDE_Q.addEventListener?.('change', () => { console.log(`[calc] layout: ${wide() ? 'two panes' : 'one column'}`); render(); });
+
+// table mode (Mission > Play): the tracker only — the calculator and the board planner are closed
+const tableMode = () => !!state.mission?.table;
+
 function render() {
   const a = state.armies.A, b = state.armies.B;
   const ready = a && b;
+  const table = tableMode() && ready;
+  if (table && (state.view === 'attack' || state.view === 'board')) state.view = 'mission';
+  // (not disabled: a tap on a closed tab says why, on the Play view)
+  const lock = table ? 'data-locked="1" title="Closed in table mode (Mission > Play)"' : '';
   app.innerHTML = `
     <header class="top"><div class="wrap">
       <div class="brand">⚔<span class="brand-full"> Combat Calc</span><span class="ver-mini" id="app-version-mini">v${esc(CALC_VERSION)}</span></div>
@@ -311,8 +343,8 @@ function render() {
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
-        <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>Attack</button>
-        <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? '' : 'disabled'}>Board</button>
+        <button class="tab ${state.view === 'attack' ? 'on' : ''} ${table ? 'locked' : ''}" data-action="view" data-value="attack" ${ready ? lock : 'disabled'}>Attack</button>
+        <button class="tab ${state.view === 'board' ? 'on' : ''} ${table ? 'locked' : ''}" data-action="view" data-value="board" ${ready ? lock : 'disabled'}>Board</button>
         <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
@@ -322,7 +354,8 @@ function render() {
   renderResultViews();
   renderSheet();
   if (state.view === 'board') boardAfterRender();
-  if (state.view === 'mission') missionAfterRender();
+  if (state.view === 'mission' || (state.view === 'intel' && a && b)) missionAfterRender();
+  syncWake();
 }
 
 // ---- Intel: enemy cheat sheet
@@ -346,7 +379,8 @@ function intelView() {
   const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
-  return `<section class="section">
+  return `${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+    <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
     <section class="section"><div class="card">
@@ -358,7 +392,7 @@ function intelView() {
     </div></section>
     <section class="section"><h2>Units</h2>
       <input class="sel" type="search" data-input="intel-search" placeholder="Search units, keywords, abilities…" value="${esc(state.intelQuery)}" aria-label="Search units">
-      <div id="intel-list">${intelList(side)}</div>
+      <div id="intel-list" class="intel-grid">${intelList(side)}</div>
     </section>`;
 }
 
@@ -366,8 +400,11 @@ function intelList(side) {
   const army = state.armies[side];
   const q = state.intelQuery.trim().toLowerCase();
   const cards = [];
+  const { prov, pts } = armyData(army);
   for (const cu of army.units) {
     const it = unitIntel(cu, army);
+    const stamps = [...new Map(prov.units.filter(u => u.unit === cu.key).map(u => [`${u.label}|${u.date}`, u])).values()];
+    const off = pts.mismatches.filter(m => m.unit === cu.key);
     const hay = [it.name, ...it.keywords, ...it.abilities.map(a => `${a.name} ${a.text}`), ...it.weapons.map(w => w.label)].join(' ').toLowerCase();
     if (q && !hay.includes(q)) continue;
     const line = (p) => `<tr><td>${esc(p.member === p.name ? p.name : `${p.name}`)}</td><td>${p.M}"</td><td>${p.T}</td><td>${p.Sv}+${p.InSv ? `/${p.InSv}++` : ''}</td><td>${p.W}</td><td>${p.Ld}+</td><td>${p.OC}</td></tr>`;
@@ -382,7 +419,8 @@ function intelList(side) {
       <details class="more"><summary>Abilities (${it.abilities.length})</summary>${it.abilities.map(a =>
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
-      ${state.armies.A && state.armies.B ? `<div class="row" style="gap:6px">
+      <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}${u.note ? ` (${esc(u.note)})` : ''}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
+      ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
     </details>`);
@@ -422,6 +460,7 @@ function armiesView() {
         <button class="btn ghost" data-action="clear" data-side="${side}">Clear</button>
       </div>
       ${err ? `<div class="warnbox err">${esc(err)}</div>` : ''}
+      ${army ? dataStampHtml(side, army) : ''}
       ${army ? attachOverview(side, army) : ''}
       ${army ? `<details class="more"><summary>${army.units.length} units${army.warnings.length ? ` · ${army.warnings.length} import notes` : ''}</summary>
         ${army.units.map(u => `<div class="ability"><b>${esc(u.name)}</b> <span class="muted">· ${u.models} models</span></div>`).join('')}
@@ -430,16 +469,123 @@ function armiesView() {
     </div></section>`;
   };
   const ready = state.armies.A && state.armies.B;
-  return `${panel('A')}${panel('B')}
+  return `<div class="lay2"><div class="col">${panel('A')}</div><div class="col">${panel('B')}</div></div>
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
-    <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
+    ${eventCard()}
+    ${backupCard()}
+    <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets${ERRATA_RESULT.points || ERRATA_RESULT.weapons ? ` and the points and weapon profiles of ${esc(ERRATA_RESULT.from)}` : ''}, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.
+      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>`;
+}
+
+// ---- how current the rules data behind an army is (adapter.mjs armyData)
+const orList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}` : String(xs[0]));
+function dataStampHtml(side, army) {
+  const { prov, pts } = armyData(army);
+  const n = prov.units.length;
+  const groups = prov.groups.map(g => `${prov.groups.length > 1 ? `${g.count} ` : ''}${esc(g.label)}, ${fmtDataDate(g.date)}${g.note ? ` (${esc(g.note)})` : ''}`).join(' · ');
+  const bad = pts.mismatches;
+  const points = !pts.checked ? '<div class="muted">Points: the list gives no points to check.</div>'
+    : !bad.length ? `<div class="ok" id="points-${side}">✓ Points: ${pts.checked === n ? `all ${n}` : `${pts.checked} of ${n}`} datasheets cost what the rules data says${pts.checked === n ? '' : ' (the others cannot be checked)'}.</div>`
+      : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
+          ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
+          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
+  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}</div>`;
+}
+
+// ---- backup / restore / move to another device (backup.mjs)
+function backupCard() {
+  let last = null, undo = false;
+  try { last = localStorage.getItem(LAST_KEY); undo = !!localStorage.getItem(UNDO_KEY); } catch { /* private mode */ }
+  const t = state.transfer;
+  return `<details class="more card" style="margin-top:12px" data-details="backup" ${state.openBackup ? 'open' : ''} id="backup-card"><summary>Backup and other devices</summary>
+    <p class="small muted" style="margin:6px 0">Lists, plans and games are kept on this device only. Save a backup file to keep a copy, or send everything to your tablet or phone with a code.${last ? ` Last backup: ${esc(new Date(last).toLocaleString())}.` : ' No backup made yet.'}${state.persisted === true ? ' The browser has agreed to keep this data.' : ''}</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn grow" data-action="backup-save">⬇ Save a backup file</button>
+      <label class="btn grow" style="cursor:pointer;display:flex;align-items:center;justify-content:center">⬆ Restore from a file<input type="file" accept="application/json,.json" data-input="backup-file" hidden></label>
+    </div>
+    <button class="btn block" style="margin-top:8px" data-action="backup-send">📲 Send to another device (gives a code)</button>
+    <div class="row" style="gap:6px;margin-top:8px"><input class="sel grow" id="backup-code" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="8" placeholder="Code from the other device" aria-label="Transfer code">
+      <button class="btn" data-action="backup-receive">Get</button></div>
+    ${t ? `<div class="warnbox" id="backup-code-out">Code: <b style="font-size:22px;letter-spacing:.14em">${esc(t.code)}</b><br>On the other device: Armies → Backup and other devices → type the code → Get. It works for ${Math.round(t.ttl / 60)} minutes.</div>` : ''}
+    ${state.backupMsg ? `<div class="small" id="backup-msg" style="margin-top:6px">${esc(state.backupMsg)}</div>` : ''}
+    ${undo ? '<button class="btn ghost" style="margin-top:8px" data-action="backup-undo">↩ Undo the last restore</button>' : ''}
+    <div class="tiny muted" style="margin-top:6px">Table photos are not part of a backup. Restoring replaces what is on this device; the previous data is kept for one undo.</div>
+  </details>`;
+}
+function backupNote(msg) {
+  state.backupMsg = msg;
+  state.openBackup = true;
+  console.log(`[calc] backup: ${msg}`);
+  if (state.view === 'armies') render();
+}
+function currentBackup() {
+  persist();
+  return makeBackup(localStorage, { version: CALC_VERSION });
+}
+async function saveBackupFile() {
+  const b = currentBackup();
+  const info = describeBackup(b);
+  if (!info.ok) return backupNote('Nothing to back up yet: load a list first.');
+  const name = backupFileName();
+  const blob = new Blob([JSON.stringify(b)], { type: 'application/json' });
+  try {
+    const file = new File([blob], name, { type: 'application/json' });
+    // phones / tablets: the share sheet (Drive, Files, Quick Share to the tablet, e-mail)
+    if (navigator.canShare?.({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      await navigator.share({ files: [file], title: 'Combat Calc backup' });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    try { localStorage.setItem(LAST_KEY, new Date().toISOString()); } catch { /* best effort */ }
+    backupNote(`Backup saved as ${name}: ${info.summary}.`);
+  } catch (err) {
+    if (err?.name !== 'AbortError') backupNote(`Could not save the backup (${err?.message ?? err}).`);
+  }
+}
+function restoreBackup(b, from) {
+  const info = describeBackup(b);
+  if (!info.ok) return backupNote(info.why);
+  const when = info.exported ? new Date(info.exported).toLocaleString() : 'an unknown date';
+  if (!window.confirm(`Replace everything on this device with the backup ${from} (made ${when})?\n\nIt holds: ${info.summary}.\n\nWhat is on this device now is kept for one undo.`)) return backupNote('Restore cancelled: nothing was changed.');
+  try {
+    applyBackup(localStorage, b);
+    console.log(`[calc] backup restored ${from}: ${info.summary}`);
+    location.reload();
+  } catch (err) { backupNote(`Could not restore (${err?.message ?? err}).`); }
+}
+async function sendBackup() {
+  const b = currentBackup();
+  if (!describeBackup(b).ok) return backupNote('Nothing to send yet: load a list first.');
+  backupNote('Sending…');
+  try {
+    const res = await fetch('/api/calc-transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: b }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return backupNote(`Could not send (${j.error ?? res.status}). A backup file works without a connection.`);
+    state.transfer = { code: j.code, ttl: j.expires_in };
+    backupNote(`Ready: ${describeBackup(b).summary}.`);
+  } catch { backupNote('No connection to the server. Save a backup file instead and move the file.'); }
+}
+async function receiveBackup() {
+  const code = normalizeCode(document.getElementById('backup-code')?.value);
+  if (!CODE_RE.test(code)) return backupNote('A code is 6 letters and digits (no 0, O, 1, I or L).');
+  backupNote('Looking for the backup…');
+  try {
+    const res = await fetch(`/api/calc-transfer/${code}`);
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return backupNote(j.error ?? `Could not get the backup (${res.status}).`);
+    restoreBackup(j.data, `with code ${code}`);
+  } catch { backupNote('No connection to the server.'); }
 }
 
 function attackView() {
   const s = setup();
   const atk = atkArmy(), def = defArmy();
   const tinfo = targetInfo();
-  return `
+  return `<div class="lay2 attack"><div class="col">
     <section class="section">
       ${seg('phase', state.phase, [['shooting', 'Shooting'], ['fight', 'Fight']])}
       <div class="card matchup" style="margin-top:10px">
@@ -458,7 +604,8 @@ function attackView() {
     <section class="section"><h2>Attacking units${s.attackers.length > 1 ? ' · resolved in order' : ''}</h2>
       ${s.attackers.map((e, i) => attackerCard(e, i, tinfo)).join('')}
       <button class="btn block" style="margin-top:10px" data-action="open-add">＋ Add attacking unit</button>
-    </section>`;
+    </section></div>
+    ${wide() ? '<aside class="col pane" id="attack-pane" aria-label="Result"></aside>' : ''}</div>`;
 }
 
 // Who is attached to this combat unit, with detach / attach / join controls.
@@ -599,6 +746,8 @@ function attackerCard(e, i, tinfo) {
     chip('amod-toggle', !!m.charged, 'Charged', `data-uid="${e.uid}" data-key="charged"`),
     shooting && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
     shooting && chip('amod-toggle', !!m.overwatch, 'Snap shooting', `data-uid="${e.uid}" data-key="overwatch"`),
+    // 22.05: from a terrain section 3"+ high (or TOWERING within 12") at models on ground level
+    shooting && chip('amod-toggle', !!m.plunging, 'Plunging fire (+1 BS)', `data-uid="${e.uid}" data-key="plunging" title="Plunging Fire: this unit shoots from a terrain section 3 inches or more high (or is TOWERING within 12 inches) at a unit with models on ground level. BS improves by 1."`),
     shooting && hasIndirect && chip('amod-toggle', !!m.indirect, 'Indirect (not visible)', `data-uid="${e.uid}" data-key="indirect"`),
   ].filter(Boolean).join('');
   const nMods = ['hitMod', 'woundMod', 'apMod', 'damageMod', 'attacksMod', 'bsMod'].filter(k => m[k]).length +
@@ -684,6 +833,15 @@ function renderResultViews() {
       <div class="kpi"><b>${pct(r.pWipe)}</b><span>unit destroyed</span></div>
       <div class="kpi"><b>${fx(r.meanWounds)}</b><span>avg damage</span></div>
     </div>`;
+  }
+  // wide screens: the full result sits beside the set-up instead of a bar + sheet
+  const pane = document.getElementById('attack-pane');
+  if (pane) {
+    bar.innerHTML = '';
+    pane.className = `col pane ${state.busy ? 'busy' : ''}`;
+    pane.innerHTML = r && !state.calcError ? resultsSheet() : `<div class="card">${inner}</div>`;
+    if (r) wireChart();
+    return;
   }
   bar.innerHTML = `<div class="resultbar ${state.busy ? 'busy' : ''}"><div class="wrap">${inner}
     <button class="btn primary" data-action="open-results" ${r ? '' : 'disabled'}>Details</button></div></div>`;
@@ -1284,8 +1442,31 @@ app.addEventListener('click', (ev) => {
     if (boardAction(a, el) === 'render') changed();
     return;
   }
+  if (a.startsWith('event-')) {
+    if (eventAction(a, el) === 'render') changed();
+    return;
+  }
   switch (a) {
+    case 'brief-grid':
+      // "every unit vs every unit": my army attacking theirs, from the brief
+      state.side = state.mission?.me ?? 'A';
+      state.sheet = 'grid';
+      startGrid();
+      return renderSheet();
+    case 'backup-save': return void saveBackupFile();
+    case 'backup-send': return void sendBackup();
+    case 'backup-receive': return void receiveBackup();
+    case 'backup-undo':
+      if (window.confirm('Put back what was on this device before the last restore?')) { try { if (undoRestore(localStorage)) location.reload(); } catch (err) { backupNote(`Could not undo (${err?.message ?? err}).`); } }
+      return;
     case 'view':
+      // table mode: the calculator and the board planner are closed — say so on the Play view
+      if (tableMode() && (el.dataset.value === 'attack' || el.dataset.value === 'board')) {
+        state.mission.tableNotice = el.dataset.value;
+        state.view = 'mission';
+        state.sheet = null;
+        return changed({ calc: false });
+      }
       state.view = el.dataset.value;
       state.sheet = null;
       return changed();
@@ -1320,6 +1501,7 @@ app.addEventListener('click', (ev) => {
       state.sheet = 'add';
       return renderSheet();
     case 'open-results':
+      if (document.getElementById('attack-pane')) return;   // already on screen (wide layout)
       state.sheet = 'results';
       state.selBar = null;
       return renderSheet();
@@ -1607,6 +1789,14 @@ document.addEventListener('click', (ev) => {
 
 app.addEventListener('change', (ev) => {
   const el = ev.target;
+  if (el.dataset?.input === 'backup-file') {
+    const file = el.files?.[0];
+    if (!file) return;
+    file.text().then((txt) => { let b = null; try { b = JSON.parse(txt); } catch { /* not JSON */ } restoreBackup(b, `“${file.name}”`); });
+    el.value = '';
+    return;
+  }
+  if (eventChange(el)) return el.dataset.input === 'event-name' ? undefined : changed({ calc: false });
   if (boardChange(el)) return changed({ calc: false });
   const mc = missionChange(el);
   if (mc === 'quiet') return persist();
@@ -1640,10 +1830,12 @@ app.addEventListener('input', (ev) => {
 app.addEventListener('toggle', (ev) => {
   const el = ev.target;
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
+  if (el.dataset?.details === 'backup') state.openBackup = el.open;
+  if (el.dataset?.details === 'event' && state.event) state.event.open = el.open;
+  if (el.dataset?.details?.startsWith('brief-')) (state.briefOpen ??= {})[el.dataset.details.slice(6)] = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   // Mission tab panels stay open while their buttons re-draw the page
-  if (el.dataset?.details === 'mission-assume' && state.mission) state.mission.openAssume = el.open;
-  if (el.dataset?.details?.startsWith('mission-dead-') && state.mission) (state.mission.openDead ??= {})[el.dataset.details.slice(-1)] = el.open;
+  if (el.dataset?.details?.startsWith('mission-') && state.mission) (state.mission.open ??= {})[el.dataset.details] = el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
     if (e) { e.openMods = el.open; persist(); }
@@ -1657,7 +1849,9 @@ restore();
 restoreSaved();
 restoreLibrary();
 initBoard({
-  state, esc, seg, chip, signature: listsSignature,
+  state, esc, seg, chip, signature: listsSignature, wide,
+  // one army's list (for "use my deployment against another opponent")
+  sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
   openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
@@ -1679,12 +1873,19 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
-initMission({ state, esc, seg, chip, pairOdds });
+initMission({ state, esc, seg, chip, pairOdds, wide });
+initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress });
+initBrief({ state, esc, wide });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
 render();
 scheduleCalc();
+
+// ask the browser not to clear the saved lists and plans when the device runs low on space
+if (navigator.storage?.persist && (state.armies.A || state.armies.B)) {
+  navigator.storage.persisted().then(p => p || navigator.storage.persist()).then((p) => { state.persisted = !!p; console.log(`[calc] storage persistent: ${!!p}`); }).catch(() => {});
+}
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   const hadController = !!navigator.serviceWorker.controller;
@@ -1706,4 +1907,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug, event: _eventDebug };

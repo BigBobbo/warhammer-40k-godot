@@ -54,6 +54,13 @@ db.exec(`
     joined_at INTEGER NOT NULL,
     PRIMARY KEY(game_id, player_id)
   );
+
+  -- Combat Calc: a backup on its way from one device to another (kept one hour)
+  CREATE TABLE IF NOT EXISTS calc_transfers (
+    code TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // Migrate: add game_id column to game_saves if it doesn't exist
@@ -164,6 +171,11 @@ const stmts = {
       updated_at = excluded.updated_at
   `),
   deleteArmy: db.prepare('DELETE FROM army_lists WHERE player_id = ? AND army_name = ?'),
+
+  calcPut: db.prepare('INSERT INTO calc_transfers (code, data, created_at) VALUES (?, ?, ?)'),
+  calcGet: db.prepare('SELECT data, created_at FROM calc_transfers WHERE code = ?'),
+  calcPurge: db.prepare('DELETE FROM calc_transfers WHERE created_at < ?'),
+  calcCount: db.prepare('SELECT COUNT(*) AS n FROM calc_transfers'),
 };
 
 // ============================================================================
@@ -420,6 +432,8 @@ async function handleHTTPRequest(req, res) {
         return handleGamePlayerId(req, res);
       case 'games':
         return handleGames(req, res, param, parts[3]);
+      case 'calc-transfer':
+        return handleCalcTransfer(req, res, param);
       default:
         sendError(res, 404, 'Not found');
     }
@@ -440,6 +454,65 @@ function handleHealth(req, res) {
     clients: wss.clients.size,
     uptime: process.uptime(),
   });
+}
+
+// ----------------------------------------------------------------------------
+// Combat Calc: move a backup (lists, plans) from one device to another.
+//   POST /api/calc-transfer          { data: <backup> } -> 201 { code, expires_in }
+//   GET  /api/calc-transfer/<CODE>   -> 200 { data, created_at }
+// A code is 6 characters (no 0/O/1/I/L) and lasts CALC_TRANSFER_TTL_MS (one
+// hour); it can be read more than once in that time (phone and tablet).
+// ----------------------------------------------------------------------------
+const CALC_TRANSFER_TTL_MS = Number(process.env.CALC_TRANSFER_TTL_MS) || 60 * 60 * 1000;
+const CALC_TRANSFER_MAX_ROWS = 500;
+const CALC_TRANSFER_MAX_CHARS = 1500000;
+const CALC_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CALC_CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
+const calcHits = new Map(); // "<ip>|<kind>" -> { n, t }: a small fixed window per client
+function calcLimited(req, kind, max) {
+  const ip = req.headers['fly-client-ip'] || req.socket.remoteAddress || '?';
+  const now = Date.now();
+  if (calcHits.size > 5000) calcHits.clear();
+  const key = `${ip}|${kind}`;
+  let e = calcHits.get(key);
+  if (!e || now - e.t > 10 * 60 * 1000) { e = { n: 0, t: now }; calcHits.set(key, e); }
+  return ++e.n > max;
+}
+
+async function handleCalcTransfer(req, res, code) {
+  const now = Date.now();
+  stmts.calcPurge.run(now - CALC_TRANSFER_TTL_MS);
+  if (req.method === 'POST' && !code) {
+    if (calcLimited(req, 'put', 20)) return sendError(res, 429, 'Too many transfers: try again in a few minutes');
+    let body;
+    try {
+      body = await parseBody(req);
+    } catch (err) {
+      return sendError(res, /too large/i.test(err.message) ? 413 : 400, /too large/i.test(err.message) ? 'Backup too large' : 'Invalid request');
+    }
+    const data = body?.data;
+    if (!data || typeof data !== 'object' || data.format !== 'combat-calc-backup' || typeof data.data !== 'object') return sendError(res, 400, 'Not a Combat Calc backup');
+    const text = JSON.stringify(data);
+    if (text.length > CALC_TRANSFER_MAX_CHARS) return sendError(res, 413, 'Backup too large');
+    if (stmts.calcCount.get().n >= CALC_TRANSFER_MAX_ROWS) return sendError(res, 503, 'Too many transfers waiting: try again later');
+    let made = '';
+    for (let tries = 0; tries < 5 && !made; tries++) {
+      const c = Array.from(require('crypto').randomBytes(6), (b) => CALC_CODE_ALPHABET[b % CALC_CODE_ALPHABET.length]).join('');
+      try { stmts.calcPut.run(c, text, now); made = c; } catch (e) { /* code taken: try another */ }
+    }
+    if (!made) return sendError(res, 500, 'Could not create a code');
+    console.log(`[calc-transfer] stored ${text.length} chars`);
+    return sendJSON(res, 201, { code: made, expires_in: Math.round(CALC_TRANSFER_TTL_MS / 1000) });
+  }
+  if (req.method === 'GET' && code) {
+    if (calcLimited(req, 'get', 40)) return sendError(res, 429, 'Too many tries: wait a few minutes');
+    const c = String(code).toUpperCase();
+    if (!CALC_CODE_RE.test(c)) return sendError(res, 400, 'A code is 6 letters and digits');
+    const row = stmts.calcGet.get(c);
+    if (!row) return sendError(res, 404, 'No backup with this code (a code lasts one hour)');
+    return sendJSON(res, 200, { data: JSON.parse(row.data), created_at: row.created_at });
+  }
+  sendError(res, 405, 'Method not allowed');
 }
 
 function handlePlayers(req, res) {

@@ -72,6 +72,18 @@ test('plan warnings: too-long moves and reserves arriving early in the enemy zon
   assert.ok(w.some(x => x.unit === 'A:ds' && /before round 3/.test(x.msg)), JSON.stringify(w));
 });
 
+test('plan warnings: reserves must arrive more than 8" from enemy units (11e 20.04)', () => {
+  // 32 mm bases: edge gap = centre gap - 1.26"
+  const enemy = unit('B:y', 22, 40, 1), held = unit('A:x', 22, 5, 1);
+  const at = (gap) => [
+    { name: 'Deploy', A: [held], B: [enemy] }, { name: 'Turn 1', A: [held], B: [enemy] },
+    { name: 'Turn 2', A: [held, unit('A:ds', 22, 40 - gap - 1.26, 1)], B: [enemy] },
+  ];
+  assert.ok(!E.planWarnings(at(8.4), GEO).some(w => w.unit === 'A:ds'), '8.4" away is legal');
+  const w = E.planWarnings(at(7.6), GEO);
+  assert.ok(w.some(x => x.unit === 'A:ds' && /more than 8"/.test(x.msg)), JSON.stringify(w));
+});
+
 test('forecast board mode: Behind Enemy Lines and objectives measured from the plan, not rated', () => {
   const army = (names) => F.armyProfile(names.map(n => ({ name: n, models: 5 })));
   const A = army(['a', 'b']), Bp = army(['x']);
@@ -103,4 +115,54 @@ test('forecast board mode: exposure kills units, and dead units stop holding obj
   const r = F.forecast(P);
   // A holds the centre in round 1 and 2 (its turn comes before B's), then the unit is gone
   assert.deepEqual(r.A.prim.map(Math.round), [3, 8, 0, 0, 0]);
+});
+
+test('kill pressure: each unit on its best target, a target cannot lose more than all of its wounds', () => {
+  const pair = {
+    'A:big': { 'B:soft': { sMu: 10, fMu: 2, W: 10 }, 'B:tank': { sMu: 3, fMu: 0, W: 12 } },      // kills soft outright
+    'A:med': { 'B:soft': { sMu: 6, fMu: 0, W: 10 }, 'B:tank': { sMu: 6, fMu: 0, W: 12 } },       // soft is taken: goes to the tank (0.5)
+    'A:melee': { 'B:soft': { sMu: 0, fMu: 4, W: 10 }, 'B:tank': { sMu: 0, fMu: 3, W: 12 } },     // 0.25 on the tank
+    'A:none': {},
+  };
+  const k = E.killPressure(['A:big', 'A:med', 'A:melee', 'A:none'], ['B:soft', 'B:tank'], pair);
+  assert.ok(Math.abs(k.raw - 1.75) < 1e-9, `raw ${k.raw}`);
+  assert.ok(Math.abs(k.rate - 1.75 * E.ENGAGE) < 1e-9, `rate ${k.rate}`);
+  assert.equal(k.by.find(x => x.key === 'A:med').target, 'B:tank');
+  assert.equal(E.killPressure(['A:none'], ['B:soft'], pair).rate, 0.3, 'never below 0.3 units a turn');
+});
+
+test('threat options: what a unit can do from where it stands (range, charge reach), best targets first', () => {
+  const gun = unit('A:gun', 22, 10, 5, { move: 6, ranges: [24], melee: false, points: 100 });
+  const blade = unit('A:blade', 22, 30, 5, { move: 6, ranges: [], melee: true, points: 100 });
+  const near = unit('B:near', 22, 34, 5, { points: 100 }), far = unit('B:far', 22, 58, 5, { points: 300 });
+  const pr = { shoot: 0.2, fight: 0.5, sMu: 4, sSd: 2, fMu: 8, fSd: 3, W: 10 };
+  const pair = { 'A:gun': { 'B:near': pr, 'B:far': pr }, 'A:blade': { 'B:near': pr, 'B:far': pr } };
+  const t = E.threatOptions([gun, blade], [near, far], pair);
+  const g = t.find(x => x.a === 'A:gun'), b = t.find(x => x.a === 'A:blade');
+  // the gun stands still (planned position): 24" reaches "near" (about 23" away), not "far" (about 47")
+  assert.deepEqual(g.opts.map(o => o.t), ['B:near']);
+  assert.ok(Math.abs(g.opts[0].mu - 4) < 1e-9 && Math.abs(g.opts[0].w - 0.2) < 1e-9, JSON.stringify(g.opts[0]));
+  // the blade has no gun: only the charge (about 3" to go: a 2D6 roll of 2+, certain) and the fight
+  assert.equal(b.opts[0].t, 'B:near');
+  assert.ok(Math.abs(b.opts[0].mu - 8) < 1e-6 && Math.abs(b.opts[0].w - 0.5) < 1e-6, JSON.stringify(b.opts[0]));
+});
+
+test('forecast board mode with threats: units attack from their planned positions; dead attackers stop, focus fire kills', () => {
+  const army = (names) => F.armyProfile(names.map(n => ({ name: n, models: 5, points: 100 })));
+  const objs = [{ id: 'o1', cls: 'central', side: null }];
+  const f0 = { objs: [], oc: 5, inEnemyDZ: false, inMyDZ: true, inEnemyDZany: false, outsideDZ: false, outsideTerritory: false, quarter: -1, edges: [], centre3: false, centre6: false, whollyNML: false, terrainOutside: false };
+  const rounds = {}, threats = {};
+  for (let r = 0; r <= 5; r++) rounds[r] = { A: ['a1', 'a2', 'a3'].map(n => ({ name: n, f: f0 })), B: ['b1', 'b2'].map(n => ({ name: n, f: f0 })) };
+  // each A unit removes 4 of b1's 10 wounds (SD 1) and never destroys it alone: three together do
+  const opt = { t: 'b1', mu: 4, v: 1, w: 0, W: 10 };
+  for (let r = 1; r <= 5; r++) threats[r] = { A: { cur: ['a1', 'a2', 'a3'].map(a => ({ a, opts: [opt] })), prev: ['a1', 'a2', 'a3'].map(a => ({ a, opts: [opt] })) }, B: { cur: [], prev: [] } };
+  const P = { players: { A: { mission: 'Meatgrinder', army: army(['a1', 'a2', 'a3']), killRate: 0 }, B: { mission: 'Meatgrinder', army: army(['b1', 'b2']), killRate: 0 } }, objectives: objs, plan: {}, trials: 600, first: 'A', boardPlan: { rounds, threats }, model: { swingSd: 0 } };
+  const r = F.forecast(P);
+  // 12 wounds of damage on a 10-wound unit, SD about 1.7: b1 dies in A's first turn nearly always; b2 is never attacked
+  assert.ok(r.B.unitsLeft[0] < 1.2 && r.B.unitsLeft[4] > 0.95, `B units left ${r.B.unitsLeft}`);
+  // only two attackers planned: 8 wounds of 10 is not enough most turns
+  const two = structuredClone(P);
+  for (let q = 1; q <= 5; q++) for (const k of ['cur', 'prev']) two.boardPlan.threats[q].A[k] = two.boardPlan.threats[q].A[k].slice(0, 2);
+  const r2 = F.forecast(two);
+  assert.ok(r2.B.unitsLeft[0] > 1.7, `two attackers rarely finish it in a turn: ${r2.B.unitsLeft}`);
 });

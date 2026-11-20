@@ -2,6 +2,128 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.99.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: newer points and weapon profiles for 20 factions",
+      "changes": [
+        "The calculator now uses the points and weapon profiles of the newer rules dataset (40kdc 1.5.1, to 14 Oct 2026) for the 20 factions that have no codex import here: 188 units re-pointed and 104 weapons updated (for example bolt weapons at Strength 5, AP -1, and Blast values)",
+        "Space Marines, Space Wolves, Orks and Adeptus Custodes are unchanged: they already use newer codex datasheets (16 and 21 Oct 2026)",
+        "Each army and unit says which data it uses, including that the abilities of refreshed datasheets are still the older ones",
+        "Armies: the 40kdc-data credit and link are shown on the page"
+      ]
+    },
+    {
+      "version": "1.98.1",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: table mode is easier to leave",
+      "changes": [
+        "Table mode: a Leave table mode button at the top of the Play view",
+        "Table mode: tapping Attack or Board now tells you they are closed instead of doing nothing"
+      ]
+    },
+    {
+      "version": "1.98.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: see how current the rules data is, and a points check on your list",
+      "changes": [
+        "Armies: each loaded army now says which rules data its datasheets come from and the date of that data (for example Codex: Space Marines, 21 Oct 2026)",
+        "Armies: a points check compares the points in your pasted list with the rules data, datasheet by datasheet (wargear and enhancements included), and names any that differ — a sign that a datasheet changed after the data was made",
+        "Intel: every unit shows the date of its datasheet, with a warning on units whose points differ",
+        "Mission: the list of what the forecast is built from now includes the datasheet dates of both armies"
+      ]
+    },
+    {
+      "version": "1.97.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: table tools — clock, command points, score sheet, undo, table mode",
+      "changes": [
+        "Mission > Play: command points for both players (1CP each is added at every Turn done; +1CP for a discard, at most once a battle round; a reminder of the once-per-battle 1CP card swap)",
+        "Play: a clock — a round timer that tells you if the game is on pace against the Games Workshop Grand Tournament milestones, or a chess clock (1:25 each by default) that passes with Turn done; it keeps running if the app reloads and shows on the pinned line",
+        "Play: Undo for the last 30 changes (scores, cards, turns, destroyed units, even New game)",
+        "Play: a score sheet by battle round, filled in from what you enter each turn, and a line showing what was scored this turn",
+        "Play: a turn checklist in rules order with both primary missions, and the battle now ends after round 5 with the final score",
+        "Play: tap a card in your hand to read its rules; the app works out who went first from the first Turn done",
+        "Table mode: one switch that leaves only the tracker (no forecast, card advice, calculator or board planner) for events that do not allow decision aids during a game",
+        "The screen stays on while the Play view is open (can be switched off)",
+        "Tablets: the turn bar runs across the top with both players side by side under it"
+      ]
+    },
+    {
+      "version": "1.96.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: Fixed or Tactical? and advice for the cards in your hand",
+      "changes": [
+        "Mission > Cards: a new Fixed or Tactical? table compares Tactical with every pair of Fixed cards that has targets in the enemy army (average secondary VP and your win chance), best first, with a Use button",
+        "Mission > Play: every card in your hand now says how often it still scores from here and what it is worth, and warns when a card is unlikely (discard for 1CP) or has no targets left",
+        "Play: the tracker counts the cards you drew this turn, so the forecast no longer draws two extra cards for the turn in progress",
+        "Fix: units you mark as destroyed on the Play view now leave that army in the forecast (they were ignored before, so a mid-game forecast was too kind to the losing side)",
+        "Forecast rules fix: Assassination drawn after every enemy CHARACTER has been destroyed now scores its 5 VP (the forecast used to throw the card away)",
+        "Fix for narrow phones (360 px wide): the five tabs and the card table no longer push the page wider than the screen",
+        "Reminder on the Play view: once per battle you can pay 1CP at the end of your Command phase to swap a card",
+        "Warning text is darker on the light theme, so it can be read in bright rooms"
+      ]
+    },
+    {
+      "version": "1.95.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: set up an event once — opponents' lists, the layout of each round, one tap to start a round, an automatic matchup brief, and your deployment reused",
+      "changes": [
+        "Armies tab, Event: paste every list you may face (one or many at once) and set the layout letter (A / B / C) of each round. Each opponent shows your primary, their primary and the three deployments that pairing gives",
+        "Start a round with one tap: the opponent becomes army B, the board gets that round's layout and you land on the matchup brief",
+        "Matchup brief (top of the Intel tab): the missions and deployment, the forecast headline, their biggest threats to your units with how far they reach, your best attack on each of their big units, dead secondary cards, units worth secondary VP, and the stratagems they can use in your turn",
+        "Board: when you meet a new opponent on a layout you already planned with the same list, it offers your deployment again (Use my deployment); a preparation table shows which layouts you have planned",
+        "Layouts are now named A / B / C, as in the event packs (were 1 / 2 / 3)",
+        "Fixed: for a moment after a change the attack result could show the old number as if it were current"
+      ]
+    },
+    {
+      "version": "1.94.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: back up your lists and plans, and move them between phone, tablet and laptop with a code",
+      "changes": [
+        "Armies tab, Backup and other devices: save everything (lists, the list library, board plans, the mission plan and estimates, a game in progress) to one backup file, and restore it later",
+        "Send to another device: get a 6-character code, type it on your tablet or phone and everything is copied over (a code works for one hour)",
+        "Restoring first shows what the backup holds and asks before it replaces anything; one Undo brings back what was on the device",
+        "The app asks the browser to keep its saved data when the device runs low on space"
+      ]
+    },
+    {
+      "version": "1.93.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: easier to find things — Mission split into Plan, Cards and Play, the map first on the Board tab, and two panes on a tablet",
+      "changes": [
+        "Mission tab: three views instead of one long page — Plan (forecast, objective plan, what-ifs), Cards (the secondary deck against this army) and Play (the game on the table). The forecast headline stays pinned at the top of all three",
+        "Play view: +1 / +5 score buttons, each card in hand shows what it can pay (tap +3 or +5 and it is added to your secondary VP), a Turn done button that moves to the other player and the next battle round",
+        "Board tab: the map is now the first thing on the page, with the units still to place in one swipeable line above it. Tap a unit and its main actions (ranges, gap, Shoot, Fight) stay pinned at the bottom of the screen, so the map does not scroll away",
+        "Tablet and laptop (900 px and wider): two panes — map with its controls beside it, forecast beside the objective plan, attack set-up beside the full result, army lists side by side",
+        "Phone page lengths: Mission 4.8 screens down to about 2 per view; Board 2.1 down to 1.6"
+      ]
+    },
+    {
+      "version": "1.92.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: the game forecast is rebuilt so you can trust it — it knows which army is stronger and is checked against real 11th edition tournament results",
+      "changes": [
+        "The forecast now follows what is left of each army: destroyed units hold nothing and score nothing, and a shrinking army destroys less. A 2,000-point list against a much smaller one is no longer a coin flip",
+        "Units destroyed per turn come from the attack calculator for your two lists (each unit attacking its best target, tough units last longer); you can still set your own rate",
+        "Results are as wide as real games: the forecast is checked against 94,739 real 11th edition tournament scores (average 77 VP, average winning margin 30 VP)",
+        "Cards that depend on where units are now start from how often tournament players scored the equivalent card (18,790 recorded games) instead of a flat 50%, and each card shows those numbers; your own estimate still wins",
+        "New on the forecast: units left by battle round and the chance each army is wiped out, your win chance going first and going second, a \"Who is the stronger player?\" setting, and \"What this forecast is built from\" (rules, your input, the calculator, real games, assumptions)",
+        "Objectives are checked at the end of every turn (the player who just moved has the edge), cards worth less than their maximum are held for a better turn, and board plans use what each unit can attack from where it stands"
+      ]
+    },
+    {
+      "version": "1.91.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: four rules corrections found in a full review against the 11th edition rules and the Event Companion",
+      "changes": [
+        "Forecast: primary VP scored at the end of the battle are no longer cut by the 15 VP per round limit (Event Companion ruling); they show in their own End column",
+        "Attack calculator: new Plunging fire chip (+1 BS when shooting from a terrain section 3\" or more high at models on ground level)",
+        "Board plans: units arriving from reserves are checked against the 11th edition distance (more than 8\" from enemy units, was 9\")",
+        "Mission tracker: the note on discarding cards now says what the rules say (discard at the end of your own turn to gain 1CP)"
+      ]
+    },
+    {
       "version": "1.90.1",
       "date": "2026-11-20",
       "summary": "Combat Calc: tap the \"VP if drawn\" number to set your own estimate",

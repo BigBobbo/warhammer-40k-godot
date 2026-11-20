@@ -5,8 +5,11 @@
 // Rules used by the forecast (forecast.mjs):
 //  - Tactical: draw 2 face-up at the start of your Command phase; no hand
 //    limit. Once per battle (end of your Command phase) pay 1CP to swap one.
-//    End of each turn: score any active card whose conditions are met (then it
-//    is discarded); on your turn you may discard cards for 1CP.
+//    End of each player's turn (both players check): score any active card
+//    whose conditions are met (it is then discarded). Then, on your own turn,
+//    you may discard one or more active cards to GAIN 1CP (events: at most
+//    1CP per battle round from anything other than the Core CP).
+//    VP scored "at the end of the battle" ignore the 15 VP per round limit.
 //  - Fixed: 2 of the FIXED cards, never discarded, max 20 VP per card.
 //  - Caps: primary 45 (15 per battle round), secondary 45 (15 per battle
 //    round), Battle Ready 10. Five battle rounds.
@@ -78,7 +81,41 @@ export const SECONDARIES = [
 // higher tier, the "max 5VP" cap, or 3 + 2 for Defend Stronghold), and the
 // per-game cap for a FIXED card.
 for (const c of SECONDARIES) { c.max = 5; if (c.fixed) c.fixedMax = RULES.fixedCardCap; }
+// The VP a tactical card can pay when it is scored (for the in-game tracker's
+// "+3 / +5" buttons): per-unit and tiered cards have more than one value.
+const VPS = {
+  beacon: [3, 5], 'behind-enemy-lines': [3, 5], 'burden-of-trust': [2, 4, 5], 'centre-ground': [3, 5], cleanse: [2, 5],
+  'defend-stronghold': [3, 5], 'display-of-might': [2, 5], 'engage-on-all-fronts': [3, 5], 'no-prisoners': [2, 4, 5],
+  outflank: [3, 5], 'overwhelming-force': [3, 5],
+};
+for (const c of SECONDARIES) c.vps = VPS[c.id] ?? [5];
 export const SECONDARY_BY_ID = Object.fromEntries(SECONDARIES.map(c => [c.id, c]));
+
+// Real-game scoring rates of the equivalent 10th edition card: the share of
+// draws in which the card was scored in the battle round it was drawn, for
+// rounds 1 to 5. Source: Tabletop Battles app data, 18,790 games of the
+// Leviathan GT pack (Goonhammer "Hammer of Math: 10th Edition Secondary
+// Objective Statistics", August 2023, chart "Secondary Odds, By Battle Round").
+// No 11th edition per-card statistics are public (checked 2026-11-20), and the
+// 11th edition cards are not identical, so the app shows these as a reference
+// and uses them only as the default for cards that depend on where units are.
+// Cards without an equivalent (Beacon, Outflank, Burden of Trust, Display of
+// Might, Plunder, A Grievous Blow) are absent.
+export const REAL_RATES_SOURCE = '18,790 recorded 10th edition games, Tabletop Battles 2023';
+export const REAL_RATES = {
+  'secure-no-mans-land': { like: 'Secure No Man’s Land', by: [0.82, 0.87, 0.84, 0.79, 0.78] },
+  'no-prisoners': { like: 'No Prisoners', by: [0.53, 0.83, 0.81, 0.77, 0.64] },
+  'centre-ground': { like: 'Area Denial', by: [0.62, 0.64, 0.60, 0.60, 0.65] },
+  'cleanse': { like: 'Cleanse', by: [0.69, 0.67, 0.62, 0.68, 0.73] },
+  'engage-on-all-fronts': { like: 'Engage on All Fronts', by: [0.48, 0.73, 0.70, 0.63, 0.67] },
+  'defend-stronghold': { like: 'Defend Stronghold', by: [null, 0.67, 0.62, 0.62, 0.88] },
+  'overwhelming-force': { like: 'Overwhelming Force', by: [0.33, 0.65, 0.66, 0.60, 0.51] },
+  'bring-it-down': { like: 'Bring It Down', by: [0.37, 0.63, 0.58, 0.48, 0.39] },
+  'assassination': { like: 'Assassination', by: [0.20, 0.49, 0.56, 0.55, 0.52] },
+  'a-tempting-target': { like: 'A Tempting Target', by: [0.48, 0.49, 0.41, 0.38, 0.47] },
+  'behind-enemy-lines': { like: 'Behind Enemy Lines', by: [0.14, 0.55, 0.63, 0.63, 0.69] },
+  'forward-position': { like: 'Storm Hostile Objective', by: [0, 0.62, 0.61, 0.57, 0.53] },
+};
 export const FIXED_IDS = SECONDARIES.filter(c => c.fixed).map(c => c.id);
 
 // Primary missions: name -> scoring summary + which inputs drive it.

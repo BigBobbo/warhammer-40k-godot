@@ -132,9 +132,80 @@ export function exposure(targets, attackers, pair) {
 }
 
 /**
+ * Kill pressure: how many enemy units an army destroys in a turn, from the
+ * calculator. Each unit attacks the target it damages most (shooting, or a
+ * fight if that is better; default rules, no stratagems); the shares of the
+ * targets' wounds removed are added up (a target cannot lose more than all of
+ * its wounds). That is the army's damage "on paper" with everything in reach;
+ * ENGAGE is the share of it an army delivers in a typical turn (range, line of
+ * sight, charges that fail, units busy holding objectives). ENGAGE is set so
+ * that typical 2,000-point lists come out near 1.3 units a turn, the rate the
+ * forecast is calibrated at (tests/calc-calibration.test.mjs).
+ * pair[atkKey][defKey] = { sMu, fMu, W } (mean wounds by shooting / fighting, target wounds)
+ * -> { raw, rate, by: [{ key, target, frac }] }
+ */
+export const ENGAGE = 0.3;
+export function killPressure(attackerKeys, targetKeys, pair) {
+  const taken = Object.fromEntries(targetKeys.map(k => [k, 0]));
+  const best = (a) => {
+    let top = null;
+    for (const t of targetKeys) {
+      const pr = pair?.[a]?.[t];
+      if (!pr || !(pr.W > 0)) continue;
+      const frac = Math.min(1, Math.max(pr.sMu ?? 0, pr.fMu ?? 0) / pr.W);
+      const gain = Math.min(frac, 1 - taken[t]);
+      if (!top || gain > top.gain) top = { t, frac, gain };
+    }
+    return top;
+  };
+  // the hardest hitters choose first
+  const order = attackerKeys.map(a => ({ a, top: best(a) })).filter(x => x.top).sort((x, y) => y.top.frac - x.top.frac);
+  const by = [];
+  let raw = 0;
+  for (const { a } of order) {
+    const top = best(a);
+    if (!top || top.gain <= 0) { by.push({ key: a, target: null, frac: 0 }); continue; }
+    taken[top.t] += top.gain; raw += top.gain;
+    by.push({ key: a, target: top.t, frac: top.gain });
+  }
+  return { raw, rate: Math.max(0.3, Math.min(3.5, raw * ENGAGE)), by };
+}
+
+/**
+ * Board plan: what each attacker can do to each target from where it stands
+ * (planned positions are after the move: no extra move). For each attacker the
+ * best three targets, by share of the target destroyed x its points.
+ * pair[atkKey][defKey] = { shoot, fight (P destroyed alone), sMu, sSd, fMu, fSd, W }
+ * -> [{ a: attackerName, opts: [{ t: targetName, mu, v, w, W }] }]
+ *    mu / v = mean and variance of the wounds it removes, w = P(it destroys the target alone)
+ */
+export function threatOptions(attackers, targets, pair, top = 3) {
+  const out = [];
+  for (const a of attackers) {
+    const opts = [];
+    for (const t of targets) {
+      const pr = pair?.[a.key]?.[t.key];
+      if (!pr || !(pr.W > 0)) continue;
+      const th = threatTo(a, t, { move: 0, ranges: a.ranges ?? [], melee: !!a.melee });
+      const sh = th.shoot ? 1 : 0, ch = th.charge ?? 0;
+      const mu = sh * (pr.sMu ?? 0) + ch * (pr.fMu ?? 0);
+      if (mu <= 0) continue;
+      // variance: the shooting roll, plus the fight (which only happens if the charge is made)
+      const v = sh * (pr.sSd ?? 0) ** 2 + ch * (pr.fSd ?? 0) ** 2 + ch * (1 - ch) * (pr.fMu ?? 0) ** 2;
+      const w = 1 - (1 - sh * (pr.shoot ?? 0)) * (1 - ch * (pr.fight ?? 0));
+      opts.push({ t: t.name, mu, v, w, W: pr.W, value: Math.min(1, mu / pr.W) * Math.max(1, t.points ?? 1) });
+    }
+    opts.sort((x, y) => y.value - x.value);
+    if (opts.length) out.push({ a: a.name, opts: opts.slice(0, top).map(({ value, ...o }) => o) });
+  }
+  return out;
+}
+
+/**
  * Plan sanity: moves between consecutive steps longer than the unit can
  * make (normal move + advance or + charge), and reserves arriving in the
- * enemy deployment zone before round 3 or within 9" of enemy units.
+ * enemy deployment zone before round 3 or not more than 8" from enemy units
+ * (11e 20.04 Ingress move).
  * steps: [{ name, A: [unit], B: [unit] }] in order; -> [{ step, side, unit, msg }]
  */
 export function planWarnings(steps, geo) {
@@ -154,8 +225,8 @@ export function planWarnings(steps, geo) {
           const round = i; // step i = battle round i
           const ms = abs(u);
           if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives in the enemy deployment zone before round 3 (not allowed in 11e)' });
-          const near = (steps[i][Y] ?? []).some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r < 9)));
-          if (near) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives within 9" of an enemy unit' });
+          const near = (steps[i][Y] ?? []).some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r <= 8)));
+          if (near) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives within 8" of an enemy unit (it must be more than 8" away)' });
         }
       }
     }

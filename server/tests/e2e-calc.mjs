@@ -128,6 +128,18 @@ try {
   check('half range raises expected kills', after > before, `${before} -> ${after}`);
   await page.screenshot({ path: join(SHOTS, 'calc_02_attack.png'), fullPage: false });
 
+  // --- "Plunging fire" (22.05, +1 BS from a tall terrain section): more hits; off again afterwards
+  const plungeChip = page.locator('[data-attacker]').first().locator('button[data-key="plunging"]');
+  await plungeChip.tap();
+  await settle(page);
+  const plunged = await page.evaluate(() => ({ kills: window.__calc.state.result.meanKills, hits: window.__calc.state.result.steps.hits }));
+  const hitsBefore = (await page.evaluate(() => window.__calc.scenario())).attackers[0].mods.plunging;
+  check('plunging fire chip is on in the scenario and raises expected kills', hitsBefore === true && plunged.kills > after, `${after} -> ${plunged.kills}`);
+  await page.screenshot({ path: join(SHOTS, 'calc_36_plunging_fire.png'), fullPage: false });
+  await plungeChip.tap();
+  await settle(page);
+  check('plunging fire off: back to the half-range result', Math.abs((await page.evaluate(() => window.__calc.state.result.meanKills)) - after) < 1e-9);
+
   // --- results sheet
   await page.tap('button[data-action="open-results"]');
   await page.waitForSelector('.sheet #chart svg');
@@ -197,7 +209,7 @@ try {
   // --- Intel tab: enemy cheat sheet, search, jump to target
   await page.tap('button[data-action="view"][data-value="intel"]');
   await page.waitForSelector('#intel-list');
-  check('intel opens on the defending army (Orks)', (await page.locator('.card .title').first().textContent()) === 'Orks');
+  check('intel opens with the matchup brief, then the defending army (Orks)', (await page.locator('.card .title').first().textContent()) === 'Matchup brief' && (await page.locator('.card:not(.brief-card) .title').first().textContent()) === 'Orks');
   check('intel lists the detachment rule', (await page.locator('summary', { hasText: 'Detachment rule' }).count()) === 1);
   await page.fill('input[data-input="intel-search"]', 'meganob');
   check('search narrows to Meganobz', (await page.locator('#intel-list .intel-unit').count()) === 1);
@@ -495,7 +507,9 @@ try {
   p0 = await toScreen(bGh2.x, bGh2.y);
   await page.mouse.click(p0.x, p0.y);
   check('tap selects the unit', (await page.evaluate(() => window.__calc.board().sel)) === bGh.tk);
-  await page.locator('button[data-action="board-ring"]', { hasText: 'Range 24"' }).tap();
+  // the selected unit's actions are pinned at the bottom of the phone screen: the map stays put
+  check('phone: a dock with the selected unit\'s actions is pinned to the bottom, map still in view', (await page.isVisible('#board-dock .dock-in')) && (await page.evaluate(() => window.scrollY)) < 200 && /Grey Hunters/.test(await page.textContent('#board-dock')));
+  await page.locator('#board-dock button[data-action="board-ring"]', { hasText: 'Range 24"' }).tap();
   check('24" range ring drawn', (await page.locator('#board-svg [data-ring="r24"]').count()) === 1);
   // tap the Boyz: gap + Shoot -> calculator with that distance
   const b0 = await toScreen(bBoyz.x, bBoyz.y);
@@ -664,7 +678,6 @@ try {
 
   // --- line of sight + cover (11e terrain on the map), danger zones, threats, turn chain
   await page.tap('button[data-action="board-photo-map"][data-value="map"]');
-  if ((await page.locator('details[data-details="board-tray"]').getAttribute('open')) === null) await page.locator('details[data-details="board-tray"] > summary').tap();
   await page.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Meganobz' }).tap();
   const mnTk = (await tokens()).find(t => t.tk.startsWith('B:') && t.tk !== bBoyz.tk).tk;
   // find one spot where the Meganobz are hidden from the Grey Hunters behind terrain, and one in plain sight
@@ -742,8 +755,25 @@ try {
   check('caps respected (each player at most 100 VP; 15 per round per source)', ['A', 'B'].every(X => mi.result[X].p90 <= 100 && mi.result[X].prim.every(v => v <= 15) && mi.result[X].sec.every(v => v <= 15)));
   check('what-ifs listed (objectives, trading)', (await page.locator('#fc-levers tbody tr').count()) >= 4);
   await page.screenshot({ path: join(SHOTS, 'calc_27_mission_forecast.png') });
-  // plan: give A the centre from round 2 -> A's chance goes up
+  // the forecast knows the armies: the 2,000-point list is the clear favourite over the 665-point one,
+  // and its units destroyed per turn come from the calculator
+  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
+  await page.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 120000 });
+  mi = await page.evaluate(() => window.__calc.mission());
+  check('units destroyed per turn come from the calculator for both armies', mi.killRate.A.from === 'calc' && mi.killRate.B.from === 'calc' && mi.killRate.A.rate > mi.killRate.B.rate && mi.params.players.A.killRate === null && !!mi.params.fracs,
+    JSON.stringify(mi.killRate));
+  check('units left by round and wipe-out chance are shown', (await page.locator('#fc-units tbody tr').count()) === 2 && mi.result.B.pTabled > mi.result.A.pTabled && mi.result.B.unitsLeft[4] < mi.result.B.unitsLeft[0]);
+  check('first / second turn split is shown for a roll-off', /going first/.test(await page.textContent('#fc-first')));
+  await page.locator('#fc-basis summary').tap();
+  const basis = await page.textContent('#fc-basis');
+  check('"What this forecast is built from" names rules, your input, the calculator, real games and assumptions',
+    ['Rules', 'Your input', 'Calculator', 'Real games', 'Assumption'].every(k => basis.includes(k)) && /94,739 real 11th edition/.test(basis) && /18,790 recorded 10th edition games/.test(basis), basis.slice(0, 200));
+  await page.locator('#fc-basis').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_37_forecast_basis.png') });
+  await page.locator('#fc-win').scrollIntoViewIfNeeded();
+  // plan: give A the centre from round 2 -> A scores more primary than B by a wider gap
   const winBefore = mi.result.pWinA;
+  const gapBefore = mi.result.A.primMean - mi.result.B.primMean;
   const centre = mi.objectives.find(o => o.cls === 'central').id;
   for (let r = 2; r <= 5; r++) {
     // cycle the cell until it shows A
@@ -751,15 +781,68 @@ try {
       await page.tap(`button[data-action="mission-plan"][data-r="${r}"][data-o="${centre}"]`);
     }
   }
-  await page.waitForFunction((w) => { const m = window.__calc.mission(); return m.result && !m.busy && m.result.pWinA > w + 0.05; }, winBefore, { timeout: 60000 });
-  check('holding the centre in the plan raises the win chance', true);
-  // secondary card sheet
-  await page.locator('#mission-cards').scrollIntoViewIfNeeded();
+  await page.waitForFunction((c) => { const m = window.__calc.mission(); return m.result && !m.busy && [2, 3, 4, 5].every(r => m.params.plan[r][c] === 'A'); }, centre, { timeout: 60000 });
+  await page.waitForTimeout(400);
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+  {
+    // (this matchup is one-sided already, so the effect is small here; the size of the effect in an
+    // even game is checked in tests/calc-forecast.test.mjs "plan uncertainty")
+    const fcAfter = await page.evaluate(() => window.__calc.mission().result);
+    check('the plan change reaches the forecast: A\'s primary lead does not shrink, win chance holds', fcAfter.A.primMean - fcAfter.B.primMean > gapBefore - 0.3 && fcAfter.pWinA >= winBefore - 0.02,
+      `primary gap ${gapBefore.toFixed(1)} -> ${(fcAfter.A.primMean - fcAfter.B.primMean).toFixed(1)}, win ${winBefore.toFixed(2)} -> ${fcAfter.pWinA.toFixed(2)}`);
+  }
+  // the forecast headline stays pinned in every Mission view
+  check('Mission has Plan / Cards / Play views with the forecast headline pinned', (await page.locator('#mission-top .seg button[data-action="mission-tab"]').count()) === 3 && /you win/.test(await page.textContent('#fc-mini')));
+  // secondary card sheet (Cards view)
+  await page.tap('button[data-action="mission-tab"][data-value="cards"]');
+  await page.waitForSelector('#mission-cards tr.card-row');
+  check('Cards view keeps the headline and starts at the top', /you win/.test(await page.textContent('#fc-mini')) && (await page.evaluate(() => window.scrollY)) < 5);
   check('card sheet lists all 18 secondaries', (await page.locator('#mission-cards tr.card-row').count()) === 18);
   await page.tap('#mission-cards button[data-action="mission-card"][data-id="behind-enemy-lines"]');
   check('tapping a card shows its rules text', /deployment zone/.test(await page.textContent('#mission-cards tr.card-detail')));
   check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
   await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
+  {
+    // Fixed or Tactical? (chosen in secret before deployment): Tactical and every pair of Fixed cards that has
+    // targets in this enemy army, best first, with what each does to the secondary score and the win chance
+    await page.waitForSelector('#fc-modes tbody tr', { timeout: 120000 });
+    const readModes = () => page.evaluate(() => [...document.querySelectorAll('#fc-modes tbody tr, #fc-modes-all tbody tr')].map(r => ({ key: r.dataset.mode, sec: parseFloat(r.children[1].textContent), chosen: /Chosen/.test(r.textContent) })));
+    const modes = await readModes();
+    check('Fixed or Tactical: Tactical and each pair of live Fixed cards, best first, my choice marked', modes.some(x => x.key === 'mode:tactical' && x.chosen) && modes.length >= 2
+      && modes.every((x, i) => i === 0 || x.sec <= modes[i - 1].sec) && modes.every(x => x.sec >= 0 && x.sec <= 45) && /Tactical|Fixed/.test(await page.textContent('#mode-verdict')), JSON.stringify(modes));
+    check('Fixed or Tactical: only the best two are on the page, the other pairs are behind a fold', (await page.locator('#fc-modes tbody tr').count()) === Math.min(2, modes.length)
+      && (modes.length <= 2 || !(await page.locator('#fc-modes-all').isVisible())));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: join(SHOTS, 'calc_48_fixed_or_tactical.png') });
+    // "Use" on a Fixed pair takes those two cards (the table stays: it does not depend on what is chosen now)
+    const pair = modes.find(x => x.key !== 'mode:tactical');
+    const useBtn = page.locator(`tr[data-mode="${pair.key}"] button[data-action="mission-mode-use"]`);
+    if (!(await useBtn.isVisible())) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await useBtn.tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    const took = await page.evaluate(() => ({ modes: window.__calc.state.mission.modes.A, sec: window.__calc.mission().result.A.secMean }));
+    check('Fixed or Tactical: "Use" takes that pair as my Fixed cards and the forecast follows the table', took.modes.mode === 'fixed' && `mode:${took.modes.fixed.join('+')}` === pair.key
+      && Math.abs(took.sec - pair.sec) < 2.5 && (await readModes()).find(x => x.key === pair.key)?.chosen === true, JSON.stringify({ took, pair }));
+    const tacBtn = page.locator('tr[data-mode="mode:tactical"] button[data-action="mission-mode-use"]');
+    if (!(await tacBtn.isVisible())) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await tacBtn.tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    check('Fixed or Tactical: back to Tactical', await page.evaluate(() => window.__calc.state.mission.modes.A.mode === 'tactical'));
+    if (await page.evaluate(() => document.querySelector('details[data-details="mission-modes"]')?.open)) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+  {
+    // position cards: the default is the real-game rate of the equivalent card, or "no data" — never a silent guess
+    const cg = await page.textContent('#mission-cards tr.card-row[data-card="centre-ground"]');
+    const bc = await page.textContent('#mission-cards tr.card-row[data-card="beacon"]');
+    check('position cards show where their default comes from (real-game rate / no data)', /Real-game rate/.test(cg) && /No data/.test(bc), `${cg} | ${bc}`);
+    await page.tap('#mission-cards button[data-action="mission-card"][data-id="centre-ground"]');
+    const det = await page.textContent('#mission-cards tr.card-detail');
+    check('card details quote the real-game numbers and their source', /Area Denial card was scored 62% \/ 64% \/ 60% \/ 60% \/ 65%/.test(det) && /18,790 recorded 10th edition games/.test(det), det.slice(0, 300));
+    await page.waitForFunction(() => !window.__calc.mission().busy, null, { timeout: 60000 });
+    await page.locator('#mission-cards tr.card-detail').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_38_card_real_rate.png') });
+  }
   // your own estimate of a card's VP if drawn (max shown), and the Assumptions buttons work
   // the VP-if-drawn number itself is the control: pick 3 for Assassination, then back to the app's
   const estPick = '#mission-cards tr.card-row[data-card="assassination"] select[data-input="mission-est-pick"]';
@@ -770,10 +853,18 @@ try {
     && /Your estimate/.test(await page.textContent('#mission-cards tr.card-row[data-card="assassination"]')));
   await page.locator(estPick).scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_34_card_estimate_pick.png') });
+  // (the app re-draws itself when the screen crosses the two-pane width)
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.waitForTimeout(400);
   await page.locator(estPick).scrollIntoViewIfNeeded();
+  check('wide screen: the Cards view is two panes (sheet left; Fixed or Tactical, keep-ready and hit list right)', await page.evaluate(() => {
+    const a = document.querySelector('.mlay.cards .a-sheet').getBoundingClientRect(), b = document.querySelector('.mlay.cards .a-mode').getBoundingClientRect(), c = document.querySelector('.mlay.cards .a-side').getBoundingClientRect();
+    return b.left > a.right - 2 && Math.abs(a.top - b.top) < 40 && a.width > 400 && b.width > 400 && c.top >= b.bottom - 2 && Math.abs(c.left - b.left) < 2;
+  }));
+  check('phone order is kept in the markup: Fixed or Tactical first, then the sheet', await page.evaluate(() => getComputedStyle(document.querySelector('.a-mode')).order === '1' && getComputedStyle(document.querySelector('.a-sheet')).order === '2'));
   await page.screenshot({ path: join(SHOTS, 'calc_35_card_estimate_pick_laptop.png') });
   await page.setViewportSize({ width: 412, height: 839 });
+  await page.waitForTimeout(400);
   await page.selectOption(estPick, '');
   check('picking "app" goes back to the app\'s estimate', await page.evaluate(() => window.__calc.state.mission.est[window.__calc.state.mission.me].assassination === undefined));
   await page.tap('#mission-cards button[data-action="mission-card"][data-id="assassination"]');
@@ -786,28 +877,98 @@ try {
   await page.screenshot({ path: join(SHOTS, 'calc_33_card_estimate.png') });
   await page.tap('#mission-cards button[data-action="mission-est-auto"][data-id="assassination"]');
   check('"Use the app\'s" clears your estimate', await page.evaluate(() => window.__calc.state.mission.est[window.__calc.state.mission.me].assassination === undefined));
+  await page.tap('button[data-action="mission-tab"][data-value="plan"]');
   await page.locator('details.more summary', { hasText: 'Assumptions' }).tap();
   await page.tap('button[data-action="mission-mode"][data-value="fixed"]');
   await page.tap('button[data-action="mission-kills"][data-value="2"]');
   const asm = await page.evaluate(() => ({ mode: window.__calc.state.mission.modes.A.mode, kills: window.__calc.state.mission.killRate.A }));
   check('Assumptions buttons change the setting (Fixed, trading)', asm.mode === 'fixed' && asm.kills === 2, JSON.stringify(asm));
   await page.tap('button[data-action="mission-mode"][data-value="tactical"]');
-  await page.tap('button[data-action="mission-kills"][data-value="1.3"]');
+  {
+    // a manual rate replaces the calculator's; "Auto" brings it back
+    const manual = await page.evaluate(() => window.__calc.mission().params.players.A.killRate);
+    await page.tap('.modrow[data-side="A"] button[data-action="mission-kills"][data-value="auto"], button[data-action="mission-kills"][data-value="auto"]');
+    const auto = await page.evaluate(() => ({ kr: window.__calc.mission().params.players.A.killRate, auto: window.__calc.state.mission.killAuto.A, label: document.querySelector('button[data-action="mission-kills"][data-value="auto"]').textContent }));
+    check('units destroyed per turn: your own rate (2) replaces the calculator; Auto restores it and shows its number', manual === 2 && auto.kr === null && auto.auto === true && /Auto \d\.\d/.test(auto.label), JSON.stringify({ manual, auto }));
+    // who is the stronger player
+    await page.tap('button[data-action="mission-edge"][data-value="-0.43"]');
+    const edged = await page.evaluate(() => window.__calc.mission().params.edge);
+    await page.tap('button[data-action="mission-edge"][data-value="0"]');
+    check('"Who is the stronger player?" sets the forecast edge (Opp ++ = -0.43 for me = A)', edged === -0.43 && (await page.evaluate(() => window.__calc.mission().params.edge)) === 0, String(edged));
+  }
 
-  // in-game tracker: A drew Assassination and Secure No Man's Land in round 2, scored one; primary 9
+  // Play view (in-game tracker): A drew Assassination and Secure No Man's Land in round 2, scored one for 5; primary 9
+  await page.tap('button[data-action="mission-tab"][data-value="play"]');
+  await page.waitForSelector('#play-bar');
   await page.tap('button[data-action="mission-round"][data-value="2"]');
   await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
   await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'secure-no-mans-land');
-  check('drawn cards show as active', (await page.locator('#hand-A .chip').count()) === 2);
-  await page.tap('#hand-A button[data-id="assassination"][data-do="scored"]');
-  await page.fill('input[data-input="mission-score"][data-side="A"][data-k="primary"]', '9');
-  await page.fill('input[data-input="mission-score"][data-side="A"][data-k="secondary"]', '5');
-  await page.locator('#mission-names').tap();
-  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 9 && m.game.A.secondary === 5 && m.result.A.prim[0] === 0; }, null, { timeout: 60000 });
-  check('both score boxes keep what was typed (no re-render between them)', (await page.inputValue('input[data-input="mission-score"][data-side="A"][data-k="secondary"]')) === '5');
+  await page.selectOption('select[data-input="mission-draw"][data-side="A"]', 'no-prisoners');
+  check('drawn cards show in hand with what each can pay (No Prisoners: +2 / +4 / +5)', (await page.locator('#hand-A .hand-row').count()) === 3
+    && (await page.locator('#hand-A .hand-row[data-card="no-prisoners"] button[data-do="scored"]').allTextContents()).join() === '+2,+4,+5');
+  await page.tap('#hand-A .hand-row[data-card="assassination"] button[data-do="scored"][data-vp="5"]');
+  await page.tap('#hand-A .hand-row[data-card="no-prisoners"] button[data-do="discard"]');
+  check('scoring a card adds its VP to the secondary score; a discard adds nothing', (await page.inputValue('input[data-input="mission-score"][data-side="A"][data-k="secondary"]')) === '5');
+  // steppers: +5 +1 +1 +1 +1 = 9 primary; typing still works without a re-draw between boxes
+  await page.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+  for (let i = 0; i < 5; i++) await page.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="1"]');
+  await page.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="-1"]');
+  check('score steppers (+5, +1, -1) and the running total', (await page.inputValue('input[data-input="mission-score"][data-side="A"][data-k="primary"]')) === '9' && (await page.textContent('#play-total-A')).trim() === '24');
+  await page.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '4');
+  await page.fill('input[data-input="mission-score"][data-side="B"][data-k="secondary"]', '3');
+  await page.locator('#play-turn').tap();
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 9 && m.game.A.secondary === 5 && m.game.B.primary === 4 && m.game.B.secondary === 3 && m.result.A.prim[0] === 0; }, null, { timeout: 60000 });
+  check('both score boxes keep what was typed (no re-render between them)', (await page.inputValue('input[data-input="mission-score"][data-side="B"][data-k="primary"]')) === '4' && (await page.inputValue('input[data-input="mission-score"][data-side="B"][data-k="secondary"]')) === '3');
   mi = await page.evaluate(() => window.__calc.mission());
-  check('tracker: scored card is out of the deck, the forecast restarts from round 2 with the score carried', mi.game.A.used.includes('assassination') && mi.game.A.hand.join() === 'secure-no-mans-land'
-    && mi.result.A.cards['assassination'] === undefined && mi.result.A.mean >= 9 + 5 && /17 cards left|16 cards left/.test(await page.textContent('#odds-A')), JSON.stringify({ g: mi.game.A, odds: await page.textContent('#odds-A') }));
+  check('tracker: scored and discarded cards are out of the deck, the forecast restarts from round 2 with the score carried', mi.game.A.used.includes('assassination') && mi.game.A.used.includes('no-prisoners') && mi.game.A.hand.join() === 'secure-no-mans-land'
+    && mi.result.A.cards['assassination'] === undefined && mi.result.A.mean >= 9 + 5 && /15 cards left/.test(await page.textContent('#odds-A')) && /from round 2/.test(await page.textContent('#fc-mini')), JSON.stringify({ g: mi.game.A, odds: await page.textContent('#odds-A') }));
+  {
+    // cards in hand: how often each still scores from here, what it is worth, and when to let it go
+    const adv = await page.textContent('#hand-A [data-advice="secure-no-mans-land"]');
+    check('a card in hand says how often it still scores and its VP from here', /\d+% to score by the end · \d\.\d VP/.test(adv), adv);
+    check('the tracker counts the cards drawn this turn (the forecast draws the rest)', /Drawn this turn: 2 of 2/.test(await page.textContent('#drawn-A')), await page.textContent('#drawn-A').catch(() => 'none'));
+    // B holds Assassination and Bring It Down; then every unit of A is destroyed
+    await page.selectOption('select[data-input="mission-draw"][data-side="B"]', 'assassination');
+    await page.selectOption('select[data-input="mission-draw"][data-side="B"]', 'bring-it-down');
+    const winAll = await page.evaluate(() => window.__calc.mission().result.pWinA);
+    await page.locator('details[data-details="mission-dead-A"] summary').tap();
+    const nA = await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').count();
+    for (let i = 0; i < nA; i++) await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').nth(i).tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+    {
+      // units marked destroyed leave that army in the forecast: A has nothing left to hold objectives or to kill with
+      const d = await page.evaluate(() => { const m = window.__calc.mission(); return { win: m.result.pWinA, own: m.params.players.A.start.destroyed.length, theirs: m.params.players.B.start.destroyed.length, left: m.result.A.unitsLeft, aPrim: m.result.A.prim, bPrim: m.result.B.prim }; });
+      check('units marked destroyed reach the forecast: with all of A destroyed, A scores no more primary and its win chance falls', d.own === nA && d.theirs === 0 && d.win < winAll - 0.3
+        && d.aPrim.slice(2).every(v => v < 0.5) && d.left.filter(v => v != null).every(v => v === 0), JSON.stringify({ winAll, ...d }));
+      console.log('  all of A destroyed in round 2:', JSON.stringify({ winBefore: +winAll.toFixed(2), winAfter: +d.win.toFixed(2), aPrim: d.aPrim.map(v => +v.toFixed(1)), bPrim: d.bPrim.map(v => +v.toFixed(1)) }));
+    }
+    const advA = await page.textContent('#hand-B [data-advice="assassination"]'), advB = await page.textContent('#hand-B [data-advice="bring-it-down"]');
+    check('Assassination in hand with every enemy CHARACTER destroyed: it scores 5 VP (not "discard")', /Every enemy CHARACTER is destroyed: it scores 5 VP/.test(advA), advA);
+    check('Bring It Down in hand with no W10+ model left: discard it (draw a new card when drawn, 1CP later)', /No targets left: when you draw it you can discard it and draw a new card\. Later, discard it at the end of your turn for 1CP/.test(advB), advB);
+    await page.locator('#hand-B').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_49_cards_in_hand.png') });
+    // put it back: A's units alive, B's two cards out of the hand and back in the deck
+    for (let i = 0; i < nA; i++) await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').nth(i).tap();
+    await page.locator('details[data-details="mission-dead-A"] summary').tap();
+    await page.evaluate(() => { const g = window.__calc.state.mission.game; g.B.hand = []; g.B.used = []; });
+    await page.tap('button[data-action="mission-round"][data-value="2"]');
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+    check('tracker restored for the next checks', await page.evaluate(() => { const g = window.__calc.state.mission.game; return g.A.destroyed.length === 0 && g.B.hand.length === 0 && g.A.hand.join() === 'secure-no-mans-land'; }));
+  }
+  {
+    // "Turn done": first to the other player, then (after the second turn) to the next battle round
+    await page.tap('.a-bar button[data-action="mission-first"][data-value="A"]');
+    await page.tap('button[data-action="mission-next"][data-value="A"]');
+    await page.tap('#play-turn-done');
+    const t1 = await page.evaluate(() => ({ r: window.__calc.state.mission.game.round, n: window.__calc.state.mission.game.next }));
+    await page.tap('#play-turn-done');
+    const t2 = await page.evaluate(() => ({ r: window.__calc.state.mission.game.round, n: window.__calc.state.mission.game.next }));
+    check('"Turn done" moves A -> B in the round, then to round 3 with A to play', t1.r === 2 && t1.n === 'B' && t2.r === 3 && t2.n === 'A', JSON.stringify({ t1, t2 }));
+    await page.tap('button[data-action="mission-round"][data-value="2"]');
+    await page.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await page.tap('button[data-action="mission-first"][data-value="roll"]');
+    await page.tap('button[data-action="mission-tab"][data-value="play"]');
+  }
   await page.locator('[data-player="A"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_29_mission_tracker.png') });
 
@@ -850,25 +1011,33 @@ try {
   await page.screenshot({ path: join(SHOTS, 'calc_34_board_objective_control.png') });
   await page.evaluate(([gh, keep]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[gh], keep); }, [bGh.tk, centreObj.keep]);
   await page.tap('button[data-action="view"][data-value="mission"]');
+  await page.tap('button[data-action="mission-tab"][data-value="plan"]');
   await page.waitForSelector('button[data-action="mission-source"][data-value="1"]');
   await page.tap('button[data-action="mission-source"][data-value="1"]');
   await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.board && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 120000 });
   mi = await page.evaluate(() => window.__calc.mission());
   const ghFacts = mi.board.rounds[1].A?.find(u => /Grey Hunters/.test(u.name))?.f;
   check('board plan: the Grey Hunters are measured wholly inside B\'s deployment zone', ghFacts?.inEnemyDZ === true, JSON.stringify({ ghFacts, into }));
+  await page.tap('button[data-action="mission-tab"][data-value="cards"]');
   check('position cards say "Board plan" instead of a rating', /Board plan/.test(await page.textContent('#mission-cards tr.card-row[data-card="behind-enemy-lines"]')));
+  await page.tap('button[data-action="mission-tab"][data-value="plan"]');
   check('plans compared side by side (grid, Main, Aggressive)', (await page.locator('#fc-compare tbody tr').count()) === 3);
+  check('a board plan with units missing says so in the comparison', /of 8 units placed/.test(await page.textContent('#fc-compare')), await page.textContent('#fc-compare'));
   const bel = mi.result[mi.me].cards['behind-enemy-lines'];
   const ghName = mi.board.rounds[1].A.find(u => /Grey Hunters/.test(u.name)).name;
-  const ghDie = [1, 2, 3, 4, 5].map(r => mi.board.pDie[r]?.A?.[ghName] ?? null);
-  console.log('  Grey Hunters in their zone: chance destroyed each round', JSON.stringify(ghDie), 'BEL', JSON.stringify(bel));
+  // what the Orks can do to the Grey Hunters from where they stand, per round (wounds they remove of the unit's total)
+  const ghThreat = [1, 2, 3, 4, 5].map(r => (mi.board.threats[r]?.B?.cur ?? []).map(a => a.opts.find(o => o.t === ghName)).filter(Boolean).reduce((t, o) => t + o.mu, 0));
+  console.log('  Grey Hunters in their zone: wounds the Orks can remove each round', JSON.stringify(ghThreat.map(v => +v.toFixed(1))), 'BEL', JSON.stringify(bel));
+  check('board plan: the forecast knows what each unit threatens from its planned position (step 0 = deployment)', !!mi.board.rounds[0] && !!mi.board.threats[1]?.A && !!mi.board.threats[1]?.B && ghThreat.some(v => v > 0), JSON.stringify(ghThreat));
   check('Behind Enemy Lines scores from the plan (while the unit survives there)', bel && bel.perDraw > 0, JSON.stringify(bel));
   await page.locator('#mission-board-note').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_31_mission_board_plan.png') });
   await page.locator('#fc-compare').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_32_mission_plans_compared.png') });
   await page.tap('button[data-action="mission-source"][data-value="grid"]');
+  await page.tap('button[data-action="mission-tab"][data-value="play"]');
   await page.tap('button[data-action="mission-reset"]');
+  await page.tap('button[data-action="mission-tab"][data-value="plan"]');
   await page.tap('button[data-action="view"][data-value="board"]');
   await page.waitForSelector('#board-svg');
 
@@ -907,6 +1076,384 @@ try {
   await page.waitForSelector('textarea[data-side="A"]');
   check('library survives a reload', await page.evaluate(() => window.__calc.state.library.length) === 2);
 
+  // --- backup and other devices: save a file, send everything to a tablet with a code, undo, restore from the file
+  {
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.locator('#backup-card > summary').tap();
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.tap('button[data-action="backup-save"]')]);
+    const backupPath = join(dbDir, dl.suggestedFilename());
+    await dl.saveAs(backupPath);
+    const saved = JSON.parse(readFileSync(backupPath, 'utf8'));
+    const BK = await import(new URL('../public/calc/backup.mjs', import.meta.url).href);
+    const info = BK.describeBackup(saved);
+    check('backup file holds the lists, the library and the board plans', /^combat-calc-backup-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()) && info.ok && info.counts.lists === 2 && info.counts.library === 2 && info.counts.plans >= 1, JSON.stringify(info));
+    check('the card says the backup was saved and what it holds', /Backup saved as combat-calc-backup/.test(await page.textContent('#backup-msg')) && /Last backup:/.test(await page.textContent('#backup-card')));
+    await page.tap('button[data-action="backup-send"]');
+    await page.waitForSelector('#backup-code-out b');
+    const code = (await page.textContent('#backup-code-out b')).trim();
+    check('"Send to another device" gives a 6-character code', BK.CODE_RE.test(code), code);
+    await page.locator('#backup-code-out').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_43_backup_send.png') });
+    // the tablet: nothing on it; type the code, confirm, and the lists and plans are there
+    const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const t2 = await tctx.newPage();
+    const asked = [];
+    t2.on('dialog', (d) => { asked.push(d.message()); d.accept(); });
+    await t2.goto(`${BASE}/calc/`);
+    await t2.waitForSelector('#backup-card');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.fill('#backup-code', code.toLowerCase());
+    await Promise.all([t2.waitForNavigation(), t2.tap('button[data-action="backup-receive"]')]);
+    await t2.waitForFunction(() => window.__calc?.state.armies.A && window.__calc.state.armies.B);
+    const got = await t2.evaluate(() => ({ a: window.__calc.state.armies.A.faction, b: window.__calc.state.armies.B.faction, lib: window.__calc.state.library.length, plans: Object.keys(window.__calc.state.board?.plans ?? JSON.parse(localStorage.getItem('w40k_calc_board_v1') ?? '{}').plans ?? {}).length }));
+    check('tablet: the code brings over both lists, the library and the board plans (after a confirm that says what it holds)',
+      !!got.a && !!got.b && got.lib === 2 && got.plans >= 1 && /Replace everything on this device/.test(asked[0] ?? '') && /2 loaded lists/.test(asked[0] ?? ''), JSON.stringify({ got, asked }));
+    await t2.tap('button[data-action="view"][data-value="armies"]');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.screenshot({ path: join(SHOTS, 'calc_44_backup_tablet.png') });
+    // undo: back to the empty tablet
+    await Promise.all([t2.waitForNavigation(), t2.tap('button[data-action="backup-undo"]')]);
+    await t2.waitForSelector('textarea[data-side="A"]');
+    check('tablet: "Undo the last restore" puts back what was there (nothing)', await t2.evaluate(() => !window.__calc.state.armies.A && !window.__calc.state.armies.B && !localStorage.getItem('w40k_calc_before_restore_v1')));
+    // restore from the file
+    await t2.locator('#backup-card > summary').tap();
+    await Promise.all([t2.waitForNavigation(), t2.setInputFiles('input[data-input="backup-file"]', backupPath)]);
+    await t2.waitForFunction(() => window.__calc?.state.armies.A && window.__calc.state.armies.B);
+    check('tablet: restore from the backup file works too', await t2.evaluate(() => window.__calc.state.library.length === 2));
+    // a wrong code: a clear message, nothing changed
+    await t2.tap('button[data-action="view"][data-value="armies"]');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.fill('#backup-code', 'ZZZZZZ');
+    await t2.tap('button[data-action="backup-receive"]');
+    await t2.waitForFunction(() => /No backup with this code/.test(document.getElementById('backup-msg')?.textContent ?? ''));
+    check('a wrong code says so and changes nothing', await t2.evaluate(() => window.__calc.state.library.length === 2));
+    await tctx.close();
+  }
+
+  // --- event: opponents' lists, layout letter per round, one tap to start a round, the matchup brief, my deployment reused
+  {
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.fill('textarea[data-side="A"]', SW_LIST);
+    await page.tap('button[data-action="parse"][data-side="A"]');
+    await page.locator('#event-card > summary').tap();
+    const before = await page.evaluate(() => window.__calc.state.library.length);
+    await page.fill('#event-paste', `${ORK_LIST}\n\n${readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8')}`);
+    await page.tap('button[data-action="event-add"]');
+    let evd = await page.evaluate(() => window.__calc.event());
+    const cust = evd.roster.find(r => /Custodes/.test(r.name)), orks = evd.roster.find(r => /Calc Test Waaagh/.test(r.name));
+    check('pasting two lists at once adds both opponents, with faction and Force Disposition read from the list', evd.roster.length === before + 2 && cust?.faction === 'Adeptus Custodes' && orks?.faction === 'Orks' && cust.disp === 'take-and-hold' && /2 lists added/.test(await page.textContent('#event-msg')), JSON.stringify(evd.roster.map(r => [r.name, r.faction, r.disp])));
+    check('each opponent shows the primaries and the three deployments of that pairing', /You: Battlefield Dominance · they: Battlefield Dominance/.test(await page.textContent(`#event-roster [data-opp="${cust.id}"]`)) && /A Tipping Point · B Dawn of War · C Search and Destroy/.test(await page.textContent(`#event-roster [data-opp="${cust.id}"]`)));
+    // round 2 is on layout B against the Custodes
+    await page.tap('#event-rounds [data-round="2"] button[data-action="event-layout"][data-value="2"]');
+    await page.selectOption('#event-rounds [data-round="2"] select[data-input="event-opp"]', String(cust.id));
+    check('the round row says what the round will be', /You: Battlefield Dominance · they: Battlefield Dominance · Dawn of War/.test(await page.textContent('#event-rounds [data-round="2"]')));
+    await page.locator('#event-rounds').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_45_event.png') });
+    await page.tap('#event-rounds [data-round="2"] button[data-action="event-start"]');
+    await page.waitForSelector('#brief');
+    const started = await page.evaluate(() => ({ view: window.__calc.state.view, b: window.__calc.state.armies.B.faction, layout: window.__calc.board().layout, round: window.__calc.event().round }));
+    check('"Start" loads the opponent as army B, sets the round\'s layout and opens the matchup brief', started.view === 'intel' && started.b === 'Adeptus Custodes' && /^take_and_hold_mirror_2$/.test(started.layout) && started.round === 2
+      && /Round 2 · Layout B/.test(await page.textContent('#brief-round')) && /Dawn of War · Layout B/.test(await page.textContent('#brief-deploy')), JSON.stringify(started));
+    await page.waitForSelector('#brief-threats tbody tr', { timeout: 120000 });
+    await page.waitForFunction(() => /you win/.test(document.getElementById('brief-forecast')?.textContent ?? ''), null, { timeout: 120000 });
+    const brief = await page.evaluate(() => ({ threats: [...document.querySelectorAll('#brief-threats tbody tr')].map(r => r.textContent.replace(/\s+/g, ' ').trim()), answers: document.querySelectorAll('#brief-answers tbody tr').length, text: document.getElementById('brief-host').textContent }));
+    check('brief: their biggest threats (with reach), my best answers, dead cards, the forecast headline',
+      brief.threats.length >= 2 && /Caladius|Contemptor|Shield-Captain/.test(brief.threats[0]) && /M\d+"/.test(brief.threats[0]) && brief.answers >= 3 && /Dead for (you|them)|No dead cards/.test(brief.text) && /you win/.test(brief.text), JSON.stringify(brief.threats));
+    await page.locator('#brief').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_46_matchup_brief.png'), fullPage: true });
+    // plan my deployment for this layout, then meet another opponent on the same layout: it is offered again
+    await page.tap('button[data-action="view"][data-value="board"]');
+    await page.waitForSelector('#board-svg');
+    await page.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const ghPos = (await tokens()).find(t => t.tk.startsWith('A:'));
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.tap('#event-rounds [data-round="3"] button[data-action="event-layout"][data-value="2"]');
+    await page.selectOption('#event-rounds [data-round="3"] select[data-input="event-opp"]', String(orks.id));
+    check('preparation table marks layout B against Take and Hold as planned', (await page.locator('#event-coverage button.cov.done').count()) === 1 && /deployment planned/.test(await page.getAttribute('#event-coverage button.cov.done', 'aria-label')));
+    await page.tap('#event-rounds [data-round="3"] button[data-action="event-start"]');
+    await page.waitForSelector('#brief');
+    await page.tap('button[data-action="view"][data-value="board"]');
+    await page.waitForSelector('#board-reuse');
+    check('new opponent, same layout: the board offers my deployment from the other game', /against Adeptus Custodes/.test(await page.textContent('#board-reuse')) && (await tokens()).length === 0, await page.textContent('#board-reuse'));
+    await page.screenshot({ path: join(SHOTS, 'calc_47_reuse_deployment.png') });
+    await page.tap('button[data-action="board-reuse"]');
+    const reused = (await tokens()).find(t => t.tk === ghPos.tk);
+    check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
+  }
+
+  // --- table tools on the Play view: command points, the score of each turn, undo, the clock, table mode, screen on
+  {
+    const tctx = await browser.newContext({ ...devices['Pixel 7'] });
+    // the Screen Wake Lock API is refused in a headless browser: a stand-in that counts the calls
+    await tctx.addInitScript(() => {
+      window.__wake = { requests: 0, releases: 0 };
+      Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async (type) => { window.__wake.requests++; return { type, release: async () => { window.__wake.releases++; }, addEventListener() {} }; } } });
+    });
+    const tp2 = await tctx.newPage();
+    const terrs = [];
+    tp2.on('console', m => { if (m.type() === 'error') terrs.push(m.text()); });
+    tp2.on('pageerror', e => terrs.push(String(e)));
+    await tp2.goto(`${BASE}/calc/`);
+    await tp2.fill('textarea[data-side="A"]', SW_LIST);
+    await tp2.tap('button[data-action="parse"][data-side="A"]');
+    await tp2.fill('textarea[data-side="B"]', ORK_LIST);
+    await tp2.tap('button[data-action="parse"][data-side="B"]');
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    const idle = () => tp2.waitForFunction(() => { const m = window.__calc.mission(); return m.table || (m.result && !m.busy); }, null, { timeout: 120000 });
+    await idle();
+    await tp2.tap('button[data-action="mission-tab"][data-value="play"]');
+    await tp2.waitForSelector('#play-bar');
+    const gs = () => tp2.evaluate(() => { const s = window.__calc.state.mission, g = s.game; return { round: g.round, next: g.next, first: s.first, cp: [g.A.cp, g.B.cp], over: !!g.over, undo: s.undo.length, A: [g.A.primary, g.A.secondary], B: [g.B.primary, g.B.secondary], handA: g.A.hand.length }; });
+    let st = await gs();
+    check('a new game starts with 1CP each (the first Command phase) and nothing to undo', st.cp.join() === '1,1' && st.undo === 0 && await tp2.isDisabled('#play-undo') && (await tp2.textContent('#cp-A')).trim() === '1', JSON.stringify(st));
+    check('the phone Play view stays short with the tools folded (under 2.7 screens)', await tp2.evaluate(() => document.documentElement.scrollHeight < 2.7 * innerHeight), String(await tp2.evaluate(() => document.documentElement.scrollHeight / innerHeight)));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_51_play_tools.png'), fullPage: true });
+
+    // A's first turn: two cards, one scored, one discarded for a CP
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', 'behind-enemy-lines');
+    await tp2.tap('#hand-A .hand-row[data-card="behind-enemy-lines"] button[data-action="mission-hand-info"]');
+    check('the name of a card in hand opens its rules text', /wholly within the enemy deployment zone/.test(await tp2.textContent('#hand-A [data-text="behind-enemy-lines"]')));
+    await tp2.tap('#hand-A .hand-row[data-card="assassination"] button[data-do="scored"][data-vp="5"]');
+    check('"scored this turn" follows the tracker', /Round 1, A's turn — scored this turn: A \+5 secondary · B nothing yet/.test((await tp2.textContent('#play-turn')).replace(/\s+/g, ' ')), await tp2.textContent('#play-turn'));
+    await tp2.tap('#hand-A .hand-row[data-card="behind-enemy-lines"] button[data-do="discard"]');
+    check('a discard in your own turn offers the CP for it', (await tp2.textContent('#cp-discard-A')).trim() === '+1CP for the discard');
+    await tp2.tap('#cp-discard-A');
+    st = await gs();
+    check('the discard CP is added once', st.cp.join() === '2,1' && (await tp2.locator('#cp-discard-A').count()) === 0, JSON.stringify(st));
+    // Turn done: the first player is known from it; B's Command phase gives 1CP each
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('"Turn done" passes to B, works out who went first, and adds 1CP each for the Command phase', st.round === 1 && st.next === 'B' && st.first === 'A' && st.cp.join() === '3,2' && (await tp2.locator('#play-bar button[data-action="mission-first"]').count()) === 0, JSON.stringify(st));
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('after the second turn: battle round 2, A to play', st.round === 2 && st.next === 'A' && st.cp.join() === '4,3', JSON.stringify(st));
+    // Undo steps back through the changes, a turn included
+    await tp2.tap('#play-undo');
+    st = await gs();
+    check('Undo takes back "Turn done" (round, turn and CP), keeping what was scored before it', st.round === 1 && st.next === 'B' && st.cp.join() === '3,2' && st.B[0] === 5, JSON.stringify(st));
+    await tp2.tap('#play-undo');
+    check('Undo again takes back the score', (await gs()).B[0] === 0);
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    await tp2.tap('#play-turn-done');
+    // a typed score is one undo step, and the turn line follows it without a re-draw
+    await tp2.fill('input[data-input="mission-score"][data-side="A"][data-k="primary"]', '12');
+    check('typing a score updates "scored this turn" in place', /A \+12 primary/.test(await tp2.textContent('#play-turn')) && (await tp2.inputValue('input[data-input="mission-score"][data-side="A"][data-k="primary"]')) === '12');
+    // one extra CP per battle round: a second discard in round 2 gives none
+    for (const id of ['cleanse', 'outflank']) await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', id);
+    await tp2.tap('#hand-A .hand-row[data-card="cleanse"] button[data-do="discard"]');
+    await tp2.tap('#cp-discard-A');
+    await tp2.tap('#hand-A .hand-row[data-card="outflank"] button[data-do="discard"]');
+    st = await gs();
+    check('a second discard in the same battle round gives no CP (Event Companion: 1CP a round besides the Command phase)', st.cp.join() === '5,3' && /No CP for this discard: the one extra CP of round 2 is taken/.test(await tp2.textContent('#cp-discard-A')), JSON.stringify(st));
+    // the once-per-battle card swap, and CP spent by hand
+    await tp2.tap('#swap-A');
+    await tp2.tap('button[data-action="mission-cp"][data-side="A"][data-delta="-1"]');
+    st = await gs();
+    check('card swap: 1CP, once per battle; − spends a CP', st.cp.join() === '3,3' && await tp2.isDisabled('#swap-A') && /Card swap used \(round 2\)/.test(await tp2.textContent('#swap-A')), JSON.stringify(st));
+    // score sheet: per battle round, sums to the totals
+    await tp2.locator('details[data-details="mission-sheet"] summary').tap();
+    const rows = await tp2.$$eval('#play-sheet tbody tr', trs => trs.map(r => [...r.children].map(c => c.textContent.trim())));
+    check('score sheet: round 1 = A 5 secondary, B 5 primary; round 2 = A 12 primary; totals', rows[0].join() === '1,–,5,5,–' && rows[1].join() === '2,12,–,–,–' && rows[5].join() === 'Total,12,5,5,–' && /A 27 – B 15/.test(await tp2.textContent('#play-sheet summary')), JSON.stringify(rows));
+    check('the score sheet is drawn in its own card (not over the page)', await tp2.evaluate(() => { const t = document.querySelector('#play-sheet table').getBoundingClientRect(), c = document.querySelector('#play-sheet').getBoundingClientRect(); return t.top >= c.top && t.bottom <= c.bottom + 1 && getComputedStyle(document.querySelector('#play-sheet table')).position === 'static'; }));
+    await tp2.locator('#play-sheet').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_54_score_sheet.png') });
+    await tp2.locator('details[data-details="mission-checklist"] summary').tap();
+    check('turn checklist: the steps in rules order and both primary missions', /Draw 2 secondary cards \(2 of 2 entered\)/.test(await tp2.textContent('#play-checklist')) && /Both players gain 1CP/.test(await tp2.textContent('#play-checklist'))
+      && /A · Battlefield Dominance:/.test(await tp2.textContent('details[data-details="mission-checklist"]')), await tp2.textContent('#play-checklist'));
+    await tp2.locator('details[data-details="mission-checklist"] summary').tap();
+
+    // round timer with the Grand Tournament milestones
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="round"]');
+    check('round timer: 3 hours, with the Grand Tournament milestones', (await tp2.textContent('#clock-round')).trim() === '3:00:00' && /2:35 deployed · 1:55 round 1 · 1:15 round 2 · 0:45 round 3 · 0:25 round 4/.test(await tp2.textContent('#clock-milestones')));
+    await tp2.tap('#clock-go');
+    await tp2.waitForFunction(() => document.querySelector('#clock-round').textContent.trim() !== '3:00:00', null, { timeout: 5000 });
+    check('the clock runs and is on the pinned line; on pace in round 2', /^2:59:5\d$/.test((await tp2.textContent('#clock-round')).trim()) && /⏱ 2:59:5\d/.test(await tp2.textContent('#mini-clock')) && /On pace: finish battle round 2/.test(await tp2.textContent('#clock-pace')), await tp2.textContent('#clock-pace'));
+    for (let i = 0; i < 22; i++) await tp2.tap('button[data-action="mission-clock"][data-do="minus"]');
+    await tp2.waitForFunction(() => /behind/.test(document.querySelector('#clock-pace').textContent), null, { timeout: 5000 });
+    check('with 1:10 left in battle round 2 the clock says how far behind the game is', /^1:09:\d\d$/.test((await tp2.textContent('#clock-round')).trim()) && /[56] min behind: battle round 2 should be done with 1:15 left/.test(await tp2.textContent('#clock-pace')), `${await tp2.textContent('#clock-round')} | ${await tp2.textContent('#clock-pace')}`);
+    await tp2.locator('#play-clock').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_52_clock_behind.png') });
+    // it is kept as an end time: a reload does not stop or reset it
+    await tp2.reload();
+    await tp2.waitForSelector('#clock-round');
+    check('the clock keeps running through a reload', /^1:0\d:\d\d$/.test((await tp2.textContent('#clock-round')).trim()) && (await tp2.evaluate(() => window.__calc.mission().clock.endsAt)) > Date.now(), await tp2.textContent('#clock-round'));
+    st = await gs();
+    check('the tracker (CP, round, undo steps) is kept through a reload', st.round === 2 && st.cp.join() === '3,3' && st.undo > 5, JSON.stringify(st));
+
+    // chess clock: only the running player loses time; "Turn done" passes it
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="chess"]');
+    check('chess clock: 1:25 each (UKTC)', (await tp2.textContent('#clock-A')).trim() === '1:25:00' && (await tp2.textContent('#clock-B')).trim() === '1:25:00');
+    await tp2.tap('button[data-action="mission-clock"][data-do="run"][data-side="A"]');
+    await tp2.waitForFunction(() => document.querySelector('#clock-A').textContent.trim() !== '1:25:00', null, { timeout: 5000 });
+    check('A\'s clock runs, B\'s waits', (await tp2.textContent('#clock-B')).trim() === '1:25:00' && /^1:24:5\d$/.test((await tp2.textContent('#clock-A')).trim()));
+    await tp2.tap('#play-turn-done');
+    await tp2.waitForFunction(() => document.querySelector('#clock-B').textContent.trim() !== '1:25:00', null, { timeout: 5000 });
+    check('"Turn done" passes the clock to the next player', (await tp2.evaluate(() => window.__calc.mission().clock.running)) === 'B' && (await tp2.getAttribute('button[data-action="mission-clock"][data-do="run"][data-side="B"]', 'aria-pressed')) === 'true');
+    await tp2.locator('#play-clock').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_53_chess_clock.png') });
+    await tp2.tap('button[data-action="mission-clock"][data-do="chess-pause"]');
+
+    // the screen stays on in the Play view only
+    const w1 = await tp2.evaluate(() => ({ ...window.__wake, on: window.__calc.mission().wake }));
+    await tp2.tap('button[data-action="view"][data-value="armies"]');
+    await tp2.waitForFunction(() => window.__wake.releases >= 1, null, { timeout: 5000 });
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    await tp2.waitForFunction(() => window.__calc.mission().wake === true, null, { timeout: 5000 });
+    await tp2.tap('button[data-action="mission-awake"]');
+    await tp2.waitForFunction(() => window.__calc.mission().wake === false, null, { timeout: 5000 });
+    check('screen wake lock: held on the Play view, released on another tab, off with the "Screen stays on" switch', w1.requests >= 1 && w1.on === true && (await tp2.evaluate(() => window.__wake.releases)) >= 2, JSON.stringify(w1));
+    await tp2.tap('button[data-action="mission-awake"]');
+
+    // table mode: the tracker only
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="B"]', 'secure-no-mans-land');
+    await idle();
+    check('before table mode: the card in hand has advice and the forecast is shown', (await tp2.locator('#hand-B [data-advice]').count()) === 1 && (await tp2.locator('#mission-forecast').count()) === 1);
+    await tp2.tap('button[data-action="mission-table"]');
+    const tm = await tp2.evaluate(() => ({ flag: !!document.querySelector('#table-flag'), score: document.querySelector('#score-mini')?.textContent.replace(/\s+/g, ' ').trim(), forecast: !!document.querySelector('#mission-forecast'), win: !!document.querySelector('#fc-mini-win'),
+      advice: document.querySelectorAll('[data-advice]').length, attackOff: document.querySelector('button[data-action="view"][data-value="attack"]').dataset.locked === '1', boardOff: document.querySelector('button[data-action="view"][data-value="board"]').dataset.locked === '1', tabs: document.querySelectorAll('button[data-action="mission-tab"]').length, hand: document.querySelectorAll('#hand-B .hand-row').length }));
+    check('table mode: score instead of the forecast, no card advice, Plan / Cards / Attack / Board closed, the tracker stays', tm.flag && /Score 27 – 15 VP/.test(tm.score) && !tm.forecast && !tm.win && tm.advice === 0 && tm.attackOff && tm.boardOff && tm.tabs === 0 && tm.hand === 1, JSON.stringify(tm));
+    await tp2.evaluate(() => window.scrollTo(0, 0));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_55_table_mode.png'), fullPage: true });
+    await tp2.tap('button[data-action="view"][data-value="intel"]');
+    check('table mode on Intel: datasheets only (no brief, no calculator links)', /Table mode: datasheets, abilities and stratagems only/.test(await tp2.textContent('#intel-table-note')) && (await tp2.locator('#brief-host').count()) === 0 && (await tp2.locator('button[data-action="target-this"]').count()) === 0 && (await tp2.locator('.intel-unit').count()) > 3);
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="secondary"][data-delta="5"]');
+    check('table mode: no forecast is worked out', await tp2.evaluate(() => window.__calc.mission().busy === false) && /Score 27 – 20 VP/.test((await tp2.textContent('#score-mini')).replace(/\s+/g, ' ')));
+    // a tap on a closed tab stays on the tracker and says why; "Leave table mode" is at the top of the page
+    await tp2.tap('button[data-action="view"][data-value="attack"]');
+    check('table mode: a tap on Attack stays on the tracker and says the calculator is closed', (await tp2.locator('#play-bar').count()) === 1 && /The calculator is closed in table mode/.test(await tp2.textContent('#table-locked')) && (await tp2.locator('select[data-input="target"]').count()) === 0);
+    await tp2.tap('button[data-action="view"][data-value="board"]');
+    check('table mode: the same for Board', /The board planner is closed in table mode/.test(await tp2.textContent('#table-locked')) && (await tp2.locator('#board-svg').count()) === 0);
+    await tp2.screenshot({ path: join(SHOTS, 'calc_58_table_mode_locked.png') });
+    await tp2.tap('#table-leave');
+    await idle();
+    check('"Leave table mode" at the top: the forecast and the tabs are back', (await tp2.locator('#fc-mini-win').count()) === 1 && (await tp2.locator('button[data-action="mission-tab"]').count()) >= 3 && (await tp2.getAttribute('button[data-action="view"][data-value="attack"]', 'data-locked')) === null && (await tp2.locator('#table-leave').count()) === 0);
+
+    // play to the end of the battle
+    let guard = 0;
+    while (!(await gs()).over && guard++ < 12) await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('the battle ends after the second turn of round 5: final score, no more turns', st.over && st.round === 5 && await tp2.isDisabled('#play-turn-done') && /Battle over/.test(await tp2.textContent('#play-turn-done')) && /Final 27 – 20 VP/.test((await tp2.textContent('#score-mini')).replace(/\s+/g, ' ')) && /Battle over\. Final score: A 27 – B 20/.test(await tp2.textContent('#play-turn')), JSON.stringify(st));
+    await idle();
+    const fin = await tp2.evaluate(() => { const r = window.__calc.mission().result; return { a: r.A.mean, b: r.B.mean, w: r.pWinA }; });
+    check('after the battle the forecast is the final score', fin.a === 27 && fin.b === 20 && fin.w === 1, JSON.stringify(fin));
+    await tp2.tap('#play-reset');
+    st = await gs();
+    check('New game clears the tracker (1CP each, first turn open again) and can be undone', st.round === 1 && !st.over && st.cp.join() === '1,1' && st.first === null && st.A.join() === '0,0' && !(await tp2.isDisabled('#play-undo')), JSON.stringify(st));
+    await tp2.tap('#play-undo');
+    check('Undo brings the finished game back', (await gs()).over === true && (await gs()).A.join() === '12,5');
+    check('table tools: no console errors', terrs.length === 0, terrs.slice(0, 3).join(' | '));
+
+    // before any turn is done, the turn picker is the "First turn" question: B goes first
+    await tp2.tap('#play-reset');
+    check('at the start the turn picker asks for the first turn (no separate question)', /First turn/.test(await tp2.textContent('#play-bar')) && (await tp2.locator('#play-bar button[data-action="mission-first"]').count()) === 0);
+    await tp2.tap('button[data-action="mission-next"][data-value="B"]');
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('picking B for the first turn makes B the first player: after B\'s turn it is still round 1, A to play', st.first === 'B' && st.round === 1 && st.next === 'A' && st.cp.join() === '2,2', JSON.stringify(st));
+    await tp2.tap('#play-turn-done');
+    check('and after A\'s turn: battle round 2, B to play', (await gs()).round === 2 && (await gs()).next === 'B');
+
+    // tablet: the turn bar across the top, both players side by side under it, the time on the pinned line
+    await tp2.tap('#play-reset');
+    await tp2.setViewportSize({ width: 1280, height: 800 });
+    await tp2.waitForTimeout(400);
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="round"]');
+    await tp2.tap('#clock-go');
+    await idle();
+    await tp2.evaluate(() => window.scrollTo(0, 0));
+    await tp2.waitForTimeout(200);
+    const lay = await tp2.evaluate(() => { const r = (q) => { const b = document.querySelector(q).getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width) }; };
+      return { bar: r('.mlay.play .a-bar'), me: r('.mlay.play .a-me'), opp: r('.mlay.play .a-opp'), clock: r('.mlay.play .a-clock'), cpA: r('#cp-A'), cpB: r('#cp-B'), mini: r('#mini-clock'), vh: innerHeight, vw: innerWidth, pages: +(document.documentElement.scrollHeight / innerHeight).toFixed(2) }; });
+    check('tablet Play: the turn bar spans the screen, the two players are side by side under it with scores and CP on screen, the clock is on the pinned line',
+      lay.bar.w > lay.vw * 0.9 && lay.me.t >= lay.bar.b - 2 && Math.abs(lay.me.t - lay.opp.t) < 3 && lay.opp.l > lay.me.l + 300 && lay.cpA.b < lay.vh && lay.cpB.b < lay.vh && lay.mini.t > 0 && lay.mini.b < 200 && lay.clock.t >= lay.me.t, JSON.stringify(lay));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_56_tablet_play_tools.png') });
+    await tctx.close();
+  }
+
+  // --- how current the rules data is: where each army's datasheets come from and from when, and the
+  // points in the pasted list against the data (the Space Wolves list is a real export of the official app)
+  {
+    const dctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const dp = await dctx.newPage();
+    await dp.goto(`${BASE}/calc/`);
+    await dp.fill('textarea[data-side="A"]', SW_LIST);
+    await dp.tap('button[data-action="parse"][data-side="A"]');
+    await dp.fill('textarea[data-side="B"]', ORK_LIST);
+    await dp.tap('button[data-action="parse"][data-side="B"]');
+    const txt = async (q) => (await dp.textContent(q)).replace(/\s+/g, ' ').trim();
+    check('Armies: each army says which rules data it uses and its date', /Rules data: Codex: Space Marines \(Wahapedia\), 21 Oct 2026 — all 12 datasheets\./.test(await txt('#data-A')) && /Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026 — all 6 datasheets\./.test(await txt('#data-B')), `${await txt('#data-A')} | ${await txt('#data-B')}`);
+    check('Armies: a real list from the official app costs what the data says, datasheet by datasheet', /✓ Points: all 12 datasheets cost what the rules data says\./.test(await txt('#points-A')), await txt('#points-A'));
+    check('Armies: other points in the list than in the data are named with both numbers', /3 of 6 datasheets cost something else in your list than in the rules data — Warboss 70 \(data 100\), Meganobz 100 \(data 105 or 145\), Flash Gitz 80 \(data 110 or 150\)\./.test(await txt('#points-B')), await txt('#points-B'));
+    check('Armies: the footer names the dataset, the refresh and the newest date', /rules data: 40kdc 1\.4\.5 with codex datasheets and the points and weapon profiles of 1\.5\.1, newest 21 Oct 2026/.test(await txt('#data-footer')), await txt('#data-footer'));
+    check('Armies: the dataset credit and its link are shown (licence of the data)', /Powered by 40kdc-data/.test(await txt('#data-credit')) && (await dp.getAttribute('#data-credit a', 'href')) === 'https://40kdc.alpacasoft.dev');
+    await dp.locator('#data-B').scrollIntoViewIfNeeded();
+    await dp.screenshot({ path: join(SHOTS, 'calc_57_rules_data.png') });
+    await dp.tap('button[data-action="view"][data-value="intel"]');
+    await dp.tap('button[data-action="intel-side"][data-value="B"]');
+    const stamps = await dp.$$eval('.intel-unit [data-stamp]', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+    check('Intel: every unit shows the date of its datasheet; the ones with other points are flagged', stamps.length === 5 && stamps.every(t => /^Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026\./.test(t)) && stamps.filter(t => /pts in your list/.test(t)).length === 3
+      && stamps.some(t => /Warboss: 70 pts in your list, 100 in the data — check this datasheet/.test(t)), JSON.stringify(stamps));
+    {
+      // a faction without a codex import here: its points and weapon profiles are those of the newer
+      // dataset release (calculator only), and the stamp says which part is older
+      await dp.tap('button[data-action="view"][data-value="armies"]');
+      const TYR = (pts) => `Hive (500 points)\n\nTyranids\nInvasion Fleet\nIncursion (1000 points)\n\nHive Tyrant (195 points)\n\nTermagants (${pts} points)\n  • 10x Termagant\n`;
+      await dp.fill('textarea[data-side="B"]', TYR(55));
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+      check('a faction without a codex import shows the newer release for points and weapons, and that its abilities are older',
+        /Rules data: 40kdc 1\.5\.1 points and weapon profiles, 14 Oct 2026 \(abilities: 40kdc 1\.4\.5, 20 Jun 2026\)/.test(await txt('#data-B')) && /✓ Points: all 2 datasheets cost what the rules data says/.test(await txt('#points-B')), await txt('#data-B'));
+      await dp.fill('textarea[data-side="B"]', TYR(60));
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+      check('the points check uses the refreshed points (Termagants: 55 for ten, 60 before the refresh)', /Termagants 60 \(data 55\)/.test(await txt('#points-B')), await txt('#points-B'));
+      const refresh = await dp.evaluate(async () => { const A = await import('/calc/adapter.mjs'); return A.ERRATA_RESULT; });
+      check('the refresh was applied in the browser: every entry, none skipped', refresh.from === '1.5.1' && refresh.points > 150 && refresh.weapons > 90 && refresh.skipped.length === 0, JSON.stringify({ ...refresh, skipped: refresh.skipped.length }));
+      await dp.locator('#data-B').scrollIntoViewIfNeeded();
+      await dp.screenshot({ path: join(SHOTS, 'calc_59_rules_data_refresh.png') });
+      await dp.fill('textarea[data-side="B"]', ORK_LIST);
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+    }
+    await dp.tap('button[data-action="view"][data-value="mission"]');
+    await dp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    await dp.locator('details[data-details="mission-basis"] summary').tap();
+    check('"What this forecast is built from" names the datasheet dates of both armies', /A: Codex: Space Marines \(Wahapedia\), 21 Oct 2026\. B: Codex: Orks \(Wahapedia\), 16 Oct 2026 \(⚠ 3 datasheets with other points/.test(await txt('#fc-basis li.basis.stamp')), await txt('#fc-basis li.basis.stamp'));
+    await dctx.close();
+  }
+
+  // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
+  // every view at 360 px (most Android phones) and 412 px
+  {
+    const small = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 360, height: 740 } });
+    const sp = await small.newPage();
+    await sp.goto(`${BASE}/calc/`);
+    await sp.fill('textarea[data-side="A"]', SW_LIST);
+    await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST);
+    await sp.tap('button[data-action="parse"][data-side="B"]');
+    const wide = [];
+    for (const w of [360, 412]) {
+      await sp.setViewportSize({ width: w, height: 740 });
+      await sp.waitForTimeout(300);
+      for (const [v, t] of [['armies'], ['intel'], ['attack'], ['board'], ['mission', 'plan'], ['mission', 'cards'], ['mission', 'play']]) {
+        await sp.tap(`button[data-action="view"][data-value="${v}"]`);
+        if (t) { await sp.tap(`button[data-action="mission-tab"][data-value="${t}"]`); await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 }); }
+        if (v === 'board') await sp.waitForSelector('#board-svg');
+        await sp.waitForTimeout(150);
+        const m = await sp.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, tabs: [...document.querySelectorAll('.tabs .tab')].every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= document.documentElement.clientWidth + 0.5; }) }));
+        if (m.sw > m.vw + 1 || !m.tabs) wide.push(`${w}px ${v}${t ? '/' + t : ''}: ${m.sw} > ${m.vw}${m.tabs ? '' : ' (tabs cut off)'}`);
+      }
+    }
+    check('no view is wider than the screen at 360 px and 412 px, and all five tabs are on screen', wide.length === 0, wide.join('; '));
+    await sp.setViewportSize({ width: 360, height: 740 });
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.tap('button[data-action="mission-tab"][data-value="cards"]');
+    await sp.waitForSelector('#fc-modes tbody tr', { timeout: 120000 });
+    await sp.screenshot({ path: join(SHOTS, 'calc_50_phone_360.png') });
+    await small.close();
+  }
+
   // --- tablet layout
   const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });
   const tp = await tab.newPage();
@@ -934,6 +1481,40 @@ try {
   check('landscape tablet: the whole board fits on screen', fitL.h <= fitL.vh, JSON.stringify(fitL));
   await lp.locator('#board-host').scrollIntoViewIfNeeded();
   await lp.screenshot({ path: join(SHOTS, 'calc_21_board_tablet_landscape.png') });
+  {
+    // --- two panes on a landscape tablet: the map with its controls beside it, no pinned dock
+    await lp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const rects = await lp.evaluate(() => {
+      const r = (q) => { const e = document.querySelector(q); const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; };
+      return { map: r('#board-host'), panel: r('#board-panel'), vw: innerWidth, vh: innerHeight, scroll: scrollY, dock: getComputedStyle(document.getElementById('board-dock')).display };
+    });
+    check('tablet Board: map on the left, the selected unit\'s panel beside it, both on screen without scrolling',
+      rects.panel.l >= rects.map.r - 2 && rects.map.b <= rects.vh && rects.panel.t < rects.vh / 2 && rects.map.w > 350 && rects.dock === 'none', JSON.stringify(rects));
+    await lp.screenshot({ path: join(SHOTS, 'calc_39_tablet_board.png') });
+    await lp.tap('button[data-action="view"][data-value="mission"]');
+    await lp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    const pl = await lp.evaluate(() => {
+      const r = (q) => { const b = document.querySelector(q).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, w: b.width }; };
+      return { hero: r('.mlay.plan .a-hero'), grid: r('.mlay.plan .a-grid'), h: document.documentElement.scrollHeight, vh: innerHeight, rounds: document.querySelector('[data-details="mission-rounds"]').open };
+    });
+    check('tablet Mission: forecast on the left, objective plan on the right, round-by-round open, under 2.2 screens (was 4.7)',
+      pl.grid.l >= pl.hero.r - 2 && pl.grid.w > 350 && pl.rounds === true && pl.h < 2.2 * pl.vh, JSON.stringify(pl));
+    await lp.screenshot({ path: join(SHOTS, 'calc_40_tablet_mission.png') });
+    await lp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await lp.waitForSelector('#play-bar');
+    await lp.screenshot({ path: join(SHOTS, 'calc_41_tablet_play.png') });
+    await lp.tap('button[data-action="view"][data-value="attack"]');
+    await lp.selectOption('select[data-input="target"]', targetValue);
+    await lp.tap('button[data-action="open-add"]');
+    await lp.tap('.pick:has-text("Grey Hunters")');
+    await lp.waitForFunction(() => window.__calc?.state.result && !window.__calc.state.busy);
+    await lp.waitForSelector('#attack-pane #chart svg');
+    const ap = await lp.evaluate(() => ({ pane: document.getElementById('attack-pane').getBoundingClientRect().left, bar: document.querySelector('#resultbar .resultbar') != null, sheet: document.querySelector('.sheet') != null, vw: innerWidth }));
+    check('tablet Attack: the full result (chart, odds) sits beside the set-up, no bottom bar or sheet', ap.pane > ap.vw * 0.4 && !ap.bar && !ap.sheet, JSON.stringify(ap));
+    await lp.locator('#attack-pane #chart .hit').nth(3).tap();
+    check('tablet Attack: tapping a bar in the side pane shows its odds', /exactly .* at least/.test(await lp.textContent('#attack-pane #readout')));
+    await lp.screenshot({ path: join(SHOTS, 'calc_42_tablet_attack.png') });
+  }
   await land.close();
   // GW app list with U+2011 non-breaking hyphens (Contemptor‑Galatus, Grav‑Tank) imports cleanly
   await tp.tap('button[data-action="view"][data-value="armies"]');

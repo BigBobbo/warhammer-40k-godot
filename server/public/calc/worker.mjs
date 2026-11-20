@@ -27,8 +27,11 @@ self.onmessage = (ev) => {
     for (const item of batch) {
       try {
         const r = simulate({ ...item.scenario, trials: trials ?? 2000 });
+        // spread of the wounds dealt (the forecast combines several attackers on one target)
+        let varW = 0;
+        for (let i = 0; i < r.wounds.length; i++) varW += r.wounds[i] * (i - r.meanWounds) ** 2;
         self.postMessage({ id, key: item.key, result: {
-          meanKills: r.meanKills, pWipe: r.pWipe, meanWounds: r.meanWounds,
+          meanKills: r.meanKills, pWipe: r.pWipe, meanWounds: r.meanWounds, sdWounds: Math.sqrt(varW),
           totalModels: r.totalModels, totalWounds: r.totalWounds,
           meanPoints: r.meanPoints, totalPoints: r.totalPoints, groupKills: r.groupKills,
         } });
