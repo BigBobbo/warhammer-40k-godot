@@ -1,0 +1,10 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Forecast secondaries on",
+  "description": "FORECAST_SECONDARIES = 1.0: keep / discard / New Orders / replace secondary cards by their rest-of-battle VP from the AIForecast port of the Combat Calc forecast (on) or by the achievability thresholds (off). One-parameter arms for a symmetric paired A/B.",
+  "parameters": {
+    "FORECAST_SECONDARIES": 1.0
+  },
+  "rules": []
+}

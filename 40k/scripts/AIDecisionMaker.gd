@@ -1905,6 +1905,19 @@ const FIX_OBJ_AREA_HOLD: float = 0.0
 # MissionManager.score_primary_eog_11e pays it once, when the battle ends.
 # 0 = previous behaviour (priced in every round).
 const FIX_EOG_TIMING: float = 0.0
+# FORECAST-SECONDARIES (FORECAST_SECONDARIES): 1 = keep / discard / New
+# Orders / replace a secondary card by its expected VP over the REST of the
+# battle, from the Combat Calc game forecast ported to AIForecast.gd: the
+# 11e deck (draw odds, when-drawn rules, timing, the 15/45 caps), the turns
+# left, kill-card targets still alive, and the board-aware achievability of
+# position cards as their per-turn chance. A card is swapped when a fresh draw
+# beats it by more than the CP it costs (FORECAST_CP_VP VP per CP) plus
+# FORECAST_SWAP_MARGIN; discarded for CP when it is worth less than that CP.
+# 0 = previous behaviour (achievability thresholds 0.25 / 0.30-0.45 / 0.2).
+const FORECAST_SECONDARIES: float = 0.0
+const FORECAST_CP_VP: float = 1.5
+const FORECAST_SWAP_MARGIN: float = 0.5
+const FORECAST_TRIALS: int = 300
 # MOVE-TERRAIN-11E (FIX_MOVE_TERRAIN_11E; 11e rules audit TER-01; 13.06 Terrain
 # and Movement): 1 = a Normal or Advance move is priced and gated the way the
 # engine validates it. Price: MovementPhase._get_movement_terrain_penalty (2"
@@ -6648,6 +6661,28 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			var player_cp_r = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
 			var rep_scored: Array = []  # decision record
 			var rep_pick := "keep"
+			if get_param("FORECAST_SECONDARIES", FORECAST_SECONDARIES) >= 0.5 and player_cp_r >= 1:
+				var rep_cands: Array = []
+				for action in replace_actions:
+					var ri = int(action.get("mission_index", -1))
+					if ri >= 0 and ri < active_missions_r.size():
+						rep_cands.append({"index": ri, "id": str(active_missions_r[ri].get("id", "")),
+							"name": str(active_missions_r[ri].get("name", "Unknown"))})
+				var rep_best := _forecast_pick_swap(snapshot, player, rep_cands, "Replace")
+				if not rep_best.is_empty():
+					var rb_idx := int(rep_best.index)
+					_record_choice("replace_secondary", "", "new secondary draw", rep_best.scored,
+						str(rb_idx) if rb_idx >= 0 else "keep", {"phase": "command", "round": replace_round, "forecast": true})
+					if rb_idx >= 0:
+						var rb_name = str(active_missions_r[rb_idx].get("name", "Unknown"))
+						_add_thinking_step("Secondary '%s' is worth ~%.1f VP over the rest of the battle; a fresh draw ~%.1f VP — replacing it for 1 CP" % [
+							rb_name, float(rep_best.keep), float(rep_best.draw)])
+						return {
+							"type": "REPLACE_SECONDARY_MISSION",
+							"mission_index": rb_idx,
+							"_ai_description": "Replace '%s' (forecast: keep %.1f VP vs draw %.1f VP)" % [rb_name, float(rep_best.keep), float(rep_best.draw)]
+						}
+					replace_actions = []  # forecast says keep — skip the threshold rule
 			for action in replace_actions:
 				var m_idx = action.get("mission_index", -1)
 				if m_idx >= 0 and m_idx < active_missions_r.size():
@@ -6687,6 +6722,31 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		var secondary_mgr = _secondary_mission_manager()
 		if secondary_mgr and secondary_mgr.is_initialized(player):
 			var active_missions = secondary_mgr.get_active_missions(player)
+			var no_cp_f = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
+			if get_param("FORECAST_SECONDARIES", FORECAST_SECONDARIES) >= 0.5 and no_cp_f >= 1:
+				var no_cands: Array = []
+				for action in new_orders_actions:
+					var ni_f = int(action.get("mission_index", -1))
+					if ni_f >= 0 and ni_f < active_missions.size():
+						no_cands.append({"index": ni_f, "id": str(active_missions[ni_f].get("id", "")),
+							"name": str(active_missions[ni_f].get("name", "Unknown"))})
+				var no_best := _forecast_pick_swap(snapshot, player, no_cands, "New Orders")
+				if not no_best.is_empty():
+					var nb_idx := int(no_best.index)
+					_record_choice("new_orders", "", "secondaries", no_best.scored,
+						str(nb_idx) if nb_idx >= 0 else "keep", {"phase": "command", "round": cmd_battle_round, "forecast": true})
+					if nb_idx < 0:
+						print("AIDecisionMaker: [NEW-ORDERS] Forecast: keep every secondary")
+						active_missions = []  # skip the threshold rule below
+					else:
+						var nb_name = str(active_missions[nb_idx].get("name", "Unknown"))
+						_add_thinking_step("New Orders: '%s' is worth ~%.1f VP over the rest of the battle; a fresh draw ~%.1f VP" % [
+							nb_name, float(no_best.keep), float(no_best.draw)])
+						return {
+							"type": "USE_NEW_ORDERS",
+							"mission_index": nb_idx,
+							"_ai_description": "New Orders: swap '%s' (forecast: keep %.1f VP vs draw %.1f VP)" % [nb_name, float(no_best.keep), float(no_best.draw)]
+						}
 			var worst_idx = -1
 			var worst_score = INF
 			var worst_name = ""
@@ -22810,6 +22870,55 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 	if not can_gain_cp:
 		print("AIDecisionMaker: [SCORING]   Bonus CP cap reached — discard won't grant CP this round")
 
+	# FORECAST-SECONDARIES: discard a card for CP only when it is worth less
+	# over the rest of the battle than the CP (no hand limit in 11e, so a
+	# discard buys nothing else).
+	if get_param("FORECAST_SECONDARIES", FORECAST_SECONDARIES) >= 0.5:
+		var dfv := _forecast_secondary_values(snapshot, player, "next_turn")
+		var d_cp_vp: float = _forecast_cp_value(snapshot, player, true) if can_gain_cp else 0.0
+		var d_margin := get_param("FORECAST_SWAP_MARGIN", FORECAST_SWAP_MARGIN)
+		var d_scored: Array = []
+		var d_best := -1
+		var d_best_gain := d_margin
+		var d_best_keep := 0.0
+		for i in range(active_missions.size()):
+			var dm = active_missions[i]
+			var dm_id := str(dm.get("id", ""))
+			if pending_by_id.has(dm_id):
+				continue  # scoring now — achieved, never a discard
+			var allowed := false
+			for action in discard_actions:
+				if int(action.get("mission_index", -1)) == i:
+					allowed = true
+			if not allowed:
+				continue
+			var keep_vp: float = float(dfv.get("keep", {}).get(dm_id, 0.0)) if not dfv.is_empty() else 0.0
+			var d_gain: float = d_cp_vp - keep_vp
+			print("AIDecisionMaker: [FORECAST] Discard '%s': keep %.2f VP vs CP %.2f VP => gain %+.2f (margin %.2f)" % [
+				dm.get("name", "?"), keep_vp, d_cp_vp, d_gain, d_margin])
+			d_scored.append({"description": "Discard '%s'" % dm.get("name", "?"), "score": d_gain, "key": str(i),
+				"score_breakdown": {"forecast_keep_vp": keep_vp, "cp_gain_vp": d_cp_vp}})
+			if d_gain > d_best_gain:
+				d_best_gain = d_gain
+				d_best = i
+				d_best_keep = keep_vp
+		if not dfv.is_empty() and not d_scored.is_empty():
+			d_scored.append({"description": "Keep every secondary", "score": d_margin, "key": "keep",
+				"score_breakdown": {"swap_margin": d_margin}})
+			_record_choice("secondary_discard", "", "secondaries", d_scored, str(d_best) if d_best >= 0 else "keep",
+				{"phase": "scoring", "round": battle_round, "deck_size": deck_size, "can_gain_cp": can_gain_cp, "forecast": true})
+			if d_best >= 0:
+				var db_name = str(active_missions[d_best].get("name", "?"))
+				_add_thinking_step("Discarding '%s': worth ~%.1f VP over the rest of the battle, less than the CP (~%.1f VP)" % [
+					db_name, d_best_keep, d_cp_vp])
+				return {
+					"type": "DISCARD_SECONDARY",
+					"mission_index": d_best,
+					"_ai_description": "Discard '%s' for +1 CP (forecast: worth %.1f VP)" % [db_name, d_best_keep],
+				}
+			_add_thinking_step("Keeping all secondaries: each is worth more over the rest of the battle than a CP")
+			return {"type": "END_SCORING", "_ai_description": end_turn_desc}
+
 	if not sec_scored.is_empty():
 		# The "keep everything" option is a real candidate and has to be in the
 		# record, or a decision to keep looks like no decision at all.
@@ -22840,6 +22949,81 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
 		worst_mission_name if worst_mission_name != "" else "none", worst_mission_score])
 	return {"type": "END_SCORING", "_ai_description": end_turn_desc}
+
+# =============================================================================
+# FORECAST-SECONDARIES: rest-of-battle VP of each secondary card
+# =============================================================================
+
+const _AIForecast = preload("res://scripts/AIForecast.gd")
+
+static func _forecast_cp_value(snapshot: Dictionary, player: int, gained_after_turn: bool) -> float:
+	"""VP worth of one CP. A CP gained at the end of this turn is only worth
+	something if this player has another turn to spend it in."""
+	var order := _AIForecast.turn_order(snapshot)
+	var cp_vp := get_param("FORECAST_CP_VP", FORECAST_CP_VP)
+	if gained_after_turn and int(order.round) >= MAX_BATTLE_ROUNDS_AI:
+		return 0.0
+	return cp_vp
+
+static func _forecast_secondary_values(snapshot: Dictionary, player: int, from: String) -> Dictionary:
+	"""{keep: {card_id: VP}, draw_now: VP, base: forecast} for the player's
+	active secondaries, or {} when there is nothing to forecast. Position
+	cards score in the forecast with the AI's board-aware achievability as
+	their per-turn chance."""
+	var secondary_mgr = _secondary_mission_manager()
+	if secondary_mgr == null or not secondary_mgr.is_initialized(player):
+		return {}
+	var battle_round := int(snapshot.get("meta", {}).get("battle_round", 1))
+	var rates := {}
+	for m in secondary_mgr.get_active_missions(player):
+		var mid := str(m.get("id", ""))
+		if mid in _AIForecast.POSITION_CARDS:
+			rates[mid] = clampf(float(_evaluate_mission_achievability(snapshot, m, player, battle_round)), 0.0, 1.0)
+	var P: Dictionary = _AIForecast.build_from_snapshot(snapshot, {"from": from, "rates": {player: rates},
+		"trials": get_param_int("FORECAST_TRIALS", FORECAST_TRIALS)})
+	if P.is_empty():
+		return {}
+	# The live hand is the source of truth (the snapshot copy can lag a swap
+	# made earlier in this same phase).
+	var hand: Array = []
+	for m in secondary_mgr.get_active_missions(player):
+		hand.append(str(m.get("id", "")))
+	P.players[player].start["hand"] = hand
+	var t0 := Time.get_ticks_msec()
+	var res: Dictionary = _AIForecast.secondary_values(P, player)
+	var bits: Array = []
+	for id in res.keep:
+		bits.append("%s %.2f" % [id, float(res.keep[id])])
+	print("AIDecisionMaker: [FORECAST] P%d R%d from=%s keep{%s} draw_now=%.2f mean %.1f-%.1f p_win=%.2f (%d trials, %d ms)" % [
+		player, battle_round, from, ", ".join(bits), float(res.draw_now), float(res.base.mean[player]),
+		float(res.base.mean[_AIForecast.other(player)]), float(res.base.p_win[player]), int(P.trials),
+		Time.get_ticks_msec() - t0])
+	return res
+
+static func _forecast_pick_swap(snapshot: Dictionary, player: int, candidates: Array, label: String) -> Dictionary:
+	"""Best card to swap for a fresh draw (New Orders / replace), by forecast.
+	candidates: [{index, id, name}]. Returns {index, gain, keep, draw, scored}
+	with index -1 when keeping everything is best."""
+	var fv := _forecast_secondary_values(snapshot, player, "this_turn")
+	if fv.is_empty():
+		return {}
+	var cp_vp := _forecast_cp_value(snapshot, player, false)
+	var margin := get_param("FORECAST_SWAP_MARGIN", FORECAST_SWAP_MARGIN)
+	var best := {"index": -1, "gain": 0.0, "keep": 0.0, "draw": float(fv.draw_now), "scored": []}
+	for c in candidates:
+		var keep := float(fv.keep.get(c.id, 0.0))
+		var gain := float(fv.draw_now) - keep - cp_vp
+		best.scored.append({"description": "%s: swap '%s'" % [label, c.name], "score": gain, "key": str(c.index),
+			"score_breakdown": {"forecast_keep_vp": keep, "forecast_draw_vp": float(fv.draw_now), "cp_cost_vp": cp_vp}})
+		print("AIDecisionMaker: [FORECAST] %s '%s': keep %.2f VP vs draw %.2f VP - CP %.2f => gain %+.2f (margin %.2f)" % [
+			label, c.name, keep, float(fv.draw_now), cp_vp, gain, margin])
+		if gain > margin and gain > float(best.gain):
+			best.index = int(c.index)
+			best.gain = gain
+			best.keep = keep
+	best.scored.append({"description": "Keep every secondary", "score": margin, "key": "keep",
+		"score_breakdown": {"swap_margin": margin}})
+	return best
 
 # Late-bound reference to SecondaryMissionManager autoload
 static func _secondary_mission_manager():

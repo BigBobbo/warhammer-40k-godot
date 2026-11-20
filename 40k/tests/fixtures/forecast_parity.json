@@ -1,0 +1,2949 @@
+{
+ "generated_by": "tools/ai_lab/forecast_parity.mjs",
+ "trials_js": 20000,
+ "armies": {
+  "1": {
+   "units": [
+    {
+     "name": "A_warboss",
+     "models": 1,
+     "characters": 1,
+     "characters_w4": 1,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_mek",
+     "models": 1,
+     "characters": 1,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_boyz",
+     "models": 20,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": true,
+     "aircraft": false
+    },
+    {
+     "name": "A_tank",
+     "models": 1,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 1,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_gretchin",
+     "models": 11,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_nobz",
+     "models": 5,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_bikes",
+     "models": 3,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "A_kans",
+     "models": 3,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    }
+   ]
+  },
+  "2": {
+   "units": [
+    {
+     "name": "B_warboss",
+     "models": 1,
+     "characters": 1,
+     "characters_w4": 1,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_mek",
+     "models": 1,
+     "characters": 1,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_boyz",
+     "models": 20,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": true,
+     "aircraft": false
+    },
+    {
+     "name": "B_tank",
+     "models": 1,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 1,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_gretchin",
+     "models": 11,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_nobz",
+     "models": 5,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_bikes",
+     "models": 3,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    },
+    {
+     "name": "B_kans",
+     "models": 3,
+     "characters": 0,
+     "characters_w4": 0,
+     "w10": 0,
+     "ss13": false,
+     "aircraft": false
+    }
+   ]
+  }
+ },
+ "scenarios": [
+  {
+   "name": "primary_Battlefield Dominance",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Battlefield Dominance",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Meatgrinder",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 87.4307,
+    "mean2": 69.7855,
+    "sd1": 7.040781029828969,
+    "sd2": 9.982854789588007,
+    "p_win1": 0.896,
+    "p_win2": 0.09295
+   }
+  },
+  {
+   "name": "primary_Determined Acquisition",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Determined Acquisition",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Punishment",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 87.79885,
+    "mean2": 71.17315,
+    "sd1": 6.720750603727246,
+    "sd2": 11.35123645588881,
+    "p_win1": 0.8586,
+    "p_win2": 0.12635
+   }
+  },
+  {
+   "name": "primary_Immovable Object",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Immovable Object",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Unstoppable Force",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.28415,
+    "mean2": 76.3312,
+    "sd1": 8.797443309138233,
+    "sd2": 10.504389870906387,
+    "p_win1": 0.6784,
+    "p_win2": 0.30195
+   }
+  },
+  {
+   "name": "primary_Inescapable Dominion",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Inescapable Dominion",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Gather Intel",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.2711,
+    "mean2": 77.90855,
+    "sd1": 8.886000494598209,
+    "sd2": 11.384704075974007,
+    "p_win1": 0.6265,
+    "p_win2": 0.35045
+   }
+  },
+  {
+   "name": "primary_Purge and Secure",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Purge and Secure",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Reconnaissance Sweep",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.5167,
+    "mean2": 66.32025,
+    "sd1": 8.36967867423834,
+    "sd2": 8.94330419573774,
+    "p_win1": 0.90255,
+    "p_win2": 0.0868
+   }
+  },
+  {
+   "name": "primary_Consecrate",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Consecrate",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Search and Scour",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 79.86935,
+    "mean2": 72.91945,
+    "sd1": 9.724504130160074,
+    "sd2": 11.061987239980915,
+    "p_win1": 0.646,
+    "p_win2": 0.3334
+   }
+  },
+  {
+   "name": "primary_Destroyer's Wrath",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Destroyer's Wrath",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Surveil the Foe",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 86.53825,
+    "mean2": 78.5063,
+    "sd1": 7.815730096254524,
+    "sd2": 9.209764400352523,
+    "p_win1": 0.72075,
+    "p_win2": 0.25795
+   }
+  },
+  {
+   "name": "primary_Meatgrinder",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Meatgrinder",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Triangulation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 77.6468,
+    "mean2": 74.56135,
+    "sd1": 9.075409068466316,
+    "sd2": 10.210834254726638,
+    "p_win1": 0.56645,
+    "p_win2": 0.40745
+   }
+  },
+  {
+   "name": "primary_Punishment",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Punishment",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Extract Relic",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 83.1,
+    "mean2": 68.32235,
+    "sd1": 9.05791918709816,
+    "sd2": 9.841597455570922,
+    "p_win1": 0.8308,
+    "p_win2": 0.15335
+   }
+  },
+  {
+   "name": "primary_Unstoppable Force",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Unstoppable Force",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Sabotage",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 86.8095,
+    "mean2": 68.831,
+    "sd1": 7.39222630538325,
+    "sd2": 10.38952063379244,
+    "p_win1": 0.884,
+    "p_win2": 0.10545
+   }
+  },
+  {
+   "name": "primary_Gather Intel",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Gather Intel",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Secure Asset",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 87.67655,
+    "mean2": 72.81225,
+    "sd1": 7.275213405632743,
+    "sd2": 10.688189740900869,
+    "p_win1": 0.84505,
+    "p_win2": 0.1409
+   }
+  },
+  {
+   "name": "primary_Reconnaissance Sweep",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Reconnaissance Sweep",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Vanguard Operation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 72.6848,
+    "mean2": 68.0381,
+    "sd1": 8.3210185049668,
+    "sd2": 8.791788691159523,
+    "p_win1": 0.6313,
+    "p_win2": 0.3382
+   }
+  },
+  {
+   "name": "primary_Search and Scour",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Search and Scour",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Vital Link",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.2182,
+    "mean2": 69.83975,
+    "sd1": 8.707168814258786,
+    "sd2": 11.96564122550484,
+    "p_win1": 0.7677,
+    "p_win2": 0.21775
+   }
+  },
+  {
+   "name": "primary_Surveil the Foe",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Surveil the Foe",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Death Trap",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 87.1229,
+    "mean2": 69.0746,
+    "sd1": 7.001449534917715,
+    "sd2": 8.926681065211174,
+    "p_win1": 0.9268,
+    "p_win2": 0.0639
+   }
+  },
+  {
+   "name": "primary_Triangulation",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Triangulation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Delaying Action",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 81.85295,
+    "mean2": 66.6901,
+    "sd1": 9.123679427593846,
+    "sd2": 9.231195046688116,
+    "p_win1": 0.85705,
+    "p_win2": 0.12835
+   }
+  },
+  {
+   "name": "primary_Extract Relic",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Extract Relic",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Locate and Deny",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 75.0281,
+    "mean2": 63.1516,
+    "sd1": 8.777619859050672,
+    "sd2": 8.863973005374026,
+    "p_win1": 0.80225,
+    "p_win2": 0.1767
+   }
+  },
+  {
+   "name": "primary_Sabotage",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Sabotage",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Outmanoeuvre",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 81.51295,
+    "mean2": 73.6702,
+    "sd1": 8.801291513039397,
+    "sd2": 11.19547372646644,
+    "p_win1": 0.66245,
+    "p_win2": 0.3188
+   }
+  },
+  {
+   "name": "primary_Secure Asset",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Secure Asset",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Smoke and Mirrors",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.59795,
+    "mean2": 64.8193,
+    "sd1": 8.19857340014103,
+    "sd2": 9.452552433602236,
+    "p_win1": 0.9011,
+    "p_win2": 0.08875
+   }
+  },
+  {
+   "name": "primary_Vanguard Operation",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Vanguard Operation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Battlefield Dominance",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 74.77625,
+    "mean2": 76.81025,
+    "sd1": 7.769143191980638,
+    "sd2": 9.811750350345271,
+    "p_win1": 0.4171,
+    "p_win2": 0.55245
+   }
+  },
+  {
+   "name": "primary_Vital Link",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Vital Link",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Determined Acquisition",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 76.37855,
+    "mean2": 76.15235,
+    "sd1": 10.321092475968763,
+    "sd2": 9.685677027317205,
+    "p_win1": 0.4891,
+    "p_win2": 0.4876
+   }
+  },
+  {
+   "name": "primary_Death Trap",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Death Trap",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Immovable Object",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 75.8601,
+    "mean2": 71.94435,
+    "sd1": 8.12632315318558,
+    "sd2": 11.551080169295862,
+    "p_win1": 0.58865,
+    "p_win2": 0.38715
+   }
+  },
+  {
+   "name": "primary_Delaying Action",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Delaying Action",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Inescapable Dominion",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 75.51455,
+    "mean2": 69.6924,
+    "sd1": 8.218332452359178,
+    "sd2": 11.939773123472655,
+    "p_win1": 0.6223,
+    "p_win2": 0.3562
+   }
+  },
+  {
+   "name": "primary_Locate and Deny",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Locate and Deny",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Purge and Secure",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 69.9501,
+    "mean2": 70.9009,
+    "sd1": 8.030125154068205,
+    "sd2": 10.781098236728996,
+    "p_win1": 0.46125,
+    "p_win2": 0.5113
+   }
+  },
+  {
+   "name": "primary_Outmanoeuvre",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Outmanoeuvre",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Consecrate",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 86.7009,
+    "mean2": 69.03785,
+    "sd1": 7.678498498404418,
+    "sd2": 11.446799438161728,
+    "p_win1": 0.8606,
+    "p_win2": 0.1254
+   }
+  },
+  {
+   "name": "primary_Smoke and Mirrors",
+   "first": 1,
+   "seed": 1,
+   "players": {
+    "1": {
+     "mission": "Smoke and Mirrors",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    },
+    "2": {
+     "mission": "Destroyer's Wrath",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.1,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 76.91565,
+    "mean2": 74.8444,
+    "sd1": 8.219010589937195,
+    "sd2": 10.673030902232076,
+    "p_win1": 0.53185,
+    "p_win2": 0.4433
+   }
+  },
+  {
+   "name": "midgame_r3",
+   "first": 2,
+   "start_round": 3,
+   "start_turn": 1,
+   "start_after_draw": true,
+   "seed": 2,
+   "players": {
+    "1": {
+     "mission": "Battlefield Dominance",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {
+      "behind_enemy_lines": 0.2
+     },
+     "start": {
+      "hand": [
+       "secure_no_mans_land",
+       "behind_enemy_lines"
+      ],
+      "used": [
+       "no_prisoners",
+       "cleanse",
+       "beacon"
+      ],
+      "primary": 18,
+      "secondary": 12,
+      "destroyed": [
+       "A_boyz"
+      ]
+     }
+    },
+    "2": {
+     "mission": "Meatgrinder",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.8,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {
+      "hand": [
+       "assassination"
+      ],
+      "used": [
+       "outflank",
+       "plunder"
+      ],
+      "primary": 14,
+      "secondary": 9,
+      "destroyed": [
+       "B_warboss",
+       "B_tank"
+      ]
+     }
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 84.71655,
+    "mean2": 62.08495,
+    "sd1": 4.880891936675138,
+    "sd2": 7.99982084158763,
+    "p_win1": 0.98685,
+    "p_win2": 0.01065
+   }
+  },
+  {
+   "name": "fixed_vs_tactical",
+   "first": 1,
+   "seed": 3,
+   "players": {
+    "1": {
+     "mission": "Gather Intel",
+     "mode": "fixed",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {},
+     "fixed": [
+      "assassination",
+      "bring_it_down"
+     ]
+    },
+    "2": {
+     "mission": "Outmanoeuvre",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 2,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 1,
+     "exp2": 1,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 61.6388,
+    "mean2": 74.4111,
+    "sd1": 5.543458718165036,
+    "sd2": 11.132771298737744,
+    "p_win1": 0.16635,
+    "p_win2": 0.81245
+   }
+  },
+  {
+   "name": "contested_random_first",
+   "first": 0,
+   "seed": 4,
+   "confidence": {
+    "home": 0.9,
+    "other": 0.6
+   },
+   "players": {
+    "1": {
+     "mission": "Consecrate",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.7,
+     "rate": {
+      "engage_on_all_fronts": 0.75,
+      "centre_ground": 0.25
+     },
+     "start": {}
+    },
+    "2": {
+     "mission": "Triangulation",
+     "mode": "tactical",
+     "army": null,
+     "kill_rate": 1.3,
+     "action_p": 0.5,
+     "rate": {},
+     "start": {}
+    }
+   },
+   "objectives": [
+    {
+     "id": "home1",
+     "cls": "home",
+     "side": 1
+    },
+    {
+     "id": "home2",
+     "cls": "home",
+     "side": 2
+    },
+    {
+     "id": "exp1",
+     "cls": "exp",
+     "side": 1
+    },
+    {
+     "id": "exp2",
+     "cls": "exp",
+     "side": 2
+    },
+    {
+     "id": "centre",
+     "cls": "central",
+     "side": 0
+    }
+   ],
+   "plan": {
+    "1": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 0,
+     "exp2": 0,
+     "centre": 0
+    },
+    "2": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 0,
+     "exp2": 0,
+     "centre": 0
+    },
+    "3": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 0,
+     "exp2": 0,
+     "centre": 0
+    },
+    "4": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 0,
+     "exp2": 0,
+     "centre": 0
+    },
+    "5": {
+     "home1": 1,
+     "home2": 2,
+     "exp1": 0,
+     "exp2": 0,
+     "centre": 0
+    }
+   },
+   "trials": 20000,
+   "js": {
+    "mean1": 75.34225,
+    "mean2": 72.68135,
+    "sd1": 11.04640733168475,
+    "sd2": 10.689645091278768,
+    "p_win1": 0.5561,
+    "p_win2": 0.4216
+   }
+  }
+ ]
+}
