@@ -172,3 +172,60 @@ test('real-game card rates: used for position cards by battle round, your own ra
   assert.ok(dflt.A.cards['behind-enemy-lines'].scoreRate > 0.75, `kept until scored: ${dflt.A.cards['behind-enemy-lines'].scoreRate}`);
   assert.equal(never.A.cards['behind-enemy-lines']?.perDraw ?? 0, 0, 'your rating 0 = never');
 });
+
+test('cards in hand: followed from the current turn (how often each still scores, and for how much)', () => {
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const pl = (o = {}) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: 1.3, ...o });
+  const run = (startA, { P: _p, ...extra } = {}) => F.forecast({ players: { A: pl({ start: { hand: ['bring-it-down', 'behind-enemy-lines'], used: [], primary: 12, secondary: 5, ...startA }, ...extra }), B: pl() }, objectives: OBJS, plan, first: 'A', startRound: 3, startTurn: 0, trials: 3000, ...(_p ?? {}) });
+  const r = run({});
+  const bid = r.A.cards['bring-it-down'], bel = r.A.cards['behind-enemy-lines'];
+  assert.equal(bid.drawRate, 1, 'a card in hand counts as drawn in every game');
+  assert.ok(bid.scoreRate > 0.3 && bid.scoreRate < 1, `two tanks to kill in three rounds: ${bid.scoreRate}`);
+  assert.ok(Math.abs(bid.perDraw - 5 * bid.scoreRate) < 1e-9, 'Bring It Down pays 5 VP when it scores');
+  assert.ok(bel.scoreRate > 0.3 && bel.scoreRate <= 1, `Behind Enemy Lines from round 3: ${bel.scoreRate}`);
+  // both tanks are already destroyed: the card in hand has no targets and never scores
+  const P2 = F.forecast({ players: { A: pl({ start: { hand: ['bring-it-down'], used: [], primary: 12, secondary: 5 } }), B: pl({ start: { destroyed: ['Tank 1', 'Tank 2'] } }) }, objectives: OBJS, plan, first: 'A', startRound: 3, startTurn: 0, trials: 800 });
+  assert.equal(P2.A.cards['bring-it-down'].scoreRate, 0, 'no W10+ model left');
+  assert.equal(P2.A.cards['bring-it-down'].drawRate, 1);
+  // the two cards in hand ARE this turn's draw: the forecast does not draw two more this turn
+  const drew = run({}, { P: { startDrawn: 2 } });
+  const cardsSeen = (res) => Object.values(res.A.cards).reduce((a, c) => a + c.drawRate, 0);
+  assert.ok(Math.abs((cardsSeen(r) - cardsSeen(drew)) - 2) < 0.25, `two fewer cards come up: ${cardsSeen(r)} vs ${cardsSeen(drew)}`);
+  assert.ok(drew.A.secMean < r.A.secMean - 1, `so fewer secondary VP: ${drew.A.secMean} vs ${r.A.secMean}`);
+  // my own estimate applies to a card that is already in my hand
+  const sure = run({}, { vpEst: { 'behind-enemy-lines': 5, 'bring-it-down': 0 } });
+  assert.ok(sure.A.cards['behind-enemy-lines'].scoreRate > 0.97, `estimate = max: ${sure.A.cards['behind-enemy-lines'].scoreRate}`);
+  assert.equal(sure.A.cards['bring-it-down'].scoreRate, 0, 'estimate 0 = never');
+  assert.ok(sure.A.secMean > run({}, { vpEst: { 'behind-enemy-lines': 0, 'bring-it-down': 0 } }).A.secMean + 3, 'and it moves the forecast');
+});
+
+test('Fixed or Tactical: Fixed cards are active all battle, pay per kill and stop at 20 VP each', () => {
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const pl = (o = {}) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: 1.3, ...o });
+  const run = (modeA) => F.forecast({ players: { A: pl(modeA), B: pl() }, objectives: OBJS, plan, trials: 3000 });
+  const tac = run({ mode: 'tactical' });
+  // BIG has 2 CHARACTER models with W4+ (4 VP each) and 2 models with W10+ (4 VP each): 16 VP at most
+  const fix = run({ mode: 'fixed', fixed: ['assassination', 'bring-it-down'] });
+  assert.ok(fix.A.secMean > 3 && fix.A.secMean <= 16, `Fixed kill cards: ${fix.A.secMean}`);
+  assert.ok(fix.A.p90 - fix.A.prim.reduce((a, b) => a + b, 0) <= 45, 'never above the limits');
+  assert.ok(tac.A.secMean > fix.A.secMean + 5, `Tactical scores more against an army with few targets: ${tac.A.secMean} vs ${fix.A.secMean}`);
+  // a tank company: Bring It Down as Fixed pays 4 VP a tank, but never more than 20
+  const tanks = F.armyProfile(Array.from({ length: 9 }, (_, i) => big(`Tank ${i}`, 180, { models: 1, w10: 1 })));
+  const many = F.forecast({ players: { A: pl({ mode: 'fixed', fixed: ['bring-it-down', 'assassination'], killRate: 3 }), B: { mission: 'Battlefield Dominance', army: tanks, killRate: 0.3 } }, objectives: OBJS, plan, trials: 600 });
+  assert.ok(many.A.secMean > 12 && many.A.secMean <= 20 + 1e-9, `9 tanks: ${many.A.secMean}`);
+  assert.equal(many.A.cards.assassination?.perDraw ?? 0, 0, 'no characters to kill');
+});
+
+test('Assassination: with every enemy CHARACTER destroyed it scores 5 VP (no "when drawn" discard); Bring It Down with no target is redrawn', () => {
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const pl = (o = {}) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: 0, ...o });
+  // round 4, no more kills; both of B's CHARACTER units and both tanks are already destroyed
+  const lost = { destroyed: ['Warlord', 'Leader + squad', 'Tank 1', 'Tank 2'] };
+  const held = F.forecast({ players: { A: pl({ start: { hand: ['assassination'], used: [], primary: 20, secondary: 10 } }), B: pl({ start: lost }) }, objectives: OBJS, plan, first: 'A', startRound: 4, startTurn: 0, trials: 400 });
+  assert.equal(held.A.cards.assassination.scoreRate, 1, 'in hand: scored at the end of the turn in every game');
+  assert.equal(held.A.cards.assassination.perDraw, 5);
+  const fresh = F.forecast({ players: { A: pl({ start: { hand: [], used: [], primary: 20, secondary: 10 } }), B: pl({ start: lost }) }, objectives: OBJS, plan, first: 'A', startRound: 4, startTurn: 0, trials: 3000 });
+  assert.ok(fresh.A.cards.assassination.drawRate > 0.15, `still drawn: ${fresh.A.cards.assassination?.drawRate}`);
+  assert.equal(fresh.A.cards.assassination.scoreRate, 1, 'drawn later: also 5 VP');
+  assert.equal(fresh.A.cards['bring-it-down'], undefined, 'no W10+ model left: discarded when drawn, a new card is drawn');
+});

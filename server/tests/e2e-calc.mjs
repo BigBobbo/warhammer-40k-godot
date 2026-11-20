@@ -803,6 +803,35 @@ try {
   check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
   await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
   {
+    // Fixed or Tactical? (chosen in secret before deployment): Tactical and every pair of Fixed cards that has
+    // targets in this enemy army, best first, with what each does to the secondary score and the win chance
+    await page.waitForSelector('#fc-modes tbody tr', { timeout: 120000 });
+    const readModes = () => page.evaluate(() => [...document.querySelectorAll('#fc-modes tbody tr, #fc-modes-all tbody tr')].map(r => ({ key: r.dataset.mode, sec: parseFloat(r.children[1].textContent), chosen: /Chosen/.test(r.textContent) })));
+    const modes = await readModes();
+    check('Fixed or Tactical: Tactical and each pair of live Fixed cards, best first, my choice marked', modes.some(x => x.key === 'mode:tactical' && x.chosen) && modes.length >= 2
+      && modes.every((x, i) => i === 0 || x.sec <= modes[i - 1].sec) && modes.every(x => x.sec >= 0 && x.sec <= 45) && /Tactical|Fixed/.test(await page.textContent('#mode-verdict')), JSON.stringify(modes));
+    check('Fixed or Tactical: only the best two are on the page, the other pairs are behind a fold', (await page.locator('#fc-modes tbody tr').count()) === Math.min(2, modes.length)
+      && (modes.length <= 2 || !(await page.locator('#fc-modes-all').isVisible())));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: join(SHOTS, 'calc_48_fixed_or_tactical.png') });
+    // "Use" on a Fixed pair takes those two cards (the table stays: it does not depend on what is chosen now)
+    const pair = modes.find(x => x.key !== 'mode:tactical');
+    const useBtn = page.locator(`tr[data-mode="${pair.key}"] button[data-action="mission-mode-use"]`);
+    if (!(await useBtn.isVisible())) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await useBtn.tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    const took = await page.evaluate(() => ({ modes: window.__calc.state.mission.modes.A, sec: window.__calc.mission().result.A.secMean }));
+    check('Fixed or Tactical: "Use" takes that pair as my Fixed cards and the forecast follows the table', took.modes.mode === 'fixed' && `mode:${took.modes.fixed.join('+')}` === pair.key
+      && Math.abs(took.sec - pair.sec) < 2.5 && (await readModes()).find(x => x.key === pair.key)?.chosen === true, JSON.stringify({ took, pair }));
+    const tacBtn = page.locator('tr[data-mode="mode:tactical"] button[data-action="mission-mode-use"]');
+    if (!(await tacBtn.isVisible())) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await tacBtn.tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
+    check('Fixed or Tactical: back to Tactical', await page.evaluate(() => window.__calc.state.mission.modes.A.mode === 'tactical'));
+    if (await page.evaluate(() => document.querySelector('details[data-details="mission-modes"]')?.open)) await page.locator('details[data-details="mission-modes"] summary').tap();
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+  {
     // position cards: the default is the real-game rate of the equivalent card, or "no data" — never a silent guess
     const cg = await page.textContent('#mission-cards tr.card-row[data-card="centre-ground"]');
     const bc = await page.textContent('#mission-cards tr.card-row[data-card="beacon"]');
@@ -828,10 +857,11 @@ try {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.waitForTimeout(400);
   await page.locator(estPick).scrollIntoViewIfNeeded();
-  check('wide screen: the Cards view is two panes (sheet left, keep-ready / hit list right)', await page.evaluate(() => {
-    const a = document.querySelector('.mlay.cards .a-sheet').getBoundingClientRect(), b = document.querySelector('.mlay.cards .a-side').getBoundingClientRect();
-    return b.left > a.right - 2 && Math.abs(a.top - b.top) < 40 && a.width > 400 && b.width > 400;
+  check('wide screen: the Cards view is two panes (sheet left; Fixed or Tactical, keep-ready and hit list right)', await page.evaluate(() => {
+    const a = document.querySelector('.mlay.cards .a-sheet').getBoundingClientRect(), b = document.querySelector('.mlay.cards .a-mode').getBoundingClientRect(), c = document.querySelector('.mlay.cards .a-side').getBoundingClientRect();
+    return b.left > a.right - 2 && Math.abs(a.top - b.top) < 40 && a.width > 400 && b.width > 400 && c.top >= b.bottom - 2 && Math.abs(c.left - b.left) < 2;
   }));
+  check('phone order is kept in the markup: Fixed or Tactical first, then the sheet', await page.evaluate(() => getComputedStyle(document.querySelector('.a-mode')).order === '1' && getComputedStyle(document.querySelector('.a-sheet')).order === '2'));
   await page.screenshot({ path: join(SHOTS, 'calc_35_card_estimate_pick_laptop.png') });
   await page.setViewportSize({ width: 412, height: 839 });
   await page.waitForTimeout(400);
@@ -892,6 +922,39 @@ try {
   mi = await page.evaluate(() => window.__calc.mission());
   check('tracker: scored and discarded cards are out of the deck, the forecast restarts from round 2 with the score carried', mi.game.A.used.includes('assassination') && mi.game.A.used.includes('no-prisoners') && mi.game.A.hand.join() === 'secure-no-mans-land'
     && mi.result.A.cards['assassination'] === undefined && mi.result.A.mean >= 9 + 5 && /15 cards left/.test(await page.textContent('#odds-A')) && /from round 2/.test(await page.textContent('#fc-mini')), JSON.stringify({ g: mi.game.A, odds: await page.textContent('#odds-A') }));
+  {
+    // cards in hand: how often each still scores from here, what it is worth, and when to let it go
+    const adv = await page.textContent('#hand-A [data-advice="secure-no-mans-land"]');
+    check('a card in hand says how often it still scores and its VP from here', /\d+% to score by the end · \d\.\d VP/.test(adv), adv);
+    check('the tracker counts the cards drawn this turn (the forecast draws the rest)', /Drawn this turn: 2 of 2/.test(await page.textContent('#drawn-A')), await page.textContent('#drawn-A').catch(() => 'none'));
+    // B holds Assassination and Bring It Down; then every unit of A is destroyed
+    await page.selectOption('select[data-input="mission-draw"][data-side="B"]', 'assassination');
+    await page.selectOption('select[data-input="mission-draw"][data-side="B"]', 'bring-it-down');
+    const winAll = await page.evaluate(() => window.__calc.mission().result.pWinA);
+    await page.locator('details[data-details="mission-dead-A"] summary').tap();
+    const nA = await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').count();
+    for (let i = 0; i < nA; i++) await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').nth(i).tap();
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+    {
+      // units marked destroyed leave that army in the forecast: A has nothing left to hold objectives or to kill with
+      const d = await page.evaluate(() => { const m = window.__calc.mission(); return { win: m.result.pWinA, own: m.params.players.A.start.destroyed.length, theirs: m.params.players.B.start.destroyed.length, left: m.result.A.unitsLeft, aPrim: m.result.A.prim, bPrim: m.result.B.prim }; });
+      check('units marked destroyed reach the forecast: with all of A destroyed, A scores no more primary and its win chance falls', d.own === nA && d.theirs === 0 && d.win < winAll - 0.3
+        && d.aPrim.slice(2).every(v => v < 0.5) && d.left.filter(v => v != null).every(v => v === 0), JSON.stringify({ winAll, ...d }));
+      console.log('  all of A destroyed in round 2:', JSON.stringify({ winBefore: +winAll.toFixed(2), winAfter: +d.win.toFixed(2), aPrim: d.aPrim.map(v => +v.toFixed(1)), bPrim: d.bPrim.map(v => +v.toFixed(1)) }));
+    }
+    const advA = await page.textContent('#hand-B [data-advice="assassination"]'), advB = await page.textContent('#hand-B [data-advice="bring-it-down"]');
+    check('Assassination in hand with every enemy CHARACTER destroyed: it scores 5 VP (not "discard")', /Every enemy CHARACTER is destroyed: it scores 5 VP/.test(advA), advA);
+    check('Bring It Down in hand with no W10+ model left: discard it (draw a new card when drawn, 1CP later)', /No targets left: when you draw it you can discard it and draw a new card\. Later, discard it at the end of your turn for 1CP/.test(advB), advB);
+    await page.locator('#hand-B').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_49_cards_in_hand.png') });
+    // put it back: A's units alive, B's two cards out of the hand and back in the deck
+    for (let i = 0; i < nA; i++) await page.locator('details[data-details="mission-dead-A"] button[data-action="mission-dead"]').nth(i).tap();
+    await page.locator('details[data-details="mission-dead-A"] summary').tap();
+    await page.evaluate(() => { const g = window.__calc.state.mission.game; g.B.hand = []; g.B.used = []; });
+    await page.tap('button[data-action="mission-round"][data-value="2"]');
+    await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+    check('tracker restored for the next checks', await page.evaluate(() => { const g = window.__calc.state.mission.game; return g.A.destroyed.length === 0 && g.B.hand.length === 0 && g.A.hand.join() === 'secure-no-mans-land'; }));
+  }
   {
     // "Turn done": first to the other player, then (after the second turn) to the next battle round
     await page.tap('.a-bar button[data-action="mission-first"][data-value="A"]');
@@ -1116,6 +1179,38 @@ try {
     await page.tap('button[data-action="board-reuse"]');
     const reused = (await tokens()).find(t => t.tk === ghPos.tk);
     check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
+  }
+
+  // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
+  // every view at 360 px (most Android phones) and 412 px
+  {
+    const small = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 360, height: 740 } });
+    const sp = await small.newPage();
+    await sp.goto(`${BASE}/calc/`);
+    await sp.fill('textarea[data-side="A"]', SW_LIST);
+    await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST);
+    await sp.tap('button[data-action="parse"][data-side="B"]');
+    const wide = [];
+    for (const w of [360, 412]) {
+      await sp.setViewportSize({ width: w, height: 740 });
+      await sp.waitForTimeout(300);
+      for (const [v, t] of [['armies'], ['intel'], ['attack'], ['board'], ['mission', 'plan'], ['mission', 'cards'], ['mission', 'play']]) {
+        await sp.tap(`button[data-action="view"][data-value="${v}"]`);
+        if (t) { await sp.tap(`button[data-action="mission-tab"][data-value="${t}"]`); await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 }); }
+        if (v === 'board') await sp.waitForSelector('#board-svg');
+        await sp.waitForTimeout(150);
+        const m = await sp.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, tabs: [...document.querySelectorAll('.tabs .tab')].every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= document.documentElement.clientWidth + 0.5; }) }));
+        if (m.sw > m.vw + 1 || !m.tabs) wide.push(`${w}px ${v}${t ? '/' + t : ''}: ${m.sw} > ${m.vw}${m.tabs ? '' : ' (tabs cut off)'}`);
+      }
+    }
+    check('no view is wider than the screen at 360 px and 412 px, and all five tabs are on screen', wide.length === 0, wide.join('; '));
+    await sp.setViewportSize({ width: 360, height: 740 });
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.tap('button[data-action="mission-tab"][data-value="cards"]');
+    await sp.waitForSelector('#fc-modes tbody tr', { timeout: 120000 });
+    await sp.screenshot({ path: join(SHOTS, 'calc_50_phone_360.png') });
+    await small.close();
   }
 
   // --- tablet layout

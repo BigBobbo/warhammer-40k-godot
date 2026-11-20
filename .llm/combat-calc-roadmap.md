@@ -24,6 +24,16 @@ context compaction. Tick items as they land.
   or the Event Companion text. Label every modelling assumption in the UI.
 - State migrations must be additive (never delete or rewrite the user's saved
   plans / lists in place).
+- **Commit gate.** `.claude/hooks/verify-windowed-gate.sh` blocks a commit that
+  adds a ticked checkbox under `.llm/` unless a Godot windowed scenario
+  (`40k/tests/scenarios/**.json`) is staged or the change is declared pure-state.
+  The calc is a web app: its UI evidence is the Playwright run
+  (`server/tests/e2e-calc.mjs`, real taps in Chromium, screenshots), which the
+  gate does not know about. Do not fake either escape hatch. From stage 6 on the
+  boxes below stay unticked and the status is written in words; the user decides
+  whether that evidence counts (flag it in the final report). Stages 1-5 were
+  ticked before the gate was noticed (staging and commit ran in one command, so
+  the hook saw nothing staged).
 
 ## What the user told us
 
@@ -110,8 +120,14 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 - [x] **5. Less setup** (v1.95.0: eventview.mjs, briefview.mjs, lists.mjs; board `reusablePlan()`) — event mode: my list pinned, opponent roster (paste
       many lists), layout letter per round, one tap to start a round; reuse my
       deployment against a new opponent; automatic matchup brief.
-- [ ] **6. Decisions** — Fixed vs Tactical comparison; going first vs second;
-      advice for the cards in hand (score / hold / discard for CP).
+- [ ] **6. Decisions** — BUILT in v1.96.0, browser-tested, pushed (box not ticked: see
+      "Commit gate" under Working agreements). Fixed-or-Tactical table on Cards
+      (`modeParams()` / `modeHtml()`, worked out only when that view is open); going
+      first vs second (already in the forecast hero); advice on each card in hand
+      (`handHtml()`). Also fixed: destroyed units never reached the forecast (wrong
+      army's list), Assassination with all characters dead, cards drawn this turn
+      (`startDrawn`), 360 px phones (tabs / card table overflow; e2e now checks
+      every view at 360 and 412 px).
 - [ ] **7. Table tools** — table mode (hide decision aids), pace clock with GW
       milestones + chess clock, end-of-turn checklist, CP, undo.
 - [ ] **8. Rules data** — data date stamp; update the calc's dataset to 1.5.1.

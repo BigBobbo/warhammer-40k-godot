@@ -608,7 +608,7 @@ function sightHtml(v, s1, s2) {
   return `<div class="small" id="board-sight" data-verdict="${v.verdict}" data-borderline="${v.borderline ? 1 : 0}" style="margin-top:4px">
       Line of sight: <b>${lab}</b> · ${v.targetSeen}/${v.targetTotal} target models visible · ${v.attackersSeeing}/${v.attackerTotal} of yours see them within ${v.range}"
       <br>Benefit of cover: <b>${v.cover ? `yes (${v.coverWhy})` : 'no'}</b>${v.hidden ? ` · <b>may be Hidden</b> (more than 15" away in dense terrain, if it has not shot)` : ''}
-      ${v.borderline ? '<br><span style="color:var(--warn)">⚠ Borderline — moving either unit ½" changes this. Check on the table.</span>' : ''}
+      ${v.borderline ? '<br><span style="color:var(--warn-ink)">⚠ Borderline — moving either unit ½" changes this. Check on the table.</span>' : ''}
       <br><span class="tiny muted">11e terrain rules on the map's footprints; model heights, windows and floors are not modelled.</span></div>`;
 }
 
@@ -621,7 +621,7 @@ function threatHtml(s1, toks) {
   const pct = (p) => `${Math.round(p * 100)}%`;
   return `<div class="lab tiny muted" style="margin-top:8px">Threatened next turn by</div>
     <div id="board-threats" class="small">${rows.length ? rows.map(({ t, th }) => `<div class="row" style="gap:6px"><span class="grow" style="color:${C[t.side]}">${ctx.esc(shortName(t.u.cu.name))}</span>
-      ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn)">(just)</span>' : ''}</span>` : ''}
+      ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn-ink)">(just)</span>' : ''}</span>` : ''}
       ${th.charge != null && th.charge >= 0.03 ? `<span>⚔ charge ${pct(th.charge)}</span>` : ''}</div>`).join('')
       : '<span class="muted">Nothing can reach it next turn (move + range / charge).</span>'}
       <div class="tiny muted">After a normal move, ignoring terrain and line of sight.</div></div>`;

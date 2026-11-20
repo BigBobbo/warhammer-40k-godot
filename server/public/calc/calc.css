@@ -16,6 +16,7 @@
   --series-1: #3987e5;
   --series-1-wash: rgba(57, 135, 229, 0.16);
   --warn: #fab219;
+  --warn-ink: #fab219;      /* warning TEXT: darker on the light theme so it stays readable */
   --critical: #d03b3b;
   --radius: 12px;
   --tap: 44px;
@@ -34,6 +35,7 @@
     --accent: #2a78d6;
     --series-1: #2a78d6;
     --series-1-wash: rgba(42, 120, 214, 0.12);
+    --warn-ink: #8a5a00;
   }
 }
 
@@ -62,7 +64,10 @@ button, select, textarea, input { font: inherit; color: inherit; }
   font-size: 11px; color: var(--text-muted); border: 1px solid var(--line);
   border-radius: 999px; padding: 2px 8px; white-space: nowrap;
 }
-.tabs { display: flex; gap: 4px; }
+/* the tabs never push the page wider than the screen: on a very narrow phone they scroll inside the bar */
+.tabs { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .tab { flex: 0 0 auto; }
 .tab {
   min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
   background: transparent; color: var(--text-secondary);
@@ -140,7 +145,7 @@ textarea.list {
   display: inline-block; font-size: 11px; border-radius: 6px; padding: 1px 6px; margin: 2px 4px 0 0;
   background: var(--surface-3); color: var(--text-secondary);
 }
-.tag.warn { color: var(--warn); }
+.tag.warn { color: var(--warn-ink); }
 
 /* stat line */
 .stats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -309,7 +314,8 @@ table.plan th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
 ul.keep { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
 ul.keep li { margin: 4px 0; }
 .linkish { background: none; border: 0; padding: 0; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
-table.dist.cards td:nth-child(2) { text-align: left; }
+table.dist.cards td:first-child .pill { margin: 2px 0 2px 4px; }
+table.dist.cards th, table.dist.cards td { padding-left: 6px; padding-right: 6px; }
 .chip .mini { margin-left: 4px; min-width: 28px; min-height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
 .chip.on .mini { font-weight: 700; }
 input.num { width: 100%; min-height: 40px; margin-top: 4px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); padding: 0 10px; font-size: 16px; }
@@ -319,7 +325,7 @@ td.down { color: var(--text-muted); }
 .tabs .tab { padding-left: 10px; padding-right: 10px; }
 .chip.nocheck::before { content: none; }
 .pill.ask { border-style: dashed; color: var(--text-primary); }
-ul.keep.warn li { color: var(--warn); }
+ul.keep.warn li { color: var(--warn-ink); }
 ul.keep.warn li.info { color: var(--text-muted); }
 .pill.mine { border-color: var(--accent); background: var(--series-1-wash); color: var(--text-primary); }
 .row.est .stepper .val { min-width: 74px; text-align: center; }
@@ -393,3 +399,14 @@ table.dist.brief td { vertical-align: top; text-align: left; }
 table.dist.brief td:last-child, table.dist.brief th:last-child { text-align: right; white-space: nowrap; }
 .brief-card .fc-mini { margin-top: 8px; }
 details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 600; }
+
+/* advice under a card in hand */
+.hand-row .warn { color: var(--warn-ink); }
+.hand-row .good { color: var(--accent); font-weight: 600; }
+
+/* narrow phones (360 px wide and less): all five tabs fit without scrolling */
+@media (max-width: 400px) {
+  .top .wrap { gap: 6px; padding: 0 8px; }
+  .tabs { gap: 3px; }
+  .tabs .tab { padding-left: 7px; padding-right: 7px; font-size: 13px; }
+}

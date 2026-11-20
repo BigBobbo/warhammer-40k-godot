@@ -385,9 +385,11 @@ function drawWithRules(st, r, enemyArmy, rnd, stats) {
     return;
   }
 }
+// "When drawn: no such enemy on the battlefield -> you can discard it and draw a new card"
+// (Bring It Down, A Grievous Blow). Assassination has no such rule: with every enemy
+// CHARACTER destroyed it scores its 5 VP at the end of the turn.
 function deadNow(id, st) {
   const t = SECONDARY_BY_ID[id]?.target;
-  if (t === 'character') return !st.enemyAlive.some(u => u.characters > 0);
   if (t === 'w10') return !st.enemyAlive.some(u => u.w10 > 0);
   if (t === 'ss13') return !st.enemyAlive.some(u => u.ss13);
   return false;
@@ -432,6 +434,17 @@ function simulateGame(P, rnd) {
     const dead = new Set(P.players[other(X)].start?.destroyed ?? []);
     S[X].enemyAlive = enemy.units.filter(u => !dead.has(u.name)).map(u => ({ ...u }));
     S[X].enemyHadChars = enemy.units.some(u => u.characters > 0);
+  }
+  // cards already in hand (a game in progress): followed like a card just drawn, so the
+  // forecast can say how often each one still scores; your own estimate applies to them too
+  for (const X of ['A', 'B']) {
+    const s = S[X];
+    for (const id of s.hand) {
+      s.stats[id] = { drawn: 1, vp: 0, net: 0, scored: 0, quick: 0 };
+      s.drawnAt[id] = 0;
+      const est = s.pl.vpEst?.[id];
+      if (est != null && s.pl.mode !== 'fixed') s.estWin[id] = rnd() < clamp01(est / (SECONDARY_BY_ID[id]?.max ?? 5));
+    }
   }
   const objById = Object.fromEntries(P.objectives.map(o => [o.id, o]));
 
@@ -637,8 +650,9 @@ function simulateGame(P, rnd) {
       sx.turnNo++; sy.turnNo++;
       // --- Command phase: draw
       if (sx.pl.mode !== 'fixed') {
-        const skipDraw = r === startRound && t === startTurn && P.startAfterDraw;
-        if (!skipDraw) for (let d = 0; d < RULES.drawPerTurn; d++) drawWithRules(sx, r, P.players[Y].army, rnd, sx.stats);
+        // the turn the forecast starts in: the cards already drawn this turn are in the hand
+        const drawn = r === startRound && t === startTurn ? (P.startAfterDraw ? RULES.drawPerTurn : (P.startDrawn ?? 0)) : 0;
+        for (let d = drawn; d < RULES.drawPerTurn; d++) drawWithRules(sx, r, P.players[Y].army, rnd, sx.stats);
       }
       // --- kills this turn (by the active player; some fight-back by the other):
       // fewer as the army shrinks, more for the side that is on top this game
@@ -783,12 +797,12 @@ function scoreSecondaries(s, r, timing, env) {
  *                   killRate (enemy units / turn; null = from P.fracs), killMul (what-if multiplier),
  *                   actionP (0..1), rate: { positionCardId: 0..1 (RATING) },
  *                   vpEst: { cardId: the player's estimate of VP if drawn (0..max) },
- *                   battleReady, start: { hand, used, primary, secondary, destroyed: [unit names] } }, B: {...} },
+ *                   battleReady, start: { hand, used, primary, secondary, destroyed: [names of THIS player's own units that are gone] } }, B: {...} },
  *   objectives: [{ id, cls, side }], plan: { [round]: { [objId]: 'A'|'B'|'c' } },
  *   boardPlan: { rounds: { [0..5]: { A: [{ name, f }] | null, B } },
  *                threats: { [round]: { [attackerSide]: { cur, prev: [{ a, opts: [{ t, mu, v, w, W }] }] } } } },
  *   fracs: { A: { [attackerName]: { [targetName]: share of the target's wounds removed } }, B } (calculator),
- *   first: 'A'|'B'|null, startRound, startTurn, trials, seed, fObj,
+ *   first: 'A'|'B'|null, startRound, startTurn, startDrawn (cards the active player already drew this turn), trials, seed, fObj,
  *   edge: A's log kill-rate edge (0 = even players), model: overrides of MODEL
  * }
  */

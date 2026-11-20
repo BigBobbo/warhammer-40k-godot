@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.96.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: Fixed or Tactical? and advice for the cards in your hand",
+      "changes": [
+        "Mission > Cards: a new Fixed or Tactical? table compares Tactical with every pair of Fixed cards that has targets in the enemy army (average secondary VP and your win chance), best first, with a Use button",
+        "Mission > Play: every card in your hand now says how often it still scores from here and what it is worth, and warns when a card is unlikely (discard for 1CP) or has no targets left",
+        "Play: the tracker counts the cards you drew this turn, so the forecast no longer draws two extra cards for the turn in progress",
+        "Fix: units you mark as destroyed on the Play view now leave that army in the forecast (they were ignored before, so a mid-game forecast was too kind to the losing side)",
+        "Forecast rules fix: Assassination drawn after every enemy CHARACTER has been destroyed now scores its 5 VP (the forecast used to throw the card away)",
+        "Fix for narrow phones (360 px wide): the five tabs and the card table no longer push the page wider than the screen",
+        "Reminder on the Play view: once per battle you can pay 1CP at the end of your Command phase to swap a card",
+        "Warning text is darker on the light theme, so it can be read in bright rooms"
+      ]
+    },
+    {
       "version": "1.95.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: set up an event once — opponents' lists, the layout of each round, one tap to start a round, an automatic matchup brief, and your deployment reused",
