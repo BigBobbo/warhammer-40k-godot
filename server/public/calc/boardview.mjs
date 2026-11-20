@@ -543,7 +543,7 @@ function selectionPanel() {
   const u = s1.u;
   const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
   const rings = [
-    ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom?.replace(/\s*\(.*$/, '') ?? 'detachment'})` : ''}`),
+    ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom ?? 'detachment'})` : ''}`),
     ringChip('advance', `Move + Advance (max ${u.move + 6}")`),
     u.melee ? ringChip('charge', `Charge threat (${u.move}" + 7" avg)`) : '',
     ringChip('engage', 'Engagement 2"'),

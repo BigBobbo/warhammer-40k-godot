@@ -5,7 +5,7 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
-  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel,
+  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags,
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
@@ -232,10 +232,10 @@ function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase, opt = {}) 
   if (!cu) return { cu: null, rows: [] };
   const body = bodyguardModels(cu);
   const inRange = entry.inRange != null ? Math.max(0, Math.min(body.total, entry.inRange)) : null;
-  const base = attackerRows(cu, phase, tinfo?.summary ?? null, { shooting: entry.mods?.shootingType ?? 'normal' });
+  if (tinfo) tinfo.defender ??= currentDefender(tinfo, phase);
+  const base = attackerRows(cu, phase, tinfo?.summary ?? null, { shooting: entry.mods?.shootingType ?? 'normal', targetEngaged: !!tinfo?.defender?.mods?.engagedMV });
   let problem = null, auto = null;
   if (tinfo && base.length) {
-    tinfo.defender ??= currentDefender(tinfo, phase);
     const { rules, on } = rulesFor(entry, cu, tinfo, army, phase);
     problem = choiceProblem(cu, base, entry.mods, rules, on, phase, tinfo.defender, tinfo.summary);
     if (!opt.defer) auto = chooseCached(problem);
@@ -722,6 +722,7 @@ function targetCard(tinfo, s) {
     const m = s.defManual;
     body += `<details class="more"><summary>Defender modifiers${Object.values(m).some(v => v) ? ' · set' : ''}</summary><div class="modgrid">
       ${state.phase === 'shooting' ? `<div class="modrow"><div class="lab">Benefit of cover (BS worsened by 1)</div><div class="chips">${chip('defmod-toggle', !!m.cover, 'In cover', 'data-key="cover"')}</div></div>` : ''}
+      ${state.phase === 'shooting' && (profile.keywords ?? []).some(k => /^(MONSTER|VEHICLE)$/i.test(k)) ? `<div class="modrow"><div class="lab">Engaged Monster / Vehicle (17.03): −1 to hit for shooting at it, no Blast</div><div class="chips">${chip('defmod-toggle', !!m.engaged, 'Engaged in melee', 'data-key="engaged"')}</div></div>` : ''}
       ${modSeg('Hit rolls against it', 'def', 'hitMod', m.hitMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${modSeg('Wound rolls against it', 'def', 'woundMod', m.woundMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${modSeg('Save roll modifier', 'def', 'saveMod', m.saveMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
@@ -773,6 +774,11 @@ function choiceFoot(e, rows, problem) {
     ${both ? '<div class="warn" style="color:var(--warn-ink)">⚠ A model shoots its close-quarters weapons or its other ranged weapons, not both (24.07).</div>' : ''}</div>`;
 }
 
+// 15.01: "Each player cannot use the same stratagem more than once in the same phase" and "cannot target the
+// same unit with more than one stratagem in the same phase". The options of one stratagem share a key.
+const stratKey = (r) => r.group ?? String(r.id).replace(/:alt\d+$/, '');
+const defStratKey = (id) => String(id).split(':').slice(0, 2).join(':');
+
 function attackerCard(e, i, tinfo) {
   const { cu, rows, problem } = rowsFor(e, tinfo);
   if (!cu) return '';
@@ -781,7 +787,9 @@ function attackerCard(e, i, tinfo) {
   const hasIndirect = rows.some(r => r.kw.indirect);
   const weapons = rows.length ? rows.map(r => {
     const unsupported = r.unsupported.length ? r.unsupported.map(t => `<span class="tag warn" title="Not modelled by the calculator">${esc(t)} ⚠</span>`).join('') : '';
-    const tags = r.tags.filter(t => !r.unsupported.includes(t)).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    // an ability limited to other targets is shown struck through (24.01)
+    const tags = r.tags.filter(t => !r.unsupported.includes(t)).map(t => (r.tagsOff?.includes(t)
+      ? `<span class="tag off" title="Does not apply against this target (24.01)">${esc(t)}</span>` : `<span class="tag">${esc(t)}</span>`)).join('');
     return `<div class="weapon ${r.count ? '' : 'off'}" data-row="${esc(r.id)}"${r.fam != null ? ` data-fam="${esc(r.fam)}"` : ''}>
       <div class="grow"><div class="wname">${esc(r.label)}</div>
         <div class="wstats">${esc(r.range)} · ${esc(r.stats)}</div>
@@ -821,10 +829,17 @@ function attackerCard(e, i, tinfo) {
   ].filter(Boolean).join('');
   const distRow = needs.within ? `<div class="weapon" style="border-top:0;padding-top:4px"><div class="grow"><div class="wname">Distance to target</div><div class="wstats">for "within X\"" abilities</div></div>
       <div class="stepper"><button data-action="distance" data-uid="${e.uid}" data-delta="-1" aria-label="Closer">−</button><div class="val">${m.distance != null ? `${m.distance}"` : '–'}</div><button data-action="distance" data-uid="${e.uid}" data-delta="1" aria-label="Further">+</button></div></div>` : '';
+  const flags = coreFlags(cu);
+  const shootType = m.shootingType ?? 'normal';
+  const hasHeavy = rows.some(r => r.kw.heavy);
   const sit = [
     shooting && chip('amod-toggle', !!m.halfRange, 'Half range', `data-uid="${e.uid}" data-key="halfRange"`),
     chip('amod-toggle', !!m.charged, 'Charged', `data-uid="${e.uid}" data-key="charged"`),
-    shooting && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
+    shooting && shootType === 'normal' && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
+    // 24.16 Heavy: +1 to hit when unengaged, not set up this turn and no model moved more than 3"
+    shooting && shootType === 'normal' && hasHeavy && !m.stationary && chip('amod-toggle', !!m.heavyOk, 'Moved 3" or less (Heavy: +1 to hit)', `data-uid="${e.uid}" data-key="heavyOk" title="Heavy (24.16): +1 to hit when this unit is unengaged, was not set up this turn, and no model moved more than 3 inches."`),
+    // 24.39 Damaged X: -1 to hit at X wounds or fewer
+    flags.damaged && chip('amod-toggle', !!m.damaged, `Damaged (${flags.damaged} wounds or fewer left): −1 to hit`, `data-uid="${e.uid}" data-key="damaged"`),
     shooting && chip('amod-toggle', !!m.overwatch, 'Snap shooting', `data-uid="${e.uid}" data-key="overwatch"`),
     // 22.05: from a terrain section 3"+ high (or TOWERING within 12") at models on ground level
     shooting && chip('amod-toggle', !!m.plunging, 'Plunging fire (+1 BS)', `data-uid="${e.uid}" data-key="plunging" title="Plunging Fire: this unit shoots from a terrain section 3 inches or more high (or is TOWERING within 12 inches) at a unit with models on ground level. BS improves by 1."`),
@@ -849,7 +864,8 @@ function attackerCard(e, i, tinfo) {
   const stratTextInPhase = stratText.filter(st => st.phase && (/any/i.test(st.phase) || st.phase.toLowerCase().includes(state.phase)));
   const rulesBlock = (abilRules.length || stratRules.length || stratTextInPhase.length) ? `
     ${abilRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Abilities & detachment rule (auto when their condition is met — tap to override)</div><div class="chips">${abilRules.map(ruleChip).join('')}</div></div>` : ''}
-    ${stratRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Stratagems (tap to use)</div><div class="chips">${stratRules.map(ruleChip).join('')}</div></div>` : ''}
+    ${stratRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Stratagems (tap to use)</div><div class="chips">${stratRules.map(ruleChip).join('')}</div>
+      <div class="rule-note${new Set(stratRules.filter(r => on.has(r.id)).map(stratKey)).size > 1 ? ' warn' : ''}" data-strat-note>One stratagem on a unit in a phase, and each stratagem once in a phase (15.01).${new Set(stratRules.filter(r => on.has(r.id)).map(stratKey)).size > 1 ? ' ⚠ More than one is on for this unit.' : ''}</div></div>` : ''}
     ${stratTextInPhase.length ? `<details class="more"><summary>Other stratagems — set by hand (${stratTextInPhase.length})</summary>${stratTextInPhase.map(st =>
       `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.detachment)}</span><div class="muted">${st.missing ? 'No 11e text in the dataset.' : esc(`${st.when} — ${st.effect}`)}</div></div>`).join('')}</details>` : ''}` : '';
   return `<div class="card" data-attacker="${e.uid}">
@@ -858,6 +874,8 @@ function attackerCard(e, i, tinfo) {
       ${i > 0 ? `<button class="icon-btn" data-action="move-up" ${sc} aria-label="Resolve earlier">↑</button>` : ''}
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
     ${attachRow(state.side, cu)}
+    ${shooting ? `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">This unit ${shootType === 'assault' ? 'advanced: only Assault weapons shoot (10.05)' : shootType === 'cq' ? 'is engaged: close-quarters weapons only, Monsters and Vehicles excepted (10.06)' : 'did not advance and is not engaged'}</div>
+      ${seg('shooting-type', shootType, [['normal', 'Normal'], ['assault', 'Advanced'], ['cq', 'Engaged']], `compact" data-uid="${e.uid}`)}</div>` : ''}
     <div style="margin-top:6px">${weapons}</div>
     ${choiceFoot(e, rows, problem)}
     ${rangeRow}
@@ -1830,6 +1848,25 @@ app.addEventListener('click', (ev) => {
       // choice rules ("X, or Y"): picking one option switches the others off
       const r = rules.find(x => x.id === id);
       if (turnOn && r?.group) for (const sib of rules) if (sib.group === r.group && sib.id !== id) e.ruleOverrides[sib.id] = false;
+      if (turnOn && r?.kind === 'stratagem') {
+        // 15.01: one stratagem on a unit in a phase ...
+        const key = stratKey(r);
+        for (const sib of rules) if (sib.kind === 'stratagem' && stratKey(sib) !== key && on.has(sib.id)) e.ruleOverrides[sib.id] = false;
+        // ... and the same stratagem once in a phase: off on the other attacking units
+        for (const o of setup().attackers) {
+          if (o === e) continue;
+          for (const [rid, v] of Object.entries(o.ruleOverrides ?? {})) if (v === true && String(rid).replace(/:alt\d+$/, '') === key) o.ruleOverrides[rid] = false;
+        }
+      }
+      return changed();
+    }
+    case 'shooting-type': {
+      const e = findEntry(el.closest('[data-uid]')?.dataset.uid);
+      if (!e) return;
+      e.mods ??= {};
+      e.mods.shootingType = el.dataset.value;
+      e.mods.engaged = el.dataset.value === 'cq';         // 17.03: its close-quarters weapons have no -1 against the unit it is engaged with
+      if (el.dataset.value !== 'normal') { e.mods.stationary = false; e.mods.heavyOk = false; }
       return changed();
     }
     case 'doctrine': {
@@ -1873,8 +1910,11 @@ app.addEventListener('click', (ev) => {
       const tinfo = targetInfo();
       const r = tinfo?.profile.rules.find(x => x.id === el.dataset.id);
       if (!r) return;
-      const on = enabledRules(tinfo.profile, s).has(r.id);
+      const enabled = enabledRules(tinfo.profile, s);
+      const on = enabled.has(r.id);
       s.ruleOverrides[r.id] = !on;
+      // 15.01: one stratagem on the target in a phase (the effects of one stratagem go together)
+      if (!on && r.kind === 'stratagem') for (const x of tinfo.profile.rules) if (x.kind === 'stratagem' && defStratKey(x.id) !== defStratKey(r.id) && enabled.has(x.id)) s.ruleOverrides[x.id] = false;
       return changed();
     }
     default:

@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.102.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: stratagem limits, abilities for some targets only, Heavy / Damaged / engaged targets, rules for named weapons",
+      "changes": [
+        "Stratagems: one on a unit in a phase, and each stratagem once in a phase (15.01). Switching a second one on switches the first off, for the target's stratagems too",
+        "The target can use Command Re-roll on a save (one failed save re-rolled in the phase)",
+        "Weapon abilities that only work against some targets (for example Sustained Hits that do not apply to Monsters or Vehicles) are off against the others, and shown struck through on the weapon",
+        "Shooting type on each attacking unit: Normal, Advanced (only Assault weapons shoot) or Engaged (only close-quarters weapons; Monsters and Vehicles shoot everything)",
+        "Heavy: +1 to hit when the unit moved 3\" or less. Damaged: −1 to hit for a vehicle or monster at few wounds. Shooting at an engaged Monster or Vehicle: −1 to hit and no Blast. Psychic attacks ignore harmful hit modifiers and cover",
+        "Rules for named weapons are applied: Terminatus Assault (after a charge, Sustained Hits 1 on thunder hammers against Monsters and Vehicles and on lightning claws against everything else) and the Outriders' Full-throttle Assault",
+        "Wolf-Touched gives its unit the Wulfen keyword and +2\" Move (the Captain's Wulfen move 13\" on the board with Stormlance)",
+        "Save rolls: modifiers are no longer limited to ±1 (that limit is for hit and wound rolls only)"
+      ]
+    },
+    {
       "version": "1.101.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: territory, objective control, Hidden, reserves and card details by the 11th edition rules",

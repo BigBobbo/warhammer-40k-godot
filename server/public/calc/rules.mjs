@@ -286,6 +286,37 @@ function parseOffensiveOne(t, full) {
 }
 
 // ---------------------------------------------------------------------------
+// Rules for named weapons of a unit:
+//   "If this unit made a charge move this turn, this unit's: • Thunder Hammer weapons have +1 to hit
+//    rolls and [Sustained Hits 1]. • Other melee weapons have +1 D and [Sustained Hits 1]."
+// -> [{ weapon: 'thunder hammer' | null, others: 'melee' | 'ranged' | 'any' | null, effects, conds, phases }]
+//    (weapon: the name the rule is for; others: the unit's other weapons of that kind), or null.
+
+export function parseWeaponBullets(text) {
+  const t = norm(text);
+  const m = t.match(/^(.*?)\b(?:this|your) unit’s:\s*•\s*(.*)$/i);
+  if (!m) return null;
+  const pre = m[1];
+  const out = [];
+  for (const b of m[2].split('•').map(s => s.trim()).filter(Boolean)) {
+    const x = b.match(/^(?:(Other)(?: (melee|ranged))?|([A-Z][\w’' -]*?)) weapons (?:have|gain) (.+)$/i);
+    if (!x) return null;                 // a bullet that is not about weapons: not this kind of rule
+    // the rest reads like a unit rule ("this unit's attacks have ..."): the same parser, the same conditions
+    const kind = x[1] ? (x[2] ? x[2].toLowerCase() : 'any') : null;
+    const p = parseOffensiveOne(`${pre} this unit’s ${kind === 'melee' ? 'melee ' : kind === 'ranged' ? 'ranged ' : ''}attacks have ${x[4]}`, t);
+    if (!p) return null;
+    out.push({ weapon: x[3] ? x[3].trim().toLowerCase() : null, others: kind, effects: p.effects, conds: p.conds, phases: kind === 'melee' ? ['fight'] : kind === 'ranged' ? ['shooting'] : ['shooting', 'fight'] });
+  }
+  return out.length ? out : null;
+}
+
+/** Does a weapon (its name as on the datasheet, e.g. "Twin Lightning Claws") carry the rule's name ("lightning claws")? */
+export function weaponNamed(weaponName, ruleName) {
+  const n = (s) => String(s ?? '').toLowerCase().replace(/[’']/g, '').replace(/\s+–.*$/, '').replace(/s\b/g, '').replace(/\s+/g, ' ').trim();
+  return n(weaponName).includes(n(ruleName));
+}
+
+// ---------------------------------------------------------------------------
 // Mortal-wound sources ("Roll six D6: for each 4+, that enemy unit suffers 1
 // mortal wound", "Roll one D6: on a 2+, the target suffers D3 mortal wounds",
 // Crushing Impact's "number of D6 equal to the T characteristic"). Returns

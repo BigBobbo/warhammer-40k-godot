@@ -9,7 +9,9 @@
 //                     modifiers); BS/WS stays within 2+..6+.
 //  05.02 Wound roll — S vs T chart 2+..6+, unmodified 1 fails, unmodified 6
 //                     (or Anti-X Y+ / critWound) = critical wound.
-//  02.02 Dice-roll modifiers to hit / wound / save net out and cap at ±1.
+//  02.02.01 Modifiers are cumulative; hit rolls and wound rolls "can never be
+//                     modified by more than -1 or +1". Save rolls have no such
+//                     limit (Sv itself cannot be better than 2+).
 //  01.05 Re-rolls happen before modifiers; a die is re-rolled at most once.
 //  05.03 Saves      — allocation groups (non-CHARACTER groups first, a group
 //                     with a wounded model first; CHARACTER groups last); one
@@ -31,7 +33,16 @@
 //                     (leader models' T once only they remain).
 //  Weapon abilities: Torrent, Lethal Hits, Sustained Hits X / DX, Twin-linked,
 //  Devastating Wounds, Anti-X Y+, Blast X, Cleave X, Rapid Fire X, Melta X,
-//  Heavy, Lance, Ignores Cover, Indirect Fire, Precision, Hazardous.
+//  Heavy, Lance, Ignores Cover, Indirect Fire, Precision, Hazardous, Psychic.
+//  24.16 Heavy      — +1 to hit when the unit is unengaged, was not set up this
+//                     turn and no model moved more than 3" (mods.heavyOk; a
+//                     unit that remained stationary qualifies too).
+//  24.29 Psychic    — may ignore any or all modifiers to BS / WS and to the hit
+//                     roll: the harmful ones are dropped (cover included).
+//  24.39 Damaged    — a damaged model's attacks have -1 to hit (mods.damaged).
+//  17.03 Shooting at an engaged MONSTER / VEHICLE: -1 to hit, except with
+//                     close-quarters weapons of a unit engaged with it.
+//  15.02 Command Re-roll on a save: one failed save re-rolled (defender).
 //  15.09 Snap shooting (overwatch): hits only on an unmodified 6, no critical
 //  hits, no hit re-rolls (Torrent still auto-hits).
 //  22.05 Plunging Fire — a ranged attack from a terrain section 3" or more
@@ -104,6 +115,9 @@ export function woundThreshold(S, T) {
 //       critHit: 6, critWound: 6,
 //       lethal, sustained (0..), dev, twin, ignoresCover, precision,   // granted keywords
 //       halfRange, charged, stationary, overwatch, indirect,          // situation
+//       heavyOk,                    // moved 3" or less, unengaged, not set up this turn (24.16)
+//       damaged,                    // the attacking model is damaged: -1 to hit (24.39)
+//       engaged,                    // this unit is engaged with the target (close-quarters shooting)
 //       lethalVsDev: 'auto'|'roll',  // Lethal Hits choice (default auto-wound)
 //     },
 //     weapons: [{
@@ -127,6 +141,8 @@ export function woundThreshold(S, T) {
 //       damageReduction: 0 | 1 | 'half',
 //       fnp, fnpMortal, fnpPsychic, // thresholds (0 = none)
 //       invuln,                     // override / grant InSv to all groups (0 = none)
+//       engagedMV,                  // the target is an engaged MONSTER / VEHICLE (17.03)
+//       rerollOneSave,              // Command Re-roll: one failed save re-rolled this phase (15.02)
 //     },
 //   },
 //   trials: 20000, seed,
@@ -162,6 +178,7 @@ function defaults(mods) {
     rerollDamage: false,                    // re-roll damage rolls (re-rolled when below average)
     ignoreHitMods: false, ignoreWoundMods: false, // "ignore any or all modifiers" -> drop the negative ones
     halfRange: false, charged: false, stationary: false, overwatch: false, indirect: false,
+    heavyOk: false, damaged: false, engaged: false,
     plunging: false,                        // 22.05 Plunging Fire: BS improved by 1 (ranged)
     lethalVsDev: 'auto',
     ...(mods ?? {}),
@@ -172,6 +189,7 @@ function defDefaults(mods) {
   return {
     cover: false, hitMod: 0, woundMod: 0, woundModIfSGreaterT: 0, saveMod: 0, apReduce: 0,
     damageReduction: 0, fnp: 0, fnpMortal: 0, fnpPsychic: 0, invuln: 0,
+    engagedMV: false, rerollOneSave: false,
     ...(mods ?? {}),
   };
 }
@@ -228,6 +246,7 @@ function compile(scenario) {
         precision: !!kw.precision || m.precision,
         hazardous: !!kw.hazardous,
         psychic: !!kw.psychic,
+        cq: !!(kw.cq || kw.pistol),
         antiCrit: (kw.anti ?? []).reduce((best, an) =>
           kwSet.has(String(an.keyword).toUpperCase()) ? Math.min(best, an.threshold) : best, 7),
         m,
@@ -355,15 +374,24 @@ function mortalTarget(st, precision) {
 
 // Per-batch hit/wound parameters (computed once per weapon profile, not per die).
 function hitParams(w, m, ctx) {
+  // 24.29: a psychic attack can ignore any or all modifiers to BS / WS and to the hit roll (the harmful ones)
+  const ignore = m.ignoreHitMods || w.psychic;
+  // 24.16 Heavy: unengaged, not set up this turn, no model moved more than 3"
+  const heavy = w.heavy && (m.stationary || m.heavyOk) ? 1 : 0;
+  // 17.03: a ranged attack at an engaged MONSTER / VEHICLE has -1 to hit, unless it is made with a
+  // close-quarters weapon by a unit engaged with it
+  const engaged = !w.melee && ctx.engagedMV && !(w.cq && m.engaged) ? -1 : 0;
+  // 24.39 Damaged: -1 to hit
+  const damaged = m.damaged ? -1 : 0;
   return {
     torrent: w.torrent,
     snap: !!m.overwatch,
-    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (m.ignoreHitMods ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs) - (ctx.plungeBs ?? 0))),
+    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (ignore ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs) - (ctx.plungeBs ?? 0))),
     failBand: w.indirect ? (m.stationary ? 3 : 5) : 1,
     critAt: m.overwatch ? 7 : Math.min(m.critHit || 6, 6),
-    mod: m.ignoreHitMods
-      ? cap1(Math.max(0, m.hitMod) + Math.max(0, ctx.defHitMod) + (w.heavy && m.stationary ? 1 : 0))
-      : cap1(m.hitMod + ctx.defHitMod + (w.heavy && m.stationary ? 1 : 0)),
+    mod: ignore
+      ? cap1(Math.max(0, m.hitMod) + Math.max(0, ctx.defHitMod) + heavy)
+      : cap1(m.hitMod + ctx.defHitMod + heavy + engaged + damaged),
     reroll: m.overwatch || w.indirect ? 'none' : m.rerollHits,
     canRerollOne: !m.overwatch && !w.indirect,
   };
@@ -449,6 +477,7 @@ function runTrial(C, rnd, rec, init = null) {
   let hazardMW = 0;
   const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0, abilityMortals: 0 };
   const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(C.groups.length).fill(0) };
+  const save1 = { left: !!dm.rerollOneSave };
 
   for (const a of C.attackers) {
     const killsBefore = out.kills, woundsBefore = out.woundsLost;
@@ -489,6 +518,7 @@ function runTrial(C, rnd, rec, init = null) {
         coverBs: ranged && (dm.cover || w.indirect) && !w.ignoresCover ? 1 : 0,
         plungeBs: ranged && m.plunging ? 1 : 0,
         defHitMod: dm.hitMod,
+        engagedMV: !!dm.engagedMV,
         defWoundMod: dm.woundMod,
         defWoundModIfSgtT: dm.woundModIfSGreaterT,
       };
@@ -526,7 +556,7 @@ function runTrial(C, rnd, rec, init = null) {
       steps.wounds += normalWounds + devCrits.length;
       // --- saves (one per wound, lowest first, against the current group)
       const ap = Math.max(0, w.AP + (m.apMod || 0) - (dm.apReduce || 0));
-      const saveMod = cap1(dm.saveMod || 0);
+      const saveMod = dm.saveMod || 0;          // no ±1 limit on save rolls (02.02.01)
       const rolls = [];
       for (let i = 0; i < normalWounds; i++) rolls.push(d6(rnd));
       rolls.sort((x, y) => x - y);
@@ -537,7 +567,10 @@ function runTrial(C, rnd, rec, init = null) {
         if (gi >= order.length) break;
         const s = order[gi];
         const g = s.g;
-        const saved = r !== 1 && ((g.InSv && r >= g.InSv) || (r + saveMod - ap >= g.Sv));
+        const saves = (x) => x !== 1 && ((g.InSv && x >= g.InSv) || (x + saveMod - ap >= g.Sv));
+        let saved = saves(r);
+        // 15.02 Command Re-roll: one failed save re-rolled, once in the phase (where a save is possible at all)
+        if (!saved && save1.left && ((g.InSv && g.InSv <= 6) || g.Sv + ap - saveMod <= 6)) { save1.left = false; saved = saves(d6(rnd)); }
         if (saved) continue;
         steps.unsaved++;
         const dmg = rollDamage(w, m, dm, g, rnd, w.m.rerollOneDamage ? one : null);

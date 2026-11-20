@@ -342,6 +342,47 @@ test('Hazardous (24.15): one hazard roll for each weapon SELECTED, also when the
   near(big.hazardMW, 4, 0.05, '3 mortal wounds for each failed roll');
 });
 
+test('hit-roll conditions: Heavy (24.16), Damaged (24.39), an engaged Monster / Vehicle (17.03), Psychic (24.29)', () => {
+  const hits = (w, amods = {}, dmods = {}) => run({ weapons: [weapon({ count: 60, ...w })], groups: pool(), amods, dmods }).steps.hits / 60;
+  // Heavy: +1 to hit when no model moved more than 3" (the unit need not have stood still)
+  near(hits({ kw: { heavy: true } }), 4 / 6, 0.005, 'BS3+ after a longer move');
+  near(hits({ kw: { heavy: true } }, { heavyOk: true }), 5 / 6, 0.005, 'moved 3" or less: 2+');
+  near(hits({ kw: { heavy: true } }, { stationary: true }), 5 / 6, 0.005, 'stationary qualifies too');
+  near(hits({}, { heavyOk: true }), 4 / 6, 0.005, 'not a Heavy weapon: nothing');
+  // Damaged: -1 to hit
+  near(hits({}, { damaged: true }), 3 / 6, 0.005, 'a damaged model hits on 4+');
+  near(hits({ kw: { heavy: true } }, { damaged: true, heavyOk: true }), 4 / 6, 0.005, '+1 and -1 cancel');
+  // shooting at an engaged Monster / Vehicle: -1, but not with close-quarters weapons of a unit engaged with it
+  near(hits({}, {}, { engagedMV: true }), 3 / 6, 0.005, 'into an engaged vehicle: 4+');
+  near(hits({ kw: { cq: true } }, { engaged: true }, { engagedMV: true }), 4 / 6, 0.005, 'a pistol of the unit engaged with it: no penalty');
+  near(hits({ kw: { cq: true } }, {}, { engagedMV: true }), 3 / 6, 0.005, 'a pistol from another unit: -1');
+  near(hits({ melee: true }, {}, { engagedMV: true }), 4 / 6, 0.005, 'not for melee attacks');
+  // modifiers still stop at -1 in total (02.02.01)
+  near(hits({}, { damaged: true }, { engagedMV: true, hitMod: -1 }), 3 / 6, 0.005, 'three -1s: still -1');
+  // Psychic: can ignore the harmful modifiers to BS / WS and to the hit roll - cover included
+  near(hits({ kw: { psychic: true } }, { damaged: true }, { hitMod: -1, cover: true }), 4 / 6, 0.005, 'a psychic attack keeps its BS3+');
+  near(hits({}, { damaged: true }, { hitMod: -1, cover: true }), 2 / 6, 0.005, 'the same without Psychic: cover (BS 4+) and -1: 5+');
+});
+
+test('saves: no ±1 limit on save-roll modifiers (02.02.01); Command Re-roll re-rolls one failed save in the phase (15.02)', () => {
+  // 300 AP0 hits wounding automatically... 60 torrent S8 attacks vs T4: wound on 2+
+  const unsaved = (dmods, groups = pool({ Sv: 5 })) => { const r = run({ weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } })], groups, dmods }); return r.steps.unsaved / r.steps.wounds; };
+  near(unsaved({}), 4 / 6, 0.01, 'Sv5+: 4 in 6 fail');
+  near(unsaved({ saveMod: 1 }), 3 / 6, 0.01, '+1: 4+');
+  near(unsaved({ saveMod: 2 }), 2 / 6, 0.01, '+2 is +2: 3+ (it was limited to +1)');
+  // one re-roll: with a single wound, P(fail) = (4/6)^2
+  const one = (dmods) => run({ weapons: [weapon({ count: 1, S: 8, kw: { torrent: true }, D: '1' })], groups: [group({ count: 1, Sv: 5 })], dmods });
+  near(one({}).meanKills, (5 / 6) * (4 / 6), 0.01, 'one wound, Sv5+');
+  near(one({ rerollOneSave: true }).meanKills, (5 / 6) * (4 / 6) * (4 / 6), 0.01, 'the failed save is re-rolled once');
+  // only ONE save in the phase: with many wounds the effect is one model at most
+  const many = (dmods) => run({ weapons: [weapon({ count: 30, S: 8, kw: { torrent: true } })], groups: pool({ Sv: 5 }), dmods }).meanKills;
+  const d = many({}) - many({ rerollOneSave: true });
+  assert.ok(d > 0.2 && d < 0.5, `one re-roll saves about a third of a model: ${d.toFixed(3)}`);
+  // no save possible (AP beats it): the re-roll is not spent - nothing changes
+  const noSave = (dmods) => run({ weapons: [weapon({ count: 30, S: 8, AP: -3, kw: { torrent: true } })], groups: pool({ Sv: 5 }), dmods }).meanKills;
+  near(noSave({ rerollOneSave: true }), noSave({}), 1e-9, 'no save to re-roll');
+});
+
 // Turn chain: shoot -> charge -> fight
 
 test('turn chain: casualties carry from shooting into the fight; charge odds; no fight when the charge cannot succeed', () => {

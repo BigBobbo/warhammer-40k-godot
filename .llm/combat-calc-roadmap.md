@@ -261,3 +261,19 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   fight-back kills, Delaying Action, Outflank, Purge and Secure, A Grievous
   Blow). Not changed: Consecrate still ignores kills in the opponent's turn.
 - Also: a detachment's "+N" M" (Stormlance) is applied to the board unit's move.
+- Fix 8, stratagem limits (15.01): BUILT in v1.102.0, browser-tested. One
+  stratagem on a unit in a phase, each stratagem once in a phase (attacker
+  cards and the target); Command Re-roll on a save for the defender
+  (`rerollOneSave`: one failed save in the phase).
+- Fix 9, abilities and hit modifiers: BUILT in v1.102.0. `weaponKw` keeps
+  `required_target_keywords_any` / `excluded_target_keywords` as `limits`,
+  `limitKw` switches them off per target (24.01). Engine: `heavyOk` (24.16),
+  `damaged` (24.39), `engagedMV` + `engaged` (17.03), Psychic ignores harmful
+  hit modifiers (24.29), no cap on save modifiers (02.02.01). Shooting type
+  per attacker (10.04-10.06). Also: rules for named weapons
+  (`rules.parseWeaponBullets`: Terminatus Assault, Full-throttle Assault - the
+  only two in the data, both in the user's list) and enhancement grants
+  (`adapter.enhancementGrants`: Wolf-Touched).
+  Not done: Guile of the Wolf / Strategic Acumen doctrines beyond the chips
+  (only one stratagem option reads a doctrine); Hammer Blow (a debuff on the
+  enemy's later attacks); Imperium's Sword (its weapon text is cut off in the data).

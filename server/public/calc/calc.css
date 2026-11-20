@@ -146,6 +146,8 @@ textarea.list {
   background: var(--surface-3); color: var(--text-secondary);
 }
 .tag.warn { color: var(--warn-ink); }
+.tag.off { text-decoration: line-through; opacity: 0.75; }
+.rule-note.warn { color: var(--warn-ink); }
 .tag.auto { box-shadow: inset 0 0 0 1px var(--accent); color: var(--text-primary); background: var(--series-1-wash); }
 .tag.byhand { box-shadow: inset 0 0 0 1px var(--line); }
 .choice-why { margin-top: 2px; }

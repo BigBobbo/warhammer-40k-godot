@@ -1672,6 +1672,100 @@ try {
     await bctx.close();
   }
 
+  // --- stratagem limits, shooting type, Heavy / Damaged, engaged targets, rules for named weapons (1.102)
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attack rules: ${m.text()}`); });
+    sp.on('pageerror', e => consoleErrors.push(`attack rules: ${e}`));
+    await sp.goto(`${BASE}/calc/`);
+    await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="attack"]');
+    const done = () => sp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 });
+    const target = async (re) => { const v = await sp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source); await sp.selectOption('select[data-input="target"]', v); };
+    const add = async (name) => { await sp.tap('button[data-action="open-add"]'); await sp.tap(`.pick:has-text("${name}")`); await done(); };
+    const rowsOf = (card) => card.locator('.weapon[data-row]').evaluateAll(els => els.map(e => ({ name: e.querySelector('.wname').textContent.trim(), val: e.querySelector('.stepper .val').textContent.trim(), blocked: e.querySelector('.tag.warn')?.textContent.trim() ?? null, off: [...e.querySelectorAll('.tag.off')].map(t => t.textContent.trim()) })));
+    const row = (rows, re) => rows.find(r => re.test(r.name));
+    const wounds = () => sp.evaluate(() => window.__calc.state.result.meanWounds);
+    await target(/Battlewagon/);
+    await add('Scout Squad (1)');
+    const card = () => sp.locator('[data-attacker]').last();
+    // shooting type (10.04 - 10.06)
+    let rs = await rowsOf(card());
+    check('normal shooting: shotguns, krak missile and sniper rifle fire, pistols stay out', row(rs, /Shotgun/).val === '3/3' && row(rs, /Krak/).val === '1/1' && row(rs, /Sniper/).val === '1/1' && row(rs, /Bolt Pistol/).val === '0/5', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="assault"]').tap(); await done();
+    rs = await rowsOf(card());
+    check('after an advance only the Assault weapons shoot (the shotguns)', row(rs, /Shotgun/).val === '3/3' && row(rs, /Krak/).val === '0/1' && row(rs, /Krak/).blocked === 'After an advance only Assault weapons shoot' && row(rs, /Sniper/).val === '0/1', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="cq"]').tap(); await done();
+    rs = await rowsOf(card());
+    check('engaged: only the close-quarters weapons shoot (5 bolt pistols)', row(rs, /Bolt Pistol/).val === '5/5' && row(rs, /Shotgun/).blocked === 'Engaged: only Close-quarters weapons shoot', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="normal"]').tap(); await done();
+    // Heavy (24.16): +1 to hit when no model moved more than 3"
+    const w0 = await wounds();
+    const heavy = card().locator('button[data-key="heavyOk"]');
+    check('a unit with Heavy weapons has the "Moved 3" or less" chip', (await heavy.count()) === 1 && /Heavy: \+1 to hit/.test(await heavy.textContent()));
+    await heavy.tap(); await done();
+    const w1 = await wounds();
+    const heavyOn = await sp.evaluate(() => window.__calc.scenario().attackers[0].mods.heavyOk);
+    check('Heavy +1 to hit reaches the engine and raises the damage of the Heavy weapon in use (the sniper rifle)', heavyOn === true && w1 > w0 * 1.01, `${w0} -> ${w1}`);
+    await sp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await sp.screenshot({ path: join(SHOTS, 'calc_67_shooting_type_heavy.png') });
+    // an engaged Monster / Vehicle: -1 to hit for shooting, no Blast (17.03)
+    await sp.locator('details.more', { hasText: 'Defender modifiers' }).locator('summary').tap();
+    await sp.locator('button[data-action="defmod-toggle"][data-key="engaged"]').tap(); await done();
+    const w2 = await wounds();
+    const sc = await sp.evaluate(() => window.__calc.scenario());
+    check('target engaged in melee: the engine gets -1 to hit for shooting at it', sc.defender.mods.engagedMV === true && w2 < w1 * 0.9, `${w1} -> ${w2}`);
+    await target(/Warboss \+ Boyz/); await done();
+    check('the "Engaged in melee" option is only for a Monster or Vehicle target', (await sp.locator('button[data-action="defmod-toggle"][data-key="engaged"]').count()) === 0);
+    // stratagems: one on a unit in a phase, each once in a phase (15.01)
+    await sp.tap('button[data-action="phase"][data-value="fight"]');
+    await target(/Battlewagon/);
+    await add('Thunderwolf Cavalry (1)');
+    const strats = (c) => c.locator('.modrow', { hasText: 'Stratagems (tap to use)' }).locator('button[data-action="arule"]');
+    const onNames = async (c) => strats(c).evaluateAll(els => els.filter(e => e.getAttribute('aria-pressed') === 'true').map(e => e.textContent.trim().slice(0, 60)));
+    const c1 = card();
+    const n = await strats(c1).count();
+    check('Thunderwolf Cavalry have several stratagems to choose from in the Fight phase', n >= 3, String(n));
+    const names = await strats(c1).evaluateAll(els => els.map(e => e.textContent.trim()));
+    const idxA = names.findIndex(t => /COMMAND RE-ROLL/.test(t)), idxB = names.findIndex(t => !/COMMAND RE-ROLL/.test(t) && !/^or:/.test(t));
+    await strats(c1).nth(idxB).tap(); await done();
+    check('one stratagem on', (await onNames(card())).length === 1, JSON.stringify(await onNames(card())));
+    await strats(card()).nth(idxA).tap(); await done();
+    const after = await onNames(card());
+    check('a second stratagem on the same unit switches the first off (one on a unit in a phase)', after.length === 1 && /COMMAND RE-ROLL/.test(after[0]), JSON.stringify(after));
+    check('the card states the rule', /One stratagem on a unit in a phase, and each stratagem once in a phase \(15\.01\)/.test(await card().locator('[data-strat-note]').textContent()));
+    // the same stratagem on a second unit: off on the first (each stratagem once in a phase)
+    await add('Grey Hunters');
+    const c2 = sp.locator('[data-attacker]').last(), c1b = sp.locator('[data-attacker]').first();
+    await strats(c2).filter({ hasText: 'COMMAND RE-ROLL' }).first().tap(); await done();
+    const first = await onNames(sp.locator('[data-attacker]').first()), second = await onNames(sp.locator('[data-attacker]').last());
+    check('Command Re-roll on the second unit takes it from the first (the same stratagem once in a phase)', first.length === 0 && second.length === 1 && /COMMAND RE-ROLL/.test(second[0]), JSON.stringify({ first, second }));
+    await sp.locator('[data-attacker]').last().locator('[data-strat-note]').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_68_stratagem_limit.png') });
+    // the defender can re-roll one save with Command Re-roll (15.02)
+    const dStrat = sp.locator('button[data-action="rule"]', { hasText: 'Re-roll one save' });
+    check('the target has "Re-roll one save" (Command Re-roll) among its stratagems', (await dStrat.count()) === 1 && /COMMAND RE-ROLL \(1CP\)/.test(await dStrat.textContent()), await dStrat.textContent().catch(() => 'missing'));
+    const before = await wounds();
+    await dStrat.tap(); await done();
+    const sc2 = await sp.evaluate(() => window.__calc.scenario());
+    check('it reaches the engine and lowers the damage a little', sc2.defender.mods.rerollOneSave === true && (await wounds()) < before, `${before} -> ${await wounds()}`);
+    // rules for named weapons: Terminators after a charge - Sustained Hits on the hammers against a Vehicle
+    await sp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await sp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await add('Logan Grimnar');
+    await card().locator('button[data-key="charged"]').tap(); await done();
+    const chips = await card().locator('button[data-action="arule"]').evaluateAll(els => els.map(e => ({ t: e.textContent.replace(/\s+/g, ' ').trim(), on: e.getAttribute('aria-pressed') === 'true' })));
+    const th = chips.find(c => /^Thunder Hammer: Sustained Hits 1/.test(c.t)), lc = chips.find(c => /^Lightning Claws: Sustained Hits 1/.test(c.t));
+    check('Terminatus Assault after a charge: Sustained Hits 1 on the thunder hammers against the Battlewagon, not on the lightning claws', th?.on === true && lc?.on === false, JSON.stringify({ th, lc }));
+    const sc3 = await sp.evaluate(() => window.__calc.scenario());
+    const hammers = sc3.attackers[0].weapons.find(w => w.name === 'Thunder Hammer'), claws = sc3.attackers[0].weapons.find(w => /Lightning Claws/.test(w.name));
+    check('the engine gets it on the hammers only', hammers?.mods?.sustained === 1 && !claws?.mods?.sustained, JSON.stringify({ hammers: hammers?.mods, claws: claws?.mods }));
+    await sctx.close();
+  }
+
   // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
   {
     const wctx = await browser.newContext({ ...devices['Pixel 7'] });
