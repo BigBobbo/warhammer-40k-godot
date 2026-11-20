@@ -6749,7 +6749,7 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 						str(rb_idx) if rb_idx >= 0 else "keep", {"phase": "command", "round": replace_round, "forecast": true})
 					if rb_idx >= 0:
 						var rb_name = str(active_missions_r[rb_idx].get("name", "Unknown"))
-						_add_thinking_step("Secondary '%s' is worth ~%.1f VP over the rest of the battle; a fresh draw ~%.1f VP — replacing it for 1 CP" % [
+						_add_thinking_step("Secondary '%s' is worth about %.1f VP over the rest of the battle; a fresh draw about %.1f VP — replacing it for 1 CP" % [
 							rb_name, float(rep_best.keep), float(rep_best.draw)])
 						return {
 							"type": "REPLACE_SECONDARY_MISSION",
@@ -6814,7 +6814,7 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 						active_missions = []  # skip the threshold rule below
 					else:
 						var nb_name = str(active_missions[nb_idx].get("name", "Unknown"))
-						_add_thinking_step("New Orders: '%s' is worth ~%.1f VP over the rest of the battle; a fresh draw ~%.1f VP" % [
+						_add_thinking_step("New Orders: '%s' is worth about %.1f VP over the rest of the battle; a fresh draw about %.1f VP" % [
 							nb_name, float(no_best.keep), float(no_best.draw)])
 						return {
 							"type": "USE_NEW_ORDERS",
@@ -22991,13 +22991,13 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 				d_best_keep = keep_vp
 		if not dfv.is_empty() and not d_scored.is_empty():
 			d_scored.append({"description": "Keep every secondary", "score": d_margin, "key": "keep",
-				"score_breakdown": {"swap_margin": d_margin}})
+				"score_breakdown": {"forecast_keep_vp": 0.0, "cp_gain_vp": 0.0, "swap_margin": d_margin}})
 			_record_choice("secondary_discard", "", "secondaries", d_scored, str(d_best) if d_best >= 0 else "keep",
 				{"phase": "scoring", "round": battle_round, "deck_size": deck_size, "can_gain_cp": can_gain_cp, "forecast": true})
 			if d_best >= 0:
 				var db_name = str(active_missions[d_best].get("name", "?"))
-				_add_thinking_step("Discarding '%s': worth ~%.1f VP over the rest of the battle, less than the CP (~%.1f VP)" % [
-					db_name, d_best_keep, d_cp_vp])
+				_add_thinking_step("Discarding '%s': worth about %.1f VP over the rest of the battle, less than the CP (about %.1f VP)" % [
+					db_name, absf(d_best_keep), d_cp_vp])
 				return {
 					"type": "DISCARD_SECONDARY",
 					"mission_index": d_best,
@@ -23410,7 +23410,7 @@ static func _forecast_pick_swap(snapshot: Dictionary, player: int, candidates: A
 			best.gain = gain
 			best.keep = keep
 	best.scored.append({"description": "Keep every secondary", "score": margin, "key": "keep",
-		"score_breakdown": {"swap_margin": margin}})
+		"score_breakdown": {"forecast_keep_vp": 0.0, "forecast_draw_vp": 0.0, "cp_cost_vp": 0.0, "swap_margin": margin}})
 	return best
 
 # Late-bound reference to SecondaryMissionManager autoload

@@ -219,6 +219,22 @@ const TERMS := {
 	"achievability": {"label": "How achievable (0–1)", "fmt": "num", "good": "low", "help": "The AI's estimate from the board: 0 = impossible, under 0.2 = extremely unlikely, 0.2–0.5 = difficult, 0.5+ = reasonably achievable. Less achievable cards are better to discard."},
 	"discard_value": {"label": "Value of discarding", "fmt": "num", "hidden": true, "help": "Minus the achievability: the option's score."},
 	"discard_threshold": {"label": "Discard below", "fmt": "num", "help": "A card is only discarded if its achievability is below this: 0.2, or 0.1 in round 4+ when the deck is empty."},
+	# Game forecast (AIForecast: the rest of the battle simulated a few hundred times)
+	"forecast_keep_vp": {"label": "Card's VP over the rest of the battle", "fmt": "vp", "help": "Forecast: the VP this card is expected to bring if it is kept — the turns left, its timing, the 15/45 caps, kill-card targets still alive and, for position cards, how achievable it looks on the board."},
+	"forecast_draw_vp": {"label": "A fresh draw's VP", "fmt": "vp", "help": "Forecast: the VP one card drawn from what is left of the deck now is expected to bring (when-drawn rules included)."},
+	"cp_cost_vp": {"label": "CP cost in VP", "fmt": "vp", "help": "What the 1 CP the swap costs is worth (FORECAST_CP_VP VP per CP)."},
+	"cp_gain_vp": {"label": "CP gained in VP", "fmt": "vp", "help": "What the 1 CP a discard gains is worth — nothing in the last battle round, or once this round's bonus CP is used."},
+	"swap_margin": {"label": "Must win by", "fmt": "vp", "help": "A swap or discard is only made when it beats keeping the card by more than this."},
+	"forecast_margin": {"label": "Forecast final margin", "fmt": "vp", "good": "high", "help": "Forecast: expected final VP minus the opponent's, with each objective's ownership projected from where this plan sends the units."},
+	"score_gap": {"label": "Score gap to the greedy pick", "fmt": "num", "help": "The unit's score for its planned objective minus this alternative's: the closer, the closer the call."},
+	"p_win": {"label": "Forecast win chance", "fmt": "pct", "good": "high", "help": "Share of simulated rests-of-battle this player wins."},
+	"margin": {"label": "Forecast final margin", "fmt": "vp", "good": "high", "help": "Expected final VP minus the opponent's (raw forecast)."},
+	"cal_margin": {"label": "Calibrated final margin", "fmt": "vp", "good": "high", "help": "The forecast margin corrected by its calibration against real games (FORECAST_CAL_A / _B / _SEAT)."},
+	"mean_me": {"label": "Forecast final VP", "fmt": "vp", "good": "high", "help": "Expected final VP of this player."},
+	"mean_opp": {"label": "Opponent's forecast final VP", "fmt": "vp", "help": "Expected final VP of the opponent."},
+	"sd_me": {"label": "Spread of final VP", "fmt": "vp", "help": "Standard deviation of this player's simulated final VP."},
+	"vp_me": {"label": "VP now", "fmt": "vp", "help": "This player's VP when the forecast was made."},
+	"vp_opp": {"label": "Opponent's VP now", "fmt": "vp", "help": "The opponent's VP when the forecast was made."},
 }
 
 # Context keys worth showing to a player (everything else is developer-only).

@@ -1,0 +1,13 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Forecast bundle (no tempo)",
+  "description": "Candidate arm: FORECAST_SECONDARIES, FORECAST_HORIZON_WEIGHT 0.6, FORECAST_SURVIVAL, FORECAST_PLAN on; FORECAST_TEMPO off until calibrated.",
+  "parameters": {
+    "FORECAST_SECONDARIES": 1.0,
+    "FORECAST_HORIZON_WEIGHT": 0.6,
+    "FORECAST_SURVIVAL": 1.0,
+    "FORECAST_PLAN": 1.0
+  },
+  "rules": []
+}

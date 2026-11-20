@@ -1,0 +1,33 @@
+{
+  "id": "ai_forecast_secondary_discard_11e",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIForecast.secondary_values",
+    "scripts.AIDecisionMaker.forecast_secondaries",
+    "scripts.AIReasoningGlossary.forecast_terms"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 6,
+  "description": "FORECAST_SECONDARIES (AIForecast port of the Combat Calc forecast): the active player holds Bring It Down while every enemy W10+ model is dead, plus No Prisoners. In the Scoring phase the AI suggestion prices each card by its VP over the rest of the battle: Bring It Down is worth ~0 VP, less than the CP a discard gains, so it is discarded for +1 CP; No Prisoners is kept. The K panel shows the forecast terms in player words, and the discard really happens (card gone, CP +1).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "multiline": true, "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar opp = 2 if p == 1 else 1\nEngine.set_meta(\"fc_player\", p)\nGameState.state[\"meta\"][\"game_config\"][\"player1_type\"] = \"HUMAN\"\nGameState.state[\"meta\"][\"game_config\"][\"player2_type\"] = \"HUMAN\"\nGameState.state[\"meta\"][\"battle_round\"] = 2\nfor k in [p, opp]:\n\tif not mgr.is_initialized(k):\n\t\tmgr.setup_tactical_deck(k)\n\tmgr._player_state[str(k)][\"mode\"] = \"tactical\"\n\tmgr._player_state[str(k)][\"active\"] = []\nvar st = mgr._player_state[str(p)]\nfor mid in [\"bring_it_down\", \"no_prisoners\"]:\n\tst[\"deck\"].erase(mid)\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar killed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != opp:\n\t\tcontinue\n\tfor m in u.get(\"models\", []):\n\t\tif int(m.get(\"wounds\", u.get(\"meta\", {}).get(\"stats\", {}).get(\"wounds\", 1))) >= 10 and m.get(\"alive\", true):\n\t\t\tm[\"alive\"] = false\n\t\t\tkilled += 1\nGameState.state[\"players\"][str(p)][\"bonus_cp_gained_this_round\"] = 0\nAIDecisionMaker._config_overrides[\"FORECAST_SECONDARIES\"] = 1.0\nreturn \"p=%d killed_w10=%d hand=%s\" % [p, killed, str(st[\"active\"].map(func(m): return m[\"id\"]))]", "comment": "Setup: Bring It Down + No Prisoners in hand, every enemy W10+ model dead, forecast secondaries on" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(11)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+    { "act": "execute_script", "multiline": true, "script": "var d = AIPlayer.request_suggestion()\nvar rec = {}\nfor r in d.get(\"_ai_decision_records\", []):\n\tif str(r.get(\"decision_type\", \"\")) == \"secondary_discard\":\n\t\trec = r\nEngine.set_meta(\"fc_desc\", str(d.get(\"_ai_description\", \"\")))\nreturn \"%s|%s|%s\" % [d.get(\"type\", \"\"), str(d.get(\"_ai_description\", \"\")).begins_with(\"Discard 'Bring it Down' for +1 CP (forecast\"), str(rec.get(\"context\", {}).get(\"forecast\", false))]", "equals": "DISCARD_SECONDARY|true|true" },
+    { "act": "execute_script", "script": "main.refresh_ai_suggestion_button()" },
+    { "act": "simulate_key", "keycode": "K" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()", "equals": true },
+    { "act": "execute_script", "script": "main._ai_suggestion_panel.breakdown_text.contains(\"CP gained in VP\") and main._ai_suggestion_panel.breakdown_text.contains(\"over the rest of the battle\") and main._ai_suggestion_panel.breakdown_text.contains(\"Discard 'No Prisoners'\")", "equals": true },
+    { "act": "screenshot", "label": "01_forecast_discard_suggestion" },
+    { "act": "simulate_key", "keycode": "K" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "multiline": true, "script": "var p = int(Engine.get_meta(\"fc_player\"))\nvar cp0 = int(GameState.state[\"players\"][str(p)][\"cp\"])\nvar d = AIPlayer.request_suggestion()\nvar r = PhaseManager.get_current_phase_instance().execute_action(d)\nvar ids = SecondaryMissionManager.get_active_missions(p).map(func(m): return m[\"id\"])\nreturn \"%s|%s|%d\" % [str(r.get(\"success\", false)), str(ids), int(GameState.state[\"players\"][str(p)][\"cp\"]) - cp0]", "equals": "true|[\"no_prisoners\"]|1" },
+    { "act": "execute_script", "multiline": true, "script": "var d = AIPlayer.request_suggestion()\nAIDecisionMaker._config_overrides.erase(\"FORECAST_SECONDARIES\")\nreturn str(d.get(\"type\", \"\"))", "equals": "END_SCORING", "comment": "No Prisoners is kept; the round's bonus CP is used, so nothing else is discarded" },
+    { "act": "screenshot", "label": "02_after_discard" }
+  ]
+}
