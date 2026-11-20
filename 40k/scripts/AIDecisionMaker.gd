@@ -483,6 +483,8 @@ static var _secondary_awareness_round_p2: int = -1
 # player's own primary card pays for this game: which objectives score, when,
 # and whether kills score. Built once per round in the command phase.
 static var _primary_awareness_p1: Dictionary = {}
+# FORECAST-TEMPO: one game forecast per player turn ("p|round|active" -> {margin, p_win, ...})
+static var _forecast_tempo_cache: Dictionary = {}
 static var _primary_awareness_p2: Dictionary = {}
 static var _primary_awareness_round_p1: int = -1
 static var _primary_awareness_round_p2: int = -1
@@ -585,6 +587,8 @@ static func reset_caches() -> void:
 	_secondary_awareness_round_p2 = -1
 	_primary_awareness_p1.clear()
 	_primary_awareness_p2.clear()
+	_forecast_tempo_cache.clear()
+	_forecast_horizon_cache.clear()
 	_primary_awareness_round_p1 = -1
 	_primary_awareness_round_p2 = -1
 	_failed_disembark_unit_ids.clear()
@@ -1918,6 +1922,61 @@ const FORECAST_SECONDARIES: float = 0.0
 const FORECAST_CP_VP: float = 1.5
 const FORECAST_SWAP_MARGIN: float = 0.5
 const FORECAST_TRIALS: int = 300
+# FORECAST-TEMPO (FORECAST_TEMPO): 1 = _calculate_tempo_modifier reads the
+# FORECAST final margin (expected final VP minus the opponent's, from the
+# cards both players hold, the deck, both primaries and who holds what) in
+# place of the current VP difference, and desperation (round >= 4) triggers on
+# a forecast win chance below FORECAST_DESPERATE_PWIN instead of "behind now".
+# The current score misreads games where one side still has easy cards or
+# end-of-battle VP to come. One forecast per player turn, cached.
+# FORECAST_HOLD_CONFIDENCE: chance a held non-home objective is still held in
+# a later round (home: 0.95) — the ownership projection the forecast needs.
+# 0 = previous behaviour (current VP difference).
+const FORECAST_TEMPO: float = 0.0
+# FORECAST-LOG (FORECAST_LOG): 1 = once per own turn (Command phase) record the
+# game forecast in the decision record (decision_type "forecast") so
+# tools/ai_lab/forecast_calibration.py can score its predictions against real
+# outcomes. Changes no decision.
+const FORECAST_LOG: float = 1.0
+const FORECAST_DESPERATE_PWIN: float = 0.2
+const FORECAST_HOLD_CONFIDENCE: float = 0.65
+# Calibration of the forecast margin against real outcomes (fit by
+# tools/ai_lab/forecast_calibration.py): margin used = A + B * forecast
+# margin + SEAT * (+1 for the player who took the first turn, -1 otherwise).
+# The raw forecast knows nothing about board position, so it misses the
+# first-turn advantage this engine shows in mirrors; SEAT corrects that.
+const FORECAST_CAL_A: float = 0.0
+# FORECAST-HORIZON (FORECAST_HORIZON_WEIGHT): > 0 = each objective's movement
+# priority gains WEIGHT x its forecast SWING per remaining battle round: the
+# rest-of-battle margin (my final VP minus theirs) if I hold it from now on,
+# minus the margin if the opponent does — the other objectives projected from
+# their current state. It prices what _estimate_objective_vp_value (next
+# scoring point only) cannot see: later-round primary rules, end-of-battle
+# awards, secondary cards still to come, and denial. One forecast pair per
+# objective per player turn, cached. 0 = off.
+const FORECAST_HORIZON_WEIGHT: float = 0.0
+const FORECAST_HORIZON_TRIALS: int = 200
+# FORECAST-SURVIVAL (FORECAST_SURVIVAL): 1 = the forecast's ownership
+# projection holds each objective with a probability from its threat state
+# (the OC the enemy can bring within a move, COORD-5): a safe hold 0.9, a
+# threatened or weak one FORECAST_THREAT_HOLD, contested a coin flip — instead
+# of one confidence for every objective. Used by FORECAST-HORIZON and
+# FORECAST-PLAN. 0 = home 0.95 / other FORECAST_HOLD_CONFIDENCE.
+const FORECAST_SURVIVAL: float = 0.0
+const FORECAST_SAFE_HOLD: float = 0.9
+const FORECAST_THREAT_HOLD: float = 0.55
+# FORECAST-PLAN (FORECAST_PLAN): 1 = after the greedy movement assignment,
+# try the FORECAST_PLAN_SWAPS closest calls (a unit's runner-up objective
+# within FORECAST_PLAN_MAX_GAP score of its pick), project each whole-army
+# plan's objective ownership (OC staying, leaving, arriving this turn / next),
+# forecast it, and adopt the best swap when it beats the plan by more than
+# FORECAST_PLAN_MIN_GAIN VP of final margin. 0 = the greedy plan.
+const FORECAST_PLAN: float = 0.0
+const FORECAST_PLAN_SWAPS: int = 4
+const FORECAST_PLAN_MAX_GAP: float = 3.0
+const FORECAST_PLAN_MIN_GAIN: float = 1.0
+const FORECAST_CAL_B: float = 1.0
+const FORECAST_CAL_SEAT: float = 0.0
 # MOVE-TERRAIN-11E (FIX_MOVE_TERRAIN_11E; 11e rules audit TER-01; 13.06 Terrain
 # and Movement): 1 = a Normal or Advance move is priced and gated the way the
 # engine validates it. Price: MovementPhase._get_movement_terrain_penalty (2"
@@ -6648,6 +6707,21 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			_primary_awareness_p2 = built_primary
 			_primary_awareness_round_p2 = _cmd_round
 
+	# FORECAST-LOG: one rest-of-battle forecast per own turn, into the record
+	if get_param("FORECAST_LOG", FORECAST_LOG) >= 0.5 or get_param("FORECAST_TEMPO", FORECAST_TEMPO) >= 0.5:
+		var fl_key := "%d|%d|%d" % [player, int(_cmd_round), player]
+		if not _forecast_tempo_cache.has(fl_key):
+			var fl := _forecast_tempo(snapshot, player)
+			if not fl.is_empty():
+				var fl_players: Dictionary = snapshot.get("players", {})
+				var fl_opp := 2 if player == 1 else 1
+				_record_choice("forecast", "", "rest of battle", [{"description": "forecast", "score": float(fl.p_win), "key": "f",
+					"score_breakdown": {"p_win": float(fl.p_win), "margin": float(fl.raw_margin), "cal_margin": float(fl.margin), "mean_me": float(fl.mean_me),
+						"mean_opp": float(fl.mean_opp), "sd_me": float(fl.sd_me),
+						"vp_me": float(fl_players.get(str(player), {}).get("vp", 0)),
+						"vp_opp": float(fl_players.get(str(fl_opp), {}).get("vp", 0))}}], "f",
+					{"phase": "command", "round": int(_cmd_round)})
+
 	# Evaluate REPLACE_SECONDARY_MISSION — replace bad newly-drawn missions (1 CP, back to deck)
 	var replace_actions = []
 	for action in available_actions:
@@ -7055,6 +7129,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		assignments = _assign_units_to_objectives(
 			snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
 		)
+		# FORECAST-PLAN: compare close-call alternatives by forecast final margin
+		assignments = _forecast_refine_plan(snapshot, assignments, obj_evaluations, player, battle_round)
 		var prior_replans = int(stored_plan.get("replans", -1))
 		# TURN-INTENT: capture the whole turn's context at plan time so the
 		# announced card can tell the full story in one place — stance, VP
@@ -9459,6 +9535,9 @@ static func _evaluate_all_objectives(
 			evaluations[-1]["obj_gap_px"] = oar_gaps[i]  # OBJ-AREA-REACH: reused by the candidate loop
 		if sa_lock_i > 0:
 			evaluations[-1]["secured_by"] = sa_lock_i  # SECURED-AWARE: the securing player (14.03)
+
+	# FORECAST-HORIZON: rest-of-battle swing of each objective
+	_apply_forecast_horizon(snapshot, evaluations, player, battle_round)
 
 	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
 	# player sees WHAT the AI is playing for in mission terms. Also stash the
@@ -17520,6 +17599,14 @@ static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> floa
 	var vp_diff = my_vp - opp_vp  # Positive = winning, negative = losing
 
 	var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+	var desperate_now: bool = vp_diff < 0
+	if get_param("FORECAST_TEMPO", FORECAST_TEMPO) >= 0.5:
+		var tf := _forecast_tempo(snapshot, player)
+		if not tf.is_empty():
+			print("AIDecisionMaker: [TEMPO] forecast replaces VP diff %+d with projected final margin %+.1f (raw %+.1f, p_win %.2f)" % [
+				vp_diff, float(tf.margin), float(tf.raw_margin), float(tf.cal_p_win)])
+			vp_diff = float(tf.margin)
+			desperate_now = float(tf.cal_p_win) < get_param("FORECAST_DESPERATE_PWIN", FORECAST_DESPERATE_PWIN)
 
 	# Base aggression: adjust based on VP differential
 	var modifier = 1.0
@@ -17531,13 +17618,13 @@ static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> floa
 		modifier -= minf(float(vp_diff) * get_param("TEMPO_VP_DIFF_WEIGHT", TEMPO_VP_DIFF_WEIGHT) * 0.5, 1.0 - get_param("TEMPO_AHEAD_CONSERVATION", TEMPO_AHEAD_CONSERVATION))
 
 	# Late-game desperation: being behind in rounds 4-5 increases aggression sharply
-	if battle_round >= get_param_int("TEMPO_DESPERATION_ROUND", TEMPO_DESPERATION_ROUND) and vp_diff < 0:
+	if battle_round >= get_param_int("TEMPO_DESPERATION_ROUND", TEMPO_DESPERATION_ROUND) and desperate_now:
 		var rounds_left = get_param_int("TEMPO_MAX_ROUNDS", TEMPO_MAX_ROUNDS) - battle_round + 1
 		var urgency = 1.0 + (absf(vp_diff) * get_param("TEMPO_VP_DIFF_WEIGHT", TEMPO_VP_DIFF_WEIGHT) * (3.0 / maxf(float(rounds_left), 1.0)))
 		modifier = maxf(modifier, minf(urgency, get_param("TEMPO_DESPERATION_MULTIPLIER", TEMPO_DESPERATION_MULTIPLIER)))
 
-	print("AIDecisionMaker: [TEMPO] VP: %d vs %d (diff=%+d), round=%d, modifier=%.2f" % [
-		my_vp, opp_vp, vp_diff, battle_round, modifier])
+	print("AIDecisionMaker: [TEMPO] VP: %d vs %d (diff=%+.1f), round=%d, modifier=%.2f" % [
+		my_vp, opp_vp, float(vp_diff), battle_round, modifier])
 	return modifier
 
 static func _get_round_strategy_modifiers(battle_round: int) -> Dictionary:
@@ -22999,6 +23086,307 @@ static func _forecast_secondary_values(snapshot: Dictionary, player: int, from: 
 		float(res.base.mean[_AIForecast.other(player)]), float(res.base.p_win[player]), int(P.trials),
 		Time.get_ticks_msec() - t0])
 	return res
+
+static func _forecast_game(snapshot: Dictionary, player: int, trials: int = -1) -> Dictionary:
+	"""Rest-of-battle forecast from this player's point of view, with both
+	players' position cards priced by board-aware achievability.
+	-> {margin (my mean - theirs), p_win, mean_me, mean_opp, P} or {}."""
+	var rates := _forecast_rates(snapshot)
+	var conf := get_param("FORECAST_HOLD_CONFIDENCE", FORECAST_HOLD_CONFIDENCE)
+	var P: Dictionary = _AIForecast.build_from_snapshot(snapshot, {"from": "this_turn", "rates": rates,
+		"trials": trials if trials > 0 else get_param_int("FORECAST_TRIALS", FORECAST_TRIALS)})
+	if P.is_empty():
+		return {}
+	P["confidence"] = {"home": 0.95, "other": conf}
+	var r: Dictionary = _AIForecast.forecast(P)
+	var opp := _AIForecast.other(player)
+	var raw_margin: float = float(r.mean[player]) - float(r.mean[opp])
+	var seat: float = 1.0 if int(P.first) == player else -1.0
+	var cal_margin: float = get_param("FORECAST_CAL_A", FORECAST_CAL_A) + get_param("FORECAST_CAL_B", FORECAST_CAL_B) * raw_margin \
+		+ get_param("FORECAST_CAL_SEAT", FORECAST_CAL_SEAT) * seat
+	# win chance re-centred on the calibrated margin (normal approx., sd of the margin)
+	var sd_m: float = maxf(4.0, sqrt(float(r.sd[player]) ** 2 + float(r.sd[opp]) ** 2))
+	var cal_p: float = 0.5 * (1.0 + _erf_approx(cal_margin / (sd_m * sqrt(2.0))))
+	return {"margin": cal_margin, "raw_margin": raw_margin, "cal_p_win": cal_p,
+		"p_win": float(r.p_win[player]) + 0.5 * float(r.p_draw),
+		"mean_me": float(r.mean[player]), "mean_opp": float(r.mean[opp]), "sd_me": float(r.sd[player]), "P": P}
+
+static func _forecast_rates(snapshot: Dictionary) -> Dictionary:
+	"""Per-turn chance of each held position card, from board achievability."""
+	var rates := {1: {}, 2: {}}
+	var sm: Dictionary = snapshot.get("secondary_missions", {}).get("player_state", {})
+	var battle_round := int(snapshot.get("meta", {}).get("battle_round", 1))
+	for X in [1, 2]:
+		for m in sm.get(str(X), {}).get("active", []):
+			var mid := str(m.get("id", ""))
+			if mid in _AIForecast.POSITION_CARDS:
+				rates[X][mid] = clampf(float(_evaluate_mission_achievability(snapshot, m, X, battle_round)), 0.0, 1.0)
+	return rates
+
+# --- ownership projection (FORECAST-HORIZON / -SURVIVAL / -PLAN) ------------
+
+static func _forecast_state_owner(state: String, player: int) -> int:
+	if state in ["held_safe", "held_threatened"]:
+		return player
+	if state in ["enemy_weak", "enemy_strong"]:
+		return 2 if player == 1 else 1
+	return 0
+
+static func _forecast_state_conf(state: String, is_home_any: bool) -> float:
+	"""Chance the projected holder still holds it in a later round."""
+	if get_param("FORECAST_SURVIVAL", FORECAST_SURVIVAL) >= 0.5:
+		match state:
+			"held_safe", "enemy_strong":
+				return get_param("FORECAST_SAFE_HOLD", FORECAST_SAFE_HOLD)
+			"held_threatened", "enemy_weak":
+				return get_param("FORECAST_THREAT_HOLD", FORECAST_THREAT_HOLD)
+		return 0.5
+	return 0.95 if is_home_any else get_param("FORECAST_HOLD_CONFIDENCE", FORECAST_HOLD_CONFIDENCE)
+
+static func _forecast_base_P(snapshot: Dictionary, trials: int) -> Dictionary:
+	var P: Dictionary = _AIForecast.build_from_snapshot(snapshot, {"from": "this_turn",
+		"rates": _forecast_rates(snapshot), "trials": trials})
+	if not P.is_empty():
+		P["confidence"] = {"home": 0.95, "other": get_param("FORECAST_HOLD_CONFIDENCE", FORECAST_HOLD_CONFIDENCE)}
+	return P
+
+static func _forecast_with_plan(P: Dictionary, cells: Dictionary, conf: Dictionary, from_round: int) -> Dictionary:
+	"""P with every round >= from_round owned per `cells` (obj_id -> 1|2|0)."""
+	var P2 := P.duplicate()
+	var plan: Dictionary = (P.plan as Dictionary).duplicate(true)
+	for r in range(from_round, _AIForecast.ROUNDS + 1):
+		var row: Dictionary = plan.get(r, {})
+		for oid in cells:
+			row[oid] = int(cells[oid])
+		plan[r] = row
+	P2["plan"] = plan
+	var oc: Dictionary = (P.get("obj_confidence", {}) as Dictionary).duplicate()
+	for oid in conf:
+		oc[oid] = float(conf[oid])
+	P2["obj_confidence"] = oc
+	return P2
+
+static func _forecast_margin_of(P: Dictionary, player: int) -> float:
+	var r: Dictionary = _AIForecast.forecast(P)
+	return float(r.mean[player]) - float(r.mean[_AIForecast.other(player)])
+
+static var _forecast_horizon_cache: Dictionary = {}
+
+static func _forecast_objective_swings(snapshot: Dictionary, evaluations: Array, player: int, battle_round: int) -> Dictionary:
+	"""FORECAST-HORIZON: obj_id -> final-margin swing (mine from now on vs
+	theirs from now on), the other objectives held per their state. Cached
+	per player turn."""
+	var meta: Dictionary = snapshot.get("meta", {})
+	var key := "%d|%d|%d" % [player, battle_round, int(meta.get("active_player", 0))]
+	if _forecast_horizon_cache.has(key):
+		return _forecast_horizon_cache[key]
+	var t0 := Time.get_ticks_msec()
+	var out := {}
+	var P := _forecast_base_P(snapshot, get_param_int("FORECAST_HORIZON_TRIALS", FORECAST_HORIZON_TRIALS))
+	if not P.is_empty():
+		var opp := 2 if player == 1 else 1
+		var cells := {}
+		var conf := {}
+		for ev in evaluations:
+			var st := str(ev.get("state", ""))
+			cells[ev.id] = _forecast_state_owner(st, player)
+			conf[ev.id] = _forecast_state_conf(st, ev.get("is_home", false) or ev.get("is_enemy_home", false))
+		for ev in evaluations:
+			var c_me := cells.duplicate()
+			var c_them := cells.duplicate()
+			var k_conf := conf.duplicate()
+			c_me[ev.id] = player
+			c_them[ev.id] = opp
+			k_conf[ev.id] = 1.0
+			var m_me := _forecast_margin_of(_forecast_with_plan(P, c_me, k_conf, battle_round), player)
+			var m_them := _forecast_margin_of(_forecast_with_plan(P, c_them, k_conf, battle_round), player)
+			out[ev.id] = m_me - m_them
+		var bits: Array = []
+		for oid in out:
+			bits.append("%s %+.1f" % [oid, float(out[oid])])
+		print("AIDecisionMaker: [FORECAST-HORIZON] P%d R%d objective swings (final margin, mine vs theirs from now): %s (%d ms)" % [
+			player, battle_round, ", ".join(bits), Time.get_ticks_msec() - t0])
+	_forecast_horizon_cache[key] = out
+	return out
+
+static func _apply_forecast_horizon(snapshot: Dictionary, evaluations: Array, player: int, battle_round: int) -> void:
+	var w := get_param("FORECAST_HORIZON_WEIGHT", FORECAST_HORIZON_WEIGHT)
+	if w <= 0.0 or evaluations.is_empty():
+		return
+	var swings := _forecast_objective_swings(snapshot, evaluations, player, battle_round)
+	var rounds_left: int = maxi(1, MAX_BATTLE_ROUNDS_AI - battle_round + 1)
+	for ev in evaluations:
+		if not swings.has(ev.id):
+			continue
+		var per_round: float = float(swings[ev.id]) / float(rounds_left)
+		var add: float = w * maxf(0.0, per_round)
+		ev["forecast_swing"] = float(swings[ev.id])
+		if add > 0.0:
+			ev["priority"] = float(ev.priority) + add
+			print("AIDecisionMaker: [FORECAST-HORIZON] %s: swing %+.1f VP over %d rounds -> priority +%.1f (now %.1f)" % [
+				ev.id, float(swings[ev.id]), rounds_left, add, float(ev.priority)])
+
+# --- FORECAST-PLAN -----------------------------------------------------------
+
+static func _forecast_unit_cand(uid: String, oid: String) -> Dictionary:
+	for c in _last_movement_candidates.get(uid, []):
+		if str(c.get("objective_id", "")) == oid:
+			return c
+	return {}
+
+static func _forecast_plan_projection(evaluations: Array, assignments: Dictionary, player: int) -> Dictionary:
+	"""Projected ownership this round (cells) and its hold chance later
+	(conf) for a movement plan, from the OC staying, leaving and arriving."""
+	var opp := 2 if player == 1 else 1
+	var cells := {}
+	var conf := {}
+	var survival_on: bool = get_param("FORECAST_SURVIVAL", FORECAST_SURVIVAL) >= 0.5
+	for ev in evaluations:
+		var oid := str(ev.id)
+		var mine: int = int(ev.get("friendly_oc", 0))
+		var later: int = 0
+		for uid in assignments:
+			var a: Dictionary = assignments[uid]
+			var here := _forecast_unit_cand(str(uid), oid)
+			var assigned_here: bool = str(a.get("objective_id", "")) == oid and str(a.get("action", "")) != "attack"
+			if not here.is_empty() and bool(here.get("already_on_obj", false)) and not assigned_here:
+				mine -= int(here.get("unit_oc", 0))
+			elif assigned_here and not bool(a.get("already_on_obj", false)):
+				var t := int(a.get("turns_to_reach", 1))
+				if t <= 1:
+					mine += int(a.get("unit_oc", 0))
+				elif t == 2:
+					later += int(a.get("unit_oc", 0))
+		mine = maxi(mine, 0)
+		var theirs: int = int(ev.get("enemy_oc", 0))
+		var threat: int = theirs + int(ev.get("projected_enemy_oc", 0))
+		var owner := 0
+		if mine > theirs:
+			owner = player
+		elif theirs > mine:
+			owner = opp
+		cells[oid] = owner
+		var home_any: bool = ev.get("is_home", false) or ev.get("is_enemy_home", false)
+		if survival_on:
+			if owner == player:
+				conf[oid] = get_param("FORECAST_SAFE_HOLD", FORECAST_SAFE_HOLD) if mine + later > threat else get_param("FORECAST_THREAT_HOLD", FORECAST_THREAT_HOLD)
+			elif owner == opp:
+				conf[oid] = get_param("FORECAST_SAFE_HOLD", FORECAST_SAFE_HOLD) if theirs >= mine + later else get_param("FORECAST_THREAT_HOLD", FORECAST_THREAT_HOLD)
+		else:
+			conf[oid] = 0.95 if home_any else get_param("FORECAST_HOLD_CONFIDENCE", FORECAST_HOLD_CONFIDENCE)
+	return {"cells": cells, "conf": conf}
+
+static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary, evaluations: Array,
+		player: int, battle_round: int) -> Dictionary:
+	"""FORECAST-PLAN: maybe swap one close call in the greedy plan for its
+	runner-up objective, by the forecast final margin of the whole plan."""
+	if get_param("FORECAST_PLAN", FORECAST_PLAN) < 0.5 or assignments.is_empty() or evaluations.is_empty():
+		return assignments
+	var t0 := Time.get_ticks_msec()
+	var P := _forecast_base_P(snapshot, get_param_int("FORECAST_HORIZON_TRIALS", FORECAST_HORIZON_TRIALS))
+	if P.is_empty():
+		return assignments
+	# close calls: assigned move/hold units whose best OTHER objective scores within MAX_GAP
+	var max_gap := get_param("FORECAST_PLAN_MAX_GAP", FORECAST_PLAN_MAX_GAP)
+	var calls: Array = []
+	for uid in assignments:
+		var a: Dictionary = assignments[uid]
+		if str(a.get("action", "")) not in ["move", "advance", "hold"]:
+			continue
+		if str(a.get("earmark", "")) != "":
+			continue  # an authored plan's order stands
+		var best_alt: Dictionary = {}
+		for c in _last_movement_candidates.get(str(uid), []):
+			if str(c.get("objective_id", "")) == str(a.get("objective_id", "")):
+				continue
+			if str(c.get("action", "")) not in ["move", "advance", "hold"] and not bool(c.get("already_on_obj", false)):
+				continue
+			if best_alt.is_empty() or float(c.score) > float(best_alt.score):
+				best_alt = c
+		if best_alt.is_empty():
+			continue
+		var gap: float = float(a.get("score", 0.0)) - float(best_alt.score)
+		# negative = the unit's own best was redirected by coordination; the
+		# forecast weighs that too
+		if gap <= max_gap:
+			calls.append({"uid": str(uid), "alt": best_alt, "gap": gap})
+	if calls.is_empty():
+		return assignments
+	calls.sort_custom(func(x, y): return absf(float(x.gap)) < absf(float(y.gap)))
+	calls = calls.slice(0, get_param_int("FORECAST_PLAN_SWAPS", FORECAST_PLAN_SWAPS))
+	var base_proj := _forecast_plan_projection(evaluations, assignments, player)
+	var base_m := _forecast_margin_of(_forecast_with_plan(P, base_proj.cells, base_proj.conf, battle_round), player)
+	var best: Dictionary = {}
+	var best_gain := get_param("FORECAST_PLAN_MIN_GAIN", FORECAST_PLAN_MIN_GAIN)
+	var units: Dictionary = snapshot.get("units", {})
+	var scored: Array = [{"description": "Greedy plan", "score": 0.0, "key": "greedy",
+		"score_breakdown": {"forecast_margin": base_m}}]
+	for call in calls:
+		var alt_assign := assignments.duplicate()
+		var na: Dictionary = (call.alt as Dictionary).duplicate()
+		if bool(na.get("already_on_obj", false)):
+			na["action"] = "hold"
+		alt_assign[call.uid] = na
+		var proj := _forecast_plan_projection(evaluations, alt_assign, player)
+		var m := _forecast_margin_of(_forecast_with_plan(P, proj.cells, proj.conf, battle_round), player)
+		var gain := m - base_m
+		print("AIDecisionMaker: [FORECAST-PLAN] P%d %s: %s -> %s (score gap %.1f): forecast margin %+.1f vs greedy %+.1f (%+.1f)" % [
+			player, _dn(units.get(call.uid, {}), call.uid), str(assignments[call.uid].get("objective_id", "?")),
+			str(call.alt.objective_id), float(call.gap), m, base_m, gain])
+		scored.append({"description": "%s to %s instead" % [_dn(units.get(call.uid, {}), call.uid), call.alt.objective_id],
+			"score": gain, "key": call.uid, "score_breakdown": {"forecast_margin": m, "score_gap": float(call.gap)}})
+		if gain > best_gain:
+			best_gain = gain
+			best = {"uid": call.uid, "assign": na, "margin": m}
+	_record_choice("forecast_plan", "", "movement plan", scored, str(best.uid) if not best.is_empty() else "greedy",
+		{"phase": "movement", "round": battle_round})
+	if best.is_empty():
+		print("AIDecisionMaker: [FORECAST-PLAN] P%d keeps the greedy plan (%d close calls, %d ms)" % [player, calls.size(), Time.get_ticks_msec() - t0])
+		return assignments
+	var from_oid := str(assignments[best.uid].get("objective_id", "?"))
+	var out := assignments.duplicate()
+	var entry: Dictionary = best.assign
+	entry["assign_pass"] = "forecast_plan"
+	entry["coordination_note"] = "forecast: %s instead of %s improves the projected final margin by %.1f VP" % [
+		str(entry.get("objective_id", "?")), from_oid, best_gain]
+	out[best.uid] = entry
+	# its candidate card leads with the adopted option
+	var cl: Array = (_last_movement_candidates.get(best.uid, []) as Array)
+	for i in range(cl.size()):
+		if str(cl[i].get("objective_id", "")) == str(entry.get("objective_id", "")):
+			var c0 = cl[i]
+			cl.remove_at(i)
+			cl.push_front(c0)
+			break
+	_add_thinking_step("Forecast: %s goes to %s instead of %s (+%.1f VP projected final margin)" % [
+		_dn(units.get(best.uid, {}), best.uid), str(entry.get("objective_id", "?")), from_oid, best_gain])
+	print("AIDecisionMaker: [FORECAST-PLAN] P%d adopts %s -> %s (+%.1f VP, %d ms)" % [
+		player, best.uid, str(entry.get("objective_id", "?")), best_gain, Time.get_ticks_msec() - t0])
+	return out
+
+static func _erf_approx(x: float) -> float:
+	# Abramowitz-Stegun 7.1.26 (|error| < 1.5e-7)
+	var t := 1.0 / (1.0 + 0.3275911 * absf(x))
+	var y := 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * exp(-x * x)
+	return y if x >= 0.0 else -y
+
+static func _forecast_tempo(snapshot: Dictionary, player: int) -> Dictionary:
+	"""Cached per player turn — tempo is read once per objective / shooter."""
+	var meta: Dictionary = snapshot.get("meta", {})
+	var key := "%d|%d|%d" % [player, int(meta.get("battle_round", 1)), int(meta.get("active_player", 0))]
+	if _forecast_tempo_cache.has(key):
+		return _forecast_tempo_cache[key]
+	var t0 := Time.get_ticks_msec()
+	var f := _forecast_game(snapshot, player)
+	if not f.is_empty():
+		f.erase("P")
+		var players: Dictionary = snapshot.get("players", {})
+		print("AIDecisionMaker: [FORECAST-TEMPO] P%d R%d active=P%d now %d-%d -> forecast %.1f-%.1f margin %+.1f p_win %.2f (%d ms)" % [
+			player, int(meta.get("battle_round", 1)), int(meta.get("active_player", 0)),
+			int(players.get(str(player), {}).get("vp", 0)), int(players.get(str(_AIForecast.other(player)), {}).get("vp", 0)),
+			float(f.mean_me), float(f.mean_opp), float(f.raw_margin), float(f.p_win), Time.get_ticks_msec() - t0])
+	_forecast_tempo_cache[key] = f
+	return f
 
 static func _forecast_pick_swap(snapshot: Dictionary, player: int, candidates: Array, label: String) -> Dictionary:
 	"""Best card to swap for a fresh draw (New Orders / replace), by forecast.
