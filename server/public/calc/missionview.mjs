@@ -7,7 +7,7 @@
 
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
-import { abilitiesOf, armyData, fmtDataDate } from './adapter.mjs';
+import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
@@ -185,6 +185,7 @@ function geo() {
     zones: { A: pick(dep.zones, 'A'), B: pick(dep.zones, 'B') },
     territories: { A: pick(dep.territories, 'A'), B: pick(dep.territories, 'B') },
     pieces: l.pieces, objectives: l.objectives,
+    early: { A: earlyArrival(ctx.state.armies.A)?.name ?? null, B: earlyArrival(ctx.state.armies.B)?.name ?? null },
   };
 }
 
@@ -404,20 +405,33 @@ function modeParams() {
   return out;
 }
 
+// The Play view shows the headline and the advice on the cards in hand. It does not show the what-ifs or the
+// plan comparison, so a change made there (a score, a card, a turn) runs the forecast alone, with fewer
+// simulated games: about 1,000 instead of about 14,000 per tap. Plan and Cards get the full run.
+export const PLAY_TRIALS = 1000;
+const liteRun = () => ms().tab === 'play';
+let runLite = false;      // the run in progress is a Play-view run
+let lastSig = '';         // the inputs of the last run asked for
+let lastFull = '';        // the inputs of the last full run (what-ifs and plan comparison included)
 let worker = null, reqId = 0, timer = null;
 let planNotes = {};   // plan key -> "3 of 8 units placed" for board plans that miss part of my army
 let runModes = null;  // the inputs of the Fixed / Tactical table the run in progress works out (null: it has none)
-export function scheduleForecast() {
+export function scheduleForecast(sig = null) {
   clearTimeout(timer);
   // table mode: tracker only (no forecast is worked out, nothing to show it)
   if (ms().table) { ms().busy = false; return; }
+  // what this run is for: the next render does not ask for the same run again
+  if (sig == null) { const P0 = forecastParams({ trials: 0 }); sig = P0 ? JSON.stringify(P0) : ''; }
+  lastSig = sig;
+  if (!liteRun()) lastFull = sig;
   ms().busy = true;
   timer = setTimeout(runForecast, 150);
 }
 function runForecast() {
   // unit-vs-unit odds from the calculator: kill rates, and what each unit threatens on a board plan
   if (ctx.state.armies.A && ctx.state.armies.B) ensurePairs();
-  const P = forecastParams();
+  const lite = liteRun();
+  const P = forecastParams(lite ? { trials: PLAY_TRIALS } : {});
   const m = ms();
   reqId++;
   if (!P) { m.result = null; m.busy = false; refresh(); return; }
@@ -430,8 +444,11 @@ function runForecast() {
       if (ev.data.error) { console.error('[calc] forecast error', ev.data.error); mm.busy = false; refresh(); return; }
       mm.result = ev.data.base;
       const modes = ev.data.variants.filter(v => String(v.key).startsWith('mode:'));
-      mm.levers = ev.data.variants.filter(v => !v.compare && !String(v.key).startsWith('mode:'));
-      mm.compare = ev.data.variants.filter(v => v.compare);
+      // a Play-view run has no what-ifs and no plan comparison: the ones on the Plan view stay until its next full run
+      if (!runLite) {
+        mm.levers = ev.data.variants.filter(v => !v.compare && !String(v.key).startsWith('mode:'));
+        mm.compare = ev.data.variants.filter(v => v.compare);
+      }
       if (modes.length) mm.modeCompare = { sig: runModes, rows: modes };
       mm.busy = false;
       const r = mm.result;
@@ -440,6 +457,8 @@ function runForecast() {
     };
   }
   m.busy = true;
+  runLite = lite;
+  if (lite) { runModes = null; worker.postMessage({ id: reqId, forecast: { base: P, variants: [] } }); return; }
   // a board plan only knows the units placed on it: say so when part of my army is missing
   const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
   const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
@@ -519,7 +538,7 @@ function planView() {
       ${m.modes[X].mode === 'fixed' ? `<div class="chips" style="margin-top:6px">${FIXED_IDS.map(id => ctx.chip('mission-fixed', m.modes[X].fixed.includes(id), SECONDARY_BY_ID[id].name, `data-side="${X}" data-id="${id}"`)).join('')}</div>` : ''}</div>`;
   return `<div class="mlay plan"><div class="col">
     <section class="section a-setup o1"><div class="card">
-      <div class="small" id="mission-names"><b style="color:var(--side-a)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
+      <div class="small" id="mission-names"><b style="color:var(--side-a-ink)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b-ink)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
         <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'} — change it on the Board tab.</div></div>
       <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
@@ -1096,7 +1115,7 @@ function playerCard(X) {
       <button data-action="mission-score-step" data-side="${X}" data-k="${k}" data-delta="5" aria-label="${X} ${label} plus 5">+5</button></div></div>`;
   const total = g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0);
   return `<div class="card" data-player="${X}">
-      <div class="row"><div class="title grow" style="color:var(--side-${X.toLowerCase()})">${X} · ${esc(ctx.state.armies[X].faction)}${X === m.me ? ' (me)' : ''}</div>
+      <div class="row"><div class="title grow" style="color:var(--side-${X.toLowerCase()}-ink)">${X} · ${esc(ctx.state.armies[X].faction)}${X === m.me ? ' (me)' : ''}</div>
         <div class="small"><b id="play-total-${X}">${total}</b> VP${m.battleReady[X] ? ' <span class="tiny muted">incl. 10</span>' : ''}</div></div>
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap">${score('primary', 'Primary VP')}${score('secondary', 'Secondary VP')}</div>
       <div class="row cp-row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><span class="lab tiny muted">Command points</span>
@@ -1362,7 +1381,6 @@ export async function syncWake() {
 }
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { syncWake(); });
 
-let lastSig = '';
 let toTop = false;   // a new Mission view starts at its top
 export function missionAfterRender() {
   if (toTop) { toTop = false; window.scrollTo(0, 0); }
@@ -1376,7 +1394,9 @@ export function missionAfterRender() {
   // the Fixed / Tactical table is worked out when the Cards view is open (not with every forecast)
   let needModes = false;
   if (P && modeWanted()) { const want = modeSig(); needModes = ms().modeCompare?.sig !== want && !(ms().busy && runModes === want); }
-  if (sig !== lastSig || (!ms().result && !ms().busy) || needModes) { lastSig = sig; scheduleForecast(); }
+  // Plan and Cards need a full run of these inputs; Play only needs a run of them (a full one will do)
+  const due = liteRun() ? sig !== lastSig : sig !== lastFull;
+  if (due || (!ms().result && !ms().busy) || needModes) scheduleForecast(sig);
 }
 
 // for tests

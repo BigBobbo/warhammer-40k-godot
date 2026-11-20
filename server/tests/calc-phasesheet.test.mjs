@@ -171,3 +171,8 @@ test('the matchup brief: what the enemy list has that you must plan around', () 
   assert.match(orks[0].units[0], /^Meganobz \(.* 6"\)$/, 'the unit, the Torrent weapon and its range');
   assert.match(orks[0].note, /hit automatically \(24\.37\).*only on a 6 in Fire Overwatch \(15\.09\)/);
 });
+
+test('a rule that lets a unit arrive a battle round early is found in the list (High King of Fenris)', () => {
+  assert.deepEqual(A.earlyArrival(A.importArmy(list('gw-space-wolves-2000.txt'))), { name: 'High King of Fenris', owner: 'Logan Grimnar' });
+  assert.equal(A.earlyArrival(A.importArmy(list('gw-orks-1000.txt'))), null);
+});

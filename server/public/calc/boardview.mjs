@@ -10,7 +10,7 @@ import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
-import { boardUnit } from './adapter.mjs';
+import { boardUnit, earlyArrival } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
@@ -395,7 +395,7 @@ function arriveInfo(b) {
   const off = army.units.filter(u => !onBoard.has(`${X}:${u.key}`));
   const ds = (list) => list.filter(u => unitInfo(X, u.key)?.flags?.deepStrike);
   const zone = DEPLOYMENTS[l.deployment]?.zones?.find(z => z.player === zoneOf(Y))?.poly ?? null;
-  return { X, Y, round, off, dsOff: ds(off), dsAny: ds(army.units).length > 0, zone, zones: arrivalZones(toks.filter(t => t.side === Y), round) };
+  return { X, Y, round, off, dsOff: ds(off), dsAny: ds(army.units).length > 0, zone, zones: arrivalZones(toks.filter(t => t.side === Y), round), early: earlyArrival(army) };
 }
 function arriveSvg(b) {
   const a = arriveInfo(b);
@@ -418,6 +418,7 @@ function arriveBar() {
   return `<span class="lab tiny muted">⇣ Reserves can arrive</span>
     ${ctx.seg('board-arrive', b.arrive ?? 'off', [['off', 'Off'], ['A', 'A'], ['B', 'B']], 'compact')}
     ${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${plan().cur < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
+      ${a.early ? `<br><span id="board-arrive-early"><b>${ctx.esc(a.early.name)}</b> (${ctx.esc(a.early.owner)}): one unit a turn arrives as if the battle round were one higher, so it can come in battle round 1${a.zones.zoneClosed ? `, and into ${a.Y}'s deployment zone now` : ''}.</span>` : ''}
       <br>${a.off.length ? `Not on the board in this step: <b>${a.off.map(u => `${ctx.esc(short(u))}${a.dsOff.includes(u) ? ' (Deep Strike)' : ''}`).join(', ')}</b>.` : `All of ${a.X}'s units are on the board in this step.`}</span>` : ''}`;
 }
 
@@ -501,7 +502,7 @@ export function boardView() {
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
       <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
-      <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:${C.A}">blue</span> zone</span></div>
+      <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
@@ -599,7 +600,7 @@ function dockHtml() {
       ${enemy && u.melee ? '<button class="chip on nocheck" data-action="board-attack" data-phase="fight">⚔ Fight →</button>' : ''}`;
   }
   return `<div class="dock-in"><div class="row" style="gap:8px">
-      <b class="grow ellipsis" style="color:${C[s1.side]}">${esc(u.cu.name)}</b>
+      <b class="grow ellipsis" style="color:var(--side-${s1.side.toLowerCase()}-ink)">${esc(u.cu.name)}</b>
       <button class="icon-btn" data-action="board-rotate" data-deg="-15" aria-label="Rotate 15° left">⟲</button>
       <button class="icon-btn" data-action="board-rotate" data-deg="15" aria-label="Rotate 15° right">⟳</button>
       <button class="icon-btn" data-action="board-deselect" aria-label="Clear the selection">✕</button></div>
@@ -639,7 +640,7 @@ function selectionPanel() {
     </div>`;
   }
   return `<div class="card">
-    <div class="row"><div class="grow"><div class="title" style="color:${C[s1.side]}">${esc(s1.u.cu.name)}</div>
+    <div class="row"><div class="grow"><div class="title" style="color:var(--side-${s1.side.toLowerCase()}-ink)">${esc(s1.u.cu.name)}</div>
       <div class="muted tiny">${s1.u.cu.models} models · M${u.move}"${u.ranges.length ? ` · ranges ${u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}</div></div>
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     <div class="row" style="gap:6px;margin-top:8px;align-items:center">
@@ -703,13 +704,14 @@ function stepWarningsHtml() {
   if (!root || !p || !l) return '';
   const dep = DEPLOYMENTS[l.deployment];
   const pick = (list, X) => list?.find(z => z.player === zoneOf(X))?.poly ?? null;
-  const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives };
+  const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives,
+    early: { A: earlyArrival(ctx.state.armies.A)?.name ?? null, B: earlyArrival(ctx.state.armies.B)?.name ?? null } };
   const steps = boardPlans()[Math.min(root.v, root.variants.length - 1)]?.steps ?? [];
   const name = p.steps[p.cur]?.name;
   const ws = planWarnings(steps, geo).filter(w => w.step === name);
   if (!ws.length) return '';
   return `<div class="card" id="board-warnings" style="margin-top:8px"><div class="lab tiny muted">Check this step (11th edition rules)</div>
-    <ul class="keep warn">${ws.slice(0, 6).map(w => `<li${w.info ? ' class="info"' : ''} data-unit="${ctx.esc(w.unit)}"><b style="color:${C[w.side]}">${ctx.esc(shortName(w.unit))}</b> ${ctx.esc(w.msg)}</li>`).join('')}</ul>
+    <ul class="keep warn">${ws.slice(0, 6).map(w => `<li${w.info ? ' class="info"' : ''} data-unit="${ctx.esc(w.unit)}"><b style="color:var(--side-${w.side.toLowerCase()}-ink)">${ctx.esc(shortName(w.unit))}</b> ${ctx.esc(w.msg)}</li>`).join('')}</ul>
     ${ws.length > 6 ? `<div class="tiny muted">and ${ws.length - 6} more</div>` : ''}</div>`;
 }
 
@@ -736,7 +738,7 @@ function threatHtml(s1, toks) {
     hide ? `<b id="board-can-hide">Can be Hidden here</b> (infantry in an area with a light or dense feature): while it has not shot this turn or the turn before, only models within ${HIDDEN_RANGE}" can see it (13.09).` : '',
   ].filter(Boolean).join(' ');
   return `<div class="lab tiny muted" style="margin-top:8px">Threatened next turn by</div>
-    <div id="board-threats" class="small" data-hide="${hide ? 1 : 0}" data-lone="${lone}">${rows.length ? rows.map(({ t, th, onlyIfShot }) => `<div class="row" style="gap:6px"><span class="grow" style="color:${C[t.side]}">${ctx.esc(shortName(t.u.cu.name))}</span>
+    <div id="board-threats" class="small" data-hide="${hide ? 1 : 0}" data-lone="${lone}">${rows.length ? rows.map(({ t, th, onlyIfShot }) => `<div class="row" style="gap:6px"><span class="grow" style="color:var(--side-${t.side.toLowerCase()}-ink)">${ctx.esc(shortName(t.u.cu.name))}</span>
       ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn-ink)">(just)</span>' : ''}${onlyIfShot ? ' <span class="muted">(not while Hidden)</span>' : ''}</span>` : ''}
       ${th.charge != null && th.charge >= 0.03 ? `<span>⚔ charge ${pct(th.charge)}</span>` : ''}</div>`).join('')
       : '<span class="muted">Nothing can reach it next turn (move + range / charge).</span>'}

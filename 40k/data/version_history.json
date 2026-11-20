@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.107.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: faster at the table, readable in daylight, turns with a tablet, and says which rules are in force",
+      "changes": [
+        "Play: a tap now re-runs about 1,000 simulated games instead of about 14,000, so the forecast is back in about half a second on a mid-range phone (it took almost 3).",
+        "The installed app is no longer locked to portrait: on a tablet it turns with the device.",
+        "Small grey text is darker in the light theme and lighter in the dark theme (4.5:1 contrast or better), and every control on the Play view is at least 36 px.",
+        "Armies: a Rules in force line says what the rules were checked against, that the rules data is the newest release, and when the next rules change is due. From 7 December it warns that an update is due.",
+        "Datasheets changed by the November 2026 World Championships rules updates (UKTC events use them) say what differs; these changes are not applied to the numbers.",
+        "Reserves: a rule that counts the battle round as one higher (High King of Fenris) lets one unit a turn arrive a round early in the plan checks and the board overlay."
+      ]
+    },
+    {
       "version": "1.106.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: event record, Fixed Missions on the tracker, the 15 VP limit and a locked chess clock",

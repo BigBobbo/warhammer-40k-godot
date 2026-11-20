@@ -9,6 +9,7 @@ import {
   phaseSheetInput,
 } from './adapter.mjs';
 import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
+import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
@@ -456,8 +457,9 @@ function sheetEntry(e, side) {
       <div class="muted">${e.missing ? 'No 11th edition text in the rules data.' : `<b>When:</b> ${esc(e.when)}<br><b>Target:</b> ${esc(e.target)}<br><b>Effect:</b> ${esc(e.effect)}`}</div>${once ? tickChips(e, side) : ''}</div>`;
   }
   const units = sheetUnits(e);
+  const ruling = abilityUpdate(e.key.replace(/^(army|ab|det):/, ''));
   return `<div class="ability sheet-entry" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b> ${tags}${units ? ` <span class="muted tiny">${esc(units)}</span>` : ''}
-    <div class="muted ruletext">${esc(e.raw)}</div>${e.by === 'data' ? '<div class="tiny muted">The rule’s words do not name a phase: this one comes from the rules data (provisional).</div>' : ''}${once ? tickChips(e, side) : ''}</div>`;
+    <div class="muted ruletext">${esc(e.raw)}</div>${ruling ? `<div class="tiny update-note" data-ruling="${esc(e.key)}"><b>${esc(UPDATE.short)}</b> (${esc(UPDATE.used)}): ${esc(ruling)}</div>` : ''}${e.by === 'data' ? '<div class="tiny muted">The rule’s words do not name a phase: this one comes from the rules data (provisional).</div>' : ''}${once ? tickChips(e, side) : ''}</div>`;
 }
 function phaseSheetHtml(side) {
   const army = state.armies[side];
@@ -544,6 +546,7 @@ function intelList(side) {
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
       <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}${u.note ? ` (${esc(u.note)})` : ''}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
+      ${updateNoteHtml(cu)}
       ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
@@ -598,7 +601,25 @@ function armiesView() {
     ${eventCard()}
     ${backupCard()}
     <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets${ERRATA_RESULT.points || ERRATA_RESULT.weapons ? ` and the points and weapon profiles of ${esc(ERRATA_RESULT.from)}` : ''}, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.
-      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>`;
+      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>
+    ${rulesLineHtml()}`;
+}
+
+// ---- rules in force: what the rules were checked against, the next rules change, what is not in the numbers
+function rulesLineHtml(today = new Date()) {
+  const s = rulesStatus(today);
+  const src = s.sources.length > 1 ? `${s.sources.slice(0, -1).join(', ')} and ${s.sources[s.sources.length - 1]}` : s.sources[0];
+  const next = `${s.next.what}, the week beginning ${longDate(s.next.weekOf)} (${s.next.source})`;
+  return `<div class="hint" id="rules-line" data-due="${s.next.due ? 1 : 0}"><b>Rules in force.</b> Checked on ${fmtDataDate(s.checked)} against ${esc(src)}. The rules data is the newest release (40kdc ${esc(s.newest.version)}, ${fmtDataDate(s.newest.date)}).
+    ${esc(UPDATE.label)} (${esc(UPDATE.used)}): ${s.changes.missing} of its ${s.changes.total} weapon changes are not in the numbers; the datasheets they change say which.
+    ${s.next.due ? `<div class="warnbox" id="rules-due">⚠ A rules change was due: ${esc(next)}. The rules in this app were checked before it: look for an app update before you rely on points and weapon profiles.</div>`
+      : `<br><span id="rules-next">Next rules change: ${esc(next)}.</span>`}</div>`;
+}
+/** "Nov 2026 update (UKTC events use it): Combi-weapon: S5 and AP-1 — not in the numbers here." for the datasheets of a unit */
+function updateNoteHtml(cu) {
+  const rows = cu.members.flatMap(m => unitUpdates(m.dcUnit.name).map(c => ({ ...c, unit: m.dcUnit.name })));
+  if (!rows.length) return '';
+  return `<div class="tiny update-note" data-update="${esc(cu.key)}">${rows.map(c => `${c.inData ? '✓' : '⚠'} <b>${esc(UPDATE.short)}</b> (${esc(UPDATE.used)}): ${cu.members.length > 1 ? `${esc(c.unit)}, ` : ''}${esc(c.weapon)}: ${esc(c.change)} — ${c.inData ? 'already in the numbers here' : '<b>not in the numbers here</b>'}.`).join('<br>')}</div>`;
 }
 
 // ---- how current the rules data behind an army is (adapter.mjs armyData)
@@ -613,7 +634,9 @@ function dataStampHtml(side, army) {
       : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
           ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
           Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
-  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}</div>`;
+  const changed = army.units.flatMap(cu => cu.members.flatMap(m => unitUpdates(m.dcUnit.name).filter(c => !c.inData).map(c => `${m.dcUnit.name} (${c.weapon}: ${c.change})`)));
+  const upd = changed.length ? `<div class="tiny" id="update-${side}" style="color:var(--warn-ink);margin-top:4px">⚠ ${esc(UPDATE.short)} (${esc(UPDATE.used)}), not in the numbers: ${esc([...new Set(changed)].join('; '))}.</div>` : '';
+  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}${upd}</div>`;
 }
 
 // ---- backup / restore / move to another device (backup.mjs)

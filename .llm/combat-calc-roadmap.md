@@ -328,3 +328,20 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   card, 45 secondary) and the forecast starts from what they have paid;
   the chess clock's pause is locked by default (`chessLocked`, UKTC policy:
   only a referee pauses it; under 5 minutes a player may).
+- Ease of use: BUILT in v1.107.0, browser-tested. Measured before and after
+  (Pixel 7 profile, CPU slowed 4x): a tap on Play re-ran about 14,500 games in
+  2.7 s, now 1,000 games in 0.46 s (`missionview.PLAY_TRIALS`; Play runs no
+  what-ifs and no plan comparison, Plan and Cards run them as before).
+  Manifest `orientation: any`. Grey text: `--text-muted` #9a9991 (dark) and
+  #66655f (light), 4.5:1 or better on every surface; white on the primary
+  button 4.9:1 (`--accent-fill`); side-coloured text has its own inks. Text
+  under 4.5:1 in the light theme went from 236 to 0 on Intel. Play controls
+  under 36 px: 22 of 60 before, none now.
+  Rules in force: `rulesnote.mjs` (checked 20 Nov 2026; newest dataset 1.5.1,
+  13 Nov; next change the week beginning 7 December per Warhammer Community,
+  with a warning from that date). The November 2026 World Championships
+  updates (UKTC adopted them) change 8 weapon lines: 3 are in the data, 5 are
+  NOT applied to the numbers and are shown as notes on the datasheet; each
+  claim is checked against the dataset in tests/calc-rulesnote.test.mjs.
+  `adapter.earlyArrival` + `planeval.planWarnings(geo.early)`: High King of
+  Fenris lets one unit a step arrive as if the battle round were one higher.

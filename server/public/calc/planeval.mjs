@@ -291,6 +291,8 @@ function polyDist(px, py, poly) { return inPoly(px, py, poly) ? 0 : edgeDist(px,
  *    enemy units; a unit still in reserves at the end of round 3 is destroyed. A unit whose models
  *    all have Deep Strike (24.09) can arrive anywhere more than 8" from enemy units, "even if that
  *    is within your opponent's deployment zone" - no edge and no zone restriction.
+ * geo.early: { A, B } - the name of a rule that lets one of that army's units a turn arrive as if the battle
+ * round were one higher (adapter.earlyArrival), or null: in each step the arriving unit it helps most gets it.
  * steps: [{ name, A: [unit], B: [unit] }] in order (unit.flags: adapter coreFlags);
  * -> [{ step, side, unit, msg, info? }]
  */
@@ -320,28 +322,39 @@ export function planWarnings(steps, geo) {
   }
   for (let i = 1; i < steps.length; i++) {
     for (const X of ['A', 'B']) {
+      const Y = X === 'A' ? 'B' : 'A';
       const prev = new Map((steps[i - 1][X] ?? []).map(u => [u.key, u]));
+      // what is wrong with a unit arriving from reserves in battle round `round` (step i = battle round i)
+      const arrival = (u, round) => {
+        const ws = [];
+        const ms = abs(u);
+        const ds = !!u.flags?.deepStrike;
+        if (round < 2) ws.push({ msg: 'arrives in battle round 1: reserves arrive from the second battle round (20.03)' });
+        // (the real battle round: a rule that counts the round as one higher does not change when reserves are lost)
+        if (i > 3) ws.push({ msg: `arrives in battle round ${i}: a unit still in reserves at the end of round 3 is destroyed (20.04)` });
+        if (!ds) {
+          if (!ms.every(m => m.x + m.r <= 6 || m.x - m.r >= W - 6 || m.y + m.r <= 6 || m.y - m.r >= H - 6)) ws.push({ msg: 'arrives more than 6" from a battlefield edge: without Deep Strike a unit is set up wholly within 6" of an edge (20.04)' });
+          if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) ws.push({ msg: 'arrives in the enemy deployment zone before round 3 (20.04; only a Deep Strike unit can)' });
+        }
+        if (gap8(ms, steps[i][Y] ?? [])) ws.push({ msg: `arrives within 8" of an enemy unit (it must be more than 8" away${ds ? ', Deep Strike too' : ''})` });
+        return ws;
+      };
+      const arriving = [];
       for (const u of steps[i][X] ?? []) {
         const p = prev.get(u.key);
         if (p) {
           const d = Math.hypot(u.x - p.x, u.y - p.y), mv = u.move ?? 6;
           if (d > mv + 12 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}" (max ${mv + 12}": move + charge)` });
           else if (d > mv + 6 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}": needs a charge (move ${mv}" + advance is ${mv + 6}")`, info: true });
-        } else if (steps[i - 1][X]?.length) {
-          // arrives from reserves
-          const Y = X === 'A' ? 'B' : 'A';
-          const round = i; // step i = battle round i
-          const ms = abs(u);
-          const ds = !!u.flags?.deepStrike;
-          const warn = (msg, info = false) => out.push({ step: steps[i].name, side: X, unit: u.name, msg, ...(info ? { info } : {}) });
-          if (round < 2) warn('arrives in battle round 1: reserves arrive from the second battle round (20.03)');
-          if (round > 3) warn(`arrives in battle round ${round}: a unit still in reserves at the end of round 3 is destroyed (20.04)`);
-          if (!ds) {
-            if (!ms.every(m => m.x + m.r <= 6 || m.x - m.r >= W - 6 || m.y + m.r <= 6 || m.y - m.r >= H - 6)) warn('arrives more than 6" from a battlefield edge: without Deep Strike a unit is set up wholly within 6" of an edge (20.04)');
-            if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) warn('arrives in the enemy deployment zone before round 3 (20.04; only a Deep Strike unit can)');
-          }
-          if (gap8(ms, steps[i][Y] ?? [])) warn(`arrives within 8" of an enemy unit (it must be more than 8" away${ds ? ', Deep Strike too' : ''})`);
-        }
+        } else if (steps[i - 1][X]?.length) arriving.push({ u, now: arrival(u, i), early: arrival(u, i + 1) });
+      }
+      // one unit a turn can count the battle round as one higher: the unit it clears the most warnings for
+      const rule = geo.early?.[X] ?? null;
+      const best = rule ? arriving.filter(a => a.early.length < a.now.length).sort((a, b) => (b.now.length - b.early.length) - (a.now.length - a.early.length))[0] : null;
+      for (const a of arriving) {
+        const ws = a === best ? a.early : a.now;
+        for (const w of ws) out.push({ step: steps[i].name, side: X, unit: a.u.name, msg: w.msg });
+        if (a === best) out.push({ step: steps[i].name, side: X, unit: a.u.name, msg: `arrives as if it were battle round ${i + 1}: ${rule} (one unit a turn)`, info: true });
       }
     }
   }

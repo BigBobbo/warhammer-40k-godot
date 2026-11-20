@@ -281,3 +281,38 @@ test('where reserves can arrive: 6" from an edge, more than 8" from enemy models
   assert.equal(E.arrivalZones([], 2).blocked.length, 0, 'nobody on the board: nothing is blocked');
   assert.equal(E.canArrive(-0.1, 30, r, z2, { deepStrike: true }).why, 'off the battlefield');
 });
+
+test('a rule that counts the battle round as one higher: one arriving unit a step comes a round early', () => {
+  const r = INF.r;
+  const mine = (...us) => us;
+  // step 0: A has one unit on the board, the rest in reserves; B far away at the bottom
+  const home = unit('home', 22, 5, 1), enemy = unit('enemy', 22, 55, 1);
+  const edge = unit('edge', 3, 30, 1);                              // wholly within 6" of the left edge
+  const zoneB = (() => { const z = GEO.zones.B; return [2, Math.max(...z.map(p => p[1])) - 2]; })();
+  const inZone = unit('inzone', zoneB[0], zoneB[1], 1);              // in B's deployment zone, on an edge
+  const steps = (r1, r2 = []) => [{ name: 'Deploy', A: mine(home), B: [enemy] }, { name: 'Turn 1', A: mine(home, ...r1), B: [enemy] }, { name: 'Turn 2', A: mine(home, ...r1, ...r2), B: [enemy] }];
+  const msgs = (ws) => ws.filter(w => w.side === 'A').map(w => `${w.step}|${w.unit}|${w.info ? 'info' : 'warn'}|${w.msg}`);
+  // without the rule: arriving in battle round 1 is not allowed
+  const plain = msgs(E.planWarnings(steps([edge]), GEO));
+  assert.equal(plain.length, 1);
+  assert.match(plain[0], /^Turn 1\|edge\|warn\|arrives in battle round 1/);
+  // with it: that unit arrives as if it were round 2, and the plan says which rule does it
+  const early = { ...GEO, early: { A: 'High King of Fenris', B: null } };
+  const withRule = msgs(E.planWarnings(steps([edge]), early));
+  assert.deepEqual(withRule, ['Turn 1|edge|info|arrives as if it were battle round 2: High King of Fenris (one unit a turn)']);
+  // one unit a turn: a second unit arriving in round 1 still gets the warning
+  const edge2 = unit('edge2', 41, 30, 1);
+  const two = msgs(E.planWarnings(steps([edge, edge2]), early));
+  assert.equal(two.filter(m => /arrives in battle round 1/.test(m)).length, 1, two.join(' ; '));
+  assert.equal(two.filter(m => /as if it were battle round 2/.test(m)).length, 1);
+  // round 2 counts as round 3 for it: the enemy deployment zone is open to that unit
+  const r2plain = msgs(E.planWarnings(steps([], [inZone]), GEO));
+  assert.match(r2plain.join(' ; '), /Turn 2\|inzone\|warn\|arrives in the enemy deployment zone before round 3/);
+  const r2early = msgs(E.planWarnings(steps([], [inZone]), early));
+  assert.deepEqual(r2early, ['Turn 2|inzone|info|arrives as if it were battle round 3: High King of Fenris (one unit a turn)']);
+  // the rule is the other army's: nothing changes for A
+  assert.deepEqual(msgs(E.planWarnings(steps([edge]), { ...GEO, early: { A: null, B: 'x' } })), plain);
+  // a unit that needs no help does not use it up
+  const fine = msgs(E.planWarnings(steps([], [edge]), early));
+  assert.deepEqual(fine, [], 'arriving on an edge in round 2 is allowed anyway: no note');
+});

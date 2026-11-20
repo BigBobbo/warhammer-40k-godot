@@ -85,8 +85,8 @@ export function briefHtml() {
   const tricks = (TRICKS.get(theirs.units) ?? TRICKS.set(theirs.units, armyTricks(theirs)).get(theirs.units));
   return `<div class="card brief-card" id="brief">
       <div class="row"><div class="title grow">Matchup brief</div>${label ? `<span class="pill good" id="brief-round">${esc(label)}</span>` : `<span class="pill">Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'}</span>`}</div>
-      <div class="small" style="margin-top:6px"><b style="color:var(--side-${me.toLowerCase()})">You</b> · ${esc(mine.faction)} · ${esc(dispositionName(me === 'A' ? bc.dispA : bc.dispB))}: ${primary(me)}</div>
-      <div class="small" style="margin-top:4px"><b style="color:var(--side-${opp.toLowerCase()})">They</b> · ${esc(theirs.faction)} · ${esc(dispositionName(opp === 'A' ? bc.dispA : bc.dispB))}: ${primary(opp)}</div>
+      <div class="small" style="margin-top:6px"><b style="color:var(--side-${me.toLowerCase()}-ink)">You</b> · ${esc(mine.faction)} · ${esc(dispositionName(me === 'A' ? bc.dispA : bc.dispB))}: ${primary(me)}</div>
+      <div class="small" style="margin-top:4px"><b style="color:var(--side-${opp.toLowerCase()}-ink)">They</b> · ${esc(theirs.faction)} · ${esc(dispositionName(opp === 'A' ? bc.dispA : bc.dispB))}: ${primary(opp)}</div>
       <div class="small muted" style="margin-top:4px" id="brief-deploy">${esc(bc.deployment?.name ?? '')} · Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'} · first turn is rolled after deployment</div>
       <button class="fc-mini" style="margin-top:8px" data-action="view" data-value="mission" id="brief-forecast">${r
         ? `<span><b>${pct(pWin)}</b> you win</span><span><b>${Math.round(r[me].mean)}</b> – <b>${Math.round(r[opp].mean)}</b> VP</span><span class="muted">forecast →</span>`

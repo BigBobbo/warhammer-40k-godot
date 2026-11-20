@@ -10,8 +10,9 @@
   --line: #383835;
   --text-primary: #f0efec;
   --text-secondary: #c3c2b7;
-  --text-muted: #8f8e86;
+  --text-muted: #9a9991;    /* 4.5:1 or better on every surface (was #8f8e86: 4.1 on surface-3) */
   --accent: #3987e5;
+  --accent-fill: #2470cc;   /* behind white text (primary button, the tab that is open): 4.9:1 */
   --accent-ink: #ffffff;
   --series-1: #3987e5;
   --series-1-wash: rgba(57, 135, 229, 0.16);
@@ -31,7 +32,7 @@
     --line: #dddcd7;
     --text-primary: #0b0b0b;
     --text-secondary: #52514e;
-    --text-muted: #77766f;
+    --text-muted: #66655f;  /* 4.6:1 or better on every surface (was #77766f: 3.6 to 4.4) */
     --accent: #2a78d6;
     --series-1: #2a78d6;
     --series-1-wash: rgba(42, 120, 214, 0.12);
@@ -72,7 +73,7 @@ button, select, textarea, input { font: inherit; color: inherit; }
   min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
   background: transparent; color: var(--text-secondary);
 }
-.tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tab.on { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--accent-ink); }
 
 /* ---- generic blocks */
 .section { margin: 14px 0; }
@@ -99,7 +100,7 @@ button, select, textarea, input { font: inherit; color: inherit; }
   min-height: var(--tap); padding: 0 16px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--surface-2); cursor: pointer;
 }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--accent-ink); font-weight: 600; }
 .btn.block { width: 100%; }
 .btn.ghost { background: transparent; }
 .icon-btn {
@@ -122,7 +123,8 @@ textarea.list {
   color: var(--text-secondary); cursor: pointer; padding: 0 8px; white-space: nowrap;
 }
 .seg button.on { background: var(--surface-3); color: var(--text-primary); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
-.seg.compact button { min-height: 34px; font-size: 13px; }
+/* (flex-basis auto + no shrink: a button is never narrower than its words; min-width alone would let it be) */
+.seg.compact button { flex: 1 0 auto; min-height: 38px; min-width: 36px; font-size: 13px; }
 
 /* direction bar */
 .matchup { display: flex; align-items: center; gap: 8px; }
@@ -167,7 +169,7 @@ textarea.list {
 .weapon.off .wname, .weapon.off .wstats { color: var(--text-muted); }
 .stepper { display: flex; align-items: center; gap: 2px; flex: none; }
 .stepper button {
-  width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line);
+  width: 40px; min-width: 36px; height: 40px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--surface-2); font-size: 20px; cursor: pointer; line-height: 1;
 }
 .stepper .val { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; font-size: 14px; }
@@ -304,8 +306,9 @@ table.grid .cell { width: 100%; min-width: 56px; height: 40px; border: 0; border
 .photo-ov .btn.ghost { color: #f0efec; border-color: #383835; }
 label.btn { display: inline-flex; align-items: center; justify-content: center; }
 /* mission tab: player series colours (validated: light vs surface-1, dark vs surface-1) */
-:root { --side-a: #3987e5; --side-b: #e0672f; }
-@media (prefers-color-scheme: light) { :root { --side-a: #2a78d6; --side-b: #d95926; } }
+/* --side-*: fills, borders and chart marks. --side-*-ink: the same two colours for TEXT (4.5:1 or better on every surface) */
+:root { --side-a: #3987e5; --side-b: #e0672f; --side-a-ink: #4a93ec; --side-b-ink: #e8743f; }
+@media (prefers-color-scheme: light) { :root { --side-a: #2a78d6; --side-b: #d95926; --side-a-ink: #2268c4; --side-b-ink: #b34213; } }
 table.plan { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.plan th, table.plan td { padding: 3px 2px; text-align: center; }
 table.plan th:first-child, table.plan td:first-child { text-align: left; padding-left: 0; }
@@ -354,7 +357,7 @@ button.fc-mini { cursor: pointer; }
 .hand-row .mini { min-width: 44px; min-height: 38px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; }
 .hand-row .mini.score { border-color: var(--accent); font-weight: 600; }
 .stepper.score { gap: 4px; }
-.stepper.score input.num { width: 62px; min-height: 40px; margin-top: 0; text-align: center; padding: 0 4px; }
+.stepper.score input.num { width: 62px; min-width: 40px; flex: 1 1 40px; min-height: 40px; margin-top: 0; text-align: center; padding: 0 4px; }
 .stepper.score button { font-size: 16px; }
 
 /* ---- two panes on tablets and laptops; the phone keeps one column in reading order */
@@ -472,3 +475,7 @@ details.more.card { padding: 10px 12px; }
 
 /* Event card: a round's result */
 .event-result input.num { width: 68px; margin-top: 0; text-align: center; }
+
+/* rules in force, and what the November update changes on a datasheet */
+.update-note { margin-top: 4px; color: var(--text-secondary); }
+#rules-line { margin-top: 10px; }

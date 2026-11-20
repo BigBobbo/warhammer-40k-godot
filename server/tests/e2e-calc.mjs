@@ -2365,6 +2365,140 @@ try {
     await mctx.close();
   }
 
+  // --- ease of use (1.107): the Play view runs a light forecast, rotation, legibility, rules in force
+  const AGG_LIST = `Update Test (500 points)
+
+Space Marines
+Ultramarines
+Gladius Task Force (1 Detachment Points)
+Take and Hold
+Incursion (1000 points)
+
+BATTLELINE
+
+Intercessor Squad (80 points)
+  • 1x Intercessor Sergeant
+    • 1x Bolt Pistol
+      1x Bolt Rifle
+  • 4x Intercessor
+    • 4x Bolt Pistol
+      4x Bolt Rifle
+
+OTHER DATASHEETS
+
+Aggressor Squad (95 points)
+  • 1x Aggressor Sergeant
+    • 1x Auto Boltstorm Gauntlets
+      1x Fragstorm Grenade Launcher
+      1x Twin Power Fists
+  • 2x Aggressor
+    • 2x Auto Boltstorm Gauntlets
+      2x Fragstorm Grenade Launcher
+      2x Twin Power Fists
+`;
+  {
+    const zctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const zp = await zctx.newPage();
+    zp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`ease of use: ${m.text()}`); });
+    zp.on('pageerror', e => consoleErrors.push(`ease of use: ${e}`));
+    await zp.goto(`${BASE}/calc/`);
+    await zp.waitForSelector('textarea[data-side="A"]');
+    await zp.fill('textarea[data-side="A"]', SW_LIST); await zp.tap('button[data-action="parse"][data-side="A"]');
+    await zp.fill('textarea[data-side="B"]', ORK_LIST); await zp.tap('button[data-action="parse"][data-side="B"]');
+    const ztxt = async (q) => (await zp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => zp.evaluate(() => { const m = window.__calc.mission(); return { trials: m.result?.trials, busy: m.busy, levers: m.levers?.length ?? 0, compare: m.compare?.length ?? 0, primary: m.game.A.primary }; });
+    // rules in force, today (before the announced update)
+    const line = await ztxt('#rules-line');
+    check('Armies: the rules-in-force line says what the rules were checked against, the data release and the next change',
+      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.2, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
+      && /World Championships rules updates, November 2026 \(UKTC events use it\): 5 of its 8 weapon changes are not in the numbers/.test(line) && /Next rules change: the quarterly balance update, the week beginning 7 December 2026 \(Warhammer Community, 29 Oct 2026\)/.test(line) && (await zp.locator('#rules-due').count()) === 0, line);
+    await zp.locator('#rules-line').scrollIntoViewIfNeeded();
+    await zp.screenshot({ path: join(SHOTS, 'calc_84_rules_in_force.png') });
+    // the installed app may turn with the device
+    const manifest = await (await zp.request.get(`${BASE}/calc/manifest.webmanifest`)).json();
+    check('the app manifest no longer locks the screen to portrait', manifest.orientation === 'any', manifest.orientation);
+    // Mission: a full run on Plan, a light run after a tap on Play
+    await zp.tap('button[data-action="view"][data-value="mission"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.levers?.length >= 4; }, null, { timeout: 180000 });
+    const full = await mission();
+    check('Plan: the full forecast (4,000 games, what-ifs, plan comparison)', full.trials === 4000 && full.levers >= 4 && full.compare >= 1, JSON.stringify(full));
+    await zp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await zp.waitForSelector('#play-bar');
+    await zp.waitForTimeout(700);
+    const same = await mission();
+    check('opening Play does not run the forecast again: the full one is still good', same.trials === 4000 && !same.busy, JSON.stringify(same));
+    await zp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 5 && m.result.trials === 1000; }, null, { timeout: 120000 });
+    const lite = await mission();
+    check('a tap on Play runs the light forecast (1,000 games, no what-ifs worked out)', lite.trials === 1000 && lite.levers === full.levers && /1,000 simulated games/.test(await ztxt('#mission-forecast')), JSON.stringify(lite));
+    // the controls on Play: nothing under 36 px
+    const small = await zp.evaluate(() => [...document.querySelectorAll('#app main button, #app main input, #app main select, #app main summary')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height && Math.min(r.width, r.height) < 35.5; }).map(e => `${e.tagName}.${e.className}:${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}`));
+    check('Play: every control is at least 36 px wide and high', small.length === 0, small.slice(0, 8).join(' | '));
+    await zp.evaluate(() => window.scrollTo(0, 0));
+    await zp.screenshot({ path: join(SHOTS, 'calc_85_play_controls.png') });
+    // back on Plan the what-ifs are worked out again for the new score
+    await zp.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.result.trials === 4000; }, null, { timeout: 180000 });
+    check('back on Plan: the full forecast for the new score', (await mission()).trials === 4000);
+    // the rule that lets a unit arrive a round early is in the overlay's note
+    await zp.tap('button[data-action="view"][data-value="board"]');
+    await zp.waitForSelector('#board-svg');
+    await zp.locator('button[data-action="board-arrive"][data-value="A"]').scrollIntoViewIfNeeded();
+    await zp.locator('button[data-action="board-arrive"][data-value="A"]').tap();
+    await zp.waitForSelector('#board-arrive-early');
+    check('Board: the reserves overlay names High King of Fenris (one unit a turn arrives a battle round early)', /High King of Fenris \(Logan Grimnar\): one unit a turn arrives as if the battle round were one higher, so it can come in battle round 1/.test(await ztxt('#board-arrive-early')), await ztxt('#board-arrive-early'));
+    // the ruling of the November update on Combat Doctrines, in the phase sheet
+    await zp.tap('button[data-action="view"][data-value="intel"]');
+    await zp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await zp.waitForSelector('#phase-sheet');
+    await zp.tap('#phase-strip button[data-value="command"]');
+    await zp.waitForSelector('[data-ruling="army:combat-doctrines"]');
+    check('By phase: Combat Doctrines carries the ruling of the November update', /Nov 2026 update \(UKTC events use it\): A doctrine made active for one unit by Strategic Acumen/.test(await ztxt('[data-ruling="army:combat-doctrines"]')));
+    await zctx.close();
+  }
+  // light theme, and a date after the announced update: readable grey text, and the warning that the rules may be behind
+  {
+    const lctx = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'light' });
+    const lp = await lctx.newPage();
+    lp.on('pageerror', e => consoleErrors.push(`ease of use (light): ${e}`));
+    await lp.addInitScript(() => {
+      const Real = Date, shift = new Real(2026, 11, 9, 12).getTime() - Real.now();
+      globalThis.Date = class extends Real { constructor(...a) { if (a.length) super(...a); else super(Real.now() + shift); } static now() { return Real.now() + shift; } };
+    });
+    await lp.goto(`${BASE}/calc/`);
+    await lp.waitForSelector('textarea[data-side="A"]');
+    await lp.fill('textarea[data-side="A"]', AGG_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
+    await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
+    const ltxt = async (q) => (await lp.textContent(q)).replace(/\s+/g, ' ').trim();
+    check('after 7 December: the rules line warns that a rules change was due', (await lp.getAttribute('#rules-line', 'data-due')) === '1' && /A rules change was due: the quarterly balance update, the week beginning 7 December 2026.*look for an app update/.test(await ltxt('#rules-due')) && (await lp.locator('#rules-next').count()) === 0, await ltxt('#rules-line'));
+    check('a list with a datasheet the November update changes says so under the list', /Nov 2026 update \(UKTC events use it\), not in the numbers: Aggressor Squad \(Auto boltstorm gauntlets: remove \[CLOSE-QUARTERS\]\)/.test(await ltxt('#update-A')), await ltxt('#data-A'));
+    await lp.locator('#rules-line').scrollIntoViewIfNeeded();
+    await lp.screenshot({ path: join(SHOTS, 'calc_86_rules_due_light.png') });
+    await lp.tap('button[data-action="view"][data-value="intel"]');
+    await lp.tap('button[data-action="intel-side"][data-value="A"]');
+    await lp.waitForSelector('.intel-unit');
+    await lp.locator('.intel-unit', { hasText: 'Aggressor Squad' }).locator('summary').first().tap();
+    check('Intel: the datasheet carries the note', /⚠ Nov 2026 update \(UKTC events use it\): Auto boltstorm gauntlets: remove \[CLOSE-QUARTERS\] — not in the numbers here/.test(await ltxt('.update-note')), await ltxt('.update-note'));
+    // grey text against what is behind it, light theme
+    const low = await lp.evaluate(() => {
+      const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const parse = (s) => { const m = /rgba?\(([^)]+)\)/.exec(s); if (!m) return null; const a = m[1].split(/[,\s/]+/).map(Number); return { rgb: a.slice(0, 3), a: a[3] ?? 1 }; };
+      const bgOf = (el) => { let base = [255, 255, 255]; const chain = []; for (let e = el; e; e = e.parentElement) chain.push(e); for (const e of chain.reverse()) { const c = parse(getComputedStyle(e).backgroundColor); if (c && c.a > 0) base = c.rgb.map((v, i) => v * c.a + base[i] * (1 - c.a)); } return base; };
+      const out = [];
+      for (const el of document.querySelectorAll('#app *')) {
+        if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+        const cs = getComputedStyle(el); const fg = parse(cs.color); if (!fg || el.closest('button:disabled')) continue;
+        const bg = bgOf(el), f = fg.rgb.map((v, i) => v * fg.a + bg[i] * (1 - fg.a));
+        const L1 = lum(f), L2 = lum(bg), ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+        if (ratio < 4.5) out.push(`${ratio.toFixed(2)} ${el.className || el.tagName} "${el.textContent.trim().slice(0, 20)}"`);
+      }
+      return out;
+    });
+    check('light theme, Intel: no text under 4.5:1 contrast', low.length === 0, low.slice(0, 6).join(' | '));
+    await lctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

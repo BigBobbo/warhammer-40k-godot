@@ -1302,6 +1302,19 @@ export function coreFlags(cu) {
 }
 
 /**
+ * A rule that lets one unit a turn arrive from reserves as if the battle round were one higher (High King of
+ * Fenris: "when that unit makes an ingress move, treat the current battle round number as being one higher than
+ * it actually is"). November 2026 update, 20.03: such a unit can make an ingress move in the first turn.
+ * -> { name, owner } | null
+ */
+export function earlyArrival(army) {
+  for (const cu of army?.units ?? []) for (const m of cu.members) for (const a of abilityRecords(m)) {
+    if (/treat the (current )?battle round number as being one higher/i.test(a.text ?? '')) return { name: a.name, owner: m.dcUnit.name };
+  }
+  return null;
+}
+
+/**
  * What an army has that changes how you deploy and move against it (the matchup brief): only what the list
  * really has. -> [{ id, name, units: ['Scout Squad ×2', ...], note }]
  * Rules read in the core rules text: 24.09 Deep Strike, 24.20 Infiltrators, 24.32 Scout move, 24.24 Lone
