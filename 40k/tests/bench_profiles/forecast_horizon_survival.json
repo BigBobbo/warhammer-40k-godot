@@ -1,0 +1,11 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Forecast horizon + survival",
+  "description": "Candidate arm for items 3+4: FORECAST_HORIZON_WEIGHT 0.6 (objective priority += 0.6 x rest-of-battle swing per round left) with FORECAST_SURVIVAL on (threat-state hold chances). Everything else default.",
+  "parameters": {
+    "FORECAST_HORIZON_WEIGHT": 0.6,
+    "FORECAST_SURVIVAL": 1.0
+  },
+  "rules": []
+}
