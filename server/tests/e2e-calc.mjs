@@ -1387,7 +1387,8 @@ try {
     check('Armies: each army says which rules data it uses and its date', /Rules data: Codex: Space Marines \(Wahapedia\), 21 Oct 2026 — all 12 datasheets\./.test(await txt('#data-A')) && /Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026 — all 6 datasheets\./.test(await txt('#data-B')), `${await txt('#data-A')} | ${await txt('#data-B')}`);
     check('Armies: a real list from the official app costs what the data says, datasheet by datasheet', /✓ Points: all 12 datasheets cost what the rules data says\./.test(await txt('#points-A')), await txt('#points-A'));
     check('Armies: other points in the list than in the data are named with both numbers', /3 of 6 datasheets cost something else in your list than in the rules data — Warboss 70 \(data 100\), Meganobz 100 \(data 105 or 145\), Flash Gitz 80 \(data 110 or 150\)\./.test(await txt('#points-B')), await txt('#points-B'));
-    check('Armies: the footer names the dataset and its newest date', /rules data: 40kdc \d+\.\d+\.\d+ with codex datasheets, newest 21 Oct 2026/.test(await txt('#data-footer')), await txt('#data-footer'));
+    check('Armies: the footer names the dataset, the refresh and the newest date', /rules data: 40kdc 1\.4\.5 with codex datasheets and the points and weapon profiles of 1\.5\.1, newest 21 Oct 2026/.test(await txt('#data-footer')), await txt('#data-footer'));
+    check('Armies: the dataset credit and its link are shown (licence of the data)', /Powered by 40kdc-data/.test(await txt('#data-credit')) && (await dp.getAttribute('#data-credit a', 'href')) === 'https://40kdc.alpacasoft.dev');
     await dp.locator('#data-B').scrollIntoViewIfNeeded();
     await dp.screenshot({ path: join(SHOTS, 'calc_57_rules_data.png') });
     await dp.tap('button[data-action="view"][data-value="intel"]');
@@ -1395,6 +1396,25 @@ try {
     const stamps = await dp.$$eval('.intel-unit [data-stamp]', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
     check('Intel: every unit shows the date of its datasheet; the ones with other points are flagged', stamps.length === 5 && stamps.every(t => /^Rules data: Codex: Orks \(Wahapedia\), 16 Oct 2026\./.test(t)) && stamps.filter(t => /pts in your list/.test(t)).length === 3
       && stamps.some(t => /Warboss: 70 pts in your list, 100 in the data — check this datasheet/.test(t)), JSON.stringify(stamps));
+    {
+      // a faction without a codex import here: its points and weapon profiles are those of the newer
+      // dataset release (calculator only), and the stamp says which part is older
+      await dp.tap('button[data-action="view"][data-value="armies"]');
+      const TYR = (pts) => `Hive (500 points)\n\nTyranids\nInvasion Fleet\nIncursion (1000 points)\n\nHive Tyrant (195 points)\n\nTermagants (${pts} points)\n  • 10x Termagant\n`;
+      await dp.fill('textarea[data-side="B"]', TYR(55));
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+      check('a faction without a codex import shows the newer release for points and weapons, and that its abilities are older',
+        /Rules data: 40kdc 1\.5\.1 points and weapon profiles, 14 Oct 2026 \(abilities: 40kdc 1\.4\.5, 20 Jun 2026\)/.test(await txt('#data-B')) && /✓ Points: all 2 datasheets cost what the rules data says/.test(await txt('#points-B')), await txt('#data-B'));
+      await dp.fill('textarea[data-side="B"]', TYR(60));
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+      check('the points check uses the refreshed points (Termagants: 55 for ten, 60 before the refresh)', /Termagants 60 \(data 55\)/.test(await txt('#points-B')), await txt('#points-B'));
+      const refresh = await dp.evaluate(async () => { const A = await import('/calc/adapter.mjs'); return A.ERRATA_RESULT; });
+      check('the refresh was applied in the browser: every entry, none skipped', refresh.from === '1.5.1' && refresh.points > 150 && refresh.weapons > 90 && refresh.skipped.length === 0, JSON.stringify({ ...refresh, skipped: refresh.skipped.length }));
+      await dp.locator('#data-B').scrollIntoViewIfNeeded();
+      await dp.screenshot({ path: join(SHOTS, 'calc_59_rules_data_refresh.png') });
+      await dp.fill('textarea[data-side="B"]', ORK_LIST);
+      await dp.tap('button[data-action="parse"][data-side="B"]');
+    }
     await dp.tap('button[data-action="view"][data-value="mission"]');
     await dp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
     await dp.locator('details[data-details="mission-basis"] summary').tap();

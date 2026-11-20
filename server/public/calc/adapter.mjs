@@ -7,6 +7,7 @@
 
 import { conv, factionName, dc, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
 import { CODEX_OVERLAY_FACTIONS } from '../js/lib/data-patches.mjs';
+import { ERRATA } from './errata-data.mjs';
 import { importText } from '../js/builder/importers.js';
 import { normName, looseName } from '../js/lib/dckit.mjs';
 import { expectedDamageQuick, mergeMods } from './engine.mjs';
@@ -20,6 +21,63 @@ import {
 export { describeConditions };
 
 export const DATASET_VERSION = dc.DATASET_VERSION;
+
+// ---------------------------------------------------------------------------
+// Points and weapon profiles of a newer 40kdc release, for the calculator only.
+//
+// The dataset bundle is shared with the Army Builder and is one release behind
+// (a newer release re-keys abilities and stratagems, so the bundle cannot simply
+// be swapped). errata-data.mjs (scripts/40kdc/gen_calc_errata.mjs) holds what
+// keeps its key and shape in the newer release: unit points and weapon profiles
+// of the factions this project has no codex import for. They are put on the
+// records here, in place, when the calculator loads — the Army Builder and the
+// game never import this module.
+
+const errataStable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x));
+/** The hash scripts/40kdc/gen_calc_errata.mjs writes as "was" (FNV-1a of the value's stable JSON). */
+export function errataHash(v) {
+  const str = errataStable(v);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+
+const ERRATA_DONE = new WeakMap();   // raw data -> result (applied once)
+/**
+ * Put the newer points and weapon profiles on the dataset records. An entry is
+ * applied only to a record that is still the bundle's own (no codex import,
+ * same value as when the entry was made). Returns what was done.
+ */
+export function applyErrata(raw = dc.RAW_DATA, errata = ERRATA, bundleVersion = dc.DATASET_VERSION) {
+  if (ERRATA_DONE.has(raw)) return ERRATA_DONE.get(raw);
+  const res = { from: errata?.from ?? null, date: errata?.dataslate?.date ?? null, points: 0, weapons: 0, units: 0, skipped: [], why: null };
+  ERRATA_DONE.set(raw, res);
+  if (!errata) { res.why = 'no refresh data'; return res; }
+  if (bundleVersion !== errata.base) { res.why = `made for bundle ${errata.base}, the bundle is ${bundleVersion}`; return res; }
+  const keep = new Set(errata.skipped ?? []);
+  const stamp = `40kdc-${errata.from}@${errata.dataslate.date}`;
+  const units = new Map(raw.units.map(u => [`${u.faction_id}::${u.id}`, u]));
+  for (const [key, e] of Object.entries(errata.points ?? {})) {
+    const u = units.get(key);
+    if (!u || u.source || keep.has(u.faction_id) || errataHash(u.points) !== e.was) { res.skipped.push(`points ${key}`); continue; }
+    u.points = e.now;
+    res.points++;
+  }
+  const weapons = new Map(raw.weapons.map(w => [`${w.faction_id ?? ''}::${w.id}`, w]));
+  for (const [key, e] of Object.entries(errata.weapons ?? {})) {
+    const w = weapons.get(key);
+    if (!w || w.source || keep.has(w.faction_id) || errataHash(w.profiles) !== e.was) { res.skipped.push(`weapon ${key}`); continue; }
+    w.profiles = e.now;
+    res.weapons++;
+  }
+  // the datasheets whose points and weapon profiles were compared with the newer release
+  for (const [faction, ids] of Object.entries(errata.checked ?? {})) {
+    for (const id of ids) { const u = units.get(`${faction}::${id}`); if (u && !u.source) { u.errata = stamp; res.units++; } }
+  }
+  console.log(`[calc] rules data: points of ${res.points} units and profiles of ${res.weapons} weapons from 40kdc ${errata.from} (${errata.dataslate.date})${res.skipped.length ? `; ${res.skipped.length} entries not applied` : ''}`);
+  return res;
+}
+export const ERRATA_RESULT = applyErrata();
 
 // ---------------------------------------------------------------------------
 // How current is the rules data?
@@ -48,13 +106,16 @@ export function recordStamp(dcUnit) {
   }
   const slate = dcUnit?.game_version?.dataslate ?? null;
   const gv = (dc.RAW_DATA.gameVersions ?? []).find(g => g.dataslate === slate);
+  // points and weapon profiles from a newer release (applyErrata); the abilities are still the bundle's
+  const err = /^40kdc-([\d.]+)@(\d{4}-\d{2}-\d{2})$/.exec(dcUnit?.errata ?? '');
+  if (err) return { kind: 'errata', date: err[2], label: `40kdc ${err[1]} points and weapon profiles`, note: `abilities: 40kdc ${dc.DATASET_VERSION}, ${fmtDataDate(gv?.effective_date)}` };
   return { kind: 'base', date: gv?.effective_date ?? null, label: `40kdc ${dc.DATASET_VERSION}: ${SLATE_LABEL[slate] ?? gv?.label ?? 'dataset'}` };
 }
 
 /** The newest date in the whole rules data (dataset snapshots and codex datasheets). */
 export function dataNewest() {
   const dates = [...(dc.RAW_DATA.gameVersions ?? []).map(g => g.effective_date)];
-  for (const u of dc.RAW_DATA.units ?? []) { const m = /@(\d{4}-\d{2}-\d{2})$/.exec(u.source ?? ''); if (m) dates.push(m[1]); }
+  for (const u of dc.RAW_DATA.units ?? []) { const m = /@(\d{4}-\d{2}-\d{2})$/.exec(u.source ?? u.errata ?? ''); if (m) dates.push(m[1]); }
   return dates.filter(Boolean).sort().pop() ?? null;
 }
 
@@ -73,7 +134,7 @@ export function dataProvenance(army) {
   const by = new Map();
   for (const u of units) {
     const k = `${u.label}|${u.date}`;
-    if (!by.has(k)) by.set(k, { kind: u.kind, label: u.label, date: u.date, count: 0, names: [] });
+    if (!by.has(k)) by.set(k, { kind: u.kind, label: u.label, date: u.date, note: u.note ?? null, count: 0, names: [] });
     const g = by.get(k); g.count++; g.names.push(u.name);
   }
   const groups = [...by.values()].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));

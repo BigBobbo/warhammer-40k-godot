@@ -111,10 +111,14 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 ## Build order (most valuable first)
 
 Status 2026-11-20: all eight stages are built and pushed to
-`ccr-213b28c6-sp0d05` (app version 1.98.1). Not merged, not deployed, no PR
+`ccr-213b28c6-sp0d05` (app version 1.99.0). Not merged, not deployed, no PR
 open: the user decides (see Working agreements). Evidence at the last stage:
-133 unit tests (`npm run test:calc`) and the Playwright run
+138 unit tests (`npm run test:calc`) and the Playwright run
 (`tests/e2e-calc.mjs`).
+Note: the user's instruction was delivered a second time at 07:04 UTC with the
+same message id (re-queued by the worker restart at 06:33): a replay, not a new
+request. Re-reading the plan it answered ("8. Rules data update") is what led
+to the calculator-only refresh of v1.99.0.
 
 - [ ] **1. Rule fixes** — BUILT in v1.91.0, browser-tested, pushed — end-of-battle VP exempt from the round cap; reserves
       8"; Plunging Fire chip; discard = +1CP wording.
@@ -157,13 +161,30 @@ open: the user decides (see Working agreements). Evidence at the last stage:
       import: Space Marines / Space Wolves, Orks, Custodes, 16 and 21 Oct 2026) or
       the 40kdc `game_version.dataslate` (launch = 20 Jun 2026). The user's real
       Space Wolves list matches the data on all 12 datasheets.
-      **Dataset update to 1.5.1 NOT done, on purpose**: it is not a points patch
-      (against the game's data: 1074 of 1104 units differ, stratagem / enhancement /
-      detachment ids reorganised), the browser bundle is shared with the Army
-      Builder, and the builder's codex overlay is a diff against 1.4.5 that mirrors
-      the Godot game's `40k/data/40kdc`. Updating it means re-running the game's
-      data pipeline (extract, local patches, Wahapedia import, overlay generator)
-      and re-validating the game: a task of its own, needs the user's go-ahead.
+      **Rules data update (v1.99.0), calculator only.** Measured 1.4.5 -> 1.5.1 bundle
+      to bundle (scratch `dcdiff2.mjs`): NO unit stat line changed; points changed
+      on 368 units; 598 weapons have other profiles; every ability / enhancement /
+      stratagem id is re-keyed (4525 abilities added, 3909 removed) and the loadout
+      format of all unit compositions changed. So the shared bundle is NOT swapped
+      (it would take the 1.5.1 package code, a regenerated codex overlay and the
+      game's data pipeline: a task of its own, needs the user's go-ahead).
+      What keeps its key and shape IS taken, for the 20 factions without a codex
+      import: points of 188 units and profiles of 104 weapons.
+      `scripts/40kdc/gen_calc_errata.mjs <unpacked 1.5.1 package>` writes
+      `server/public/calc/errata-data.mjs` (new value + hash of the bundle's value);
+      `adapter.mjs applyErrata()` puts them on the records in place when the
+      calculator loads (never on a record with a codex `source`, never when the
+      hash differs, never on another bundle version). The Army Builder and the game
+      do not import it (test: a process that loads store.js alone still has the
+      bundle's values). Cross-check that 1.5.1 is the better release: where the two
+      releases differ on Space Marines / Orks / Custodes, this project's Wahapedia
+      import (16 / 21 Oct) agrees with 1.5.1 on 144 of 149 weapon stat lines and
+      127 of 133 unit points (scratch `crosscheck.mjs`).
+      Not taken: unit keywords (Grenades -> Explosives, Frame: the calc's stratagem
+      texts use both names, no ground truth), units new in 1.5.1, weapons whose id
+      changed, abilities. One weapon skipped for a new shape (Deathstrike, range N/A).
+      Also added: the "Powered by 40kdc-data" credit on the calc page (the dataset
+      licence asks for it on public deployments; only the builder page had it).
 
 Ideas noted but not planned: exposure heat map; terrain set-up measurements;
 coherency / legality inspector; post-game calibration from the user's own

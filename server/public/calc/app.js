@@ -3,7 +3,7 @@
 // Worker (worker.mjs -> engine.mjs).
 import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
-  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest,
+  defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
 } from './adapter.mjs';
@@ -419,7 +419,7 @@ function intelList(side) {
       <details class="more"><summary>Abilities (${it.abilities.length})</summary>${it.abilities.map(a =>
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
-      <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
+      <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}${u.note ? ` (${esc(u.note)})` : ''}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
       ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
@@ -473,7 +473,8 @@ function armiesView() {
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
     ${eventCard()}
     ${backupCard()}
-    <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.</p>`;
+    <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets${ERRATA_RESULT.points || ERRATA_RESULT.weapons ? ` and the points and weapon profiles of ${esc(ERRATA_RESULT.from)}` : ''}, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.
+      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>`;
 }
 
 // ---- how current the rules data behind an army is (adapter.mjs armyData)
@@ -481,7 +482,7 @@ const orList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} or ${xs[x
 function dataStampHtml(side, army) {
   const { prov, pts } = armyData(army);
   const n = prov.units.length;
-  const groups = prov.groups.map(g => `${prov.groups.length > 1 ? `${g.count} ` : ''}${esc(g.label)}, ${fmtDataDate(g.date)}`).join(' · ');
+  const groups = prov.groups.map(g => `${prov.groups.length > 1 ? `${g.count} ` : ''}${esc(g.label)}, ${fmtDataDate(g.date)}${g.note ? ` (${esc(g.note)})` : ''}`).join(' · ');
   const bad = pts.mismatches;
   const points = !pts.checked ? '<div class="muted">Points: the list gives no points to check.</div>'
     : !bad.length ? `<div class="ok" id="points-${side}">✓ Points: ${pts.checked === n ? `all ${n}` : `${pts.checked} of ${n}`} datasheets cost what the rules data says${pts.checked === n ? '' : ' (the others cannot be checked)'}.</div>`
