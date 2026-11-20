@@ -138,3 +138,37 @@ test('your estimate of a card: the forecast gives it exactly that VP if drawn (i
   // what a card pays (perDraw) is not cut by the 15-per-round / 45 VP limits; what it adds (perDrawNet) is
   assert.ok(b.perDrawNet <= b.perDraw + 1e-9, `${b.perDrawNet} <= ${b.perDraw}`);
 });
+
+test('kills from the calculator: same pace as the calibrated rate, tough units last, a what-if multiplier', () => {
+  const names = BIG().units.map(x => x.name);
+  const table = (f) => Object.fromEntries(names.map(a => [a, Object.fromEntries(names.map(d => [d, typeof f === 'function' ? f(a, d) : f]))]));
+  const plan = planAll(r => ({ hA: 'A', hB: 'B', eA: r >= 2 ? 'A' : 'c', eB: r >= 2 ? 'B' : 'c', c: 'c' }));
+  const pl = (o = {}) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: null, ...o });
+  const run = (fa, fb, o = {}) => F.forecast({ players: { A: pl(o.A), B: pl(o.B) }, objectives: OBJS, plan, trials: 3000, seed: 11, fracs: { A: table(fa), B: table(fb) } });
+  // every unit removes a third of its best target: 13 x 1/3 x 0.3 delivered = 1.3 units a turn
+  const calc = run(1 / 3, 1 / 3);
+  const rate = F.forecast({ players: { A: pl({ killRate: 1.3 }), B: pl({ killRate: 1.3 }) }, objectives: OBJS, plan, trials: 3000, seed: 11 });
+  assert.ok(Math.abs(calc.A.mean - rate.A.mean) < 3, `mean VP ${calc.A.mean} vs ${rate.A.mean}`);
+  assert.ok(Math.abs(calc.A.unitsLeft[4] - rate.A.unitsLeft[4]) < 0.8, `units left ${calc.A.unitsLeft[4]} vs ${rate.A.unitsLeft[4]}`);
+  // B's two tanks are almost immune (2% a hit): A scores Bring It Down far less often
+  const toughTanks = run((a, d) => (d.startsWith('Tank') ? 0.02 : 1 / 3), 1 / 3);
+  assert.ok(toughTanks.A.cards['bring-it-down'].scoreRate < calc.A.cards['bring-it-down'].scoreRate / 2, `${toughTanks.A.cards['bring-it-down'].scoreRate} vs ${calc.A.cards['bring-it-down'].scoreRate}`);
+  // an army that cannot hurt the enemy at all loses its units and the game
+  const harmless = run(0, 1 / 3);
+  assert.ok(harmless.pWinA < 0.1 && harmless.B.unitsLeft[4] > 12.9, `${harmless.pWinA}, B keeps ${harmless.B.unitsLeft[4]} units`);
+  // "trade harder": 50% more damage raises the win chance
+  const harder = run(1 / 3, 1 / 3, { A: { killMul: 1.5 } });
+  assert.ok(harder.pWinA > calc.pWinA + 0.08, `${calc.pWinA} -> ${harder.pWinA}`);
+});
+
+test('real-game card rates: used for position cards by battle round, your own rating replaces them', () => {
+  assert.deepEqual(M.REAL_RATES['behind-enemy-lines'].by, [0.14, 0.55, 0.63, 0.63, 0.69]);
+  assert.deepEqual(F.defaultCardRate('behind-enemy-lines', 3), { p: 0.63, from: 'real' });
+  assert.deepEqual(F.defaultCardRate('beacon', 3), { p: 0.5, from: 'none' }, 'no equivalent 10th edition card');
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const pl = (rate) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: 0, rate });
+  const dflt = F.forecast({ players: { A: pl({}), B: pl({}) }, objectives: OBJS, plan, trials: 3000 });
+  const never = F.forecast({ players: { A: pl({ 'behind-enemy-lines': 0 }), B: pl({}) }, objectives: OBJS, plan, trials: 3000 });
+  assert.ok(dflt.A.cards['behind-enemy-lines'].scoreRate > 0.75, `kept until scored: ${dflt.A.cards['behind-enemy-lines'].scoreRate}`);
+  assert.equal(never.A.cards['behind-enemy-lines']?.perDraw ?? 0, 0, 'your rating 0 = never');
+});

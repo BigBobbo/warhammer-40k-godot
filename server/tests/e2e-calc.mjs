@@ -754,8 +754,25 @@ try {
   check('caps respected (each player at most 100 VP; 15 per round per source)', ['A', 'B'].every(X => mi.result[X].p90 <= 100 && mi.result[X].prim.every(v => v <= 15) && mi.result[X].sec.every(v => v <= 15)));
   check('what-ifs listed (objectives, trading)', (await page.locator('#fc-levers tbody tr').count()) >= 4);
   await page.screenshot({ path: join(SHOTS, 'calc_27_mission_forecast.png') });
-  // plan: give A the centre from round 2 -> A's chance goes up
+  // the forecast knows the armies: the 2,000-point list is the clear favourite over the 665-point one,
+  // and its units destroyed per turn come from the calculator
+  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
+  await page.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 120000 });
+  mi = await page.evaluate(() => window.__calc.mission());
+  check('units destroyed per turn come from the calculator for both armies', mi.killRate.A.from === 'calc' && mi.killRate.B.from === 'calc' && mi.killRate.A.rate > mi.killRate.B.rate && mi.params.players.A.killRate === null && !!mi.params.fracs,
+    JSON.stringify(mi.killRate));
+  check('units left by round and wipe-out chance are shown', (await page.locator('#fc-units tbody tr').count()) === 2 && mi.result.B.pTabled > mi.result.A.pTabled && mi.result.B.unitsLeft[4] < mi.result.B.unitsLeft[0]);
+  check('first / second turn split is shown for a roll-off', /going first/.test(await page.textContent('#fc-first')));
+  await page.locator('#fc-basis summary').tap();
+  const basis = await page.textContent('#fc-basis');
+  check('"What this forecast is built from" names rules, your input, the calculator, real games and assumptions',
+    ['Rules', 'Your input', 'Calculator', 'Real games', 'Assumption'].every(k => basis.includes(k)) && /94,739 real 11th edition/.test(basis) && /18,790 recorded 10th edition games/.test(basis), basis.slice(0, 200));
+  await page.locator('#fc-basis').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_37_forecast_basis.png') });
+  await page.locator('#fc-win').scrollIntoViewIfNeeded();
+  // plan: give A the centre from round 2 -> A scores more primary than B by a wider gap
   const winBefore = mi.result.pWinA;
+  const gapBefore = mi.result.A.primMean - mi.result.B.primMean;
   const centre = mi.objectives.find(o => o.cls === 'central').id;
   for (let r = 2; r <= 5; r++) {
     // cycle the cell until it shows A
@@ -763,8 +780,16 @@ try {
       await page.tap(`button[data-action="mission-plan"][data-r="${r}"][data-o="${centre}"]`);
     }
   }
-  await page.waitForFunction((w) => { const m = window.__calc.mission(); return m.result && !m.busy && m.result.pWinA > w + 0.05; }, winBefore, { timeout: 60000 });
-  check('holding the centre in the plan raises the win chance', true);
+  await page.waitForFunction((c) => { const m = window.__calc.mission(); return m.result && !m.busy && [2, 3, 4, 5].every(r => m.params.plan[r][c] === 'A'); }, centre, { timeout: 60000 });
+  await page.waitForTimeout(400);
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 60000 });
+  {
+    // (this matchup is one-sided already, so the effect is small here; the size of the effect in an
+    // even game is checked in tests/calc-forecast.test.mjs "plan uncertainty")
+    const fcAfter = await page.evaluate(() => window.__calc.mission().result);
+    check('the plan change reaches the forecast: A\'s primary lead does not shrink, win chance holds', fcAfter.A.primMean - fcAfter.B.primMean > gapBefore - 0.3 && fcAfter.pWinA >= winBefore - 0.02,
+      `primary gap ${gapBefore.toFixed(1)} -> ${(fcAfter.A.primMean - fcAfter.B.primMean).toFixed(1)}, win ${winBefore.toFixed(2)} -> ${fcAfter.pWinA.toFixed(2)}`);
+  }
   // secondary card sheet
   await page.locator('#mission-cards').scrollIntoViewIfNeeded();
   check('card sheet lists all 18 secondaries', (await page.locator('#mission-cards tr.card-row').count()) === 18);
@@ -772,6 +797,17 @@ try {
   check('tapping a card shows its rules text', /deployment zone/.test(await page.textContent('#mission-cards tr.card-detail')));
   check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
   await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
+  {
+    // position cards: the default is the real-game rate of the equivalent card, or "no data" — never a silent guess
+    const cg = await page.textContent('#mission-cards tr.card-row[data-card="centre-ground"]');
+    const bc = await page.textContent('#mission-cards tr.card-row[data-card="beacon"]');
+    check('position cards show where their default comes from (real-game rate / no data)', /Real-game rate/.test(cg) && /No data/.test(bc), `${cg} | ${bc}`);
+    await page.tap('#mission-cards button[data-action="mission-card"][data-id="centre-ground"]');
+    const det = await page.textContent('#mission-cards tr.card-detail');
+    check('card details quote the real-game numbers and their source', /Area Denial card was scored 62% \/ 64% \/ 60% \/ 60% \/ 65%/.test(det) && /18,790 recorded 10th edition games/.test(det), det.slice(0, 300));
+    await page.locator('#mission-cards tr.card-detail').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_38_card_real_rate.png') });
+  }
   // your own estimate of a card's VP if drawn (max shown), and the Assumptions buttons work
   // the VP-if-drawn number itself is the control: pick 3 for Assassination, then back to the app's
   const estPick = '#mission-cards tr.card-row[data-card="assassination"] select[data-input="mission-est-pick"]';
@@ -804,7 +840,18 @@ try {
   const asm = await page.evaluate(() => ({ mode: window.__calc.state.mission.modes.A.mode, kills: window.__calc.state.mission.killRate.A }));
   check('Assumptions buttons change the setting (Fixed, trading)', asm.mode === 'fixed' && asm.kills === 2, JSON.stringify(asm));
   await page.tap('button[data-action="mission-mode"][data-value="tactical"]');
-  await page.tap('button[data-action="mission-kills"][data-value="1.3"]');
+  {
+    // a manual rate replaces the calculator's; "Auto" brings it back
+    const manual = await page.evaluate(() => window.__calc.mission().params.players.A.killRate);
+    await page.tap('.modrow[data-side="A"] button[data-action="mission-kills"][data-value="auto"], button[data-action="mission-kills"][data-value="auto"]');
+    const auto = await page.evaluate(() => ({ kr: window.__calc.mission().params.players.A.killRate, auto: window.__calc.state.mission.killAuto.A, label: document.querySelector('button[data-action="mission-kills"][data-value="auto"]').textContent }));
+    check('units destroyed per turn: your own rate (2) replaces the calculator; Auto restores it and shows its number', manual === 2 && auto.kr === null && auto.auto === true && /Auto \d\.\d/.test(auto.label), JSON.stringify({ manual, auto }));
+    // who is the stronger player
+    await page.tap('button[data-action="mission-edge"][data-value="-0.43"]');
+    const edged = await page.evaluate(() => window.__calc.mission().params.edge);
+    await page.tap('button[data-action="mission-edge"][data-value="0"]');
+    check('"Who is the stronger player?" sets the forecast edge (Opp ++ = -0.43 for me = A)', edged === -0.43 && (await page.evaluate(() => window.__calc.mission().params.edge)) === 0, String(edged));
+  }
 
   // in-game tracker: A drew Assassination and Secure No Man's Land in round 2, scored one; primary 9
   await page.tap('button[data-action="mission-round"][data-value="2"]');
@@ -870,10 +917,13 @@ try {
   check('board plan: the Grey Hunters are measured wholly inside B\'s deployment zone', ghFacts?.inEnemyDZ === true, JSON.stringify({ ghFacts, into }));
   check('position cards say "Board plan" instead of a rating', /Board plan/.test(await page.textContent('#mission-cards tr.card-row[data-card="behind-enemy-lines"]')));
   check('plans compared side by side (grid, Main, Aggressive)', (await page.locator('#fc-compare tbody tr').count()) === 3);
+  check('a board plan with units missing says so in the comparison', /of 8 units placed/.test(await page.textContent('#fc-compare')), await page.textContent('#fc-compare'));
   const bel = mi.result[mi.me].cards['behind-enemy-lines'];
   const ghName = mi.board.rounds[1].A.find(u => /Grey Hunters/.test(u.name)).name;
-  const ghDie = [1, 2, 3, 4, 5].map(r => mi.board.pDie[r]?.A?.[ghName] ?? null);
-  console.log('  Grey Hunters in their zone: chance destroyed each round', JSON.stringify(ghDie), 'BEL', JSON.stringify(bel));
+  // what the Orks can do to the Grey Hunters from where they stand, per round (wounds they remove of the unit's total)
+  const ghThreat = [1, 2, 3, 4, 5].map(r => (mi.board.threats[r]?.B?.cur ?? []).map(a => a.opts.find(o => o.t === ghName)).filter(Boolean).reduce((t, o) => t + o.mu, 0));
+  console.log('  Grey Hunters in their zone: wounds the Orks can remove each round', JSON.stringify(ghThreat.map(v => +v.toFixed(1))), 'BEL', JSON.stringify(bel));
+  check('board plan: the forecast knows what each unit threatens from its planned position (step 0 = deployment)', !!mi.board.rounds[0] && !!mi.board.threats[1]?.A && !!mi.board.threats[1]?.B && ghThreat.some(v => v > 0), JSON.stringify(ghThreat));
   check('Behind Enemy Lines scores from the plan (while the unit survives there)', bel && bel.perDraw > 0, JSON.stringify(bel));
   await page.locator('#mission-board-note').scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, 'calc_31_mission_board_plan.png') });

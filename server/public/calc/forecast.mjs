@@ -23,7 +23,7 @@
 // score statistics. Pure module, unit-tested (tests/calc-forecast.test.mjs).
 
 import { RULES, SECONDARIES, SECONDARY_BY_ID, PRIMARIES, REAL_RATES } from './missions-11e.mjs';
-import { sideFacts } from './planeval.mjs';
+import { sideFacts, ENGAGE } from './planeval.mjs';
 
 const other = (p) => (p === 'A' ? 'B' : 'A');
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -67,6 +67,7 @@ export const MODEL = {
   firstR1: 0.5,       // share of the kill rate delivered in round 1 by the player going first...
   secondR1: 0.725,     // ...and by the player going second
   fightBack: 0.25,    // kills in the opponent's turn (fights, overwatch) as a share of your rate
+  engage: ENGAGE,     // share of an army's on-paper damage (every unit on its best target) delivered in a turn (0.3)
   holdSlope: 1.0,     // chance to hold a planned objective moves with your share of what is left
   contestSlope: 1.5,  // contested objectives go to the stronger army more often
   activeEdge: 0.1,    // you hold planned objectives more surely at the end of your own turn
@@ -541,11 +542,47 @@ function simulateGame(P, rnd) {
   };
   const snap = (r, t) => boardSnapshot(stepOf('A', r, t), stepOf('B', r, t), r) ?? gridSnapshot(r, order[t]);
 
+  // --- kills from the calculator's unit-vs-unit results (P.fracs[X][attacker][target] =
+  // share of the target's wounds that attacker removes, shooting or fighting): every
+  // surviving unit goes for the target it hurts most (card targets first), a target
+  // cannot take more than all of its wounds, and `scale` of that damage is delivered.
+  // So tough units last, a shrinking army destroys less, and nothing dies to no one.
+  const FR = P.fracs ?? null;
+  function pairKills(X, list, scale) {
+    const fr = FR?.[X];
+    if (!fr) return null;
+    const want = wanted(S[X]);
+    const taken = new Map();
+    const best = (a) => {
+      const row = fr[a.name];
+      let top = null;
+      if (!row) return null;
+      for (const d of list) {
+        const f = row[d.name] ?? 0;
+        if (f <= 0) continue;
+        const gain = Math.min(f, 1 - (taken.get(d.name) ?? 0));
+        const val = gain * (want && want(d) ? M.targetBias : 1);
+        if (gain > 0 && (!top || val > top.val)) top = { d, gain, val };
+      }
+      return top;
+    };
+    // the hardest hitters choose first
+    const order = mine(X).map(a => ({ a, f: Math.max(0, ...list.map(d => fr[a.name]?.[d.name] ?? 0)) })).filter(x => x.f > 0).sort((x, y) => y.f - x.f);
+    for (const { a } of order) { const top = best(a); if (top) taken.set(top.d.name, (taken.get(top.d.name) ?? 0) + top.gain); }
+    const out = [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const p = clamp01((taken.get(list[i].name) ?? 0) * scale);
+      if (p > 0 && rnd() < p) out.push(list.splice(i, 1)[0]);
+    }
+    return out;
+  }
+
   // --- board kills. New form (BP.threats): each surviving attacker attacks the
   // best target it reaches that is still alive; a target dies when the combined
   // damage is enough. Old form (BP.pDie): a fixed chance per target.
   const variantFor = (Y) => (Y === first ? 'cur' : 'prev'); // has the target army already moved this round?
   function boardKills(r, X, Y, list) {
+    const km = kmul[X] * (S[X].pl.killMul ?? 1);
     const th = BP?.threats?.[r]?.[X]?.[variantFor(Y)];
     const facts = new Map((stepUnits(Y, Y === first ? r : r - 1) ?? stepUnits(Y, r) ?? []).map(u => [u.name, u.f]));
     if (th) {
@@ -557,13 +594,13 @@ function simulateGame(P, rnd) {
         const o = a.opts.find(x => liveTgt.has(x.t));
         if (!o) continue;
         const s = acc.get(o.t) ?? { mu: 0, v: 0, solo: 1, n: 0, W: o.W };
-        s.mu += o.mu * kmul[X]; s.v += o.v * kmul[X] * kmul[X]; s.solo *= 1 - o.w; s.n++;
+        s.mu += o.mu * km; s.v += o.v * km * km; s.solo *= 1 - o.w; s.n++;
         acc.set(o.t, s);
       }
       const out = [];
       for (const [name, s] of acc) {
         // one attacker: its own simulated odds; several: the combined damage against the unit's wounds
-        const solo = 1 - Math.pow(s.solo, kmul[X]);
+        const solo = 1 - Math.pow(s.solo, km);
         const p = s.n === 1 ? solo : Math.max(solo, phi((s.mu - s.W + 0.5) / Math.sqrt(s.v + 0.25)));
         if (p > 0 && rnd() < p) {
           const v = list.splice(list.findIndex(u => u.name === name), 1)[0];
@@ -579,7 +616,7 @@ function simulateGame(P, rnd) {
     const out = [];
     for (let i = list.length - 1; i >= 0; i--) {
       const pr = p[list[i].name] ?? 0;
-      const adj = pr > 0 ? 1 - Math.pow(1 - pr, kmul[X]) : 0;
+      const adj = pr > 0 ? 1 - Math.pow(1 - pr, km) : 0;
       if (adj > 0 && rnd() < adj) {
         const v = list.splice(i, 1)[0];
         v.onObj = (facts.get(v.name)?.objs.length ?? 0) > 0;
@@ -605,11 +642,16 @@ function simulateGame(P, rnd) {
       }
       // --- kills this turn (by the active player; some fight-back by the other):
       // fewer as the army shrinks, more for the side that is on top this game
-      const lamX = (sx.pl.killRate ?? 1.3) * kmul[X] * roundKill(M, t === 1, r) * Math.pow(left(X), M.killGamma);
-      const lamY = M.fightBack * (sy.pl.killRate ?? 1.3) * kmul[Y] * Math.pow(left(Y), M.killGamma);
+      // (killMul: a what-if, e.g. "trade harder"; a player's own killRate replaces the calculator's)
+      const mulX = kmul[X] * (sx.pl.killMul ?? 1), mulY = kmul[Y] * (sy.pl.killMul ?? 1);
+      const rk = roundKill(M, t === 1, r);
+      const lamX = (sx.pl.killRate ?? 1.3) * mulX * rk * Math.pow(left(X), M.killGamma);
+      const lamY = M.fightBack * (sy.pl.killRate ?? 1.3) * mulY * Math.pow(left(Y), M.killGamma);
       const fromBoard = boardKills(r, X, Y, sx.enemyAlive);
-      const killsX = fromBoard ?? pickVictims(sx.enemyAlive, poisson(lamX, rnd), rnd, wanted(sx), M.targetBias);
-      const killsY = pickVictims(sy.enemyAlive, poisson(lamY, rnd), rnd, wanted(sy), M.targetBias);
+      const killsX = fromBoard ?? (sx.pl.killRate == null ? pairKills(X, sx.enemyAlive, M.engage * mulX * rk) : null)
+        ?? pickVictims(sx.enemyAlive, poisson(lamX, rnd), rnd, wanted(sx), M.targetBias);
+      const killsY = (sy.pl.killRate == null ? pairKills(Y, sy.enemyAlive, M.engage * M.fightBack * mulY) : null)
+        ?? pickVictims(sy.enemyAlive, poisson(lamY, rnd), rnd, wanted(sy), M.targetBias);
       if (!fromBoard) for (const v of killsX) v.onObj = rnd() < (P.fObj ?? 0.45);
       for (const v of killsY) v.onObj = rnd() < (P.fObj ?? 0.45);
       // --- control at the end of this turn (after the moves and the losses)
@@ -738,12 +780,14 @@ function scoreSecondaries(s, r, timing, env) {
 /**
  * P: {
  *   players: { A: { mission, mode: 'tactical'|'fixed', fixed: [ids], army: armyProfile(...),
- *                   killRate (enemy units / turn), actionP (0..1), rate: { positionCardId: 0..1 (RATING) },
+ *                   killRate (enemy units / turn; null = from P.fracs), killMul (what-if multiplier),
+ *                   actionP (0..1), rate: { positionCardId: 0..1 (RATING) },
  *                   vpEst: { cardId: the player's estimate of VP if drawn (0..max) },
  *                   battleReady, start: { hand, used, primary, secondary, destroyed: [unit names] } }, B: {...} },
  *   objectives: [{ id, cls, side }], plan: { [round]: { [objId]: 'A'|'B'|'c' } },
  *   boardPlan: { rounds: { [0..5]: { A: [{ name, f }] | null, B } },
  *                threats: { [round]: { [attackerSide]: { cur, prev: [{ a, opts: [{ t, mu, v, w, W }] }] } } } },
+ *   fracs: { A: { [attackerName]: { [targetName]: share of the target's wounds removed } }, B } (calculator),
  *   first: 'A'|'B'|null, startRound, startTurn, trials, seed, fObj,
  *   edge: A's log kill-rate edge (0 = even players), model: overrides of MODEL
  * }

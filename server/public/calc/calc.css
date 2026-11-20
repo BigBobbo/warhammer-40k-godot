@@ -326,3 +326,6 @@ ul.keep.warn li.info { color: var(--text-muted); }
 .update-banner { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 80; display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 select.est-pick { min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); padding: 0 4px; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; max-width: 92px; }
 select.est-pick.mine { border-color: var(--accent); background: var(--series-1-wash); font-weight: 600; }
+ul.basis-list { list-style: none; padding-left: 0; }
+ul.basis-list li { margin: 8px 0; line-height: 1.35; }
+ul.basis-list .pill { margin-right: 4px; }

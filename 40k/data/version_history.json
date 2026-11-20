@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.92.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: the game forecast is rebuilt so you can trust it — it knows which army is stronger and is checked against real 11th edition tournament results",
+      "changes": [
+        "The forecast now follows what is left of each army: destroyed units hold nothing and score nothing, and a shrinking army destroys less. A 2,000-point list against a much smaller one is no longer a coin flip",
+        "Units destroyed per turn come from the attack calculator for your two lists (each unit attacking its best target, tough units last longer); you can still set your own rate",
+        "Results are as wide as real games: the forecast is checked against 94,739 real 11th edition tournament scores (average 77 VP, average winning margin 30 VP)",
+        "Cards that depend on where units are now start from how often tournament players scored the equivalent card (18,790 recorded games) instead of a flat 50%, and each card shows those numbers; your own estimate still wins",
+        "New on the forecast: units left by battle round and the chance each army is wiped out, your win chance going first and going second, a \"Who is the stronger player?\" setting, and \"What this forecast is built from\" (rules, your input, the calculator, real games, assumptions)",
+        "Objectives are checked at the end of every turn (the player who just moved has the edge), cards worth less than their maximum are held for a better turn, and board plans use what each unit can attack from where it stands"
+      ]
+    },
+    {
       "version": "1.91.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: four rules corrections found in a full review against the 11th edition rules and the Event Companion",

@@ -5,24 +5,31 @@
 //
 // app.js owns the shared state and calls in through initMission().
 
-import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES } from './missions-11e.mjs';
-import { armyProfile, cardDead, POSITION_CARDS, RATING } from './forecast.mjs';
+import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
+import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
-import { unitFacts as positionFacts, exposure, planWarnings } from './planeval.mjs';
+import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 
 let ctx = null;            // { state, esc, seg, chip }
 const LS_KEY = 'w40k_calc_mission_v1';
 const other = (p) => (p === 'A' ? 'B' : 'A');
 const KILL_RATES = [[0.8, 'Low'], [1.3, 'Even'], [2, 'High']];
 const ACTION_P = [[0.9, 'Easy'], [0.7, 'OK'], [0.45, 'Hard']];
+// who is the stronger player: "+" wins about 64% of otherwise even games, "++" about 77%
+const EDGES = [[-0.43, 'Opp ++'], [-0.2, 'Opp +'], [0, 'Even'], [0.2, 'Me +'], [0.43, 'Me ++']];
 
 
 export function initMission(c) {
   ctx = c;
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
-    if (saved) Object.assign(ms(), saved);
+    if (saved) {
+      Object.assign(ms(), saved);
+      // saves from before 1.92: keep a kill rate the player chose by hand, else use the calculator's
+      if (!saved.killAuto) ms().killAuto = { A: (saved.killRate?.A ?? 1.3) === 1.3, B: (saved.killRate?.B ?? 1.3) === 1.3 };
+      if (saved.edge == null) ms().edge = 0;
+    }
   } catch { /* fresh */ }
 }
 
@@ -32,6 +39,8 @@ function ms() {
     me: 'A', first: null, battleReady: { A: true, B: true },
     modes: { A: { mode: 'tactical', fixed: [] }, B: { mode: 'tactical', fixed: [] } },
     killRate: { A: 1.3, B: 1.3 }, actionP: { A: 0.7, B: 0.7 }, rate: { A: {}, B: {} }, est: { A: {}, B: {} },
+    killAuto: { A: true, B: true },   // units destroyed per turn from the calculator (false = the manual rate above)
+    edge: 0,                 // who is the stronger player: the log kill-rate edge of "me" (0 = even)
     plans: {}, game: newGame(), sheetSide: null, cardOpen: null,
     source: 'grid',          // objectives / positions from the grid, or a board plan (its index)
     enemyFrom: 'board',      // enemy positions from the board plan, or the grid toggles
@@ -157,7 +166,12 @@ function ensurePairs() {
     for (const [k, v] of Object.entries(res)) {
       const [ad, phase] = k.split('|');
       const [atk, def] = ad.split('>');
-      ((table[atk] ??= {})[def] ??= { shoot: 0, fight: 0 })[phase === 'shooting' ? 'shoot' : 'fight'] = v.pWipe ?? 0;
+      const cell = ((table[atk] ??= {})[def] ??= { shoot: 0, fight: 0, sMu: 0, sSd: 0, fMu: 0, fSd: 0, W: 0 });
+      const sh = phase === 'shooting';
+      cell[sh ? 'shoot' : 'fight'] = v.pWipe ?? 0;        // P(destroyed by this unit alone)
+      cell[sh ? 'sMu' : 'fMu'] = v.meanWounds ?? 0;       // mean wounds removed
+      cell[sh ? 'sSd' : 'fSd'] = v.sdWounds ?? 0;
+      cell.W = v.totalWounds ?? cell.W;
     }
     ms().pairs = { sig, table };
     pairsPending = false;
@@ -166,34 +180,64 @@ function ensurePairs() {
   return false;
 }
 
-/** The forecast's board model for plan `vi`: units per round with measured facts, and exposure. */
+// units destroyed per turn, from the calculator (null until the unit-vs-unit odds are in)
+function autoKill() {
+  const m = ms(), st = ctx.state;
+  if (!m.pairs?.table || m.pairs.sig !== pairSig()) return null;
+  const keys = (X) => st.armies[X].units.map(u => `${X}:${u.key}`);
+  return { A: killPressure(keys('A'), keys('B'), m.pairs.table), B: killPressure(keys('B'), keys('A'), m.pairs.table) };
+}
+// the calculator's results as the forecast wants them: share of each target's wounds each unit removes
+function killFracs() {
+  const m = ms(), st = ctx.state;
+  if (!m.pairs?.table || m.pairs.sig !== pairSig()) return null;
+  const out = {};
+  for (const X of ['A', 'B']) {
+    const Y = other(X);
+    out[X] = {};
+    for (const a of st.armies[X].units) {
+      const row = (out[X][a.name] = {});
+      for (const d of st.armies[Y].units) {
+        const pr = m.pairs.table[`${X}:${a.key}`]?.[`${Y}:${d.key}`];
+        if (pr && pr.W > 0) row[d.name] = Math.min(1, Math.max(pr.sMu ?? 0, pr.fMu ?? 0) / pr.W);
+      }
+    }
+  }
+  return out;
+}
+function killRateOf(X) {
+  const m = ms();
+  if (m.killAuto?.[X] === false) return { rate: m.killRate[X], from: 'you' };
+  const auto = autoKill();
+  return auto ? { rate: auto[X].rate, from: 'calc', raw: auto[X].raw } : { rate: 1.3, from: 'wait' };
+}
+
+/** The forecast's board model for plan `vi`: units per step with measured facts, and what each unit threatens. */
 function boardModel(vi) {
   const m = ms(), g = geo();
   const plan = boardPlans()[vi];
   if (!g || !plan) return null;
   const steps = plan.steps;
-  const rounds = {}, pDie = {};
+  const rounds = {}, threats = {};
+  // step 0 = deployment, step r = positions after that army's move in battle round r (the last step carries on)
   const stepFor = (r) => steps[Math.min(r, steps.length - 1)];
-  for (let r = 1; r <= RULES.rounds; r++) {
+  const used = (st, X) => st[X].length && (X === m.me || m.enemyFrom === 'board');
+  for (let r = 0; r <= RULES.rounds; r++) {
     const st = stepFor(r);
     rounds[r] = {};
+    for (const X of ['A', 'B']) rounds[r][X] = used(st, X) ? st[X].map(u => ({ name: u.name, f: positionFacts(u, X, g) })) : null;
+    if (r === 0 || !m.pairs?.table) continue;
+    threats[r] = {};
     for (const X of ['A', 'B']) {
-      const use = st[X].length && (X === m.me || m.enemyFrom === 'board');
-      rounds[r][X] = use ? st[X].map(u => ({ name: u.name, f: positionFacts(u, X, g) })) : null;
-    }
-    pDie[r] = {};
-    if (m.pairs?.table) {
-      for (const X of ['A', 'B']) {
-        const Y = other(X);
-        if (!rounds[r][X] || !rounds[r][Y]) continue;
-        // planned positions are where units are after moving: no extra move
-        const atk = st[Y].map(u => ({ ...u, move: 0 }));
-        const e = exposure(st[X], atk, m.pairs.table);
-        pDie[r][X] = Object.fromEntries(st[X].map(u => [u.name, e[u.key] ?? 0]));
-      }
+      const Y = other(X);
+      const prevSt = stepFor(r - 1);
+      if (!used(st, X) || !used(st, Y)) continue;
+      // X attacks in round r from its round-r positions; the targets have already moved this
+      // round (cur: they went first) or are still where round r - 1 left them (prev)
+      threats[r][X] = { cur: threatOptions(st[X], st[Y], m.pairs.table), prev: used(prevSt, Y) ? threatOptions(st[X], prevSt[Y], m.pairs.table) : threatOptions(st[X], st[Y], m.pairs.table) };
     }
   }
-  return { rounds, pDie, warnings: planWarnings(steps, g), stepsPlanned: steps.length, name: plan.name };
+  return { rounds, threats, warnings: planWarnings(steps, g), stepsPlanned: steps.length, name: plan.name };
 }
 function sourcePlan() {
   const m = ms();
@@ -218,9 +262,11 @@ export function forecastParams(over = {}) {
   const g = m.game;
   const live = inProgress();
   const first = m.first ?? (live ? 'A' : null);
+  const fracs = killFracs();
   const player = (X) => ({
     mission: bc.missions[X], mode: m.modes[X].mode, fixed: m.modes[X].fixed,
-    army: (X === 'A' ? pa : pb).profile, killRate: over.killRate?.[X] ?? m.killRate[X], actionP: m.actionP[X],
+    // units destroyed: the player's own rate, else from the calculator (null = use fracs below)
+    army: (X === 'A' ? pa : pb).profile, killRate: m.killAuto?.[X] === false ? m.killRate[X] : (fracs ? null : 1.3), killMul: over.killMul?.[X] ?? 1, actionP: m.actionP[X],
     rate: m.rate[X], vpEst: m.est?.[X] ?? {}, battleReady: m.battleReady[X],
     start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[other(X)].destroyed } : null,
   });
@@ -230,8 +276,10 @@ export function forecastParams(over = {}) {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
     plan: over.plan ?? plan(), first,
-    boardPlan: vi == null ? null : boardModel(vi),
+    boardPlan: vi == null ? null : boardModel(vi), fracs,
     startRound: live ? g.round : 1, startTurn: live && first ? (next === first ? 0 : 1) : 0,
+    // who is the stronger player (0 = even): the forecast's edge is A's
+    edge: (m.me === 'A' ? 1 : -1) * (m.edge ?? 0),
     trials: over.trials ?? 4000, seed: 20261116,
   };
 }
@@ -265,19 +313,21 @@ function leverParams() {
     if (o) lose[r][o.id] = opp;
   }
   out.push({ key: 'lose', label: 'Lose one objective you planned to hold', over: { plan: lose } });
-  out.push({ key: 'kill', label: 'Trade harder: kill 50% more', over: { killRate: { [me]: m.killRate[me] * 1.5, [opp]: m.killRate[opp] } } });
-  out.push({ key: 'safe', label: 'Play safer: lose 30% fewer units', over: { killRate: { [me]: m.killRate[me], [opp]: m.killRate[opp] * 0.7 } } });
+  out.push({ key: 'kill', label: 'Trade harder: kill 50% more', over: { killMul: { [me]: 1.5 } } });
+  out.push({ key: 'safe', label: 'Play safer: lose 30% fewer units', over: { killMul: { [opp]: 0.7 } } });
   return out.map(l => ({ key: l.key, label: l.label, P: forecastParams({ ...l.over, trials: 1500 }) }));
 }
 
 let worker = null, reqId = 0, timer = null;
+let planNotes = {};   // plan key -> "3 of 8 units placed" for board plans that miss part of my army
 export function scheduleForecast() {
   clearTimeout(timer);
   ms().busy = true;
   timer = setTimeout(runForecast, 150);
 }
 function runForecast() {
-  if (boardPlans().length) ensurePairs();
+  // unit-vs-unit odds from the calculator: kill rates, and what each unit threatens on a board plan
+  if (ctx.state.armies.A && ctx.state.armies.B) ensurePairs();
   const P = forecastParams();
   const m = ms();
   reqId++;
@@ -299,9 +349,13 @@ function runForecast() {
     };
   }
   m.busy = true;
+  // a board plan only knows the units placed on it: say so when part of my army is missing
+  const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
+  const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
   const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
-    ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
-  worker.postMessage({ id: reqId, forecast: { base: P, variants: [...leverParams(), ...compare.map(c => ({ ...c, compare: true }))] } });
+    ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, note: placed(p) < nMine ? `${placed(p)} of ${nMine} units placed` : '', P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
+  planNotes = Object.fromEntries(compare.map(c => [c.key, c.note ?? '']));
+  worker.postMessage({ id: reqId, forecast: { base: P, variants: [...leverParams(), ...compare.map(({ note, ...c }) => ({ ...c, compare: true }))] } });
 }
 
 function refresh() {
@@ -330,9 +384,10 @@ export function missionView() {
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
         <div><div class="lab tiny muted">First turn</div>${ctx.seg('mission-first', m.first ?? 'roll', [['A', 'A'], ['B', 'B'], ['roll', 'Roll-off']], 'compact')}</div>
       </div>
-      <details class="more" style="margin-top:8px" data-details="mission-assume" ${m.openAssume ? 'open' : ''}><summary>Assumptions (modes, trading, actions)</summary>
+      <details class="more" style="margin-top:8px" data-details="mission-assume" ${m.openAssume ? 'open' : ''}><summary>Assumptions (modes, trading, actions, skill)</summary>
         ${modeRow('A')}${modeRow('B')}
-        ${['A', 'B'].map(X => `<div class="modrow"><div class="lab">${X}: units destroyed per turn</div>${ctx.seg('mission-kills', m.killRate[X], KILL_RATES, `compact" data-side="${X}`)}</div>`).join('')}
+        ${['A', 'B'].map(X => { const k = killRateOf(X); return `<div class="modrow"><div class="lab">${X}: units destroyed per turn${k.from === 'calc' ? ' — Auto is from the calculator' : ''}</div>${ctx.seg('mission-kills', m.killAuto?.[X] === false ? m.killRate[X] : 'auto', [['auto', k.from === 'calc' ? `Auto ${fmt(k.rate, 1)}` : 'Auto'], ...KILL_RATES], `compact" data-side="${X}`)}</div>`; }).join('')}
+        <div class="modrow"><div class="lab">Who is the stronger player? (+ slightly, ++ clearly)</div>${ctx.seg('mission-edge', m.edge ?? 0, EDGES, 'compact')}</div>
         ${['A', 'B'].map(X => `<div class="modrow"><div class="lab">${X}: mission actions (Cleanse, Plunder, ${esc(PRIMARIES[bc.missions[X]]?.action ? bc.missions[X] : 'primary actions')})</div>${ctx.seg('mission-action', m.actionP[X], ACTION_P, `compact" data-side="${X}`)}</div>`).join('')}
         <div class="chips" style="margin-top:6px">${['A', 'B'].map(X => ctx.chip('mission-ready', m.battleReady[X], `${X} Battle Ready (+10)`, `data-side="${X}"`)).join('')}</div>
       </details>
@@ -377,6 +432,7 @@ function forecastHtml() {
     </div>
     <div class="small" style="margin-top:6px" id="fc-verdict">${verdict(pWin, pLose, margin)}</div>
     <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
+    ${battleHtml(r, me)}
     <div class="lab tiny muted" style="margin-top:8px">Chance you are ahead after each battle round</div>
     <div class="hero lead" id="fc-lead" style="grid-template-columns:repeat(5,1fr)">${leadRow}</div>
     <table class="dist" style="margin-top:8px"><thead><tr><th>VP by round</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th>${hasEnd ? '<th>End</th>' : ''}<th>Total</th></tr></thead><tbody>${roundRows}</tbody></table>
@@ -384,25 +440,69 @@ function forecastHtml() {
     ${levers ? `<div class="lab tiny muted" style="margin-top:10px">What changes the result</div>
       <table class="dist" id="fc-levers"><thead><tr><th>If you…</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>${levers}</tbody></table>` : ''}
     ${compareHtml(me, opp)}
-    <p class="hint">A planning model: objectives and positions come from your plan (grid or board), kills from the trading rates or the planned positions, and cards that depend on positions from your ratings when no board plan is used. Card VP and the 45 / 15-per-round caps are exact.</p>`;
+    ${basisHtml()}`;
+}
+
+// how the simulated battles go: units left, wipe-outs, first / second turn
+function battleHtml(r, me) {
+  const m = ms(), opp = other(me);
+  const total = (X) => profileOf(X)?.profile.count ?? 0;
+  const leftRow = (X, lab) => `<tr><td><span class="swatch" style="background:var(--side-${X.toLowerCase()})"></span>${lab}</td>${r[X].unitsLeft.map(v => `<td>${fmt(v, 1)}</td>`).join('')}<td>${pct(r[X].pTabled)}</td></tr>`;
+  const ft = r.firstTurn;
+  const mine = (p) => (p == null ? null : me === 'A' ? p : 1 - p);
+  const pFirst = mine(me === 'A' ? ft?.pWinAFirst : ft?.pWinASecond), pSecond = mine(me === 'A' ? ft?.pWinASecond : ft?.pWinAFirst);
+  const live = inProgress();
+  return `<div class="lab tiny muted" style="margin-top:8px">Units left at the end of each battle round (you start with ${total(me)}, they with ${total(opp)})</div>
+    <table class="dist" id="fc-units"><thead><tr><th></th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>R5</th><th>Wiped out</th></tr></thead><tbody>${leftRow(me, 'You')}${leftRow(opp, 'Opp')}</tbody></table>
+    ${m.first == null && !live && pFirst != null && pSecond != null ? `<div class="small" style="margin-top:6px" id="fc-first">First turn is a roll-off after deployment: you win <b>${pct(pFirst)}</b> going first, <b>${pct(pSecond)}</b> going second.</div>` : ''}`;
+}
+
+// where every part of the forecast comes from: rules, your input, the calculator, or an assumption
+function basisHtml() {
+  const m = ms(), me = m.me, opp = other(me), esc = ctx.esc;
+  const vi = sourcePlan();
+  const plans = boardPlans();
+  const kr = { [me]: killRateOf(me), [opp]: killRateOf(opp) };
+  const killLine = (X, lab) => {
+    const k = kr[X];
+    return k.from === 'calc' ? `${lab} <b>${fmt(k.rate, 1)}</b> units a turn (calculator: ${fmt(k.raw, 1)} with everything in reach × ${ENGAGE} delivered in a typical turn)`
+      : k.from === 'you' ? `${lab} <b>${fmt(k.rate, 1)}</b> units a turn (your setting)` : `${lab} 1.3 units a turn until the calculator has run`;
+  };
+  const nEst = Object.keys(m.est?.[me] ?? {}).length;
+  const noData = POSITION_CARDS.filter(id => !REAL_RATES[id]).map(id => SECONDARY_BY_ID[id].name);
+  const row = (kind, title, text) => `<li class="basis ${kind}"><span class="pill ${kind === 'rule' ? 'good' : kind === 'you' ? 'mine' : kind === 'calc' ? '' : 'ask'}">${kind === 'rule' ? 'Rules' : kind === 'you' ? 'Your input' : kind === 'calc' ? 'Calculator' : kind === 'data' ? 'Real games' : 'Assumption'}</span> <b>${title}</b> — ${text}</li>`;
+  return `<details class="more" style="margin-top:8px" data-details="mission-basis" ${m.openBasis ? 'open' : ''} id="fc-basis"><summary>What this forecast is built from</summary>
+    <ul class="keep basis-list">
+      ${row('rule', 'Scoring', 'card VP and timing, the deck (draw two a turn, cards stay until scored), the 15 VP per round and 45 VP limits, end-of-battle VP, Battle Ready. Exact.')}
+      ${row('you', 'Objectives', vi != null ? `measured from your board plan “${esc(plans[vi]?.name ?? '')}”: the units you placed hold what they are in range of, at the end of every turn.` : 'your objective grid below. A planned objective is not certain: you lose it now and then, more often when your army is the weaker one.')}
+      ${row(kr[me].from === 'you' && kr[opp].from === 'you' ? 'you' : 'calc', 'Units destroyed', `${killLine(me, 'you destroy')}; ${killLine(opp, 'they destroy')}. ${vi != null && m.enemyFrom === 'board' ? 'With both armies on the board plan, each unit attacks the best target it reaches from where you put it (range and charge reach; line of sight is not checked).' : 'An army destroys less as it shrinks, and a destroyed unit holds nothing.'}`)}
+      ${row('data', 'Cards that depend on where units are', `${nEst ? `${nEst} use your own estimate; the others` : 'they'} use how often tournament players scored the equivalent 10th edition card (${esc(REAL_RATES_SOURCE)}), × ${MODEL.cardPlay} because 11th edition cards are kept until scored. No such data for ${esc(noData.join(', '))}: ${Math.round(50 * MODEL.cardPlay)}%. Set your own value on any card.`)}
+      ${row('assume', 'How the battle goes', `in every simulated game one side gets on top and that compounds. Set so that the scores match 94,739 real 11th edition tournament results: average 77 VP, average winning margin 30 VP, 13% of scores under 50. ${(m.edge ?? 0) === 0 ? 'Both players are taken as equally good (change it under Assumptions).' : `You set ${m.edge > 0 ? 'yourself' : 'your opponent'} as the stronger player.`}`)}
+      ${row('assume', 'Not in the forecast', 'stratagems and command points, army rules that change scoring, and how well each unit does a mission action (one chance for all: Assumptions).')}
+    </ul></details>`;
 }
 
 function compareHtml(me, opp) {
   const m = ms(), esc = ctx.esc;
   const rows = (m.compare ?? []).filter(c => c.result);
   if (rows.length < 2) return '';
-  const best = Math.max(...rows.map(c => (me === 'A' ? c.result.pWinA : c.result.pWinB)));
+  const win = (c) => (me === 'A' ? c.result.pWinA : c.result.pWinB);
+  // the best complete plan gets the star: a plan with units missing is not comparable
+  const complete = rows.filter(c => !planNotes[c.key]);
+  const best = Math.max(...(complete.length ? complete : rows).map(win));
   return `<div class="lab tiny muted" style="margin-top:10px">Your plans compared</div>
     <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
-    ${rows.map(c => { const w = me === 'A' ? c.result.pWinA : c.result.pWinB; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${w === best ? ' ★' : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
+    ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
     </tbody></table>`;
 }
 
 function verdict(pWin, pLose, margin) {
-  const m = margin.p50;
-  if (pWin >= 0.65) return `<b>You're favoured</b> (typical margin ${m >= 0 ? '+' : ''}${m} VP): trade safely, deny their outs, don't over-commit.`;
-  if (pLose >= 0.65) return `<b>You're behind</b> (typical margin ${m} VP): you need more objectives or kills — see what changes the result.`;
-  return `<b>Close game</b> (typical margin ${m >= 0 ? '+' : ''}${m} VP): small swings decide it.`;
+  const m = margin.p50, sg = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}`;
+  // real games are rarely close on the scoreboard: say how wide the result can be
+  const span = `8 games in 10 end between ${sg(margin.p10)} and ${sg(margin.p90)} VP for you`;
+  if (pWin >= 0.65) return `<b>You're favoured</b> (typical margin ${sg(m)} VP; ${span}): trade safely, deny their outs, don't over-commit.`;
+  if (pLose >= 0.65) return `<b>You're behind</b> (typical margin ${sg(m)} VP; ${span}): you need more objectives or kills — see what changes the result.`;
+  return `<b>Even game</b>: it is decided on the table (${span}).`;
 }
 
 // Range chart: each player's final VP, 10th–90th percentile bar with the median dot.
@@ -442,7 +542,7 @@ function sourceHtml() {
     }).filter(Boolean);
     extra = `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Enemy (${other(m.me)}) positions</div>
         ${ctx.seg('mission-enemy-from', m.enemyFrom, [['board', 'From the board plan'], ['toggles', 'From the grid below']], 'compact')}</div>
-      <div class="tiny muted" id="mission-board-note">Measured on the board plan <b>${esc(bm?.name ?? '')}</b>: who controls each objective (OC of units in range), Behind Enemy Lines, quarters, edges, centre and No Man's Land, and how exposed each unit is to the enemy's planned units. Steps map to battle rounds (Turn 1 = round 1; the last step carries on).${bm && bm.stepsPlanned < 2 ? ' <b>Only the deployment is planned</b> — add turns on the Board tab.' : ''}${m.pairs?.table ? '' : ' Working out unit-vs-unit odds…'}</div>
+      <div class="tiny muted" id="mission-board-note">Measured on the board plan <b>${esc(bm?.name ?? '')}</b>: who controls each objective (OC of units in range), Behind Enemy Lines, quarters, edges, centre and No Man's Land, and what each unit can attack from where it stands (range and charge reach; several units on one target add up). Steps map to battle rounds (Turn 1 = round 1; the last step carries on).${bm && bm.stepsPlanned < 2 ? ' <b>Only the deployment is planned</b> — add turns on the Board tab.' : ''}${m.pairs?.table ? '' : ' Working out unit-vs-unit odds…'}</div>
       ${missing.length ? `<div class="small" style="color:var(--warn);margin-top:4px" id="mission-plan-missing">Only units placed on the board count (${missing.join(' · ')}) — place the rest on the Board tab or they hold nothing and score nothing.</div>` : ''}
       ${warn.length ? `<ul class="keep warn" id="mission-plan-warnings">${warn.slice(0, 8).map(w => `<li${w.info ? ' class="info"' : ''}>${esc(w.step)} · ${w.side} ${esc(w.unit)}: ${esc(w.msg)}</li>`).join('')}</ul>` : ''}`;
   }
@@ -499,12 +599,16 @@ function cardsHtml() {
     const open = m.cardOpen === `${side}:${c.id}`;
     // strong = pays well AND usually scores straight away; hard = slow or low
     const position = POSITION_CARDS.includes(c.id);
+    const onBoard = sourcePlan() != null && (side === m.me || m.enemyFrom === 'board');
+    const real = REAL_RATES[c.id];
     const tag = dead ? '<span class="pill bad">Dead</span>'
-      // where-your-units-are cards: never guessed, the player rates them
+      // where-your-units-are cards: your estimate, the board plan, or the real-game rate — never a silent guess
       : est[c.id] != null && !fixedMode ? '<span class="pill mine">Your estimate</span>'
-      : position && sourcePlan() != null && (side === m.me || m.enemyFrom === 'board') ? '<span class="pill good">Board plan</span>'
-      : position ? '<span class="pill ask">You rate it</span>'
-      : perDraw == null ? '' : perDraw >= 3.5 && quick >= 0.6 ? '<span class="pill good">Strong</span>' : perDraw >= 2.5 && quick >= 0.35 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
+      : position && onBoard ? '<span class="pill good">Board plan</span>'
+      : position ? `<span class="pill ask">${real ? 'Real-game rate' : 'No data'}</span>`
+      : perDraw == null ? '' : perDraw >= 4 ? '<span class="pill good">Strong</span>' : perDraw >= 3 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
+    const pcts = (by) => by.map(v => (v == null ? '–' : `${Math.round(v * 100)}%`)).join(' / ');
+    const realLine = real ? `<div class="tiny muted" style="margin-top:4px">Real games: the 10th edition ${esc(real.like)} card was scored ${pcts(real.by)} of the times it was drawn in rounds 1 to 5 (${esc(REAL_RATES_SOURCE)}). No 11th edition card statistics are published yet.</div>` : '';
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''}</td>
       <td>${tag}</td><td>${dead ? '–' : fixedMode ? (perDraw == null ? '…' : fmt(perDraw, 1)) : estPickHtml(c, side, est[c.id], perDraw)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
       ${open ? `<tr class="card-detail"><td colspan="5"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
@@ -512,8 +616,8 @@ function cardsHtml() {
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
           : `<div class="tiny muted" style="margin-top:4px">${est[c.id] != null ? 'Using your estimate.'
               : c.kind === 'kill' ? 'App estimate: from units destroyed in the forecast and which enemy units are valid targets.'
-              : position ? (sourcePlan() != null && (side === m.me || m.enemyFrom === 'board') ? 'App estimate: measured from the board plan.' : 'Depends on where units are, which is not measured here: the app assumes it scores about half the turns it is active. Set your own estimate.')
-              : 'App estimate: from the objective plan.'}</div>
+              : position ? (onBoard ? 'App estimate: measured from the board plan.' : real ? `Depends on where units are, which the grid does not show: the app uses the real-game rate below × ${MODEL.cardPlay} (11th edition cards are kept until scored). Set your own estimate if you know better.` : `Depends on where units are, which the grid does not show, and no real-game data exists for this card: the app assumes ${Math.round(50 * MODEL.cardPlay)}% a turn. Set your own estimate.`)
+              : onBoard ? 'App estimate: from the objectives your units hold on the board plan.' : 'App estimate: from your objective plan; when the plan does not give it, you play for the card at the real-game rate.'}</div>${realLine}
             ${fixedMode ? '<div class="tiny muted">Taken as Fixed: your estimate applies to Tactical play only.</div>' : estimateHtml(c, side, est[c.id], perDraw)}`}</td></tr>` : ''}`;
   };
   // keep-ready: my best live non-kill cards by expected VP over the game
@@ -620,7 +724,12 @@ export function missionAction(action, el) {
       if (f.includes(id)) f.splice(f.indexOf(id), 1); else { f.push(id); if (f.length > 2) f.shift(); }
       break;
     }
-    case 'mission-kills': m.killRate[X] = Number(el.dataset.value); break;
+    case 'mission-kills':
+      m.killAuto ??= { A: true, B: true };
+      if (el.dataset.value === 'auto') m.killAuto[X] = true;
+      else { m.killAuto[X] = false; m.killRate[X] = Number(el.dataset.value); }
+      break;
+    case 'mission-edge': m.edge = Number(el.dataset.value); break;
     case 'mission-action': m.actionP[X] = Number(el.dataset.value); break;
     case 'mission-ready': m.battleReady[X] = !m.battleReady[X]; break;
     case 'mission-plan': {
@@ -708,5 +817,5 @@ export function missionAfterRender() {
 // for tests
 export function _missionDebug() {
   const m = ms();
-  return { me: m.me, result: m.result, levers: m.levers, compare: m.compare, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, source: m.source, pairsReady: !!m.pairs?.table, board: sourcePlan() != null ? boardModel(sourcePlan()) : null, params: forecastParams({ trials: 10 }) };
+  return { me: m.me, result: m.result, levers: m.levers, compare: m.compare, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, source: m.source, pairsReady: !!m.pairs?.table && m.pairs.sig === pairSig(), kill: autoKill(), killRate: { A: killRateOf('A'), B: killRateOf('B') }, board: sourcePlan() != null ? boardModel(sourcePlan()) : null, params: forecastParams({ trials: 10 }) };
 }

@@ -98,7 +98,7 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 
 - [x] **1. Rule fixes** (v1.91.0) — end-of-battle VP exempt from the round cap; reserves
       8"; Plunging Fire chip; discard = +1CP wording.
-- [ ] **2. Forecast you can trust** — attrition matters (dead units hold
+- [x] **2. Forecast you can trust** (v1.92.0; MODEL in forecast.mjs, tests/calc-calibration.test.mjs) — attrition matters (dead units hold
       nothing, a weaker army holds and kills less); a per-game "how the battle
       goes" swing so margins match real games; kill rates from the calculator
       (matchup-aware) instead of a flat default; real-game card rates (10e
@@ -119,3 +119,21 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 Ideas noted but not planned: exposure heat map; terrain set-up measurements;
 coherency / legality inspector; sync by code between devices; post-game
 calibration from the user's own logged games; player-edge (skill) setting.
+
+## Stage 2 notes (forecast model, v1.92.0)
+
+- `forecast.mjs` `MODEL` holds every assumption. Calibrated on a FIELD of
+  matchups (edge ~ N(0, 0.43), in-game swing SD 0.36): mean 77.3 (real 77.0),
+  SD 20.4 (21.1), P10/50/90 46/82/100 (45/83/100), |margin| 29.8 (29.8), first
+  player 51.1% +2.7 (51.2% +2.7), favourite wins 75% (pre-game rating: 69%).
+  A single even matchup is narrower (mean ~83, SD ~15, |margin| ~21).
+- Control is sampled at the end of every player turn (active player has the
+  edge); Command-phase VP use the previous turn's snapshot (round 5: own turn).
+- Kills: `P.fracs` (calculator, each unit on its best target, x MODEL.engage 0.3)
+  when `killRate == null`; manual rate -> Poisson x left^killGamma; board plan
+  with both armies -> `boardPlan.threats` (combined damage, normal approx).
+- Position cards: estimate > board plan > own rating > REAL_RATES x cardPlay
+  (1.4) > 50% x 1.4. Hold cards: plan, else "play for the card" at the real rate.
+- Score-or-hold: partial payouts are held until round 4 (MODEL.holdUntil).
+- Known limits: line of sight is not used in kill estimates; stratagems / CP
+  are not modelled; a board plan only knows the units placed on it.

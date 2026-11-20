@@ -93,7 +93,7 @@ export const SECONDARY_BY_ID = Object.fromEntries(SECONDARIES.map(c => [c.id, c]
 // and uses them only as the default for cards that depend on where units are.
 // Cards without an equivalent (Beacon, Outflank, Burden of Trust, Display of
 // Might, Plunder, A Grievous Blow) are absent.
-export const REAL_RATES_SOURCE = '18,790 recorded 10th edition games (Tabletop Battles, 2023)';
+export const REAL_RATES_SOURCE = '18,790 recorded 10th edition games, Tabletop Battles 2023';
 export const REAL_RATES = {
   'secure-no-mans-land': { like: 'Secure No Man’s Land', by: [0.82, 0.87, 0.84, 0.79, 0.78] },
   'no-prisoners': { like: 'No Prisoners', by: [0.53, 0.83, 0.81, 0.77, 0.64] },
