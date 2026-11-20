@@ -7129,6 +7129,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		assignments = _assign_units_to_objectives(
 			snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
 		)
+		_last_plan_evaluations = obj_evaluations
 		# FORECAST-PLAN: compare close-call alternatives by forecast final margin
 		assignments = _forecast_refine_plan(snapshot, assignments, obj_evaluations, player, battle_round)
 		var prior_replans = int(stored_plan.get("replans", -1))
@@ -23171,6 +23172,9 @@ static func _forecast_margin_of(P: Dictionary, player: int) -> float:
 	return float(r.mean[player]) - float(r.mean[_AIForecast.other(player)])
 
 static var _forecast_horizon_cache: Dictionary = {}
+# The objective evaluations the last movement plan was built from (read by
+# tests/forecast_prefilter.gd to price alternatives offline).
+static var _last_plan_evaluations: Array = []
 
 static func _forecast_objective_swings(snapshot: Dictionary, evaluations: Array, player: int, battle_round: int) -> Dictionary:
 	"""FORECAST-HORIZON: obj_id -> final-margin swing (mine from now on vs
