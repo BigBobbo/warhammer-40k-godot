@@ -425,6 +425,12 @@ the same prediction) stays off and is not worth benchmark time.
 | Secondaries (1 CP = 1.5 VP) | `forecast_secondaries_on` | −2.1 | −3.3 | +2.1 | −1.3 [−4.3, 1.7], 22 pairs | off |
 | Secondaries (cheap CP) | `forecast_secondaries_cheapcp` | +0.15 | −2.6 | — | −0.9 [−4.5, 2.7], 16 pairs | off |
 | Horizon 0.6 + survival | `forecast_horizon_survival` | −0.75 [−7.3, 5.8] | −2.6 [−11.5, 6.4] | — | −1.4, 16 pairs | off |
+| Tempo (calibrated margin, B 1.5, seat 9.4) | `forecast_tempo_on` | +1.95 [−0.35, 4.25] | +3.0 [−0.25, 6.25] | −4.55 (10 pairs, sd 13) | −0.27, 30 pairs | off |
+
+Tempo helped both fast fixtures (most Custodes pairs played identically; the
+rest all favoured it) but lost the Ork mirror, where the plan is decided more
+by melee trades than by how aggressive the AI is. Re-test it per faction if
+the forecast ever models positions.
 
 The secondaries arm swapped cards a third as often as the rule-based baseline
 and scored ~1.2 fewer secondary VP per game: the forecast prices a fresh draw
