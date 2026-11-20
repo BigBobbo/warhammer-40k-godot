@@ -1538,6 +1538,140 @@ try {
     custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
     !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
 
+  // --- board and mission rules (1.101): control per model, Hidden, coherency, reserves, territory, Move bonus
+  {
+    const bctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const bp = await bctx.newPage();
+    bp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board rules: ${m.text()}`); });
+    bp.on('pageerror', e => consoleErrors.push(`board rules: ${e}`));
+    await bp.goto(`${BASE}/calc/`);
+    await bp.waitForSelector('textarea[data-side="A"]');
+    await bp.fill('textarea[data-side="A"]', SW_LIST); await bp.tap('button[data-action="parse"][data-side="A"]');
+    await bp.fill('textarea[data-side="B"]', ORK_LIST); await bp.tap('button[data-action="parse"][data-side="B"]');
+    await bp.tap('button[data-action="view"][data-value="board"]');
+    await bp.waitForSelector('#board-svg');
+    const bTokens = () => bp.evaluate(() => window.__calc.board().tokens);
+    const bScreen = (x, y) => bp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const bPlace = (tk, x, y) => bp.evaluate(([t, px, py]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[t], { x: px, y: py, rot: 0 }); }, [tk, x, y]);
+    const bSelect = async (tk) => {
+      await bp.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+      const e = await bScreen(43.5, 59.5); await bp.mouse.click(e.x, e.y);        // clear the selection (and redraw)
+      const t = (await bTokens()).find(x => x.tk === tk); const q = await bScreen(t.x, t.y); await bp.mouse.click(q.x, q.y);
+    };
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const gh = (await bTokens()).find(t => t.tk.startsWith('A:'));
+    // 14.02: the OC of the models within range. Find a spot where only part of the ten Grey Hunters reach an objective
+    const spot = await bp.evaluate(async (tk) => {
+      const E = await import('/calc/planeval.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      for (const o of l.objectives) for (let dy = 2; dy <= 9; dy += 0.25) for (const sx of [0, 1.5, -1.5]) {
+        const cand = { x: o.x + sx, y: o.y - dy, models: u.models };
+        if (cand.y < 2 || cand.y > 58) continue;
+        const total = u.models.reduce((a, m) => a + m.oc, 0);
+        const oc = E.ocInRange({ ...cand, oc: total }, o, l.pieces);
+        const others = l.objectives.filter(z => z.id !== o.id).some(z => E.inRange(cand, z, l.pieces));
+        if (oc > 0 && oc < total && !others) return { o: o.id, x: cand.x, y: cand.y, oc, total, each: u.models[0].oc };
+      }
+      return null;
+    }, gh.tk);
+    check('found a spot where only some of the Grey Hunters are in range of an objective', !!spot, JSON.stringify(spot));
+    await bPlace(gh.tk, spot.x, spot.y);
+    await bSelect(gh.tk);
+    const ctl = await bp.evaluate((id) => { const g = document.querySelector(`#board-svg [data-obj="${id}"]`); return g ? { a: Number(g.dataset.oca), b: Number(g.dataset.ocb), ctl: g.dataset.control, text: g.textContent.trim() } : null; }, spot.o);
+    check(`objective control counts the models in range: ${spot.oc} (${spot.oc / spot.each} models x OC ${spot.each}), not the whole unit's ${spot.total}`, ctl && ctl.a === spot.oc && ctl.a < spot.total && ctl.ctl === 'A' && ctl.text === `A ${spot.oc} · B 0`, JSON.stringify({ ctl, spot }));
+    await bp.screenshot({ path: join(SHOTS, 'calc_63_board_oc_models.png') });
+    // 03.03 coherency: the starting formation is legal; ten in one line is not, and the board says so
+    check('the starting formation is in coherency (no warning)', (await bp.locator('#board-coherency').count()) === 0);
+    await bp.locator('#board-panel button[data-action="board-formation"]', { hasText: 'Line' }).tap();
+    await bp.waitForSelector('#board-coherency');
+    check('ten models in one line: "Not in coherency" with the distance', /Not in coherency: two models are \d+\.\d" apart \(every model must be within 9" of every other\)/.test(await bp.textContent('#board-coherency')), await bp.textContent('#board-coherency'));
+    await bp.locator('#board-panel').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_64_board_coherency.png') });
+    await bp.locator('#board-panel button[data-action="board-formation"][data-value="5"]').tap();
+    check('back to rows of five: in coherency again', (await bp.locator('#board-coherency').count()) === 0);
+    // 13.09 (errata): infantry in an area with a LIGHT feature can be Hidden - the threat list says who can still shoot it
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    const sc1 = (await bTokens()).find(t => t.tk.startsWith('A:') && t.tk !== gh.tk);
+    const hide = await bp.evaluate(async (tk) => {
+      const S = await import('/calc/sight.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      const groups = S.areaGroups(l.pieces);
+      const lightOnly = new Set(l.pieces.filter(p => p.cls === 'feature' && p.cat === 'light').map(p => groups.get(p.id)));
+      const dense = new Set(l.pieces.filter(p => p.cls === 'feature' && p.cat === 'dense').map(p => groups.get(p.id)));
+      let any = null;
+      for (const a of l.pieces.filter(p => p.cls === 'area')) {
+        const cx = a.poly.reduce((s, q) => s + q[0], 0) / a.poly.length, cy = a.poly.reduce((s, q) => s + q[1], 0) / a.poly.length;
+        for (const per of [5, 3, 2, 1]) {
+          const B = await import('/calc/board.mjs');
+          const members = [{ count: u.models.length, fp: u.models[0].fp }];
+          const cand = { x: cx, y: cy, keywords: u.keywords, models: B.coherentFormation(members, { perRow: per, keepRows: true }) };
+          if (!S.canHide(cand, l.pieces)) continue;
+          const g = groups.get(a.id);
+          const res = { x: cx, y: cy, per, light: lightOnly.has(g) && !dense.has(g) };
+          if (res.light) return res;
+          any ??= res;
+        }
+      }
+      return any;
+    }, sc1.tk);
+    check('found a terrain area where the Scouts can be Hidden', !!hide, JSON.stringify(hide));
+    await bPlace(sc1.tk, hide.x, hide.y);
+    await bp.evaluate(([t, per]) => { const p = window.__calc.board().plan; p.steps[p.cur].tokens[t].per = per; }, [sc1.tk, hide.per]);
+    await bp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Flash Gitz' }).tap();
+    const gitz = (await bTokens()).find(t => t.tk.startsWith('B:'));
+    // the Flash Gitz stand 30" away: in range after a move, but not within 15"
+    const far = { x: Math.max(4, Math.min(40, hide.x)), y: hide.y > 30 ? hide.y - 30 : hide.y + 30 };
+    await bPlace(gitz.tk, far.x, far.y);
+    await bSelect(sc1.tk);
+    await bp.waitForSelector('#board-threats');
+    const thr = await bp.evaluate(() => { const el = document.getElementById('board-threats'); return { hide: el.dataset.hide, text: el.textContent.replace(/\s+/g, ' ').trim() }; });
+    check(`Hidden${hide.light ? ' in LIGHT terrain' : ''}: the board says the unit can be Hidden here and that the Flash Gitz cannot shoot it while it is`, thr.hide === '1' && /Can be Hidden here/.test(thr.text) && /only models within 15" can see it \(13\.09\)/.test(thr.text) && (/not while Hidden/.test(thr.text) || !/Flash Gitz/.test(thr.text)), JSON.stringify(thr));
+    await bp.locator('#board-panel').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_65_board_hidden.png') });
+    // Stormlance "+2" M" for Mounted units reaches the board
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Thunderwolf Cavalry' }).first().tap();
+    const tw = (await bTokens()).find(t => t.tk.startsWith('A:') && t.tk !== gh.tk && t.tk !== sc1.tk);
+    await bSelect(tw.tk);
+    const moveChip = await bp.locator('#board-panel button[data-action="board-ring"]', { hasText: 'Move' }).first().textContent();
+    check('Thunderwolf Cavalry move 14" on the board: 12" + 2" from the Stormlance detachment rule', /Move 14" \(\+2" Lightning-fast Strike\)/.test(moveChip), moveChip);
+    // reserves: a unit that first appears in "Turn 2"
+    await bp.tap('button[data-action="board-step-add"]');
+    await bp.tap('button[data-action="board-step-add"]');
+    check('two more steps: Turn 1 and Turn 2', (await bp.evaluate(() => window.__calc.board().plan.steps.map(s => s.name).join(','))) === 'Deploy,Turn 1,Turn 2', await bp.evaluate(() => window.__calc.board().plan.steps.map(s => s.name).join(',')));
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (2)' }).tap();
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Logan Grimnar' }).tap();
+    const toks3 = await bTokens();
+    const names = await bp.evaluate(() => Object.fromEntries(window.__calc.board().units.map(u => [u.tk, (window.__calc.state.armies[u.tk[0]].units.find(x => `${u.tk[0]}:${x.key}` === u.tk) ?? {}).name])));
+    const scoutTk = toks3.find(t => /Scout Squad \(2\)/.test(names[t.tk] ?? ''))?.tk, loganTk = toks3.find(t => /Logan/.test(names[t.tk] ?? ''))?.tk;
+    check('Scouts and the Terminators (Deep Strike) are placed only in Turn 2: they arrive from reserves', !!scoutTk && !!loganTk, JSON.stringify(names));
+    // both in the middle of the board, far from any edge and from the enemy
+    const mid = await bp.evaluate(async () => {
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const en = d.tokens.filter(t => t.tk.startsWith('B:'));
+      const ok = (x, y) => en.every(e => Math.hypot(e.x - x, e.y - y) > 16);
+      const out = [];
+      for (let y = 22; y <= 38 && out.length < 2; y += 4) for (let x = 12; x <= 32 && out.length < 2; x += 10) if (ok(x, y) && out.every(o => Math.hypot(o.x - x, o.y - y) > 9)) out.push({ x, y });
+      return out;
+    });
+    await bPlace(scoutTk, mid[0].x, mid[0].y);
+    await bPlace(loganTk, mid[1].x, mid[1].y);
+    await bSelect(scoutTk);
+    await bp.waitForSelector('#board-warnings');
+    const warns = await bp.$$eval('#board-warnings li', els => els.map(e => ({ unit: e.dataset.unit, text: e.textContent.replace(/\s+/g, ' ').trim() })));
+    check('the Scouts (no Deep Strike) are warned: reserves are set up wholly within 6" of a battlefield edge (20.04)', warns.some(w => /Scout Squad \(2\)/.test(w.unit) && /more than 6" from a battlefield edge/.test(w.text)), JSON.stringify(warns));
+    check('the Terminators (every model has Deep Strike) are not warned in the same place (24.09)', !warns.some(w => /Logan/.test(w.unit)), JSON.stringify(warns));
+    await bp.locator('#board-warnings').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_66_board_reserves.png') });
+    await bctx.close();
+  }
+
   // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
   {
     const wctx = await browser.newContext({ ...devices['Pixel 7'] });

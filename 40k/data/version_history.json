@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.101.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: territory, objective control, Hidden, reserves and card details by the 11th edition rules",
+      "changes": [
+        "Expansion objectives now belong to the player whose territory they are in. The app had used 'the nearer home objective', which was wrong for 36 of the 90 expansion objectives (18 of the 45 layouts): Determined Acquisition, Sabotage and Smoke and Mirrors score differently, and the starting plan holds the right objective. Starting plans you had not edited are updated",
+        "Objective control counts the models within range (14.02), not the whole unit when one model reaches. Equal control means nobody controls the objective (it was a coin flip)",
+        "Hidden (13.09): infantry in an area with a light or dense feature can only be seen from 15\" (12\" when gone to ground) while it has not shot; a Lone Operative from 12\". The board says so on the unit, and its threat list shows who can still shoot it",
+        "Reserves and Deep Strike: a Deep Strike unit may arrive anywhere more than 8\" from the enemy, the enemy deployment zone included. Other reserves must be wholly within 6\" of a battlefield edge, not in the enemy zone before round 3, and not in round 1. At deployment, Infiltrators and Scouts are checked too. The board shows these checks for the step on screen",
+        "Units start in coherency: the old 1\" grid put models of large-base units more than 9\" apart. The board warns when a formation you choose is out of coherency (within 2\" of one model and 9\" of every other)",
+        "Cards: Punishment also scores in the opponent's turn; Delaying Action no longer counts the enemy home objective; Outflank's 5 VP need only one of the two units outside your territory; Purge and Secure also scores for a kill made from an objective; A Grievous Blow counts leaders in the 13 models",
+        "Stormlance: Mounted units have +2\" Move on the board (Outriders and Thunderwolf Cavalry 14\")"
+      ]
+    },
+    {
       "version": "1.100.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: charge odds by the 11th edition rule, the best weapon profile for every unit, detachment rules, Storm Shields",

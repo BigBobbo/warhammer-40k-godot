@@ -58,20 +58,49 @@ export function edgeRadius(fp, ux, uy, rot = 0) {
 }
 
 /**
+ * Whose side each objective of a layout is on.
+ *  - home objectives: the player whose deployment zone they are in;
+ *  - central objectives: nobody's;
+ *  - expansion objectives (the rest): the player whose TERRITORY they are in. The mission cards
+ *    score objectives "within your opponent's territory" (Determined Acquisition, Sabotage, Smoke
+ *    and Mirrors), and a territory is not "the half nearer my home objective": in 18 of the 45
+ *    layouts the expansion objective in a player's territory is nearer the OTHER player's home
+ *    objective (36 of 90 expansion objectives; measured on the bundled layouts, 20 Nov 2026).
+ *    opts.byNearestHome: the rule the app used before 1.101 (kept to recognise plans made with it).
+ * zoneA: the zone / territory number (1 or 2) of player A.
+ * -> [{ id, cls: 'home' | 'central' | 'exp', side: 'A' | 'B' | null }] in the layout's order
+ */
+export function objectiveSides(layout, deployment, zoneA = 1, { byNearestHome = false } = {}) {
+  const sideOf = (player) => (player === zoneA ? 'A' : 'B');
+  const sideOfZone = (z) => sideOf(z === 'player1' ? 1 : 2);
+  const objs = layout?.objectives ?? [];
+  const homes = objs.filter(o => o.zone !== 'no_mans_land').map(o => ({ ...o, side: sideOfZone(o.zone) }));
+  const hA = homes.find(h => h.side === 'A'), hB = homes.find(h => h.side === 'B');
+  const nearest = (o) => (!hA || !hB ? null : Math.hypot(o.x - hA.x, o.y - hA.y) <= Math.hypot(o.x - hB.x, o.y - hB.y) ? 'A' : 'B');
+  return objs.map(o => {
+    // roles come from the official 11e cards (home / central / expansion); some layouts have two centrals
+    if (o.role === 'home' || o.zone !== 'no_mans_land') return { id: o.id, cls: 'home', side: sideOfZone(o.zone) };
+    if (o.role === 'central') return { id: o.id, cls: 'central', side: null };
+    const terr = byNearestHome ? null : (deployment?.territories ?? []).find(t => inPoly(o.x, o.y, t.poly));
+    return { id: o.id, cls: 'exp', side: terr ? sideOf(terr.player) : nearest(o) };
+  });
+}
+
+/**
  * A unit's starting formation: models in rows (up to `perRow`), 1" apart edge
  * to edge (well inside 11e coherency: 2" to one model, 9" to all), centred on
- * (0, 0). members: [{ count, fp, label }]. Characters (leaders) go in the
+ * (0, 0). members: [{ count, fp, label, oc }]. Characters (leaders) go in the
  * middle of the front row.
- * -> [{ dx, dy, fp, label }]
+ * -> [{ dx, dy, fp, label, oc }]  (oc: that model's Objective Control, when the member gives it)
  */
 export function formation(members, { gap = 1, perRow = 5 } = {}) {
   const models = [];
   const leaders = members.filter(m => m.leader);
   const rest = members.filter(m => !m.leader);
-  for (const m of rest) for (let i = 0; i < m.count; i++) models.push({ fp: m.fp, label: m.label });
+  for (const m of rest) for (let i = 0; i < m.count; i++) models.push({ fp: m.fp, label: m.label, oc: m.oc });
   // leaders into the middle of the first row
   const firstRow = Math.min(perRow, models.length + leaders.length);
-  for (const [i, l] of leaders.entries()) models.splice(Math.max(0, Math.floor(firstRow / 2) - Math.floor(leaders.length / 2) + i), 0, { fp: l.fp, label: l.label, leader: true });
+  for (const [i, l] of leaders.entries()) models.splice(Math.max(0, Math.floor(firstRow / 2) - Math.floor(leaders.length / 2) + i), 0, { fp: l.fp, label: l.label, leader: true, oc: l.oc });
   const rows = [];
   for (let i = 0; i < models.length; i += perRow) rows.push(models.slice(i, i + perRow));
   const out = [];
@@ -82,7 +111,7 @@ export function formation(members, { gap = 1, perRow = 5 } = {}) {
     const total = widths.reduce((a, b) => a + b, 0) + gap * (row.length - 1);
     let x = -total / 2;
     for (const [i, m] of row.entries()) {
-      out.push({ dx: x + widths[i] / 2, dy: y + rowHeights[ri] / 2, fp: m.fp, label: m.label, leader: !!m.leader });
+      out.push({ dx: x + widths[i] / 2, dy: y + rowHeights[ri] / 2, fp: m.fp, label: m.label, leader: !!m.leader, ...(m.oc != null ? { oc: m.oc } : {}) });
       x += widths[i] + gap;
     }
     y += rowHeights[ri] + gap;
@@ -90,6 +119,52 @@ export function formation(members, { gap = 1, perRow = 5 } = {}) {
   const midY = (y - gap) / 2;
   for (const m of out) m.dy -= midY;
   return out;
+}
+
+/**
+ * 03.03 Coherency of one unit's models: every model is within 2" (horizontally) of at least one other
+ * model of the unit AND within 9" of every other model. Base edge to base edge.
+ * -> { ok, widest: the largest gap between two models, alone: models with no other within 2" }
+ */
+export const COHERENCY = { near: 2, all: 9 };
+export function coherency(models) {
+  if (models.length < 2) return { ok: true, widest: 0, alone: 0 };
+  const gap = (ma, mb) => {
+    const d = Math.hypot(mb.dx - ma.dx, mb.dy - ma.dy);
+    if (d === 0) return 0;
+    const ux = (mb.dx - ma.dx) / d, uy = (mb.dy - ma.dy) / d;
+    return Math.max(0, d - edgeRadius(ma.fp, ux, uy, ma.rot) - edgeRadius(mb.fp, -ux, -uy, mb.rot));
+  };
+  let widest = 0, alone = 0;
+  for (const [i, a] of models.entries()) {
+    let nearest = Infinity;
+    for (const [j, b] of models.entries()) {
+      if (i === j) continue;
+      const g = gap(a, b);
+      if (g < nearest) nearest = g;
+      if (j > i && g > widest) widest = g;
+    }
+    if (nearest > COHERENCY.near + 1e-9) alone++;
+  }
+  return { ok: widest <= COHERENCY.all + 1e-9 && alone === 0, widest, alone };
+}
+
+/**
+ * A starting formation that is in coherency: rows of up to `perRow`, 1" apart when that keeps every
+ * model within 9" of every other, else closer together; if base contact is still too wide (a row of
+ * large bases), fewer models per row (unless the player chose the row width: keepRows).
+ * The plain 1" grid broke the 9" rule for units of ten 40 mm bases and for every unit on 60 mm bases.
+ */
+export function coherentFormation(members, { perRow = 5, keepRows = false } = {}) {
+  let last = null;
+  for (let per = perRow; per >= 1; per--) {
+    for (const gap of [1, 0.75, 0.5, 0.25, 0]) {
+      last = formation(members, { gap, perRow: per });
+      if (coherency(last).ok) return last;
+    }
+    if (keepRows) break;
+  }
+  return last ?? [];
 }
 
 /**

@@ -241,3 +241,23 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   wargear that is not in the list is listed switched off, not given to all.
 - Engine: a hazard roll for every Hazardous weapon selected (24.15), also when
   the target was destroyed first.
+- Fix 5, territory: BUILT in v1.101.0, browser-tested. `board.mjs objectiveSides`
+  puts an expansion objective on the side of the territory polygon it is in
+  (36 of 90 differed, 18 of 45 layouts). Unedited stored starting plans are
+  migrated (`missionview.mjs migratePlanSides`, marker `sidesV`).
+- Fix 6, objective control: BUILT in v1.101.0. Models carry their OC
+  (`formation`), `planeval.ocInRange` sums the models in range, unit facts
+  have `objOc`; a tie is nobody's (14.02).
+- Fix 7, Hidden / Lone Operative: BUILT in v1.101.0. Light or dense features
+  (errata), gone to ground 12", `threatTo({ detect })`, `planeval.detectRange`
+  (Lone Operative always; Hidden only for units without guns, which never shoot).
+- Fix 10, board checks: BUILT in v1.101.0. `planWarnings` rewritten (deployment
+  zone, Infiltrators, Scouts, round 1, 6" edge band, enemy zone before round 3,
+  Deep Strike exempt, 8" from enemies) and shown on the board per step;
+  `coherentFormation` + `coherency` (03.03). `adapter.coreFlags` reads Deep
+  Strike, Infiltrators, Scouts, Lone Operative, Stealth, Fights First, Deadly
+  Demise and Firing Deck from the datasheet's core ability ids.
+- Fix 11, cards: BUILT in v1.101.0 (Punishment off-turn via the existing
+  fight-back kills, Delaying Action, Outflank, Purge and Secure, A Grievous
+  Blow). Not changed: Consecrate still ignores kills in the opponent's turn.
+- Also: a detachment's "+N" M" (Stormlance) is applied to the board unit's move.

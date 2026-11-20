@@ -9,7 +9,7 @@ import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, 
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf, armyData, fmtDataDate } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
-import { layoutLetter } from './board.mjs';
+import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
 
@@ -42,6 +42,7 @@ export function initMission(c) {
   m.table ??= false;
   m.awake ??= true;
   PT.ensureGame(m.game, { fresh: !inProgress() });
+  migratePlanSides(m);
 }
 
 function ms() {
@@ -118,18 +119,8 @@ function objectives() {
   const bc = boardContext();
   const l = bc.layout;
   if (!l) return [];
-  const sideOfZone = (z) => (z === 'player1' ? (bc.zoneA === 1 ? 'A' : 'B') : (bc.zoneA === 2 ? 'A' : 'B'));
-  const homes = l.objectives.filter(o => o.zone !== 'no_mans_land').map(o => ({ ...o, side: sideOfZone(o.zone) }));
-  const homeOf = (s) => homes.find(h => h.side === s);
-  const out = [];
-  for (const o of l.objectives) {
-    // roles come from the official 11e cards (home / central / expansion); some layouts have two centrals
-    if (o.role === 'home' || o.zone !== 'no_mans_land') { const side = sideOfZone(o.zone); out.push({ id: o.id, cls: 'home', side, label: `${side} home` }); continue; }
-    if (o.role === 'central') { out.push({ id: o.id, cls: 'central', side: null, label: 'Centre' }); continue; }
-    const hA = homeOf('A'), hB = homeOf('B');
-    const side = !hA || !hB ? null : Math.hypot(o.x - hA.x, o.y - hA.y) <= Math.hypot(o.x - hB.x, o.y - hB.y) ? 'A' : 'B';
-    out.push({ id: o.id, cls: 'exp', side, label: `${side}-side` });
-  }
+  // an expansion objective is on the side of the player whose TERRITORY it is in (board.mjs objectiveSides)
+  const out = objectiveSides(l, bc.deployment, bc.zoneA).map(o => ({ ...o, label: o.cls === 'home' ? `${o.side} home` : o.cls === 'central' ? 'Centre' : `${o.side}-side` }));
   const order = (o) => (o.cls === 'home' ? (o.side === 'A' ? 0 : 4) : o.cls === 'central' ? 2 : o.side === 'A' ? 1 : 3);
   out.sort((a, b) => order(a) - order(b));
   // number duplicates ("Centre 1", "A-side 2")
@@ -140,19 +131,46 @@ function objectives() {
   return out;
 }
 
+/** The plan a layout starts with: each player holds its home objective, and from round 2 the expansion objective in its territory. */
+function defaultPlan(objs) {
+  const p = {};
+  for (let r = 1; r <= RULES.rounds; r++) {
+    p[r] = {};
+    for (const o of objs) p[r][o.id] = o.cls === 'home' ? o.side : o.cls === 'exp' && r >= 2 ? o.side : 'c';
+  }
+  return p;
+}
+
 function plan() {
   const m = ms();
   const l = boardContext().layout;
   if (!l) return {};
-  if (!m.plans[l.id]) {
-    const p = {};
-    for (let r = 1; r <= RULES.rounds; r++) {
-      p[r] = {};
-      for (const o of objectives()) p[r][o.id] = o.cls === 'home' ? o.side : o.cls === 'exp' && r >= 2 ? o.side : 'c';
-    }
-    m.plans[l.id] = p;
-  }
+  if (!m.plans[l.id]) m.plans[l.id] = defaultPlan(objectives());
   return m.plans[l.id];
+}
+
+/**
+ * Before 1.101 an expansion objective's side was "the nearer home objective", which is the wrong
+ * player's territory in 18 of the 45 layouts. A stored plan that is still the old starting plan
+ * (never edited) becomes the new starting plan; a plan the player edited is left as it is.
+ */
+function migratePlanSides(m) {
+  if (m.sidesV === 2) return;
+  let changed = 0;
+  for (const [id, p] of Object.entries(m.plans ?? {})) {
+    const l = LAYOUTS.find(x => x.id === id);
+    if (!l) continue;
+    const dep = DEPLOYMENTS[l.deployment];
+    for (const zoneA of [1, 2]) {
+      const old = defaultPlan(objectiveSides(l, dep, zoneA, { byNearestHome: true }));
+      if (JSON.stringify(old) !== JSON.stringify(p)) continue;
+      const now = defaultPlan(objectiveSides(l, dep, zoneA));
+      if (JSON.stringify(now) !== JSON.stringify(p)) { m.plans[id] = now; changed++; }
+      break;
+    }
+  }
+  m.sidesV = 2;
+  if (changed) console.log(`[mission] ${changed} starting plan(s) updated: expansion objectives now follow the territory they are in`);
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +291,9 @@ function boardModel(vi) {
       if (!used(st, X) || !used(st, Y)) continue;
       // X attacks in round r from its round-r positions; the targets have already moved this
       // round (cur: they went first) or are still where round r - 1 left them (prev)
-      threats[r][X] = { cur: threatOptions(st[X], st[Y], m.pairs.table), prev: used(prevSt, Y) ? threatOptions(st[X], prevSt[Y], m.pairs.table) : threatOptions(st[X], st[Y], m.pairs.table) };
+      // (a Lone Operative, and infantry without guns that can be Hidden where it stands, must be approached: planeval detectRange)
+      const opts = (targets) => threatOptions(st[X], targets, m.pairs.table, 3, g?.pieces ?? null);
+      threats[r][X] = { cur: opts(st[Y]), prev: used(prevSt, Y) ? opts(prevSt[Y]) : opts(st[Y]) };
     }
   }
   return { rounds, threats, warnings: planWarnings(steps, g), stepsPlanned: steps.length, name: plan.name };
@@ -912,7 +932,7 @@ const KEEP_READY = {
   'behind-enemy-lines': 'Keep a fast / Deep Strike unit to get wholly into their deployment zone (3 VP each, max 5).',
   'engage-on-all-fronts': 'Spread units into 3–4 table quarters, more than 6" from the centre.',
   'centre-ground': 'Have a unit that can reach the centre and keep enemies 6" away from it.',
-  'outflank': 'Keep units near both long battlefield edges, outside your territory.',
+  'outflank': 'Two units within 6" of opposite battlefield edges, one or more of them outside your territory (5 VP); one unit on an edge outside your territory is 3 VP.',
   'display-of-might': 'Out-number them in No Man’s Land at the end of their turn (5 VP).',
   'beacon': 'Plan a durable unit to sit outside your territory (5 VP).',
   'plunder': 'Get a unit into a terrain area outside your territory in your Shooting phase.',
@@ -1014,7 +1034,7 @@ function hitListHtml(side) {
     const tags = [];
     if (u.characters) tags.push(`Assassination (${u.characters} character${u.characters > 1 ? 's' : ''})`);
     if (u.w10) tags.push(`Bring It Down (W10+ ×${u.w10})`);
-    if (u.bodyguardModels >= 13) tags.push('A Grievous Blow (13+ models)');
+    if (u.models >= 13) tags.push('A Grievous Blow (13+ models, leaders counted)');
     return { u, tags, value: tags.length * 5 + u.points / 100 };
   }).filter(x => x.tags.length).sort((a, b) => b.value - a.value);
   if (!rows.length) return '<p class="muted small">No units feed the kill cards (characters, W10+ or 13+ models).</p>';

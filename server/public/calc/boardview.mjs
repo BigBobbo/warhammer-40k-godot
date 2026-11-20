@@ -8,11 +8,11 @@
 
 import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
-  footprint, formation, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
+  footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
-import { sightVerdict, threatTo, chargeReach } from './sight.mjs';
-import { inRange } from './planeval.mjs';
+import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
+import { inRange, ocInRange, planWarnings } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -146,21 +146,22 @@ function unitInfo(side, key) {
   const army = ctx.state.armies[side];
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
-  const ck = `${side}|${key}|${cu.name}|${cu.models}`;
+  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}`;
   if (!unitCache.has(ck)) {
-    const bu = boardUnit(cu);
+    const bu = boardUnit(cu, army);
     // Objective Control: each model's OC (datasheet), summed over the unit
     const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
-    unitCache.set(ck, { cu, ...bu, oc, models: formation(bu.members), formations: new Map() });
+    unitCache.set(ck, { cu, ...bu, oc, models: coherentFormation(bu.members), formations: new Map() });
   }
   return unitCache.get(ck);
 }
 
 // a placed unit's models: its formation width (models per row) and facing
 function tokenModels(u, pos) {
-  const per = pos.per ?? 5;
-  if (!u.formations.has(per)) u.formations.set(per, formation(u.members, { perRow: per }));
-  const base = u.formations.get(per);
+  // in coherency by default (03.03); a row width the player chose is kept, only the spacing closes up
+  const per = pos.per ?? 5, fk = `${per}${pos.per != null ? 'k' : ''}`;
+  if (!u.formations.has(fk)) u.formations.set(fk, coherentFormation(u.members, { perRow: per, keepRows: pos.per != null }));
+  const base = u.formations.get(fk);
   return pos.rot ? rotateFormation(base, pos.rot) : base;
 }
 
@@ -294,7 +295,8 @@ export function boardSvg({ forExport = false } = {}) {
   parts.push('<g id="obj-control" pointer-events="none">');
   for (const o of l.objectives) {
     const oc = { A: 0, B: 0 };
-    for (const t of toks) if (t.u.oc && inRange(t, o, l.pieces)) oc[t.side] += t.u.oc;
+    // 14.02: the OC of the MODELS within range (not the whole unit's when one model is there)
+    for (const t of toks) if (t.u.oc) oc[t.side] += ocInRange({ ...t, oc: t.u.oc }, o, l.pieces);
     if (!oc.A && !oc.B) continue;
     const ctl = oc.A > oc.B ? 'A' : oc.B > oc.A ? 'B' : 'tie';
     const col = ctl === 'tie' ? '#777' : C[ctl];
@@ -422,6 +424,7 @@ export function boardView() {
     </div><div class="col side">
     ${wideNow ? `<section class="section">${stepsRow}</section>` : ''}
     <section class="section" id="board-panel">${selectionPanel()}</section>
+    <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
     <section class="section"><div class="card">
       <div class="row" style="gap:8px">
@@ -540,7 +543,7 @@ function selectionPanel() {
   const u = s1.u;
   const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
   const rings = [
-    ringChip('move', `Move ${u.move}"`),
+    ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom?.replace(/\s*\(.*$/, '') ?? 'detachment'})` : ''}`),
     ringChip('advance', `Move + Advance (max ${u.move + 6}")`),
     u.melee ? ringChip('charge', `Charge threat (${u.move}" + 7" avg)`) : '',
     ringChip('engage', 'Engagement 2"'),
@@ -584,6 +587,11 @@ function selectionPanel() {
       opts.push([n, 'Line']);
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}
+    ${(() => {
+      // 03.03: within 2" of one other model and within 9" of every other model of the unit
+      const c = coherency(s1.models);
+      return c.ok ? '' : `<div class="tiny" id="board-coherency" style="color:var(--warn-ink);margin-top:4px">⚠ Not in coherency: ${c.widest > COHERENCY.all ? `two models are ${c.widest.toFixed(1)}" apart (every model must be within ${COHERENCY.all}" of every other)` : `${c.alone} model${c.alone > 1 ? 's are' : ' is'} more than ${COHERENCY.near}" from any other`} (03.03). Use fewer models per row.</div>`;
+    })()}
     <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
     ${pair}
     ${threatHtml(s1, toks)}
@@ -607,23 +615,57 @@ function sightHtml(v, s1, s2) {
   const lab = { clear: '✅ Clear', partial: '◐ Partly visible', blocked: '⛔ Blocked' }[v.verdict];
   return `<div class="small" id="board-sight" data-verdict="${v.verdict}" data-borderline="${v.borderline ? 1 : 0}" style="margin-top:4px">
       Line of sight: <b>${lab}</b> · ${v.targetSeen}/${v.targetTotal} target models visible · ${v.attackersSeeing}/${v.attackerTotal} of yours see them within ${v.range}"
-      <br>Benefit of cover: <b>${v.cover ? `yes (${v.coverWhy})` : 'no'}</b>${v.hidden ? ` · <b>may be Hidden</b> (more than 15" away in dense terrain, if it has not shot)` : ''}
+      <br>Benefit of cover: <b>${v.cover ? `yes (${v.coverWhy})` : 'no'}</b>${v.hidden ? ` · <b id="board-hidden">Hidden</b>: ${v.nearest.toFixed(1)}" away, and infantry in an area with a light or dense feature is only visible within ${v.detect}"${v.goneToGround ? ` (${HIDDEN_RANGE}" less ${GONE_TO_GROUND}": gone to ground)` : ''} while it has not shot this turn or the turn before (13.09)` : v.hiddenCapable ? ` · can be Hidden from more than ${v.detect}"` : ''}
       ${v.borderline ? '<br><span style="color:var(--warn-ink)">⚠ Borderline — moving either unit ½" changes this. Check on the table.</span>' : ''}
       <br><span class="tiny muted">11e terrain rules on the map's footprints; model heights, windows and floors are not modelled.</span></div>`;
 }
 
+// What the 11th edition does not allow at the plan step on screen: a unit outside its deployment zone,
+// Infiltrators / Scouts too close, reserves in round 1, away from an edge or in the enemy zone without
+// Deep Strike, within 8" of the enemy (planeval.planWarnings - the Mission tab lists the whole plan).
+function stepWarningsHtml() {
+  const root = planRoot(), p = plan(), l = currentLayout();
+  if (!root || !p || !l) return '';
+  const dep = DEPLOYMENTS[l.deployment];
+  const pick = (list, X) => list?.find(z => z.player === zoneOf(X))?.poly ?? null;
+  const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives };
+  const steps = boardPlans()[Math.min(root.v, root.variants.length - 1)]?.steps ?? [];
+  const name = p.steps[p.cur]?.name;
+  const ws = planWarnings(steps, geo).filter(w => w.step === name);
+  if (!ws.length) return '';
+  return `<div class="card" id="board-warnings" style="margin-top:8px"><div class="lab tiny muted">Check this step (11th edition rules)</div>
+    <ul class="keep warn">${ws.slice(0, 6).map(w => `<li${w.info ? ' class="info"' : ''} data-unit="${ctx.esc(w.unit)}"><b style="color:${C[w.side]}">${ctx.esc(shortName(w.unit))}</b> ${ctx.esc(w.msg)}</li>`).join('')}</ul>
+    ${ws.length > 6 ? `<div class="tiny muted">and ${ws.length - 6} more</div>` : ''}</div>`;
+}
+
 // enemy units that threaten s1 next turn (normal move + shooting range / charge roll)
 function threatHtml(s1, toks) {
-  const rows = toks.filter(t => t.side !== s1.side).map(t => ({ t, th: threatTo(t, s1, { move: t.u.move, ranges: t.u.ranges, melee: t.u.melee }) }))
-    .filter(x => x.th.shoot || (x.th.charge ?? 0) >= 0.03)
+  // who can SEE it: a Lone Operative only from 12" (24.24); infantry that can be Hidden here only from
+  // 15" while it has not shot (13.09). The enemy must move that close to shoot, whatever its range.
+  const l = currentLayout();
+  const lone = s1.u.flags?.loneOperative || 0;
+  const hide = !!l && canHide({ x: s1.x, y: s1.y, models: s1.models, keywords: s1.u.cu.keywords ?? [] }, l.pieces);
+  const base = { detect: lone || Infinity };
+  const rows = toks.filter(t => t.side !== s1.side).map(t => {
+    const o = { move: t.u.move, ranges: t.u.ranges, melee: t.u.melee };
+    const th = threatTo(t, s1, { ...o, ...base });
+    // ... and when it stays hidden
+    const thHid = hide ? threatTo(t, s1, { ...o, detect: Math.min(base.detect, HIDDEN_RANGE) }) : th;
+    return { t, th, onlyIfShot: !!th.shoot && !thHid.shoot };
+  }).filter(x => x.th.shoot || (x.th.charge ?? 0) >= 0.03)
     .sort((a, b) => (b.th.charge ?? 0) - (a.th.charge ?? 0) || a.th.gap - b.th.gap);
   if (!toks.some(t => t.side !== s1.side)) return '';
   const pct = (p) => `${Math.round(p * 100)}%`;
+  const notes = [
+    lone ? `<b>Lone Operative</b>: only visible within ${lone}", so only units that can move to within ${lone}" can shoot it (24.24).` : '',
+    hide ? `<b id="board-can-hide">Can be Hidden here</b> (infantry in an area with a light or dense feature): while it has not shot this turn or the turn before, only models within ${HIDDEN_RANGE}" can see it (13.09).` : '',
+  ].filter(Boolean).join(' ');
   return `<div class="lab tiny muted" style="margin-top:8px">Threatened next turn by</div>
-    <div id="board-threats" class="small">${rows.length ? rows.map(({ t, th }) => `<div class="row" style="gap:6px"><span class="grow" style="color:${C[t.side]}">${ctx.esc(shortName(t.u.cu.name))}</span>
-      ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn-ink)">(just)</span>' : ''}</span>` : ''}
+    <div id="board-threats" class="small" data-hide="${hide ? 1 : 0}" data-lone="${lone}">${rows.length ? rows.map(({ t, th, onlyIfShot }) => `<div class="row" style="gap:6px"><span class="grow" style="color:${C[t.side]}">${ctx.esc(shortName(t.u.cu.name))}</span>
+      ${th.shoot ? `<span>🎯 ${th.shoot.range}"${th.shoot.margin < 1 ? ' <span style="color:var(--warn-ink)">(just)</span>' : ''}${onlyIfShot ? ' <span class="muted">(not while Hidden)</span>' : ''}</span>` : ''}
       ${th.charge != null && th.charge >= 0.03 ? `<span>⚔ charge ${pct(th.charge)}</span>` : ''}</div>`).join('')
       : '<span class="muted">Nothing can reach it next turn (move + range / charge).</span>'}
+      ${notes ? `<div class="tiny" style="margin-top:2px">${notes}</div>` : ''}
       <div class="tiny muted">After a normal move, ignoring terrain and line of sight.</div></div>`;
 }
 
@@ -635,6 +677,8 @@ export function refreshBoard() {
   if (host) host.innerHTML = boardSvg();
   const panel = document.getElementById('board-panel');
   if (panel) panel.innerHTML = selectionPanel();
+  const warn = document.getElementById('board-warnings-host');
+  if (warn) warn.innerHTML = stepWarningsHtml();
   const dock = document.getElementById('board-dock');
   if (dock) dock.innerHTML = dockHtml();
   const bar = document.getElementById('board-photo-bar');
@@ -1038,7 +1082,8 @@ export function boardPlans() {
         const [side, key] = tk.split(':');
         const u = unitInfo(side, key);
         if (!u) continue;
-        out[side].push({ key: tk, name: u.cu.name, x: pos.x, y: pos.y, models: tokenModels(u, pos), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: u.cu.points ?? 0 });
+        out[side].push({ key: tk, name: u.cu.name, x: pos.x, y: pos.y, models: tokenModels(u, pos), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: u.cu.points ?? 0,
+          keywords: u.cu.keywords ?? [], lone: u.flags?.loneOperative || 0, flags: u.flags ?? {} });
       }
       return out;
     }),

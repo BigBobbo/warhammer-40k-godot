@@ -34,8 +34,8 @@ function bite(pairs, X, a, Y, t) {
   const s = Math.min(1, (pr.sMu ?? 0) / pr.W), f = Math.min(1, (pr.fMu ?? 0) / pr.W);
   return f > s ? { p: f, how: 'in a fight', kill: pr.fight ?? 0 } : { p: s, how: 'shooting', kill: pr.shoot ?? 0 };
 }
-function reach(cu) {
-  const u = boardUnit(cu);
+function reach(cu, army = null) {
+  const u = boardUnit(cu, army);
   const maxR = u.ranges.length ? Math.max(...u.ranges) : 0;
   return [`M${u.move}"`, maxR ? `shoots ${maxR}" (reaches ${u.move + maxR}")` : null, u.melee ? `charge ${u.move + 7}" on average, ${u.move + 12}" at most` : null].filter(Boolean).join(' · ');
 }
@@ -66,7 +66,7 @@ export function briefHtml() {
       return best ? { e, ...best } : null;
     }).filter(x => x && x.p >= 0.05).sort((a, b) => b.v - a.v).slice(0, 5);
     threats = rows.length ? `<table class="dist brief" id="brief-threats"><thead><tr><th>Their unit</th><th>hurts most</th><th></th></tr></thead><tbody>${rows.map(x =>
-      `<tr><td><b>${esc(x.e.name)}</b><div class="tiny muted">${esc(reach(x.e))}</div></td><td>${esc(x.t.name)}<div class="tiny muted">${x.how}${x.kill >= 0.05 ? ` · destroys it ${pct(x.kill)}` : ''}</div></td><td><b>${pct(x.p)}</b></td></tr>`).join('')}</tbody></table>`
+      `<tr><td><b>${esc(x.e.name)}</b><div class="tiny muted">${esc(reach(x.e, theirs))}</div></td><td>${esc(x.t.name)}<div class="tiny muted">${x.how}${x.kill >= 0.05 ? ` · destroys it ${pct(x.kill)}` : ''}</div></td><td><b>${pct(x.p)}</b></td></tr>`).join('')}</tbody></table>`
       : '<p class="muted small">None of their units removes 5% of one of yours in one attack.</p>';
     // their most valuable units and my two best tools against each
     const big = [...theirs.units].sort((a, b) => (b.points || 0) - (a.points || 0)).slice(0, 5);

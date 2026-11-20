@@ -1107,18 +1107,64 @@ export function armyIntel(army) {
 // Board planner
 
 /**
+ * Core abilities that decide where a unit can be and who can see it (board, brief):
+ * { deepStrike, infiltrators, scouts (inches), loneOperative (inches, 0 = no), stealth, fightsFirst,
+ *   deadlyDemise ('D3', '1', ... or null), firingDeck (models) }
+ * Deep Strike, Infiltrators, Scouts, Stealth and Fights First need every model of the unit to have them
+ * (24.09 "if every model in this unit has this ability"); Lone Operative does not work in an attached
+ * unit (24.24).
+ */
+export function coreFlags(cu) {
+  const idsOf = (m) => (m.dcUnit.ability_ids ?? []).map(String);
+  const every = (re) => cu.members.every(m => idsOf(m).some(id => re.test(id)));
+  const first = (re) => { for (const m of cu.members) for (const id of idsOf(m)) { const x = id.match(re); if (x) return x; } return null; };
+  const sc = cu.members.map(m => Number(idsOf(m).map(id => id.match(/^scouts-(\d+)/)).find(Boolean)?.[1] ?? 0));
+  const lone = cu.members.length === 1 ? first(/^lone-operative(?:-(\d+))?/) : null;
+  return {
+    deepStrike: every(/^deep-strike/), infiltrators: every(/^infiltrators/),
+    scouts: sc.every(n => n > 0) ? Math.min(...sc) : 0,
+    loneOperative: lone ? Number(lone[1] ?? 12) : 0,
+    stealth: every(/^stealth/), fightsFirst: every(/^fights-first/),
+    deadlyDemise: first(/^deadly-demise-(.+)$/)?.[1].toUpperCase() ?? null,
+    firingDeck: Number(first(/^firing-deck-(\d+)/)?.[1] ?? 0),
+  };
+}
+
+/**
  * What the board needs to draw / reason about a combat unit:
  * { members: [{ count, fp, label, leader }], move, ranges: [inches...], melee: bool }
  */
-export function boardUnit(cu) {
+/**
+ * Extra Move from a detachment rule for the units it names, e.g. Stormlance Task Force:
+ * "Friendly Adeptus Astartes Mounted/Speeder units have +2" M."  -> { bonus, source } (bonus 0 = none)
+ */
+export function detachmentMoveBonus(cu, army) {
+  let best = { bonus: 0, source: null };
+  if (!army) return best;
+  const own = new Set(cu.keywords.map(upperKw));
+  for (const d of detachmentRules(army)) {
+    const m = String(d.text ?? '').match(/^\s*friendly ([A-Za-z’' /-]+?) units have \+(\d+)" M\b/i);
+    if (!m) continue;
+    // "Adeptus Astartes Mounted/Speeder": Adeptus Astartes Mounted, or (Adeptus Astartes) Speeder
+    const parts = m[1].split('/').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const lead = parts[0].split(/\s+/).slice(0, -1).join(' ');
+    const phrases = [parts[0], ...parts.slice(1).flatMap(p => (lead ? [p, `${lead} ${p}`] : [p]))];
+    if (phrases.some(ph => phraseInKeywords(ph, own)) && Number(m[2]) > best.bonus) best = { bonus: Number(m[2]), source: d.name };
+  }
+  return best;
+}
+
+export function boardUnit(cu, army = null) {
   const members = cu.members.map(m => {
     const kw = [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? [])];
     const base = BASE_SIZE_OVERRIDES[m.dcUnit.id] ?? m.dcUnit.base_size_mm;
-    return { count: m.ru.model_count ?? 1, fp: footprint(base, kw), label: m.dcUnit.name, leader: m.role === 'leader' };
+    // oc: the Objective Control of ONE model (14.02 counts the models within range, not the unit)
+    return { count: m.ru.model_count ?? 1, fp: footprint(base, kw), label: m.dcUnit.name, leader: m.role === 'leader', oc: parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0 };
   });
-  const move = Math.min(...cu.members.map(m => Number(m.dcUnit.profiles?.[0]?.M) || 6));
+  const mv = detachmentMoveBonus(cu, army);
+  const move = Math.min(...cu.members.map(m => Number(m.dcUnit.profiles?.[0]?.M) || 6)) + mv.bonus;
   const ranged = attackerRows(cu, 'shooting', null);
   const ranges = [...new Set(ranged.map(r => parseFloat(r.range)).filter(n => n > 0))].sort((a, b) => a - b);
   const rfMelta = [...new Set(ranged.filter(r => r.kw.rapidFire || r.kw.melta).map(r => parseFloat(r.range)).filter(n => n > 0))];
-  return { members, move, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0 };
+  return { members, move, moveBonus: mv.bonus, moveBonusFrom: mv.source, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0, flags: coreFlags(cu) };
 }
