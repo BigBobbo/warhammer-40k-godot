@@ -125,7 +125,7 @@ def score_models(ok: list[dict], keys=None) -> str:
     var = sum((y - my) ** 2 for y in ys) / (len(ys) - 1)
     ceiling = math.sqrt(max(0.0, 1 - (sum(se2) / len(se2)) / var))
     out = ["  position look-ahead vs measured E (n=%d, noise ceiling r = %.2f)" % (len(rows), ceiling),
-           "    model            r   [95%% boot]     Spearman  clear: right/wrong/zero   top-20%% mean E  bottom-20%% mean E"]
+           "    model            r   [95% boot]     Spearman  clear: right/wrong/zero   top-20% mean E  bottom-20% mean E"]
     clear = [r for r in rows if r.get("class") in ("clear", "harmful")]
     for key in (keys or sorted(k for k in rows[0] if k.startswith("ps_"))):
         xs = [float(r.get(key, 0.0)) for r in rows]
@@ -140,11 +140,89 @@ def score_models(ok: list[dict], keys=None) -> str:
     return "\n".join(out)
 
 
+def truth_report(rows: list[dict], truth_dir: str) -> str:
+    """AIPositionSim's base line vs what really happened (possim_truth.py):
+    per turn end, ownership Brier score against the climatology (always
+    predicting the overall class frequencies) and expected vs real units lost."""
+    pts = []      # (k, [p0, p1, p2] in decider/opponent/nobody order, truth class, persistence class, obj id)
+    n_at = {}     # cases that reach turn end k
+    deaths = []   # (k, who: "me"|"opp", sim p_dead, truth dead, sim alive, truth share)
+    used = 0
+    for r in rows:
+        tp = os.path.join(truth_dir, r["job"] + ".json")
+        if "sim_trace" not in r or not os.path.exists(tp):
+            continue
+        tr = json.load(open(tp))
+        if tr.get("status") != "completed" or not tr.get("trace"):
+            continue
+        used += 1
+        me = int(r["player"])
+        # turn_ending rows, plus the stop row when the last turn's turn_ending
+        # had not fired before the horizon stopped the game
+        ends = [t for t in tr["trace"] if int(t.get("player", 0)) != 0]
+        if len(ends) < len(r["sim_trace"]):
+            ends += [t for t in tr["trace"] if int(t.get("player", 0)) == 0][:1]
+        for k, (srow, trow) in enumerate(zip(r["sim_trace"], ends)):
+            n_at[k] = n_at.get(k, 0) + 1
+            for oid, pr in srow["own_end"].items():
+                owner = int(float(trow["control"].get(oid, 0)))
+                p_me, p_op = (pr[0], pr[1]) if me == 1 else (pr[1], pr[0])
+                cls = 0 if owner == me else (1 if owner in (1, 2) else 2)
+                now = int(float((r.get("control_now") or {}).get(oid, 0)))
+                pcls = 0 if now == me else (1 if now in (1, 2) else 2)
+                pts.append((k, [p_me, p_op, max(0.0, 1.0 - p_me - p_op)], cls, pcls, oid))
+            for uid, st in srow["units"].items():
+                tu = trow["units"].get(uid)
+                if tu is None:
+                    continue
+                who = "me" if int(r["sides"].get(uid, 0)) == me else "opp"
+                deaths.append((k, who, st[1], 1.0 if tu["share"] <= 0 else 0.0, st[0], tu["share"]))
+    if not pts:
+        return "  ground truth: no traces matched"
+    out = ["  ground truth (%d cases, the AI's own line played once to the horizon)" % used]
+    freq = [sum(1 for p in pts if p[2] == c) / len(pts) for c in range(3)]
+    out.append("    objectives end up: decider %.0f%%, opponent %.0f%%, nobody %.0f%%" % tuple(100 * f for f in freq))
+    out.append("    turn end   ownership Brier: sim / nothing-changes / climatology    sim vs nothing-changes")
+
+    def brier(sel, f):
+        return sum(sum((f(p)[c] - (1.0 if p[2] == c else 0.0)) ** 2 for c in range(3)) for p in sel) / len(sel)
+
+    def persist(p):
+        return [0.85 if c == p[3] else 0.075 for c in range(3)]
+    for k in sorted(set(p[0] for p in pts)) + [-1]:
+        sel = [p for p in pts if p[0] == k] if k >= 0 else pts
+        bs, bp, bc = brier(sel, lambda p: p[1]), brier(sel, persist), brier(sel, lambda p: freq)
+        out.append("      %-3s      %.3f / %.3f / %.3f                              %+.0f%%" % (
+            str(k + 1) if k >= 0 else "all", bs, bp, bc, 100 * (1 - bs / bp)))
+    for kind in ("home", "nml", "center"):
+        sel = [p for p in pts if kind in p[4] and p[0] >= 1]
+        if sel:
+            out.append("      %-6s (turn end 2+): sim %.3f / nothing-changes %.3f" % (kind, brier(sel, lambda p: p[1]), brier(sel, persist)))
+    for lo, hi in ((0.0, 0.2), (0.2, 0.5), (0.5, 0.8), (0.8, 1.01)):
+        sel = [p for p in pts if lo <= p[1][0] < hi]
+        if sel:
+            out.append("    sim says decider holds %.0f-%.0f%%: really %.0f%% (n=%d)" % (
+                100 * lo, 100 * min(hi, 1.0), 100 * sum(1 for p in sel if p[2] == 0) / len(sel), len(sel)))
+    out.append("    turn end   units dead per case, sim / real (decider's | opponent's)   mean strength left sim / real")
+    for k in sorted(set(d[0] for d in deaths)):
+        bits = []
+        for who in ("me", "opp"):
+            sel = [d for d in deaths if d[0] == k and d[1] == who]
+            bits.append("%.2f / %.2f" % (sum(d[2] for d in sel) / n_at[k], sum(d[3] for d in sel) / n_at[k]))
+        sel = [d for d in deaths if d[0] == k]
+        out.append("      %d        %s | %s            %.2f / %.2f" % (k + 1, bits[0], bits[1],
+                   sum(d[4] for d in sel) / len(sel), sum(d[5] for d in sel) / len(sel)))
+    return "\n".join(out)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--trials", type=int, default=600)
     ap.add_argument("--survival", type=int, default=1)
+    ap.add_argument("--simopts", default="", help="JSON of AIPositionSim options applied to every variant")
+    ap.add_argument("--shards", type=int, default=1, help="godot processes to split the cases over")
+    ap.add_argument("--truth", default="", help="dir of possim_truth.py traces: score the sim's base line against them")
     ap.add_argument("--out", default="/tmp/forecast_prefilter")
     ap.add_argument("--report", default="")
     a = ap.parse_args()
@@ -154,23 +232,40 @@ def main() -> int:
         for r in rows:
             r.update({k: meta.get(r["job"], {}).get(k) for k in ("E", "ci", "class", "n")})
         print(report(rows))
+        if a.truth:
+            print(truth_report(rows, a.truth))
         return 0
     os.makedirs(a.out, exist_ok=True)
     jobs = jobs_from_measured(a.limit)
-    jp = os.path.join(a.out, "jobs.json")
     op = os.path.join(a.out, "prefilter.jsonl")
-    json.dump(jobs, open(jp, "w"))
     env = dict(os.environ)
     env["PATH"] = os.path.expanduser("~/bin") + ":" + env.get("PATH", "")
-    cmd = ["godot", "--headless", "--path", os.path.join(REPO, "40k"), "-s", "tests/forecast_prefilter.gd", "--",
-           "--jobs=" + jp, "--out=" + op, "--trials=%d" % a.trials, "--survival=%d" % a.survival]
-    log = open(os.path.join(a.out, "godot.log"), "w")
-    subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, env=env, check=False)
+    procs = []
+    n_sh = max(1, a.shards)
+    for i in range(n_sh):
+        jp = os.path.join(a.out, "jobs_%d.json" % i)
+        json.dump(jobs[i::n_sh], open(jp, "w"))
+        cmd = ["godot", "--headless", "--path", os.path.join(REPO, "40k"), "-s", "tests/forecast_prefilter.gd", "--",
+               "--jobs=" + jp, "--out=" + os.path.join(a.out, "prefilter_%d.jsonl" % i),
+               "--trials=%d" % a.trials, "--survival=%d" % a.survival]
+        if a.simopts:
+            cmd.append("--simopts=" + a.simopts)
+        log = open(os.path.join(a.out, "godot_%d.log" % i), "w")
+        procs.append(subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env))
+    for pr in procs:
+        pr.wait()
+    with open(op, "w") as merged:
+        for i in range(n_sh):
+            part = os.path.join(a.out, "prefilter_%d.jsonl" % i)
+            if os.path.exists(part):
+                merged.write(open(part).read())
     rows = [json.loads(l) for l in open(op) if l.strip()] if os.path.exists(op) else []
     meta = {j["job"]: j for j in jobs}
     for r in rows:
         r.update({k: meta.get(r["job"], {}).get(k) for k in ("E", "ci", "class", "n")})
     print(report(rows))
+    if a.truth:
+        print(truth_report(rows, a.truth))
     return 0
 
 

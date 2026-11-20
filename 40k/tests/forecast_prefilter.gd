@@ -155,14 +155,41 @@ func _run():
 			var ai2: Dictionary = intents.duplicate()
 			ai2[uid] = alt_it
 			P["trials"] = trials
-			for variant in [["a0", {"damage": false, "policy": false}], ["a1", {"damage": false, "policy": true}],
-					["b0", {"damage": true, "policy": false}], ["b1", {"damage": true, "policy": true}]]:
-				var mb: Dictionary = AIDM._possim_margin(snap, world, bi, player, P, variant[1])
-				var ma: Dictionary = AIDM._possim_margin(snap, world, ai2, player, P, variant[1])
+			var sim_opts: Dictionary = {}
+			var so_txt := _arg("simopts", "")
+			if so_txt != "":
+				var so_parsed = JSON.parse_string(so_txt)
+				if so_parsed is Dictionary:
+					sim_opts = so_parsed
+			# --trials=0: sim traces only (fast, for the ground-truth comparison)
+			var variants: Array = [["a0", {"damage": false, "policy": false}], ["a1", {"damage": false, "policy": true}],
+				["b0", {"damage": true, "policy": false}], ["b1", {"damage": true, "policy": true}]]
+			if trials <= 0:
+				variants = []
+			for variant in variants:
+				var vo: Dictionary = sim_opts.duplicate()
+				for vk in variant[1]:
+					vo[vk] = variant[1][vk]
+				var mb: Dictionary = AIDM._possim_margin(snap, world, bi, player, P, vo)
+				var ma: Dictionary = AIDM._possim_margin(snap, world, ai2, player, P, vo)
 				row["ps_" + variant[0]] = float(ma.margin) - float(mb.margin)
 				if variant[0] == "b1":
 					row["x_base"] = float(mb.sim.units[uid].x)
 					row["x_alt"] = float(ma.sim.units[uid].x)
+			# the base line turn by turn, for the ground-truth comparison
+			# (tools/ai_lab/possim_truth.py): ownership chances and unit states
+			var so: Dictionary = sim_opts.duplicate()
+			so["trace"] = true
+			var tr_sim: Dictionary = AIDM._AIPositionSim.run(world, bi, so)
+			var tr_rows: Array = []
+			for trow in tr_sim.turns:
+				tr_rows.append({"round": trow.round, "side": trow.side, "own_end": trow.own_end, "lam": trow.get("lam", {}), "units": trow.units})
+			row["sim_trace"] = tr_rows
+			row["control_now"] = snap.get("mission_manager", {}).get("objective_control_state", {})
+			var sides := {}
+			for wu in world.units:
+				sides[wu] = int(world.units[wu].side)
+			row["sides"] = sides
 			row["base_intent"] = "%s %s" % [base_it.mode, base_it.goal_obj]
 			row["alt_intent"] = "%s %s" % [alt_it.mode, alt_it.goal_obj]
 			row["rebuilt_matches_logged"] = str(a_now.get("objective_id", "")) == str(base_it.goal_obj)

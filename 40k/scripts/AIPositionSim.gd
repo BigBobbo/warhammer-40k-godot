@@ -353,6 +353,12 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 			row["own_end"] = ownership(units, objectives, opts)
 			if do_damage:
 				row["lam"] = kills
+			if bool(opts.get("trace", false)):
+				var tr := {}
+				for uid in units:
+					var tu: Dictionary = units[uid]
+					tr[uid] = [snappedf(alive(tu), 0.01), snappedf(p_dead(float(tu.x)), 0.01), snappedf((tu.pos as Vector2).x, 0.1), snappedf((tu.pos as Vector2).y, 0.1)]
+				row["units"] = tr
 			turns.append(row)
 			first_turn = false
 	return {"turns": turns, "units": units}

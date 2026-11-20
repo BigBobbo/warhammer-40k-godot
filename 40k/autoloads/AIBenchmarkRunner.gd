@@ -121,6 +121,11 @@ var _obj_cache_mode: String = "on"
 # at the start and at the end, so the driver can take deltas.
 var _override_path: String = ""
 var _stop_round: int = 0
+# --bench-trace: at the end of every player turn record who controls each
+# objective and every unit's centre and share of wounds left (ground truth for
+# AIPositionSim — tools/ai_lab/possim_truth.py)
+var _trace_on: bool = false
+var _trace: Array = []
 var _vp_start: Dictionary = {}
 var _material_start: Dictionary = {}
 var _start_round: int = 0
@@ -154,6 +159,8 @@ func _ready() -> void:
 			_override_path = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-stop-round="):
 			_stop_round = int(a.split("=", true, 1)[1])
+		elif a == "--bench-trace":
+			_trace_on = true
 		elif a == "--bench-no-objective-cache":
 			_obj_cache_mode = "off"
 		elif a == "--bench-verify-objective-cache":
@@ -437,6 +444,10 @@ func _kick_off() -> void:
 	_vp_start = mm_start.get_vp_summary() if mm_start != null else {}
 	_material_start = _material_lost()
 	_start_round = GameState.get_battle_round()
+	if _trace_on:
+		var pm_tr = get_node_or_null("/root/PhaseManager")
+		if pm_tr != null and pm_tr.has_signal("turn_ending"):
+			pm_tr.turn_ending.connect(_on_turn_ending_trace)
 	if _stop_round > 0:
 		var pm_stop = get_node_or_null("/root/PhaseManager")
 		if pm_stop != null and pm_stop.has_signal("battle_round_started"):
@@ -630,6 +641,7 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"start_round": _start_round,
 		"rollout_overrides": AIDecisionMaker.get_rollout_overrides(),
 		"secondary_events": _secondary_events,
+		"trace": _trace,
 	}
 
 func _perf_seconds(ai) -> Dictionary:
@@ -651,7 +663,41 @@ func _perf_seconds(ai) -> Dictionary:
 func _on_round_started_stop(round_now: int) -> void:
 	if _stop_round > 0 and round_now > _stop_round:
 		_stop_round = 0  # once
+		if _trace_on:
+			# the last turn's turn_ending has not fired yet: record its end state
+			_on_turn_ending_trace(0)
 		_write_and_quit(_collect_result("completed", "horizon: stopped at the start of round %d" % round_now), 0)
+
+func _on_turn_ending_trace(player: int) -> void:
+	var mm = get_node_or_null("/root/MissionManager")
+	var control := {}
+	if mm != null:
+		if mm.has_method("check_all_objectives"):
+			mm.check_all_objectives()
+		control = (mm.objective_control_state as Dictionary).duplicate()
+	var units := {}
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state.units[uid]
+		var w_stat := float(u.get("meta", {}).get("stats", {}).get("wounds", 1))
+		var total := 0.0
+		var left := 0.0
+		var sum := Vector2.ZERO
+		var n := 0
+		for m in u.get("models", []):
+			var mw := float(m.get("wounds", w_stat))
+			total += mw
+			if m.get("alive", true):
+				left += clampf(float(m.get("current_wounds", mw)), 0.0, mw)
+				var p = m.get("position", null)
+				if p != null:
+					sum += p if p is Vector2 else Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+					n += 1
+		var row := {"side": int(u.get("owner", 0)), "share": (left / total) if total > 0.0 else 0.0}
+		if n > 0:
+			row["x"] = snappedf(sum.x / float(n) / 40.0, 0.1)
+			row["y"] = snappedf(sum.y / float(n) / 40.0, 0.1)
+		units[str(uid)] = row
+	_trace.append({"round": GameState.get_battle_round(), "player": player, "control": control, "units": units})
 
 ## Points lost per player: each unit's points x the share of its wounds gone
 ## (a destroyed unit loses all its points). Units that never had wounds count 0.
