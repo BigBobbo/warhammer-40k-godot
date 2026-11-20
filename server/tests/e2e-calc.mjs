@@ -761,6 +761,21 @@ try {
   check('keep-ready list and hit list are filled', (await page.locator('#mission-keep li').count()) >= 3 && (await page.locator('[id^="mission-hit-"] li').count()) >= 1);
   await page.screenshot({ path: join(SHOTS, 'calc_28_mission_cards.png') });
   // your own estimate of a card's VP if drawn (max shown), and the Assumptions buttons work
+  // the VP-if-drawn number itself is the control: pick 3 for Assassination, then back to the app's
+  const estPick = '#mission-cards tr.card-row[data-card="assassination"] select[data-input="mission-est-pick"]';
+  check('the VP-if-drawn number is a picker from 0 to the max (5)', (await page.locator(`${estPick} option`).count()) === 12 && await page.isVisible(estPick));
+  await page.selectOption(estPick, '3');
+  await page.waitForFunction(() => { const m = window.__calc.mission(); return !m.busy && m.result && Math.abs((m.result[m.me].cards.assassination?.perDraw ?? 0) - 3) < 0.35; }, null, { timeout: 60000 });
+  check('picking 3 in the VP-if-drawn cell sets your estimate and the forecast uses it', (await page.inputValue(estPick)) === '3'
+    && /Your estimate/.test(await page.textContent('#mission-cards tr.card-row[data-card="assassination"]')));
+  await page.locator(estPick).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_34_card_estimate_pick.png') });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator(estPick).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(SHOTS, 'calc_35_card_estimate_pick_laptop.png') });
+  await page.setViewportSize({ width: 412, height: 839 });
+  await page.selectOption(estPick, '');
+  check('picking "app" goes back to the app\'s estimate', await page.evaluate(() => window.__calc.state.mission.est[window.__calc.state.mission.me].assassination === undefined));
   await page.tap('#mission-cards button[data-action="mission-card"][data-id="assassination"]');
   check('card sheet shows each card\'s max (5)', (await page.textContent('#mission-cards tr.card-row[data-card="assassination"]')).includes('5'));
   for (let i = 0; i < 12; i++) await page.tap('#mission-cards button[data-action="mission-est"][data-id="assassination"][data-delta="-0.5"]');

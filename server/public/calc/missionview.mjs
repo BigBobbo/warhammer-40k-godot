@@ -504,7 +504,7 @@ function cardsHtml() {
       : position ? '<span class="pill ask">You rate it</span>'
       : perDraw == null ? '' : perDraw >= 3.5 && quick >= 0.6 ? '<span class="pill good">Strong</span>' : perDraw >= 2.5 && quick >= 0.35 ? '<span class="pill">OK</span>' : '<span class="pill weak">Hard</span>';
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''}</td>
-      <td>${tag}</td><td>${dead ? '–' : perDraw == null ? '…' : fmt(perDraw, 1)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
+      <td>${tag}</td><td>${dead ? '–' : fixedMode ? (perDraw == null ? '…' : fmt(perDraw, 1)) : estPickHtml(c, side, est[c.id], perDraw)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
       ${open ? `<tr class="card-detail"><td colspan="5"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
         ${c.fixedText ? `<div class="tiny muted">Fixed: ${esc(c.fixedText)}</div>` : ''}
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
@@ -521,9 +521,18 @@ function cardsHtml() {
     .sort((a, b) => b.ev - a.ev).slice(0, 5);
   return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
     <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th></th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
-    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a card to set your own estimate — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character.</div>
+    <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a VP if drawn number to set your own (0 up to Max) — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character; pick “app” to go back. Tap a card name for its rules.</div>
     ${side === m.me ? `<div class="lab tiny muted" style="margin-top:10px">Keep ready for</div><ul class="keep" id="mission-keep">${ready.map(x => `<li><b>${esc(x.c.name)}</b> — ${esc(KEEP_READY[x.c.id])}</li>`).join('')}</ul>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">${side === m.me ? 'Hit list: enemy units worth secondary VP' : 'Your units they score from'}</div>${hitListHtml(side)}`;
+}
+
+// the VP-if-drawn cell: tap the number to pick your own value (0 to max in 0.5
+// steps) or go back to the app's estimate
+function estPickHtml(c, side, value, appValue) {
+  const app = appValue == null ? '…' : fmt(appValue, 1);
+  const opts = [`<option value=""${value == null ? ' selected' : ''}>${app} app</option>`];
+  for (let v = 0; v <= c.max + 1e-9; v += 0.5) opts.push(`<option value="${v}"${value != null && Math.abs(value - v) < 1e-9 ? ' selected' : ''}>${fmt(v, 1)}</option>`);
+  return `<select class="est-pick${value != null ? ' mine' : ''}" data-input="mission-est-pick" data-side="${side}" data-id="${c.id}" aria-label="${ctx.esc(c.name)}: your VP if drawn (max ${c.max})" title="Tap to set your own VP if drawn (max ${c.max})">${opts.join('')}</select>`;
 }
 
 // your own estimate of a card's VP if drawn, from 0 up to its max, in 0.5 VP steps
@@ -663,6 +672,16 @@ export function missionChange(el) {
   if (el.dataset.input === 'mission-draw') {
     const id = el.value;
     if (id && !g[X].hand.includes(id)) g[X].hand.push(id);
+    persist(); scheduleForecast();
+    return true;
+  }
+  if (el.dataset.input === 'mission-est-pick') {
+    // tap the VP-if-drawn number: blank = the app's estimate
+    m.est ??= { A: {}, B: {} };
+    const id = el.dataset.id, max = SECONDARY_BY_ID[id]?.max ?? 5;
+    if (el.value === '') delete m.est[X][id];
+    else m.est[X][id] = Math.max(0, Math.min(max, Number(el.value)));
+    console.log(`[mission] estimate ${X} ${id} -> ${m.est[X][id] ?? 'app'}`);
     persist(); scheduleForecast();
     return true;
   }
