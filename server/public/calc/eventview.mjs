@@ -15,6 +15,7 @@ import { importArmy } from './adapter.mjs';
 import { DISPOSITIONS, DEPLOYMENTS, dispositionName, layoutLetter, matchupFor } from './board.mjs';
 import { splitLists } from './lists.mjs';
 import { boardSetup, plannedLayouts } from './boardview.mjs';
+import { cycleLayout, eventRecord, roundPlayed as played } from './playtools.mjs';
 
 let ctx = null;            // { state, esc, seg, loadList(side, text), persistLibrary(), sideSig(side), newGame() }
 export const EVENT_KEY = 'w40k_calc_event_v1';
@@ -23,14 +24,23 @@ export function initEvent(c) {
   ctx = c;
   try {
     const saved = JSON.parse(localStorage.getItem(EVENT_KEY) ?? 'null');
-    if (saved) Object.assign(ev(), saved);
+    if (saved) { Object.assign(ev(), { layoutsV: undefined }, saved); migrateLayouts(ev()); persist(); }
   } catch { /* fresh */ }
 }
 function ev() {
   const s = ctx.state;
-  s.event ??= { name: '', rounds: [1, 2, 3, 4, 5].map(() => ({ layout: 1, opp: null })), round: null, open: false };
+  s.event ??= { name: '', rounds: [0, 1, 2, 3, 4].map(i => ({ layout: cycleLayout(i), opp: null })), round: null, open: false, layoutsV: 2 };
   return s.event;
 }
+/** An event saved when every round started on Layout A, and never touched: it gets the A-B-C cycle once. */
+function migrateLayouts(e) {
+  if (e.layoutsV === 2) return;
+  if (e.round == null && e.rounds.every(r => r.layout === 1 && !r.opp && !r.score)) e.rounds.forEach((r, i) => { r.layout = cycleLayout(i); });
+  e.layoutsV = 2;
+}
+
+// ---- results: what each round ended on, for the record of the event (I am army A)
+const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Math.max(0, Math.min(100, Math.round(Number(v)))));
 function persist() {
   try { localStorage.setItem(EVENT_KEY, JSON.stringify(ev())); } catch { /* best effort */ }
 }
@@ -57,9 +67,13 @@ const depName = (l) => (l ? DEPLOYMENTS[l.deployment]?.name ?? l.deployment : '?
 // ---------------------------------------------------------------------------
 // View
 
+const resultPill = (r) => (played(r) ? `<span class="pill ${r.score.me > r.score.opp ? 'good' : ''}">${r.score.me > r.score.opp ? 'Win' : r.score.me < r.score.opp ? 'Loss' : 'Draw'}</span>` : '');
+const recordText = (rec) => (rec.played ? `<b>${rec.wins}</b> win${rec.wins === 1 ? '' : 's'} · <b>${rec.losses}</b> loss${rec.losses === 1 ? '' : 'es'}${rec.draws ? ` · <b>${rec.draws}</b> draw${rec.draws === 1 ? '' : 's'}` : ''} · <b>${rec.vpFor}</b> VP for, ${rec.vpAgainst} against (${rec.played} game${rec.played === 1 ? '' : 's'})` : '');
+
 export function eventCard() {
   const e = ev(), st = ctx.state, esc = ctx.esc;
   const lib = st.library;
+  const live = st.armies.A && st.armies.B ? ctx.gameScore?.() ?? null : null;
   const me = myArmy(), mine = myDisp();
   const oppOptions = (cur) => `<option value="">Opponent…</option>${lib.map(l => `<option value="${l.id}" ${String(l.id) === String(cur) ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}`;
   const roundRow = (r, i) => {
@@ -75,8 +89,15 @@ export function eventCard() {
       </div>
       <select class="sel" style="margin-top:6px" data-input="event-opp" data-r="${i}" aria-label="Opponent in round ${i + 1}">${oppOptions(r.opp)}</select>
       ${mu ? `<div class="tiny muted" style="margin-top:3px">You: <b>${esc(mu.mine ?? '?')}</b> · they: <b>${esc(mu.theirs ?? '?')}</b> · ${esc(depName(lay))}</div>` : ''}
+      <div class="row event-result" style="gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap"><span class="tiny muted">Result</span>
+        <input class="num" type="number" inputmode="numeric" min="0" max="100" data-input="event-score" data-r="${i}" data-k="me" value="${r.score?.me ?? ''}" placeholder="you" aria-label="Round ${i + 1}: your VP">
+        <span>–</span>
+        <input class="num" type="number" inputmode="numeric" min="0" max="100" data-input="event-score" data-r="${i}" data-k="opp" value="${r.score?.opp ?? ''}" placeholder="opp" aria-label="Round ${i + 1}: their VP">
+        <span data-result="${i}">${resultPill(r)}</span>
+        ${e.round === i + 1 && live?.started ? `<button class="btn ghost" data-action="event-take-score" data-r="${i}" id="event-take-${i + 1}">⇩ From Play: ${live.A} – ${live.B}</button>` : ''}</div>
     </div>`;
   };
+  const rec = eventRecord(e.rounds);
   const sig = me ? ctx.sideSig('A') : null;
   const planned = sig ? plannedLayouts('A', sig) : new Set();
   const rosterRow = (l, i) => {
@@ -97,11 +118,12 @@ export function eventCard() {
   }).join('')}</tbody></table>
     <div class="tiny muted">✓ = you have a deployment for that layout with this list (it is offered again against any opponent). Tap a cell to plan it on the Board.</div>` : '';
   return `<details class="more card" style="margin-top:12px" data-details="event" ${e.open ? 'open' : ''} id="event-card">
-    <summary>Event${e.name ? ` · ${esc(e.name)}` : ''}${e.round ? ` · round ${e.round}` : ''} — ${lib.length} opponent list${lib.length === 1 ? '' : 's'}</summary>
+    <summary>Event${e.name ? ` · ${esc(e.name)}` : ''}${e.round ? ` · round ${e.round}` : ''}${rec.played ? ` · ${rec.wins}–${rec.losses}${rec.draws ? `–${rec.draws}` : ''}` : ''} — ${lib.length} opponent list${lib.length === 1 ? '' : 's'}</summary>
     <input class="sel" data-input="event-name" value="${esc(e.name)}" placeholder="Event name (optional)" aria-label="Event name" style="margin-top:6px">
     <div class="small" style="margin-top:8px" id="event-me">${me ? `You: <b>${esc(me.faction)}</b> · ${esc(dispositionName(mine))} (army A)` : '<span class="muted">Load your own list into Army A first: it is “you” for the whole event.</span>'}</div>
-    <div class="lab tiny muted" style="margin-top:10px">Rounds — the layout letter (A / B / C) is in the event pack</div>
+    <div class="lab tiny muted" style="margin-top:10px">Rounds — layouts start as A, B, C, A, B (the cycle of GW events); change a letter if your event pack says otherwise</div>
     <div id="event-rounds">${e.rounds.map(roundRow).join('')}</div>
+    <div class="small" id="event-record" style="margin-top:6px">${rec.played ? `Record: ${recordText(rec)}` : '<span class="muted">Results: type each round’s final VP, or take them from the Play view. Starting the next round keeps the score of the one before.</span>'}</div>
     <div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost" data-action="event-round-add">＋ Round</button>${e.rounds.length > 1 ? '<button class="btn ghost" data-action="event-round-del">－ Round</button>' : ''}</div>
     <div class="lab tiny muted" style="margin-top:12px">Opponents — paste one list or many (GW app, New Recruit, ListForge)</div>
     <textarea class="list" data-input="event-paste" id="event-paste" style="min-height:90px" placeholder="Paste the lists you may face. Separate lists with a line of ----- if they are not GW app exports." spellcheck="false"></textarea>
@@ -141,7 +163,14 @@ export function eventAction(action, el) {
   const e = ev(), st = ctx.state;
   switch (action) {
     case 'event-layout': e.rounds[Number(el.closest('[data-r]').dataset.r)].layout = Number(el.dataset.value); break;
-    case 'event-round-add': e.rounds.push({ layout: 1, opp: null }); break;
+    case 'event-round-add': e.rounds.push({ layout: cycleLayout(e.rounds.length), opp: null }); break;
+    case 'event-take-score': {
+      const r = e.rounds[Number(el.dataset.r)], s = ctx.gameScore?.();
+      if (!r || !s) return null;
+      r.score = { me: s.A, opp: s.B };
+      console.log(`[event] round ${Number(el.dataset.r) + 1} result from the Play view: ${s.A} - ${s.B}`);
+      break;
+    }
     case 'event-round-del': e.rounds.pop(); if (e.round > e.rounds.length) e.round = null; break;
     case 'event-add': {
       const ta = document.getElementById('event-paste');
@@ -169,7 +198,10 @@ export function eventAction(action, el) {
       const i = Number(el.dataset.r), r = e.rounds[i];
       const l = st.library.find(x => String(x.id) === String(r?.opp));
       if (!l || !myArmy()) return null;
-      if (ctx.gameInProgress() && !window.confirm(`Start round ${i + 1} against ${l.name}? The game tracked on the Play view is cleared.`)) return null;
+      if (ctx.gameInProgress() && !window.confirm(`Start round ${i + 1} against ${l.name}? The game tracked on the Play view is cleared${e.round && e.round !== i + 1 && !played(e.rounds[e.round - 1] ?? {}) ? ` (its score is kept as the result of round ${e.round})` : ''}.`)) return null;
+      // the game on the tracker was the round before: keep its score as that round's result (unless one is typed in)
+      const prev = e.round && e.round !== i + 1 ? e.rounds[e.round - 1] : null, sc = ctx.gameScore?.();
+      if (prev && !played(prev) && sc?.started) { prev.score = { me: sc.A, opp: sc.B }; console.log(`[event] round ${e.round} result kept: ${sc.A} - ${sc.B}`); }
       ctx.loadList('B', l.text);
       boardSetup({ variant: r.layout, listDispositions: true });
       ctx.newGame();
@@ -199,6 +231,18 @@ export function eventChange(el) {
   const e = ev();
   if (el.dataset.input === 'event-opp') { e.rounds[Number(el.dataset.r)].opp = el.value || null; persist(); return true; }
   if (el.dataset.input === 'event-name') { e.name = el.value.trim(); persist(); return true; }
+  if (el.dataset.input === 'event-score') {
+    // typed while the card stays as it is (the player moves on to the next box): the pill and the record follow
+    const i = Number(el.dataset.r), r = e.rounds[i];
+    if (!r) return false;
+    r.score = { me: r.score?.me ?? null, opp: r.score?.opp ?? null, [el.dataset.k]: num(el.value) };
+    if (r.score.me == null && r.score.opp == null) delete r.score;
+    persist();
+    const pill = document.querySelector(`[data-result="${i}"]`); if (pill) pill.innerHTML = resultPill(r);
+    const rec = eventRecord(e.rounds), box = document.getElementById('event-record');
+    if (box && rec.played) box.innerHTML = `Record: ${recordText(rec)}`;
+    return 'quiet';
+  }
   return false;
 }
 

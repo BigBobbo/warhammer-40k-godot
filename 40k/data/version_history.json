@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.106.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: event record, Fixed Missions on the tracker, the 15 VP limit and a locked chess clock",
+      "changes": [
+        "Event: rounds start on layouts A, B, C, A, B, the cycle GW events use. Change a letter if your event pack says otherwise.",
+        "Event: each round keeps its result. Type the final VP, take them from the Play view, or start the next round and the score is kept. The card shows your wins, losses and total VP.",
+        "Play: Fixed Missions stay on the tracker all battle, with what each card has scored out of 20 VP. The forecast knows what they have already paid.",
+        "Play: a warning when a player has more than 15 primary or 15 secondary VP in one battle round.",
+        "Play: the chess clock's pause is locked by default (UKTC: only a referee pauses it). A tap on the running clock no longer pauses it, and Pause asks first."
+      ]
+    },
+    {
       "version": "1.105.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: where reserves can arrive, detection rings, and plans for going first or second",

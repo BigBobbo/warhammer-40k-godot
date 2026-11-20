@@ -469,3 +469,6 @@ details.more.card { padding: 10px 12px; }
 #phase-strip::-webkit-scrollbar { display: none; }
 #phase-strip .chip { flex: 0 0 auto; }
 #phase-strip .chip:disabled { opacity: .4; }
+
+/* Event card: a round's result */
+.event-result input.num { width: 68px; margin-top: 0; text-align: center; }

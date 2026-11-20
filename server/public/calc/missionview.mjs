@@ -236,6 +236,8 @@ export function matchupData() {
 export function registerHost(id, fn) { HOSTS[id] = fn; }
 export function missionNewGame() { const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
 export const missionInProgress = () => inProgress();
+/** The score on the tracker (Battle Ready included), for the event card. */
+export const missionScore = () => ({ A: totalVp('A'), B: totalVp('B'), over: !!ms().game.over, started: inProgress() });
 
 // units destroyed per turn, from the calculator (null until the unit-vs-unit odds are in)
 function autoKill() {
@@ -331,7 +333,7 @@ export function forecastParams(over = {}) {
     army: (X === 'A' ? pa : pb).profile, killRate: m.killAuto?.[X] === false ? m.killRate[X] : (fracs ? null : 1.3), killMul: over.killMul?.[X] ?? 1, actionP: m.actionP[X],
     rate: m.rate[X], vpEst: m.est?.[X] ?? {}, battleReady: m.battleReady[X],
     // (destroyed: this player's OWN units that are gone, by name — the forecast removes them from this army)
-    start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[X].destroyed } : null,
+    start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[X].destroyed, fixedVp: g[X].fixedVp ?? {} } : null,
   });
   const next = g.next ?? first ?? 'A';
   return {
@@ -625,6 +627,7 @@ function playView() {
       </div>
       ${m.first == null && !opening ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="small">Who took the first turn?</span>${ctx.seg('mission-first', 'roll', [['A', who('A')], ['B', who('B')]], 'compact')}</div>` : ''}
       <div class="small" id="play-turn" style="margin-top:8px">${turnLineHtml()}</div>
+      <div id="play-caps">${capsHtml()}</div>
       ${checklistHtml()}
     </div></section>
     <section class="section a-me o3">${playerCard(me)}</section>
@@ -651,6 +654,14 @@ function turnLineHtml() {
     ? `<b>${X}</b> ${[d[X].primary ? `${sign(d[X].primary)} primary` : '', d[X].secondary ? `${sign(d[X].secondary)} secondary` : ''].filter(Boolean).join(', ')}`
     : `<span class="muted">${X} nothing yet</span>`);
   return `Round ${g.round}, ${turnOf()}'s turn — scored this turn: ${part('A')} · ${part('B')}`;
+}
+
+// more than 15VP of primary, or of secondary, in one battle round (Event Companion: "Up to 15VP per battle round")
+function capsHtml() {
+  const g = ms().game;
+  const ws = PT.capWarnings(g, RULES.rounds, RULES.primaryRoundCap);
+  if (!ws.length) return '';
+  return `<div class="warnbox" id="play-cap-warn" style="margin-top:8px">${ws.map(w => `<div data-cap="${w.side}:${w.round}:${w.kind}">⚠ <b>${w.side}</b> has ${w.vp} ${w.kind} VP in battle round ${w.round}: the limit is ${RULES.primaryRoundCap} per battle round, so ${w.over} of them do not count${w.last ? ' (VP scored at the end of the battle are outside this limit)' : ''}.</div>`).join('')}</div>`;
 }
 
 // what to do in a turn, in the order of the rules (core rules 08, Event Companion step 6)
@@ -715,10 +726,11 @@ function clockHtml() {
     const tile = (X) => `<button class="clock-tile ${c.running === X ? 'on' : ''}" data-action="mission-clock" data-do="run" data-side="${X}" aria-label="Run the clock of ${X}" aria-pressed="${c.running === X}">
         <span class="tiny">${who(X)}</span><b id="clock-${X}">${PT.fmtClock(PT.chessLeft(c, X, now))}</b></button>`;
     body = `<div class="row" style="gap:8px;margin-top:8px">${tile('A')}${tile('B')}</div>
-      <div class="row" style="gap:8px;margin-top:8px"><button class="btn" data-action="mission-clock" data-do="chess-pause" ${c.running ? '' : 'disabled'}>Pause</button>
-        <button class="btn ghost" data-action="mission-clock" data-do="chess-reset">Reset</button></div>
+      <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-action="mission-clock" data-do="chess-pause" id="chess-pause" ${c.running ? '' : 'disabled'}>${PT.chessLocked(c) ? '🔒 Pause (referee)' : 'Pause'}</button>
+        <button class="btn ghost" data-action="mission-clock" data-do="chess-reset">Reset</button>
+        ${ctx.chip('mission-clock-lock', PT.chessLocked(c), 'Pause locked', 'id="chess-lock"')}</div>
       ${PT.chessStarted(c) ? '' : `<div class="modrow"><div class="lab">Time each</div>${ctx.seg('mission-clock-bank', c.bank, PT.CHESS_BANKS.map(v => [v, hm(v)]), 'compact')}</div>`}
-      <div class="tiny muted" style="margin-top:6px">Tap a player to run that player's clock (and again when it passes, for example for saves). “Turn done” passes it to the next player. UKTC recommends 1:25 each. The event's own clock is the one that counts.</div>`;
+      <div class="tiny muted" style="margin-top:6px" id="chess-note">Tap a player to run that player's clock (and the other player when it passes, for example for saves). “Turn done” passes it to the next player. UKTC recommends 1:25 each. ${PT.chessLocked(c) ? 'Pause locked: once started, only a referee may pause the clock (UKTC); a player with under 5 minutes left may pause it to call one. A tap on the running clock does nothing, and Pause asks first.' : 'A tap on the running clock pauses it.'} The event's own clock is the one that counts.</div>`;
   }
   return `<div class="card" id="play-clock"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><div class="title grow">Clock</div>
       ${ctx.seg('mission-clock-mode', c.mode, [['off', 'Off'], ['round', 'Round timer'], ['chess', 'Chess clock']], 'compact')}</div>${body}</div>`;
@@ -1053,6 +1065,24 @@ function hitListHtml(side) {
 
 // ---- in-game tracker
 
+// Fixed Missions: the two cards are active all battle and cannot be discarded; each pays at most 20VP in a game
+function fixedHtml(X) {
+  const m = ms(), g = m.game, esc = ctx.esc;
+  const ids = m.modes[X].fixed;
+  if (!ids.length) return '<div class="tiny muted" style="margin-top:6px">Fixed: pick two cards under Plan → Assumptions.</div>';
+  const row = (id) => {
+    const c = SECONDARY_BY_ID[id], vp = g[X].fixedVp?.[id] ?? 0, full = vp >= RULES.fixedCardCap;
+    const open = m.handOpen === `${X}:${id}`;
+    return `<div class="hand-row" data-fixed="${id}"><span class="grow"><button class="linkish" data-action="mission-hand-info" data-side="${X}" data-id="${id}" aria-expanded="${open}">${esc(c.name)}</button>
+        <span class="tiny ${full ? 'good' : 'muted'}" data-fixed-vp="${id}"> ${vp} of ${RULES.fixedCardCap} VP${full ? ' · full' : ''}</span>
+        ${open ? `<div class="tiny" data-text="${id}">${esc(c.fixedText ?? c.text)}</div>` : ''}</span>
+      ${PT.fixedSteps(c.fixedText).map(v => `<button class="mini score" data-action="mission-fixed-score" data-side="${X}" data-id="${id}" data-vp="${v}" ${full ? 'disabled' : ''} aria-label="${esc(c.name)} scored ${v} VP">+${v}</button>`).join('')}
+      <button class="mini" data-action="mission-fixed-score" data-side="${X}" data-id="${id}" data-vp="-1" ${vp ? '' : 'disabled'} aria-label="${esc(c.name)}: take 1 VP back">−1</button></div>`;
+  };
+  return `<div class="lab tiny muted" style="margin-top:10px">Fixed Missions — active all battle, never discarded, at most ${RULES.fixedCardCap} VP each. Tap what a card scored (it is added to the secondary VP)</div>
+    <div id="fixed-${X}">${ids.map(row).join('')}</div>`;
+}
+
 // one player's side of the table: scores (steppers), the cards in hand with what
 // they can pay, the draw box, units destroyed
 function playerCard(X) {
@@ -1082,7 +1112,7 @@ function playerCard(X) {
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
         ${X === (g.next ?? m.first ?? 'A') && inProgress() ? `<div class="tiny muted" id="drawn-${X}">Drawn this turn: ${Math.min(RULES.drawPerTurn, g.drawn ?? 0)} of ${RULES.drawPerTurn}${(g.drawn ?? 0) < RULES.drawPerTurn && !m.table ? ` — the forecast draws the other ${RULES.drawPerTurn - (g.drawn ?? 0)} at random` : ''}.</div>` : ''}
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left${m.table ? '.' : `: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.`}${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
-        : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Plan → Assumptions'}.</div>`}
+        : fixedHtml(X)}
       <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${isOpen(`mission-dead-${X}`) ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
         <div class="chips">${ctx.state.armies[X].units.map(u => ctx.chip('mission-dead', g[X].destroyed.includes(u.name), u.name, `data-side="${X}" data-name="${esc(u.name)}"`)).join('')}</div></details>
     </div>`;
@@ -1166,6 +1196,12 @@ export function missionAction(action, el) {
       else if (el.dataset.do === 'discard' && X === turnOf()) { if (g[X].swapPending) g[X].swapPending = false; else g[X].cpAsk = true; }
       break;
     }
+    case 'mission-fixed-score': {
+      remember(`${X} ${SECONDARY_BY_ID[el.dataset.id]?.name ?? 'Fixed card'}`);
+      const got = PT.scoreFixed(g, X, el.dataset.id, Number(el.dataset.vp));
+      console.log(`[mission] Fixed card ${el.dataset.id}: ${got >= 0 ? '+' : ''}${got} VP for ${X} (${g[X].fixedVp[el.dataset.id]} of ${RULES.fixedCardCap})`);
+      break;
+    }
     case 'mission-score-step': {
       const k = el.dataset.k === 'primary' ? 'primary' : 'secondary';
       remember(`${X} ${k} VP`);
@@ -1190,6 +1226,7 @@ export function missionAction(action, el) {
     case 'mission-table': m.table = !m.table; if (m.table) m.tab = 'play'; toTop = true; persist(); if (!m.table) scheduleForecast(); return 'render';
     case 'mission-awake': m.awake = m.awake === false; persist(); return 'render';
     case 'mission-clock-mode': m.clock.mode = el.dataset.value; persist(); return 'render';
+    case 'mission-clock-lock': m.clock.lock = !PT.chessLocked(m.clock); persist(); return 'render';
     case 'mission-clock-len': PT.roundSetLen(m.clock, Number(el.dataset.value)); persist(); return 'render';
     case 'mission-clock-bank': PT.chessSetBank(m.clock, Number(el.dataset.value)); persist(); return 'render';
     case 'mission-clock': {
@@ -1200,9 +1237,13 @@ export function missionAction(action, el) {
         case 'reset': PT.roundReset(c); break;
         case 'minus': PT.roundSetLeft(c, PT.roundLeft(c, now) / 60000 - 5, now); break;
         case 'plus': PT.roundSetLeft(c, PT.roundLeft(c, now) / 60000 + 5, now); break;
-        // a tap on the running player's own tile pauses the clock
-        case 'run': if (c.running === X) PT.chessPause(c, now); else PT.chessRun(c, X, now); break;
-        case 'chess-pause': PT.chessPause(c, now); break;
+        // a tap on the running player's own tile pauses the clock - not while the pause is locked
+        case 'run': if (c.running !== X) PT.chessRun(c, X, now); else if (!PT.chessLocked(c)) PT.chessPause(c, now); break;
+        case 'chess-pause':
+          // UKTC: "Once started, only a referee may pause the chess clock" (under 5 minutes a player may, to call one)
+          if (PT.chessLocked(c) && !PT.chessMayPause(c, now) && !(globalThis.confirm?.('Pause the chess clock?\n\nOnce started, only a referee may pause it (UKTC). A player with under 5 minutes left may pause it to call a referee.') ?? true)) return null;
+          PT.chessPause(c, now);
+          break;
         case 'chess-reset': PT.chessReset(c); break;
         default:
       }
@@ -1269,6 +1310,7 @@ export function missionChange(el) {
     // the parts of the page that follow the score, re-drawn in place
     const set = (id, html) => { const n = document.getElementById(id); if (n) n.innerHTML = html; };
     set('play-turn', turnLineHtml());
+    set('play-caps', capsHtml());
     for (const P of ['A', 'B']) set(`play-total-${P}`, String(totalVp(P)));
     const sheet = document.getElementById('play-sheet');
     if (sheet) sheet.outerHTML = sheetHtml();

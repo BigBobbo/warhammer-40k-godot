@@ -14,7 +14,7 @@ import { chooseWeapons, families, decisions, adjustCount, overSidearms } from '.
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, syncWake, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, syncWake, _missionDebug } from './missionview.mjs';
 import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
 
@@ -2108,7 +2108,8 @@ app.addEventListener('change', (ev) => {
     el.value = '';
     return;
   }
-  if (eventChange(el)) return el.dataset.input === 'event-name' ? undefined : changed({ calc: false });
+  const evr = eventChange(el);      // 'quiet': the card has already updated itself in place (a result typed in)
+  if (evr) return el.dataset.input === 'event-name' || evr === 'quiet' ? undefined : changed({ calc: false });
   if (boardChange(el)) return changed({ calc: false });
   const mc = missionChange(el);
   if (mc === 'quiet') return persist();
@@ -2186,7 +2187,7 @@ initBoard({
   },
 });
 initMission({ state, esc, seg, chip, pairOdds, wide });
-initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress });
+initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
 parseArmy('A');
 parseArmy('B');

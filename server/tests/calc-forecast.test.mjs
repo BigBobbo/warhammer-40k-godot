@@ -279,3 +279,20 @@ test('board plan, 14.02: equal Objective Control means nobody controls the objec
   const part = F.forecast({ ...P(10, 4), boardPlan: (() => { const b = plan(10, 4); for (const r of Object.values(b.rounds)) r.A[0].f.objOc = { o1: 2 }; return b; })() });
   assert.ok(part.B.primMean > 20 && part.A.primMean === 0, 'the models in range count, not the unit');
 });
+
+test('Fixed Missions in a game in progress: a card that has already paid its 20VP pays nothing more', () => {
+  const plan = planAll({ hA: 'A', eA: 'A', c: 'c', eB: 'B', hB: 'B' });
+  // A plays Fixed with Assassination + Bring It Down against a list with characters and W10+ models, and kills a lot
+  const fixed = (start) => ({ mission: 'Battlefield Dominance', army: BIG(), mode: 'fixed', fixed: ['assassination', 'bring-it-down'], killRate: 2.5, battleReady: false, start });
+  const run = (start) => F.forecast({ players: { A: fixed(start), B: { ...quiet('Battlefield Dominance', BIG()), killRate: 0 } }, objectives: OBJS, plan, first: 'A', startRound: 2, trials: 300, seed: 7, confidence: SURE });
+  const base = { hand: [], used: [], primary: 0, secondary: 0, destroyed: [] };
+  const fresh = run({ ...base });
+  const secOf = (r) => r.A.sec.reduce((a, b) => a + b, 0);
+  assert.ok(secOf(fresh) > 3, `with nothing scored yet the two cards pay in rounds 2-5: ${secOf(fresh)}`);
+  // both cards already at 20VP (40 secondary VP on the tracker): nothing more comes from them
+  const done = run({ ...base, secondary: 40, fixedVp: { assassination: 20, 'bring-it-down': 20 } });
+  assert.equal(secOf(done), 0, 'both cards are full');
+  // one card full: only the other one still pays, and never past 20
+  const half = run({ ...base, secondary: 20, fixedVp: { assassination: 20 } });
+  assert.ok(secOf(half) > 0 && secOf(half) <= 20 && secOf(half) < secOf(fresh), `${secOf(half)} of ${secOf(fresh)}`);
+});

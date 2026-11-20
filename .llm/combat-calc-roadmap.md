@@ -317,3 +317,14 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   roll-off is after deployment, Event Companion step 10). `forecastParams`
   forecasts a tagged version with that first turn until the real one is known;
   "Your plans compared" adds the roll-off row (the average of the two).
+- Aid 6, the event: BUILT in v1.106.0, browser-tested.
+  Layouts default to A, B, C, A, B (`playtools.cycleLayout`; GW GT pack 4.2);
+  an untouched saved event is moved over once (`layoutsV`).
+  Each round keeps `score: { me, opp }`: typed, taken from the Play view, or
+  kept when the next round starts; `playtools.eventRecord` gives wins, losses,
+  draws and VP. Play: `capWarnings` flags more than 15VP of primary or of
+  secondary in a battle round (Event Companion; end-of-battle VP excepted);
+  Fixed Missions stay on the tracker (`game[X].fixedVp`, `scoreFixed`: 20VP a
+  card, 45 secondary) and the forecast starts from what they have paid;
+  the chess clock's pause is locked by default (`chessLocked`, UKTC policy:
+  only a referee pauses it; under 5 minutes a player may).

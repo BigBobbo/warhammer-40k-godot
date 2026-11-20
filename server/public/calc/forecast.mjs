@@ -437,7 +437,8 @@ function simulateGame(P, rnd) {
     S[X] = {
       X, pl, deck: SECONDARIES.map(c => c.id).filter(id => !out.has(id)), hand: [...(start.hand ?? [])], used: [...(start.used ?? [])],
       prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
-      fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
+      // what each Fixed card has already paid in the game in progress (at most 20VP a card)
+      fixedVp: { ...(start.fixedVp ?? {}) }, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
       enemyAlive: null, enemyHadChars: false, unitsLeft: [null, null, null, null, null],
     };
   }

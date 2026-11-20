@@ -2236,6 +2236,135 @@ try {
     await sctx.close();
   }
 
+  // --- event aids (1.106): layout cycle, each round's result, 15VP per round, Fixed cards, the chess clock pause
+  {
+    const ectx = await browser.newContext({ ...devices['Pixel 7'] });
+    const ep = await ectx.newPage();
+    ep.on('console', m => { if (m.type() === 'error') consoleErrors.push(`event aids: ${m.text()}`); });
+    ep.on('pageerror', e => consoleErrors.push(`event aids: ${e}`));
+    const dialogs = [];
+    let answer = true;
+    ep.on('dialog', d => { dialogs.push(d.message()); if (answer) d.accept(); else d.dismiss(); });
+    await ep.goto(`${BASE}/calc/`);
+    await ep.waitForSelector('textarea[data-side="A"]');
+    await ep.fill('textarea[data-side="A"]', SW_LIST); await ep.tap('button[data-action="parse"][data-side="A"]');
+    const etxt = async (q) => (await ep.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => ep.evaluate(() => window.__calc.mission());
+    await ep.locator('#event-card > summary').tap();
+    const letters = await ep.$$eval('#event-rounds .event-round', rows => rows.map(r => r.querySelector('button[data-action="event-layout"].on').textContent.trim()).join(''));
+    check('a new event starts on layouts A, B, C, A, B (the cycle of GW events)', letters === 'ABCAB', letters);
+    await ep.tap('button[data-action="event-round-add"]');
+    check('a sixth round continues the cycle with C', (await ep.$eval('#event-rounds [data-round="6"] button[data-action="event-layout"].on', b => b.textContent.trim())) === 'C');
+    await ep.tap('button[data-action="event-round-del"]');
+    // two opponents: the Orks in round 1, the same Ork list again in round 2 (a result needs a game, not a new list)
+    await ep.fill('#event-paste', ORK_LIST);
+    await ep.tap('button[data-action="event-add"]');
+    const oid = await ep.evaluate(() => String(window.__calc.event().roster.find(r => /Waaagh/.test(r.name)).id));
+    await ep.selectOption('#event-rounds [data-round="1"] select[data-input="event-opp"]', oid);
+    await ep.selectOption('#event-rounds [data-round="2"] select[data-input="event-opp"]', oid);
+    await ep.tap('#event-rounds [data-round="1"] button[data-action="event-start"]');
+    await ep.waitForSelector('#brief');
+    // Fixed Missions for me: Assassination and Bring It Down
+    await ep.tap('button[data-action="view"][data-value="mission"]');
+    await ep.waitForSelector('details[data-details="mission-assume"] > summary');
+    await ep.locator('details[data-details="mission-assume"] > summary').tap();
+    await ep.locator('.seg[data-side="A"] button[data-action="mission-mode"][data-value="fixed"]').tap();
+    const picked = await ep.evaluate(() => window.__calc.state.mission.modes.A.fixed);
+    for (const id of picked) if (!['assassination', 'bring-it-down'].includes(id)) await ep.locator(`button[data-action="mission-fixed"][data-side="A"][data-id="${id}"]`).tap();
+    for (const id of ['assassination', 'bring-it-down']) if (!(await ep.evaluate((x) => window.__calc.state.mission.modes.A.fixed.includes(x), id))) await ep.locator(`button[data-action="mission-fixed"][data-side="A"][data-id="${id}"]`).tap();
+    check('Fixed Missions chosen for A: Assassination and Bring It Down', (await ep.evaluate(() => window.__calc.state.mission.modes.A.fixed.slice().sort().join())) === 'assassination,bring-it-down');
+    await ep.tap('button[data-action="mission-tab"][data-value="play"]');
+    await ep.waitForSelector('#fixed-A [data-fixed="assassination"]');
+    const fx0 = await etxt('#fixed-A');
+    check('Play: the two Fixed cards stay on the table, with what each pays at a time', /Assassination 0 of 20 VP \+3\+4 −1/.test(fx0) && /Bring It Down 0 of 20 VP \+4 −1/.test(fx0), fx0);
+    await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').tap();
+    let g = (await mission()).game;
+    check('a tap adds the VP to the card and to the secondary VP', g.A.fixedVp.assassination === 4 && g.A.secondary === 4 && /4 of 20 VP/.test(await etxt('#fixed-A [data-fixed-vp="assassination"]')) && (await etxt('#play-total-A')) === '14', JSON.stringify(g.A));
+    for (let i = 0; i < 5; i++) await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').tap({ force: true });
+    g = (await mission()).game;
+    check('a Fixed card stops at 20VP: the buttons close and the sixth tap adds nothing', g.A.fixedVp.assassination === 20 && g.A.secondary === 20 && /20 of 20 VP · full/.test(await etxt('#fixed-A [data-fixed-vp="assassination"]')) && await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').isDisabled(), JSON.stringify(g.A));
+    await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="-1"]').tap();
+    g = (await mission()).game;
+    check('−1 takes a mistake back', g.A.fixedVp.assassination === 19 && g.A.secondary === 19);
+    await ep.locator('#fixed-A').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_80_fixed_cards.png') });
+    // 15VP per battle round: 19 secondary VP in round 1 is over the limit
+    const cap = await etxt('#play-cap-warn');
+    check('more than 15 secondary VP in a battle round is flagged, with how many do not count', /A has 19 secondary VP in battle round 1: the limit is 15 per battle round, so 4 of them do not count/.test(cap), cap);
+    // typed into the box: the warning follows without the page being redrawn
+    await ep.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '16');
+    await ep.locator('input[data-input="mission-score"][data-side="B"][data-k="primary"]').blur();
+    await ep.waitForSelector('#play-cap-warn [data-cap="B:1:primary"]');
+    check('a typed score over the limit is flagged too', /B has 16 primary VP in battle round 1.*so 1 of them do not count/.test(await etxt('#play-cap-warn [data-cap="B:1:primary"]')));
+    await ep.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '15');
+    await ep.locator('input[data-input="mission-score"][data-side="B"][data-k="primary"]').blur();
+    await ep.waitForFunction(() => !document.querySelector('#play-cap-warn [data-cap="B:1:primary"]'));
+    check('15 is the limit, not over it', (await ep.locator('#play-cap-warn [data-cap]').count()) === 1);
+    await ep.evaluate(() => window.scrollTo(0, 0));
+    await ep.screenshot({ path: join(SHOTS, 'calc_81_cap_warning.png') });
+    // the chess clock: the pause is locked
+    await ep.locator('button[data-action="mission-clock-mode"][data-value="chess"]').scrollIntoViewIfNeeded();
+    await ep.locator('button[data-action="mission-clock-mode"][data-value="chess"]').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('the chess clock starts with the pause locked', (await mission()).clock.running === 'A' && /🔒 Pause \(referee\)/.test(await etxt('#chess-pause')) && (await ep.getAttribute('#chess-lock', 'aria-pressed')) === 'true' && /only a referee may pause the clock \(UKTC\)/.test(await etxt('#chess-note')));
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('a tap on the running clock does not pause it', (await mission()).clock.running === 'A');
+    await ep.locator('button.clock-tile[data-side="B"]').tap();
+    check('a tap on the other player passes the clock', (await mission()).clock.running === 'B');
+    answer = false; dialogs.length = 0;
+    await ep.locator('#chess-pause').tap();
+    check('Pause asks first, and "Cancel" leaves the clock running', dialogs.length === 1 && /only a referee may pause it \(UKTC\)/.test(dialogs[0]) && (await mission()).clock.running === 'B', dialogs.join(' | '));
+    answer = true;
+    await ep.locator('#chess-pause').tap();
+    check('the referee pauses it: "OK" stops the clock', (await mission()).clock.running == null);
+    await ep.locator('#play-clock').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_82_chess_lock.png') });
+    await ep.locator('#chess-lock').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('with the lock off, a tap on the running clock pauses it as before', (await mission()).clock.running == null && (await etxt('#chess-pause')) === 'Pause' && /A tap on the running clock pauses it/.test(await etxt('#chess-note')));
+    // results of the event: round 1 ends 29 - 25 (19 + 10 Battle Ready against 15 + 10); starting round 2 keeps it
+    await ep.tap('button[data-action="view"][data-value="armies"]');
+    await ep.waitForSelector('#event-rounds');
+    check('the round in play offers its score from the Play view', /From Play: 29 – 25/.test(await etxt('#event-take-1')));
+    dialogs.length = 0;
+    await ep.tap('#event-rounds [data-round="2"] button[data-action="event-start"]');
+    await ep.waitForSelector('#brief');
+    check('starting round 2 says that the score of round 1 is kept', dialogs.length === 1 && /its score is kept as the result of round 1/.test(dialogs[0]), dialogs.join(' | '));
+    await ep.tap('button[data-action="view"][data-value="armies"]');
+    await ep.waitForSelector('#event-rounds');
+    const r1 = await ep.evaluate(() => window.__calc.event().rounds[0].score);
+    check('round 1 has its result (29 - 25, a win) and the record counts it', r1.me === 29 && r1.opp === 25 && /Win/.test(await etxt('#event-rounds [data-round="1"] [data-result="0"]')) && /Record: 1 win · 0 losses · 29 VP for, 25 against \(1 game\)/.test(await etxt('#event-record')) && /round 2 · 1–0/.test(await etxt('#event-card > summary')), `${JSON.stringify(r1)} | ${await etxt('#event-record')} | ${await etxt('#event-card > summary')}`);
+    // round 2 by hand: 61 - 74
+    await ep.fill('#event-rounds [data-round="2"] input[data-k="me"]', '61');
+    await ep.locator('#event-rounds [data-round="2"] input[data-k="me"]').blur();
+    await ep.fill('#event-rounds [data-round="2"] input[data-k="opp"]', '74');
+    await ep.locator('#event-rounds [data-round="2"] input[data-k="opp"]').blur();
+    await ep.waitForFunction(() => /2 games/.test(document.getElementById('event-record')?.textContent ?? ''));
+    check('a typed result: loss, and the record adds up', /Loss/.test(await etxt('#event-rounds [data-round="2"] [data-result="1"]')) && /Record: 1 win · 1 loss · 90 VP for, 99 against \(2 games\)/.test(await etxt('#event-record')), await etxt('#event-record'));
+    await ep.locator('#event-rounds').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_83_event_results.png') });
+    await ep.reload();
+    await ep.waitForSelector('#event-card');
+    check('the results are kept over a reload', (await ep.evaluate(() => JSON.stringify(window.__calc.event().rounds.slice(0, 2).map(r => r.score)))) === '[{"me":29,"opp":25},{"me":61,"opp":74}]');
+    await ectx.close();
+  }
+  // an event saved by an older version (every round on Layout A, never used) gets the cycle once; one in use is left alone
+  {
+    const mctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mp = await mctx.newPage();
+    mp.on('pageerror', e => consoleErrors.push(`event migration: ${e}`));
+    await mp.addInitScript(() => { if (!localStorage.getItem('w40k_calc_event_v1')) localStorage.setItem('w40k_calc_event_v1', JSON.stringify({ name: 'Old', rounds: [1, 2, 3, 4, 5].map(() => ({ layout: 1, opp: null })), round: null, open: false })); });
+    await mp.goto(`${BASE}/calc/`);
+    await mp.waitForSelector('#event-card');
+    check('an untouched event from an older version moves to A, B, C, A, B', (await mp.evaluate(() => window.__calc.event().rounds.map(r => r.layout).join(''))) === '12312');
+    await mp.evaluate(() => localStorage.setItem('w40k_calc_event_v1', JSON.stringify({ name: 'Used', rounds: [{ layout: 1, opp: 5 }, { layout: 1, opp: null }, { layout: 1, opp: null }], round: 1, open: false })));
+    await mp.reload();
+    await mp.waitForSelector('#event-card');
+    check('an event that is in use keeps the layouts it has', (await mp.evaluate(() => window.__calc.event().rounds.map(r => r.layout).join(''))) === '111');
+    await mctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
