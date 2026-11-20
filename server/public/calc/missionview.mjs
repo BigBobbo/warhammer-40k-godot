@@ -320,7 +320,10 @@ export function forecastParams(over = {}) {
   if (!pa || !pb || !bc.layout) return null;
   const g = m.game;
   const live = inProgress();
-  const first = m.first ?? (live ? 'A' : null);
+  const vi = over.boardPlan === undefined ? sourcePlan() : over.boardPlan;
+  // a board plan made for going first (or second) is forecast that way, until the first turn is known
+  const tag = vi == null ? null : boardPlans()[vi]?.when ?? null;
+  const first = m.first ?? (tag ? (tag === 'first' ? m.me : other(m.me)) : null) ?? (live ? 'A' : null);
   const fracs = killFracs();
   const player = (X) => ({
     mission: bc.missions[X], mode: over.mode?.[X]?.mode ?? m.modes[X].mode, fixed: over.mode?.[X]?.fixed ?? m.modes[X].fixed,
@@ -331,7 +334,6 @@ export function forecastParams(over = {}) {
     start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[X].destroyed } : null,
   });
   const next = g.next ?? first ?? 'A';
-  const vi = over.boardPlan === undefined ? sourcePlan() : over.boardPlan;
   return {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
@@ -765,6 +767,7 @@ function heroHtml() {
     <div class="small" style="margin-top:6px" id="fc-verdict">${verdict(pWin, pLose, margin)}</div>
     <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
     ${m.first == null && !inProgress() && pFirst != null && pSecond != null ? `<div class="small" style="margin-top:6px" id="fc-first">First turn is a roll-off after deployment: you win <b>${pct(pFirst)}</b> going first, <b>${pct(pSecond)}</b> going second.</div>` : ''}
+    ${(() => { const vi = sourcePlan(), tag = m.first == null && vi != null ? boardPlans()[vi]?.when : null; return tag ? `<div class="small" style="margin-top:6px" id="fc-first-tag">This board plan is your <b>going ${tag}</b> version: the forecast has ${tag === 'first' ? 'you' : 'your opponent'} take the first turn. “Your plans compared” has both versions.</div>` : ''; })()}
     <div class="tiny muted" style="margin-top:4px">${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}. The range is where 8 games in 10 end.</div>`;
 }
 
@@ -852,10 +855,16 @@ function compareHtml(me, opp) {
   // the best complete plan gets the star: a plan with units missing is not comparable
   const complete = rows.filter(c => !planNotes[c.key]);
   const best = Math.max(...(complete.length ? complete : rows).map(win));
+  // versions made for going first / going second: each is forecast with that first turn (until it is known)
+  const plans = boardPlans();
+  const whenOf = (c) => { const x = /^plan(\d+)$/.exec(c.key); return x ? plans[Number(x[1])]?.when ?? null : null; };
+  const tagHtml = (c) => (whenOf(c) ? ` <span class="tiny muted">· ${m.first == null ? `you go ${whenOf(c)}` : `made for going ${whenOf(c)}`}</span>` : '');
+  const pf = rows.find(c => whenOf(c) === 'first'), ps = rows.find(c => whenOf(c) === 'second');
+  const rollOff = pf && ps && m.first == null ? `<tr id="fc-rolloff" data-win="${((win(pf) + win(ps)) / 2).toFixed(4)}"><td>Roll-off: half your games each way, the right plan for each</td><td><b>${pct((win(pf) + win(ps)) / 2)}</b></td><td>${fmt((pf.result[me].mean + ps.result[me].mean) / 2)}</td><td>${fmt((pf.result[opp].mean + ps.result[opp].mean) / 2)}</td></tr>` : '';
   return `<h2 class="sub" style="margin-top:14px">Your plans compared</h2>
     <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
-    ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn-ink)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
-    </tbody></table>`;
+    ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}" data-when="${whenOf(c) ?? ''}"><td>${esc(c.label)}${tagHtml(c)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn-ink)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}${rollOff}
+    </tbody></table>${rollOff ? '<div class="tiny muted" id="fc-rolloff-note">The winner of the roll-off takes the first turn (Event Companion), so each version is used in half your games.</div>' : ''}`;
 }
 
 function verdict(pWin, pLose, margin) {

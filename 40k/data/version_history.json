@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.105.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: where reserves can arrive, detection rings, and plans for going first or second",
+      "changes": [
+        "Board: a Reserves can arrive overlay shows where an army's reserves can be set up in the step on screen: within 6 inches of an edge, anywhere for Deep Strike units, never within 8 inches of the other army's models, and not in the enemy zone before round 3.",
+        "Board: a unit that can be Hidden (or a Lone Operative) has a ring showing from how far it can be seen.",
+        "Board: one tap splits a plan into a going-first and a going-second version that share the deployment; the board warns when their deployments drift apart.",
+        "Mission: each version is forecast with its own first turn, and a roll-off row shows your overall chance using the right plan each way."
+      ]
+    },
+    {
       "version": "1.104.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: your army phase by phase, and what to plan around in the enemy list",

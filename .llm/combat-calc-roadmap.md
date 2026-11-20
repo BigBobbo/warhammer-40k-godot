@@ -307,3 +307,13 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
 - Test note: the e2e check "forecast favours the much bigger army" read the
   forecast before the unit-vs-unit odds were in (a race that failed once in 7
   runs); it now waits for them first.
+- Aid 5, board overlays and plan versions: BUILT in v1.105.0, browser-tested.
+  `planeval.arrivalZones` / `canArrive` hold 20.03, 20.04 and 24.09 (edge band
+  6", 8" from enemy bases, enemy zone closed before round 3, Deep Strike
+  anywhere); the board draws them with SVG masks ("Reserves can arrive: A / B").
+  Detection ring: `boardview.detectionOf` (Lone Operative, or Hidden 15").
+  Plan versions: `variant.when` = 'first' | 'second'; one tap splits a plan,
+  the two share the Deploy step (the board warns when they drift apart: the
+  roll-off is after deployment, Event Companion step 10). `forecastParams`
+  forecasts a tagged version with that first turn until the real one is known;
+  "Your plans compared" adds the roll-off row (the average of the two).

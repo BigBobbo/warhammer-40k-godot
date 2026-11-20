@@ -237,6 +237,46 @@ export function threatOptions(attackers, targets, pair, top = 3, pieces = null) 
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Where reserves can arrive (the board overlay)
+
+/** 20.03 / 20.04 in numbers: set-up distance from an edge, gap to enemy units, the rounds. */
+export const ARRIVE = { edge: 6, gap: 8, from: 2, zoneFrom: 3, until: 3 };
+
+/**
+ * Where a unit arriving from reserves may be set up.
+ *  20.03: from the second battle round. 20.04 (ingress move): wholly within 6" of one or more battlefield
+ *  edges and more than 8" horizontally from all enemy units; before the third battle round no model within
+ *  the opponent's deployment zone; a unit still in strategic reserves at the end of round 3 is destroyed.
+ *  24.09 Deep Strike: anywhere more than 8" from all enemy units, the opponent's deployment zone included.
+ * enemies: the units of the OTHER player on the board ({ x, y, models: [{ dx, dy, fp }] })
+ * -> { round, blocked: [{ x, y, r }] (no part of a base in these: 8" around each enemy base), band (inches
+ *      from an edge), zoneClosed (before round 3), early (round 1: nothing arrives), late (after round 3) }
+ */
+export function arrivalZones(enemies, round) {
+  return {
+    round,
+    blocked: (enemies ?? []).flatMap(u => abs(u).map(m => ({ x: m.x, y: m.y, r: m.r + ARRIVE.gap }))),
+    band: ARRIVE.edge,
+    zoneClosed: round < ARRIVE.zoneFrom,
+    early: round < ARRIVE.from,
+    late: round > ARRIVE.until,
+  };
+}
+
+/** May a model with base radius r be set up at (x, y)? -> { ok, why? } */
+export function canArrive(x, y, r, zones, { deepStrike = false, enemyZone = null } = {}) {
+  if (zones.early) return { ok: false, why: 'reserves arrive from the second battle round (20.03)' };
+  if (x - r < 0 || y - r < 0 || x + r > W || y + r > H) return { ok: false, why: 'off the battlefield' };
+  // "more than 8\" from all enemy units", base edge to base edge (the blocked discs hold the 8\")
+  if (zones.blocked.some(b => Math.hypot(x - b.x, y - b.y) - r <= b.r)) return { ok: false, why: 'within 8" of an enemy unit' };
+  if (deepStrike) return { ok: true };
+  const e = zones.band;
+  if (!(x + r <= e || x - r >= W - e || y + r <= e || y - r >= H - e)) return { ok: false, why: 'not wholly within 6" of a battlefield edge (20.04)' };
+  if (zones.zoneClosed && enemyZone && baseWithin(x, y, r, enemyZone)) return { ok: false, why: 'in the enemy deployment zone before the third battle round (20.04)' };
+  return { ok: true };
+}
+
 /** Shortest distance from a point to a polygon (0 inside it). */
 function polyDist(px, py, poly) { return inPoly(px, py, poly) ? 0 : edgeDist(px, py, poly); }
 

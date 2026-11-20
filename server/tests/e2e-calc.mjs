@@ -2061,6 +2061,181 @@ try {
     await tctx.close();
   }
 
+  // --- board overlays (1.105): where reserves can arrive, and from how far a hidden unit is seen
+  {
+    const octx = await browser.newContext({ ...devices['Pixel 7'] });
+    const op = await octx.newPage();
+    op.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board overlays: ${m.text()}`); });
+    op.on('pageerror', e => consoleErrors.push(`board overlays: ${e}`));
+    await op.goto(`${BASE}/calc/`);
+    await op.waitForSelector('textarea[data-side="A"]');
+    await op.fill('textarea[data-side="A"]', SW_LIST); await op.tap('button[data-action="parse"][data-side="A"]');
+    await op.fill('textarea[data-side="B"]', ORK_LIST); await op.tap('button[data-action="parse"][data-side="B"]');
+    await op.tap('button[data-action="view"][data-value="board"]');
+    await op.waitForSelector('#board-svg');
+    const oTokens = () => op.evaluate(() => window.__calc.board().tokens);
+    const oScreen = (x, y) => op.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const oPlace = (tk, x, y) => op.evaluate(([t, px, py]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[t], { x: px, y: py, rot: 0 }); }, [tk, x, y]);
+    const oSelect = async (tk) => {
+      await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+      const e = await oScreen(43.5, 59.5); await op.mouse.click(e.x, e.y);
+      const t = (await oTokens()).find(x => x.tk === tk); const q = await oScreen(t.x, t.y); await op.mouse.click(q.x, q.y);
+    };
+    const otxt = async (q) => (await op.textContent(q)).replace(/\s+/g, ' ').trim();
+    // every Ork unit on the board; of the Space Wolves the Grey Hunters and a Scout Squad (the Terminators stay in reserves)
+    for (const n of ['Warboss + Boyz', 'Beastboss', 'Meganobz', 'Flash Gitz', 'Battlewagon']) await op.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    await op.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await op.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    const toks = await oTokens();
+    const sc = toks.filter(t => t.tk.startsWith('A:'))[1];
+    check('7 units placed', toks.length === 7, String(toks.length));
+    // where the reserves of A (Space Wolves) can arrive
+    await op.locator('button[data-action="board-arrive"][data-value="A"]').tap();
+    await op.waitForSelector('#board-svg #arrive-layer[data-for="A"]');
+    const lay = await op.$eval('#arrive-layer', g => ({ round: g.dataset.round, closed: g.dataset.closed, blocked: Number(g.dataset.blocked), ds: !!g.querySelector('[data-arr="deep-strike"]'), edge: !!g.querySelector('[data-arr="edge"]') }));
+    check('overlay for the Space Wolves at Deploy: battle round 2, edge band and Deep Strike area, the Ork zone still closed, 8" around each of the 31 Ork models', lay.round === '2' && lay.closed === '1' && lay.ds && lay.edge && lay.blocked === 31, JSON.stringify(lay));
+    const note = await otxt('#board-arrive-note');
+    check('the note names the rules and the units still in reserves, Deep Strike marked', /Battle round 2 \(the first round reserves can arrive\)/.test(note) && /wholly within 6" of an edge/.test(note) && /not in B's deployment zone before round 3 \(20\.04\)/.test(note) && /anywhere for a Deep Strike unit \(24\.09\)/.test(note) && /Not on the board in this step: .*Logan Grimnar.*\(Deep Strike\)/.test(note), note);
+    // the drawing agrees with the rule: next to an Ork model nothing arrives; far from them a Deep Strike unit does
+    const probe = await op.evaluate(async () => {
+      const E = await import('/calc/planeval.mjs');
+      const d = window.__calc.board();
+      const ork = d.units.find(u => u.tk.startsWith('B:'));
+      const m = ork.models[0], r = 0.63;
+      const z = d.arrive.zones;
+      // the point of the board farthest from every Ork model, on a 1" grid
+      let far = null;
+      for (let x = 1; x < 44; x++) for (let y = 1; y < 60; y++) { const dmin = Math.min(...z.blocked.map(b => Math.hypot(x - b.x, y - b.y) - b.r)); if (!far || dmin > far.d) far = { x, y, d: dmin }; }
+      return { near: E.canArrive(ork.x + m.dx + 4, ork.y + m.dy, r, z, { deepStrike: true, enemyZone: d.arrive.zone }), far: E.canArrive(far.x, far.y, r, z, { deepStrike: true, enemyZone: d.arrive.zone }), farD: far.d,
+        inZone: (() => { const zc = d.arrive.zone; const cx = zc.reduce((s, q) => s + q[0], 0) / zc.length, cy = zc.reduce((s, q) => s + q[1], 0) / zc.length; return { x: cx, y: cy }; })() };
+    });
+    check('4" from an Ork model: no; the spot farthest from all of them: yes for a Deep Strike unit', probe.near.ok === false && /within 8"/.test(probe.near.why) && probe.far.ok === true && probe.farD > 0, JSON.stringify(probe));
+    await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    await op.screenshot({ path: join(SHOTS, 'calc_76_board_arrive.png') });
+    // three turns on: round 3, the enemy deployment zone opens to units without Deep Strike
+    for (let i = 0; i < 3; i++) await op.locator('button[data-action="board-step-add"]').tap();
+    await op.waitForFunction(() => document.querySelector('#arrive-layer')?.dataset.round === '3');
+    check('Turn 3: battle round 3, the enemy deployment zone is open', (await op.getAttribute('#arrive-layer', 'data-closed')) === '0' && !/before round 3/.test(await otxt('#board-arrive-note')), await otxt('#board-arrive-note'));
+    // the Orks have no Deep Strike unit and are all on the board
+    await op.locator('button[data-action="board-arrive"][data-value="B"]').tap();
+    await op.waitForSelector('#board-svg #arrive-layer[data-for="B"]');
+    const noteB = await otxt('#board-arrive-note');
+    check('for the Orks: edge band only, and the note says why', (await op.locator('#arrive-layer [data-arr="deep-strike"]').count()) === 0 && (await op.locator('#arrive-layer [data-arr="edge"]').count()) === 1 && /B has no Deep Strike unit/.test(noteB) && /All of B's units are on the board in this step/.test(noteB), noteB);
+    await op.locator('button[data-action="board-arrive"][data-value="off"]').tap();
+    await op.waitForFunction(() => !document.querySelector('#arrive-layer'));
+    check('Off removes the overlay', (await op.locator('#board-arrive-note').count()) === 0);
+    // from how far a unit that can be Hidden is seen: the Scouts in a terrain area with a light or dense feature
+    const hide = await op.evaluate(async (tk) => {
+      const S = await import('/calc/sight.mjs');
+      const B = await import('/calc/board.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      for (const a of l.pieces.filter(p => p.cls === 'area')) {
+        const cx = a.poly.reduce((s, q) => s + q[0], 0) / a.poly.length, cy = a.poly.reduce((s, q) => s + q[1], 0) / a.poly.length;
+        for (const per of [5, 3, 2, 1]) {
+          const cand = { x: cx, y: cy, keywords: u.keywords, models: B.coherentFormation([{ count: u.models.length, fp: u.models[0].fp }], { perRow: per, keepRows: true }) };
+          if (S.canHide(cand, l.pieces)) return { x: cx, y: cy, per };
+        }
+      }
+      return null;
+    }, sc.tk);
+    await oPlace(sc.tk, hide.x, hide.y);
+    await op.evaluate(([t, per]) => { const p = window.__calc.board().plan; p.steps[p.cur].tokens[t].per = per; }, [sc.tk, hide.per]);
+    await oSelect(sc.tk);
+    await op.waitForSelector('#board-panel button[data-action="board-ring"][data-k="detect"]');
+    check('a unit that can be Hidden offers its detection ring', /Seen only within 15" while Hidden/.test(await otxt('#board-panel button[data-action="board-ring"][data-k="detect"]')));
+    await op.locator('#board-panel button[data-action="board-ring"][data-k="detect"]').tap();
+    await op.waitForSelector('#board-svg [data-ring="detect"]');
+    const ring = await op.$eval('#board-svg [data-ring="detect"]', g => ({ r: g.dataset.r, n: g.querySelectorAll('circle').length, radius: Number(g.querySelector('circle').getAttribute('r')) }));
+    const scBase = await op.evaluate((tk) => window.__calc.board().units.find(x => x.tk === tk).models[0].fp.r, sc.tk);
+    check('the ring is drawn 15" from the base of every model of the unit', ring.r === '15' && ring.n === 5 && Math.abs(ring.radius - (15 + scBase)) < 0.01, JSON.stringify({ ...ring, base: scBase }));
+    await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    await op.screenshot({ path: join(SHOTS, 'calc_77_board_detect.png') });
+    // the Grey Hunters in the open have no such ring
+    const ghTk = toks.filter(t => t.tk.startsWith('A:'))[0].tk;
+    await oPlace(ghTk, 22, 30);
+    await oSelect(ghTk);
+    await op.waitForSelector('#board-panel');
+    const canHideGh = await op.evaluate(async (tk) => { const S = await import('/calc/sight.mjs'); const { LAYOUTS } = await import('/calc/terrain-11e.mjs'); const d = window.__calc.board(); const u = d.units.find(x => x.tk === tk); return S.canHide(u, LAYOUTS.find(x => x.id === d.layout).pieces); }, ghTk);
+    check('a unit that cannot be Hidden where it stands has no detection ring', canHideGh || (await op.locator('#board-panel button[data-action="board-ring"][data-k="detect"]').count()) === 0, `canHide=${canHideGh}`);
+    await octx.close();
+  }
+
+  // --- going first / going second (1.105): two versions of a board plan from one deployment
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`plan versions: ${m.text()}`); });
+    sp.on('pageerror', e => consoleErrors.push(`plan versions: ${e}`));
+    await sp.goto(`${BASE}/calc/`);
+    await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="board"]');
+    await sp.waitForSelector('#board-svg');
+    const stxt = async (q) => (await sp.textContent(q)).replace(/\s+/g, ' ').trim();
+    for (const n of ['Grey Hunters', 'Thunderwolf Cavalry (1)', 'Scout Squad (1)']) await sp.locator('button[data-action="board-place"][data-side="A"]', { hasText: n }).tap();
+    for (const n of ['Warboss + Boyz', 'Meganobz', 'Flash Gitz']) await sp.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    await sp.locator('button[data-action="board-step-add"]').tap();          // Turn 1
+    await sp.locator('button[data-action="board-step"][data-i="0"]').tap();  // back to Deploy
+    // one tap: this plan is the going-first version, a copy is the going-second version
+    await sp.locator('#board-plan-split').scrollIntoViewIfNeeded();
+    await sp.locator('#board-plan-split').tap();
+    await sp.waitForSelector('#board-split-note');
+    const chips = await sp.$$eval('#board-variants button[data-action="board-plan-pick"]', els => els.map(e => `${e.textContent.trim()}${e.classList.contains('on') ? '*' : ''}`));
+    check('the plan is split into "Going first" (kept on screen) and "Going second"', chips.join('|') === 'Going first*|Going second' && (await sp.locator('#board-plan-split').count()) === 0, chips.join('|'));
+    check('both versions start from the same deployment, and the note says why', (await sp.getAttribute('#board-split-note', 'data-same')) === '1' && /you deploy before the roll-off for the first turn/.test(await stxt('#board-split-note')), await stxt('#board-split-note'));
+    // the going-second version: move a unit in its Deploy step -> the deployments differ -> one tap makes them the same
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="1"]').tap();
+    const moved = await sp.evaluate(() => { const p = window.__calc.board().plan; const tk = Object.keys(p.steps[0].tokens).find(k => k.startsWith('A:')); p.steps[0].tokens[tk].x += 3; return { tk, x: p.steps[0].tokens[tk].x }; });
+    await sp.locator('button[data-action="board-step"][data-i="0"]').tap();
+    await sp.waitForSelector('#board-split-note[data-same="0"]');
+    check('a different deployment in the second version is flagged', /⚠ The deployment differs/.test(await stxt('#board-split-note')) && (await sp.locator('#board-plan-sync').count()) === 1, await stxt('#board-split-note'));
+    await sp.locator('#board-split-note').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_78_plan_versions.png') });
+    await sp.locator('#board-plan-sync').tap();
+    await sp.waitForSelector('#board-split-note[data-same="1"]');
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="0"]').tap();
+    const firstX = await sp.evaluate((tk) => window.__calc.board().plan.steps[0].tokens[tk].x, moved.tk);
+    check('"Use this deployment in both" copies it to the going-first version', Math.abs(firstX - moved.x) < 1e-9, `${firstX} vs ${moved.x}`);
+    // Turn 1 differs: going second, the Thunderwolves hold back 6"
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="1"]').tap();
+    await sp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    await sp.evaluate(() => { const p = window.__calc.board().plan; for (const [k, t] of Object.entries(p.steps[1].tokens)) if (k.startsWith('A:')) t.y = Math.max(3, t.y - 2); });
+    await sp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    // Mission: each version is forecast with its own first turn, and the roll-off row is their average
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 180000 });
+    await sp.waitForSelector('#fc-compare tr[data-when="second"]');
+    const cmp = await sp.evaluate(() => {
+      const m = window.__calc.mission();
+      const row = (w) => { const tr = document.querySelector(`#fc-compare tr[data-when="${w}"]`); return { text: tr.textContent.replace(/\s+/g, ' ').trim(), key: tr.dataset.plan }; };
+      const win = (key) => m.compare.find(c => c.key === key).result.pWinA;
+      const f = row('first'), s = row('second');
+      return { f, s, wf: win(f.key), ws: win(s.key), roll: Number(document.querySelector('#fc-rolloff').dataset.win), rollText: document.querySelector('#fc-rolloff').textContent.replace(/\s+/g, ' ').trim(), note: document.querySelector('#fc-rolloff-note').textContent };
+    });
+    check('"Your plans compared" marks each version with its first turn', /Board: Going first · you go first/.test(cmp.f.text) && /Board: Going second · you go second/.test(cmp.s.text), JSON.stringify([cmp.f.text, cmp.s.text]));
+    check('the roll-off row is the average of the two versions', Math.abs(cmp.roll - (cmp.wf + cmp.ws) / 2) < 1e-4 && /Roll-off: half your games each way/.test(cmp.rollText) && /winner of the roll-off takes the first turn/.test(cmp.note), JSON.stringify(cmp));
+    // with the going-first version as the source of the forecast, the forecast has me take the first turn
+    await sp.locator('button[data-action="mission-source"][data-value="0"]').scrollIntoViewIfNeeded();
+    await sp.locator('button[data-action="mission-source"][data-value="0"]').tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.params?.first === 'A'; }, null, { timeout: 120000 });
+    check('forecast from the going-first version: I take the first turn, and the page says so', /your going first version: the forecast has you take the first turn/.test(await stxt('#fc-first-tag')) && (await sp.locator('#fc-first').count()) === 0, await stxt('#fc-first-tag'));
+    await sp.locator('button[data-action="mission-source"][data-value="1"]').tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.params?.first === 'B'; }, null, { timeout: 120000 });
+    check('forecast from the going-second version: the opponent takes the first turn', /your going second version: the forecast has your opponent take the first turn/.test(await stxt('#fc-first-tag')));
+    await sp.locator('#fc-compare').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_79_plan_versions_forecast.png') });
+    // once the first turn is known, it wins over the label of the plan
+    await sp.locator('button[data-action="mission-first"][data-value="A"]').first().scrollIntoViewIfNeeded();
+    await sp.locator('button[data-action="mission-first"][data-value="A"]').first().tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.first === 'A' && m.params?.first === 'A' && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 120000 });
+    check('first turn known (A): no roll-off row, the versions keep a plain label', (await sp.locator('#fc-rolloff').count()) === 0 && /made for going second/.test(await stxt('#fc-compare tr[data-when="second"]')) && (await sp.locator('#fc-first-tag').count()) === 0, await stxt('#fc-compare'));
+    await sctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

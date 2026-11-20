@@ -12,7 +12,7 @@ import {
 } from './board.mjs';
 import { boardUnit } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
-import { inRange, ocInRange, planWarnings } from './planeval.mjs';
+import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -122,6 +122,20 @@ function plan() {
 }
 const VARIANT_NAMES = ['Aggressive', 'Defensive', 'Plan C', 'Plan D', 'Plan E'];
 
+// Going first / going second: the first turn is a roll-off AFTER both armies are deployed (Event Companion,
+// "Determine first turn: roll off, the winner takes the first turn"), so the two versions of a plan share
+// their deployment and differ from Turn 1 on. variant.when: 'first' | 'second' (from my side of the table).
+const deployKey = (vv) => JSON.stringify(Object.entries(vv.steps[0]?.tokens ?? {}).map(([tk, t]) => [tk, Math.round(t.x * 10), Math.round(t.y * 10), Math.round(t.rot ?? 0), t.per ?? 0]).sort());
+function splitNote() {
+  const root = planRoot();
+  const f = root?.variants.find(v => v.when === 'first'), s = root?.variants.find(v => v.when === 'second');
+  if (!f || !s) return '';
+  const same = deployKey(f) === deployKey(s);
+  return `<div class="tiny ${same ? 'muted' : ''}" id="board-split-note" data-same="${same ? 1 : 0}" style="flex-basis:100%;${same ? '' : 'color:var(--warn-ink)'}">${same
+    ? `“${ctx.esc(f.name)}” and “${ctx.esc(s.name)}” start from the same deployment: you deploy before the roll-off for the first turn. Plan Turn 1 onwards in each; Mission compares them.`
+    : `⚠ The deployment differs between “${ctx.esc(f.name)}” and “${ctx.esc(s.name)}”, but you deploy before the roll-off for the first turn. <button class="btn ghost" data-action="board-plan-sync-deploy" id="board-plan-sync">Use this deployment in both</button>`}</div>`;
+}
+
 // one table photo per plan step (the first plan keeps the original keys)
 function photoKey() {
   const root = planRoot(), p = plan();
@@ -225,6 +239,15 @@ function shapeSvg(fp, x, y, fill, stroke, sw, rot = 0) {
   return `<rect x="${f2(x - fp.hw)}" y="${f2(y - fp.hh)}" width="${f2(fp.hw * 2)}" height="${f2(fp.hh * 2)}" rx="0.3" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" ${fp.approx ? 'stroke-dasharray="0.4 0.25"' : ''}/>`;
 }
 
+/** From how far the unit can be seen where it stands: Lone Operative (24.24), or Hidden (13.09: 15"); 0 = from anywhere. */
+function detectionOf(t) {
+  const l = currentLayout();
+  const lone = t.u.flags?.loneOperative || 0;
+  const hide = !!l && canHide({ x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [] }, l.pieces);
+  const d = Math.min(lone || Infinity, hide ? HIDDEN_RANGE : Infinity);
+  return { range: Number.isFinite(d) ? d : 0, lone, hide };
+}
+
 function ringRadius(u, kind) {
   if (kind === 'move') return u.move;
   if (kind === 'advance') return u.move + 6;
@@ -263,6 +286,7 @@ export function boardSvg({ forExport = false } = {}) {
   }
   parts.push('</g>');
   if (!forExport || b.danger) parts.push(dangerSvg(b));
+  if (b.arrive) parts.push(arriveSvg(b));
   // over a photo the bases are see-through so the real models show underneath
   const tokAlpha = photo && photoMode !== 'map' ? 0.5 : 1;
   const toks = placed();
@@ -272,6 +296,12 @@ export function boardSvg({ forExport = false } = {}) {
   if (sel && !forExport) {
     const kinds = Object.keys(b.rings).filter(k => b.rings[k]);
     for (const k of kinds) {
+      if (k === 'detect') {
+        // who can see it: only models inside this line (dashed, in the enemy's colour)
+        const det = detectionOf(sel).range;
+        if (det) parts.push(`<g data-ring="detect" data-r="${det}" fill="${C[sel.side === 'A' ? 'B' : 'A']}" fill-opacity="0.05" stroke="${C[sel.side === 'A' ? 'B' : 'A']}" stroke-width="0.12" stroke-dasharray="0.6 0.4">${sel.models.map(m => `<circle cx="${f2(sel.x + m.dx)}" cy="${f2(sel.y + m.dy)}" r="${f2(det + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}"/>`).join('')}</g>`);
+        continue;
+      }
       const R = ringRadius(sel.u, k);
       parts.push(`<g opacity="0.16" data-ring="${k}">${sel.models.map(m => `<circle cx="${f2(sel.x + m.dx)}" cy="${f2(sel.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
     }
@@ -350,6 +380,45 @@ function dangerSvg(b) {
     + (layers.possible.length ? `<g data-dz="charge-possible" fill="#c0392b" opacity="0.12">${layers.possible.join('')}</g>` : '')
     + (layers.likely.length ? `<g data-dz="charge-likely" fill="#c0392b" opacity="0.2">${layers.likely.join('')}</g>` : '')
     + '</g></g>';
+}
+
+// Where an army's reserves can be set up in this step (planeval.arrivalZones): hatched = within 6" of an edge
+// (any unit in reserves), tinted = anywhere for a Deep Strike unit; nothing within 8" of the other army's models.
+function arriveInfo(b) {
+  const X = b.arrive, Y = X === 'A' ? 'B' : 'A';
+  const p = plan(), l = currentLayout();
+  if (!X || !p || !l) return null;
+  const toks = placed();
+  const round = Math.max(2, p.cur);      // step N = battle round N; at Deploy and Turn 1 it shows the first arrivals (round 2)
+  const onBoard = new Set(toks.map(t => t.tk));
+  const army = ctx.state.armies[X];
+  const off = army.units.filter(u => !onBoard.has(`${X}:${u.key}`));
+  const ds = (list) => list.filter(u => unitInfo(X, u.key)?.flags?.deepStrike);
+  const zone = DEPLOYMENTS[l.deployment]?.zones?.find(z => z.player === zoneOf(Y))?.poly ?? null;
+  return { X, Y, round, off, dsOff: ds(off), dsAny: ds(army.units).length > 0, zone, zones: arrivalZones(toks.filter(t => t.side === Y), round) };
+}
+function arriveSvg(b) {
+  const a = arriveInfo(b);
+  if (!a) return '';
+  const col = C[a.X], e = a.zones.band;
+  const holes = a.zones.blocked.map(c => `<circle cx="${f2(c.x)}" cy="${f2(c.y)}" r="${f2(c.r)}"/>`).join('');
+  const band = `<rect x="0" y="0" width="${BOARD.w}" height="${e}"/><rect x="0" y="${BOARD.h - e}" width="${BOARD.w}" height="${e}"/><rect x="0" y="0" width="${e}" height="${BOARD.h}"/><rect x="${BOARD.w - e}" y="0" width="${e}" height="${BOARD.h}"/>`;
+  const closed = a.zones.zoneClosed && a.zone ? `<polygon points="${a.zone.map(q => q.join(',')).join(' ')}"/>` : '';
+  return `<defs><pattern id="arr-hatch" width="1.2" height="1.2" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="0.3" height="1.2" fill="${col}"/></pattern>`
+    + `<mask id="arr-any" maskUnits="userSpaceOnUse" x="0" y="0" width="${BOARD.w}" height="${BOARD.h}"><rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="#fff"/><g fill="#000">${holes}</g></mask>`
+    + `<mask id="arr-edge" maskUnits="userSpaceOnUse" x="0" y="0" width="${BOARD.w}" height="${BOARD.h}"><rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="#000"/><g fill="#fff">${band}</g><g fill="#000">${holes}${closed}</g></mask></defs>`
+    + `<g id="arrive-layer" data-for="${a.X}" data-round="${a.zones.round}" data-closed="${a.zones.zoneClosed ? 1 : 0}" data-blocked="${a.zones.blocked.length}" pointer-events="none">`
+    + (a.dsAny ? `<rect data-arr="deep-strike" x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="${col}" opacity="0.13" mask="url(#arr-any)"/>` : '')
+    + `<rect data-arr="edge" x="0" y="0" width="${BOARD.w}" height="${BOARD.h}" fill="url(#arr-hatch)" opacity="0.5" mask="url(#arr-edge)"/></g>`;
+}
+function arriveBar() {
+  const b = boardState();
+  const a = arriveInfo(b);
+  const short = (u) => shortName(u.name);
+  return `<span class="lab tiny muted">⇣ Reserves can arrive</span>
+    ${ctx.seg('board-arrive', b.arrive ?? 'off', [['off', 'Off'], ['A', 'A'], ['B', 'B']], 'compact')}
+    ${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${plan().cur < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
+      <br>${a.off.length ? `Not on the board in this step: <b>${a.off.map(u => `${ctx.esc(short(u))}${a.dsOff.includes(u) ? ' (Deep Strike)' : ''}`).join(', ')}</b>.` : `All of ${a.X}'s units are on the board in this step.`}</span>` : ''}`;
 }
 
 function rulerSvg(r) {
@@ -440,12 +509,15 @@ export function boardView() {
     </div></section>
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-arrive-bar">${arriveBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
         <span class="lab tiny muted">Plan</span>
         ${planRoot() ? planRoot().variants.map((vv, i) => `<button class="chip ${i === planRoot().v ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
+        ${planRoot() && !planRoot().variants.some(vv => vv.when) ? '<button class="chip" data-action="board-plan-split" id="board-plan-split">⇄ Going first / second</button>' : ''}
         ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
+      ${splitNote()}
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
     </section>
   </div></div>`;
@@ -517,7 +589,8 @@ function dockHtml() {
   const s2 = toks.find(t => t.tk === b.sel2);
   const u = s1.u;
   const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
-  const rings = [ringChip('move', `Move ${u.move}"`), u.melee ? ringChip('charge', 'Charge') : '', ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`))].join('');
+  const det = detectionOf(s1);
+  const rings = [ringChip('move', `Move ${u.move}"`), u.melee ? ringChip('charge', 'Charge') : '', ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`)), det.range ? ringChip('detect', `Seen ${det.range}"`) : ''].join('');
   let pair = '';
   if (s2) {
     const gap = unitGap(s1, s2), enemy = s1.side !== s2.side;
@@ -542,7 +615,9 @@ function selectionPanel() {
   const s2 = toks.find(t => t.tk === b.sel2);
   const u = s1.u;
   const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
+  const det = detectionOf(s1);
   const rings = [
+    det.range ? ringChip('detect', det.lone && det.lone <= det.range ? `Seen only within ${det.range}" (Lone Operative)` : `Seen only within ${det.range}" while Hidden`) : '',
     ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom ?? 'detachment'})` : ''}`),
     ringChip('advance', `Move + Advance (max ${u.move + 6}")`),
     u.melee ? ringChip('charge', `Charge threat (${u.move}" + 7" avg)`) : '',
@@ -685,6 +760,8 @@ export function refreshBoard() {
   if (bar) bar.innerHTML = photoBar();
   const dbar = document.getElementById('board-danger-bar');
   if (dbar) dbar.innerHTML = dangerBar();
+  const abar = document.getElementById('board-arrive-bar');
+  if (abar) abar.innerHTML = arriveBar();
   wireBoard();
 }
 
@@ -914,6 +991,24 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-plan-split': {
+      // this plan becomes the going-first version; a copy of it is the going-second version
+      const root = planRoot(), cur = plan();
+      const base = cur.name === 'Main' ? '' : cur.name.slice(0, 15);
+      cur.when = 'first';
+      cur.name = base ? `${base} (first)` : 'Going first';
+      root.variants.splice(root.v + 1, 0, { name: base ? `${base} (second)` : 'Going second', when: 'second', steps: JSON.parse(JSON.stringify(cur.steps)), cur: cur.cur });
+      persistBoard();
+      console.log(`[board] plan split into "${cur.name}" and its going-second version`);
+      return 'render';
+    }
+    case 'board-plan-sync-deploy': {
+      // the deployment on screen (this version's Deploy step) goes into the other version too
+      const root = planRoot(), cur = plan();
+      for (const vv of root.variants) if (vv !== cur && vv.when && vv.when !== cur.when) vv.steps[0].tokens = JSON.parse(JSON.stringify(cur.steps[0].tokens ?? {}));
+      persistBoard();
+      return 'render';
+    }
     case 'board-plan-rename': {
       const cur = plan();
       const name = (globalThis.prompt?.('Name this plan', cur.name) ?? '').trim();
@@ -966,6 +1061,10 @@ export function boardAction(action, el) {
     }
     case 'board-danger':
       b.danger = el.dataset.value === 'off' ? null : el.dataset.value;
+      refreshBoard();
+      return null;
+    case 'board-arrive':
+      b.arrive = el.dataset.value === 'off' ? null : el.dataset.value;
       refreshBoard();
       return null;
     case 'board-danger-kind': {
@@ -1075,7 +1174,7 @@ export function boardPlans() {
   const root = planRoot();
   if (!root) return [];
   return root.variants.map((vv, vi) => ({
-    index: vi, name: vv.name,
+    index: vi, name: vv.name, when: vv.when ?? null,
     steps: vv.steps.map(st => {
       const out = { name: st.name, A: [], B: [] };
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
@@ -1120,6 +1219,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
-    units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null };
+    units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
+    arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };
 }
 export { footprint };

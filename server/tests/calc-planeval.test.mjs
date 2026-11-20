@@ -241,3 +241,43 @@ test('forecast board mode with threats: units attack from their planned position
   const r2 = F.forecast(two);
   assert.ok(r2.B.unitsLeft[0] > 1.7, `two attackers rarely finish it in a turn: ${r2.B.unitsLeft}`);
 });
+
+test('where reserves can arrive: 6" from an edge, more than 8" from enemy models, the enemy zone from round 3; Deep Strike anywhere', () => {
+  // the defender (B) holds the middle of the bottom edge with one 32 mm model at (22, 57)
+  const guard = unit('g', 22, 57, 1);
+  const r = INF.r;                                   // 32 mm base: 0.63"
+  const z2 = E.arrivalZones([guard], 2);
+  assert.deepEqual([z2.round, z2.band, z2.zoneClosed, z2.early, z2.late], [2, 6, true, false, false]);
+  assert.equal(z2.blocked.length, 1);
+  assert.ok(Math.abs(z2.blocked[0].r - (8 + r)) < 1e-9, 'the 8" starts at the edge of the enemy base');
+  const opt = { enemyZone: GEO.zones.B };
+  // strategic reserves, round 2: the side edge in the middle of the board is fine
+  assert.deepEqual(E.canArrive(3, 30, r, z2), { ok: true });
+  // a base that pokes out of the 6" band is not "wholly within"
+  assert.match(E.canArrive(5.6, 30, r, z2).why, /wholly within 6" of a battlefield edge/);
+  assert.equal(E.canArrive(6 - r, 30, r, z2).ok, true, 'touching the 6" line from inside');
+  // the open middle: only with Deep Strike
+  assert.match(E.canArrive(22, 30, r, z2).why, /6" of a battlefield edge/);
+  assert.deepEqual(E.canArrive(22, 30, r, z2, { deepStrike: true }), { ok: true });
+  // more than 8" from the enemy model: 8" exactly is too close
+  const at = (d) => E.canArrive(22 + d + 2 * r, 57, r, z2, { deepStrike: true });
+  assert.match(at(8).why, /within 8" of an enemy unit/);
+  assert.equal(at(8.05).ok, true);
+  // the enemy deployment zone (bottom corner, far from the guard): closed before round 3, open from round 3
+  const corner = [2, 58];
+  assert.ok(B.inPoly(...corner, GEO.zones.B));
+  assert.match(E.canArrive(...corner, r, z2, opt).why, /enemy deployment zone before the third battle round/);
+  assert.deepEqual(E.canArrive(...corner, r, z2, { ...opt, deepStrike: true }), { ok: true }, '24.09: "even if that is within your opponent’s deployment zone"');
+  const z3 = E.arrivalZones([guard], 3);
+  assert.equal(z3.zoneClosed, false);
+  assert.deepEqual(E.canArrive(...corner, r, z3, opt), { ok: true });
+  // round 1: nothing arrives; after round 3 the overlay says the unit would be destroyed
+  assert.match(E.canArrive(3, 30, r, E.arrivalZones([guard], 1)).why, /second battle round/);
+  assert.equal(E.arrivalZones([guard], 4).late, true);
+  // a screen: three models 16" apart leave no 8" gap between them on the back edge
+  const screen = [unit('a', 6, 57, 1), unit('b', 22, 57, 1), unit('c', 38, 57, 1)];
+  const zs = E.arrivalZones(screen, 3);
+  for (let x = r; x <= 44 - r; x += 0.5) assert.equal(E.canArrive(x, 58, r, zs, { deepStrike: true }).ok, false, `x = ${x}`);
+  assert.equal(E.arrivalZones([], 2).blocked.length, 0, 'nobody on the board: nothing is blocked');
+  assert.equal(E.canArrive(-0.1, 30, r, z2, { deepStrike: true }).why, 'off the battlefield');
+});
