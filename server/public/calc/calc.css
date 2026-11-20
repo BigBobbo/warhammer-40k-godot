@@ -413,6 +413,17 @@ details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter
 
 /* ---- table tools (Mission > Play): clock, command points, checklist, score sheet */
 .mlay .o7 { order: 7; }
+.bar-main { display: flex; flex-direction: column; gap: 8px; }
+/* two panes: the turn bar across the top, the two players side by side, the tools under them */
+@media (min-width: 900px) {
+  .mlay.play { grid-template-areas: "bar bar" "me opp" "clock score" "fc opts"; }
+  .mlay.play > .col { display: contents; }
+  .mlay.play > .col > .section { min-width: 0; }
+  .mlay.play .a-bar { grid-area: bar; } .mlay.play .a-me { grid-area: me; } .mlay.play .a-opp { grid-area: opp; }
+  .mlay.play .a-clock { grid-area: clock; } .mlay.play .a-score { grid-area: score; } .mlay.play .a-fc { grid-area: fc; } .mlay.play .a-opts { grid-area: opts; }
+  .bar-main { flex-direction: row; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .bar-main .acts { flex: 1; min-width: 320px; }
+}
 .clock-big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; min-width: 118px; }
 .clock-tile { flex: 1; min-height: 64px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .clock-tile b { font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -426,9 +437,9 @@ details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter
 .cp-row #cp-discard-A.mini, .cp-row #cp-discard-B.mini { border-color: var(--accent); font-weight: 600; }
 ol.checklist { margin: 2px 0 8px; padding-left: 20px; font-size: 13px; }
 ol.checklist li { margin: 3px 0; }
-table.dist.sheet td, table.dist.sheet th { text-align: center; padding: 5px 4px; }
-table.dist.sheet td:first-child, table.dist.sheet th:first-child { text-align: left; }
-table.dist.sheet tr.cur td { background: var(--series-1-wash); }
-table.dist.sheet tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+table.dist.scoresheet td, table.dist.scoresheet th { text-align: center; padding: 5px 4px; }
+table.dist.scoresheet td:first-child, table.dist.scoresheet th:first-child { text-align: left; }
+table.dist.scoresheet tr.cur td { background: var(--series-1-wash); }
+table.dist.scoresheet tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
 details.more.card { padding: 10px 12px; }
 #table-flag { cursor: default; }

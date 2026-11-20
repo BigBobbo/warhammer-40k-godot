@@ -111,6 +111,7 @@ test('turns: A then B, the next battle round after the second turn, and the batt
   for (let i = 0; i < 10; i++) { seq.push(`${g.round}${g.next ?? 'A'}`); res = T.endTurn(g, 'A'); }
   assert.deepEqual(seq, ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '5A', '5B']);
   assert.deepEqual([res.ended, g.over, g.round], [true, true, 5], 'no round 6');
+  assert.equal(g.turnsDone, 10);
   assert.deepEqual([g.A.cp, g.B.cp], [10, 10], '1CP each in each of the 10 Command phases');
   // the player who goes second
   const h = game();

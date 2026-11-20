@@ -2,6 +2,22 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.97.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: table tools — clock, command points, score sheet, undo, table mode",
+      "changes": [
+        "Mission > Play: command points for both players (1CP each is added at every Turn done; +1CP for a discard, at most once a battle round; a reminder of the once-per-battle 1CP card swap)",
+        "Play: a clock — a round timer that tells you if the game is on pace against the Games Workshop Grand Tournament milestones, or a chess clock (1:25 each by default) that passes with Turn done; it keeps running if the app reloads and shows on the pinned line",
+        "Play: Undo for the last 30 changes (scores, cards, turns, destroyed units, even New game)",
+        "Play: a score sheet by battle round, filled in from what you enter each turn, and a line showing what was scored this turn",
+        "Play: a turn checklist in rules order with both primary missions, and the battle now ends after round 5 with the final score",
+        "Play: tap a card in your hand to read its rules; the app works out who went first from the first Turn done",
+        "Table mode: one switch that leaves only the tracker (no forecast, card advice, calculator or board planner) for events that do not allow decision aids during a game",
+        "The screen stays on while the Play view is open (can be switched off)",
+        "Tablets: the turn bar runs across the top with both players side by side under it"
+      ]
+    },
+    {
       "version": "1.96.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: Fixed or Tactical? and advice for the cards in your hand",

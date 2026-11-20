@@ -128,6 +128,7 @@ export function ensureGame(g, { fresh = false } = {}) {
   }
   g.mark ??= scoresOf(g);       // the scores when the current turn began
   g.log ??= [];                 // one entry per finished turn: what each player scored in it
+  g.turnsDone ??= 0;            // turns closed with "Turn done"
   g.drawn ??= 0;
   return g;
 }
@@ -159,6 +160,7 @@ export function endTurn(g, first, rounds = 5) {
   const firstP = first ?? cur;
   flushTurn(g, cur);
   g.drawn = 0;
+  g.turnsDone = (g.turnsDone || 0) + 1;
   const lastTurn = g.round >= rounds && cur !== firstP;
   if (lastTurn) { g.over = true; return { ended: true }; }
   if (cur !== firstP) g.round++;

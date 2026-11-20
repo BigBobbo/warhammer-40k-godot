@@ -62,8 +62,16 @@ function newGame() {
   return PT.ensureGame({ round: 1, next: null, A: { hand: [], used: [], primary: 0, secondary: 0, destroyed: [] }, B: { hand: [], used: [], primary: 0, secondary: 0, destroyed: [] } }, { fresh: true });
 }
 // before a change to the tracker: keep what it was (Undo)
-function remember(label) { const m = ms(); PT.pushUndo(m.undo, { game: m.game, first: m.first }, label); }
+let lastTyped = { label: '', at: 0 };
+function remember(label, typed = false) {
+  const m = ms();
+  // a number typed digit by digit is one change, not one per key
+  if (typed && lastTyped.label === label && Date.now() - lastTyped.at < 4000 && m.undo.length) { lastTyped.at = Date.now(); return; }
+  lastTyped = typed ? { label, at: Date.now() } : { label: '', at: 0 };
+  PT.pushUndo(m.undo, { game: m.game, first: m.first }, label);
+}
 const turnOf = () => ms().game.next ?? ms().first ?? 'A';
+const isOpening = () => { const g = ms().game; return g.round === 1 && !g.turnsDone && !g.over; };
 const totalVp = (X) => { const m = ms(), g = m.game; return g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0); };
 function persist() {
   const m = ms();
@@ -576,30 +584,35 @@ function playView() {
   const who = (X) => `${X}${X === me ? ' · me' : ''}`;
   const cur = turnOf();
   const lastTurn = m.first != null && g.round >= RULES.rounds && cur !== m.first;
+  // before any turn of round 1 is done, the player whose turn it is IS the player who goes first
+  const opening = isOpening();
   return `<div class="mlay play"><div class="col">
     <section class="section a-bar o1"><div class="card" id="play-bar">
-      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div><div class="lab tiny muted">Battle round</div>${ctx.seg('mission-round', g.round, [1, 2, 3, 4, 5].map(r => [r, String(r)]), 'compact')}</div>
-        <div><div class="lab tiny muted">Turn of</div>${ctx.seg('mission-next', cur, [['A', who('A')], ['B', who('B')]], 'compact')}</div>
+      <div class="bar-main">
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div><div class="lab tiny muted">Battle round</div>${ctx.seg('mission-round', g.round, [1, 2, 3, 4, 5].map(r => [r, String(r)]), 'compact')}</div>
+          <div><div class="lab tiny muted">${opening ? 'First turn' : 'Turn of'}</div>${ctx.seg('mission-next', cur, [['A', who('A')], ['B', who('B')]], 'compact')}</div>
+        </div>
+        <div class="row acts" style="gap:8px">
+          <button class="btn primary grow" data-action="mission-turn-done" id="play-turn-done" ${g.over ? 'disabled' : ''}>${g.over ? 'Battle over' : lastTurn ? 'End the battle ▶' : 'Turn done ▶'}</button>
+          <button class="btn" data-action="mission-undo" id="play-undo" ${m.undo.length ? '' : 'disabled'} aria-label="Undo the last change${m.undo.length ? `: ${ctx.esc(m.undo[m.undo.length - 1].label)}` : ''}">↶ Undo</button>
+        </div>
       </div>
-      <div class="row" style="gap:8px;margin-top:8px">
-        <button class="btn primary grow" data-action="mission-turn-done" id="play-turn-done" ${g.over ? 'disabled' : ''}>${g.over ? 'Battle over' : lastTurn ? 'End the battle ▶' : 'Turn done ▶'}</button>
-        <button class="btn" data-action="mission-undo" id="play-undo" ${m.undo.length ? '' : 'disabled'} aria-label="Undo the last change${m.undo.length ? `: ${ctx.esc(m.undo[m.undo.length - 1].label)}` : ''}">↶ Undo</button>
-      </div>
-      ${m.first == null ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="small">Who took the first turn?</span>${ctx.seg('mission-first', 'roll', [['A', who('A')], ['B', who('B')]], 'compact')}</div>` : ''}
+      ${m.first == null && !opening ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="small">Who took the first turn?</span>${ctx.seg('mission-first', 'roll', [['A', who('A')], ['B', who('B')]], 'compact')}</div>` : ''}
       <div class="small" id="play-turn" style="margin-top:8px">${turnLineHtml()}</div>
       ${checklistHtml()}
-      <div class="chips" style="margin-top:8px">${ctx.chip('mission-table', !!m.table, 'Table mode: tracker only')}${ctx.chip('mission-awake', m.awake !== false, 'Screen stays on')}</div>
-      ${m.table ? '<div class="tiny muted" id="table-note">Table mode: the forecast, the card advice, the calculator and the board are hidden. Some events do not allow apps that help with decisions during a game — check your event pack.</div>'
-        : '<div class="tiny muted">Enter scores and cards as you play: the forecast re-runs from this point.</div>'}
     </div></section>
-    <section class="section a-clock o2">${clockHtml()}</section>
     <section class="section a-me o3">${playerCard(me)}</section>
     </div><div class="col">
     <section class="section a-opp o4">${playerCard(opp)}</section>
+    <section class="section a-clock o2">${clockHtml()}</section>
     <section class="section a-score o5">${sheetHtml()}</section>
     ${m.table ? '' : `<section class="section a-fc o6"><h2>From here</h2><div id="mission-forecast">${heroHtml()}</div></section>`}
-    <section class="section o7"><button class="btn ghost" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button></section>
+    <section class="section a-opts o7"><div class="card" id="play-options">
+      <div class="chips">${ctx.chip('mission-table', !!m.table, 'Table mode: tracker only')}${ctx.chip('mission-awake', m.awake !== false, 'Screen stays on')}</div>
+      <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode closes the forecast, the card advice, the calculator and the board planner, and leaves the tracker.'} Some events do not allow apps that help with decisions during a game: check your event pack.</div>
+      <button class="btn ghost" style="margin-top:10px" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button>
+    </div></section>
   </div></div>`;
 }
 
@@ -661,11 +674,13 @@ function clockHtml() {
   let body = '';
   if (c.mode === 'round') {
     const running = PT.roundRunning(c), started = PT.roundStarted(c), list = PT.milestones(c.len);
-    body = `<div class="row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
-        <div class="clock-big" id="clock-round">${PT.fmtClock(PT.roundLeft(c, now))}</div>
-        <button class="btn primary" data-action="mission-clock" data-do="${running ? 'pause' : 'start'}" id="clock-go">${running ? 'Pause' : started ? 'Resume' : 'Start'}</button>
-        <button class="btn" data-action="mission-clock" data-do="minus" aria-label="5 minutes less">−5</button>
-        <button class="btn" data-action="mission-clock" data-do="plus" aria-label="5 minutes more">+5</button>
+    body = `<div class="row" style="gap:8px;margin-top:8px;align-items:center">
+        <div class="clock-big grow" id="clock-round">${PT.fmtClock(PT.roundLeft(c, now))}</div>
+        <button class="btn primary" data-action="mission-clock" data-do="${running ? 'pause' : 'start'}" id="clock-go">${running ? 'Pause' : started ? 'Resume' : 'Start'}</button></div>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn" data-action="mission-clock" data-do="minus" aria-label="5 minutes less">−5 min</button>
+        <button class="btn" data-action="mission-clock" data-do="plus" aria-label="5 minutes more">+5 min</button>
+        <span class="grow"></span>
         <button class="btn ghost" data-action="mission-clock" data-do="reset">Reset</button></div>
       <div class="small" id="clock-pace" style="margin-top:6px">${paceHtml(now)}</div>
       ${started ? '' : `<div class="modrow"><div class="lab">Round length</div>${ctx.seg('mission-clock-len', c.len, PT.ROUND_LENGTHS.map(v => [v, hm(v)]), 'compact')}</div>`}
@@ -691,7 +706,7 @@ function sheetHtml() {
   const cell = (v) => (v ? String(v) : '<span class="muted">–</span>');
   const tr = (label, r, cls = '') => `<tr class="${cls}"><td>${label}</td><td>${cell(r.A.primary)}</td><td>${cell(r.A.secondary)}</td><td>${cell(r.B.primary)}</td><td>${cell(r.B.secondary)}</td></tr>`;
   return `<details class="more card" data-details="mission-sheet" ${isOpen('mission-sheet') ? 'open' : ''} id="play-sheet"><summary>Score sheet: A ${totalVp('A')} – B ${totalVp('B')}</summary>
-    <table class="dist sheet" style="margin-top:6px"><thead><tr><th>Round</th><th>A prim.</th><th>A sec.</th><th>B prim.</th><th>B sec.</th></tr></thead><tbody>
+    <table class="dist scoresheet" style="margin-top:6px"><thead><tr><th>Round</th><th>A prim.</th><th>A sec.</th><th>B prim.</th><th>B sec.</th></tr></thead><tbody>
     ${s.hasBefore ? tr('Earlier', s.before) : ''}
     ${s.rows.map(r => tr(String(r.round), r, r.round === g.round && !g.over ? 'cur' : '')).join('')}
     ${tr('Total', s.total, 'total')}
@@ -1030,8 +1045,8 @@ function playerCard(X) {
       ${mode === 'tactical' ? `<div class="lab tiny muted" style="margin-top:10px">Cards in hand — tap what a card scored (it is added to the secondary VP), ✕ to discard, the name for its rules</div>
         <div id="hand-${X}">${handHtml(X)}</div>
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
-        ${X === (g.next ?? m.first ?? 'A') && inProgress() ? `<div class="tiny muted" id="drawn-${X}">Drawn this turn: ${Math.min(RULES.drawPerTurn, g.drawn ?? 0)} of ${RULES.drawPerTurn}${(g.drawn ?? 0) < RULES.drawPerTurn ? ` — the forecast draws the other ${RULES.drawPerTurn - (g.drawn ?? 0)} at random` : ''}.</div>` : ''}
-        <div class="tiny muted" id="odds-${X}">${deck.length} cards left: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
+        ${X === (g.next ?? m.first ?? 'A') && inProgress() ? `<div class="tiny muted" id="drawn-${X}">Drawn this turn: ${Math.min(RULES.drawPerTurn, g.drawn ?? 0)} of ${RULES.drawPerTurn}${(g.drawn ?? 0) < RULES.drawPerTurn && !m.table ? ` — the forecast draws the other ${RULES.drawPerTurn - (g.drawn ?? 0)} at random` : ''}.</div>` : ''}
+        <div class="tiny muted" id="odds-${X}">${deck.length} cards left${m.table ? '.' : `: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.`}${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
         : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Plan → Assumptions'}.</div>`}
       <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${isOpen(`mission-dead-${X}`) ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
         <div class="chips">${ctx.state.armies[X].units.map(u => ctx.chip('mission-dead', g[X].destroyed.includes(u.name), u.name, `data-side="${X}" data-name="${esc(u.name)}"`)).join('')}</div></details>
@@ -1048,7 +1063,11 @@ export function missionAction(action, el) {
   if (!el.dataset.id && el.closest('[data-id]')) el.dataset.id = el.closest('[data-id]').dataset.id;
   switch (action) {
     case 'mission-me': m.me = el.dataset.value; m.sheetSide = null; break;
-    case 'mission-first': m.first = el.dataset.value === 'roll' ? null : el.dataset.value; break;
+    case 'mission-first':
+      m.first = el.dataset.value === 'roll' ? null : el.dataset.value;
+      // (before any turn is done the turn shown is the first player's)
+      if (isOpening()) g.next = null;
+      break;
     case 'mission-mode': m.modes[X].mode = el.dataset.value; break;
     case 'mission-fixed': {
       const f = m.modes[X].fixed, id = el.dataset.id;
@@ -1096,7 +1115,11 @@ export function missionAction(action, el) {
     case 'mission-enemy-from': m.enemyFrom = el.dataset.value; break;
     // a round or turn picked by hand: what was scored so far stays under the round it was scored in
     case 'mission-round': remember('battle round'); PT.flushTurn(g, turnOf()); g.round = Number(el.dataset.value); g.drawn = 0; g.over = false; break;
-    case 'mission-next': remember('turn'); PT.flushTurn(g, turnOf()); g.next = el.dataset.value; g.drawn = 0; g.over = false; break;
+    case 'mission-next':
+      remember('turn'); PT.flushTurn(g, turnOf());
+      if (isOpening()) m.first = el.dataset.value;
+      g.next = el.dataset.value; g.drawn = 0; g.over = false;
+      break;
     case 'mission-hand': {
       const id = el.dataset.id;
       remember(`${SECONDARY_BY_ID[id]?.name ?? 'card'} ${el.dataset.do === 'scored' ? 'scored' : 'discarded'}`);
@@ -1202,9 +1225,18 @@ export function missionChange(el) {
   }
   if (el.dataset.input === 'mission-score') {
     // no re-render: the player may be moving on to the next score box
-    remember(`${X} ${el.dataset.k} VP`);
+    remember(`${X} ${el.dataset.k} VP typed`, true);
     g[X][el.dataset.k] = Math.max(0, Math.min(45, Number(el.value) || 0));
     persist(); scheduleForecast();
+    // the parts of the page that follow the score, re-drawn in place
+    const set = (id, html) => { const n = document.getElementById(id); if (n) n.innerHTML = html; };
+    set('play-turn', turnLineHtml());
+    for (const P of ['A', 'B']) set(`play-total-${P}`, String(totalVp(P)));
+    const sheet = document.getElementById('play-sheet');
+    if (sheet) sheet.outerHTML = sheetHtml();
+    const undo = document.getElementById('play-undo');
+    if (undo) undo.disabled = !m.undo.length;
+    if (m.table || g.over) set('fc-mini', miniHtml());
     return 'quiet';
   }
   return false;
@@ -1230,9 +1262,11 @@ function syncTicker() {
 }
 
 // ---- the screen stays on while the Play view is open (the phone lies on the table)
-let wake = null, wakeBusy = false;
+let wake = null, wakeBusy = false, wakeAgain = false, wakeWhy = '';
 export async function syncWake() {
-  if (!ctx || wakeBusy) return;
+  if (!ctx) return;
+  // a request or a release is under way: look again when it is done
+  if (wakeBusy) { wakeAgain = true; return; }
   const m = ctx.state.mission;
   const want = !!m && ctx.state.view === 'mission' && (m.tab === 'play' || m.table) && m.awake !== false && document.visibilityState === 'visible';
   wakeBusy = true;
@@ -1242,8 +1276,9 @@ export async function syncWake() {
       wake.addEventListener?.('release', () => { wake = null; });
       console.log('[calc] screen wake lock on');
     } else if (!want && wake) { const w = wake; wake = null; await w.release(); console.log('[calc] screen wake lock off'); }
-  } catch (e) { console.log(`[calc] screen wake lock not available: ${e?.name ?? e}`); }
+  } catch (e) { const why = String(e?.name ?? e); if (why !== wakeWhy) { wakeWhy = why; console.log(`[calc] screen wake lock not available: ${why}`); } }
   wakeBusy = false;
+  if (wakeAgain) { wakeAgain = false; syncWake(); }
 }
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { syncWake(); });
 

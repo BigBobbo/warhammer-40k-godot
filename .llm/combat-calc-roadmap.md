@@ -128,8 +128,18 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
       army's list), Assassination with all characters dead, cards drawn this turn
       (`startDrawn`), 360 px phones (tabs / card table overflow; e2e now checks
       every view at 360 and 412 px).
-- [ ] **7. Table tools** — table mode (hide decision aids), pace clock with GW
-      milestones + chess clock, end-of-turn checklist, CP, undo.
+- [ ] **7. Table tools** — BUILT in v1.97.0, browser-tested, pushed (box not ticked:
+      see "Commit gate"). `playtools.mjs` (pure: clock, milestones, CP, turn log,
+      undo; tests/calc-playtools.test.mjs) drawn by missionview.mjs `playView()`.
+      CP per player (+1 each at "Turn done", discard CP once a battle round, 1CP card
+      swap once a battle); round timer with the GW GT milestones or a chess clock
+      (kept as end time: survives a reload; on the pinned line); Undo (30 steps,
+      `remember()`); score sheet by battle round; turn checklist; battle ends after
+      round 5; table mode (`m.table`: tracker only; Attack / Board closed in app.js);
+      screen wake lock on Play (`syncWake()`); tablet: turn bar across the top, the
+      two players side by side (CSS grid areas on `.mlay.play`).
+      Not validated on a real device: the wake lock (refused in headless Chromium;
+      the e2e uses a stand-in that counts the calls).
 - [ ] **8. Rules data** — data date stamp; update the calc's dataset to 1.5.1.
 
 Ideas noted but not planned: exposure heat map; terrain set-up measurements;

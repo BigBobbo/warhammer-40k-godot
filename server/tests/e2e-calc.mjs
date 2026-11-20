@@ -916,7 +916,7 @@ try {
   check('score steppers (+5, +1, -1) and the running total', (await page.inputValue('input[data-input="mission-score"][data-side="A"][data-k="primary"]')) === '9' && (await page.textContent('#play-total-A')).trim() === '24');
   await page.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '4');
   await page.fill('input[data-input="mission-score"][data-side="B"][data-k="secondary"]', '3');
-  await page.locator('#play-bar .tiny').last().tap();
+  await page.locator('#play-turn').tap();
   await page.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 9 && m.game.A.secondary === 5 && m.game.B.primary === 4 && m.game.B.secondary === 3 && m.result.A.prim[0] === 0; }, null, { timeout: 60000 });
   check('both score boxes keep what was typed (no re-render between them)', (await page.inputValue('input[data-input="mission-score"][data-side="B"][data-k="primary"]')) === '4' && (await page.inputValue('input[data-input="mission-score"][data-side="B"][data-k="secondary"]')) === '3');
   mi = await page.evaluate(() => window.__calc.mission());
@@ -1179,6 +1179,192 @@ try {
     await page.tap('button[data-action="board-reuse"]');
     const reused = (await tokens()).find(t => t.tk === ghPos.tk);
     check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
+  }
+
+  // --- table tools on the Play view: command points, the score of each turn, undo, the clock, table mode, screen on
+  {
+    const tctx = await browser.newContext({ ...devices['Pixel 7'] });
+    // the Screen Wake Lock API is refused in a headless browser: a stand-in that counts the calls
+    await tctx.addInitScript(() => {
+      window.__wake = { requests: 0, releases: 0 };
+      Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async (type) => { window.__wake.requests++; return { type, release: async () => { window.__wake.releases++; }, addEventListener() {} }; } } });
+    });
+    const tp2 = await tctx.newPage();
+    const terrs = [];
+    tp2.on('console', m => { if (m.type() === 'error') terrs.push(m.text()); });
+    tp2.on('pageerror', e => terrs.push(String(e)));
+    await tp2.goto(`${BASE}/calc/`);
+    await tp2.fill('textarea[data-side="A"]', SW_LIST);
+    await tp2.tap('button[data-action="parse"][data-side="A"]');
+    await tp2.fill('textarea[data-side="B"]', ORK_LIST);
+    await tp2.tap('button[data-action="parse"][data-side="B"]');
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    const idle = () => tp2.waitForFunction(() => { const m = window.__calc.mission(); return m.table || (m.result && !m.busy); }, null, { timeout: 120000 });
+    await idle();
+    await tp2.tap('button[data-action="mission-tab"][data-value="play"]');
+    await tp2.waitForSelector('#play-bar');
+    const gs = () => tp2.evaluate(() => { const s = window.__calc.state.mission, g = s.game; return { round: g.round, next: g.next, first: s.first, cp: [g.A.cp, g.B.cp], over: !!g.over, undo: s.undo.length, A: [g.A.primary, g.A.secondary], B: [g.B.primary, g.B.secondary], handA: g.A.hand.length }; });
+    let st = await gs();
+    check('a new game starts with 1CP each (the first Command phase) and nothing to undo', st.cp.join() === '1,1' && st.undo === 0 && await tp2.isDisabled('#play-undo') && (await tp2.textContent('#cp-A')).trim() === '1', JSON.stringify(st));
+    check('the phone Play view stays short with the tools folded (under 2.7 screens)', await tp2.evaluate(() => document.documentElement.scrollHeight < 2.7 * innerHeight), String(await tp2.evaluate(() => document.documentElement.scrollHeight / innerHeight)));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_51_play_tools.png'), fullPage: true });
+
+    // A's first turn: two cards, one scored, one discarded for a CP
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', 'behind-enemy-lines');
+    await tp2.tap('#hand-A .hand-row[data-card="behind-enemy-lines"] button[data-action="mission-hand-info"]');
+    check('the name of a card in hand opens its rules text', /wholly within the enemy deployment zone/.test(await tp2.textContent('#hand-A [data-text="behind-enemy-lines"]')));
+    await tp2.tap('#hand-A .hand-row[data-card="assassination"] button[data-do="scored"][data-vp="5"]');
+    check('"scored this turn" follows the tracker', /Round 1, A's turn — scored this turn: A \+5 secondary · B nothing yet/.test((await tp2.textContent('#play-turn')).replace(/\s+/g, ' ')), await tp2.textContent('#play-turn'));
+    await tp2.tap('#hand-A .hand-row[data-card="behind-enemy-lines"] button[data-do="discard"]');
+    check('a discard in your own turn offers the CP for it', (await tp2.textContent('#cp-discard-A')).trim() === '+1CP for the discard');
+    await tp2.tap('#cp-discard-A');
+    st = await gs();
+    check('the discard CP is added once', st.cp.join() === '2,1' && (await tp2.locator('#cp-discard-A').count()) === 0, JSON.stringify(st));
+    // Turn done: the first player is known from it; B's Command phase gives 1CP each
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('"Turn done" passes to B, works out who went first, and adds 1CP each for the Command phase', st.round === 1 && st.next === 'B' && st.first === 'A' && st.cp.join() === '3,2' && (await tp2.locator('#play-bar button[data-action="mission-first"]').count()) === 0, JSON.stringify(st));
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('after the second turn: battle round 2, A to play', st.round === 2 && st.next === 'A' && st.cp.join() === '4,3', JSON.stringify(st));
+    // Undo steps back through the changes, a turn included
+    await tp2.tap('#play-undo');
+    st = await gs();
+    check('Undo takes back "Turn done" (round, turn and CP), keeping what was scored before it', st.round === 1 && st.next === 'B' && st.cp.join() === '3,2' && st.B[0] === 5, JSON.stringify(st));
+    await tp2.tap('#play-undo');
+    check('Undo again takes back the score', (await gs()).B[0] === 0);
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    await tp2.tap('#play-turn-done');
+    // a typed score is one undo step, and the turn line follows it without a re-draw
+    await tp2.fill('input[data-input="mission-score"][data-side="A"][data-k="primary"]', '12');
+    check('typing a score updates "scored this turn" in place', /A \+12 primary/.test(await tp2.textContent('#play-turn')) && (await tp2.inputValue('input[data-input="mission-score"][data-side="A"][data-k="primary"]')) === '12');
+    // one extra CP per battle round: a second discard in round 2 gives none
+    for (const id of ['cleanse', 'outflank']) await tp2.selectOption('select[data-input="mission-draw"][data-side="A"]', id);
+    await tp2.tap('#hand-A .hand-row[data-card="cleanse"] button[data-do="discard"]');
+    await tp2.tap('#cp-discard-A');
+    await tp2.tap('#hand-A .hand-row[data-card="outflank"] button[data-do="discard"]');
+    st = await gs();
+    check('a second discard in the same battle round gives no CP (Event Companion: 1CP a round besides the Command phase)', st.cp.join() === '5,3' && /No CP for this discard: the one extra CP of round 2 is taken/.test(await tp2.textContent('#cp-discard-A')), JSON.stringify(st));
+    // the once-per-battle card swap, and CP spent by hand
+    await tp2.tap('#swap-A');
+    await tp2.tap('button[data-action="mission-cp"][data-side="A"][data-delta="-1"]');
+    st = await gs();
+    check('card swap: 1CP, once per battle; − spends a CP', st.cp.join() === '3,3' && await tp2.isDisabled('#swap-A') && /Card swap used \(round 2\)/.test(await tp2.textContent('#swap-A')), JSON.stringify(st));
+    // score sheet: per battle round, sums to the totals
+    await tp2.locator('details[data-details="mission-sheet"] summary').tap();
+    const rows = await tp2.$$eval('#play-sheet tbody tr', trs => trs.map(r => [...r.children].map(c => c.textContent.trim())));
+    check('score sheet: round 1 = A 5 secondary, B 5 primary; round 2 = A 12 primary; totals', rows[0].join() === '1,–,5,5,–' && rows[1].join() === '2,12,–,–,–' && rows[5].join() === 'Total,12,5,5,–' && /A 27 – B 15/.test(await tp2.textContent('#play-sheet summary')), JSON.stringify(rows));
+    check('the score sheet is drawn in its own card (not over the page)', await tp2.evaluate(() => { const t = document.querySelector('#play-sheet table').getBoundingClientRect(), c = document.querySelector('#play-sheet').getBoundingClientRect(); return t.top >= c.top && t.bottom <= c.bottom + 1 && getComputedStyle(document.querySelector('#play-sheet table')).position === 'static'; }));
+    await tp2.locator('#play-sheet').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_54_score_sheet.png') });
+    await tp2.locator('details[data-details="mission-checklist"] summary').tap();
+    check('turn checklist: the steps in rules order and both primary missions', /Draw 2 secondary cards \(2 of 2 entered\)/.test(await tp2.textContent('#play-checklist')) && /Both players gain 1CP/.test(await tp2.textContent('#play-checklist'))
+      && /A · Battlefield Dominance:/.test(await tp2.textContent('details[data-details="mission-checklist"]')), await tp2.textContent('#play-checklist'));
+    await tp2.locator('details[data-details="mission-checklist"] summary').tap();
+
+    // round timer with the Grand Tournament milestones
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="round"]');
+    check('round timer: 3 hours, with the Grand Tournament milestones', (await tp2.textContent('#clock-round')).trim() === '3:00:00' && /2:35 deployed · 1:55 round 1 · 1:15 round 2 · 0:45 round 3 · 0:25 round 4/.test(await tp2.textContent('#clock-milestones')));
+    await tp2.tap('#clock-go');
+    await tp2.waitForFunction(() => document.querySelector('#clock-round').textContent.trim() !== '3:00:00', null, { timeout: 5000 });
+    check('the clock runs and is on the pinned line; on pace in round 2', /^2:59:5\d$/.test((await tp2.textContent('#clock-round')).trim()) && /⏱ 2:59:5\d/.test(await tp2.textContent('#mini-clock')) && /On pace: finish battle round 2/.test(await tp2.textContent('#clock-pace')), await tp2.textContent('#clock-pace'));
+    for (let i = 0; i < 22; i++) await tp2.tap('button[data-action="mission-clock"][data-do="minus"]');
+    await tp2.waitForFunction(() => /behind/.test(document.querySelector('#clock-pace').textContent), null, { timeout: 5000 });
+    check('with 1:10 left in battle round 2 the clock says how far behind the game is', /^1:09:\d\d$/.test((await tp2.textContent('#clock-round')).trim()) && /[56] min behind: battle round 2 should be done with 1:15 left/.test(await tp2.textContent('#clock-pace')), `${await tp2.textContent('#clock-round')} | ${await tp2.textContent('#clock-pace')}`);
+    await tp2.locator('#play-clock').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_52_clock_behind.png') });
+    // it is kept as an end time: a reload does not stop or reset it
+    await tp2.reload();
+    await tp2.waitForSelector('#clock-round');
+    check('the clock keeps running through a reload', /^1:0\d:\d\d$/.test((await tp2.textContent('#clock-round')).trim()) && (await tp2.evaluate(() => window.__calc.mission().clock.endsAt)) > Date.now(), await tp2.textContent('#clock-round'));
+    st = await gs();
+    check('the tracker (CP, round, undo steps) is kept through a reload', st.round === 2 && st.cp.join() === '3,3' && st.undo > 5, JSON.stringify(st));
+
+    // chess clock: only the running player loses time; "Turn done" passes it
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="chess"]');
+    check('chess clock: 1:25 each (UKTC)', (await tp2.textContent('#clock-A')).trim() === '1:25:00' && (await tp2.textContent('#clock-B')).trim() === '1:25:00');
+    await tp2.tap('button[data-action="mission-clock"][data-do="run"][data-side="A"]');
+    await tp2.waitForFunction(() => document.querySelector('#clock-A').textContent.trim() !== '1:25:00', null, { timeout: 5000 });
+    check('A\'s clock runs, B\'s waits', (await tp2.textContent('#clock-B')).trim() === '1:25:00' && /^1:24:5\d$/.test((await tp2.textContent('#clock-A')).trim()));
+    await tp2.tap('#play-turn-done');
+    await tp2.waitForFunction(() => document.querySelector('#clock-B').textContent.trim() !== '1:25:00', null, { timeout: 5000 });
+    check('"Turn done" passes the clock to the next player', (await tp2.evaluate(() => window.__calc.mission().clock.running)) === 'B' && (await tp2.getAttribute('button[data-action="mission-clock"][data-do="run"][data-side="B"]', 'aria-pressed')) === 'true');
+    await tp2.locator('#play-clock').scrollIntoViewIfNeeded();
+    await tp2.screenshot({ path: join(SHOTS, 'calc_53_chess_clock.png') });
+    await tp2.tap('button[data-action="mission-clock"][data-do="chess-pause"]');
+
+    // the screen stays on in the Play view only
+    const w1 = await tp2.evaluate(() => ({ ...window.__wake, on: window.__calc.mission().wake }));
+    await tp2.tap('button[data-action="view"][data-value="armies"]');
+    await tp2.waitForFunction(() => window.__wake.releases >= 1, null, { timeout: 5000 });
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    await tp2.waitForFunction(() => window.__calc.mission().wake === true, null, { timeout: 5000 });
+    await tp2.tap('button[data-action="mission-awake"]');
+    await tp2.waitForFunction(() => window.__calc.mission().wake === false, null, { timeout: 5000 });
+    check('screen wake lock: held on the Play view, released on another tab, off with the "Screen stays on" switch', w1.requests >= 1 && w1.on === true && (await tp2.evaluate(() => window.__wake.releases)) >= 2, JSON.stringify(w1));
+    await tp2.tap('button[data-action="mission-awake"]');
+
+    // table mode: the tracker only
+    await tp2.selectOption('select[data-input="mission-draw"][data-side="B"]', 'secure-no-mans-land');
+    await idle();
+    check('before table mode: the card in hand has advice and the forecast is shown', (await tp2.locator('#hand-B [data-advice]').count()) === 1 && (await tp2.locator('#mission-forecast').count()) === 1);
+    await tp2.tap('button[data-action="mission-table"]');
+    const tm = await tp2.evaluate(() => ({ flag: !!document.querySelector('#table-flag'), score: document.querySelector('#score-mini')?.textContent.replace(/\s+/g, ' ').trim(), forecast: !!document.querySelector('#mission-forecast'), win: !!document.querySelector('#fc-mini-win'),
+      advice: document.querySelectorAll('[data-advice]').length, attackOff: document.querySelector('button[data-action="view"][data-value="attack"]').disabled, boardOff: document.querySelector('button[data-action="view"][data-value="board"]').disabled, tabs: document.querySelectorAll('button[data-action="mission-tab"]').length, hand: document.querySelectorAll('#hand-B .hand-row').length }));
+    check('table mode: score instead of the forecast, no card advice, Plan / Cards / Attack / Board closed, the tracker stays', tm.flag && /Score 27 – 15 VP/.test(tm.score) && !tm.forecast && !tm.win && tm.advice === 0 && tm.attackOff && tm.boardOff && tm.tabs === 0 && tm.hand === 1, JSON.stringify(tm));
+    await tp2.evaluate(() => window.scrollTo(0, 0));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_55_table_mode.png'), fullPage: true });
+    await tp2.tap('button[data-action="view"][data-value="intel"]');
+    check('table mode on Intel: datasheets only (no brief, no calculator links)', /Table mode: datasheets, abilities and stratagems only/.test(await tp2.textContent('#intel-table-note')) && (await tp2.locator('#brief-host').count()) === 0 && (await tp2.locator('button[data-action="target-this"]').count()) === 0 && (await tp2.locator('.intel-unit').count()) > 3);
+    await tp2.tap('button[data-action="view"][data-value="mission"]');
+    await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="secondary"][data-delta="5"]');
+    check('table mode: no forecast is worked out', await tp2.evaluate(() => window.__calc.mission().busy === false) && /Score 27 – 20 VP/.test((await tp2.textContent('#score-mini')).replace(/\s+/g, ' ')));
+    await tp2.tap('button[data-action="mission-table"]');
+    await idle();
+    check('table mode off: the forecast and the tabs are back', (await tp2.locator('#fc-mini-win').count()) === 1 && (await tp2.locator('button[data-action="mission-tab"]').count()) >= 3 && !(await tp2.isDisabled('button[data-action="view"][data-value="attack"]')));
+
+    // play to the end of the battle
+    let guard = 0;
+    while (!(await gs()).over && guard++ < 12) await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('the battle ends after the second turn of round 5: final score, no more turns', st.over && st.round === 5 && await tp2.isDisabled('#play-turn-done') && /Battle over/.test(await tp2.textContent('#play-turn-done')) && /Final 27 – 20 VP/.test((await tp2.textContent('#score-mini')).replace(/\s+/g, ' ')) && /Battle over\. Final score: A 27 – B 20/.test(await tp2.textContent('#play-turn')), JSON.stringify(st));
+    await idle();
+    const fin = await tp2.evaluate(() => { const r = window.__calc.mission().result; return { a: r.A.mean, b: r.B.mean, w: r.pWinA }; });
+    check('after the battle the forecast is the final score', fin.a === 27 && fin.b === 20 && fin.w === 1, JSON.stringify(fin));
+    await tp2.tap('#play-reset');
+    st = await gs();
+    check('New game clears the tracker (1CP each, first turn open again) and can be undone', st.round === 1 && !st.over && st.cp.join() === '1,1' && st.first === null && st.A.join() === '0,0' && !(await tp2.isDisabled('#play-undo')), JSON.stringify(st));
+    await tp2.tap('#play-undo');
+    check('Undo brings the finished game back', (await gs()).over === true && (await gs()).A.join() === '12,5');
+    check('table tools: no console errors', terrs.length === 0, terrs.slice(0, 3).join(' | '));
+
+    // before any turn is done, the turn picker is the "First turn" question: B goes first
+    await tp2.tap('#play-reset');
+    check('at the start the turn picker asks for the first turn (no separate question)', /First turn/.test(await tp2.textContent('#play-bar')) && (await tp2.locator('#play-bar button[data-action="mission-first"]').count()) === 0);
+    await tp2.tap('button[data-action="mission-next"][data-value="B"]');
+    await tp2.tap('#play-turn-done');
+    st = await gs();
+    check('picking B for the first turn makes B the first player: after B\'s turn it is still round 1, A to play', st.first === 'B' && st.round === 1 && st.next === 'A' && st.cp.join() === '2,2', JSON.stringify(st));
+    await tp2.tap('#play-turn-done');
+    check('and after A\'s turn: battle round 2, B to play', (await gs()).round === 2 && (await gs()).next === 'B');
+
+    // tablet: the turn bar across the top, both players side by side under it, the time on the pinned line
+    await tp2.tap('#play-reset');
+    await tp2.setViewportSize({ width: 1280, height: 800 });
+    await tp2.waitForTimeout(400);
+    await tp2.tap('button[data-action="mission-clock-mode"][data-value="round"]');
+    await tp2.tap('#clock-go');
+    await idle();
+    await tp2.evaluate(() => window.scrollTo(0, 0));
+    await tp2.waitForTimeout(200);
+    const lay = await tp2.evaluate(() => { const r = (q) => { const b = document.querySelector(q).getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width) }; };
+      return { bar: r('.mlay.play .a-bar'), me: r('.mlay.play .a-me'), opp: r('.mlay.play .a-opp'), clock: r('.mlay.play .a-clock'), cpA: r('#cp-A'), cpB: r('#cp-B'), mini: r('#mini-clock'), vh: innerHeight, vw: innerWidth, pages: +(document.documentElement.scrollHeight / innerHeight).toFixed(2) }; });
+    check('tablet Play: the turn bar spans the screen, the two players are side by side under it with scores and CP on screen, the clock is on the pinned line',
+      lay.bar.w > lay.vw * 0.9 && lay.me.t >= lay.bar.b - 2 && Math.abs(lay.me.t - lay.opp.t) < 3 && lay.opp.l > lay.me.l + 300 && lay.cpA.b < lay.vh && lay.cpB.b < lay.vh && lay.mini.t > 0 && lay.mini.b < 200 && lay.clock.t >= lay.me.t, JSON.stringify(lay));
+    await tp2.screenshot({ path: join(SHOTS, 'calc_56_tablet_play_tools.png') });
+    await tctx.close();
   }
 
   // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
