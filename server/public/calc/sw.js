@@ -6,7 +6,7 @@
 const CACHE = 'w40k-calc-1.96.0';
 const NETWORK_TIMEOUT_MS = 3500;
 const SHELL = [
-  './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs', './version.mjs', './backup.mjs', './eventview.mjs', './briefview.mjs', './lists.mjs',
+  './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs', './version.mjs', './backup.mjs', './eventview.mjs', './briefview.mjs', './lists.mjs', './playtools.mjs',
   './manifest.webmanifest', './icon-192.png', './icon-512.png',
   '/js/builder/store.js', '/js/builder/importers.js',
   '/js/lib/canon.mjs', '/js/lib/data-patches.mjs', '/js/lib/dckit.mjs', '/js/lib/detachment-rules.mjs',

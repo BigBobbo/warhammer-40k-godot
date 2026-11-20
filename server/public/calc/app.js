@@ -11,7 +11,7 @@ import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, syncWake, _missionDebug } from './missionview.mjs';
 import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
 
@@ -326,9 +326,15 @@ const WIDE_Q = window.matchMedia('(min-width: 900px)');
 const wide = () => WIDE_Q.matches;
 WIDE_Q.addEventListener?.('change', () => { console.log(`[calc] layout: ${wide() ? 'two panes' : 'one column'}`); render(); });
 
+// table mode (Mission > Play): the tracker only — the calculator and the board planner are closed
+const tableMode = () => !!state.mission?.table;
+
 function render() {
   const a = state.armies.A, b = state.armies.B;
   const ready = a && b;
+  const table = tableMode() && ready;
+  if (table && (state.view === 'attack' || state.view === 'board')) state.view = 'mission';
+  const lock = table ? 'disabled title="Closed in table mode (Mission > Play)"' : '';
   app.innerHTML = `
     <header class="top"><div class="wrap">
       <div class="brand">⚔<span class="brand-full"> Combat Calc</span><span class="ver-mini" id="app-version-mini">v${esc(CALC_VERSION)}</span></div>
@@ -336,8 +342,8 @@ function render() {
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
-        <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>Attack</button>
-        <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? '' : 'disabled'}>Board</button>
+        <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? lock : 'disabled'}>Attack</button>
+        <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? lock : 'disabled'}>Board</button>
         <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
@@ -348,6 +354,7 @@ function render() {
   renderSheet();
   if (state.view === 'board') boardAfterRender();
   if (state.view === 'mission' || (state.view === 'intel' && a && b)) missionAfterRender();
+  syncWake();
 }
 
 // ---- Intel: enemy cheat sheet
@@ -371,7 +378,7 @@ function intelView() {
   const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
-  return `${state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+  return `${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
@@ -408,7 +415,7 @@ function intelList(side) {
       <details class="more"><summary>Abilities (${it.abilities.length})</summary>${it.abilities.map(a =>
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
-      ${state.armies.A && state.armies.B ? `<div class="row" style="gap:6px">
+      ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
     </details>`);

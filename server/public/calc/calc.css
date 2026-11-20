@@ -410,3 +410,25 @@ details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter
   .tabs { gap: 3px; }
   .tabs .tab { padding-left: 7px; padding-right: 7px; font-size: 13px; }
 }
+
+/* ---- table tools (Mission > Play): clock, command points, checklist, score sheet */
+.mlay .o7 { order: 7; }
+.clock-big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; min-width: 118px; }
+.clock-tile { flex: 1; min-height: 64px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.clock-tile b { font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.clock-tile.on { border-color: var(--accent); background: var(--series-1-wash); box-shadow: inset 0 0 0 1px var(--accent); }
+.clock-mini { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-mini .clock-mini { font-size: 13px; color: var(--text-primary); }
+#clock-pace .warn, #play-turn .warn { color: var(--warn-ink); }
+.stepper.cp .val { min-width: 34px; font-size: 18px; font-weight: 700; }
+.cp-row .mini.cpx { min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
+.cp-row .mini.cpx:disabled { color: var(--text-muted); cursor: default; }
+.cp-row #cp-discard-A.mini, .cp-row #cp-discard-B.mini { border-color: var(--accent); font-weight: 600; }
+ol.checklist { margin: 2px 0 8px; padding-left: 20px; font-size: 13px; }
+ol.checklist li { margin: 3px 0; }
+table.dist.sheet td, table.dist.sheet th { text-align: center; padding: 5px 4px; }
+table.dist.sheet td:first-child, table.dist.sheet th:first-child { text-align: left; }
+table.dist.sheet tr.cur td { background: var(--series-1-wash); }
+table.dist.sheet tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+details.more.card { padding: 10px 12px; }
+#table-flag { cursor: default; }

@@ -229,3 +229,12 @@ test('Assassination: with every enemy CHARACTER destroyed it scores 5 VP (no "wh
   assert.equal(fresh.A.cards.assassination.scoreRate, 1, 'drawn later: also 5 VP');
   assert.equal(fresh.A.cards['bring-it-down'], undefined, 'no W10+ model left: discarded when drawn, a new card is drawn');
 });
+
+test('battle over (start after round 5): the forecast is the final score, nothing more is simulated', () => {
+  const plan = planAll({ hA: 'A', hB: 'B', eA: 'A', eB: 'B', c: 'c' });
+  const pl = (start) => ({ mission: 'Battlefield Dominance', army: BIG(), killRate: 1.3, start });
+  const r = F.forecast({ players: { A: pl({ hand: ['assassination'], used: [], primary: 40, secondary: 32 }), B: pl({ hand: [], used: [], primary: 35, secondary: 30 }) }, objectives: OBJS, plan, first: 'A', startRound: 6, startTurn: 0, trials: 200 });
+  assert.deepEqual([r.A.mean, r.A.p10, r.A.p90, r.B.mean], [82, 82, 82, 75], 'scores + 10 for a Battle Ready army');
+  assert.deepEqual([r.pWinA, r.pWinB, r.pDraw], [1, 0, 0]);
+  assert.ok(Number.isFinite(r.margin.p50) && r.margin.p50 === 7);
+});
