@@ -418,6 +418,20 @@ change its inputs, and when they do the predicted swing is unrelated to the
 measured one. Consequences: no rollout pre-filter; `FORECAST_PLAN` (which uses
 the same prediction) stays off and is not worth benchmark time.
 
+### Paired A/B results (E = candidate minus baseline, VP, side-swapped)
+
+| Item | Profile | Custodes mirror | Asymmetric | Orks mirror | Pooled | Verdict |
+|---|---|---|---|---|---|---|
+| Secondaries (1 CP = 1.5 VP) | `forecast_secondaries_on` | −2.1 | −3.3 | +2.1 | −1.3 [−4.3, 1.7], 22 pairs | off |
+| Secondaries (cheap CP) | `forecast_secondaries_cheapcp` | +0.15 | −2.6 | — | −0.9 [−4.5, 2.7], 16 pairs | off |
+| Horizon 0.6 + survival | `forecast_horizon_survival` | −0.75 [−7.3, 5.8] | −2.6 [−11.5, 6.4] | — | −1.4, 16 pairs | off |
+
+The secondaries arm swapped cards a third as often as the rule-based baseline
+and scored ~1.2 fewer secondary VP per game: the forecast prices a fresh draw
+lower than the heuristic does, and the heuristic is right more often.
+Horizon/survival moved hold choices without improving results (asymmetric
+below the −2 VP floor).
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
