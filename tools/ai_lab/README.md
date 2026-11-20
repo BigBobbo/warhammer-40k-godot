@@ -389,6 +389,35 @@ Pipeline (critic -> value -> fix -> bundle):
 4. Bundle test (`ai_versions.py run --rules11e --fixture ...`, 3 matchups),
    then switch fix groups off with `--cand-profile` to attribute.
 
+## Game forecast in the AI (`AIForecast.gd`) — 2026-11-20
+
+`40k/scripts/AIForecast.gd` ports the Combat Calc forecast
+(`server/public/calc/forecast.mjs`) to GDScript; `test_ai_forecast.gd` holds it
+to the JS (card parity + 28 statistical scenarios, worst gap 0.45 VP). The AI
+uses it behind params, all **off** by default: `FORECAST_SECONDARIES`,
+`FORECAST_TEMPO` (+ `FORECAST_CAL_A/B/SEAT`), `FORECAST_HORIZON_WEIGHT`,
+`FORECAST_SURVIVAL`, `FORECAST_PLAN`. `FORECAST_LOG` (on) records one
+forecast per own turn for `forecast_calibration.py`.
+
+### Pre-filter result: the forecast cannot rank movement alternatives
+
+`forecast_prefilter.py` (driving `40k/tests/forecast_prefilter.gd`) priced 138
+of the 156 measured single-unit movement rollouts in
+`r4_designs/measured_positions.json` (plan with vs without the redirect,
+600 trials, survival projection on):
+
+| | |
+|---|---|
+| Pearson r(predicted, measured E) | +0.00 (Spearman +0.02), n = 138 |
+| redirect changes projected ownership | 29 cases, r = +0.05 |
+| rollout-clear cases (CI excludes 0) | 34: sign agrees on 4, predicts 0 on 26 |
+| screen "pred >= 2 VP" | 13 pass, mean measured E +0.20 |
+
+The forecast sees objective ownership, not positions, so most redirects do not
+change its inputs, and when they do the predicted swing is unrelated to the
+measured one. Consequences: no rollout pre-filter; `FORECAST_PLAN` (which uses
+the same prediction) stays off and is not worth benchmark time.
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
