@@ -15,7 +15,8 @@ class_name AIPositionSim
 # Pure data in, pure data out (AIDecisionMaker._possim_world builds the world
 # from a snapshot), so it can be unit-tested without a game.
 #
-# world: { units: {uid: U}, objectives: [{id, pos}], first, round, active }
+# world: { units: {uid: U}, objectives: [{id, pos}], first, round, active,
+#          control: {obj_id: player}, secured: {obj_id: player} }
 #   U: { side, pos (Vector2, inches), move, oc (unit total), wounds (unit
 #        total left), radius (inches, models' spread), seeker (chases
 #        enemies), charger (charges what it can reach),
@@ -32,8 +33,12 @@ const DEFAULTS := {
 	"damage": true,      # shooting / melee wear units down
 	"policy": true,      # units without an intent pick objectives themselves
 	"los": 0.6,          # share of in-range shooting that has line of sight
+	"lethality": 0.7,    # all expected damage x this (fitted: units really lost per turn)
 	"charge_min_p": 0.35, # a unit charges when 2D6 makes it at least this often
-	"oc_soft": 1.0,      # OC lead that makes control near-certain (plus 15% of the OC there)
+	"oc_soft": 3.0,      # OC lead that makes control near-certain (plus 15% of the OC there)
+	"ctrl_c": 5.5,       # control reach from the unit's centre, inches ...
+	"ctrl_m": 3.0,       # ... plus this many times its models' mean spread
+	"stick": 0.7,        # an objective nobody out-OCs stays with its last controller this often
 	"sat_penalty": 1.5,  # turns added to an objective the side already out-OCs
 }
 
@@ -66,39 +71,55 @@ static func charge_p(d: float) -> float:
 static func _edge(a: Dictionary, b: Dictionary) -> float:
 	return (a.pos as Vector2).distance_to(b.pos) - float(a.radius) - float(b.radius)
 
-static func oc_weight(u: Dictionary, opos: Vector2) -> float:
-	"""Share of the unit's models in range of the objective, from its centre."""
+static func oc_weight(u: Dictionary, opos: Vector2, opts: Dictionary = {}) -> float:
+	"""Share of the unit's models in range of the objective, from its centre
+	and spread: all of them when the centre is close, none once the centre is
+	ctrl_c + ctrl_m x spread away. Fitted on real games (possim_truth.py): a
+	unit strung out toward an objective holds it with its front models while
+	its centre is still 6-7 in short."""
 	var d: float = (u.pos as Vector2).distance_to(opos)
-	var full: float = CONTROL_IN + float(u.radius) * 0.5
-	if d <= full:
-		return 1.0
-	return clampf(1.0 - (d - full) / (float(u.radius) + 2.0), 0.0, 1.0)
+	var reach: float = float(opts.get("ctrl_m", DEFAULTS.ctrl_m)) * float(u.radius)
+	return clampf((float(opts.get("ctrl_c", DEFAULTS.ctrl_c)) + reach - d) / (2.0 * reach), 0.0, 1.0)
 
-static func oc_at(units: Dictionary, opos: Vector2) -> Dictionary:
+static func oc_at(units: Dictionary, opos: Vector2, opts: Dictionary = {}) -> Dictionary:
 	var oc := {1: 0.0, 2: 0.0}
 	for uid in units:
 		var u: Dictionary = units[uid]
-		var w := oc_weight(u, opos)
+		var w := oc_weight(u, opos, opts)
 		if w > 0.0:
 			oc[int(u.side)] += float(u.oc) * alive(u) * w
 	return oc
 
-static func ownership(units: Dictionary, objectives: Array, opts: Dictionary) -> Dictionary:
-	"""{obj_id: [p1, p2]}: chance each side controls it right now."""
+static func ownership(units: Dictionary, objectives: Array, opts: Dictionary, prev: Dictionary = {}, secured: Dictionary = {}) -> Dictionary:
+	"""{obj_id: [p1, p2]}: chance each side controls it right now.
+	prev {obj_id: [p1, p2]}: who controlled it a turn ago. What OC does not
+	decide (nobody in range, or a tie) stays with the previous controller
+	`stick` of the time — in real games an objective usually outlives its
+	holders walking off (11e secured objectives, and front models the centre
+	distance misses). secured {obj_id: player}: stays for certain (14.03)
+	until the other side out-OCs it."""
 	var out := {}
 	var soft: float = float(opts.get("oc_soft", DEFAULTS.oc_soft))
+	var stick: float = float(opts.get("stick", DEFAULTS.stick))
 	for o in objectives:
-		var oc := oc_at(units, o.pos)
+		var oc := oc_at(units, o.pos, opts)
 		var a: float = oc[1]
 		var b: float = oc[2]
-		if a + b < 0.25:
-			out[o.id] = [0.0, 0.0]
-			continue
-		var s: float = soft + 0.15 * (a + b)
-		var p1: float = 1.0 / (1.0 + exp(-(a - b) / (s * 0.5)))
-		# a near-tie is mostly nobody's (equal OC controls nothing)
-		var tie: float = exp(-pow((a - b) / s, 2.0)) * 0.5
-		out[o.id] = [p1 * (1.0 - tie), (1.0 - p1) * (1.0 - tie)]
+		var p1 := 0.0
+		var p2 := 0.0
+		if a + b >= 0.25:
+			var s: float = soft + 0.15 * (a + b)
+			var q: float = 1.0 / (1.0 + exp(-(a - b) / (s * 0.5)))
+			# a near-tie is mostly nobody's (equal OC controls nothing)
+			var tie: float = exp(-pow((a - b) / s, 2.0)) * 0.5
+			p1 = q * (1.0 - tie)
+			p2 = (1.0 - q) * (1.0 - tie)
+		var free: float = maxf(0.0, 1.0 - p1 - p2)
+		var pv: Array = prev.get(o.id, [0.0, 0.0])
+		var sp: int = int(secured.get(o.id, 0))
+		var k1: float = 1.0 if sp == 1 else stick
+		var k2: float = 1.0 if sp == 2 else stick
+		out[o.id] = [p1 + free * k1 * float(pv[0]), p2 + free * k2 * float(pv[1])]
 	return out
 
 static func _engaged(u: Dictionary, units: Dictionary) -> bool:
@@ -111,7 +132,7 @@ static func _engaged(u: Dictionary, units: Dictionary) -> bool:
 static func _hit(units: Dictionary, tid: String, dmg: float, by_side: int, kills: Dictionary) -> void:
 	var t: Dictionary = units[tid]
 	var before := p_dead(float(t.x))
-	t["x"] = float(t.x) + dmg / maxf(1.0, float(t.wounds))
+	t["x"] = float(t.x) + dmg * float(kills.get("scale", 1.0)) / maxf(1.0, float(t.wounds))
 	kills[by_side] += p_dead(float(t.x)) - before
 
 static func _shoot_dmg(u: Dictionary, tid: String, d_edge: float) -> float:
@@ -142,14 +163,16 @@ static func _move_toward(u: Dictionary, goal: Vector2, dist_in: float, units: Di
 		step -= 0.5
 	u["pos"] = from
 
-static func _pick_objective(u: Dictionary, units: Dictionary, objectives: Array, committed: Dictionary, opts: Dictionary) -> Dictionary:
+static func _pick_objective(u: Dictionary, units: Dictionary, objectives: Array, committed: Dictionary, opts: Dictionary, skip_id: String = "") -> Dictionary:
 	var best := {}
 	var best_s := INF
 	var side: int = int(u.side)
 	for o in objectives:
+		if str(o.id) == skip_id:
+			continue
 		var d: float = maxf(0.0, (u.pos as Vector2).distance_to(o.pos) - CONTROL_IN)
 		var turns: float = ceil(d / maxf(1.0, float(u.move)))
-		var oc := oc_at(units, o.pos)
+		var oc := oc_at(units, o.pos, opts)
 		var mine: float = float(committed[side].get(o.id, 0.0))
 		var s: float = turns
 		if mine > maxf(oc[other(side)], 0.5):
@@ -184,21 +207,43 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 	var los: float = float(opts.los)
 	var turns: Array = []
 	var first_turn := true
+	# who controls each objective now (world.control {obj_id: player}); the
+	# sim carries this forward turn by turn
+	var secured: Dictionary = world.get("secured", {})
+	var prev_own := {}
+	for o in objectives:
+		var cp: int = int(world.get("control", {}).get(o.id, 0))
+		prev_own[o.id] = [1.0 if cp == 1 else 0.0, 1.0 if cp == 2 else 0.0]
 	for r in range(start_round, end_round + 1):
 		for t in range(2):
 			var side: int = first if t == 0 else other(first)
 			if r == start_round and t == 0 and active != first:
 				continue
-			var row := {"round": r, "side": side, "own_start": ownership(units, objectives, opts)}
-			var kills := {1: 0.0, 2: 0.0}
+			var row := {"round": r, "side": side, "own_start": prev_own.duplicate(true)}
+			var kills := {1: 0.0, 2: 0.0, "scale": float(opts.lethality)}
 			# --- Movement
 			var committed := {1: {}, 2: {}}
 			for uid in units:
 				var cu: Dictionary = units[uid]
 				for o in objectives:
-					var w := oc_weight(cu, o.pos)
+					var w := oc_weight(cu, o.pos, opts)
 					if w >= 0.5 or str(cu.goal_obj) == str(o.id):
 						committed[int(cu.side)][o.id] = float(committed[int(cu.side)].get(o.id, 0.0)) + float(cu.oc) * alive(cu)
+			# one keeper per objective: the unit of this side nearest its centre.
+			# In real games a unit alone on an objective stays (93%); of units
+			# sharing one, about half move on (possim_truth.py).
+			var keeper := {}
+			var keeper_d := {}
+			for uid in units:
+				var ku: Dictionary = units[uid]
+				if int(ku.side) != side or alive(ku) <= 0.03 or float(ku.oc) <= 0.0:
+					continue
+				for o in objectives:
+					if oc_weight(ku, o.pos, opts) >= 0.5:
+						var kd: float = (ku.pos as Vector2).distance_to(o.pos)
+						if not keeper_d.has(o.id) or kd < float(keeper_d[o.id]):
+							keeper_d[o.id] = kd
+							keeper[o.id] = uid
 			var advanced := {}
 			for uid in units:
 				var u: Dictionary = units[uid]
@@ -236,14 +281,14 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 										near = e
 										goal = v.pos
 						if goal == null:
-							var on_obj := false
+							var on_oid := ""
 							for o in objectives:
-								if oc_weight(u, o.pos) >= 1.0:
-									on_obj = true
+								if oc_weight(u, o.pos, opts) >= 0.5:
+									on_oid = str(o.id)
 									break
-							if on_obj:
+							if on_oid != "" and (str(keeper.get(on_oid, "")) == str(uid) or not keeper.has(on_oid)):
 								continue
-							var pick := _pick_objective(u, units, objectives, committed, opts)
+							var pick := _pick_objective(u, units, objectives, committed, opts, on_oid)
 							if pick.is_empty():
 								continue
 							goal = pick.pos
@@ -264,7 +309,7 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 				if mode == "advance":
 					advanced[uid] = true
 				_move_toward(u, goal, reach, units)
-				if str(u.goal_obj) != "" and obj_pos.has(u.goal_obj) and oc_weight(u, obj_pos[u.goal_obj]) >= 1.0:
+				if str(u.goal_obj) != "" and obj_pos.has(u.goal_obj) and (u.pos as Vector2).distance_to(obj_pos[u.goal_obj]) <= 1.5:
 					u["goal_obj"] = ""  # arrived: holds from now on
 					u["holding"] = true
 			if do_damage:
@@ -290,7 +335,7 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 						var left: float = maxf(0.0, 1.4 - float(tu.x)) * float(tu.wounds)
 						var val: float = minf(dmg, left) / maxf(1.0, float(tu.wounds))
 						for o in objectives:
-							if oc_weight(tu, o.pos) > 0.0:
+							if oc_weight(tu, o.pos, opts) > 0.0:
 								val *= 1.5
 								break
 						if val > best_v:
@@ -350,7 +395,9 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 						_hit(units, best_t, best_d * alive(u), int(u.side), kills)
 				for uid in units:
 					units[uid].erase("charged")
-			row["own_end"] = ownership(units, objectives, opts)
+			prev_own = ownership(units, objectives, opts, prev_own, secured)
+			row["own_end"] = prev_own.duplicate(true)
+			kills.erase("scale")
 			if do_damage:
 				row["lam"] = kills
 			if bool(opts.get("trace", false)):
@@ -359,6 +406,11 @@ static func run(world: Dictionary, intents: Dictionary, opts_in: Dictionary = {}
 					var tu: Dictionary = units[uid]
 					tr[uid] = [snappedf(alive(tu), 0.01), snappedf(p_dead(float(tu.x)), 0.01), snappedf((tu.pos as Vector2).x, 0.1), snappedf((tu.pos as Vector2).y, 0.1)]
 				row["units"] = tr
+				var ocs := {}
+				for o in objectives:
+					var oo := oc_at(units, o.pos, opts)
+					ocs[o.id] = [snappedf(oo[1], 0.1), snappedf(oo[2], 0.1)]
+				row["oc_end"] = ocs
 			turns.append(row)
 			first_turn = false
 	return {"turns": turns, "units": units}

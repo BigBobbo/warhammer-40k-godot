@@ -221,6 +221,7 @@ def main() -> int:
     ap.add_argument("--trials", type=int, default=600)
     ap.add_argument("--survival", type=int, default=1)
     ap.add_argument("--simopts", default="", help="JSON of AIPositionSim options applied to every variant")
+    ap.add_argument("--cache", default="", help="dir to write per-case sim inputs for possim_sweep.py")
     ap.add_argument("--shards", type=int, default=1, help="godot processes to split the cases over")
     ap.add_argument("--truth", default="", help="dir of possim_truth.py traces: score the sim's base line against them")
     ap.add_argument("--out", default="/tmp/forecast_prefilter")
@@ -250,6 +251,8 @@ def main() -> int:
                "--trials=%d" % a.trials, "--survival=%d" % a.survival]
         if a.simopts:
             cmd.append("--simopts=" + a.simopts)
+        if a.cache:
+            cmd.append("--cache=" + os.path.abspath(a.cache))
         log = open(os.path.join(a.out, "godot_%d.log" % i), "w")
         procs.append(subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env))
     for pr in procs:
@@ -260,6 +263,9 @@ def main() -> int:
             if os.path.exists(part):
                 merged.write(open(part).read())
     rows = [json.loads(l) for l in open(op) if l.strip()] if os.path.exists(op) else []
+    if a.cache:
+        json.dump({r["job"]: r.get("control_now", {}) for r in rows if "control_now" in r},
+                  open(os.path.join(a.cache, "control_now.json"), "w"))
     meta = {j["job"]: j for j in jobs}
     for r in rows:
         r.update({k: meta.get(r["job"], {}).get(k) for k in ("E", "ci", "class", "n")})

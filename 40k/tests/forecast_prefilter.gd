@@ -155,6 +155,16 @@ func _run():
 			var ai2: Dictionary = intents.duplicate()
 			ai2[uid] = alt_it
 			P["trials"] = trials
+			# --cache=DIR: everything AIPositionSim and the forecast need for this
+			# case, so tests/possim_replay.gd can re-price it under other sim
+			# options in milliseconds (no save load, no plan rebuild)
+			var cache_dir := _arg("cache", "")
+			if cache_dir != "":
+				DirAccess.make_dir_recursive_absolute(cache_dir)
+				var cfile := FileAccess.open(cache_dir.path_join(str(job.job) + ".var"), FileAccess.WRITE)
+				cfile.store_string(var_to_str({"job": str(job.job), "world": world, "plan": intents, "base": bi, "alt": ai2,
+					"P": P, "player": player, "unit": uid}))
+				cfile.close()
 			var sim_opts: Dictionary = {}
 			var so_txt := _arg("simopts", "")
 			if so_txt != "":
@@ -180,16 +190,31 @@ func _run():
 			# (tools/ai_lab/possim_truth.py): ownership chances and unit states
 			var so: Dictionary = sim_opts.duplicate()
 			so["trace"] = true
-			var tr_sim: Dictionary = AIDM._AIPositionSim.run(world, bi, so)
+			# (the rebuilt plan untouched: the truth game is played by today's
+			# AI, which may not make the logged choice any more)
+			var tr_sim: Dictionary = AIDM._AIPositionSim.run(world, intents, so)
 			var tr_rows: Array = []
 			for trow in tr_sim.turns:
-				tr_rows.append({"round": trow.round, "side": trow.side, "own_end": trow.own_end, "lam": trow.get("lam", {}), "units": trow.units})
+				tr_rows.append({"round": trow.round, "side": trow.side, "own_end": trow.own_end, "lam": trow.get("lam", {}), "units": trow.units, "oc_end": trow.oc_end})
 			row["sim_trace"] = tr_rows
 			row["control_now"] = snap.get("mission_manager", {}).get("objective_control_state", {})
+			row["secured_now"] = world.secured
 			var sides := {}
+			var u_oc := {}
 			for wu in world.units:
 				sides[wu] = int(world.units[wu].side)
+				var wmax := 0.0
+				for wt in world.units[wu].shoot:
+					for wr in world.units[wu].shoot[wt]:
+						wmax = maxf(wmax, float(wr[0]))
+				u_oc[wu] = [float(world.units[wu].oc), float(world.units[wu].radius), float(world.units[wu].move),
+					wmax, 1.0 if bool(world.units[wu].seeker) else 0.0, 1.0 if bool(world.units[wu].charger) else 0.0, float(world.units[wu].wounds)]
 			row["sides"] = sides
+			row["unit_oc"] = u_oc
+			var o_pos := {}
+			for wo in world.objectives:
+				o_pos[wo.id] = [float(wo.pos.x), float(wo.pos.y)]
+			row["obj_pos"] = o_pos
 			row["base_intent"] = "%s %s" % [base_it.mode, base_it.goal_obj]
 			row["alt_intent"] = "%s %s" % [alt_it.mode, alt_it.goal_obj]
 			row["rebuilt_matches_logged"] = str(a_now.get("objective_id", "")) == str(base_it.goal_obj)

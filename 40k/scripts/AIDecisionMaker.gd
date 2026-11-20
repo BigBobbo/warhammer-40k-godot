@@ -23309,8 +23309,17 @@ static func _possim_world(snapshot: Dictionary) -> Dictionary:
 	var order: Dictionary = _AIForecast.turn_order(snapshot)
 	print("AIDecisionMaker: [POSSIM] world: %d units, %d objectives (%d ms)" % [
 		units.size(), objectives.size(), (Time.get_ticks_usec() - t0) / 1000])
+	var secured := {}
+	var sticky: Dictionary = snapshot.get("mission_manager", {}).get("sticky_objectives", {})
+	for oid in sticky:
+		if sticky[oid] is Dictionary:
+			secured[str(oid)] = int(sticky[oid].get("player", 0))
+	var control := {}
+	var ctl: Dictionary = snapshot.get("mission_manager", {}).get("objective_control_state", {})
+	for oid in ctl:
+		control[str(oid)] = int(ctl[oid])
 	return {"units": units, "objectives": objectives, "first": int(order.first),
-		"active": int(order.active), "round": int(order.round)}
+		"active": int(order.active), "round": int(order.round), "secured": secured, "control": control}
 
 static func _possim_intent(snapshot: Dictionary, a: Dictionary) -> Dictionary:
 	"""One movement assignment as an AIPositionSim intent."""
