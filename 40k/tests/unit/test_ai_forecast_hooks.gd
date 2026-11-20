@@ -181,7 +181,9 @@ func test_horizon() -> void:
 
 func test_tempo_calibration() -> void:
 	var snap := _snapshot(3, 1)
+	var late := _snapshot(4, 1)
 	AIDM._forecast_tempo_cache.clear()
+	_check(AIDM.FORECAST_CAL_A == 0.0 and AIDM.FORECAST_CAL_B == 1.5 and AIDM.FORECAST_CAL_SEAT == 9.4, "shipped calibration = the 2026-11-20 mirror fit")
 	AIDM._config_overrides = {"FORECAST_CAL_A": 0.0, "FORECAST_CAL_B": 1.0, "FORECAST_CAL_SEAT": 0.0}
 	var raw: Dictionary = AIDM._forecast_game(snap, 1)
 	_check(absf(float(raw.margin) - float(raw.raw_margin)) < 0.001, "identity calibration: margin = raw forecast margin (%.1f)" % float(raw.margin))
@@ -190,6 +192,8 @@ func test_tempo_calibration() -> void:
 	_check(absf(float(cal.margin) - (2.0 + 0.5 * float(cal.raw_margin) + 3.0)) < 0.001, "calibrated margin = A + B*raw + SEAT (first player) (%.1f)" % float(cal.margin))
 	var cal2: Dictionary = AIDM._forecast_game(snap, 2)
 	_check(absf(float(cal2.margin) - (2.0 + 0.5 * float(cal2.raw_margin) - 3.0)) < 0.001, "second player gets -SEAT")
+	var cal4: Dictionary = AIDM._forecast_game(late, 1)
+	_check(absf(float(cal4.margin) - (2.0 + 0.5 * float(cal4.raw_margin))) < 0.001, "no seat term after FORECAST_CAL_SEAT_LAST_ROUND (round 4)")
 	_check((float(cal.margin) > 0.0) == (float(cal.cal_p_win) > 0.5), "calibrated win chance sits on the calibrated margin's side (%.2f)" % float(cal.cal_p_win))
 	AIDM._config_overrides = {"FORECAST_TEMPO": 1.0}
 	AIDM._forecast_tempo_cache.clear()

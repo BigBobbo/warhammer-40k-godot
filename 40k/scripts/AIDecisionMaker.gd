@@ -1945,7 +1945,13 @@ const FORECAST_HOLD_CONFIDENCE: float = 0.65
 # margin + SEAT * (+1 for the player who took the first turn, -1 otherwise).
 # The raw forecast knows nothing about board position, so it misses the
 # first-turn advantage this engine shows in mirrors; SEAT corrects that.
+# Fit 2026-11-20 on 8 mirror games (Custodes, Orks; 80 forecasts) with
+# forecast_calibration.py: final margin ~ 1.44 x forecast + 9.4 x seat in
+# rounds 1-3, 1.71 x forecast - 1.5 x seat in rounds 4-5 (the first-turn edge
+# is spent by then). Asymmetric games cannot separate seat from army strength
+# and are left out of the seat fit. A = 0: a margin is antisymmetric.
 const FORECAST_CAL_A: float = 0.0
+const FORECAST_CAL_SEAT_LAST_ROUND: int = 3
 # FORECAST-HORIZON (FORECAST_HORIZON_WEIGHT): > 0 = each objective's movement
 # priority gains WEIGHT x its forecast SWING per remaining battle round: the
 # rest-of-battle margin (my final VP minus theirs) if I hold it from now on,
@@ -1975,8 +1981,8 @@ const FORECAST_PLAN: float = 0.0
 const FORECAST_PLAN_SWAPS: int = 4
 const FORECAST_PLAN_MAX_GAP: float = 3.0
 const FORECAST_PLAN_MIN_GAIN: float = 1.0
-const FORECAST_CAL_B: float = 1.0
-const FORECAST_CAL_SEAT: float = 0.0
+const FORECAST_CAL_B: float = 1.5
+const FORECAST_CAL_SEAT: float = 9.4
 # MOVE-TERRAIN-11E (FIX_MOVE_TERRAIN_11E; 11e rules audit TER-01; 13.06 Terrain
 # and Movement): 1 = a Normal or Advance move is priced and gated the way the
 # engine validates it. Price: MovementPhase._get_movement_terrain_penalty (2"
@@ -23103,6 +23109,8 @@ static func _forecast_game(snapshot: Dictionary, player: int, trials: int = -1) 
 	var opp := _AIForecast.other(player)
 	var raw_margin: float = float(r.mean[player]) - float(r.mean[opp])
 	var seat: float = 1.0 if int(P.first) == player else -1.0
+	if int(P.start_round) > get_param_int("FORECAST_CAL_SEAT_LAST_ROUND", FORECAST_CAL_SEAT_LAST_ROUND):
+		seat = 0.0
 	var cal_margin: float = get_param("FORECAST_CAL_A", FORECAST_CAL_A) + get_param("FORECAST_CAL_B", FORECAST_CAL_B) * raw_margin \
 		+ get_param("FORECAST_CAL_SEAT", FORECAST_CAL_SEAT) * seat
 	# win chance re-centred on the calibrated margin (normal approx., sd of the margin)
