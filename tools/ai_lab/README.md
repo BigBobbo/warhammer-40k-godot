@@ -473,7 +473,8 @@ half move on, and damage x0.7 with half of in-range shooting having line of sigh
 | Real change from the forced move, today's AI (88 paired games, B minus A) vs the sim's | ownership at the end of THIS turn r = +0.43 [+0.08, +0.68]; over the whole window r = +0.07 [-0.14, +0.26]; sign right on 15 of the 46 cases where ownership really swung |
 | Real ownership swing -> real VP change (what a perfect sim could reach) | r = +0.63 |
 | In-game A/B, `forecast_plan_possim` (FORECAST_PLAN + FORECAST_POSSIM), asymmetric, 6 pairs | **-8.2 VP [-12.1, -4.3]**, all 6 pairs negative |
-| Same, Custodes mirror, 10 pairs | +1.85 VP [-7.4, +11.1] (sd 14.9; CUSTODES_MORE) |
+| Same, Custodes mirror, 30 pairs | +3.0 VP [-1.9, +8.0] (sd 13.2 a pair; 10 + 20 pairs) |
+| Pooled, 36 pairs | +1.2 VP [-3.3, +5.6] — fails on the asymmetric floor (-2 VP) |
 
 Caveat on E: the 138 cases were measured weeks ago on an older AI; rebuilt
 today, the plan picks a different objective for the unit in question in about
