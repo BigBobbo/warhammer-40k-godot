@@ -53,6 +53,16 @@ func _init():
 					var r: Dictionary = FC.forecast(P)
 					m[arm] = float(r.mean[player]) - float(r.mean[opp])
 				res["pred"] = m.alt - m.base
+				if _arg("arms", "0") == "1":
+					# against the rebuilt plan's own choice (what today's AI plays)
+					var sim_p: Dictionary = PS.run(world, c.plan, opts)
+					var Pp: Dictionary = (c.P as Dictionary).duplicate()
+					Pp["turn_plan"] = sim_p.turns
+					Pp["end_round"] = int(opts.end_round)
+					Pp["crn"] = true
+					Pp["trials"] = trials
+					var rp: Dictionary = FC.forecast(Pp)
+					res["pred_vs_plan"] = m.alt - (float(rp.mean[player]) - float(rp.mean[opp]))
 			if want_trace:
 				var to: Dictionary = opts.duplicate()
 				to["trace"] = true

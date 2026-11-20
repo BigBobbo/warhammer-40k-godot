@@ -32,7 +32,7 @@ const ENGAGE_IN := 1.0
 const DEFAULTS := {
 	"damage": true,      # shooting / melee wear units down
 	"policy": true,      # units without an intent pick objectives themselves
-	"los": 0.6,          # share of in-range shooting that has line of sight
+	"los": 0.5,          # share of in-range shooting that has line of sight
 	"lethality": 0.7,    # all expected damage x this (fitted: units really lost per turn)
 	"charge_min_p": 0.35, # a unit charges when 2D6 makes it at least this often
 	"oc_soft": 3.0,      # OC lead that makes control near-certain (plus 15% of the OC there)
