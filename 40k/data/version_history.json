@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.90.1",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: tap the \"VP if drawn\" number to set your own estimate",
+      "changes": [
+        "Mission tab: each card's VP if drawn is now a picker — choose 0 to 5 (its max) in half steps, or \"app\" to go back to the app's estimate",
+        "Your values are highlighted and the forecast updates straight away"
+      ]
+    },
+    {
       "version": "1.90.0",
       "date": "2026-11-18",
       "summary": "Combat Calc shows its version and picks up new versions straight away.",
