@@ -75,7 +75,7 @@ const isOpening = () => { const g = ms().game; return g.round === 1 && !g.turnsD
 const totalVp = (X) => { const m = ms(), g = m.game; return g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0); };
 function persist() {
   const m = ms();
-  const { result, levers, busy, compare, pairs, modeCompare, handOpen, ...keep } = m;
+  const { result, levers, busy, compare, pairs, modeCompare, handOpen, tableNotice, ...keep } = m;
   try { localStorage.setItem(LS_KEY, JSON.stringify(keep)); } catch { /* best effort */ }
 }
 
@@ -452,7 +452,10 @@ export function missionView() {
   if (!st.armies.A || !st.armies.B) return '<p class="hint">Load both armies first.</p>';
   // table mode: the tracker only
   const tab = m.table ? 'play' : TABS.some(t => t[0] === m.tab) ? m.tab : 'plan';
-  return `<div class="mission-top" id="mission-top">${m.table ? '<div class="seg"><button class="on" disabled id="table-flag">Play · table mode</button></div>' : ctx.seg('mission-tab', tab, TABS)}<div id="fc-mini">${miniHtml()}</div></div>
+  const closed = m.tableNotice === 'attack' ? 'The calculator is' : m.tableNotice === 'board' ? 'The board planner is' : null;
+  const top = m.table ? `<div class="seg table-top"><button class="on" disabled id="table-flag">Play · table mode</button><button data-action="mission-table" id="table-leave">Leave table mode</button></div>
+      ${closed ? `<div class="tiny table-locked" id="table-locked">${closed} closed in table mode.</div>` : ''}` : ctx.seg('mission-tab', tab, TABS);
+  return `<div class="mission-top" id="mission-top">${top}<div id="fc-mini">${miniHtml()}</div></div>
     ${tab === 'plan' ? planView() : tab === 'cards' ? cardsView() : playView()}`;
 }
 
@@ -1152,7 +1155,7 @@ export function missionAction(action, el) {
       break;
     }
     case 'mission-hand-info': { const k = `${X}:${el.dataset.id}`; m.handOpen = m.handOpen === k ? null : k; return 'render'; }
-    case 'mission-table': m.table = !m.table; if (m.table) m.tab = 'play'; persist(); if (!m.table) scheduleForecast(); return 'render';
+    case 'mission-table': m.table = !m.table; if (m.table) m.tab = 'play'; toTop = true; persist(); if (!m.table) scheduleForecast(); return 'render';
     case 'mission-awake': m.awake = m.awake === false; persist(); return 'render';
     case 'mission-clock-mode': m.clock.mode = el.dataset.value; persist(); return 'render';
     case 'mission-clock-len': PT.roundSetLen(m.clock, Number(el.dataset.value)); persist(); return 'render';
@@ -1290,6 +1293,8 @@ let toTop = false;   // a new Mission view starts at its top
 export function missionAfterRender() {
   if (toTop) { toTop = false; window.scrollTo(0, 0); }
   syncTicker();
+  // ("closed in table mode" is said once: it is on screen now, the next change removes it)
+  if (ms().tableNotice) { delete ms().tableNotice; window.scrollTo(0, 0); }
   if (ms().table) return;
   // re-forecast when anything it depends on changed (lists, layout on the Board tab, plan, tracker)
   const P = forecastParams({ trials: 0 });

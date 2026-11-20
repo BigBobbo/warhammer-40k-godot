@@ -33,7 +33,11 @@ context compaction. Tick items as they land.
   boxes below stay unticked and the status is written in words; the user decides
   whether that evidence counts (flag it in the final report). Stages 1-5 were
   ticked before the gate was noticed (staging and commit ran in one command, so
-  the hook saw nothing staged).
+  the hook saw nothing staged); they were unticked again on 2026-11-20 so that
+  every stage reads the same way. All eight stages are built, tested in a real
+  browser and pushed; none is merged or deployed.
+- Stage `git add` and run `git commit` in SEPARATE commands, so the gate sees
+  what is staged.
 
 ## What the user told us
 
@@ -106,18 +110,24 @@ WTC pack https://wtc-belgium.com/wp-content/uploads/2026/06/2026-WTC40K-11th-edi
 
 ## Build order (most valuable first)
 
-- [x] **1. Rule fixes** (v1.91.0) — end-of-battle VP exempt from the round cap; reserves
+Status 2026-11-20: all eight stages are built and pushed to
+`ccr-213b28c6-sp0d05` (app version 1.98.1). Not merged, not deployed, no PR
+open: the user decides (see Working agreements). Evidence at the last stage:
+133 unit tests (`npm run test:calc`) and the Playwright run
+(`tests/e2e-calc.mjs`).
+
+- [ ] **1. Rule fixes** — BUILT in v1.91.0, browser-tested, pushed — end-of-battle VP exempt from the round cap; reserves
       8"; Plunging Fire chip; discard = +1CP wording.
-- [x] **2. Forecast you can trust** (v1.92.0; MODEL in forecast.mjs, tests/calc-calibration.test.mjs) — attrition matters (dead units hold
+- [ ] **2. Forecast you can trust** — BUILT in v1.92.0, browser-tested, pushed (MODEL in forecast.mjs, tests/calc-calibration.test.mjs) — attrition matters (dead units hold
       nothing, a weaker army holds and kills less); a per-game "how the battle
       goes" swing so margins match real games; kill rates from the calculator
       (matchup-aware) instead of a flat default; real-game card rates (10e
       equivalents, labelled) instead of a flat 50%; calibration test against
       the 11e numbers above; "what this forecast is built from" panel.
-- [x] **3. Find things / tablet** (v1.93.0) — Mission split into Plan / Cards / Play;
+- [ ] **3. Find things / tablet** — BUILT in v1.93.0, browser-tested, pushed — Mission split into Plan / Cards / Play;
       tablet two-pane layouts; map-first Board with a unit strip on the phone.
-- [x] **4. Backup and restore** (v1.94.0): file + 6-character transfer code via `POST/GET /api/calc-transfer` (sqlite, 1 h), persistent storage.
-- [x] **5. Less setup** (v1.95.0: eventview.mjs, briefview.mjs, lists.mjs; board `reusablePlan()`) — event mode: my list pinned, opponent roster (paste
+- [ ] **4. Backup and restore** — BUILT in v1.94.0, browser-tested, pushed: file + 6-character transfer code via `POST/GET /api/calc-transfer` (sqlite, 1 h), persistent storage.
+- [ ] **5. Less setup** — BUILT in v1.95.0, browser-tested, pushed (eventview.mjs, briefview.mjs, lists.mjs; board `reusablePlan()`) — event mode: my list pinned, opponent roster (paste
       many lists), layout letter per round, one tap to start a round; reuse my
       deployment against a new opponent; automatic matchup brief.
 - [ ] **6. Decisions** — BUILT in v1.96.0, browser-tested, pushed (box not ticked: see

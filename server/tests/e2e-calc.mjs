@@ -1312,7 +1312,7 @@ try {
     check('before table mode: the card in hand has advice and the forecast is shown', (await tp2.locator('#hand-B [data-advice]').count()) === 1 && (await tp2.locator('#mission-forecast').count()) === 1);
     await tp2.tap('button[data-action="mission-table"]');
     const tm = await tp2.evaluate(() => ({ flag: !!document.querySelector('#table-flag'), score: document.querySelector('#score-mini')?.textContent.replace(/\s+/g, ' ').trim(), forecast: !!document.querySelector('#mission-forecast'), win: !!document.querySelector('#fc-mini-win'),
-      advice: document.querySelectorAll('[data-advice]').length, attackOff: document.querySelector('button[data-action="view"][data-value="attack"]').disabled, boardOff: document.querySelector('button[data-action="view"][data-value="board"]').disabled, tabs: document.querySelectorAll('button[data-action="mission-tab"]').length, hand: document.querySelectorAll('#hand-B .hand-row').length }));
+      advice: document.querySelectorAll('[data-advice]').length, attackOff: document.querySelector('button[data-action="view"][data-value="attack"]').dataset.locked === '1', boardOff: document.querySelector('button[data-action="view"][data-value="board"]').dataset.locked === '1', tabs: document.querySelectorAll('button[data-action="mission-tab"]').length, hand: document.querySelectorAll('#hand-B .hand-row').length }));
     check('table mode: score instead of the forecast, no card advice, Plan / Cards / Attack / Board closed, the tracker stays', tm.flag && /Score 27 – 15 VP/.test(tm.score) && !tm.forecast && !tm.win && tm.advice === 0 && tm.attackOff && tm.boardOff && tm.tabs === 0 && tm.hand === 1, JSON.stringify(tm));
     await tp2.evaluate(() => window.scrollTo(0, 0));
     await tp2.screenshot({ path: join(SHOTS, 'calc_55_table_mode.png'), fullPage: true });
@@ -1321,9 +1321,15 @@ try {
     await tp2.tap('button[data-action="view"][data-value="mission"]');
     await tp2.tap('button[data-action="mission-score-step"][data-side="B"][data-k="secondary"][data-delta="5"]');
     check('table mode: no forecast is worked out', await tp2.evaluate(() => window.__calc.mission().busy === false) && /Score 27 – 20 VP/.test((await tp2.textContent('#score-mini')).replace(/\s+/g, ' ')));
-    await tp2.tap('button[data-action="mission-table"]');
+    // a tap on a closed tab stays on the tracker and says why; "Leave table mode" is at the top of the page
+    await tp2.tap('button[data-action="view"][data-value="attack"]');
+    check('table mode: a tap on Attack stays on the tracker and says the calculator is closed', (await tp2.locator('#play-bar').count()) === 1 && /The calculator is closed in table mode/.test(await tp2.textContent('#table-locked')) && (await tp2.locator('select[data-input="target"]').count()) === 0);
+    await tp2.tap('button[data-action="view"][data-value="board"]');
+    check('table mode: the same for Board', /The board planner is closed in table mode/.test(await tp2.textContent('#table-locked')) && (await tp2.locator('#board-svg').count()) === 0);
+    await tp2.screenshot({ path: join(SHOTS, 'calc_58_table_mode_locked.png') });
+    await tp2.tap('#table-leave');
     await idle();
-    check('table mode off: the forecast and the tabs are back', (await tp2.locator('#fc-mini-win').count()) === 1 && (await tp2.locator('button[data-action="mission-tab"]').count()) >= 3 && !(await tp2.isDisabled('button[data-action="view"][data-value="attack"]')));
+    check('"Leave table mode" at the top: the forecast and the tabs are back', (await tp2.locator('#fc-mini-win').count()) === 1 && (await tp2.locator('button[data-action="mission-tab"]').count()) >= 3 && (await tp2.getAttribute('button[data-action="view"][data-value="attack"]', 'data-locked')) === null && (await tp2.locator('#table-leave').count()) === 0);
 
     // play to the end of the battle
     let guard = 0;

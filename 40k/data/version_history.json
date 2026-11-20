@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.98.1",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: table mode is easier to leave",
+      "changes": [
+        "Table mode: a Leave table mode button at the top of the Play view",
+        "Table mode: tapping Attack or Board now tells you they are closed instead of doing nothing"
+      ]
+    },
+    {
       "version": "1.98.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: see how current the rules data is, and a points check on your list",

@@ -334,7 +334,8 @@ function render() {
   const ready = a && b;
   const table = tableMode() && ready;
   if (table && (state.view === 'attack' || state.view === 'board')) state.view = 'mission';
-  const lock = table ? 'disabled title="Closed in table mode (Mission > Play)"' : '';
+  // (not disabled: a tap on a closed tab says why, on the Play view)
+  const lock = table ? 'data-locked="1" title="Closed in table mode (Mission > Play)"' : '';
   app.innerHTML = `
     <header class="top"><div class="wrap">
       <div class="brand">⚔<span class="brand-full"> Combat Calc</span><span class="ver-mini" id="app-version-mini">v${esc(CALC_VERSION)}</span></div>
@@ -342,8 +343,8 @@ function render() {
       <nav class="tabs">
         <button class="tab ${state.view === 'armies' ? 'on' : ''}" data-action="view" data-value="armies">Armies</button>
         <button class="tab ${state.view === 'intel' ? 'on' : ''}" data-action="view" data-value="intel" ${a || b ? '' : 'disabled'}>Intel</button>
-        <button class="tab ${state.view === 'attack' ? 'on' : ''}" data-action="view" data-value="attack" ${ready ? lock : 'disabled'}>Attack</button>
-        <button class="tab ${state.view === 'board' ? 'on' : ''}" data-action="view" data-value="board" ${ready ? lock : 'disabled'}>Board</button>
+        <button class="tab ${state.view === 'attack' ? 'on' : ''} ${table ? 'locked' : ''}" data-action="view" data-value="attack" ${ready ? lock : 'disabled'}>Attack</button>
+        <button class="tab ${state.view === 'board' ? 'on' : ''} ${table ? 'locked' : ''}" data-action="view" data-value="board" ${ready ? lock : 'disabled'}>Board</button>
         <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
@@ -1458,6 +1459,13 @@ app.addEventListener('click', (ev) => {
       if (window.confirm('Put back what was on this device before the last restore?')) { try { if (undoRestore(localStorage)) location.reload(); } catch (err) { backupNote(`Could not undo (${err?.message ?? err}).`); } }
       return;
     case 'view':
+      // table mode: the calculator and the board planner are closed — say so on the Play view
+      if (tableMode() && (el.dataset.value === 'attack' || el.dataset.value === 'board')) {
+        state.mission.tableNotice = el.dataset.value;
+        state.view = 'mission';
+        state.sheet = null;
+        return changed({ calc: false });
+      }
       state.view = el.dataset.value;
       state.sheet = null;
       return changed();
