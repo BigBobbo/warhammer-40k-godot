@@ -345,3 +345,13 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   claim is checked against the dataset in tests/calc-rulesnote.test.mjs.
   `adapter.earlyArrival` + `planeval.planWarnings(geo.early)`: High King of
   Fenris lets one unit a step arrive as if the battle round were one higher.
+- Final check of Round 3 (v1.107.0, 20 Nov 2026): 206 unit tests and 376
+  browser checks pass. Weapon-choice audit on the final code, every datasheet
+  (1,109), 8 targets, both phases: 16,328 cases, 6,137 with a choice, 10,021
+  decisions, none beatable, in both modes (`--context always` for the Attack
+  tab, `--context auto` for the grid and forecast odds).
+  Left open, on purpose: the 5 weapon changes of the November 2026 update are
+  notes, not numbers; Consecrate still ignores kills in the opponent's turn;
+  doctrine effects beyond the chips; Hammer Blow; Imperium's Sword (its weapon
+  text is cut off in the data). Not merged, not deployed: the live site is the
+  build before this round.
