@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.103.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: what a charge costs you, and battle-shock odds",
+      "changes": [
+        "Turn chain: after your unit fights, the survivors of the target fight back. The result shows the models and points your unit loses, and the points traded.",
+        "Turn chain: switch on the enemy's Fire Overwatch to see how often it stops the charge.",
+        "Turn chain: Deadly Demise of the target is counted for each model your unit destroys in the fight.",
+        "Results now show the odds that the target fails its battle-shock test after the attack, and the same for your unit after the fight back."
+      ]
+    },
+    {
       "version": "1.102.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: stratagem limits, abilities for some targets only, Heavy / Damaged / engaged targets, rules for named weapons",

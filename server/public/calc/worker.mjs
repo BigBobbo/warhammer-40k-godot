@@ -20,7 +20,8 @@ self.onmessage = (ev) => {
     return;
   }
   if (chain) {
-    try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, trials: trials ?? 20000 }) }); }
+    // the enemy's part (overwatch, fighting back) is a default matchup: its weapon choice is made here
+    try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, overwatch: chain.overwatch ? resolveScenario(chain.overwatch) : null, back: chain.back ? resolveScenario(chain.back) : null, trials: trials ?? 20000 }) }); }
     catch (err) { self.postMessage({ id, chain: true, error: String(err?.stack ?? err) }); }
     return;
   }

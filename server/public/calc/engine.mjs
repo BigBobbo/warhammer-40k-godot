@@ -247,6 +247,7 @@ function compile(scenario) {
         hazardous: !!kw.hazardous,
         psychic: !!kw.psychic,
         cq: !!(kw.cq || kw.pistol),
+        lead: !!w.lead,           // a weapon of an attached leader (see simulateChain: fewer models, fewer weapons)
         antiCrit: (kw.anti ?? []).reduce((best, an) =>
           kwSet.has(String(an.keyword).toUpperCase()) ? Math.min(best, an.threshold) : best, 7),
         m,
@@ -469,7 +470,35 @@ function fnpFor(w, dm, g, mortal) {
   return t >= 7 ? 0 : t;
 }
 
-function runTrial(C, rnd, rec, init = null) {
+/** A count scaled by a share of survivors: 9 weapons at 0.5 -> 4 or 5 (the half is drawn). */
+function scaled(n, k, rnd) {
+  if (k >= 1) return n;
+  const x = n * Math.max(0, k);
+  return Math.floor(x) + (rnd() < x - Math.floor(x) ? 1 : 0);
+}
+
+/** The share of a unit's models that are left, for its own models and for attached leaders. */
+function survivors(st) {
+  let b = 0, B = 0, l = 0, L = 0;
+  for (const s of st) { if (s.g.character) { l += s.alive; L += s.g.count; } else { b += s.alive; B += s.g.count; } }
+  // a unit of characters only (a lone character): its weapons are not "leader" weapons
+  return { body: B ? b / B : (L ? l / L : 0), lead: L ? l / L : (B ? b / B : 0) };
+}
+
+/** n mortal wounds on a unit (06.02): one at a time, a wounded non-CHARACTER first; Feel No Pain per wound. */
+function mortalWounds(st, n, rnd, dm, out) {
+  for (let i = 0; i < n; i++) {
+    const s = mortalTarget(st, false);
+    if (!s) break;
+    const fnp = Math.min(dm.fnp || 7, dm.fnpMortal || 7, s.g.fnp || 7);
+    if (fnp < 7 && d6(rnd) >= fnp) continue;
+    const idx = pickModel(s);
+    if (idx >= 0) damageModel(s, idx, 1, out);
+  }
+}
+
+// scale: { body, lead } - the attackers' weapons are reduced to these shares (a unit that has lost models)
+function runTrial(C, rnd, rec, init = null, scale = null) {
   const st = init ?? newTargetState(C.groups);  // init: a target already damaged earlier this turn (simulateChain)
   const dm = C.dm;
   const totalStart = aliveTotal(st);
@@ -499,18 +528,14 @@ function runTrial(C, rnd, rec, init = null) {
       }
       if (src.cap) mw = Math.min(mw, src.cap);
       steps.abilityMortals += mw;
-      for (let i = 0; i < mw; i++) {
-        const s = mortalTarget(st, false);
-        if (!s) break;
-        const fnp = Math.min(dm.fnp || 7, dm.fnpMortal || 7, s.g.fnp || 7);
-        if (fnp < 7 && d6(rnd) >= fnp) continue;
-        const idx = pickModel(s);
-        if (idx >= 0) damageModel(s, idx, 1, out);
-      }
+      mortalWounds(st, mw, rnd, dm, out);
     }
     const startAlive = aliveTotal(st);
-    for (const w of a.weapons) {
+    const counts = a.weapons.map(w => (scale ? scaled(w.count, w.lead ? scale.lead : scale.body, rnd) : w.count));
+    for (const [wi, w] of a.weapons.entries()) {
       if (aliveTotal(st) <= 0) break;
+      const wCount = counts[wi];
+      if (wCount <= 0) continue;
       const m = w.m;
       const ranged = !w.melee;
       const ctx = {
@@ -524,7 +549,7 @@ function runTrial(C, rnd, rec, init = null) {
       };
       // --- attack dice
       let dice = 0;
-      for (let c = 0; c < w.count; c++) {
+      for (let c = 0; c < wCount; c++) {
         let n = rollDice(w.A, rnd) + (m.attacksMod || 0);
         if (w.rapidFire && m.halfRange && ranged) n += w.rapidFire;
         if (w.blast && ranged) n += w.blast * Math.floor(startAlive / 5);
@@ -591,8 +616,8 @@ function runTrial(C, rnd, rec, init = null) {
     }
     // --- hazardous (24.15): after the unit has resolved all of its attacks, one hazard roll for each
     // [HAZARDOUS] weapon SELECTED - also for a weapon whose target was destroyed before it attacked
-    for (const w of a.weapons) {
-      if (w.hazardous) for (let c = 0; c < w.count; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
+    for (const [wi, w] of a.weapons.entries()) {
+      if (w.hazardous) for (let c = 0; c < counts[wi]; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
     }
     perAttacker.push({ kills: out.kills - killsBefore, wounds: out.woundsLost - woundsBefore });
   }
@@ -672,17 +697,31 @@ export function simulate(scenario) {
 }
 
 // ---------------------------------------------------------------------------
-// Public: one turn against one target — shoot, then charge, then fight
+// Public: one turn against one target — shoot, then charge, then fight —
+// and what it costs the charging unit.
 //
 // chain: {
 //   shoot: scenario | null,   // shooting attacks first (any units)
 //   fight: scenario,          // the charging unit's fight (mods.charged set by the caller)
 //   charge: { gap, mod, reroll },  // 2D6 (+mod) >= gap, and the gap is 12" or less (see chargeRollNeeded)
+//   overwatch: scenario | null,    // the enemy snap-shoots the charging unit (attackers: the enemy unit with
+//                                  // mods.overwatch; defender: the charging unit)
+//   back: scenario | null,         // the target fights back (attackers: the target; defender: the charging unit)
+//   demise: 'D3' | '1' | ... | null,  // the target's Deadly Demise X
 //   trials, seed,
 // }
-// The target's casualties and damaged model carry from the shooting into the
-// fight. A target destroyed by shooting cannot be charged. Fights back /
-// overwatch / the attacker's own losses are not modelled.
+// Order of a turn (11e):
+//  1. End of my Movement phase: Fire Overwatch (15.08) - the enemy unit, at full strength, shoots the unit
+//     that will charge (hits on unmodified 6s only).
+//  2. My Shooting phase: the target's casualties and damaged model carry into the fight; a target
+//     destroyed by shooting is not charged.
+//  3. Charge. A charging unit has Fights First and, in its own turn, fights before any enemy unit (12.04).
+//     Models it lost to overwatch do not attack: its weapons are scaled by its survivors.
+//  4. The target's survivors fight back (12.08: every enemy unit engaged with mine fights), with the
+//     weapons of the models that are left.
+//  5. Deadly Demise (24.08): for each target model destroyed in the fight, a D6; on a 6 the charging unit
+//     (within 6") suffers X mortal wounds.
+// `own` in the result is the charging unit: models lost and where.
 function carryState(st, groups) {
   const next = newTargetState(groups);
   for (const s2 of next) {
@@ -695,6 +734,9 @@ function carryState(st, groups) {
 export function simulateChain(chain) {
   const C1 = chain.shoot ? compile(chain.shoot) : null;
   const C2 = compile(chain.fight);
+  const Cow = chain.overwatch ? compile(chain.overwatch) : null;
+  const Cback = chain.back ? compile(chain.back) : null;
+  const demise = chain.demise ? parseDice(chain.demise) : null;
   const trials = Math.max(1, chain.trials ?? 20000);
   const rnd = mulberry32(chain.seed ?? 0x5EED);
   const need = chargeRollNeeded(chain.charge?.gap ?? 0);
@@ -703,10 +745,21 @@ export function simulateChain(chain) {
   const totalModels = groups0.reduce((a, g) => a + g.count, 0);
   const hist = new Array(totalModels + 1).fill(0);
   let sumShoot = 0, sumFight = 0, sumPts = 0, wipedShoot = 0, wipedEnd = 0, survived = 0, charged = 0;
+  // the charging unit
+  const ownGroups = (Cow ?? Cback)?.groups ?? null;
+  const ownModels = ownGroups ? ownGroups.reduce((a, g) => a + g.count, 0) : 0;
+  const ownHist = new Array(ownModels + 1).fill(0);
+  let ownOw = 0, ownBack = 0, ownDemise = 0, ownWiped = 0, ownPts = 0, owStops = 0;
+  const lostOf = (st) => ownModels - aliveTotal(st);
+  const ptsLost = (st) => st.reduce((a, x) => a + (x.g.count - x.alive) * (x.g.ptsPerModel || 0), 0);
   const rec = {};
   for (let t = 0; t < trials; t++) {
     let st = newTargetState(groups0);
+    let own = ownGroups ? newTargetState(ownGroups) : null;
     let kills = 0, pts = 0;
+    // 1. overwatch on the unit that will charge
+    if (Cow) { runTrial(Cow, rnd, rec, own); ownOw += rec.kills; }
+    // 2. shooting
     if (C1) {
       runTrial(C1, rnd, rec, st);
       kills += rec.kills; sumShoot += rec.kills; pts += rec.points;
@@ -719,20 +772,46 @@ export function simulateChain(chain) {
       const roll = () => Math.min(CHARGE_MAX, d6(rnd) + d6(rnd) + cmod) >= need && need <= CHARGE_MAX;
       let ok = roll();
       if (!ok && chain.charge?.reroll) ok = roll();
+      if (own && aliveTotal(own) === 0) { ok = false; owStops++; }      // nothing left to charge with
       if (ok) {
         charged++;
+        // 3. my fight, with the weapons of the models overwatch left
         st = carryState(st, C2.groups);
-        runTrial(C2, rnd, rec, st);
+        runTrial(C2, rnd, rec, st, own ? survivors(own) : null);
         kills += rec.kills; sumFight += rec.kills; pts += rec.points;
+        const killedInFight = rec.kills;
         if (aliveTotal(st) === 0) wipedEnd++;
+        // 4. the survivors fight back
+        if (Cback && aliveTotal(st) > 0) {
+          own = carryState(own, Cback.groups);
+          const before = aliveTotal(own);
+          runTrial(Cback, rnd, rec, own, survivors(st));
+          ownBack += before - aliveTotal(own);
+        }
+        // 5. Deadly Demise of the models destroyed next to my unit
+        if (demise && own && killedInFight > 0) {
+          const before = aliveTotal(own);
+          const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(own.length).fill(0) };
+          for (let k = 0; k < killedInFight; k++) if (d6(rnd) === 6) mortalWounds(own, Math.max(0, rollDice(demise, rnd)), rnd, (Cback ?? Cow).dm, out);
+          ownDemise += before - aliveTotal(own);
+        }
       }
     }
     hist[Math.min(kills, totalModels)]++;
     sumPts += pts;
+    if (own) {
+      const lost = lostOf(own);
+      ownHist[Math.min(lost, ownModels)]++;
+      if (lost >= ownModels) ownWiped++;
+      ownPts += ptsLost(own);
+    }
   }
   const exact = hist.map(c => c / trials);
   const atLeast = new Array(exact.length).fill(0);
   for (let i = exact.length - 1, acc = 0; i >= 0; i--) { acc += exact[i]; atLeast[i] = acc; }
+  const ownExact = ownHist.map(c => c / trials);
+  const ownAtLeast = new Array(ownExact.length).fill(0);
+  for (let i = ownExact.length - 1, acc = 0; i >= 0; i--) { acc += ownExact[i]; ownAtLeast[i] = acc; }
   return {
     trials, totalModels, need,
     meanShoot: sumShoot / trials,
@@ -744,6 +823,15 @@ export function simulateChain(chain) {
     pChargeGivenSurvive: survived ? charged / survived : 0,
     pCharge: charged / trials,
     kills: exact, killsAtLeast: atLeast,
+    // the charging unit: what the turn costs it
+    own: ownGroups ? {
+      totalModels: ownModels,
+      meanLost: ownExact.reduce((a, p, k) => a + p * k, 0),
+      meanOverwatch: ownOw / trials, meanBack: ownBack / trials, meanDemise: ownDemise / trials,
+      pWipe: ownWiped / trials, pStoppedByOverwatch: owStops / trials,
+      meanPoints: ownPts / trials,
+      lost: ownExact, lostAtLeast: ownAtLeast,
+    } : null,
   };
 }
 

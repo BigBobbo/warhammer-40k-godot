@@ -1766,6 +1766,75 @@ try {
     await sctx.close();
   }
 
+  // --- the exchange (1.103): the target fights back, overwatch, Deadly Demise; battle-shock odds
+  {
+    const xctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const xp = await xctx.newPage();
+    xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`exchange: ${m.text()}`); });
+    xp.on('pageerror', e => consoleErrors.push(`exchange: ${e}`));
+    await xp.goto(`${BASE}/calc/`);
+    await xp.waitForSelector('textarea[data-side="A"]');
+    await xp.fill('textarea[data-side="A"]', SW_LIST); await xp.tap('button[data-action="parse"][data-side="A"]');
+    await xp.fill('textarea[data-side="B"]', ORK_LIST); await xp.tap('button[data-action="parse"][data-side="B"]');
+    await xp.tap('button[data-action="view"][data-value="attack"]');
+    const xdone = () => xp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 });
+    const xtarget = async (re) => { const v = await xp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source); await xp.selectOption('select[data-input="target"]', v); };
+    const chainReady = () => xp.waitForFunction(() => { const s = window.__calc.state; return s.chainResult && !s.chainBusy; }, null, { timeout: 60000 });
+    const txt = async (q) => (await xp.textContent(q)).replace(/\s+/g, ' ').trim();
+    // battle-shock odds on the result of a plain attack: Thunderwolf Cavalry into the Boyz
+    await xp.tap('button[data-action="phase"][data-value="fight"]');
+    await xtarget(/Warboss \+ Boyz/);
+    await xp.tap('button[data-action="open-add"]'); await xp.tap('.pick:has-text("Thunderwolf Cavalry (1)")'); await xdone();
+    await xp.locator('[data-attacker]').last().locator('button[data-key="charged"]').tap(); await xdone();
+    await xp.tap('button[data-action="open-results"]');
+    await xp.waitForSelector('.sheet #shock-target');
+    const res = await xp.evaluate(() => { const r = window.__calc.state.result; return { half: r.killsAtLeast[21 - 10], wipe: r.pWipe }; });
+    const shock = await txt('.sheet #shock-target');
+    const m = shock.match(/half strength, and still on the table, (\d+|<1|>99)% of the time\. In its next Command phase it then tests on Ld (\d)\+ and fails (\d+)% of the time: battle-shocked (\d+|<1)%/);
+    check('the result says how often the target is left at or below half strength, and how often it then fails its battle-shock test', !!m && Math.abs(Number(m[1]) / 100 - (res.half - res.wipe)) < 0.011 && ['6', '7'].includes(m[2]), JSON.stringify({ shock, res }));
+    // 21 models (20 Boyz + the Warboss): half strength is 10 or fewer left = 11 or more destroyed
+    check('half strength counts the attached Warboss: 11 of 21 models destroyed', res.half > 0 && res.half < 1, JSON.stringify(res));
+    await xp.locator('.sheet #shock-target').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_69_battle_shock.png') });
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    // the turn chain with the enemy's part: the Meganobz fight back
+    await xtarget(/Meganobz/); await xdone();
+    await xp.tap('button[data-action="open-chain"]');
+    await xp.waitForSelector('#chain-total', { timeout: 60000 });
+    const twKey = await xp.evaluate(() => window.__calc.atkArmy().units.find(u => /Thunderwolf Cavalry \(1\)/.test(u.name)).key);
+    await xp.selectOption('select[data-input="chain-charger"]', twKey);
+    for (let g = await xp.evaluate(() => window.__calc.state.chain.gap); g > 6; g -= 0.5) await xp.tap('button[data-action="chain-gap"][data-delta="-0.5"]');
+    for (let g = await xp.evaluate(() => window.__calc.state.chain.gap); g < 6; g += 0.5) await xp.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+    await chainReady();
+    await xp.waitForSelector('#chain-own');
+    const c1 = await xp.evaluate(() => { const s = window.__calc.state; return { charger: window.__calc.atkArmy().units.find(u => u.key === s.chain.chargerKey)?.name, own: s.chainResult.own, kills: s.chainResult.meanKills, pCharge: s.chainResult.pCharge }; });
+    check('the chain reports what the charge costs the charging unit: the Meganobz fight back', /Thunderwolf Cavalry/.test(c1.charger) && c1.own && c1.own.totalModels === 6 && c1.own.meanBack > 0.05 && Math.abs(c1.own.meanLost - c1.own.meanBack) < 1e-9, JSON.stringify(c1));
+    check('"What it costs Thunderwolf Cavalry": models lost and the chance the unit is destroyed', /What it costs Thunderwolf Cavalry/.test(await txt('#chain-own')) && (await txt('#chain-own-lost')) === c1.own.meanLost.toFixed(1) && /avg models lost of 6/.test(await txt('#chain-own')), await txt('#chain-own'));
+    check('points traded are shown', /Points: you destroy \d+ and lose \d+ on average/.test(await txt('#chain-trade')), await txt('#chain-own'));
+    await xp.locator('#chain-own').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_70_chain_exchange.png') });
+    // without the fight back nothing is lost; with Overwatch the unit loses models before it charges
+    await xp.tap('button[data-action="chain-back"]'); await chainReady();
+    check('"The target fights back" off: no report for your unit', (await xp.locator('#chain-own').count()) === 0);
+    await xp.tap('button[data-action="chain-back"]');
+    await xp.tap('button[data-action="chain-overwatch"]'); await chainReady();
+    await xp.waitForSelector('#chain-own-ow');
+    const c2 = await xp.evaluate(() => window.__calc.state.chainResult);
+    check('Fire Overwatch (1CP) on: snap shots (6s to hit) at the charging unit, counted before the charge', c2.own.meanOverwatch >= 0 && c2.own.meanOverwatch < 1.5 && c2.own.meanLost >= c1.own.meanLost - 0.05 && /Overwatch/.test(await txt('#chain-own')), JSON.stringify(c2.own));
+    await xp.tap('button[data-action="chain-overwatch"]');
+    // Deadly Demise: the Battlewagon (D6)
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    await xtarget(/Battlewagon/); await xdone();
+    await xp.tap('button[data-action="open-chain"]');
+    await xp.waitForSelector('#chain-total', { timeout: 60000 });
+    await chainReady();
+    await xp.waitForSelector('#chain-own-dd');
+    check('the charging unit chosen before is kept for the next target', /Thunderwolf Cavalry/.test(await txt('#chain-own')), await txt('#chain-own'));
+    const c3 = await xp.evaluate(() => window.__calc.state.chainResult);
+    check('a Battlewagon destroyed in the fight: Deadly Demise D6 can hit the charging unit', /Deadly Demise D6/.test(await txt('#chain-own')) && c3.own.meanDemise >= 0 && c3.own.meanDemise <= c3.pWipe, JSON.stringify({ dd: c3.own.meanDemise, wipe: c3.pWipe }));
+    await xctx.close();
+  }
+
   // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
   {
     const wctx = await browser.newContext({ ...devices['Pixel 7'] });

@@ -277,3 +277,13 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   Not done: Guile of the Wolf / Strategic Acumen doctrines beyond the chips
   (only one stratagem option reads a doctrine); Hammer Blow (a debuff on the
   enemy's later attacks); Imperium's Sword (its weapon text is cut off in the data).
+- Aid 1, the exchange: BUILT in v1.103.0, browser-tested. `engine.simulateChain`
+  takes `overwatch` (15.08, snap shooting on the charger at the end of its
+  move), `back` (12.08, the target's survivors fight, attacks scaled by the
+  models left) and `demise` (24.08, a D6 per model destroyed in the fight). The
+  result has `own`: models and points lost, how often overwatch stops the
+  charge, the points traded. The fight is scaled by the charger's survivors.
+- Aid 2, battle-shock: BUILT in v1.103.0. `adapter.shockFacts` (best Ld,
+  starting strength); the results sheet and the chain show the chance the
+  target is at or below half strength and fails 2D6 against Ld (08.03), and
+  the same for the charger after the fight back.

@@ -5,7 +5,7 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
-  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags,
+  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
@@ -1223,7 +1223,19 @@ function chainInputs() {
   const shoot = ss.targetKey === targetKey && ss.attackers?.length ? scenarioFor('shooting', { ...ss, ruleOverrides: ss.ruleOverrides ?? {}, defManual: ss.defManual ?? {}, defOverrides: ss.defOverrides ?? {} }) : null;
   const fight = scenarioFor('fight', fightSetup);
   if (!fight) return null;
-  return { shoot, fight, charge: { gap: c.gap, mod: c.mod, reroll: c.reroll }, seed: 4242 };
+  // what the turn costs the charging unit: the target fights back (always, unless switched off), the
+  // enemy may Fire Overwatch at it (1CP, its choice), and a destroyed target may have Deadly Demise
+  const tgtCu = defArmy()?.units.find(u => u.key === targetKey), chCu = atkArmy()?.units.find(u => u.key === c.chargerKey);
+  let back = null, overwatch = null, demise = null;
+  if (tgtCu && chCu) {
+    if (c.back !== false) back = defaultScenarioFor(defArmy(), atkArmy(), tgtCu, chCu, 'fight');
+    if (c.overwatch) {
+      overwatch = defaultScenarioFor(defArmy(), atkArmy(), tgtCu, chCu, 'shooting');
+      if (overwatch) overwatch.attackers[0].mods = { ...overwatch.attackers[0].mods, overwatch: true };     // snap shooting (15.09)
+    }
+    demise = coreFlags(tgtCu).deadlyDemise;
+  }
+  return { shoot, fight, back, overwatch, demise: back || overwatch ? demise : null, charge: { gap: c.gap, mod: c.mod, reroll: c.reroll }, seed: 4242 };
 }
 
 let chainWorker = null, chainReq = 0;
@@ -1289,6 +1301,8 @@ function chainSheet() {
         <div><b>${fx(r.meanFight)}</b><span>Fight kills (avg over all turns)</span></div>
         <div><b>${fx(r.meanKills)}</b><span>Total</span></div>
       </div>
+      ${chainOwnHtml(r, c, tgt)}
+      ${shockHtml('the target is', shockOdds(tgt, { alive: r.totalModels, lostAtLeast: r.killsAtLeast, pWipe: r.pWipe }), 'chain-shock-target')}
       <div class="section"><h2>Chance of exactly N models destroyed this turn</h2><div class="chart">${chartSvg(dd)}</div></div>
       <table class="dist"><thead><tr><th>Models</th><th>Exactly</th><th>At least</th></tr></thead><tbody>
       ${dd.exact.map((p, k) => ({ k, p, ge: dd.atLeast[k] })).filter(x => x.p >= 0.005 || (x.ge >= 0.005 && x.ge < 0.995)).map(x => `<tr><td>${x.k}</td><td>${pct(x.p)}</td><td>${pct(x.ge)}</td></tr>`).join('')}</tbody></table>`;
@@ -1301,9 +1315,38 @@ function chainSheet() {
     <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Charge distance</div><div class="wstats">closest bases after shooting, in inches</div></div>
       <div class="stepper"><button data-action="chain-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val" id="chain-gap">${c.gap}"</div><button data-action="chain-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
     <div class="modrow"><div class="lab">Charge roll modifiers, added up</div>${seg('chain-mod', c.mod ?? 0, CHARGE_MODS, 'compact')}</div>
-    <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>` : ''}
+    <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>
+    <div class="modrow" style="margin-top:8px"><div class="lab">What the enemy does</div><div class="chips">
+      ${chip('chain-back', c.back !== false, 'The target fights back')}
+      ${chip('chain-overwatch', !!c.overwatch, 'It fires Overwatch at the charging unit (1CP)')}</div></div>` : ''}
     <div style="margin-top:10px">${body}</div>
-    <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. Not modelled: Overwatch, the target fighting back, models lost by the charger.</p>`;
+    <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. The enemy's attacks use its default weapons and always-on rules against your unit at full strength. Overwatch (15.08) comes at the end of your Movement phase, before your shooting; your unit fights first because it charged (12.04).</p>`;
+}
+
+// The other side of the exchange: what the turn costs the charging unit.
+function chainOwnHtml(r, c, tgt) {
+  const o = r.own;
+  if (!o) return '';
+  const ch = atkArmy()?.units.find(u => u.key === c.chargerKey);
+  const dd = coreFlags(tgt).deadlyDemise;
+  const parts = [
+    c.overwatch ? `<div><b id="chain-own-ow">${fx(o.meanOverwatch)}</b><span>Overwatch</span></div>` : '',
+    c.back !== false ? `<div><b id="chain-own-back">${fx(o.meanBack)}</b><span>Fight back</span></div>` : '',
+    dd ? `<div><b id="chain-own-dd">${fx(o.meanDemise, 2)}</b><span>Deadly Demise ${esc(dd)}</span></div>` : '',
+    `<div><b>${fx(o.meanLost)}</b><span>Total</span></div>`,
+  ].filter(Boolean).join('');
+  const sh = ch ? shockOdds(ch, { alive: o.totalModels, lostAtLeast: o.lostAtLeast, pWipe: o.pWipe }) : null;
+  return `<div class="section" id="chain-own"><h2>What it costs ${esc(ch?.name ?? 'your unit')}</h2>
+    <div class="hero" style="grid-template-columns:1fr 1fr">
+      <div class="cell"><b id="chain-own-lost">${fx(o.meanLost)}</b><span>avg models lost of ${o.totalModels}</span></div>
+      <div class="cell"><b id="chain-own-wipe">${pct(o.pWipe)}</b><span>chance it is destroyed</span></div>
+    </div>
+    <div class="pipeline" style="margin-top:8px">${parts}</div>
+    ${o.pStoppedByOverwatch > 0.005 ? `<div class="tiny muted">Overwatch destroys it before it charges ${pct(o.pStoppedByOverwatch)} of the time.</div>` : ''}
+    ${o.meanPoints > 0 && r.meanPoints > 0 ? `<div class="small" id="chain-trade" style="margin-top:6px">Points: you destroy <b>${fx(r.meanPoints, 0)}</b> and lose <b>${fx(o.meanPoints, 0)}</b> on average.</div>` : ''}
+    ${shockHtml('your unit is', sh, 'chain-shock-own')}
+    ${coreFlags(tgt).fightsFirst ? '<div class="tiny muted">The target has Fights First. In your turn your charging unit is still selected first (12.04).</div>' : ''}
+  </div>`;
 }
 
 /** Charge-roll modifiers add up (02.02.01: only hit and wound rolls are limited to ±1). */
@@ -1417,6 +1460,36 @@ function chartSvg(d) {
   return svg + '</svg>';
 }
 
+/**
+ * Battle-shock after an attack. A unit at or below half strength (01.02.01: half its starting models,
+ * leaders counted; a single model: half its wounds) takes a battle-shock roll in its player's next
+ * Command phase (08.03): 2D6 against its best Leadership (01.06). Failed: OC "-", its player cannot use
+ * stratagems on it, it cannot start actions, and it can only fall back by Desperate Escape (01.07, 09.07).
+ * dist: { alive: models now, lostAtLeast, pWipe } or for one model { wounds: wounds now, woundsAtLeast, pWipe }
+ * -> { pHalf: at or below half and not destroyed, pFail, pShocked, ld } or null
+ */
+function shockOdds(cu, dist) {
+  if (!cu) return null;
+  const f = shockFacts(cu);
+  let pHalf;
+  if (f.single) {
+    if (!dist.woundsAtLeast) return null;
+    const need = Math.max(0, (dist.wounds ?? f.single) - Math.floor(f.single / 2));
+    pHalf = need <= 0 ? 1 : (dist.woundsAtLeast[need] ?? 0);
+  } else {
+    const need = Math.max(0, dist.alive - Math.floor(f.start / 2));
+    pHalf = need <= 0 ? 1 : (dist.lostAtLeast[need] ?? 0);
+  }
+  const pTest = Math.max(0, pHalf - (dist.pWipe ?? 0));
+  const pFail = 1 - chargeOdds(f.ld);          // P(2D6 < Ld)
+  return { pHalf: pTest, pFail, pShocked: pTest * pFail, ld: f.ld };
+}
+function shockHtml(who, sh, id) {
+  if (!sh || sh.pHalf < 0.005) return '';
+  return `<div class="shock small" id="${id}"><b>Battle-shock:</b> ${who} at or below half strength, and still on the table, <b>${pct(sh.pHalf)}</b> of the time. In its next Command phase it then tests on Ld ${sh.ld}+ and fails ${pct(sh.pFail)} of the time: <b>battle-shocked ${pct(sh.pShocked)}</b>.
+    <span class="tiny muted">A battle-shocked unit has OC “–”, cannot be the target of its player's stratagems, cannot start actions and can only fall back by Desperate Escape.</span></div>`;
+}
+
 function resultsSheet() {
   const r = state.result;
   if (!r) return '<div class="muted">No result yet.</div>';
@@ -1444,6 +1517,7 @@ function resultsSheet() {
       </div>`;
     })() : ''}
     ${st.abilityMortals > 0.005 ? `<div class="tiny muted" style="margin-top:6px">Includes ${fx(st.abilityMortals)} mortal wounds from abilities / stratagems on average.</div>` : ''}
+    ${shockHtml('the target is', shockOdds(tinfo?.cu, { alive: r.totalModels, lostAtLeast: r.killsAtLeast, wounds: r.totalWounds, woundsAtLeast: r.woundsAtLeast, pWipe: r.pWipe }), 'shock-target')}
     <div class="section"><h2>Chance of exactly N ${what}</h2>
       ${seg('chart-mode', d.mode, [['models', 'Models destroyed'], ['damage', 'Damage dealt']], 'compact')}
       <div class="readout" id="readout">${readout(d, state.selBar ?? d.exact.indexOf(Math.max(...d.exact)))}</div>
@@ -1778,6 +1852,14 @@ app.addEventListener('click', (ev) => {
       return renderSheet();
     case 'chain-reroll':
       state.chain.reroll = !state.chain.reroll;
+      runChain();
+      return renderSheet();
+    case 'chain-back':
+      state.chain.back = state.chain.back === false;
+      runChain();
+      return renderSheet();
+    case 'chain-overwatch':
+      state.chain.overwatch = !state.chain.overwatch;
       runChain();
       return renderSheet();
     case 'open-charge':

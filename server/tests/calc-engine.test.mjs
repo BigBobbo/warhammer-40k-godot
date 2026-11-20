@@ -434,3 +434,66 @@ test('turn chain: a target destroyed by shooting is not charged; the damaged mod
   assert.ok(overkill.pWipeShoot > 0.99);
   assert.ok(overkill.pCharge < 0.01, 'nothing left to charge');
 });
+
+
+// ---------------------------------------------------------------------------
+// The exchange: what the turn costs the charging unit
+
+test('exchange: the target fights back with the models it has left; a destroyed target does not', () => {
+  // my unit: 10 x 1W, no save. Target: 10 x 1W, no save.
+  // My fight: 10 weapons, 1 attack each, hitting on 3+ and wounding on 2+ (S8 v T4): 10 * 2/3 * 5/6 = 5.56 kills
+  // Fight back: each surviving model has 1 weapon, 1 attack, 3+ / 2+: 0.556 kills a model -> (10 - 5.56) * 0.556 = 2.47
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tgt = { name: 'T', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const w = (o = {}) => weapon({ count: 10, melee: true, S: 8, ...o });
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: { charged: true }, weapons: [w()] }], defender: tgt };
+  const back = { phase: 'fight', attackers: [{ name: 'T', mods: {}, weapons: [w()] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, back, charge: { gap: 2 }, trials: TRIALS, seed: 5 });
+  near(r.meanFight, 10 * (2 / 3) * (5 / 6), 0.03, 'my fight');
+  near(r.own.meanBack, (10 - 10 * (2 / 3) * (5 / 6)) * (2 / 3) * (5 / 6), 0.04, 'the fight back comes from the survivors only');
+  near(r.own.meanLost, r.own.meanBack, 1e-9, 'no overwatch, no Deadly Demise: all losses are from the fight back');
+  assert.equal(r.own.totalModels, 10);
+  near(r.own.lost.reduce((a, b) => a + b, 0), 1, 1e-9, 'distribution of my losses sums to 1');
+  // without `back` nothing is reported for my unit (as before 1.103)
+  assert.equal(E.simulateChain({ shoot: null, fight, charge: { gap: 2 }, trials: 2000, seed: 5 }).own, null);
+  // a target wiped out by the charge does not strike: 60 attacks at 10 models
+  const wipe = E.simulateChain({ shoot: null, fight: { ...fight, attackers: [{ name: 'M', mods: {}, weapons: [w({ count: 60, kw: { torrent: true } })] }] }, back, charge: { gap: 2 }, trials: 5000, seed: 5 });
+  assert.ok(wipe.pWipe > 0.999 && wipe.own.meanBack < 0.01, `${wipe.pWipe} / ${wipe.own.meanBack}`);
+  // a failed charge: no fight, no fight back
+  const far = E.simulateChain({ shoot: null, fight, back, charge: { gap: 20 }, trials: 2000, seed: 5 });
+  assert.deepEqual([far.pCharge, far.meanFight, far.own.meanLost], [0, 0, 0]);
+});
+
+test('exchange: Fire Overwatch comes first (15.08) - the models it removes do not attack', () => {
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tgt = { name: 'T', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: { charged: true }, weapons: [weapon({ count: 10, melee: true, S: 8 })] }], defender: tgt };
+  // overwatch: 36 shots, hitting on unmodified 6s only, wounding on 2+: 36 * 1/6 * 5/6 = 5 of my 10 models
+  const overwatch = { phase: 'shooting', attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 36, S: 8 })] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, overwatch, charge: { gap: 2 }, trials: TRIALS, seed: 9 });
+  near(r.own.meanOverwatch, 36 * (1 / 6) * (5 / 6), 0.04, 'overwatch kills');
+  // my fight is made by the survivors: (10 - 5) * 2/3 * 5/6 = 2.78 instead of 5.56
+  near(r.meanFight, (10 - 5) * (2 / 3) * (5 / 6), 0.05, 'half the unit, half the attacks');
+  // torrent overwatch that wipes the unit stops the charge
+  const stop = E.simulateChain({ shoot: null, fight, overwatch: { ...overwatch, attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } })] }] }, charge: { gap: 2 }, trials: 3000, seed: 9 });
+  assert.ok(stop.own.pWipe > 0.999 && stop.pCharge < 0.001 && stop.own.pStoppedByOverwatch > 0.999, JSON.stringify([stop.own.pWipe, stop.pCharge]));
+  // attached leaders keep their weapons while the bodyguard dies: 5 bodyguard models + 1 character
+  const led = { name: 'M', keywords: [], groups: [group({ count: 5, name: 'body' }), group({ count: 1, name: 'boss', character: true })], mods: {} };
+  const ledFight = { phase: 'fight', attackers: [{ name: 'M', mods: {}, weapons: [weapon({ count: 5, melee: true, S: 8, kw: { torrent: true } }), weapon({ name: 'boss', count: 1, melee: true, A: '6', S: 8, kw: { torrent: true }, lead: true })] }], defender: { ...tgt, groups: [group({ count: 40 })] } };
+  // overwatch that kills the 5 bodyguard models and stops there (5 mortal-wound-like hits: 5 torrent S8 attacks at 2+)
+  const ow5 = { phase: 'shooting', attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 30, S: 8, kw: { torrent: true } })] }], defender: { ...led, groups: [group({ count: 5, name: 'body' }), group({ count: 1, name: 'boss', character: true, W: 99 })] } };
+  const lr = E.simulateChain({ shoot: null, fight: ledFight, overwatch: ow5, charge: { gap: 2 }, trials: 3000, seed: 9 });
+  near(lr.meanFight, 6 * (5 / 6), 0.1, 'the bodyguard is gone, the character still makes its 6 attacks');
+});
+
+test('exchange: Deadly Demise (24.08) - a D6 for each model destroyed next to my unit; on a 6, X mortal wounds', () => {
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tank = { name: 'T', keywords: ['VEHICLE'], groups: [group({ count: 1, W: 1 })], mods: {} };
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: {}, weapons: [weapon({ count: 30, melee: true, S: 8, kw: { torrent: true } })] }], defender: tank };
+  const back = { phase: 'fight', attackers: [{ name: 'T', mods: {}, weapons: [weapon({ count: 1, melee: true })] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, back, demise: '3', charge: { gap: 2 }, trials: TRIALS, seed: 4 });
+  assert.ok(r.pWipe > 0.999);
+  near(r.own.meanDemise, 3 / 6, 0.02, 'one model destroyed: 1 in 6 that 3 mortal wounds remove 3 one-wound models');
+  near(r.own.meanBack, 0, 1e-9, 'the destroyed tank does not fight back');
+  near(E.simulateChain({ shoot: null, fight, back, demise: 'D3', charge: { gap: 2 }, trials: TRIALS, seed: 4 }).own.meanDemise, 2 / 6, 0.02, 'Deadly Demise D3');
+});

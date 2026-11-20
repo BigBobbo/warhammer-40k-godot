@@ -147,6 +147,8 @@ textarea.list {
 }
 .tag.warn { color: var(--warn-ink); }
 .tag.off { text-decoration: line-through; opacity: 0.75; }
+.shock { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 6px; line-height: 1.35; }
+.shock .tiny { display: block; margin-top: 2px; }
 .rule-note.warn { color: var(--warn-ink); }
 .tag.auto { box-shadow: inset 0 0 0 1px var(--accent); color: var(--text-primary); background: var(--series-1-wash); }
 .tag.byhand { box-shadow: inset 0 0 0 1px var(--line); }

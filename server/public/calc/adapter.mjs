@@ -615,6 +615,7 @@ export function attackerRows(cu, phase, target = null, opts = {}) {
               ...p,
               kw: lim.kw, tagsOff: lim.off,
               wkey: `${member.index}:${p.weaponId}`,
+              lead: member.role === 'leader',        // an attached character's weapon
               extra: !!p.kw.extraAttacks,
               cq: !!(p.kw.cq || p.kw.pistol),
               max: 0, count: 0,
@@ -647,7 +648,19 @@ export function engineWeapon(row) {
     name: row.label, count: row.count, melee: row.melee,
     A: row.A, skill: row.skill, S: row.S, AP: row.AP, D: row.D,
     kw: row.kw,
+    ...(row.lead ? { lead: true } : {}),
   };
+}
+
+/**
+ * Battle-shock after an attack (08.03, 01.06, 01.07): the unit's best Leadership, its starting strength
+ * (attached leaders included, 01.02.01) and the wounds of a single-model unit.
+ * -> { ld, start, single: W of the one model or 0 }
+ */
+export function shockFacts(cu) {
+  const lds = cu.members.flatMap(m => (m.dcUnit.profiles ?? []).map(p => parseInt(p.Ld, 10))).filter(n => n > 0);
+  const single = cu.models === 1 ? parseInt(cu.members[0].dcUnit.profiles?.[0]?.W, 10) || 0 : 0;
+  return { ld: lds.length ? Math.min(...lds) : 7, start: cu.models, single };
 }
 
 export function allVehicleMonster(cu) {
