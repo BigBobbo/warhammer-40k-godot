@@ -13,6 +13,8 @@ extends SceneTree
 #  * FORECAST_HORIZON — holding an objective has a positive swing; the
 #    priority gain is weight x swing / rounds left; off = untouched.
 #  * FORECAST_SURVIVAL — state -> hold chance mapping.
+#  * position look-ahead — snapshot -> AIPositionSim world, plan -> intents,
+#    and a move onto an empty objective priced above standing still.
 #  * FORECAST_PLAN — the ownership projection: a unit leaving drops its OC,
 #    an arrival this turn adds it, one arriving next turn does not.
 #
@@ -50,6 +52,7 @@ func _run():
 	test_builder()
 	test_survival_mapping()
 	test_plan_projection()
+	test_position_lookahead()
 	test_horizon()
 	test_tempo_calibration()
 	if _sm != null:
@@ -148,6 +151,48 @@ func test_plan_projection() -> void:
 	_check(int(pr2.cells.o3) == 1 and float(pr2.conf.o3) == AIDM.FORECAST_THREAT_HOLD,
 		"U2 takes o3 this turn but the enemy can bring 4 OC: a threatened hold (%.2f)" % float(pr2.conf.o3))
 	AIDM._last_movement_candidates = {}
+
+func test_position_lookahead() -> void:
+	# _possim_world: units in inches with OC, wounds and spread; current and
+	# secured control carried over; units with no models on the table left out
+	var snap := _snapshot(2, 1, 7)
+	snap.units["A1"] = _unit_at(1, 5, Vector2(880, 1500))   # 7.5 in below the centre
+	snap.units["A2"] = _unit_at(1, 5, Vector2(700, 470))    # on its home objective
+	snap.units["B1"] = _unit_at(2, 5, Vector2(1060, 1930))  # on its home objective
+	snap.units.erase("B2")
+	snap.units.erase("B3")
+	snap.mission_manager["sticky_objectives"] = {"obj_nml_2": {"player": 2, "source_unit_id": ""}}
+	var world: Dictionary = AIDM._possim_world(snap)
+	_check(world.units.size() == 3 and int(world.round) == 2 and int(world.active) == 1 and int(world.first) == 1,
+		"world: 3 units on the table, round 2, P1 to move")
+	var a1: Dictionary = world.units.A1
+	_check(absf((a1.pos as Vector2).x - 22.0) < 0.01 and absf((a1.pos as Vector2).y - 37.5) < 0.01 and float(a1.oc) == 10.0 and float(a1.wounds) == 5.0,
+		"a unit: centre in inches (%.1f, %.1f), OC x models (%d), wounds left (%d)" % [(a1.pos as Vector2).x, (a1.pos as Vector2).y, int(a1.oc), int(a1.wounds)])
+	_check(int(world.control.get("obj_home_1", 0)) == 1 and int(world.secured.get("obj_nml_2", 0)) == 2,
+		"current control and secured objectives are carried in")
+	# intents
+	var mv: Dictionary = AIDM._possim_intent(snap, {"action": "advance", "objective_id": "obj_center", "objective_pos": Vector2(880, 1200)})
+	_check(str(mv.mode) == "advance" and str(mv.goal_obj) == "obj_center" and (mv.goal as Vector2) == Vector2(22, 30), "an advance to an objective -> advance toward it (inches)")
+	_check(str(AIDM._possim_intent(snap, {"action": "hold", "objective_id": "obj_home_1"}).mode) == "stay", "a hold -> stay")
+	var at: Dictionary = AIDM._possim_intent(snap, {"action": "attack", "attack_target_id": "B1", "objective_id": "obj_center"})
+	_check(str(at.get("target", "")) == "B1" and str(at.mode) == "move", "an attack -> move at the target")
+	# pricing: walking onto the empty centre beats standing still, over the window
+	var P: Dictionary = AIDM._forecast_base_P(snap, 300)
+	var go: Dictionary = AIDM._possim_margin(snap, world, {"A1": mv, "A2": {"mode": "stay", "goal_obj": ""}}, 1, P)
+	var stay: Dictionary = AIDM._possim_margin(snap, world, {"A1": {"mode": "stay", "goal_obj": ""}, "A2": {"mode": "stay", "goal_obj": ""}}, 1, P, {"policy": false})
+	var go_np: Dictionary = AIDM._possim_margin(snap, world, {"A1": mv, "A2": {"mode": "stay", "goal_obj": ""}}, 1, P, {"policy": false})
+	_check(float(go_np.margin) > float(stay.margin) + 1.0,
+		"taking the centre (Immovable Object) is worth VP by the end of next round (%+.1f vs %+.1f)" % [float(go_np.margin), float(stay.margin)])
+	_check(go.sim.turns.size() == 4 and float(go.sim.turns[0].own_end.obj_center[0]) > 0.5,
+		"the window is this round and the next (4 player turns) and the centre is ours at the end of this turn")
+	_check(AIDM.FORECAST_POSSIM == 0.0 and AIDM.FORECAST_PLAN == 0.0, "position look-ahead plan pricing ships off")
+
+func _unit_at(owner: int, n: int, at: Vector2) -> Dictionary:
+	var u := _unit(owner, n, ["INFANTRY"])
+	for i in range(n):
+		u.models[i]["position"] = {"x": at.x + 20.0 * (i - n / 2), "y": at.y}
+	u.meta.stats["move"] = 6
+	return u
 
 func test_horizon() -> void:
 	var snap := _snapshot(2, 1)

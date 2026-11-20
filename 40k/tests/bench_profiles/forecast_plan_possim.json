@@ -1,0 +1,11 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Forecast plan via position look-ahead",
+  "description": "FORECAST_PLAN = 1 with FORECAST_POSSIM = 1: after the greedy movement assignment, the closest calls are re-priced by AIPositionSim (units played forward on their real positions to the end of the next round) and the best one is swapped when it gains at least FORECAST_PLAN_MIN_GAIN VP.",
+  "parameters": {
+    "FORECAST_PLAN": 1.0,
+    "FORECAST_POSSIM": 1.0
+  },
+  "rules": []
+}

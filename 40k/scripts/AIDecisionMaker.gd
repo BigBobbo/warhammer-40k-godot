@@ -1978,6 +1978,12 @@ const FORECAST_THREAT_HOLD: float = 0.55
 # forecast it, and adopt the best swap when it beats the plan by more than
 # FORECAST_PLAN_MIN_GAIN VP of final margin. 0 = the greedy plan.
 const FORECAST_PLAN: float = 0.0
+# FORECAST-POSSIM (FORECAST_POSSIM): 1 = FORECAST-PLAN prices each plan with
+# the position look-ahead (AIPositionSim: units walk, shoot and charge on
+# their real positions for the rest of this round and the next, the forecast
+# scores the VP of that window) instead of the ownership projection. 0 = the
+# ownership projection. Only read when FORECAST_PLAN is on.
+const FORECAST_POSSIM: float = 0.0
 const FORECAST_PLAN_SWAPS: int = 4
 const FORECAST_PLAN_MAX_GAP: float = 3.0
 const FORECAST_PLAN_MIN_GAIN: float = 1.0
@@ -23303,9 +23309,11 @@ static func _possim_world(snapshot: Dictionary) -> Dictionary:
 					units[uid].melee[tid] = md
 	var objectives: Array = []
 	for od in snapshot.get("board", {}).get("objectives", []):
-		var op := _objective_pos_by_id(snapshot, str(od.get("id", "")))
-		if op != Vector2.INF:
-			objectives.append({"id": str(od.get("id", "")), "pos": op / PIXELS_PER_INCH})
+		# (a saved state carries the position as text; _AIForecast._pos reads both)
+		if od.get("position", null) == null:
+			continue
+		var op: Vector2 = _AIForecast._pos(od.position)
+		objectives.append({"id": str(od.get("id", "")), "pos": op / PIXELS_PER_INCH})
 	var order: Dictionary = _AIForecast.turn_order(snapshot)
 	print("AIDecisionMaker: [POSSIM] world: %d units, %d objectives (%d ms)" % [
 		units.size(), objectives.size(), (Time.get_ticks_usec() - t0) / 1000])
@@ -23332,7 +23340,10 @@ static func _possim_intent(snapshot: Dictionary, a: Dictionary) -> Dictionary:
 		return {"mode": "stay", "goal_obj": ""}
 	var pos = a.get("objective_pos", Vector2.INF)
 	if not (pos is Vector2) or pos == Vector2.INF:
-		pos = _objective_pos_by_id(snapshot, oid)
+		pos = Vector2.INF
+		for od in snapshot.get("board", {}).get("objectives", []):
+			if str(od.get("id", "")) == oid and od.get("position", null) != null:
+				pos = _AIForecast._pos(od.position)
 	if pos == Vector2.INF:
 		return {"mode": "stay", "goal_obj": ""}
 	return {"mode": "advance" if action == "advance" else "move", "goal": (pos as Vector2) / PIXELS_PER_INCH, "goal_obj": oid}
@@ -23448,8 +23459,15 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		return assignments
 	calls.sort_custom(func(x, y): return absf(float(x.gap)) < absf(float(y.gap)))
 	calls = calls.slice(0, get_param_int("FORECAST_PLAN_SWAPS", FORECAST_PLAN_SWAPS))
-	var base_proj := _forecast_plan_projection(evaluations, assignments, player)
-	var base_m := _forecast_margin_of(_forecast_with_plan(P, base_proj.cells, base_proj.conf, battle_round), player)
+	var use_ps: bool = get_param("FORECAST_POSSIM", FORECAST_POSSIM) >= 0.5
+	var ps_world: Dictionary = _possim_world(snapshot) if use_ps else {}
+	var window := "margin after round %d" % mini(battle_round + 1, MAX_BATTLE_ROUNDS_AI) if use_ps else "final margin"
+	var base_m := 0.0
+	if use_ps:
+		base_m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, assignments), player, P).margin)
+	else:
+		var base_proj := _forecast_plan_projection(evaluations, assignments, player)
+		base_m = _forecast_margin_of(_forecast_with_plan(P, base_proj.cells, base_proj.conf, battle_round), player)
 	var best: Dictionary = {}
 	var best_gain := get_param("FORECAST_PLAN_MIN_GAIN", FORECAST_PLAN_MIN_GAIN)
 	var units: Dictionary = snapshot.get("units", {})
@@ -23461,12 +23479,16 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		if bool(na.get("already_on_obj", false)):
 			na["action"] = "hold"
 		alt_assign[call.uid] = na
-		var proj := _forecast_plan_projection(evaluations, alt_assign, player)
-		var m := _forecast_margin_of(_forecast_with_plan(P, proj.cells, proj.conf, battle_round), player)
+		var m := 0.0
+		if use_ps:
+			m = float(_possim_margin(snapshot, ps_world, _possim_intents(snapshot, alt_assign), player, P).margin)
+		else:
+			var proj := _forecast_plan_projection(evaluations, alt_assign, player)
+			m = _forecast_margin_of(_forecast_with_plan(P, proj.cells, proj.conf, battle_round), player)
 		var gain := m - base_m
-		print("AIDecisionMaker: [FORECAST-PLAN] P%d %s: %s -> %s (score gap %.1f): forecast margin %+.1f vs greedy %+.1f (%+.1f)" % [
+		print("AIDecisionMaker: [FORECAST-PLAN] P%d %s: %s -> %s (score gap %.1f): forecast %s %+.1f vs greedy %+.1f (%+.1f)" % [
 			player, _dn(units.get(call.uid, {}), call.uid), str(assignments[call.uid].get("objective_id", "?")),
-			str(call.alt.objective_id), float(call.gap), m, base_m, gain])
+			str(call.alt.objective_id), float(call.gap), window, m, base_m, gain])
 		scored.append({"description": "%s to %s instead" % [_dn(units.get(call.uid, {}), call.uid), call.alt.objective_id],
 			"score": gain, "key": call.uid, "score_breakdown": {"forecast_margin": m, "score_gap": float(call.gap)}})
 		if gain > best_gain:
@@ -23481,8 +23503,8 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 	var out := assignments.duplicate()
 	var entry: Dictionary = best.assign
 	entry["assign_pass"] = "forecast_plan"
-	entry["coordination_note"] = "forecast: %s instead of %s improves the projected final margin by %.1f VP" % [
-		str(entry.get("objective_id", "?")), from_oid, best_gain]
+	entry["coordination_note"] = "forecast: %s instead of %s improves the projected %s by %.1f VP" % [
+		str(entry.get("objective_id", "?")), from_oid, window, best_gain]
 	out[best.uid] = entry
 	# its candidate card leads with the adopted option
 	var cl: Array = (_last_movement_candidates.get(best.uid, []) as Array)
@@ -23492,8 +23514,8 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 			cl.remove_at(i)
 			cl.push_front(c0)
 			break
-	_add_thinking_step("Forecast: %s goes to %s instead of %s (+%.1f VP projected final margin)" % [
-		_dn(units.get(best.uid, {}), best.uid), str(entry.get("objective_id", "?")), from_oid, best_gain])
+	_add_thinking_step("Forecast: %s goes to %s instead of %s (+%.1f VP projected %s)" % [
+		_dn(units.get(best.uid, {}), best.uid), str(entry.get("objective_id", "?")), from_oid, best_gain, window])
 	print("AIDecisionMaker: [FORECAST-PLAN] P%d adopts %s -> %s (+%.1f VP, %d ms)" % [
 		player, best.uid, str(entry.get("objective_id", "?")), best_gain, Time.get_ticks_msec() - t0])
 	return out
