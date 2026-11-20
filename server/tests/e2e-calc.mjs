@@ -1013,6 +1013,60 @@ try {
   await page.waitForSelector('textarea[data-side="A"]');
   check('library survives a reload', await page.evaluate(() => window.__calc.state.library.length) === 2);
 
+  // --- backup and other devices: save a file, send everything to a tablet with a code, undo, restore from the file
+  {
+    await page.tap('button[data-action="view"][data-value="armies"]');
+    await page.locator('#backup-card > summary').tap();
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.tap('button[data-action="backup-save"]')]);
+    const backupPath = join(dbDir, dl.suggestedFilename());
+    await dl.saveAs(backupPath);
+    const saved = JSON.parse(readFileSync(backupPath, 'utf8'));
+    const BK = await import(new URL('../public/calc/backup.mjs', import.meta.url).href);
+    const info = BK.describeBackup(saved);
+    check('backup file holds the lists, the library and the board plans', /^combat-calc-backup-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()) && info.ok && info.counts.lists === 2 && info.counts.library === 2 && info.counts.plans >= 1, JSON.stringify(info));
+    check('the card says the backup was saved and what it holds', /Backup saved as combat-calc-backup/.test(await page.textContent('#backup-msg')) && /Last backup:/.test(await page.textContent('#backup-card')));
+    await page.tap('button[data-action="backup-send"]');
+    await page.waitForSelector('#backup-code-out b');
+    const code = (await page.textContent('#backup-code-out b')).trim();
+    check('"Send to another device" gives a 6-character code', BK.CODE_RE.test(code), code);
+    await page.locator('#backup-code-out').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(SHOTS, 'calc_43_backup_send.png') });
+    // the tablet: nothing on it; type the code, confirm, and the lists and plans are there
+    const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const t2 = await tctx.newPage();
+    const asked = [];
+    t2.on('dialog', (d) => { asked.push(d.message()); d.accept(); });
+    await t2.goto(`${BASE}/calc/`);
+    await t2.waitForSelector('#backup-card');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.fill('#backup-code', code.toLowerCase());
+    await Promise.all([t2.waitForNavigation(), t2.tap('button[data-action="backup-receive"]')]);
+    await t2.waitForFunction(() => window.__calc?.state.armies.A && window.__calc.state.armies.B);
+    const got = await t2.evaluate(() => ({ a: window.__calc.state.armies.A.faction, b: window.__calc.state.armies.B.faction, lib: window.__calc.state.library.length, plans: Object.keys(window.__calc.state.board?.plans ?? JSON.parse(localStorage.getItem('w40k_calc_board_v1') ?? '{}').plans ?? {}).length }));
+    check('tablet: the code brings over both lists, the library and the board plans (after a confirm that says what it holds)',
+      !!got.a && !!got.b && got.lib === 2 && got.plans >= 1 && /Replace everything on this device/.test(asked[0] ?? '') && /2 loaded lists/.test(asked[0] ?? ''), JSON.stringify({ got, asked }));
+    await t2.tap('button[data-action="view"][data-value="armies"]');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.screenshot({ path: join(SHOTS, 'calc_44_backup_tablet.png') });
+    // undo: back to the empty tablet
+    await Promise.all([t2.waitForNavigation(), t2.tap('button[data-action="backup-undo"]')]);
+    await t2.waitForSelector('textarea[data-side="A"]');
+    check('tablet: "Undo the last restore" puts back what was there (nothing)', await t2.evaluate(() => !window.__calc.state.armies.A && !window.__calc.state.armies.B && !localStorage.getItem('w40k_calc_before_restore_v1')));
+    // restore from the file
+    await t2.locator('#backup-card > summary').tap();
+    await Promise.all([t2.waitForNavigation(), t2.setInputFiles('input[data-input="backup-file"]', backupPath)]);
+    await t2.waitForFunction(() => window.__calc?.state.armies.A && window.__calc.state.armies.B);
+    check('tablet: restore from the backup file works too', await t2.evaluate(() => window.__calc.state.library.length === 2));
+    // a wrong code: a clear message, nothing changed
+    await t2.tap('button[data-action="view"][data-value="armies"]');
+    await t2.locator('#backup-card > summary').tap();
+    await t2.fill('#backup-code', 'ZZZZZZ');
+    await t2.tap('button[data-action="backup-receive"]');
+    await t2.waitForFunction(() => /No backup with this code/.test(document.getElementById('backup-msg')?.textContent ?? ''));
+    check('a wrong code says so and changes nothing', await t2.evaluate(() => window.__calc.state.library.length === 2));
+    await tctx.close();
+  }
+
   // --- tablet layout
   const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });
   const tp = await tab.newPage();

@@ -9,6 +9,7 @@ import {
 } from './adapter.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { CALC_VERSION } from './version.mjs';
+import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, _missionDebug } from './missionview.mjs';
 
@@ -437,7 +438,97 @@ function armiesView() {
   const ready = state.armies.A && state.armies.B;
   return `<div class="lay2"><div class="col">${panel('A')}</div><div class="col">${panel('B')}</div></div>
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
+    ${backupCard()}
     <p class="hint">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · dataset ${esc(DATASET_VERSION)}.</p>`;
+}
+
+// ---- backup / restore / move to another device (backup.mjs)
+function backupCard() {
+  let last = null, undo = false;
+  try { last = localStorage.getItem(LAST_KEY); undo = !!localStorage.getItem(UNDO_KEY); } catch { /* private mode */ }
+  const t = state.transfer;
+  return `<details class="more card" style="margin-top:12px" data-details="backup" ${state.openBackup ? 'open' : ''} id="backup-card"><summary>Backup and other devices</summary>
+    <p class="small muted" style="margin:6px 0">Lists, plans and games are kept on this device only. Save a backup file to keep a copy, or send everything to your tablet or phone with a code.${last ? ` Last backup: ${esc(new Date(last).toLocaleString())}.` : ' No backup made yet.'}${state.persisted === true ? ' The browser has agreed to keep this data.' : ''}</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn grow" data-action="backup-save">⬇ Save a backup file</button>
+      <label class="btn grow" style="cursor:pointer;display:flex;align-items:center;justify-content:center">⬆ Restore from a file<input type="file" accept="application/json,.json" data-input="backup-file" hidden></label>
+    </div>
+    <button class="btn block" style="margin-top:8px" data-action="backup-send">📲 Send to another device (gives a code)</button>
+    <div class="row" style="gap:6px;margin-top:8px"><input class="sel grow" id="backup-code" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="8" placeholder="Code from the other device" aria-label="Transfer code">
+      <button class="btn" data-action="backup-receive">Get</button></div>
+    ${t ? `<div class="warnbox" id="backup-code-out">Code: <b style="font-size:22px;letter-spacing:.14em">${esc(t.code)}</b><br>On the other device: Armies → Backup and other devices → type the code → Get. It works for ${Math.round(t.ttl / 60)} minutes.</div>` : ''}
+    ${state.backupMsg ? `<div class="small" id="backup-msg" style="margin-top:6px">${esc(state.backupMsg)}</div>` : ''}
+    ${undo ? '<button class="btn ghost" style="margin-top:8px" data-action="backup-undo">↩ Undo the last restore</button>' : ''}
+    <div class="tiny muted" style="margin-top:6px">Table photos are not part of a backup. Restoring replaces what is on this device; the previous data is kept for one undo.</div>
+  </details>`;
+}
+function backupNote(msg) {
+  state.backupMsg = msg;
+  state.openBackup = true;
+  console.log(`[calc] backup: ${msg}`);
+  if (state.view === 'armies') render();
+}
+function currentBackup() {
+  persist();
+  return makeBackup(localStorage, { version: CALC_VERSION });
+}
+async function saveBackupFile() {
+  const b = currentBackup();
+  const info = describeBackup(b);
+  if (!info.ok) return backupNote('Nothing to back up yet: load a list first.');
+  const name = backupFileName();
+  const blob = new Blob([JSON.stringify(b)], { type: 'application/json' });
+  try {
+    const file = new File([blob], name, { type: 'application/json' });
+    // phones / tablets: the share sheet (Drive, Files, Quick Share to the tablet, e-mail)
+    if (navigator.canShare?.({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      await navigator.share({ files: [file], title: 'Combat Calc backup' });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    try { localStorage.setItem(LAST_KEY, new Date().toISOString()); } catch { /* best effort */ }
+    backupNote(`Backup saved as ${name}: ${info.summary}.`);
+  } catch (err) {
+    if (err?.name !== 'AbortError') backupNote(`Could not save the backup (${err?.message ?? err}).`);
+  }
+}
+function restoreBackup(b, from) {
+  const info = describeBackup(b);
+  if (!info.ok) return backupNote(info.why);
+  const when = info.exported ? new Date(info.exported).toLocaleString() : 'an unknown date';
+  if (!window.confirm(`Replace everything on this device with the backup ${from} (made ${when})?\n\nIt holds: ${info.summary}.\n\nWhat is on this device now is kept for one undo.`)) return backupNote('Restore cancelled: nothing was changed.');
+  try {
+    applyBackup(localStorage, b);
+    console.log(`[calc] backup restored ${from}: ${info.summary}`);
+    location.reload();
+  } catch (err) { backupNote(`Could not restore (${err?.message ?? err}).`); }
+}
+async function sendBackup() {
+  const b = currentBackup();
+  if (!describeBackup(b).ok) return backupNote('Nothing to send yet: load a list first.');
+  backupNote('Sending…');
+  try {
+    const res = await fetch('/api/calc-transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: b }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return backupNote(`Could not send (${j.error ?? res.status}). A backup file works without a connection.`);
+    state.transfer = { code: j.code, ttl: j.expires_in };
+    backupNote(`Ready: ${describeBackup(b).summary}.`);
+  } catch { backupNote('No connection to the server. Save a backup file instead and move the file.'); }
+}
+async function receiveBackup() {
+  const code = normalizeCode(document.getElementById('backup-code')?.value);
+  if (!CODE_RE.test(code)) return backupNote('A code is 6 letters and digits (no 0, O, 1, I or L).');
+  backupNote('Looking for the backup…');
+  try {
+    const res = await fetch(`/api/calc-transfer/${code}`);
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return backupNote(j.error ?? `Could not get the backup (${res.status}).`);
+    restoreBackup(j.data, `with code ${code}`);
+  } catch { backupNote('No connection to the server.'); }
 }
 
 function attackView() {
@@ -1302,6 +1393,12 @@ app.addEventListener('click', (ev) => {
     return;
   }
   switch (a) {
+    case 'backup-save': return void saveBackupFile();
+    case 'backup-send': return void sendBackup();
+    case 'backup-receive': return void receiveBackup();
+    case 'backup-undo':
+      if (window.confirm('Put back what was on this device before the last restore?')) { try { if (undoRestore(localStorage)) location.reload(); } catch (err) { backupNote(`Could not undo (${err?.message ?? err}).`); } }
+      return;
     case 'view':
       state.view = el.dataset.value;
       state.sheet = null;
@@ -1625,6 +1722,13 @@ document.addEventListener('click', (ev) => {
 
 app.addEventListener('change', (ev) => {
   const el = ev.target;
+  if (el.dataset?.input === 'backup-file') {
+    const file = el.files?.[0];
+    if (!file) return;
+    file.text().then((txt) => { let b = null; try { b = JSON.parse(txt); } catch { /* not JSON */ } restoreBackup(b, `“${file.name}”`); });
+    el.value = '';
+    return;
+  }
   if (boardChange(el)) return changed({ calc: false });
   const mc = missionChange(el);
   if (mc === 'quiet') return persist();
@@ -1658,6 +1762,7 @@ app.addEventListener('input', (ev) => {
 app.addEventListener('toggle', (ev) => {
   const el = ev.target;
   if (el.dataset?.details === 'casualties') state.openCasualties = el.open;
+  if (el.dataset?.details === 'backup') state.openBackup = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   // Mission tab panels stay open while their buttons re-draw the page
   if (el.dataset?.details?.startsWith('mission-') && state.mission) (state.mission.open ??= {})[el.dataset.details] = el.open;
@@ -1702,6 +1807,11 @@ parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
 render();
 scheduleCalc();
+
+// ask the browser not to clear the saved lists and plans when the device runs low on space
+if (navigator.storage?.persist && (state.armies.A || state.armies.B)) {
+  navigator.storage.persisted().then(p => p || navigator.storage.persist()).then((p) => { state.persisted = !!p; console.log(`[calc] storage persistent: ${!!p}`); }).catch(() => {});
+}
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   const hadController = !!navigator.serviceWorker.controller;

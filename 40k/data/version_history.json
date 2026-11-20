@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.94.0",
+      "date": "2026-11-20",
+      "summary": "Combat Calc: back up your lists and plans, and move them between phone, tablet and laptop with a code",
+      "changes": [
+        "Armies tab, Backup and other devices: save everything (lists, the list library, board plans, the mission plan and estimates, a game in progress) to one backup file, and restore it later",
+        "Send to another device: get a 6-character code, type it on your tablet or phone and everything is copied over (a code works for one hour)",
+        "Restoring first shows what the backup holds and asks before it replaces anything; one Undo brings back what was on the device",
+        "The app asks the browser to keep its saved data when the device runs low on space"
+      ]
+    },
+    {
       "version": "1.93.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: easier to find things — Mission split into Plan, Cards and Play, the map first on the Board tab, and two panes on a tablet",
