@@ -438,6 +438,59 @@ lower than the heuristic does, and the heuristic is right more often.
 Horizon/survival moved hold choices without improving results (asymmetric
 below the −2 VP floor).
 
+### Position look-ahead (`AIPositionSim.gd`) — 2026-11-20
+
+The forecast sees ownership, not positions. `40k/scripts/AIPositionSim.gd`
+plays the next player turns forward on the real positions in expected values
+— units walk to objectives at their Move, shoot and charge what they reach,
+one keeper stays on each objective — and hands the forecast per-turn ownership
+chances and expected kills (`turn_plan`), scored over the window a rollout
+measures (`end_round`, common random numbers). `AIDecisionMaker._possim_world`
+builds its world from a snapshot; `FORECAST_POSSIM` (off) makes FORECAST-PLAN
+price plans with it.
+
+Tools (all under `tools/ai_lab/`, GDScript side in `40k/tests/`):
+
+| Tool | What it does |
+|---|---|
+| `forecast_prefilter.py --trials 0 --cache DIR` | rebuilds the plan in every measured case once and caches the sim inputs |
+| `possim_truth.py --out DIR [--alt]` | plays the AI's own line (or the forced alternative) once with `--bench-trace`: objective control and unit states at every turn end |
+| `possim_sweep.py --cache --truth --variants` | re-prices all cases under any sim options in seconds: r vs measured E, ownership Brier vs the real games, units lost, and the forecast's ownership -> VP step on real ownership |
+| `possim_paired.py --cache --a --b` | real change in ownership from the forced move (B minus A, same seed) vs the sim's |
+
+What the real games (102 traces) fixed in the sim: control reach from a unit's
+centre **and spread** (front models hold an objective while the centre is 6-7 in
+short), an objective nobody out-OCs stays with its last controller ~70% of the
+time, a unit alone on an objective stays (93%) while of units sharing one about
+half move on, and damage x0.7 with half of in-range shooting having line of sight.
+
+| Check | Result |
+|---|---|
+| Ownership per turn end vs real games (Brier, lower is better) | 0.26 vs 0.49 for "nothing changes"; 0.18 / 0.26 / 0.29 / 0.38 by turn |
+| Same without the movement policy / without damage | 0.32 / 0.26 — where units walk matters, damage barely does |
+| Forecast VP from REAL ownership and kills | primary r = 0.76 (MAE 2.5 VP), secondary r = 0.66. Under-scored as the AI plays them: Death Trap 8.3 vs 16.1, Triangulation 7.1 vs 12.8 |
+| Predicted vs measured rollout effect E, 138 cases (ceiling 0.78) | full sim r = +0.12 [-0.02, +0.27]; without damage +0.17 [-0.04, +0.35]; reach only +0.09. Ownership-only forecast: 0.00 |
+| Real change from the forced move, today's AI (88 paired games, B minus A) vs the sim's | ownership at the end of THIS turn r = +0.43 [+0.08, +0.68]; over the whole window r = +0.07 [-0.14, +0.26]; sign right on 15 of the 46 cases where ownership really swung |
+| Real ownership swing -> real VP change (what a perfect sim could reach) | r = +0.63 |
+| In-game A/B, `forecast_plan_possim` (FORECAST_PLAN + FORECAST_POSSIM), asymmetric, 6 pairs | **-8.2 VP [-12.1, -4.3]**, all 6 pairs negative |
+| Same, Custodes mirror, 10 pairs | +1.85 VP [-7.4, +11.1] (sd 14.9; CUSTODES_MORE) |
+
+Caveat on E: the 138 cases were measured weeks ago on an older AI; rebuilt
+today, the plan picks a different objective for the unit in question in about
+half of them, so the other units' moves the sim is given are not the ones the
+rollout played.
+
+**Verdict: off.** The look-ahead predicts absolute ownership well and the
+immediate effect of a move moderately, but not how the difference between two
+plans plays out over the next round — and that difference is what a plan
+comparison needs. In the A/B it adopted ~2 swaps a game, each "worth" about
++2 VP by its own estimate; most undid the planner's coordination (a unit sent
+back to the objective it scored best on, typically the centre) and the
+asymmetric fixture lost 8 VP a game. `FORECAST_PLAN` and `FORECAST_POSSIM`
+stay 0, and there is still no rollout pre-filter: r vs measured E is 0.12-0.17
+against a 0.3 bar. The sim, the truth traces and the sweep tools stay as lab
+instruments (the ownership -> VP table above is a to-do list for the forecast).
+
 ## Not built yet
 
 Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
