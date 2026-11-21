@@ -28,7 +28,7 @@ Evidence: `docs/ai_deployment_evidence/` (live screenshots, live-data maps, raw 
 - **P0 is done (§10).** Over 36 live harness runs (3 armies × 6 maps × 2 seeds):
   - Units forced into Strategic Reserves: 152 → **0**.
   - Refused placements: 298 → **0** (now counted at the source by AIPlayer).
-  - Multi-model units fully Hidden: 53 → **348** of 504.
+  - Multi-model units fully Hidden: 53 → **356** of 504 (368 with leaders attached).
   - Leakers: 263 → **0**.
 - **Build order:**
   - P0: fix legality, the 11e terrain-scorer bugs and metrics.
@@ -675,18 +675,19 @@ P0 is implemented. P1 onwards (§7) is still a proposal.
 - **Baseline:** `ai_deployment_evidence/p0_baseline_harness.{md,json}`, pre-P0.
 - **P0.1:** the formation builder alone.
 - **P0.1 + P0.3:** `ai_deployment_evidence/p0_3_terrain_harness.{md,json}`, which also has the 18 per-map rows.
-- **Final:** this branch with P0.4, `ai_deployment_evidence/p0_final_harness.{md,json}`.
+- **Lane A final:** P0.1 + P0.3 + P0.4 before the P0.2 / terrain-data merges and the review fixes, `ai_deployment_evidence/p0_final_harness.{md,json}`.
+- **Merged + review fixes:** the shipped code (all lanes merged, W3 review fixes applied), cold caches, `ai_deployment_evidence/p0_merged_harness.{md,json}`; the same with the gate's attached leaders in `p0_merged_harness_attached.json`.
 
-| Metric (36 runs) | Baseline | P0.1 | P0.1 + P0.3 | Final |
-|---|---|---|---|---|
-| Units forced into Strategic Reserves | **152** (18,155 pts) | 0 | 0 | **0** |
-| Refused placements, legacy game-log count | 298 | 0 | 0 | 0 |
-| Refused deployment actions, counted at the source (P0.4) | not measured | not measured | not measured | **0** |
-| Whole-board legality-audit violations | not measured | 0 | 0 | 0 |
-| Multi-model hide-capable units fully Hidden | 53 / 504 | 82 / 504 | 348 / 504 | 348 / 504 |
-| Leakers (unit partly Hidden) | 263 | 262 | **0** | 0 |
-| Home objective held at the end of deployment | 55 / 72 | 54 / 72 | 60 / 72 | 60 / 72 |
-| Worst drop | not measured | 412 ms (builder time only) | 870 ms whole decision (mean 77 ms) | 875 ms whole decision (mean 80 ms) |
+| Metric (36 runs) | Baseline | P0.1 | P0.1 + P0.3 | Lane A final | Merged + review fixes |
+|---|---|---|---|---|---|
+| Units forced into Strategic Reserves | **152** (18,155 pts) | 0 | 0 | **0** | **0** (0 with leaders) |
+| Refused placements, legacy game-log count | 298 | 0 | 0 | 0 | 0 |
+| Refused deployment actions, counted at the source (P0.4) | not measured | not measured | not measured | **0** | **0** (0) |
+| Whole-board legality-audit violations | not measured | 0 | 0 | 0 | 0 (0) |
+| Multi-model hide-capable units fully Hidden | 53 / 504 | 82 / 504 | 348 / 504 | 348 / 504 | **356 / 504** (368) |
+| Leakers (unit partly Hidden) | 263 | 262 | **0** | 0 | 0 (0) |
+| Home objective held at the end of deployment | 55 / 72 | 54 / 72 | 60 / 72 | 60 / 72 | 60 / 72 (60) |
+| Worst drop | not measured | 412 ms (builder time only) | 870 ms whole decision (mean 77 ms) | 875 ms whole decision (mean 80 ms) | 1,697 ms cold caches (mean 109 ms); 1,371 ms with leaders |
 
 By fixture (baseline → P0.1 + P0.3):
 
@@ -701,6 +702,8 @@ Notes:
 - **Sweeping Engagement home objective.** It is 0 of 12 in every column. The layout used for that map labels `obj_home_1` as player 1's, but that objective sits in player 2's zone, so no deployment can hold it. This is a data / seat-labelling issue, not an AI one.
 - **Why there is a new metric.** The legacy game-log count sees only a unit's FIRST refused DEPLOY_UNIT / COMPOSITE_DEPLOY. It misses refused retries, a reserves fallback refused by the caps, and refused PLACE_IN_RESERVES / EMBARK_UNITS_DEPLOYMENT actions. The count at the source (`AIPlayer.get_deploy_rejections()`) sees all of them.
   - On the pre-P0 code path the gap is large. The gate scenario run with the three kill switches at 0 gives **24 / 18 refused actions at the source but only 5 / 5 in the game log**.
+
+- **Merged + review fixes column.** Search and Destroy boards changed with the terrain-data fix (split link group), which explains most of 348 → 356. The worst-drop figure is now measured with cold caches (the harness clears `FormationBuilder` caches per run) and on a loaded machine, so it is not comparable with the earlier warm-cache columns; D10 is enforced by per-drop counts (see `docs/AI_TUNING.md`). A 45-layout sweep with the gate's attached leaders gives 0 forced reserves, 0 refused actions and 0 audit violations on every shipped layout.
 
 ### 10.2 The delivery gate
 
@@ -717,7 +720,16 @@ Notes:
   - `test_deployment_eval.gd`: metrics, plus contract tests that send a really-invalid DEPLOY_UNIT, COMPOSITE_DEPLOY, PLACE_IN_RESERVES and EMBARK_UNITS_DEPLOYMENT through the real `AIPlayer._execute_next_action`. Each is counted exactly once. An accepted K-card suggestion and a reserves fallback refused by the caps are counted once too.
 - **Benchmark.** A predeploy bench game writes `deployment_eval` (per seat: metrics, forced, rejected, legacy count; plus legality violations) to its result and to the game record outcome. Games that start after deployment write `{}`.
 
-### 10.3 Decisions taken for P0
+### 10.3 Review and fixes (2026-11-14)
+
+A 7-lens review of the merged diff, each finding checked by an adversarial verifier plus a completeness critic, confirmed 30 of 33 findings. The ones that mattered, and their fixes:
+- **False "no legal set-up".** Growth fallback seeded only near the formula's spot, so a crowded zone sent units to Strategic Reserves while open ground existed elsewhere (8 of 45 layouts with attached leaders). Seeds are now ranked by free room; the column-spot fallback keeps big units' room (Wazdakka Gutsmek). New E2E configs reproduce each case and fail on the old code.
+- **Human Confirm refused → unit stranded.** A refused human deployment left ghost tokens and a unit that could never deploy. The session now stays open with the refusal shown. Leader + bodyguard coherency is judged as one unit (19.01), and reposition drops check walls and the board edge. New windowed scenario `human_composite_deploy_leader_11e`.
+- **Flaky wall-clock test** (failed on GitHub runners): replaced by per-drop count checks plus a generous hang guard.
+- **Smaller:** AI Scout stand-off used truncated base sizes; Scout staging order split units; 11e screens still said 9"; the K card blamed every unbuilt spot on "no legal set-up"; terrain checker / test gaps; vacuous tests; a Formations AI loop.
+- **Follow-ups not done:** stand-off validators treat oval/rectangle bases as circles (engine-wide); reinforcement formations (RC10); the phase's one-way overlap test (RC8); area climb cost at 11e (TER-02); web-build drop timing; the pre-existing `test_fire_overwatch_15_08_11e.gd` parse error.
+
+### 10.4 Decisions taken for P0
 
 The D-numbers are those of the P0 implementation brief. D1–D3 (COMPOSITE_DEPLOY for attached leaders, every alive model must get a position, the phase's overlap check left as is) are covered in §5.8 and §10 above.
 
