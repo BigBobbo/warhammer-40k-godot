@@ -210,3 +210,148 @@ Done since this list was written: sync by code (1.94), player-edge setting (1.92
 - Score-or-hold: partial payouts are held until round 4 (MODEL.holdUntil).
 - Known limits: line of sight is not used in kill estimates; stratagems / CP
   are not modelled; a board plan only knows the units placed on it.
+
+## Round 3: rules audit (user: "Implement all in order", 20 Nov 2026)
+
+The audit of 20 Nov found 11 places where the numbers disagreed with the 11th
+edition rules, 6 new aids and 4 ease-of-use items. Status in words (no boxes
+ticked: see "Commit gate" above). Rule texts: `core.txt` (Wahapedia, 20 Nov) and
+the rules appendix (02.02.01 Modifiers, fetched the same day).
+
+- Fix 1, charge odds (11.04): BUILT in v1.100.0, browser-tested. The target
+  must be within the charge roll (and within 12") before the unit moves: need =
+  ceil(gap), not gap - 2. Charge-roll modifiers add up (02.02.01 limits hit and
+  wound rolls only); the roll cannot be more than 12.
+- Fix 2, weapon choice: BUILT in v1.100.0, browser-tested. User asked for a
+  GENERIC fix ("always, the optimal profiles are chosen"). `choose.mjs` scores
+  every legal option with the calculator's own engine against the real target,
+  then checks the pick with the whole unit's attack. Structure: one melee weapon
+  per model (04.01), one profile per weapon and Hunter profiles (04.01.03),
+  close-quarters weapons or the others (24.07), Extra Attacks (24.11), a ranged
+  weapon need not be fired (04.02). Score = wounds removed - own expected
+  Hazardous wounds. Proof: `tests/audit-weapon-choice.mjs` checks every datasheet
+  (1,109) against 8 targets in both phases with an independent simulation; a
+  sample of it runs with the unit tests. The first version failed 26 of 2,371
+  checked choices, the second 15 of 6,065, both fixed (whole-unit pass; profiles
+  on either side of "close-quarters or not"; optional Hazardous guns).
+- Fix 3, detachment rules: BUILT in v1.100.0. Linked by `ability.detachment_id`
+  (373 detachment records have no `detachment_rule_id`); codex records replace
+  the provisional one. Parser reads "Attacks made by friendly X/Y/Z units have".
+- Fix 4, wargear: BUILT in v1.100.0. "+1 W" (Storm Shield) on the carriers;
+  wargear that is not in the list is listed switched off, not given to all.
+- Engine: a hazard roll for every Hazardous weapon selected (24.15), also when
+  the target was destroyed first.
+- Fix 5, territory: BUILT in v1.101.0, browser-tested. `board.mjs objectiveSides`
+  puts an expansion objective on the side of the territory polygon it is in
+  (36 of 90 differed, 18 of 45 layouts). Unedited stored starting plans are
+  migrated (`missionview.mjs migratePlanSides`, marker `sidesV`).
+- Fix 6, objective control: BUILT in v1.101.0. Models carry their OC
+  (`formation`), `planeval.ocInRange` sums the models in range, unit facts
+  have `objOc`; a tie is nobody's (14.02).
+- Fix 7, Hidden / Lone Operative: BUILT in v1.101.0. Light or dense features
+  (errata), gone to ground 12", `threatTo({ detect })`, `planeval.detectRange`
+  (Lone Operative always; Hidden only for units without guns, which never shoot).
+- Fix 10, board checks: BUILT in v1.101.0. `planWarnings` rewritten (deployment
+  zone, Infiltrators, Scouts, round 1, 6" edge band, enemy zone before round 3,
+  Deep Strike exempt, 8" from enemies) and shown on the board per step;
+  `coherentFormation` + `coherency` (03.03). `adapter.coreFlags` reads Deep
+  Strike, Infiltrators, Scouts, Lone Operative, Stealth, Fights First, Deadly
+  Demise and Firing Deck from the datasheet's core ability ids.
+- Fix 11, cards: BUILT in v1.101.0 (Punishment off-turn via the existing
+  fight-back kills, Delaying Action, Outflank, Purge and Secure, A Grievous
+  Blow). Not changed: Consecrate still ignores kills in the opponent's turn.
+- Also: a detachment's "+N" M" (Stormlance) is applied to the board unit's move.
+- Fix 8, stratagem limits (15.01): BUILT in v1.102.0, browser-tested. One
+  stratagem on a unit in a phase, each stratagem once in a phase (attacker
+  cards and the target); Command Re-roll on a save for the defender
+  (`rerollOneSave`: one failed save in the phase).
+- Fix 9, abilities and hit modifiers: BUILT in v1.102.0. `weaponKw` keeps
+  `required_target_keywords_any` / `excluded_target_keywords` as `limits`,
+  `limitKw` switches them off per target (24.01). Engine: `heavyOk` (24.16),
+  `damaged` (24.39), `engagedMV` + `engaged` (17.03), Psychic ignores harmful
+  hit modifiers (24.29), no cap on save modifiers (02.02.01). Shooting type
+  per attacker (10.04-10.06). Also: rules for named weapons
+  (`rules.parseWeaponBullets`: Terminatus Assault, Full-throttle Assault - the
+  only two in the data, both in the user's list) and enhancement grants
+  (`adapter.enhancementGrants`: Wolf-Touched).
+  Not done: Guile of the Wolf / Strategic Acumen doctrines beyond the chips
+  (only one stratagem option reads a doctrine); Hammer Blow (a debuff on the
+  enemy's later attacks); Imperium's Sword (its weapon text is cut off in the data).
+- Aid 1, the exchange: BUILT in v1.103.0, browser-tested. `engine.simulateChain`
+  takes `overwatch` (15.08, snap shooting on the charger at the end of its
+  move), `back` (12.08, the target's survivors fight, attacks scaled by the
+  models left) and `demise` (24.08, a D6 per model destroyed in the fight). The
+  result has `own`: models and points lost, how often overwatch stops the
+  charge, the points traded. The fight is scaled by the charger's survivors.
+- Aid 2, battle-shock: BUILT in v1.103.0. `adapter.shockFacts` (best Ld,
+  starting strength); the results sheet and the chain show the chance the
+  target is at or below half strength and fails 2D6 against Ld (08.03), and
+  the same for the charger after the fight back.
+- Aid 3, my army phase by phase: BUILT in v1.104.0, browser-tested. Intel has a
+  "By phase" view (`phasesheet.mjs`, pure; `adapter.phaseSheetInput`). The phase
+  comes from the rule's words first ("In your Command phase", "melee attacks",
+  a charge-move condition = Fight phase, "attacks that target this unit" = the
+  opponent's turn), the rules data's `phaseMappings` only when the words say
+  nothing. Stratagems go by turn + WHEN line. Once-per-battle rules get ticks,
+  kept with the game (`game.once`, cleared by a new game): each combat doctrine,
+  plus the extra Assault doctrine of Assault Mastery; Waaagh!. The army rule
+  comes from `factions[].faction_rule_ids` (`adapter.armyRules`) and is now on
+  the Intel army card too (it was shown nowhere before).
+- Aid 4, enemy tricks: BUILT in v1.104.0. `adapter.armyTricks` -> the brief's
+  "Plan around" list: Deep Strike, Infiltrators, Scouts, Lone Operative, Fights
+  First, Torrent weapons (overwatch) and Indirect Fire, with units and ranges.
+  Rule numbers read in the core rules text (Scouts is 24.31, the Scout move
+  24.32). Torrent in overwatch: 24.37 "automatically hits" against 15.09 "only
+  hits on an unmodified 6" - no FAQ found; the calculator counts it at full
+  effect and the note says so.
+- Test note: the e2e check "forecast favours the much bigger army" read the
+  forecast before the unit-vs-unit odds were in (a race that failed once in 7
+  runs); it now waits for them first.
+- Aid 5, board overlays and plan versions: BUILT in v1.105.0, browser-tested.
+  `planeval.arrivalZones` / `canArrive` hold 20.03, 20.04 and 24.09 (edge band
+  6", 8" from enemy bases, enemy zone closed before round 3, Deep Strike
+  anywhere); the board draws them with SVG masks ("Reserves can arrive: A / B").
+  Detection ring: `boardview.detectionOf` (Lone Operative, or Hidden 15").
+  Plan versions: `variant.when` = 'first' | 'second'; one tap splits a plan,
+  the two share the Deploy step (the board warns when they drift apart: the
+  roll-off is after deployment, Event Companion step 10). `forecastParams`
+  forecasts a tagged version with that first turn until the real one is known;
+  "Your plans compared" adds the roll-off row (the average of the two).
+- Aid 6, the event: BUILT in v1.106.0, browser-tested.
+  Layouts default to A, B, C, A, B (`playtools.cycleLayout`; GW GT pack 4.2);
+  an untouched saved event is moved over once (`layoutsV`).
+  Each round keeps `score: { me, opp }`: typed, taken from the Play view, or
+  kept when the next round starts; `playtools.eventRecord` gives wins, losses,
+  draws and VP. Play: `capWarnings` flags more than 15VP of primary or of
+  secondary in a battle round (Event Companion; end-of-battle VP excepted);
+  Fixed Missions stay on the tracker (`game[X].fixedVp`, `scoreFixed`: 20VP a
+  card, 45 secondary) and the forecast starts from what they have paid;
+  the chess clock's pause is locked by default (`chessLocked`, UKTC policy:
+  only a referee pauses it; under 5 minutes a player may).
+- Ease of use: BUILT in v1.107.0, browser-tested. Measured before and after
+  (Pixel 7 profile, CPU slowed 4x): a tap on Play re-ran about 14,500 games in
+  2.7 s, now 1,000 games in 0.46 s (`missionview.PLAY_TRIALS`; Play runs no
+  what-ifs and no plan comparison, Plan and Cards run them as before).
+  Manifest `orientation: any`. Grey text: `--text-muted` #9a9991 (dark) and
+  #66655f (light), 4.5:1 or better on every surface; white on the primary
+  button 4.9:1 (`--accent-fill`); side-coloured text has its own inks. Text
+  under 4.5:1 in the light theme went from 236 to 0 on Intel. Play controls
+  under 36 px: 22 of 60 before, none now.
+  Rules in force: `rulesnote.mjs` (checked 20 Nov 2026; newest dataset 1.5.1,
+  13 Nov; next change the week beginning 7 December per Warhammer Community,
+  with a warning from that date). The November 2026 World Championships
+  updates (UKTC adopted them) change 8 weapon lines: 3 are in the data, 5 are
+  NOT applied to the numbers and are shown as notes on the datasheet; each
+  claim is checked against the dataset in tests/calc-rulesnote.test.mjs.
+  `adapter.earlyArrival` + `planeval.planWarnings(geo.early)`: High King of
+  Fenris lets one unit a step arrive as if the battle round were one higher.
+- Final check of Round 3 (v1.107.0, 20 Nov 2026): 206 unit tests and 376
+  browser checks pass. Weapon-choice audit on the final code, every datasheet
+  (1,109), 8 targets, both phases: 16,328 cases, 6,137 with a choice, 10,021
+  decisions, none beatable, in both modes (`--context always` for the Attack
+  tab, `--context auto` for the grid and forecast odds).
+  Left open, on purpose: the 5 weapon changes of the November 2026 update are
+  notes, not numbers; Consecrate still ignores kills in the opponent's turn;
+  doctrine effects beyond the chips; Hammer Blow; Imperium's Sword (its weapon
+  text is cut off in the data). Not merged, not deployed: the live site is the
+  build before this round.

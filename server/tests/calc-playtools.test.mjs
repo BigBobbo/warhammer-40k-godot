@@ -182,3 +182,67 @@ test('undo: the tracker before each change, newest first, at most 30 steps', () 
   for (let i = 0; i < 50; i++) { g.A.primary = i; T.pushUndo(stack, g, 'x'); }
   assert.equal(stack.length, T.UNDO_MAX);
 });
+
+test('event: layouts cycle A, B, C; the record counts wins, losses, draws and VP of the rounds with a result', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(T.cycleLayout), [1, 2, 3, 1, 2, 3], 'GW GT pack 4.2: A, B, C, then the cycle again');
+  const rounds = [{ score: { me: 87, opp: 62 } }, { score: { me: 55, opp: 70 } }, { score: { me: 71, opp: 71 } }, { score: { me: 90, opp: null } }, { layout: 2 }];
+  assert.deepEqual(T.eventRecord(rounds), { played: 3, wins: 1, losses: 1, draws: 1, vpFor: 213, vpAgainst: 203 });
+  assert.equal(T.roundPlayed(rounds[3]), false, 'half a result is not a result');
+  assert.deepEqual(T.eventRecord([]), { played: 0, wins: 0, losses: 0, draws: 0, vpFor: 0, vpAgainst: 0 });
+});
+
+test('more than 15VP of primary or of secondary in one battle round is flagged (Event Companion)', () => {
+  const g = game();
+  g.A.primary += 15;
+  assert.deepEqual(T.capWarnings(g), [], '15 is the limit, not over it');
+  g.A.primary += 2; g.B.secondary += 16;
+  assert.deepEqual(T.capWarnings(g), [
+    { side: 'A', round: 1, kind: 'primary', vp: 17, over: 2, last: false },
+    { side: 'B', round: 1, kind: 'secondary', vp: 16, over: 1, last: false },
+  ]);
+  // the next battle round starts from zero
+  T.endTurn(g, 'A'); T.endTurn(g, 'A');
+  g.A.primary += 10;
+  assert.deepEqual(T.capWarnings(g).map(w => `${w.side}${w.round}${w.kind}`), ['A1primary', 'B1secondary'], 'round 2 is within the limit');
+  // the last round: the warning says that end-of-battle VP are outside the limit
+  const h = game();
+  for (let i = 0; i < 8; i++) T.endTurn(h, 'A');
+  h.A.primary += 20;
+  assert.deepEqual(T.capWarnings(h), [{ side: 'A', round: 5, kind: 'primary', vp: 20, over: 5, last: true }]);
+});
+
+test('Fixed Missions: what a card pays at a time, 20VP a card, and the secondary VP follow', () => {
+  assert.deepEqual(T.fixedSteps('4 VP per enemy unit with Starting Strength 13+ destroyed (max 20 per game).'), [4]);
+  assert.deepEqual(T.fixedSteps('3 VP per enemy CHARACTER model destroyed, +1 each with W4+ (max 20 per game).'), [3, 4]);
+  assert.deepEqual(T.fixedSteps('2 VP for three quarters, 4 VP for four (max 20 per game).'), [2, 4]);
+  const g = game();
+  assert.equal(T.scoreFixed(g, 'A', 'assassination', 4), 4);
+  assert.deepEqual([g.A.fixedVp.assassination, g.A.secondary], [4, 4]);
+  for (let i = 0; i < 5; i++) T.scoreFixed(g, 'A', 'assassination', 4);
+  assert.deepEqual([g.A.fixedVp.assassination, g.A.secondary], [20, 20], 'a card stops at 20VP');
+  assert.equal(T.scoreFixed(g, 'A', 'assassination', 3), 0);
+  // a mistake taken back
+  assert.equal(T.scoreFixed(g, 'A', 'assassination', -1), -1);
+  assert.deepEqual([g.A.fixedVp.assassination, g.A.secondary], [19, 19]);
+  // the second card: the secondary total stops at 45
+  g.A.secondary = 43;
+  assert.equal(T.scoreFixed(g, 'A', 'bring-it-down', 4), 2);
+  assert.deepEqual([g.A.fixedVp['bring-it-down'], g.A.secondary], [2, 45]);
+  assert.equal(T.scoreFixed(g, 'B', 'engage-on-all-fronts', -1), 0, 'nothing to take back');
+});
+
+test('chess clock: the pause is locked unless switched off; under 5 minutes a player may pause (UKTC)', () => {
+  const c = T.newClock();
+  let now = 1000;
+  assert.equal(T.chessLocked(c), true);
+  assert.equal(T.chessLocked({ ...c, lock: undefined }), true, 'a clock saved before the lock existed is locked');
+  T.chessRun(c, 'A', now);
+  now += 10 * MIN;
+  assert.equal(T.chessMayPause(c, now), false, '1:15 and 1:25 left: only a referee pauses');
+  now += 71 * MIN;
+  assert.equal(T.chessLeft(c, 'A', now), 4 * MIN);
+  assert.equal(T.chessMayPause(c, now), true, 'A has under 5 minutes: may pause to call a referee');
+  c.lock = false;
+  assert.equal(T.chessLocked(c), false);
+  assert.equal(T.chessMayPause(T.chessRun(T.newClock(), 'A', 0) && { ...T.newClock(), lock: false }, 0), true);
+});

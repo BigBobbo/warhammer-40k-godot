@@ -3,6 +3,7 @@
 //    then the full run;
 //  - batch (matchup grid): one result per cell, posted as each finishes.
 import { simulate, simulateChain } from './engine.mjs';
+import { resolveScenario } from './choose.mjs';
 import { forecast } from './forecast.mjs';
 
 const QUICK = 3000;
@@ -19,14 +20,16 @@ self.onmessage = (ev) => {
     return;
   }
   if (chain) {
-    try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, trials: trials ?? 20000 }) }); }
+    // the enemy's part (overwatch, fighting back) is a default matchup: its weapon choice is made here
+    try { self.postMessage({ id, chain: true, result: simulateChain({ ...chain, overwatch: chain.overwatch ? resolveScenario(chain.overwatch) : null, back: chain.back ? resolveScenario(chain.back) : null, trials: trials ?? 20000 }) }); }
     catch (err) { self.postMessage({ id, chain: true, error: String(err?.stack ?? err) }); }
     return;
   }
   if (batch) {
     for (const item of batch) {
       try {
-        const r = simulate({ ...item.scenario, trials: trials ?? 2000 });
+        // a default matchup leaves its weapon choice to this thread (choose.mjs)
+        const r = simulate({ ...resolveScenario(item.scenario), trials: trials ?? 2000 });
         // spread of the wounds dealt (the forecast combines several attackers on one target)
         let varW = 0;
         for (let i = 0; i < r.wounds.length; i++) varW += r.wounds[i] * (i - r.meanWounds) ** 2;

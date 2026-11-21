@@ -10,7 +10,12 @@
 //  - Event Companion v1.2: excluding Core CP, a player gains at most 1CP per
 //    battle round (the CP for discarding a Secondary Mission card included).
 //  - GW Grand Tournament pack 2026, 3.6 "Game Speed Milestones" (3-hour round).
-//  - UKTC policies: chess clocks, "start the game with 1:25 on the clock".
+//  - UKTC policies: chess clocks, "start the game with 1:25 on the clock"; "Once started, only a
+//    referee may pause the chess clock" (a player under 5 minutes may, to call a referee).
+//  - Event Companion v1.2, "Determine victor": primary 45VP and secondary 45VP, each up to 15VP per
+//    battle round; at most 20VP per Fixed Secondary Mission card; VP scored at the end of the
+//    battle are outside the per-round limit. Fixed Missions "cannot be discarded and are active
+//    for you throughout the battle".
 
 const other = (X) => (X === 'A' ? 'B' : 'A');
 const MIN = 60000;
@@ -73,6 +78,7 @@ export function newClock() {
     bank: 85,                    // chess clock: minutes each
     left: null,                  // { A: ms, B: ms } once started
     running: null, since: null,  // whose clock runs, and since when
+    lock: true,                  // chess clock: a pause asks first (UKTC: only a referee pauses it)
   };
 }
 
@@ -111,6 +117,11 @@ function chessCommit(c, now) {
 export function chessRun(c, X, now) { chessCommit(c, now); c.running = X; return c; }
 export function chessPause(c, now) { chessCommit(c, now); c.running = null; return c; }
 export function chessReset(c) { c.left = null; c.running = null; c.since = null; return c; }
+/** Is the pause locked? (on unless switched off: clocks saved before the lock existed are locked too) */
+export const chessLocked = (c) => c.lock !== false;
+/** UKTC: "a player [with] fewer than 5 mins remaining on their clock ... may pause the clock" to call a referee. */
+export const CHESS_PAUSE_UNDER_MIN = 5;
+export const chessMayPause = (c, now) => !chessLocked(c) || ['A', 'B'].some(X => chessLeft(c, X, now) < CHESS_PAUSE_UNDER_MIN * MIN);
 export function chessSetBank(c, bankMin) { c.bank = bankMin; return c; }
 
 // ---------------------------------------------------------------------------
@@ -125,11 +136,13 @@ export function ensureGame(g, { fresh = false } = {}) {
     // under way when this was added starts counting from 0 (the player sets it)
     g[X].cp ??= fresh ? 1 : 0;
     g[X].cpRound ??= 0;         // the battle round of the last CP gained from another source than Core CP
+    g[X].fixedVp ??= {};        // Fixed Missions: VP scored on each card so far ({ cardId: vp })
   }
   g.mark ??= scoresOf(g);       // the scores when the current turn began
   g.log ??= [];                 // one entry per finished turn: what each player scored in it
   g.turnsDone ??= 0;            // turns closed with "Turn done"
   g.drawn ??= 0;
+  g.once ??= { A: {}, B: {} };  // once-per-battle rules ticked as used (Intel > By phase): { tickId: true }
   return g;
 }
 
@@ -200,6 +213,72 @@ export function scoreSheet(g, rounds = 5) {
   for (const r of rows) for (const X of ['A', 'B']) { logged[X].primary += r[X].primary; logged[X].secondary += r[X].secondary; }
   const before = { A: { primary: total.A.primary - logged.A.primary, secondary: total.A.secondary - logged.A.secondary }, B: { primary: total.B.primary - logged.B.primary, secondary: total.B.secondary - logged.B.secondary } };
   return { rows, total, before, hasBefore: !isZero(before) };
+}
+
+// ---------------------------------------------------------------------------
+// An event: the layout of each round, and the record of the rounds played
+
+/**
+ * GW Grand Tournament pack 4.2: "round 1 will use Layout A, round 2 will use Layout B, round 3 will use
+ * Layout C, repeating the cycle A-B-C in later rounds." (0-based round -> 1 = A, 2 = B, 3 = C)
+ */
+export const cycleLayout = (i) => (i % 3) + 1;
+/** A round with a result: both VP totals are in. */
+export const roundPlayed = (r) => !!r?.score && r.score.me != null && r.score.opp != null;
+/** { played, wins, losses, draws, vpFor, vpAgainst } over the rounds that have a result ({ score: { me, opp } }). */
+export function eventRecord(rounds) {
+  const out = { played: 0, wins: 0, losses: 0, draws: 0, vpFor: 0, vpAgainst: 0 };
+  for (const r of rounds ?? []) {
+    if (!roundPlayed(r)) continue;
+    out.played++;
+    out.vpFor += r.score.me; out.vpAgainst += r.score.opp;
+    if (r.score.me > r.score.opp) out.wins++; else if (r.score.me < r.score.opp) out.losses++; else out.draws++;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Scoring limits (Event Companion, "Determine victor")
+
+export const ROUND_CAP = 15;        // primary, and secondary: up to 15VP per battle round
+export const FIXED_CARD_CAP = 20;   // per Fixed Secondary Mission card
+export const SOURCE_CAP = 45;       // primary, and secondary, in a game
+
+/**
+ * Battle rounds in which a player has more than 15VP of primary or of secondary on the sheet.
+ * -> [{ side, round, kind: 'primary'|'secondary', vp, over, last }]  (last: the final round, where VP
+ * scored at the end of the battle are outside the limit)
+ */
+export function capWarnings(g, rounds = 5, cap = ROUND_CAP) {
+  const out = [];
+  for (const row of scoreSheet(g, rounds).rows) for (const X of ['A', 'B']) for (const kind of ['primary', 'secondary']) {
+    if (row[X][kind] > cap) out.push({ side: X, round: row.round, kind, vp: row[X][kind], over: row[X][kind] - cap, last: row.round === rounds });
+  }
+  return out;
+}
+
+/** The amounts a Fixed card pays at a time, from its fixed-mode text ("3 VP per ..., +1 each with W4+" -> [3, 4]). */
+export function fixedSteps(fixedText) {
+  const t = String(fixedText ?? '');
+  const base = [...t.matchAll(/(\d+) VP/g)].map(m => Number(m[1]));
+  const plus = [...t.matchAll(/\+(\d+) each/g)].map(m => Number(m[1]));
+  const out = new Set(base);
+  for (const b of base) for (const p of plus) out.add(b + p);
+  return [...out].sort((a, b) => a - b);
+}
+
+/**
+ * VP on a Fixed card (a negative `vp` takes a mistake back): at most 20 per card, and the player's
+ * secondary VP (at most 45) follow. Returns what was really added.
+ */
+export function scoreFixed(g, X, id, vp) {
+  g[X].fixedVp ??= {};
+  const cur = g[X].fixedVp[id] ?? 0, sec = g[X].secondary || 0;
+  let d = Math.max(-cur, Math.min(FIXED_CARD_CAP - cur, vp));     // the card: 0..20
+  d = Math.max(-sec, Math.min(SOURCE_CAP - sec, d)) || 0;         // secondary VP: 0..45 (and no -0)
+  g[X].fixedVp[id] = cur + d;
+  g[X].secondary = sec + d;
+  return d;
 }
 
 // ---------------------------------------------------------------------------

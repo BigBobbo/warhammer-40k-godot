@@ -238,3 +238,61 @@ test('battle over (start after round 5): the forecast is the final score, nothin
   assert.deepEqual([r.pWinA, r.pWinB, r.pDraw], [1, 0, 0]);
   assert.ok(Number.isFinite(r.margin.p50) && r.margin.p50 === 7);
 });
+
+// ---- round 3 fixes (1.101): the card texts read again
+
+test('A Grievous Blow: the starting strength of an attached unit counts its leaders (12 models + Warboss = 13)', () => {
+  const p = F.armyProfile([u('Boyz + Warboss', { models: 13, bodyguardModels: 12, characters: 1 }), u('Squad', { models: 12, bodyguardModels: 12 })]);
+  assert.deepEqual(p.units.map(x => x.ss13), [true, false]);
+});
+
+test('Delaying Action: the 4 VP are for an objective that is not a home objective - the enemy home does not count', () => {
+  // A holds its own home and the ENEMY home only; then also the centre
+  const run = (cells) => F.forecast({ players: { A: quiet('Delaying Action', ARMY_A), B: quiet('Delaying Action', ARMY_B) }, objectives: OBJS, plan: planAll(cells), first: 'A', trials: 20, confidence: SURE }).A.prim.map(Math.round);
+  assert.deepEqual(run({ hA: 'A', eA: 'B', c: 'B', eB: 'B', hB: 'A' }), [0, 0, 0, 0, 0], 'own home + enemy home: no VP (the app gave 4 a round)');
+  assert.deepEqual(run({ hA: 'A', eA: 'B', c: 'A', eB: 'B', hB: 'B' }), [0, 4, 4, 4, 4], 'the centre: 4 VP in each Command phase from round 2');
+});
+
+test('Punishment: "End of a turn" - the 5 VP are scored in the opponent\'s turn too', () => {
+  // A holds its home objective only, so every primary VP of A is the 5 VP for a condemned unit destroyed
+  const players = (killA, killB) => ({ A: { ...quiet('Punishment', BIG()), killRate: killA }, B: { ...quiet('Punishment', BIG()), killRate: killB } });
+  const base = { objectives: OBJS, plan: planAll({ hA: 'A', eA: 'B', c: 'B', eB: 'B', hB: 'B' }), first: 'A', trials: 1500, seed: 11, confidence: SURE };
+  const none = F.forecast({ ...base, players: players(0, 0) });
+  assert.equal(none.A.primMean, 0, 'no kills, no objectives beyond home: nothing');
+  const both = F.forecast({ ...base, players: players(1.3, 1.3) });
+  // the same game without the fight back: every kill is in the player's own turn
+  const ownOnly = F.forecast({ ...base, players: players(1.3, 1.3), model: { ...F.MODEL, fightBack: 0 } });
+  assert.ok(both.A.primMean > ownOnly.A.primMean + 0.5, `with kills in the opponent's turn ${both.A.primMean.toFixed(2)} VP, own turns only ${ownOnly.A.primMean.toFixed(2)} VP`);
+});
+
+test('board plan, 14.02: equal Objective Control means nobody controls the objective (it was a coin flip)', () => {
+  const army = (names) => F.armyProfile(names.map(n => ({ name: n, models: 5, points: 100 })));
+  const objs = [{ id: 'o1', cls: 'central', side: null }];
+  const f = (oc) => ({ objs: ['o1'], objOc: { o1: oc }, oc, inEnemyDZ: false, inMyDZ: true, inEnemyDZany: false, outsideDZ: false, outsideTerritory: false, quarter: -1, edges: [], centre3: true, centre6: true, whollyNML: true, terrainOutside: false });
+  const plan = (ocA, ocB) => { const rounds = {}; for (let r = 0; r <= 5; r++) rounds[r] = { A: [{ name: 'a1', f: f(ocA) }], B: [{ name: 'b1', f: f(ocB) }] }; return { rounds, threats: {} }; };
+  const P = (ocA, ocB) => ({ players: { A: quiet('Immovable Object', army(['a1'])), B: quiet('Immovable Object', army(['b1'])) }, objectives: objs, plan: {}, first: 'A', trials: 200, seed: 3, boardPlan: plan(ocA, ocB), confidence: SURE });
+  const tie = F.forecast(P(10, 10));
+  assert.deepEqual([tie.A.primMean, tie.B.primMean], [0, 0], 'a tie: neither player scores for the centre');
+  const win = F.forecast(P(10, 4));
+  assert.ok(win.A.primMean > 20 && win.B.primMean === 0, `A holds it with more OC: ${win.A.primMean}`);
+  // objOc decides: a unit "in range" with only 2 OC of its 10 on the objective loses it to 4
+  const part = F.forecast({ ...P(10, 4), boardPlan: (() => { const b = plan(10, 4); for (const r of Object.values(b.rounds)) r.A[0].f.objOc = { o1: 2 }; return b; })() });
+  assert.ok(part.B.primMean > 20 && part.A.primMean === 0, 'the models in range count, not the unit');
+});
+
+test('Fixed Missions in a game in progress: a card that has already paid its 20VP pays nothing more', () => {
+  const plan = planAll({ hA: 'A', eA: 'A', c: 'c', eB: 'B', hB: 'B' });
+  // A plays Fixed with Assassination + Bring It Down against a list with characters and W10+ models, and kills a lot
+  const fixed = (start) => ({ mission: 'Battlefield Dominance', army: BIG(), mode: 'fixed', fixed: ['assassination', 'bring-it-down'], killRate: 2.5, battleReady: false, start });
+  const run = (start) => F.forecast({ players: { A: fixed(start), B: { ...quiet('Battlefield Dominance', BIG()), killRate: 0 } }, objectives: OBJS, plan, first: 'A', startRound: 2, trials: 300, seed: 7, confidence: SURE });
+  const base = { hand: [], used: [], primary: 0, secondary: 0, destroyed: [] };
+  const fresh = run({ ...base });
+  const secOf = (r) => r.A.sec.reduce((a, b) => a + b, 0);
+  assert.ok(secOf(fresh) > 3, `with nothing scored yet the two cards pay in rounds 2-5: ${secOf(fresh)}`);
+  // both cards already at 20VP (40 secondary VP on the tracker): nothing more comes from them
+  const done = run({ ...base, secondary: 40, fixedVp: { assassination: 20, 'bring-it-down': 20 } });
+  assert.equal(secOf(done), 0, 'both cards are full');
+  // one card full: only the other one still pays, and never past 20
+  const half = run({ ...base, secondary: 20, fixedVp: { assassination: 20 } });
+  assert.ok(secOf(half) > 0 && secOf(half) <= 20 && secOf(half) < secOf(fresh), `${secOf(half)} of ${secOf(fresh)}`);
+});

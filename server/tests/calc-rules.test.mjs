@@ -187,3 +187,193 @@ test('engine: re-roll one hit / damage re-rolls / ignore hit modifiers', () => {
 test('bundle: a misspelt duplicate (UNBRIDLED FEROICITY) is merged into the game row', () => {
   assert.equal(STRATAGEMS.filter(s => /UNBRIDLED FERO/i.test(s.name)).length, 1);
 });
+
+// ---- detachment rules: linked by the detachment, for the units they name
+
+const A = await import(new URL('../public/calc/adapter.mjs', import.meta.url).href);
+const { readFileSync } = await import('fs');
+const fixture = (n) => readFileSync(new URL(`./fixtures/${n}`, import.meta.url), 'utf8');
+
+test('a rule for named units: "Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have [Lethal Hits: Character/Monster/Vehicle]"', () => {
+  const r = R.parseOffensive('Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have [Lethal Hits: Character/Monster/Vehicle].');
+  assert.deepEqual(labels(r), ['Lethal Hits']);
+  assert.deepEqual(r.conds.selfAny, ['BLOOD CLAWS', 'THUNDERWOLF CAVALRY', 'WULFEN']);
+  assert.deepEqual(r.conds.targetKw, ['CHARACTER', 'MONSTER', 'VEHICLE']);
+  assert.equal(r.conds.unknown, false);
+  const ctx = (own, tgt) => ({ attackerKeywords: own, targetKeywords: tgt });
+  assert.equal(R.conditionsMet(r.conds, ctx(['INFANTRY', 'WULFEN'], ['VEHICLE'])), true);
+  assert.equal(R.conditionsMet(r.conds, ctx(['MOUNTED', 'THUNDERWOLF CAVALRY'], ['MONSTER'])), true, 'a keyword of two words');
+  assert.equal(R.conditionsMet(r.conds, ctx(['INFANTRY', 'WULFEN'], ['INFANTRY'])), false, 'only against a Character, Monster or Vehicle (24.01)');
+  assert.equal(R.conditionsMet(r.conds, ctx(['INFANTRY', 'GREY HUNTERS'], ['VEHICLE'])), false, 'not for other units');
+  // several keywords in a row: all of them
+  const d = R.parseOffensive('Friendly Adeptus Astartes Dreadnought units can re-roll hit rolls of 1.');
+  assert.deepEqual([labels(d), d.conds.selfAny], [['Re-roll hit 1s'], ['ADEPTUS ASTARTES DREADNOUGHT']]);
+  assert.equal(R.phraseInKeywords('ADEPTUS ASTARTES DREADNOUGHT', new Set(['VEHICLE', 'DREADNOUGHT', 'ADEPTUS ASTARTES'])), true);
+  assert.equal(R.phraseInKeywords('ADEPTUS ASTARTES DREADNOUGHT', new Set(['VEHICLE', 'ADEPTUS ASTARTES'])), false);
+  assert.equal(R.phraseInKeywords('THUNDERWOLF CAVALRY', new Set(['THUNDERWOLF', 'MOUNTED'])), false, 'not half a keyword');
+  // wording the parser already knew is not changed by this
+  const old = R.parseOffensive('This unit’s melee attacks have [Lethal Hits].');
+  assert.deepEqual([labels(old), old.conds.selfAny], [['Lethal Hits'], []]);
+});
+
+test('the detachment rules of a codex army are found by the detachment (the Space Wolves list: three detachments, three rules)', () => {
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt'));
+  const rules = A.detachmentRules(sw);
+  assert.deepEqual(rules.map(r => r.name), ['Assault Mastery (Assault Brethren)', 'Legendary Slayers (Saga of the Beastslayer)', 'Lightning-fast Strike (Stormlance Task Force)']);
+  assert.match(rules[1].text, /Attacks made by friendly Blood Claws\/Thunderwolf Cavalry\/Wulfen units have \[Lethal Hits: Character\/Monster\/Vehicle\]/);
+  assert.match(rules[2].text, /Mounted\/Speeder units have \+2" M/, 'the codex rule, not the provisional "Lightning Assault"');
+  assert.ok(!rules.some(r => /Lightning Assault/.test(r.name)));
+  // a faction without a codex import keeps the rule its detachment record points to
+  const orks = A.importArmy(fixture('gw-orks-1000.txt'));
+  assert.deepEqual(A.detachmentRules(orks).map(r => r.name), ['Get Stuck In (War Horde)']);
+});
+
+test('Legendary Slayers reaches the engine: Lethal Hits for Wulfen and Thunderwolf Cavalry against a Vehicle, not for Grey Hunters, not against Boyz without their Warboss', () => {
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt')), orks = A.importArmy(fixture('gw-orks-1000.txt'));
+  const det = (cu) => A.attackerRules(cu, sw).rules.filter(r => r.kind === 'detachment');
+  const unit = (re) => sw.units.find(u => re.test(u.name));
+  assert.deepEqual(det(unit(/Wulfen/)).map(r => [r.source, r.label]), [['Legendary Slayers (Saga of the Beastslayer)', 'Lethal Hits']]);
+  assert.equal(det(unit(/Thunderwolf Cavalry \(1\)/)).length, 1);
+  assert.equal(det(unit(/Grey Hunters/)).length, 0, 'the rule is not listed on units it is not for');
+  const tw = unit(/Thunderwolf Cavalry \(1\)/);
+  const { rules } = A.attackerRules(tw, sw);
+  const on = (tgt) => new Set(rules.filter(r => r.phases.includes('fight') && A.attackerRuleOn(r, undefined, { charged: true, targetKeywords: tgt.keywords, attackerKeywords: tw.keywords })).map(r => r.id));
+  const wagon = orks.units.find(u => /Battlewagon/.test(u.name)), gretchin = orks.units.find(u => /Gretchin/.test(u.name)) ?? orks.units.find(u => !u.keywords.includes('CHARACTER') && !u.keywords.includes('VEHICLE') && !u.keywords.includes('MONSTER'));
+  const rows = A.attackerRows(tw, 'fight', null);
+  const vsWagon = A.buildAttacker(tw, rows, { charged: true }, rules, on(wagon), 'fight');
+  assert.equal(vsWagon.mods.lethal, true, 'against the Battlewagon');
+  const vsInf = A.buildAttacker(tw, rows, { charged: true }, rules, on(gretchin), 'fight');
+  assert.ok(!vsInf.mods.lethal, `not against ${gretchin.name}`);
+  // the size of it (the audit measured 36% -> 79% to destroy the Battlewagon on the charge)
+  const profile = A.defenderProfile(wagon, orks);
+  const defender = A.buildDefender(profile, new Set(profile.rules.filter(r => r.auto).map(r => r.id)), 'fight', {}, {});
+  const withRule = E.simulate({ phase: 'fight', attackers: [vsWagon], defender, trials: 20000, seed: 5 });
+  const without = E.simulate({ phase: 'fight', attackers: [{ ...vsWagon, mods: { ...vsWagon.mods, lethal: false } }], defender, trials: 20000, seed: 5 });
+  assert.ok(withRule.meanWounds > without.meanWounds * 1.2, `${without.meanWounds.toFixed(2)} -> ${withRule.meanWounds.toFixed(2)} wounds, destroyed ${without.pWipe.toFixed(2)} -> ${withRule.pWipe.toFixed(2)}`);
+  console.log(`  Thunderwolf Cavalry charging a Battlewagon: destroyed ${(100 * without.pWipe).toFixed(0)}% without Legendary Slayers, ${(100 * withRule.pWipe).toFixed(0)}% with it`);
+});
+
+// ---- wargear that changes the profile, on the models that carry it (22.04)
+
+test('Storm Shield "+1 W": the Terminators with a shield have 4 wounds, the one with lightning claws 3', () => {
+  assert.deepEqual(R.parseDefensiveText('This model has +1 W.').map(e => [e.label, e.apply, e.always]), [['+1 W', { W: 1 }, true]]);
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt'));
+  const cu = sw.units.find(u => /Terminator Assault Squad/.test(u.name));
+  const p = A.defenderProfile(cu, sw);
+  const shield = p.rules.find(r => r.source === 'Storm Shield' && r.label === '+1 W');
+  assert.ok(shield && shield.auto, 'a characteristic of the model: on');
+  const d = A.buildDefender(p, new Set(p.rules.filter(r => r.auto).map(r => r.id)), 'fight', {}, {});
+  const body = d.groups.filter(g => !g.character).map(g => [g.count, g.W]).sort((a, b) => b[0] - a[0]);
+  assert.deepEqual(body, [[9, 4], [1, 3]], 'sergeant + 8 with shields: W4; twin lightning claws: W3');
+  // it matters: the same attack kills fewer of them
+  const atk = [{ name: 'a', mods: {}, weapons: [{ name: 'w', count: 6, melee: true, A: '4', skill: 3, S: 8, AP: -2, D: '3', kw: {} }] }];
+  const off = A.buildDefender(p, new Set(p.rules.filter(r => r.auto && r !== shield).map(r => r.id)), 'fight', {}, {});
+  const k4 = E.simulate({ phase: 'fight', attackers: atk, defender: d, trials: 20000, seed: 9 }).meanKills;
+  const k3 = E.simulate({ phase: 'fight', attackers: atk, defender: off, trials: 20000, seed: 9 }).meanKills;
+  assert.ok(k4 < 0.75 * k3, `D3 attacks: ${k3.toFixed(2)} Terminators at W3, ${k4.toFixed(2)} at W4`);
+});
+
+test('wargear that is not in the list is not given to every model: a Shield-Captain with a guardian spear has no Praesidium Shield', () => {
+  const list = 'Shields (500 points)\n\nAdeptus Custodes\nShield Host\nIncursion (1000 points)\n\nShield-Captain (130 points)\n  • 1x Guardian Spear\n  • Warlord\n';
+  const army = A.importArmy(list);
+  const cu = army.units.find(u => /Shield-Captain/.test(u.name));
+  assert.ok(cu, JSON.stringify(army.warnings));
+  const p = A.defenderProfile(cu, army);
+  const ps = p.rules.find(r => /Praesidium Shield/.test(r.source));
+  assert.ok(ps, 'the rule is still listed, so it can be switched on');
+  assert.deepEqual([ps.auto, ps.notCarried], [false, true]);
+  const d = A.buildDefender(p, new Set(p.rules.filter(r => r.auto).map(r => r.id)), 'fight', {}, {});
+  assert.ok(d.groups.every(g => !g.dr) && !d.mods.damageReduction, 'no -1 Damage by default');
+  // with the shield in the list, it is on for that model
+  const army2 = A.importArmy(list.replace('1x Guardian Spear', '1x Praesidium Shield\n    1x Sentinel Blade'));
+  const p2 = A.defenderProfile(army2.units[0], army2);
+  const ps2 = p2.rules.find(r => /Praesidium Shield/.test(r.source));
+  assert.deepEqual([ps2?.auto, ps2?.notCarried], [true, false], JSON.stringify(army2.warnings));
+});
+
+// ---- round 3 fixes (1.102): abilities for some targets only, rules for named weapons, enhancement grants
+
+test('24.01: a weapon ability limited to targets with (or without) a keyword is off against the others', () => {
+  const k = A.weaponKw([
+    { keyword_id: 'sustained-hits', parameters: { value: 2, excluded_target_keywords: ['Monster', 'Vehicle'] } },
+    { keyword_id: 'devastating-wounds', parameters: { required_target_keywords_any: ['Infantry'] } },
+    { keyword_id: 'lethal-hits' },
+    { keyword_id: 'anti', parameters: { target_keyword: 'Monster', threshold: 4, required_target_keywords_any: ['Monster'] } },
+  ]);
+  assert.deepEqual(k.tags, ['sustained hits 2: not Monster/Vehicle', 'devastating wounds: Infantry only', 'lethal hits', 'Anti-monster 4+: Monster only']);
+  assert.equal(k.limits.length, 3);
+  const vs = (...kws) => A.limitKw(k.kw, k.limits, new Set(kws));
+  const inf = vs('INFANTRY');
+  assert.deepEqual([inf.kw.sustained, inf.kw.dev, inf.kw.lethal, inf.kw.anti.length, inf.off], [2, true, true, 0, ['Anti-monster 4+: Monster only']]);
+  const veh = vs('VEHICLE');
+  assert.deepEqual([veh.kw.sustained, veh.kw.dev, veh.kw.lethal], [0, false, true], 'against a Vehicle: no Sustained Hits, no Devastating Wounds; Lethal Hits has no limit');
+  assert.deepEqual(veh.off, ['sustained hits 2: not Monster/Vehicle', 'devastating wounds: Infantry only', 'Anti-monster 4+: Monster only']);
+  assert.equal(vs('MONSTER').kw.anti.length, 1);
+  assert.deepEqual(A.limitKw(k.kw, k.limits, null).off, [], 'no target known: nothing is switched off');
+  assert.equal(k.kw.sustained, 2, 'the weapon itself is not changed');
+});
+
+test('rules for named weapons: Terminatus Assault and Full-throttle Assault', () => {
+  const ta = R.parseWeaponBullets('If this unit made a charge move this turn, this unit’s: • Lightning Claws weapons have [Sustained Hits 1: non-Monster/Vehicle]. • Thunder Hammer weapons have [Sustained Hits 1: Monster/Vehicle].');
+  assert.deepEqual(ta.map(b => [b.weapon, b.others, labels(b), b.conds.charged, b.conds.targetKw, b.conds.targetNotKw]), [
+    ['lightning claws', null, ['Sustained Hits 1'], true, [], ['MONSTER', 'VEHICLE']],
+    ['thunder hammer', null, ['Sustained Hits 1'], true, ['MONSTER', 'VEHICLE'], []],
+  ]);
+  const ft = R.parseWeaponBullets('If this unit made a charge move this turn, this unit’s: • Thunder Hammer weapons have +1 to hit rolls and [Sustained Hits 1]. • Other melee weapons have +1 D and [Sustained Hits 1].');
+  assert.deepEqual(ft.map(b => [b.weapon, b.others, labels(b), b.phases]), [['thunder hammer', null, ['+1 to hit', 'Sustained Hits 1'], ['shooting', 'fight']], [null, 'melee', ['+1 D', 'Sustained Hits 1'], ['fight']]]);
+  assert.equal(R.parseWeaponBullets('This unit’s melee attacks have [Lethal Hits].'), null, 'an ordinary unit rule is not this');
+  assert.equal(R.weaponNamed('Twin Lightning Claws', 'lightning claws'), true);
+  assert.equal(R.weaponNamed('Thunder Hammer – Hunter', 'thunder hammer'), true);
+  assert.equal(R.weaponNamed('Chainsword', 'thunder hammer'), false);
+  // in the list: after a charge the Terminators' hammers have Sustained Hits 1 against the Battlewagon only,
+  // the lightning claws against the Boyz only; the Outriders' hammer and their other weapons differ
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt')), orks = A.importArmy(fixture('gw-orks-1000.txt'));
+  const build = (re, tre) => {
+    const cu = sw.units.find(u => re.test(u.name)), d = orks.units.find(u => tre.test(u.name));
+    const profile = A.defenderProfile(d, orks);
+    const { rules } = A.attackerRules(cu, sw);
+    const on = new Set(rules.filter(r => r.phases.includes('fight') && A.attackerRuleOn(r, undefined, { charged: true, targetKeywords: profile.keywords, attackerKeywords: cu.keywords })).map(r => r.id));
+    return Object.fromEntries(A.buildAttacker(cu, A.attackerRows(cu, 'fight', A.defenderSummary(profile)), { charged: true }, rules, on, 'fight').weapons.map(w => [w.name, w.mods ?? {}]));
+  };
+  const vsWagon = build(/Terminator Assault/, /Battlewagon/), vsBoyz = build(/Terminator Assault/, /Boyz/);
+  assert.deepEqual([vsWagon['Thunder Hammer'].sustained, vsWagon['Twin Lightning Claws'].sustained], [1, undefined]);
+  assert.deepEqual([vsBoyz['Thunder Hammer'].sustained, vsBoyz['Twin Lightning Claws'].sustained], [undefined, 1]);
+  const out = build(/Outrider/, /Boyz/);
+  assert.deepEqual(out['Thunder Hammer'], { hitMod: 1, sustained: 1 });
+  assert.deepEqual([out.Chainsword, out['Chaplain on Bike: Crozius Arcanum']], [{ damageMod: 1, sustained: 1 }, { damageMod: 1, sustained: 1 }], 'the other melee weapons of the unit, the Chaplain\'s too');
+});
+
+test('an enhancement that gives its unit a keyword and Move: Wolf-Touched ("This unit has: • Wulfen. • +2" M.")', () => {
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt'));
+  const cu = sw.units.find(u => /Captain on Bike/.test(u.name));
+  const cap = cu.members.find(m => /Captain on Bike/.test(m.dcUnit.name));
+  assert.deepEqual(A.enhancementGrants(cap.ru), { keywords: ['WULFEN'], move: 2, name: 'Wolf-Touched' });
+  assert.ok(cu.keywords.includes('WULFEN'));
+  // on the board: Wulfen 9" + 2" (Wolf-Touched) + 2" (Stormlance: the unit is Mounted through its Captain, 19.03)
+  const b = A.boardUnit(cu, sw);
+  assert.deepEqual([b.move, b.moveBonus, b.moveBonusFrom], [13, 4, 'Lightning-fast Strike + Wolf-Touched']);
+  assert.deepEqual(A.enhancementGrants({}), { keywords: [], move: 0, name: null });
+  // Damaged X and the other core flags come from the datasheet
+  const orks = A.importArmy(fixture('gw-orks-1000.txt'));
+  assert.equal(A.coreFlags(orks.units.find(u => /Battlewagon/.test(u.name))).damaged, 6);
+  assert.equal(A.coreFlags(sw.units.find(u => /Grey Hunters/.test(u.name))).damaged, 0);
+  assert.deepEqual([A.coreFlags(sw.units.find(u => /Logan/.test(u.name))).deepStrike, A.coreFlags(sw.units.find(u => /Scout Squad \(1\)/.test(u.name))).infiltrators, A.coreFlags(sw.units.find(u => /Scout Squad \(1\)/.test(u.name))).scouts], [true, true, 6]);
+});
+
+test('the defender can use Command Re-roll on a save; a Blast weapon cannot shoot an engaged Monster / Vehicle', () => {
+  const sw = A.importArmy(fixture('gw-space-wolves-2000.txt')), orks = A.importArmy(fixture('gw-orks-1000.txt'));
+  const wagon = orks.units.find(u => /Battlewagon/.test(u.name));
+  const p = A.defenderProfile(wagon, orks);
+  const cr = p.rules.find(r => /COMMAND RE-?ROLL/i.test(r.source));
+  assert.ok(cr && cr.kind === 'stratagem' && cr.auto === false && cr.label === 'Re-roll one save', JSON.stringify(cr));
+  assert.equal(A.buildDefender(p, new Set([cr.id]), 'shooting', {}, {}).mods.rerollOneSave, true);
+  // "Engaged in melee" on a Vehicle target: -1 to hit for shooting (17.03) and no Blast
+  const d = A.buildDefender(p, new Set(), 'shooting', { engaged: true }, {});
+  assert.equal(d.mods.engagedMV, true);
+  const boyz = orks.units.find(u => /Boyz/.test(u.name));
+  assert.ok(!A.buildDefender(A.defenderProfile(boyz, orks), new Set(), 'shooting', { engaged: true }, {}).mods.engagedMV, 'only a Monster or Vehicle can be shot while engaged');
+  const scouts = sw.units.find(u => /Scout Squad \(1\)/.test(u.name));
+  const rows = A.attackerRows(scouts, 'shooting', A.defenderSummary(p), { targetEngaged: true });
+  assert.equal(rows.find(r => /Frag/.test(r.label)).blocked, 'Blast weapons cannot target an engaged unit');
+  assert.deepEqual([rows.find(r => /Krak/.test(r.label)).blocked, rows.find(r => /Krak/.test(r.label)).count], [null, 1]);
+});

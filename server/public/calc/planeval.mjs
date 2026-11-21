@@ -11,7 +11,7 @@
 // unit-tested (tests/calc-planeval.test.mjs).
 
 import { OBJECTIVE_RANGE, inPoly } from './board.mjs';
-import { threatTo } from './sight.mjs';
+import { threatTo, canHide, HIDDEN_RANGE } from './sight.mjs';
 
 const W = 44, H = 60, CX = 22, CY = 30;
 const extent = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
@@ -31,16 +31,33 @@ export const baseWithin = (x, y, r, poly) => inPoly(x, y, poly) || edgeDist(x, y
 /** The whole base within the polygon ("wholly within"). */
 export const baseWhollyWithin = (x, y, r, poly) => inPoly(x, y, poly) && edgeDist(x, y, poly) >= r;
 
-function abs(u) { return u.models.map(m => ({ x: u.x + m.dx, y: u.y + m.dy, r: extent(m.fp) })); }
+function abs(u) { return u.models.map(m => ({ x: u.x + m.dx, y: u.y + m.dy, r: extent(m.fp), oc: m.oc })); }
 
-/** Objective in range of a unit: hosted -> any base in the hosting terrain area; else within 3" + the 20 mm marker. */
-export function inRange(u, o, pieces) {
+/** The models of a unit that are within range of an objective: hosted -> base in the hosting terrain area; else within 3" + the 20 mm marker. */
+function modelsInRange(u, o, pieces) {
   const ms = abs(u);
   if (o.host?.length) {
     const polys = o.host.map(id => pieces.find(p => p.id === id)?.poly).filter(Boolean);
-    if (polys.length) return ms.some(m => polys.some(p => baseWithin(m.x, m.y, m.r, p)));
+    if (polys.length) return ms.filter(m => polys.some(p => baseWithin(m.x, m.y, m.r, p)));
   }
-  return ms.some(m => Math.hypot(m.x - o.x, m.y - o.y) - m.r <= OBJECTIVE_RANGE);
+  return ms.filter(m => Math.hypot(m.x - o.x, m.y - o.y) - m.r <= OBJECTIVE_RANGE);
+}
+
+/** Objective in range of a unit: one of its models is. */
+export function inRange(u, o, pieces) {
+  return modelsInRange(u, o, pieces).length > 0;
+}
+
+/**
+ * The Objective Control a unit brings to an objective. 14.02: a player's level of control is the
+ * sum of the OC of their MODELS within range - a unit with one model of ten on the objective
+ * counts that one model. (Models without their own OC: the unit's OC, by the share in range.)
+ */
+export function ocInRange(u, o, pieces) {
+  const inR = modelsInRange(u, o, pieces);
+  if (!inR.length) return 0;
+  if (inR.every(m => m.oc != null)) return inR.reduce((a, m) => a + m.oc, 0);
+  return (u.oc ?? 0) * inR.length / Math.max(1, u.models.length);
 }
 
 function quarterOf(ms) {
@@ -62,18 +79,21 @@ export function unitFacts(u, X, geo) {
   const allIn = (poly) => poly && ms.every(m => baseWhollyWithin(m.x, m.y, m.r, poly));
   const myTerr = geo.territories[X], myDZ = geo.zones[X], enDZ = geo.zones[Y];
   const outsideTerritory = myTerr ? !anyIn(myTerr) : false;
+  // battlefield edges the unit is within 6" of - whether it is in its territory or not: Outflank's 5 VP
+  // asks for two units on OPPOSITE edges of which "one or more ... is not within your territory"
   const edges = new Set();
-  if (outsideTerritory) {
-    for (const m of ms) {
-      if (m.x - m.r <= 6) edges.add('L');
-      if (m.x + m.r >= W - 6) edges.add('R');
-      if (m.y - m.r <= 6) edges.add('T');
-      if (m.y + m.r >= H - 6) edges.add('B');
-    }
+  for (const m of ms) {
+    if (m.x - m.r <= 6) edges.add('L');
+    if (m.x + m.r >= W - 6) edges.add('R');
+    if (m.y - m.r <= 6) edges.add('T');
+    if (m.y + m.r >= H - 6) edges.add('B');
   }
+  const objOc = {};
+  for (const o of geo.objectives) { const v = ocInRange(u, o, geo.pieces); if (v > 0 || inRange(u, o, geo.pieces)) objOc[o.id] = v; }
   return {
-    objs: geo.objectives.filter(o => inRange(u, o, geo.pieces)).map(o => o.id),
-    oc: u.oc ?? 0,
+    objs: Object.keys(objOc),
+    oc: u.oc ?? 0,          // the whole unit's OC
+    objOc,                  // per objective in range: the OC of the models within range of it (14.02)
     inEnemyDZ: allIn(enDZ),
     inMyDZ: anyIn(myDZ),
     inEnemyDZany: anyIn(enDZ),
@@ -91,13 +111,17 @@ export function unitFacts(u, X, geo) {
 /** Round-level position facts for the forecast, from the surviving units' facts. */
 export function sideFacts(mine, enemy) {
   const qs = new Set(mine.map(f => f.quarter).filter(q => q >= 0));
-  const edges = new Set(mine.flatMap(f => f.edges));
   const enemyKnown = Array.isArray(enemy);
+  // Outflank. 3 VP: a unit within 6" of a battlefield edge and not within your territory. 5 VP: two units
+  // within 6" of opposite edges, one or more of them not within your territory.
+  const opposite = (a, b) => (a.edges.includes('L') && b.edges.includes('R')) || (a.edges.includes('R') && b.edges.includes('L')) ||
+    (a.edges.includes('T') && b.edges.includes('B')) || (a.edges.includes('B') && b.edges.includes('T'));
+  const flankOpposite = mine.some((a, i) => mine.some((b, j) => i < j && (a.outsideTerritory || b.outsideTerritory) && opposite(a, b)));
   return {
     inEnemyDZ: mine.filter(f => f.inEnemyDZ).length,
     quarters: qs.size,
-    flank: edges.size > 0,
-    flankOpposite: (edges.has('L') && edges.has('R')) || (edges.has('T') && edges.has('B')),
+    flank: mine.some(f => f.outsideTerritory && f.edges.length > 0),
+    flankOpposite,
     outsideDZ: mine.some(f => f.outsideDZ), outsideTerritory: mine.some(f => f.outsideTerritory),
     terrainOutside: mine.some(f => f.terrainOutside),
     centre3: mine.some(f => f.centre3),
@@ -108,6 +132,18 @@ export function sideFacts(mine, enemy) {
 }
 
 /**
+ * From how far a unit can be seen where it stands (Infinity = no limit): a Lone Operative from 12"
+ * (24.24, u.lone); infantry that can be Hidden there from 15" (13.09) - counted only for a unit
+ * without ranged weapons, which never shoots and so stays hidden.
+ */
+export function detectRange(u, pieces) {
+  let d = Infinity;
+  if (u.lone) d = Math.min(d, u.lone);
+  if (pieces?.length && !(u.ranges ?? []).length && canHide(u, pieces)) d = Math.min(d, HIDDEN_RANGE);
+  return d;
+}
+
+/**
  * Exposure: chance each of X's units is destroyed in the enemy's turn, from
  * where the enemy starts it. Each enemy unit attacks the one target it
  * threatens most (shooting reach after a normal move, charge odds), weighted
@@ -115,12 +151,12 @@ export function sideFacts(mine, enemy) {
  * { shoot: P(destroy by shooting), fight: P(destroy in a fight) }).
  * -> { [targetKey]: P(destroyed) }
  */
-export function exposure(targets, attackers, pair) {
+export function exposure(targets, attackers, pair, pieces = null) {
   const take = {};
   for (const a of attackers) {
     let best = null, bestV = 0;
     for (const t of targets) {
-      const th = threatTo(a, t, { move: a.move ?? 6, ranges: a.ranges ?? [], melee: !!a.melee });
+      const th = threatTo(a, t, { move: a.move ?? 6, ranges: a.ranges ?? [], melee: !!a.melee, detect: detectRange(t, pieces) });
       const pr = pair?.[a.key]?.[t.key] ?? { shoot: 0, fight: 0 };
       const p = 1 - (1 - (th.shoot ? pr.shoot : 0)) * (1 - (th.charge ?? 0) * pr.fight);
       const v = p * Math.max(1, t.points ?? 1);
@@ -179,14 +215,14 @@ export function killPressure(attackerKeys, targetKeys, pair) {
  * -> [{ a: attackerName, opts: [{ t: targetName, mu, v, w, W }] }]
  *    mu / v = mean and variance of the wounds it removes, w = P(it destroys the target alone)
  */
-export function threatOptions(attackers, targets, pair, top = 3) {
+export function threatOptions(attackers, targets, pair, top = 3, pieces = null) {
   const out = [];
   for (const a of attackers) {
     const opts = [];
     for (const t of targets) {
       const pr = pair?.[a.key]?.[t.key];
       if (!pr || !(pr.W > 0)) continue;
-      const th = threatTo(a, t, { move: 0, ranges: a.ranges ?? [], melee: !!a.melee });
+      const th = threatTo(a, t, { move: 0, ranges: a.ranges ?? [], melee: !!a.melee, detect: detectRange(t, pieces) });
       const sh = th.shoot ? 1 : 0, ch = th.charge ?? 0;
       const mu = sh * (pr.sMu ?? 0) + ch * (pr.fMu ?? 0);
       if (mu <= 0) continue;
@@ -201,33 +237,124 @@ export function threatOptions(attackers, targets, pair, top = 3) {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Where reserves can arrive (the board overlay)
+
+/** 20.03 / 20.04 in numbers: set-up distance from an edge, gap to enemy units, the rounds. */
+export const ARRIVE = { edge: 6, gap: 8, from: 2, zoneFrom: 3, until: 3 };
+
 /**
- * Plan sanity: moves between consecutive steps longer than the unit can
- * make (normal move + advance or + charge), and reserves arriving in the
- * enemy deployment zone before round 3 or not more than 8" from enemy units
- * (11e 20.04 Ingress move).
- * steps: [{ name, A: [unit], B: [unit] }] in order; -> [{ step, side, unit, msg }]
+ * Where a unit arriving from reserves may be set up.
+ *  20.03: from the second battle round. 20.04 (ingress move): wholly within 6" of one or more battlefield
+ *  edges and more than 8" horizontally from all enemy units; before the third battle round no model within
+ *  the opponent's deployment zone; a unit still in strategic reserves at the end of round 3 is destroyed.
+ *  24.09 Deep Strike: anywhere more than 8" from all enemy units, the opponent's deployment zone included.
+ * enemies: the units of the OTHER player on the board ({ x, y, models: [{ dx, dy, fp }] })
+ * -> { round, blocked: [{ x, y, r }] (no part of a base in these: 8" around each enemy base), band (inches
+ *      from an edge), zoneClosed (before round 3), early (round 1: nothing arrives), late (after round 3) }
+ */
+export function arrivalZones(enemies, round) {
+  return {
+    round,
+    blocked: (enemies ?? []).flatMap(u => abs(u).map(m => ({ x: m.x, y: m.y, r: m.r + ARRIVE.gap }))),
+    band: ARRIVE.edge,
+    zoneClosed: round < ARRIVE.zoneFrom,
+    early: round < ARRIVE.from,
+    late: round > ARRIVE.until,
+  };
+}
+
+/** May a model with base radius r be set up at (x, y)? -> { ok, why? } */
+export function canArrive(x, y, r, zones, { deepStrike = false, enemyZone = null } = {}) {
+  if (zones.early) return { ok: false, why: 'reserves arrive from the second battle round (20.03)' };
+  if (x - r < 0 || y - r < 0 || x + r > W || y + r > H) return { ok: false, why: 'off the battlefield' };
+  // "more than 8\" from all enemy units", base edge to base edge (the blocked discs hold the 8\")
+  if (zones.blocked.some(b => Math.hypot(x - b.x, y - b.y) - r <= b.r)) return { ok: false, why: 'within 8" of an enemy unit' };
+  if (deepStrike) return { ok: true };
+  const e = zones.band;
+  if (!(x + r <= e || x - r >= W - e || y + r <= e || y - r >= H - e)) return { ok: false, why: 'not wholly within 6" of a battlefield edge (20.04)' };
+  if (zones.zoneClosed && enemyZone && baseWithin(x, y, r, enemyZone)) return { ok: false, why: 'in the enemy deployment zone before the third battle round (20.04)' };
+  return { ok: true };
+}
+
+/** Shortest distance from a point to a polygon (0 inside it). */
+function polyDist(px, py, poly) { return inPoly(px, py, poly) ? 0 : edgeDist(px, py, poly); }
+
+/**
+ * Plan sanity, by the 11th edition rules:
+ *  - deployment (the first step): a unit is wholly within its deployment zone, unless every model has
+ *    Infiltrators (24.20: anywhere more than 8" from the enemy deployment zone and enemy units) or it
+ *    made a Scout move (24.32: up to X" out of the zone, more than 8" from enemy units);
+ *  - moves between steps longer than the unit can make (normal move + advance or + charge);
+ *  - arriving from reserves (20.03 / 20.04, ingress move): not in battle round 1; wholly within 6" of
+ *    a battlefield edge; no model in the enemy deployment zone before round 3; more than 8" from all
+ *    enemy units; a unit still in reserves at the end of round 3 is destroyed. A unit whose models
+ *    all have Deep Strike (24.09) can arrive anywhere more than 8" from enemy units, "even if that
+ *    is within your opponent's deployment zone" - no edge and no zone restriction.
+ * geo.early: { A, B } - the name of a rule that lets one of that army's units a turn arrive as if the battle
+ * round were one higher (adapter.earlyArrival), or null: in each step the arriving unit it helps most gets it.
+ * steps: [{ name, A: [unit], B: [unit] }] in order (unit.flags: adapter coreFlags);
+ * -> [{ step, side, unit, msg, info? }]
  */
 export function planWarnings(steps, geo) {
   const out = [];
+  const gap8 = (ms, enemies) => enemies.some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r <= 8)));
+  // deployment
+  if (steps.length) {
+    for (const X of ['A', 'B']) {
+      const Y = X === 'A' ? 'B' : 'A';
+      const myDZ = geo.zones?.[X], enDZ = geo.zones?.[Y];
+      if (!myDZ) continue;
+      for (const u of steps[0][X] ?? []) {
+        const ms = abs(u);
+        if (ms.every(m => baseWhollyWithin(m.x, m.y, m.r, myDZ))) continue;
+        const f = u.flags ?? {};
+        if (f.infiltrators) {
+          const nearDZ = enDZ && ms.some(m => polyDist(m.x, m.y, enDZ) - m.r <= 8);
+          if (nearDZ || gap8(ms, steps[0][Y] ?? [])) out.push({ step: steps[0].name, side: X, unit: u.name, msg: `Infiltrators: must be set up more than 8" from the enemy deployment zone and enemy units (24.20)` });
+        } else if (f.scouts) {
+          const far = ms.some(m => polyDist(m.x, m.y, myDZ) + m.r > f.scouts + 0.5);
+          if (far) out.push({ step: steps[0].name, side: X, unit: u.name, msg: `is more than its ${f.scouts}" Scout move outside its deployment zone (24.32)` });
+          else if (gap8(ms, steps[0][Y] ?? [])) out.push({ step: steps[0].name, side: X, unit: u.name, msg: 'a Scout move must end more than 8" from enemy units (24.32)' });
+        } else out.push({ step: steps[0].name, side: X, unit: u.name, msg: 'is not wholly within its deployment zone (it has no Infiltrators or Scouts)', info: true });
+      }
+    }
+  }
   for (let i = 1; i < steps.length; i++) {
     for (const X of ['A', 'B']) {
+      const Y = X === 'A' ? 'B' : 'A';
       const prev = new Map((steps[i - 1][X] ?? []).map(u => [u.key, u]));
+      // what is wrong with a unit arriving from reserves in battle round `round` (step i = battle round i)
+      const arrival = (u, round) => {
+        const ws = [];
+        const ms = abs(u);
+        const ds = !!u.flags?.deepStrike;
+        if (round < 2) ws.push({ msg: 'arrives in battle round 1: reserves arrive from the second battle round (20.03)' });
+        // (the real battle round: a rule that counts the round as one higher does not change when reserves are lost)
+        if (i > 3) ws.push({ msg: `arrives in battle round ${i}: a unit still in reserves at the end of round 3 is destroyed (20.04)` });
+        if (!ds) {
+          if (!ms.every(m => m.x + m.r <= 6 || m.x - m.r >= W - 6 || m.y + m.r <= 6 || m.y - m.r >= H - 6)) ws.push({ msg: 'arrives more than 6" from a battlefield edge: without Deep Strike a unit is set up wholly within 6" of an edge (20.04)' });
+          if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) ws.push({ msg: 'arrives in the enemy deployment zone before round 3 (20.04; only a Deep Strike unit can)' });
+        }
+        if (gap8(ms, steps[i][Y] ?? [])) ws.push({ msg: `arrives within 8" of an enemy unit (it must be more than 8" away${ds ? ', Deep Strike too' : ''})` });
+        return ws;
+      };
+      const arriving = [];
       for (const u of steps[i][X] ?? []) {
         const p = prev.get(u.key);
         if (p) {
           const d = Math.hypot(u.x - p.x, u.y - p.y), mv = u.move ?? 6;
           if (d > mv + 12 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}" (max ${mv + 12}": move + charge)` });
           else if (d > mv + 6 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}": needs a charge (move ${mv}" + advance is ${mv + 6}")`, info: true });
-        } else if (i >= 1 && steps[i - 1][X]?.length) {
-          // arrives from reserves
-          const Y = X === 'A' ? 'B' : 'A';
-          const round = i; // step i = battle round i
-          const ms = abs(u);
-          if (round < 3 && geo.zones[Y] && ms.some(m => baseWithin(m.x, m.y, m.r, geo.zones[Y]))) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives in the enemy deployment zone before round 3 (not allowed in 11e)' });
-          const near = (steps[i][Y] ?? []).some(e => abs(e).some(em => ms.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r <= 8)));
-          if (near) out.push({ step: steps[i].name, side: X, unit: u.name, msg: 'arrives within 8" of an enemy unit (it must be more than 8" away)' });
-        }
+        } else if (steps[i - 1][X]?.length) arriving.push({ u, now: arrival(u, i), early: arrival(u, i + 1) });
+      }
+      // one unit a turn can count the battle round as one higher: the unit it clears the most warnings for
+      const rule = geo.early?.[X] ?? null;
+      const best = rule ? arriving.filter(a => a.early.length < a.now.length).sort((a, b) => (b.now.length - b.early.length) - (a.now.length - a.early.length))[0] : null;
+      for (const a of arriving) {
+        const ws = a === best ? a.early : a.now;
+        for (const w of ws) out.push({ step: steps[i].name, side: X, unit: a.u.name, msg: w.msg });
+        if (a === best) out.push({ step: steps[i].name, side: X, unit: a.u.name, msg: `arrives as if it were battle round ${i + 1}: ${rule} (one unit a turn)`, info: true });
       }
     }
   }

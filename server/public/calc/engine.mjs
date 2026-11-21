@@ -9,7 +9,9 @@
 //                     modifiers); BS/WS stays within 2+..6+.
 //  05.02 Wound roll — S vs T chart 2+..6+, unmodified 1 fails, unmodified 6
 //                     (or Anti-X Y+ / critWound) = critical wound.
-//  02.02 Dice-roll modifiers to hit / wound / save net out and cap at ±1.
+//  02.02.01 Modifiers are cumulative; hit rolls and wound rolls "can never be
+//                     modified by more than -1 or +1". Save rolls have no such
+//                     limit (Sv itself cannot be better than 2+).
 //  01.05 Re-rolls happen before modifiers; a die is re-rolled at most once.
 //  05.03 Saves      — allocation groups (non-CHARACTER groups first, a group
 //                     with a wounded model first; CHARACTER groups last); one
@@ -31,7 +33,16 @@
 //                     (leader models' T once only they remain).
 //  Weapon abilities: Torrent, Lethal Hits, Sustained Hits X / DX, Twin-linked,
 //  Devastating Wounds, Anti-X Y+, Blast X, Cleave X, Rapid Fire X, Melta X,
-//  Heavy, Lance, Ignores Cover, Indirect Fire, Precision, Hazardous.
+//  Heavy, Lance, Ignores Cover, Indirect Fire, Precision, Hazardous, Psychic.
+//  24.16 Heavy      — +1 to hit when the unit is unengaged, was not set up this
+//                     turn and no model moved more than 3" (mods.heavyOk; a
+//                     unit that remained stationary qualifies too).
+//  24.29 Psychic    — may ignore any or all modifiers to BS / WS and to the hit
+//                     roll: the harmful ones are dropped (cover included).
+//  24.39 Damaged    — a damaged model's attacks have -1 to hit (mods.damaged).
+//  17.03 Shooting at an engaged MONSTER / VEHICLE: -1 to hit, except with
+//                     close-quarters weapons of a unit engaged with it.
+//  15.02 Command Re-roll on a save: one failed save re-rolled (defender).
 //  15.09 Snap shooting (overwatch): hits only on an unmodified 6, no critical
 //  hits, no hit re-rolls (Torrent still auto-hits).
 //  22.05 Plunging Fire — a ranged attack from a terrain section 3" or more
@@ -104,6 +115,9 @@ export function woundThreshold(S, T) {
 //       critHit: 6, critWound: 6,
 //       lethal, sustained (0..), dev, twin, ignoresCover, precision,   // granted keywords
 //       halfRange, charged, stationary, overwatch, indirect,          // situation
+//       heavyOk,                    // moved 3" or less, unengaged, not set up this turn (24.16)
+//       damaged,                    // the attacking model is damaged: -1 to hit (24.39)
+//       engaged,                    // this unit is engaged with the target (close-quarters shooting)
 //       lethalVsDev: 'auto'|'roll',  // Lethal Hits choice (default auto-wound)
 //     },
 //     weapons: [{
@@ -127,6 +141,8 @@ export function woundThreshold(S, T) {
 //       damageReduction: 0 | 1 | 'half',
 //       fnp, fnpMortal, fnpPsychic, // thresholds (0 = none)
 //       invuln,                     // override / grant InSv to all groups (0 = none)
+//       engagedMV,                  // the target is an engaged MONSTER / VEHICLE (17.03)
+//       rerollOneSave,              // Command Re-roll: one failed save re-rolled this phase (15.02)
 //     },
 //   },
 //   trials: 20000, seed,
@@ -162,6 +178,7 @@ function defaults(mods) {
     rerollDamage: false,                    // re-roll damage rolls (re-rolled when below average)
     ignoreHitMods: false, ignoreWoundMods: false, // "ignore any or all modifiers" -> drop the negative ones
     halfRange: false, charged: false, stationary: false, overwatch: false, indirect: false,
+    heavyOk: false, damaged: false, engaged: false,
     plunging: false,                        // 22.05 Plunging Fire: BS improved by 1 (ranged)
     lethalVsDev: 'auto',
     ...(mods ?? {}),
@@ -172,6 +189,7 @@ function defDefaults(mods) {
   return {
     cover: false, hitMod: 0, woundMod: 0, woundModIfSGreaterT: 0, saveMod: 0, apReduce: 0,
     damageReduction: 0, fnp: 0, fnpMortal: 0, fnpPsychic: 0, invuln: 0,
+    engagedMV: false, rerollOneSave: false,
     ...(mods ?? {}),
   };
 }
@@ -228,6 +246,8 @@ function compile(scenario) {
         precision: !!kw.precision || m.precision,
         hazardous: !!kw.hazardous,
         psychic: !!kw.psychic,
+        cq: !!(kw.cq || kw.pistol),
+        lead: !!w.lead,           // a weapon of an attached leader (see simulateChain: fewer models, fewer weapons)
         antiCrit: (kw.anti ?? []).reduce((best, an) =>
           kwSet.has(String(an.keyword).toUpperCase()) ? Math.min(best, an.threshold) : best, 7),
         m,
@@ -355,15 +375,24 @@ function mortalTarget(st, precision) {
 
 // Per-batch hit/wound parameters (computed once per weapon profile, not per die).
 function hitParams(w, m, ctx) {
+  // 24.29: a psychic attack can ignore any or all modifiers to BS / WS and to the hit roll (the harmful ones)
+  const ignore = m.ignoreHitMods || w.psychic;
+  // 24.16 Heavy: unengaged, not set up this turn, no model moved more than 3"
+  const heavy = w.heavy && (m.stationary || m.heavyOk) ? 1 : 0;
+  // 17.03: a ranged attack at an engaged MONSTER / VEHICLE has -1 to hit, unless it is made with a
+  // close-quarters weapon by a unit engaged with it
+  const engaged = !w.melee && ctx.engagedMV && !(w.cq && m.engaged) ? -1 : 0;
+  // 24.39 Damaged: -1 to hit
+  const damaged = m.damaged ? -1 : 0;
   return {
     torrent: w.torrent,
     snap: !!m.overwatch,
-    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (m.ignoreHitMods ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs) - (ctx.plungeBs ?? 0))),
+    bs: w.torrent ? 0 : Math.min(6, Math.max(2, w.skill + (ignore ? Math.min(0, m.bsMod) : m.bsMod + ctx.coverBs) - (ctx.plungeBs ?? 0))),
     failBand: w.indirect ? (m.stationary ? 3 : 5) : 1,
     critAt: m.overwatch ? 7 : Math.min(m.critHit || 6, 6),
-    mod: m.ignoreHitMods
-      ? cap1(Math.max(0, m.hitMod) + Math.max(0, ctx.defHitMod) + (w.heavy && m.stationary ? 1 : 0))
-      : cap1(m.hitMod + ctx.defHitMod + (w.heavy && m.stationary ? 1 : 0)),
+    mod: ignore
+      ? cap1(Math.max(0, m.hitMod) + Math.max(0, ctx.defHitMod) + heavy)
+      : cap1(m.hitMod + ctx.defHitMod + heavy + engaged + damaged),
     reroll: m.overwatch || w.indirect ? 'none' : m.rerollHits,
     canRerollOne: !m.overwatch && !w.indirect,
   };
@@ -441,7 +470,35 @@ function fnpFor(w, dm, g, mortal) {
   return t >= 7 ? 0 : t;
 }
 
-function runTrial(C, rnd, rec, init = null) {
+/** A count scaled by a share of survivors: 9 weapons at 0.5 -> 4 or 5 (the half is drawn). */
+function scaled(n, k, rnd) {
+  if (k >= 1) return n;
+  const x = n * Math.max(0, k);
+  return Math.floor(x) + (rnd() < x - Math.floor(x) ? 1 : 0);
+}
+
+/** The share of a unit's models that are left, for its own models and for attached leaders. */
+function survivors(st) {
+  let b = 0, B = 0, l = 0, L = 0;
+  for (const s of st) { if (s.g.character) { l += s.alive; L += s.g.count; } else { b += s.alive; B += s.g.count; } }
+  // a unit of characters only (a lone character): its weapons are not "leader" weapons
+  return { body: B ? b / B : (L ? l / L : 0), lead: L ? l / L : (B ? b / B : 0) };
+}
+
+/** n mortal wounds on a unit (06.02): one at a time, a wounded non-CHARACTER first; Feel No Pain per wound. */
+function mortalWounds(st, n, rnd, dm, out) {
+  for (let i = 0; i < n; i++) {
+    const s = mortalTarget(st, false);
+    if (!s) break;
+    const fnp = Math.min(dm.fnp || 7, dm.fnpMortal || 7, s.g.fnp || 7);
+    if (fnp < 7 && d6(rnd) >= fnp) continue;
+    const idx = pickModel(s);
+    if (idx >= 0) damageModel(s, idx, 1, out);
+  }
+}
+
+// scale: { body, lead } - the attackers' weapons are reduced to these shares (a unit that has lost models)
+function runTrial(C, rnd, rec, init = null, scale = null) {
   const st = init ?? newTargetState(C.groups);  // init: a target already damaged earlier this turn (simulateChain)
   const dm = C.dm;
   const totalStart = aliveTotal(st);
@@ -449,6 +506,7 @@ function runTrial(C, rnd, rec, init = null) {
   let hazardMW = 0;
   const steps = { attacks: 0, hits: 0, wounds: 0, unsaved: 0, mortals: 0, abilityMortals: 0 };
   const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(C.groups.length).fill(0) };
+  const save1 = { left: !!dm.rerollOneSave };
 
   for (const a of C.attackers) {
     const killsBefore = out.kills, woundsBefore = out.woundsLost;
@@ -470,18 +528,14 @@ function runTrial(C, rnd, rec, init = null) {
       }
       if (src.cap) mw = Math.min(mw, src.cap);
       steps.abilityMortals += mw;
-      for (let i = 0; i < mw; i++) {
-        const s = mortalTarget(st, false);
-        if (!s) break;
-        const fnp = Math.min(dm.fnp || 7, dm.fnpMortal || 7, s.g.fnp || 7);
-        if (fnp < 7 && d6(rnd) >= fnp) continue;
-        const idx = pickModel(s);
-        if (idx >= 0) damageModel(s, idx, 1, out);
-      }
+      mortalWounds(st, mw, rnd, dm, out);
     }
     const startAlive = aliveTotal(st);
-    for (const w of a.weapons) {
+    const counts = a.weapons.map(w => (scale ? scaled(w.count, w.lead ? scale.lead : scale.body, rnd) : w.count));
+    for (const [wi, w] of a.weapons.entries()) {
       if (aliveTotal(st) <= 0) break;
+      const wCount = counts[wi];
+      if (wCount <= 0) continue;
       const m = w.m;
       const ranged = !w.melee;
       const ctx = {
@@ -489,12 +543,13 @@ function runTrial(C, rnd, rec, init = null) {
         coverBs: ranged && (dm.cover || w.indirect) && !w.ignoresCover ? 1 : 0,
         plungeBs: ranged && m.plunging ? 1 : 0,
         defHitMod: dm.hitMod,
+        engagedMV: !!dm.engagedMV,
         defWoundMod: dm.woundMod,
         defWoundModIfSgtT: dm.woundModIfSGreaterT,
       };
       // --- attack dice
       let dice = 0;
-      for (let c = 0; c < w.count; c++) {
+      for (let c = 0; c < wCount; c++) {
         let n = rollDice(w.A, rnd) + (m.attacksMod || 0);
         if (w.rapidFire && m.halfRange && ranged) n += w.rapidFire;
         if (w.blast && ranged) n += w.blast * Math.floor(startAlive / 5);
@@ -526,7 +581,7 @@ function runTrial(C, rnd, rec, init = null) {
       steps.wounds += normalWounds + devCrits.length;
       // --- saves (one per wound, lowest first, against the current group)
       const ap = Math.max(0, w.AP + (m.apMod || 0) - (dm.apReduce || 0));
-      const saveMod = cap1(dm.saveMod || 0);
+      const saveMod = dm.saveMod || 0;          // no ±1 limit on save rolls (02.02.01)
       const rolls = [];
       for (let i = 0; i < normalWounds; i++) rolls.push(d6(rnd));
       rolls.sort((x, y) => x - y);
@@ -537,7 +592,10 @@ function runTrial(C, rnd, rec, init = null) {
         if (gi >= order.length) break;
         const s = order[gi];
         const g = s.g;
-        const saved = r !== 1 && ((g.InSv && r >= g.InSv) || (r + saveMod - ap >= g.Sv));
+        const saves = (x) => x !== 1 && ((g.InSv && x >= g.InSv) || (x + saveMod - ap >= g.Sv));
+        let saved = saves(r);
+        // 15.02 Command Re-roll: one failed save re-rolled, once in the phase (where a save is possible at all)
+        if (!saved && save1.left && ((g.InSv && g.InSv <= 6) || g.Sv + ap - saveMod <= 6)) { save1.left = false; saved = saves(d6(rnd)); }
         if (saved) continue;
         steps.unsaved++;
         const dmg = rollDamage(w, m, dm, g, rnd, w.m.rerollOneDamage ? one : null);
@@ -555,10 +613,11 @@ function runTrial(C, rnd, rec, init = null) {
         const idx = pickModel(s);
         if (lost > 0 && idx >= 0) damageModel(s, idx, lost, out);
       }
-      // --- hazardous (after the unit's attacks; counted for the attacker)
-      if (w.hazardous) {
-        for (let c = 0; c < w.count; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
-      }
+    }
+    // --- hazardous (24.15): after the unit has resolved all of its attacks, one hazard roll for each
+    // [HAZARDOUS] weapon SELECTED - also for a weapon whose target was destroyed before it attacked
+    for (const [wi, w] of a.weapons.entries()) {
+      if (w.hazardous) for (let c = 0; c < counts[wi]; c++) if (d6(rnd) <= 2) hazardMW += a.allVehicleMonster ? 3 : 1;
     }
     perAttacker.push({ kills: out.kills - killsBefore, wounds: out.woundsLost - woundsBefore });
   }
@@ -638,17 +697,31 @@ export function simulate(scenario) {
 }
 
 // ---------------------------------------------------------------------------
-// Public: one turn against one target — shoot, then charge, then fight
+// Public: one turn against one target — shoot, then charge, then fight —
+// and what it costs the charging unit.
 //
 // chain: {
 //   shoot: scenario | null,   // shooting attacks first (any units)
 //   fight: scenario,          // the charging unit's fight (mods.charged set by the caller)
-//   charge: { gap, mod, reroll },  // 2D6 (+mod, nets to ±1) >= gap - 2" engagement range
+//   charge: { gap, mod, reroll },  // 2D6 (+mod) >= gap, and the gap is 12" or less (see chargeRollNeeded)
+//   overwatch: scenario | null,    // the enemy snap-shoots the charging unit (attackers: the enemy unit with
+//                                  // mods.overwatch; defender: the charging unit)
+//   back: scenario | null,         // the target fights back (attackers: the target; defender: the charging unit)
+//   demise: 'D3' | '1' | ... | null,  // the target's Deadly Demise X
 //   trials, seed,
 // }
-// The target's casualties and damaged model carry from the shooting into the
-// fight. A target destroyed by shooting cannot be charged. Fights back /
-// overwatch / the attacker's own losses are not modelled.
+// Order of a turn (11e):
+//  1. End of my Movement phase: Fire Overwatch (15.08) - the enemy unit, at full strength, shoots the unit
+//     that will charge (hits on unmodified 6s only).
+//  2. My Shooting phase: the target's casualties and damaged model carry into the fight; a target
+//     destroyed by shooting is not charged.
+//  3. Charge. A charging unit has Fights First and, in its own turn, fights before any enemy unit (12.04).
+//     Models it lost to overwatch do not attack: its weapons are scaled by its survivors.
+//  4. The target's survivors fight back (12.08: every enemy unit engaged with mine fights), with the
+//     weapons of the models that are left.
+//  5. Deadly Demise (24.08): for each target model destroyed in the fight, a D6; on a 6 the charging unit
+//     (within 6") suffers X mortal wounds.
+// `own` in the result is the charging unit: models lost and where.
 function carryState(st, groups) {
   const next = newTargetState(groups);
   for (const s2 of next) {
@@ -661,18 +734,32 @@ function carryState(st, groups) {
 export function simulateChain(chain) {
   const C1 = chain.shoot ? compile(chain.shoot) : null;
   const C2 = compile(chain.fight);
+  const Cow = chain.overwatch ? compile(chain.overwatch) : null;
+  const Cback = chain.back ? compile(chain.back) : null;
+  const demise = chain.demise ? parseDice(chain.demise) : null;
   const trials = Math.max(1, chain.trials ?? 20000);
   const rnd = mulberry32(chain.seed ?? 0x5EED);
   const need = chargeRollNeeded(chain.charge?.gap ?? 0);
-  const cmod = cap1(chain.charge?.mod ?? 0);
+  const cmod = chain.charge?.mod ?? 0;
   const groups0 = (C1 ?? C2).groups;
   const totalModels = groups0.reduce((a, g) => a + g.count, 0);
   const hist = new Array(totalModels + 1).fill(0);
   let sumShoot = 0, sumFight = 0, sumPts = 0, wipedShoot = 0, wipedEnd = 0, survived = 0, charged = 0;
+  // the charging unit
+  const ownGroups = (Cow ?? Cback)?.groups ?? null;
+  const ownModels = ownGroups ? ownGroups.reduce((a, g) => a + g.count, 0) : 0;
+  const ownHist = new Array(ownModels + 1).fill(0);
+  let ownOw = 0, ownBack = 0, ownDemise = 0, ownWiped = 0, ownPts = 0, owStops = 0;
+  const lostOf = (st) => ownModels - aliveTotal(st);
+  const ptsLost = (st) => st.reduce((a, x) => a + (x.g.count - x.alive) * (x.g.ptsPerModel || 0), 0);
   const rec = {};
   for (let t = 0; t < trials; t++) {
     let st = newTargetState(groups0);
+    let own = ownGroups ? newTargetState(ownGroups) : null;
     let kills = 0, pts = 0;
+    // 1. overwatch on the unit that will charge
+    if (Cow) { runTrial(Cow, rnd, rec, own); ownOw += rec.kills; }
+    // 2. shooting
     if (C1) {
       runTrial(C1, rnd, rec, st);
       kills += rec.kills; sumShoot += rec.kills; pts += rec.points;
@@ -681,23 +768,50 @@ export function simulateChain(chain) {
       wipedShoot++; wipedEnd++;
     } else {
       survived++;
-      const roll = () => d6(rnd) + d6(rnd) + cmod;
-      let ok = roll() >= need;
-      if (!ok && chain.charge?.reroll) ok = roll() >= need;
+      // more than 12": not a legal charge target (the dice are still rolled, so the seed stream stays the same)
+      const roll = () => Math.min(CHARGE_MAX, d6(rnd) + d6(rnd) + cmod) >= need && need <= CHARGE_MAX;
+      let ok = roll();
+      if (!ok && chain.charge?.reroll) ok = roll();
+      if (own && aliveTotal(own) === 0) { ok = false; owStops++; }      // nothing left to charge with
       if (ok) {
         charged++;
+        // 3. my fight, with the weapons of the models overwatch left
         st = carryState(st, C2.groups);
-        runTrial(C2, rnd, rec, st);
+        runTrial(C2, rnd, rec, st, own ? survivors(own) : null);
         kills += rec.kills; sumFight += rec.kills; pts += rec.points;
+        const killedInFight = rec.kills;
         if (aliveTotal(st) === 0) wipedEnd++;
+        // 4. the survivors fight back
+        if (Cback && aliveTotal(st) > 0) {
+          own = carryState(own, Cback.groups);
+          const before = aliveTotal(own);
+          runTrial(Cback, rnd, rec, own, survivors(st));
+          ownBack += before - aliveTotal(own);
+        }
+        // 5. Deadly Demise of the models destroyed next to my unit
+        if (demise && own && killedInFight > 0) {
+          const before = aliveTotal(own);
+          const out = { kills: 0, woundsLost: 0, killsByGroup: new Array(own.length).fill(0) };
+          for (let k = 0; k < killedInFight; k++) if (d6(rnd) === 6) mortalWounds(own, Math.max(0, rollDice(demise, rnd)), rnd, (Cback ?? Cow).dm, out);
+          ownDemise += before - aliveTotal(own);
+        }
       }
     }
     hist[Math.min(kills, totalModels)]++;
     sumPts += pts;
+    if (own) {
+      const lost = lostOf(own);
+      ownHist[Math.min(lost, ownModels)]++;
+      if (lost >= ownModels) ownWiped++;
+      ownPts += ptsLost(own);
+    }
   }
   const exact = hist.map(c => c / trials);
   const atLeast = new Array(exact.length).fill(0);
   for (let i = exact.length - 1, acc = 0; i >= 0; i--) { acc += exact[i]; atLeast[i] = acc; }
+  const ownExact = ownHist.map(c => c / trials);
+  const ownAtLeast = new Array(ownExact.length).fill(0);
+  for (let i = ownExact.length - 1, acc = 0; i >= 0; i--) { acc += ownExact[i]; ownAtLeast[i] = acc; }
   return {
     trials, totalModels, need,
     meanShoot: sumShoot / trials,
@@ -709,6 +823,15 @@ export function simulateChain(chain) {
     pChargeGivenSurvive: survived ? charged / survived : 0,
     pCharge: charged / trials,
     kills: exact, killsAtLeast: atLeast,
+    // the charging unit: what the turn costs it
+    own: ownGroups ? {
+      totalModels: ownModels,
+      meanLost: ownExact.reduce((a, p, k) => a + p * k, 0),
+      meanOverwatch: ownOw / trials, meanBack: ownBack / trials, meanDemise: ownDemise / trials,
+      pWipe: ownWiped / trials, pStoppedByOverwatch: owStops / trials,
+      meanPoints: ownPts / trials,
+      lost: ownExact, lostAtLeast: ownAtLeast,
+    } : null,
   };
 }
 
@@ -736,22 +859,34 @@ export function expectedDamageQuick(w, T, Sv, InSv) {
 }
 
 // ---------------------------------------------------------------------------
-// Charge odds (11e 11.02-11.04): 2D6 charge roll = maximum charge distance;
-// the charge must end engaged (engagement range 2"), so a gap of G" needs a
-// roll of at least G - 2. Charge-roll modifiers net to ±1; a re-roll
-// (e.g. Command Re-roll) re-rolls the whole charge roll.
+// Charge odds (11e 11.02-11.04; modifiers 02.02.01).
+//
+// The 2D6 charge roll is the MAXIMUM DISTANCE of the charge move, and a charge
+// target must be within 12" of the unit AND within that maximum distance
+// BEFORE the unit moves (11.04, "Before moving"). Example B of 11.04: a unit
+// more than 7" away cannot be selected on a roll of 7, "even though the
+// charging unit could end its charge move within 2" of this unit". So a gap
+// of G" needs a roll of at least G (rounded up) — not G minus the 2"
+// engagement range — and a target more than 12" away cannot be charged.
+//
+// Modifiers to the charge roll are cumulative: the ±1 limit is for hit rolls
+// and wound rolls only (02.02.01). "Charge rolls cannot be greater than 12."
+// A re-roll (e.g. Command Re-roll) re-rolls the whole charge roll.
 
 export const ENGAGEMENT_RANGE = 2;
+/** A charge target must be within 12" (11.04), and a charge roll cannot be more than 12 (02.02.01). */
+export const CHARGE_MAX = 12;
 
+/** The 2D6 roll (after modifiers) a charge over a gap of `gapInches` needs; more than CHARGE_MAX = cannot be charged. */
 export function chargeRollNeeded(gapInches) {
-  return Math.max(2, Math.ceil(gapInches - ENGAGEMENT_RANGE - 1e-9));
+  return Math.max(2, Math.ceil(gapInches - 1e-9));
 }
 
-/** Exact P(success) for a 2D6 charge needing `need`, with modifier and optional full re-roll. */
+/** Exact P(success) for a 2D6 charge needing `need`, with the sum of the modifiers and an optional full re-roll. */
 export function chargeOdds(need, { mod = 0, reroll = false } = {}) {
-  const m = cap1(mod);
+  if (need > CHARGE_MAX) return 0;
   let p = 0;
-  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b + m >= need) p++;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (Math.min(CHARGE_MAX, a + b + mod) >= need) p++;
   p /= 36;
   return reroll ? p + (1 - p) * p : p;
 }

@@ -5,13 +5,17 @@ import {
   importArmy, attackerRows, engineWeapon, allVehicleMonster, abilitiesOf,
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
-  attackerRules, attackerRuleOn, buildAttacker, describeConditions, unitIntel, armyIntel,
+  attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
+  phaseSheetInput,
 } from './adapter.mjs';
-import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
+import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
+import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
+import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, syncWake, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, syncWake, _missionDebug } from './missionview.mjs';
 import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
 
@@ -34,7 +38,9 @@ const state = {
   sheet: null,               // null | 'results' | 'add' | 'attach' | 'join'
   sheetArg: null,            // {side, host} for 'attach', {side, char} for 'join'
   charge: { gap: 9, mod: 0, reroll: false }, // charge odds tool
-  intelSide: null,           // army shown on the Intel tab (default: the defender)
+  intelSide: null,           // army shown on the Intel tab (default: the defender; "By phase": your own army)
+  intelMode: 'units',        // 'units' (datasheets) | 'phase' (what the army does, phase by phase)
+  intelPhase: 'all',         // the phase shown in "By phase": 'all' or a phase id of phasesheet.mjs
   grid: null,                // matchup grid: {sig, side, phase, metric, cells, rows, cols, running, done, total}
   gridMetric: 'damage',      // 'damage' (% of wounds) | 'kills' | 'wipe'
   saved: [],                 // saved scenarios (own localStorage key)
@@ -54,6 +60,7 @@ function persist() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       view: state.view, texts: state.texts, side: state.side, phase: state.phase, setups: state.setups,
       attach: state.attach, charge: state.charge, intelSide: state.intelSide,
+      intelMode: state.intelMode, intelPhase: state.intelPhase,
     }));
   } catch { /* storage full / private mode: best effort */ }
 }
@@ -102,6 +109,7 @@ function restore() {
       view: s.view ?? 'armies', texts: s.texts ?? { A: '', B: '' }, side: s.side ?? 'A',
       phase: s.phase ?? 'shooting', setups: s.setups ?? {}, attach: s.attach ?? { A: null, B: null },
       charge: s.charge ?? { gap: 9, mod: 0, reroll: false }, intelSide: s.intelSide ?? null,
+      intelMode: s.intelMode === 'phase' ? 'phase' : 'units', intelPhase: s.intelPhase ?? 'all',
     });
     for (const st of Object.values(state.setups)) for (const a of st.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
   } catch { /* corrupt: start fresh */ }
@@ -196,18 +204,68 @@ function enabledRules(profile, s) {
   return on;
 }
 
-function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase) {
+// The engine defender of the target as it is set up on the Attack tab (rules on, casualties, manual modifiers).
+function currentDefender(tinfo, phase = state.phase) {
+  const s = setup();
+  return buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), phase, s.defManual, s.defOverrides[s.targetKey] ?? {});
+}
+
+// Weapon choice (choose.mjs): the engine scores every legal option against this target. Remembered per
+// problem (unit + rules + situation + target as set up), so a re-render costs nothing.
+const choiceCache = new Map();
+function chooseCached(problem) {
+  const key = JSON.stringify(problem);
+  let hit = choiceCache.get(key);
+  if (!hit) {
+    hit = chooseWeapons(problem, { context: 'always' });     // one unit, on the page: always checked with its whole attack
+    if (hit.sims) console.log(`[calc] weapon choice: ${problem.attacker?.name} (${problem.phase}) - ${hit.sims} option run(s)`);
+    choiceCache.set(key, hit);
+    if (choiceCache.size > 400) choiceCache.delete(choiceCache.keys().next().value);
+  }
+  return hit;
+}
+
+/**
+ * The weapon rows of an attacker entry with the number of weapons that attack.
+ * A count set by hand wins; the others are chosen (the best legal weapons and
+ * profiles against this target). opt.defer: do not choose here (the worker does,
+ * for the grid and the unit-against-unit odds) - rows then carry the first guess.
+ * Each row: count (after "models in range"), full (before it), manual, fam
+ * (family of rows whose counts depend on each other, or null), note (the
+ * scores behind the choice).
+ */
+function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase, opt = {}) {
   const cu = army?.units.find(u => u.key === entry.unitKey);
   if (!cu) return { cu: null, rows: [] };
   const body = bodyguardModels(cu);
   const inRange = entry.inRange != null ? Math.max(0, Math.min(body.total, entry.inRange)) : null;
-  const rows = attackerRows(cu, phase, tinfo?.summary ?? null).map(r => {
-    let count = r.blocked ? 0 : Math.min(r.max, entry.counts?.[r.id] ?? r.count);
+  if (tinfo) tinfo.defender ??= currentDefender(tinfo, phase);
+  const base = attackerRows(cu, phase, tinfo?.summary ?? null, { shooting: entry.mods?.shootingType ?? 'normal', targetEngaged: !!tinfo?.defender?.mods?.engagedMV });
+  let problem = null, auto = null;
+  if (tinfo && base.length) {
+    const { rules, on } = rulesFor(entry, cu, tinfo, army, phase);
+    problem = choiceProblem(cu, base, entry.mods, rules, on, phase, tinfo.defender, tinfo.summary);
+    if (!opt.defer) auto = chooseCached(problem);
+  }
+  const fam = auto?.families ?? (problem ? families(problem) : new Map());
+  // Which profile or weapon is best depends on the target: counts set by hand for rows that are a choice
+  // hold for the target they were set against only (a Hunter profile set by hand would otherwise make no
+  // attacks against the next target). Counts of weapons with nothing to choose stay.
+  const tkey = tinfo?.cu?.key ?? null;
+  const stale = entry.countsFor != null && tkey != null && entry.countsFor !== tkey;
+  const manualOf = (r) => { const v = entry.counts?.[r.id]; return v == null || (stale && fam.get(r.id) != null) ? null : v; };
+  // a family with one count set by hand is set by hand as a whole (its other rows: 0)
+  const byHand = new Set(base.filter(r => fam.get(r.id) != null && manualOf(r) != null).map(r => fam.get(r.id)));
+  const rows = base.map(r => {
+    const f = fam.get(r.id) ?? null;
+    const manual = manualOf(r);
+    const chosen = f != null && byHand.has(f) ? 0 : (auto?.counts[r.id] ?? r.count);
+    const full = r.blocked ? 0 : Math.min(r.max, manual ?? chosen);
     // models in range: scale the bodyguard models' weapons; attached characters stay in
-    if (inRange != null && body.members.has(Number(String(r.id).split(':')[0]))) count = Math.round(count * inRange / Math.max(1, body.total));
-    return { ...r, count };
+    const count = inRange != null && body.members.has(Number(String(r.id).split(':')[0])) ? Math.round(full * inRange / Math.max(1, body.total)) : full;
+    return { ...r, count, full, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
   });
-  return { cu, rows, inRange, bodyTotal: body.total };
+  return { cu, rows, inRange, bodyTotal: body.total, problem, stale };
 }
 
 // Casualties set on the target leave it below half strength?
@@ -351,6 +409,9 @@ function render() {
     <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'mission' && ready ? missionView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
+  // Intel > By phase: the strip of phases is one row that scrolls sideways; keep the chosen phase in view
+  const strip = document.getElementById('phase-strip'), chosen = strip?.querySelector('.chip.on');
+  if (chosen) strip.scrollLeft = Math.max(0, chosen.offsetLeft - strip.offsetLeft - (strip.clientWidth - chosen.offsetWidth) / 2);
   renderResultViews();
   renderSheet();
   if (state.view === 'board') boardAfterRender();
@@ -361,9 +422,70 @@ function render() {
 // ---- Intel: enemy cheat sheet
 
 function intelSide() {
-  let side = state.intelSide ?? other(state.side);
+  // the datasheets are an enemy cheat sheet; "By phase" is first of all for your own army
+  let side = state.intelSide ?? (state.intelMode === 'phase' ? (state.mission?.me ?? 'A') : other(state.side));
   if (!state.armies[side]) side = other(side);
   return side;
+}
+
+// ---- Intel > By phase: what the army does in each phase, with ticks for once-per-battle rules
+
+const SHEETS = new WeakMap();      // army.units (replaced when attachments change) -> sheet
+function sheetOf(army) {
+  let s = SHEETS.get(army.units);
+  if (!s) { s = phaseSheet(phaseSheetInput(army)); SHEETS.set(army.units, s); }
+  return s;
+}
+const usedOnce = (side) => state.mission?.game?.once?.[side] ?? {};
+
+/** "Scout Squad ×2, Grey Hunters" */
+function sheetUnits(e) {
+  if (e.all) return 'all units';
+  const n = new Map();
+  for (const u of e.units) { const k = u.name.replace(/ \(\d+\)$/, ''); n.set(k, (n.get(k) ?? 0) + 1); }
+  return [...n].map(([k, c]) => (c > 1 ? `${k} ×${c}` : k)).join(', ');
+}
+function tickChips(e, side) {
+  const used = usedOnce(side);
+  return `<div class="chips ticks">${ticksOf(e).map(t => `<button class="chip tick ${used[t.id] ? 'on' : ''}" data-action="mission-once" data-side="${side}" data-tick="${esc(t.id)}" aria-pressed="${used[t.id] ? 'true' : 'false'}">${esc(t.label || 'Used')}</button>`).join('')}</div>`;
+}
+function sheetEntry(e, side) {
+  const once = e.usage?.per === 'battle';
+  const tags = `${e.kind === 'army' ? `<span class="tag">${e.armyRule ? 'army rule' : e.key.startsWith('det:') ? 'detachment rule' : 'army'}</span>` : e.kind === 'core' ? '<span class="tag">core</span>' : ''}${e.usage ? `<span class="tag ${once ? 'auto' : ''}">${esc(usageLabel(e.usage))}</span>` : ''}`;
+  if (e.kind === 'stratagem') {
+    return `<div class="ability sheet-entry" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b> <span class="muted tiny">${e.cp}CP · ${esc(e.turn || '')} · ${esc(e.phaseText)} · ${esc(e.detachment || '')}</span>${tags}
+      <div class="muted">${e.missing ? 'No 11th edition text in the rules data.' : `<b>When:</b> ${esc(e.when)}<br><b>Target:</b> ${esc(e.target)}<br><b>Effect:</b> ${esc(e.effect)}`}</div>${once ? tickChips(e, side) : ''}</div>`;
+  }
+  const units = sheetUnits(e);
+  const ruling = abilityUpdate(e.key.replace(/^(army|ab|det):/, ''));
+  return `<div class="ability sheet-entry" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b> ${tags}${units ? ` <span class="muted tiny">${esc(units)}</span>` : ''}
+    <div class="muted ruletext">${esc(e.raw)}</div>${ruling ? `<div class="tiny update-note" data-ruling="${esc(e.key)}"><b>${esc(UPDATE.short)}</b> (${esc(UPDATE.used)}): ${esc(ruling)}</div>` : ''}${e.by === 'data' ? '<div class="tiny muted">The rule’s words do not name a phase: this one comes from the rules data (provisional).</div>' : ''}${once ? tickChips(e, side) : ''}</div>`;
+}
+function phaseSheetHtml(side) {
+  const army = state.armies[side];
+  const sheet = sheetOf(army);
+  const used = usedOnce(side);
+  const shown = sheet.phases.some(p => p.id === state.intelPhase) ? state.intelPhase : 'all';
+  const ticks = sheet.once.flatMap(e => ticksOf(e));
+  const left = ticks.filter(t => !used[t.id]).length;
+  const strip = `<div class="chips" id="phase-strip">${[{ id: 'all', short: 'All', n: sheet.count }, ...sheet.phases.map(p => ({ id: p.id, short: p.short, n: p.entries.length }))].map(p =>
+    `<button class="chip nocheck ${p.id === shown ? 'on' : ''}" data-action="intel-phase" data-value="${p.id}" aria-pressed="${p.id === shown}" ${p.n ? '' : 'disabled'}>${esc(p.short)} <span class="muted">${p.n}</span></button>`).join('')}</div>`;
+  const card = (p) => {
+    const rules = p.entries.filter(e => e.kind !== 'stratagem'), strats = p.entries.filter(e => e.kind === 'stratagem');
+    if (!p.entries.length) return '';
+    return `<div class="card phase-card" data-phase="${p.id}" style="margin-top:10px"><div class="title">${esc(p.name)} <span class="muted small">· ${p.entries.length}</span></div>
+      ${p.hint ? `<div class="muted tiny">${esc(p.hint)}</div>` : ''}
+      ${rules.map(e => sheetEntry(e, side)).join('')}
+      ${strats.length ? `<details class="more" ${shown === 'all' ? '' : 'open'}><summary>Stratagems (${strats.length})</summary>${strats.map(e => sheetEntry(e, side)).join('')}</details>` : ''}</div>`;
+  };
+  return `<section class="section" id="phase-sheet"><div class="card">
+      <div class="title">${esc(army.faction)}, phase by phase</div>
+      <div class="muted small">${sheet.count} rules of this list: army and detachment rules, abilities, core abilities and stratagems, by the phase they are used in. The phase is read from each rule’s own words.</div>
+      ${sheet.once.length ? `<div class="modrow" id="once-card" style="margin-top:10px"><div class="lab">Once per battle · <b id="once-left">${left} of ${ticks.length}</b> left · tap when used</div>
+        ${sheet.once.map(e => `<div class="once-row" data-entry="${esc(e.key)}"><b>${esc(e.name)}</b>${tickChips(e, side)}</div>`).join('')}
+        ${left < ticks.length ? `<button class="btn ghost" data-action="mission-once-reset" data-side="${side}" id="once-reset">New battle: clear the ticks</button>` : ''}</div>` : ''}
+    </div></section>
+    <section class="section">${strip}${sheet.phases.filter(p => shown === 'all' || p.id === shown).map(card).join('')}</section>`;
 }
 
 function intelView() {
@@ -379,13 +501,17 @@ function intelView() {
   const stratHtml = [...byPhase.entries()].map(([ph, list]) => `<div class="lab" style="margin-top:8px">${esc(ph)}</div>${list.map(st =>
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
-  return `${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+  const phaseMode = state.intelMode === 'phase';
+  return `<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
+    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
-    <section class="section"><div class="card">
+    ${phaseMode ? phaseSheetHtml(side) : `<section class="section"><div class="card">
       <div class="title">${esc(ai.faction)}</div>
       <div class="muted small">${esc(ai.detachments.join(', ') || 'No detachment found')} · ${army.units.length} units</div>
+      ${ai.armyRules.length ? `<details class="more" id="intel-army-rule"><summary>Army rule${ai.armyRules.length > 1 ? 's' : ''}: ${esc(ai.armyRules.map(d => d.name).join(', '))}</summary>${ai.armyRules.map(d =>
+        `<div class="ability"><b>${esc(d.name)}</b><div class="muted ruletext">${esc(d.text)}</div></div>`).join('')}</details>` : ''}
       ${ai.detachmentRules.length ? `<details class="more"><summary>Detachment rule${ai.detachmentRules.length > 1 ? 's' : ''}</summary>${ai.detachmentRules.map(d =>
         `<div class="ability"><b>${esc(d.name)}</b><div class="muted">${esc(d.text)}</div></div>`).join('')}</details>` : ''}
       <details class="more"><summary>Stratagems (${ai.stratagems.length})</summary>${stratHtml || '<div class="muted small">None found for these detachments.</div>'}</details>
@@ -393,7 +519,7 @@ function intelView() {
     <section class="section"><h2>Units</h2>
       <input class="sel" type="search" data-input="intel-search" placeholder="Search units, keywords, abilities…" value="${esc(state.intelQuery)}" aria-label="Search units">
       <div id="intel-list" class="intel-grid">${intelList(side)}</div>
-    </section>`;
+    </section>`}`;
 }
 
 function intelList(side) {
@@ -420,6 +546,7 @@ function intelList(side) {
         `<div class="ability"><b>${esc(a.name)}</b> <span class="muted tiny">${esc(a.member)}</span><div class="muted">${esc(a.text)}</div></div>`).join('')}</details>
       <div class="tiny muted" style="margin:6px 0">${esc(it.keywords.join(', '))}</div>
       <div class="tiny muted" data-stamp="${esc(cu.key)}">Rules data: ${stamps.map(u => `${esc(u.label)}, ${fmtDataDate(u.date)}${u.note ? ` (${esc(u.note)})` : ''}`).join(' · ')}.${off.length ? ` <span class="tag warn">⚠ ${off.map(m => `${esc(m.name)}: ${m.list} pts in your list, ${orList(m.data)} in the data`).join('; ')} — check this datasheet</span>` : ''}</div>
+      ${updateNoteHtml(cu)}
       ${state.armies.A && state.armies.B && !tableMode() ? `<div class="row" style="gap:6px">
         <button class="btn grow" data-action="target-this" data-side="${side}" data-key="${esc(cu.key)}">Attack this unit →</button>
         <button class="btn grow" data-action="open-threats" data-side="${side}" data-key="${esc(cu.key)}">⚠ Biggest threats</button></div>` : ''}
@@ -474,7 +601,25 @@ function armiesView() {
     ${eventCard()}
     ${backupCard()}
     <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets${ERRATA_RESULT.points || ERRATA_RESULT.weapons ? ` and the points and weapon profiles of ${esc(ERRATA_RESULT.from)}` : ''}, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.
-      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>`;
+      <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>
+    ${rulesLineHtml()}`;
+}
+
+// ---- rules in force: what the rules were checked against, the next rules change, what is not in the numbers
+function rulesLineHtml(today = new Date()) {
+  const s = rulesStatus(today);
+  const src = s.sources.length > 1 ? `${s.sources.slice(0, -1).join(', ')} and ${s.sources[s.sources.length - 1]}` : s.sources[0];
+  const next = `${s.next.what}, the week beginning ${longDate(s.next.weekOf)} (${s.next.source})`;
+  return `<div class="hint" id="rules-line" data-due="${s.next.due ? 1 : 0}"><b>Rules in force.</b> Checked on ${fmtDataDate(s.checked)} against ${esc(src)}. The rules data is the newest release (40kdc ${esc(s.newest.version)}, ${fmtDataDate(s.newest.date)}).
+    ${esc(UPDATE.label)} (${esc(UPDATE.used)}): ${s.changes.missing} of its ${s.changes.total} weapon changes are not in the numbers; the datasheets they change say which.
+    ${s.next.due ? `<div class="warnbox" id="rules-due">⚠ A rules change was due: ${esc(next)}. The rules in this app were checked before it: look for an app update before you rely on points and weapon profiles.</div>`
+      : `<br><span id="rules-next">Next rules change: ${esc(next)}.</span>`}</div>`;
+}
+/** "Nov 2026 update (UKTC events use it): Combi-weapon: S5 and AP-1 — not in the numbers here." for the datasheets of a unit */
+function updateNoteHtml(cu) {
+  const rows = cu.members.flatMap(m => unitUpdates(m.dcUnit.name).map(c => ({ ...c, unit: m.dcUnit.name })));
+  if (!rows.length) return '';
+  return `<div class="tiny update-note" data-update="${esc(cu.key)}">${rows.map(c => `${c.inData ? '✓' : '⚠'} <b>${esc(UPDATE.short)}</b> (${esc(UPDATE.used)}): ${cu.members.length > 1 ? `${esc(c.unit)}, ` : ''}${esc(c.weapon)}: ${esc(c.change)} — ${c.inData ? 'already in the numbers here' : '<b>not in the numbers here</b>'}.`).join('<br>')}</div>`;
 }
 
 // ---- how current the rules data behind an army is (adapter.mjs armyData)
@@ -489,7 +634,9 @@ function dataStampHtml(side, army) {
       : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
           ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
           Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
-  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}</div>`;
+  const changed = army.units.flatMap(cu => cu.members.flatMap(m => unitUpdates(m.dcUnit.name).filter(c => !c.inData).map(c => `${m.dcUnit.name} (${c.weapon}: ${c.change})`)));
+  const upd = changed.length ? `<div class="tiny" id="update-${side}" style="color:var(--warn-ink);margin-top:4px">⚠ ${esc(UPDATE.short)} (${esc(UPDATE.used)}), not in the numbers: ${esc([...new Set(changed)].join('; '))}.</div>` : '';
+  return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}${upd}</div>`;
 }
 
 // ---- backup / restore / move to another device (backup.mjs)
@@ -671,6 +818,7 @@ function targetCard(tinfo, s) {
     const m = s.defManual;
     body += `<details class="more"><summary>Defender modifiers${Object.values(m).some(v => v) ? ' · set' : ''}</summary><div class="modgrid">
       ${state.phase === 'shooting' ? `<div class="modrow"><div class="lab">Benefit of cover (BS worsened by 1)</div><div class="chips">${chip('defmod-toggle', !!m.cover, 'In cover', 'data-key="cover"')}</div></div>` : ''}
+      ${state.phase === 'shooting' && (profile.keywords ?? []).some(k => /^(MONSTER|VEHICLE)$/i.test(k)) ? `<div class="modrow"><div class="lab">Engaged Monster / Vehicle (17.03): −1 to hit for shooting at it, no Blast</div><div class="chips">${chip('defmod-toggle', !!m.engaged, 'Engaged in melee', 'data-key="engaged"')}</div></div>` : ''}
       ${modSeg('Hit rolls against it', 'def', 'hitMod', m.hitMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${modSeg('Wound rolls against it', 'def', 'woundMod', m.woundMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
       ${modSeg('Save roll modifier', 'def', 'saveMod', m.saveMod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']])}
@@ -693,19 +841,55 @@ function targetCard(tinfo, s) {
     ${body}</div>`;
 }
 
+// How a weapon row that is a choice (several profiles, one melee weapon per model, sidearm or main weapon)
+// got its count: chosen by the app (with what it was compared on) or set by hand.
+function choiceTag(r) {
+  if (r.fam == null || r.blocked) return '';
+  if (r.manual) return '<span class="tag byhand">set by hand</span>';
+  return r.full > 0 ? '<span class="tag auto" title="Chosen by the app: the best legal option against this target, with this unit\'s rules and situation">✓ auto: best here</span>' : '';
+}
+function choiceWhy(r) {
+  const n = r.note;
+  if (r.fam == null || r.blocked || r.manual || !n) return '';
+  if (!n.sim) return r.full > 0 ? '' : '<div class="tiny muted choice-why">Not used: another option is at least as good in every way</div>';
+  const haz = n.hazard > 0.005 ? `, after ${fx(n.hazard)} of your own expected from Hazardous` : '';
+  return `<div class="tiny muted choice-why">${r.full > 0 ? 'Used' : 'Not used'}: about ${fx(n.net)} wounds here if all ${r.max > 1 ? `${r.max} ` : ''}attack with it${haz}</div>`;
+}
+
+// Under the weapons of an attacker: what "auto" means (once, when the unit has a choice), the way back to
+// it after a change by hand, and a warning for a set-up the rules do not allow.
+function choiceFoot(e, rows, problem) {
+  const hasChoice = rows.some(r => r.fam != null);
+  const byHand = rows.some(r => r.manual);
+  const both = problem && overSidearms(problem, Object.fromEntries(rows.map(r => [r.id, r.full])));
+  if (!hasChoice && !byHand) return '';
+  const inContext = rows.some(r => r.note?.inContext && !r.manual);
+  return `<div class="choice-foot tiny muted">${hasChoice ? 'Where a model must choose (one profile of a weapon, one melee weapon, its close-quarters weapons or its other weapons) the app uses the option that removes the most wounds from this target. Change a count to choose yourself.' : ''}
+    ${inContext ? ' <span class="choice-ctx">This unit is likely to destroy the target, so the choice was checked with all its attacks together: damage that is not needed does not count.</span>' : ''}
+    ${byHand ? ` <button class="linkish" data-action="count-auto" data-uid="${e.uid}">↺ Let the app choose again</button>` : ''}
+    ${both ? '<div class="warn" style="color:var(--warn-ink)">⚠ A model shoots its close-quarters weapons or its other ranged weapons, not both (24.07).</div>' : ''}</div>`;
+}
+
+// 15.01: "Each player cannot use the same stratagem more than once in the same phase" and "cannot target the
+// same unit with more than one stratagem in the same phase". The options of one stratagem share a key.
+const stratKey = (r) => r.group ?? String(r.id).replace(/:alt\d+$/, '');
+const defStratKey = (id) => String(id).split(':').slice(0, 2).join(':');
+
 function attackerCard(e, i, tinfo) {
-  const { cu, rows } = rowsFor(e, tinfo);
+  const { cu, rows, problem } = rowsFor(e, tinfo);
   if (!cu) return '';
   const m = e.mods ?? {};
   const shooting = state.phase === 'shooting';
   const hasIndirect = rows.some(r => r.kw.indirect);
   const weapons = rows.length ? rows.map(r => {
     const unsupported = r.unsupported.length ? r.unsupported.map(t => `<span class="tag warn" title="Not modelled by the calculator">${esc(t)} ⚠</span>`).join('') : '';
-    const tags = r.tags.filter(t => !r.unsupported.includes(t)).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    return `<div class="weapon ${r.count ? '' : 'off'}">
+    // an ability limited to other targets is shown struck through (24.01)
+    const tags = r.tags.filter(t => !r.unsupported.includes(t)).map(t => (r.tagsOff?.includes(t)
+      ? `<span class="tag off" title="Does not apply against this target (24.01)">${esc(t)}</span>` : `<span class="tag">${esc(t)}</span>`)).join('');
+    return `<div class="weapon ${r.count ? '' : 'off'}" data-row="${esc(r.id)}"${r.fam != null ? ` data-fam="${esc(r.fam)}"` : ''}>
       <div class="grow"><div class="wname">${esc(r.label)}</div>
         <div class="wstats">${esc(r.range)} · ${esc(r.stats)}</div>
-        <div>${tags}${unsupported}${r.blocked ? `<span class="tag warn">${esc(r.blocked)}</span>` : ''}</div></div>
+        <div>${tags}${unsupported}${r.blocked ? `<span class="tag warn">${esc(r.blocked)}</span>` : ''}${choiceTag(r)}</div>${choiceWhy(r)}</div>
       <div class="stepper">
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="-1" aria-label="Fewer">−</button>
         <div class="val">${r.count}/${r.max}</div>
@@ -741,10 +925,17 @@ function attackerCard(e, i, tinfo) {
   ].filter(Boolean).join('');
   const distRow = needs.within ? `<div class="weapon" style="border-top:0;padding-top:4px"><div class="grow"><div class="wname">Distance to target</div><div class="wstats">for "within X\"" abilities</div></div>
       <div class="stepper"><button data-action="distance" data-uid="${e.uid}" data-delta="-1" aria-label="Closer">−</button><div class="val">${m.distance != null ? `${m.distance}"` : '–'}</div><button data-action="distance" data-uid="${e.uid}" data-delta="1" aria-label="Further">+</button></div></div>` : '';
+  const flags = coreFlags(cu);
+  const shootType = m.shootingType ?? 'normal';
+  const hasHeavy = rows.some(r => r.kw.heavy);
   const sit = [
     shooting && chip('amod-toggle', !!m.halfRange, 'Half range', `data-uid="${e.uid}" data-key="halfRange"`),
     chip('amod-toggle', !!m.charged, 'Charged', `data-uid="${e.uid}" data-key="charged"`),
-    shooting && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
+    shooting && shootType === 'normal' && chip('amod-toggle', !!m.stationary, 'Stationary', `data-uid="${e.uid}" data-key="stationary"`),
+    // 24.16 Heavy: +1 to hit when unengaged, not set up this turn and no model moved more than 3"
+    shooting && shootType === 'normal' && hasHeavy && !m.stationary && chip('amod-toggle', !!m.heavyOk, 'Moved 3" or less (Heavy: +1 to hit)', `data-uid="${e.uid}" data-key="heavyOk" title="Heavy (24.16): +1 to hit when this unit is unengaged, was not set up this turn, and no model moved more than 3 inches."`),
+    // 24.39 Damaged X: -1 to hit at X wounds or fewer
+    flags.damaged && chip('amod-toggle', !!m.damaged, `Damaged (${flags.damaged} wounds or fewer left): −1 to hit`, `data-uid="${e.uid}" data-key="damaged"`),
     shooting && chip('amod-toggle', !!m.overwatch, 'Snap shooting', `data-uid="${e.uid}" data-key="overwatch"`),
     // 22.05: from a terrain section 3"+ high (or TOWERING within 12") at models on ground level
     shooting && chip('amod-toggle', !!m.plunging, 'Plunging fire (+1 BS)', `data-uid="${e.uid}" data-key="plunging" title="Plunging Fire: this unit shoots from a terrain section 3 inches or more high (or is TOWERING within 12 inches) at a unit with models on ground level. BS improves by 1."`),
@@ -769,7 +960,8 @@ function attackerCard(e, i, tinfo) {
   const stratTextInPhase = stratText.filter(st => st.phase && (/any/i.test(st.phase) || st.phase.toLowerCase().includes(state.phase)));
   const rulesBlock = (abilRules.length || stratRules.length || stratTextInPhase.length) ? `
     ${abilRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Abilities & detachment rule (auto when their condition is met — tap to override)</div><div class="chips">${abilRules.map(ruleChip).join('')}</div></div>` : ''}
-    ${stratRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Stratagems (tap to use)</div><div class="chips">${stratRules.map(ruleChip).join('')}</div></div>` : ''}
+    ${stratRules.length ? `<div class="modrow" style="margin-top:10px"><div class="lab">Stratagems (tap to use)</div><div class="chips">${stratRules.map(ruleChip).join('')}</div>
+      <div class="rule-note${new Set(stratRules.filter(r => on.has(r.id)).map(stratKey)).size > 1 ? ' warn' : ''}" data-strat-note>One stratagem on a unit in a phase, and each stratagem once in a phase (15.01).${new Set(stratRules.filter(r => on.has(r.id)).map(stratKey)).size > 1 ? ' ⚠ More than one is on for this unit.' : ''}</div></div>` : ''}
     ${stratTextInPhase.length ? `<details class="more"><summary>Other stratagems — set by hand (${stratTextInPhase.length})</summary>${stratTextInPhase.map(st =>
       `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.detachment)}</span><div class="muted">${st.missing ? 'No 11e text in the dataset.' : esc(`${st.when} — ${st.effect}`)}</div></div>`).join('')}</details>` : ''}` : '';
   return `<div class="card" data-attacker="${e.uid}">
@@ -778,7 +970,10 @@ function attackerCard(e, i, tinfo) {
       ${i > 0 ? `<button class="icon-btn" data-action="move-up" ${sc} aria-label="Resolve earlier">↑</button>` : ''}
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
     ${attachRow(state.side, cu)}
+    ${shooting ? `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">This unit ${shootType === 'assault' ? 'advanced: only Assault weapons shoot (10.05)' : shootType === 'cq' ? 'is engaged: close-quarters weapons only, Monsters and Vehicles excepted (10.06)' : 'did not advance and is not engaged'}</div>
+      ${seg('shooting-type', shootType, [['normal', 'Normal'], ['assault', 'Advanced'], ['cq', 'Engaged']], `compact" data-uid="${e.uid}`)}</div>` : ''}
     <div style="margin-top:6px">${weapons}</div>
+    ${choiceFoot(e, rows, problem)}
     ${rangeRow}
     <div class="chips" style="margin-top:8px">${sit}</div>
     ${situation || distRow ? `<div class="modrow" style="margin-top:8px"><div class="lab">Situation (switches matching abilities on)</div><div class="chips">${situation}</div>${distRow}</div>` : ''}
@@ -871,17 +1066,17 @@ function renderSheet() {
 // Default matchup (always-on rules only) between any two armies, in any phase.
 function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const profile = defenderProfile(defCu, defArmyObj);
-  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile) };
+  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {});
+  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile), defender };
   const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
-  const { rows } = rowsFor(entry, tinfo, atkArmyObj, phase);
-  if (!rows.some(r => r.count > 0)) return null;
+  // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
+  const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
+  if (!rows.some(r => r.usable !== false && r.max > 0)) return null;
   const { rules, on } = rulesFor(entry, atkCu, tinfo, atkArmyObj, phase);
-  return {
-    phase,
-    attackers: [buildAttacker(atkCu, rows, {}, rules, on, phase)],
-    defender: buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {}),
-    seed: 99,
-  };
+  const attacker = buildAttacker(atkCu, rows, {}, rules, on, phase);
+  if (problem && decisions(problem).length) attacker.choice = { groups: problem.groups, rows: problem.rows, shooting: problem.shooting, target: problem.target };
+  else if (!attacker.weapons.length) return null;
+  return { phase, attackers: [attacker], defender, seed: 99 };
 }
 // Unit-vs-unit odds for the Mission tab's board plans: P(target destroyed)
 // when one unit shoots / fights another, default rules, a quick batch run.
@@ -1124,7 +1319,19 @@ function chainInputs() {
   const shoot = ss.targetKey === targetKey && ss.attackers?.length ? scenarioFor('shooting', { ...ss, ruleOverrides: ss.ruleOverrides ?? {}, defManual: ss.defManual ?? {}, defOverrides: ss.defOverrides ?? {} }) : null;
   const fight = scenarioFor('fight', fightSetup);
   if (!fight) return null;
-  return { shoot, fight, charge: { gap: c.gap, mod: c.mod, reroll: c.reroll }, seed: 4242 };
+  // what the turn costs the charging unit: the target fights back (always, unless switched off), the
+  // enemy may Fire Overwatch at it (1CP, its choice), and a destroyed target may have Deadly Demise
+  const tgtCu = defArmy()?.units.find(u => u.key === targetKey), chCu = atkArmy()?.units.find(u => u.key === c.chargerKey);
+  let back = null, overwatch = null, demise = null;
+  if (tgtCu && chCu) {
+    if (c.back !== false) back = defaultScenarioFor(defArmy(), atkArmy(), tgtCu, chCu, 'fight');
+    if (c.overwatch) {
+      overwatch = defaultScenarioFor(defArmy(), atkArmy(), tgtCu, chCu, 'shooting');
+      if (overwatch) overwatch.attackers[0].mods = { ...overwatch.attackers[0].mods, overwatch: true };     // snap shooting (15.09)
+    }
+    demise = coreFlags(tgtCu).deadlyDemise;
+  }
+  return { shoot, fight, back, overwatch, demise: back || overwatch ? demise : null, charge: { gap: c.gap, mod: c.mod, reroll: c.reroll }, seed: 4242 };
 }
 
 let chainWorker = null, chainReq = 0;
@@ -1182,7 +1389,7 @@ function chainSheet() {
     body = `<div class="hero">
         <div class="cell"><b id="chain-total">${fx(r.meanKills)}</b><span>avg models destroyed this turn of ${r.totalModels}</span></div>
         <div class="cell"><b id="chain-wipe">${pct(r.pWipe)}</b><span>chance it is destroyed this turn</span></div>
-        <div class="cell"><b id="chain-charge">${pct(r.pChargeGivenSurvive)}</b><span>charge lands (${need}+ on 2D6${c.reroll ? ', re-roll' : ''})</span></div>
+        <div class="cell"><b id="chain-charge">${pct(r.pChargeGivenSurvive)}</b><span id="chain-need">${need > CHARGE_MAX ? `more than ${CHARGE_MAX}": cannot be charged` : `charge lands (${need}+ on 2D6${c.mod ? `, ${fmtMod(c.mod)}` : ''}${c.reroll ? ', re-roll' : ''})`}</span></div>
       </div>
       <div class="pipeline" style="margin-top:8px">
         <div><b>${fx(r.meanShoot)}</b><span>Shooting kills</span></div>
@@ -1190,6 +1397,8 @@ function chainSheet() {
         <div><b>${fx(r.meanFight)}</b><span>Fight kills (avg over all turns)</span></div>
         <div><b>${fx(r.meanKills)}</b><span>Total</span></div>
       </div>
+      ${chainOwnHtml(r, c, tgt)}
+      ${shockHtml('the target is', shockOdds(tgt, { alive: r.totalModels, lostAtLeast: r.killsAtLeast, pWipe: r.pWipe }), 'chain-shock-target')}
       <div class="section"><h2>Chance of exactly N models destroyed this turn</h2><div class="chart">${chartSvg(dd)}</div></div>
       <table class="dist"><thead><tr><th>Models</th><th>Exactly</th><th>At least</th></tr></thead><tbody>
       ${dd.exact.map((p, k) => ({ k, p, ge: dd.atLeast[k] })).filter(x => x.p >= 0.005 || (x.ge >= 0.005 && x.ge < 0.995)).map(x => `<tr><td>${x.k}</td><td>${pct(x.p)}</td><td>${pct(x.ge)}</td></tr>`).join('')}</tbody></table>`;
@@ -1201,33 +1410,67 @@ function chainSheet() {
       <select class="sel" data-input="chain-charger" aria-label="Charging unit">${chargers.map(cu => `<option value="${esc(cu.key)}" ${cu.key === c.chargerKey ? 'selected' : ''}>${esc(cu.name)}</option>`).join('')}</select></div>
     <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Charge distance</div><div class="wstats">closest bases after shooting, in inches</div></div>
       <div class="stepper"><button data-action="chain-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val" id="chain-gap">${c.gap}"</div><button data-action="chain-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
-    <div class="modrow"><div class="lab">Charge roll modifier</div>${seg('chain-mod', c.mod ?? 0, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
-    <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>` : ''}
+    <div class="modrow"><div class="lab">Charge roll modifiers, added up</div>${seg('chain-mod', c.mod ?? 0, CHARGE_MODS, 'compact')}</div>
+    <div class="chips" style="margin-top:6px">${chip('chain-reroll', !!c.reroll, 'Re-roll the charge')}</div>
+    <div class="modrow" style="margin-top:8px"><div class="lab">What the enemy does</div><div class="chips">
+      ${chip('chain-back', c.back !== false, 'The target fights back')}
+      ${chip('chain-overwatch', !!c.overwatch, 'It fires Overwatch at the charging unit (1CP)')}</div></div>` : ''}
     <div style="margin-top:10px">${body}</div>
-    <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. Not modelled: Overwatch, the target fighting back, models lost by the charger.</p>`;
+    <p class="hint">Casualties and a damaged model carry from the shooting into the fight; a unit destroyed by shooting can't be charged. The enemy's attacks use its default weapons and always-on rules against your unit at full strength. Overwatch (15.08) comes at the end of your Movement phase, before your shooting; your unit fights first because it charged (12.04).</p>`;
 }
+
+// The other side of the exchange: what the turn costs the charging unit.
+function chainOwnHtml(r, c, tgt) {
+  const o = r.own;
+  if (!o) return '';
+  const ch = atkArmy()?.units.find(u => u.key === c.chargerKey);
+  const dd = coreFlags(tgt).deadlyDemise;
+  const parts = [
+    c.overwatch ? `<div><b id="chain-own-ow">${fx(o.meanOverwatch)}</b><span>Overwatch</span></div>` : '',
+    c.back !== false ? `<div><b id="chain-own-back">${fx(o.meanBack)}</b><span>Fight back</span></div>` : '',
+    dd ? `<div><b id="chain-own-dd">${fx(o.meanDemise, 2)}</b><span>Deadly Demise ${esc(dd)}</span></div>` : '',
+    `<div><b>${fx(o.meanLost)}</b><span>Total</span></div>`,
+  ].filter(Boolean).join('');
+  const sh = ch ? shockOdds(ch, { alive: o.totalModels, lostAtLeast: o.lostAtLeast, pWipe: o.pWipe }) : null;
+  return `<div class="section" id="chain-own"><h2>What it costs ${esc(ch?.name ?? 'your unit')}</h2>
+    <div class="hero" style="grid-template-columns:1fr 1fr">
+      <div class="cell"><b id="chain-own-lost">${fx(o.meanLost)}</b><span>avg models lost of ${o.totalModels}</span></div>
+      <div class="cell"><b id="chain-own-wipe">${pct(o.pWipe)}</b><span>chance it is destroyed</span></div>
+    </div>
+    <div class="pipeline" style="margin-top:8px">${parts}</div>
+    ${o.pStoppedByOverwatch > 0.005 ? `<div class="tiny muted">Overwatch destroys it before it charges ${pct(o.pStoppedByOverwatch)} of the time.</div>` : ''}
+    ${o.meanPoints > 0 && r.meanPoints > 0 ? `<div class="small" id="chain-trade" style="margin-top:6px">Points: you destroy <b>${fx(r.meanPoints, 0)}</b> and lose <b>${fx(o.meanPoints, 0)}</b> on average.</div>` : ''}
+    ${shockHtml('your unit is', sh, 'chain-shock-own')}
+    ${coreFlags(tgt).fightsFirst ? '<div class="tiny muted">The target has Fights First. In your turn your charging unit is still selected first (12.04).</div>' : ''}
+  </div>`;
+}
+
+/** Charge-roll modifiers add up (02.02.01: only hit and wound rolls are limited to ±1). */
+const CHARGE_MODS = [[-2, '−2'], [-1, '−1'], [0, '0'], [1, '+1'], [2, '+2']];
+const fmtMod = (m) => `${m > 0 ? '+' : '−'}${Math.abs(m)}`;
 
 function chargeSheet() {
   const c = state.charge;
   const need = chargeRollNeeded(c.gap);
   const p = chargeOdds(need, { mod: c.mod, reroll: c.reroll });
   const rows = [];
-  for (let g = 3; g <= 14; g++) {
+  for (let g = 3; g <= CHARGE_MAX; g++) {
     const n = chargeRollNeeded(g);
     rows.push(`<tr ${Math.abs(g - c.gap) < 0.01 ? 'style="font-weight:700"' : ''}><td>${g}"</td><td>${n}+</td><td>${pct(chargeOdds(n, { mod: c.mod }))}</td><td>${pct(chargeOdds(n, { mod: c.mod, reroll: true }))}</td></tr>`);
   }
+  rows.push(`<tr ${c.gap > CHARGE_MAX ? 'style="font-weight:700"' : ''}><td>over ${CHARGE_MAX}"</td><td>—</td><td colspan="2">cannot be charged</td></tr>`);
   return `<div class="row"><h3 class="grow">Charge odds</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
     <div class="weapon" style="border-top:0"><div class="grow"><div class="wname">Gap to the nearest target</div><div class="wstats">base to base, in inches</div></div>
       <div class="stepper"><button data-action="charge-gap" data-delta="-0.5" aria-label="Shorter">−</button><div class="val">${c.gap}"</div><button data-action="charge-gap" data-delta="0.5" aria-label="Longer">+</button></div></div>
-    <div class="modrow"><div class="lab">Charge roll modifier (nets to ±1)</div>${seg('charge-mod', c.mod, [[-1, '−1'], [0, '0'], [1, '+1']], 'compact')}</div>
+    <div class="modrow"><div class="lab">Charge roll modifiers, added up</div>${seg('charge-mod', c.mod, CHARGE_MODS, 'compact')}</div>
     <div class="chips" style="margin-top:8px">${chip('charge-reroll', c.reroll, 'Re-roll the charge (e.g. Command Re-roll)')}</div>
     <div class="hero" style="grid-template-columns:1fr 1fr;margin-top:12px">
-      <div class="cell"><b id="charge-need">${need}+</b><span>needed on 2D6 (gap − 2" engagement range)</span></div>
+      <div class="cell"><b id="charge-need">${need > CHARGE_MAX ? '—' : `${need}+`}</b><span>${need > CHARGE_MAX ? `more than ${CHARGE_MAX}": cannot be charged` : 'needed on 2D6: the gap, rounded up'}</span></div>
       <div class="cell"><b id="charge-p">${pct(p)}</b><span>chance to make it</span></div>
     </div>
-    <div class="section"><h2>Quick reference${c.mod ? ` · ${c.mod > 0 ? '+' : '−'}1 to the roll` : ''}</h2>
+    <div class="section"><h2>Quick reference${c.mod ? ` · ${fmtMod(c.mod)} to the roll` : ''}</h2>
       <table class="dist"><thead><tr><th>Gap</th><th>Needs</th><th>Chance</th><th>With re-roll</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
-    <p class="hint">11e: the charge roll (2D6) is the maximum move and the unit must end engaged (within 2"), so you need the gap minus 2".</p>`;
+    <p class="hint" id="charge-rule">11th edition (11.04): the charge roll is the maximum distance, and the target must be within that distance — and within ${CHARGE_MAX}" — before the unit moves. A roll that would only bring the unit to within 2" is not enough. Modifiers to the charge roll add up (the ±1 limit is for hit and wound rolls); the roll cannot be more than 12. A FLY unit that takes to the skies to move over models or terrain has −2" (21.03).</p>`;
 }
 
 function attachSheet() {
@@ -1313,6 +1556,36 @@ function chartSvg(d) {
   return svg + '</svg>';
 }
 
+/**
+ * Battle-shock after an attack. A unit at or below half strength (01.02.01: half its starting models,
+ * leaders counted; a single model: half its wounds) takes a battle-shock roll in its player's next
+ * Command phase (08.03): 2D6 against its best Leadership (01.06). Failed: OC "-", its player cannot use
+ * stratagems on it, it cannot start actions, and it can only fall back by Desperate Escape (01.07, 09.07).
+ * dist: { alive: models now, lostAtLeast, pWipe } or for one model { wounds: wounds now, woundsAtLeast, pWipe }
+ * -> { pHalf: at or below half and not destroyed, pFail, pShocked, ld } or null
+ */
+function shockOdds(cu, dist) {
+  if (!cu) return null;
+  const f = shockFacts(cu);
+  let pHalf;
+  if (f.single) {
+    if (!dist.woundsAtLeast) return null;
+    const need = Math.max(0, (dist.wounds ?? f.single) - Math.floor(f.single / 2));
+    pHalf = need <= 0 ? 1 : (dist.woundsAtLeast[need] ?? 0);
+  } else {
+    const need = Math.max(0, dist.alive - Math.floor(f.start / 2));
+    pHalf = need <= 0 ? 1 : (dist.lostAtLeast[need] ?? 0);
+  }
+  const pTest = Math.max(0, pHalf - (dist.pWipe ?? 0));
+  const pFail = 1 - chargeOdds(f.ld);          // P(2D6 < Ld)
+  return { pHalf: pTest, pFail, pShocked: pTest * pFail, ld: f.ld };
+}
+function shockHtml(who, sh, id) {
+  if (!sh || sh.pHalf < 0.005) return '';
+  return `<div class="shock small" id="${id}"><b>Battle-shock:</b> ${who} at or below half strength, and still on the table, <b>${pct(sh.pHalf)}</b> of the time. In its next Command phase it then tests on Ld ${sh.ld}+ and fails ${pct(sh.pFail)} of the time: <b>battle-shocked ${pct(sh.pShocked)}</b>.
+    <span class="tiny muted">A battle-shocked unit has OC “–”, cannot be the target of its player's stratagems, cannot start actions and can only fall back by Desperate Escape.</span></div>`;
+}
+
 function resultsSheet() {
   const r = state.result;
   if (!r) return '<div class="muted">No result yet.</div>';
@@ -1340,6 +1613,7 @@ function resultsSheet() {
       </div>`;
     })() : ''}
     ${st.abilityMortals > 0.005 ? `<div class="tiny muted" style="margin-top:6px">Includes ${fx(st.abilityMortals)} mortal wounds from abilities / stratagems on average.</div>` : ''}
+    ${shockHtml('the target is', shockOdds(tinfo?.cu, { alive: r.totalModels, lostAtLeast: r.killsAtLeast, wounds: r.totalWounds, woundsAtLeast: r.woundsAtLeast, pWipe: r.pWipe }), 'shock-target')}
     <div class="section"><h2>Chance of exactly N ${what}</h2>
       ${seg('chart-mode', d.mode, [['models', 'Models destroyed'], ['damage', 'Damage dealt']], 'compact')}
       <div class="readout" id="readout">${readout(d, state.selBar ?? d.exact.indexOf(Math.max(...d.exact)))}</div>
@@ -1553,6 +1827,20 @@ app.addEventListener('click', (ev) => {
       state.intelSide = el.dataset.value;
       state.intelQuery = '';
       return changed({ calc: false });
+    case 'intel-mode':
+      state.intelMode = el.dataset.value === 'phase' ? 'phase' : 'units';
+      return changed({ calc: false });
+    case 'intel-phase': {
+      state.intelPhase = el.dataset.value;
+      changed({ calc: false });
+      // the chosen phase starts right under the strip
+      const strip = document.getElementById('phase-strip');
+      if (strip) {
+        const top = strip.getBoundingClientRect().top + window.scrollY - (document.querySelector('header.top')?.offsetHeight ?? 53);
+        if (window.scrollY > top) window.scrollTo(0, top);
+      }
+      return;
+    }
     case 'target-this': {
       // the chosen unit becomes the target; the other army attacks
       state.side = other(el.dataset.side);
@@ -1676,6 +1964,14 @@ app.addEventListener('click', (ev) => {
       state.chain.reroll = !state.chain.reroll;
       runChain();
       return renderSheet();
+    case 'chain-back':
+      state.chain.back = state.chain.back === false;
+      runChain();
+      return renderSheet();
+    case 'chain-overwatch':
+      state.chain.overwatch = !state.chain.overwatch;
+      runChain();
+      return renderSheet();
     case 'open-charge':
       state.sheet = 'charge';
       return renderSheet();
@@ -1707,10 +2003,27 @@ app.addEventListener('click', (ev) => {
     case 'count': {
       const e = findEntry(el.dataset.uid);
       if (!e) return;
-      const row = rowsFor(e, targetInfo()).rows.find(r => r.id === el.dataset.row);
+      const tinfo = targetInfo();
+      const { rows, problem, stale } = rowsFor(e, tinfo);
+      const row = rows.find(r => r.id === el.dataset.row);
       if (!row || row.blocked) return;
       e.counts ??= {};
-      e.counts[row.id] = Math.max(0, Math.min(row.max, row.count + Number(el.dataset.delta)));
+      const delta = Number(el.dataset.delta);
+      if (problem && row.fam != null) {
+        // rows of one family share weapons or models (profiles of one weapon, the melee weapons of one model):
+        // from the first change by hand the whole family is set by hand, and a count that goes up takes from the others
+        if (stale) for (const r of rows) if (r.fam != null) delete e.counts[r.id];   // set for another target
+        e.countsFor = tinfo?.cu?.key ?? null;
+        const cur = Object.fromEntries(rows.map(r => [r.id, r.full]));
+        Object.assign(e.counts, adjustCount(problem, cur, row.id, delta));
+      } else e.counts[row.id] = Math.max(0, Math.min(row.max, row.full + delta));
+      return changed();
+    }
+    case 'count-auto': {
+      const e = findEntry(el.dataset.uid);
+      if (!e) return;
+      e.counts = {};
+      delete e.countsFor;
       return changed();
     }
     case 'arule': {
@@ -1727,6 +2040,25 @@ app.addEventListener('click', (ev) => {
       // choice rules ("X, or Y"): picking one option switches the others off
       const r = rules.find(x => x.id === id);
       if (turnOn && r?.group) for (const sib of rules) if (sib.group === r.group && sib.id !== id) e.ruleOverrides[sib.id] = false;
+      if (turnOn && r?.kind === 'stratagem') {
+        // 15.01: one stratagem on a unit in a phase ...
+        const key = stratKey(r);
+        for (const sib of rules) if (sib.kind === 'stratagem' && stratKey(sib) !== key && on.has(sib.id)) e.ruleOverrides[sib.id] = false;
+        // ... and the same stratagem once in a phase: off on the other attacking units
+        for (const o of setup().attackers) {
+          if (o === e) continue;
+          for (const [rid, v] of Object.entries(o.ruleOverrides ?? {})) if (v === true && String(rid).replace(/:alt\d+$/, '') === key) o.ruleOverrides[rid] = false;
+        }
+      }
+      return changed();
+    }
+    case 'shooting-type': {
+      const e = findEntry(el.closest('[data-uid]')?.dataset.uid);
+      if (!e) return;
+      e.mods ??= {};
+      e.mods.shootingType = el.dataset.value;
+      e.mods.engaged = el.dataset.value === 'cq';         // 17.03: its close-quarters weapons have no -1 against the unit it is engaged with
+      if (el.dataset.value !== 'normal') { e.mods.stationary = false; e.mods.heavyOk = false; }
       return changed();
     }
     case 'doctrine': {
@@ -1770,8 +2102,11 @@ app.addEventListener('click', (ev) => {
       const tinfo = targetInfo();
       const r = tinfo?.profile.rules.find(x => x.id === el.dataset.id);
       if (!r) return;
-      const on = enabledRules(tinfo.profile, s).has(r.id);
+      const enabled = enabledRules(tinfo.profile, s);
+      const on = enabled.has(r.id);
       s.ruleOverrides[r.id] = !on;
+      // 15.01: one stratagem on the target in a phase (the effects of one stratagem go together)
+      if (!on && r.kind === 'stratagem') for (const x of tinfo.profile.rules) if (x.kind === 'stratagem' && defStratKey(x.id) !== defStratKey(r.id) && enabled.has(x.id)) s.ruleOverrides[x.id] = false;
       return changed();
     }
     default:
@@ -1796,7 +2131,8 @@ app.addEventListener('change', (ev) => {
     el.value = '';
     return;
   }
-  if (eventChange(el)) return el.dataset.input === 'event-name' ? undefined : changed({ calc: false });
+  const evr = eventChange(el);      // 'quiet': the card has already updated itself in place (a result typed in)
+  if (evr) return el.dataset.input === 'event-name' || evr === 'quiet' ? undefined : changed({ calc: false });
   if (boardChange(el)) return changed({ calc: false });
   const mc = missionChange(el);
   if (mc === 'quiet') return persist();
@@ -1874,7 +2210,7 @@ initBoard({
   },
 });
 initMission({ state, esc, seg, chip, pairOdds, wide });
-initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress });
+initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
 parseArmy('A');
 parseArmy('B');

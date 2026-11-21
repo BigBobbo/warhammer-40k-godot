@@ -10,13 +10,14 @@ import { CODEX_OVERLAY_FACTIONS } from '../js/lib/data-patches.mjs';
 import { ERRATA } from './errata-data.mjs';
 import { importText } from '../js/builder/importers.js';
 import { normName, looseName } from '../js/lib/dckit.mjs';
-import { expectedDamageQuick, mergeMods } from './engine.mjs';
+import { mergeMods } from './engine.mjs';
+import { solveCounts, quickStat } from './choose.mjs';
 import { footprint } from './board.mjs';
 import { BASE_SIZE_OVERRIDES } from '../js/lib/gameformat.mjs';
 import { STRATAGEMS } from './stratagems-11e.mjs';
 import {
   parseOffensive, parseDefensiveText, parseConditions, conditionsMet, describeConditions,
-  stratagemRole, stratagemPhases, stratagemEligible,
+  stratagemRole, stratagemPhases, stratagemEligible, phraseInKeywords, parseWeaponBullets, weaponNamed,
 } from './rules.mjs';
 export { describeConditions };
 
@@ -255,6 +256,26 @@ export function defaultAttachments(roster) {
   return out;
 }
 
+/**
+ * What an enhancement gives the bearer's whole unit, from wording like Wolf-Touched:
+ * "This unit has: • Wulfen. • +2" M."  -> { keywords: ['WULFEN'], move: 2 }
+ * (only the plain "This unit has:" form: one that starts with a condition is left alone)
+ */
+export function enhancementGrants(ru) {
+  const out = { keywords: [], move: 0, name: null };
+  const eid = ru?.enhancement?.id ?? ru?.enhancement?.ref?.id;
+  const e = eid ? (dc.RAW_DATA.enhancements ?? []).find(x => x.id === eid) : null;
+  const m = String(e?.rules_text ?? '').replace(/\s+/g, ' ').match(/(?:^|\. )This unit has:\s*•(.*)$/);
+  if (!m) return out;
+  out.name = e.name;
+  for (const b of m[1].split('•').map(s => s.trim().replace(/\.$/, ''))) {
+    const mv = b.match(/^\+(\d+)" M$/);
+    if (mv) out.move += Number(mv[1]);
+    else if (/^[A-Z][A-Za-z’' -]{2,30}$/.test(b) && !/\b(has|have|can|when|if|strike|operative|stealth|scouts|infiltrators)\b/i.test(b)) out.keywords.push(b.toUpperCase());
+  }
+  return out;
+}
+
 /** Roster -> combat units. A bodyguard and the characters attached to it are one unit. */
 export function combatUnits(roster, attachments = defaultAttachments(roster)) {
   const parts = rosterParts(roster);
@@ -281,7 +302,7 @@ export function combatUnits(roster, attachments = defaultAttachments(roster)) {
     const n = (seen.get(baseName) ?? 0) + 1;
     seen.set(baseName, n);
     const keywords = new Set();
-    for (const m of members) for (const k of [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? [])]) keywords.add(k.toUpperCase());
+    for (const m of members) for (const k of [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? []), ...enhancementGrants(m.ru).keywords]) keywords.add(k.toUpperCase());
     out.push({
       key: `u${p.index}`,
       index: p.index,
@@ -421,10 +442,20 @@ export function weaponKw(keywords) {
   const kw = { anti: [] };
   const tags = [];
   const unsupported = [];
-  let hunter = null;
+  // 04.01.03: a Hunter profile "can only target units with the specified keywords". A profile
+  // can name several (e.g. Monster and Vehicle): the target needs one of them.
+  const hunters = [];
+  // 24.01: an ability written with keywords ("[Lethal Hits: non-Monster/Vehicle]") "only applies if the
+  // target unit has one or more of those keywords". limits: [{ field, any, not, label }] - field is the
+  // kw field it switches (or 'anti:<KEYWORD>').
+  const limits = [];
   for (const k of keywords ?? []) {
     const p = k.parameters ?? {};
     const id = k.keyword_id;
+    const any = (p.required_target_keywords_any ?? []).map(x => String(x).toUpperCase());
+    const not = (p.excluded_target_keywords ?? []).map(x => String(x).toUpperCase());
+    const limited = any.length > 0 || not.length > 0;
+    const field = { 'lethal-hits': 'lethal', 'sustained-hits': 'sustained', 'devastating-wounds': 'dev', 'twin-linked': 'twin', lance: 'lance', precision: 'precision', 'ignores-cover': 'ignoresCover', anti: `anti:${String(p.target_keyword ?? '').toUpperCase()}` }[id];
     switch (id) {
       case 'torrent': kw.torrent = true; break;
       case 'lethal-hits': kw.lethal = true; break;
@@ -448,19 +479,42 @@ export function weaponKw(keywords) {
       case 'hazardous': kw.hazardous = true; break;
       case 'psychic': kw.psychic = true; break;
       case 'anti': kw.anti.push({ keyword: String(p.target_keyword ?? '').toUpperCase(), threshold: Number(p.threshold ?? 4) }); break;
-      case 'hunter': hunter = String(p.target_keyword ?? '').toUpperCase(); break;
+      case 'hunter': { const h = String(p.target_keyword ?? '').toUpperCase(); if (h && !hunters.includes(h)) hunters.push(h); break; }
+      case 'assault': kw.assault = true; break;
       case 'pistol': kw.pistol = true; break;
       case 'close-quarters': kw.cq = true; break;
       case 'extra-attacks': kw.extraAttacks = true; break;
       case 'one-shot': kw.oneShot = true; break;
       default: break;
     }
-    const label = id === 'anti' ? `Anti-${String(p.target_keyword ?? '').toLowerCase()} ${p.threshold ?? 4}+`
-      : id.replace(/-/g, ' ') + (p.value != null ? ` ${p.value}` : '') + (id === 'hunter' && p.target_keyword ? ` (${p.target_keyword})` : '');
+    const words = (xs) => xs.map(x => x.charAt(0) + x.slice(1).toLowerCase()).join('/');
+    const label = (id === 'anti' ? `Anti-${String(p.target_keyword ?? '').toLowerCase()} ${p.threshold ?? 4}+`
+      : id.replace(/-/g, ' ') + (p.value != null ? ` ${p.value}` : '') + (id === 'hunter' && p.target_keyword ? ` (${p.target_keyword})` : ''))
+      + (limited ? `: ${any.length ? `${words(any)} only` : `not ${words(not)}`}` : '');
     tags.push(label);
-    if (!SUPPORTED_KW.has(id)) unsupported.push(label);
+    if (limited && field) limits.push({ field, any, not, label });
+    if (!SUPPORTED_KW.has(id) || (limited && !field)) unsupported.push(label);
   }
-  return { kw, tags, unsupported, hunter };
+  return { kw, tags, unsupported, hunters, hunter: hunters[0] ?? null, limits };
+}
+
+/**
+ * A weapon's abilities against one target: those limited to other targets are switched off (24.01).
+ * -> { kw, off: [labels of the abilities that do not apply] }
+ */
+export function limitKw(kw, limits, targetKeywords) {
+  if (!limits?.length || !targetKeywords) return { kw, off: [] };
+  const has = (k) => targetKeywords.has(k);
+  const out = { ...kw, anti: [...(kw.anti ?? [])] };
+  const off = [];
+  for (const l of limits) {
+    if ((!l.any.length || l.any.some(has)) && !l.not.some(has)) continue;
+    off.push(l.label);
+    if (l.field.startsWith('anti:')) out.anti = out.anti.filter(a => String(a.keyword).toUpperCase() !== l.field.slice(5));
+    else if (l.field === 'sustained') { out.sustained = 0; out.sustainedDice = false; }
+    else out[l.field] = false;
+  }
+  return { kw: out, off };
 }
 
 function weaponProfiles(factionId, weaponId) {
@@ -468,7 +522,7 @@ function weaponProfiles(factionId, weaponId) {
   if (!w) return [];
   return w.profiles.map((prof, pi) => {
     const melee = prof.range === 'Melee';
-    const { kw, tags, unsupported, hunter } = weaponKw(prof.keywords);
+    const { kw, tags, unsupported, hunters, limits } = weaponKw(prof.keywords);
     const skill = melee ? prof.stats.WS : prof.stats.BS;
     return {
       weaponId,
@@ -482,7 +536,7 @@ function weaponProfiles(factionId, weaponId) {
       S: Number(prof.stats.S),
       AP: Number(prof.stats.AP) || 0,
       D: String(prof.stats.D),
-      kw, tags, unsupported, hunter,
+      kw, tags, unsupported, hunters, limits,
     };
   });
 }
@@ -492,72 +546,100 @@ function profileLine(p) {
   return `A${p.A}${sk} S${p.S} AP${p.AP} D${p.D}`;
 }
 
+const upperKw = (k) => String(k ?? '').toUpperCase();
+const orWords = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}` : String(xs[0] ?? ''));
+const titleWord = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+
 /**
  * Weapon rows for an attacking combat unit in `phase` ('shooting' | 'fight').
- * Each row: { id, label, member, profile..., max, count } — `count` is the
- * default number of weapons that attack (the player edits it).
+ * Each row is one weapon profile of one datasheet in the unit:
+ *   { id, label, member, stats, range, ...profile, max, count, blocked, usable,
+ *     wkey, extra, cq, parts: [{ g, n }] }
+ * `max` is the number of those weapons in the unit; `count` the number that
+ * attack. The array also carries `groups` ([{ id, count, vm }]: the groups of
+ * identical models) and `shooting` (the shooting type), which choose.mjs needs.
  *
- * Defaults:
- *  - shooting: every ranged weapon fires; a non-MONSTER/VEHICLE model that has
- *    other ranged weapons leaves its PISTOL / CLOSE-QUARTERS weapons out
- *    (24.07 / 24.27 — one or the other); only the first profile of a
- *    multi-profile weapon is selected.
- *  - fight: per model, every EXTRA ATTACKS weapon plus the one other melee
- *    weapon (profile) with the best expected damage against `target`.
+ * What can attack (the rules are quoted in choose.mjs):
+ *  - fight: per model, every EXTRA ATTACKS weapon plus ONE other melee weapon;
+ *  - shooting: every ranged weapon, but a model that is not a MONSTER / VEHICLE
+ *    shoots its CLOSE-QUARTERS / PISTOL weapons or its other weapons;
+ *  - a weapon with several profiles uses one of them; a Hunter profile only
+ *    against a unit with one of its keywords;
+ *  - opts.shooting 'assault' (the unit advanced): only ASSAULT weapons;
+ *    'cq' (the unit is engaged): only CLOSE-QUARTERS weapons, MONSTER / VEHICLE
+ *    models excepted;
+ *  - opts.targetEngaged (an engaged MONSTER / VEHICLE): no BLAST weapons (17.03);
+ *  - an ability limited to targets with (or without) a keyword is off against
+ *    other targets (24.01): row.kw is what applies, row.tagsOff what does not.
+ *
+ * `count` here is the first guess from the quick analytic value (no engine):
+ * right whenever there is nothing to choose. With a target and its set-up the
+ * page and the worker choose with the engine (choiceProblem + choose.mjs).
  */
-export function attackerRows(cu, phase, target = null) {
+export function attackerRows(cu, phase, target = null, opts = {}) {
   const rows = new Map();
-  const T = target?.T ?? 4, Sv = target?.Sv ?? 3, InSv = target?.InSv ?? 0;
-  const tgtKeywords = new Set(target?.keywords ?? []);
-  const add = (member, p, max, count) => {
-    const key = `${member.index}:${p.weaponId}:${p.profileIndex}`;
-    const prev = rows.get(key);
-    if (prev) { prev.max += max; prev.count += count; return; }
-    const multi = cu.members.length > 1;
-    const blocked = p.hunter && !tgtKeywords.has(p.hunter) ? `Hunter: only targets ${p.hunter}` : null;
-    rows.set(key, {
-      id: key,
-      member: member.dcUnit.name,
-      label: (multi && member.role === 'leader' ? `${member.dcUnit.name}: ` : '') + p.name,
-      stats: profileLine(p),
-      range: p.range,
-      ...p,
-      max,
-      count,
-      blocked,
-    });
+  const groups = [];
+  const tgtKeywords = target ? new Set((target.keywords ?? []).map(upperKw)) : null;
+  const fight = phase !== 'shooting';
+  const shooting = fight ? 'normal' : (opts.shooting ?? 'normal');
+  const blockedWhy = (p, vm) => {
+    if (p.hunters.length && tgtKeywords && !p.hunters.some(h => tgtKeywords.has(h))) return `Hunter profile: only targets ${orWords(p.hunters.map(titleWord))} units`;
+    if (!fight && shooting === 'assault' && !p.kw.assault) return 'After an advance only Assault weapons shoot';
+    if (!fight && shooting === 'cq' && !vm && !(p.kw.cq || p.kw.pistol)) return 'Engaged: only Close-quarters weapons shoot';
+    if (!fight && opts.targetEngaged && p.kw.blast) return 'Blast weapons cannot target an engaged unit';
+    return null;
   };
+  const multi = cu.members.length > 1;
   for (const member of cu.members) {
     const vm = (member.dcUnit.keywords ?? []).some(k => /^(monster|vehicle)$/i.test(k));
-    for (const g of modelGroups(member)) {
-      const profs = [];
+    modelGroups(member).forEach((g, gi) => {
+      const gid = `${member.index}.${gi}`;
+      let any = false;
       for (const wg of g.wargear) {
-        for (const p of weaponProfiles(member.factionId, wg.id)) profs.push({ p, n: Math.round(wg.perModel * g.count) });
+        const n = Math.round(wg.perModel * g.count);
+        if (n <= 0) continue;
+        for (const p of weaponProfiles(member.factionId, wg.id)) {
+          if (p.melee !== fight) continue;
+          any = true;
+          const key = `${member.index}:${p.weaponId}:${p.profileIndex}`;
+          let row = rows.get(key);
+          if (!row) {
+            const blocked = blockedWhy(p, vm);
+            const lim = limitKw(p.kw, p.limits, tgtKeywords);
+            row = {
+              id: key,
+              member: member.dcUnit.name,
+              label: (multi && member.role === 'leader' ? `${member.dcUnit.name}: ` : '') + p.name,
+              stats: profileLine(p),
+              range: p.range,
+              ...p,
+              kw: lim.kw, tagsOff: lim.off,
+              wkey: `${member.index}:${p.weaponId}`,
+              lead: member.role === 'leader',        // an attached character's weapon
+              extra: !!p.kw.extraAttacks,
+              cq: !!(p.kw.cq || p.kw.pistol),
+              max: 0, count: 0,
+              blocked,
+              // a Hunter profile is never the first guess while the target is not known
+              usable: !blocked && !(p.hunters.length && !tgtKeywords),
+              parts: [],
+            };
+            rows.set(key, row);
+          }
+          row.max += n;
+          const part = row.parts.find(x => x.g === gid);
+          if (part) part.n += n; else row.parts.push({ g: gid, n });
+        }
       }
-      if (phase === 'shooting') {
-        const ranged = profs.filter(x => !x.p.melee);
-        const hasMain = ranged.some(x => !x.p.kw.pistol && !x.p.kw.cq);
-        for (const { p, n } of ranged) {
-          let on = p.profileIndex === 0;
-          if (on && !vm && hasMain && (p.kw.pistol || p.kw.cq)) on = false;
-          add(member, p, n, on ? n : 0);
-        }
-      } else {
-        const melee = profs.filter(x => x.p.melee);
-        const main = melee.filter(x => !x.p.kw.extraAttacks);
-        let best = null, bestScore = -1;
-        for (const x of main) {
-          const s = expectedDamageQuick(x.p, T, Sv, InSv);
-          if (s > bestScore) { bestScore = s; best = x; }
-        }
-        for (const x of melee) {
-          const on = x.p.kw.extraAttacks || x === best;
-          add(member, x.p, x.n, on ? x.n : 0);
-        }
-      }
-    }
+      if (any) groups.push({ id: gid, count: g.count, vm });
+    });
   }
-  return [...rows.values()].filter(r => r.max > 0).map(r => (r.blocked ? { ...r, count: 0 } : r));
+  const out = [...rows.values()].filter(r => r.max > 0);
+  const counts = solveCounts({ phase: fight ? 'fight' : 'shooting', shooting, groups, rows: out }, (r) => quickStat(r, target ?? {}));
+  for (const r of out) r.count = r.usable ? (counts[r.id] ?? 0) : 0;
+  out.groups = groups;
+  out.shooting = shooting;
+  return out;
 }
 
 /** Weapon row -> engine weapon. */
@@ -566,7 +648,19 @@ export function engineWeapon(row) {
     name: row.label, count: row.count, melee: row.melee,
     A: row.A, skill: row.skill, S: row.S, AP: row.AP, D: row.D,
     kw: row.kw,
+    ...(row.lead ? { lead: true } : {}),
   };
+}
+
+/**
+ * Battle-shock after an attack (08.03, 01.06, 01.07): the unit's best Leadership, its starting strength
+ * (attached leaders included, 01.02.01) and the wounds of a single-model unit.
+ * -> { ld, start, single: W of the one model or 0 }
+ */
+export function shockFacts(cu) {
+  const lds = cu.members.flatMap(m => (m.dcUnit.profiles ?? []).map(p => parseInt(p.Ld, 10))).filter(n => n > 0);
+  const single = cu.models === 1 ? parseInt(cu.members[0].dcUnit.profiles?.[0]?.W, 10) || 0 : 0;
+  return { ld: lds.length ? Math.min(...lds) : 7, start: cu.models, single };
 }
 
 export function allVehicleMonster(cu) {
@@ -598,6 +692,69 @@ export function abilitiesOf(cu) {
       if (a.type === 'detachment' || /^leader$/i.test(a.name)) continue;
       out.push({ member: m.dcUnit.name, name: a.name, type: a.type, text: a.text });
     }
+  }
+  return out;
+}
+
+// Core abilities the phase sheet writes itself, with the rule in a line (phasesheet.mjs coreEntries);
+// Leader and Support are choices made when the list is written.
+const CORE_ON_SHEET = /^(leader|support|deep-strike|infiltrators|scouts-\d|lone-operative|stealth|fights-first|firing-deck-\d|damaged-\d|deadly-demise-|feel-no-pain-\d)/;
+let PHASE_MAP = null;
+/** The rules data's phase mapping by id ("provisional", 40kdc community): Map 'type:id' -> phases. */
+function phaseMap() {
+  if (!PHASE_MAP) {
+    PHASE_MAP = new Map();
+    for (const m of dc.RAW_DATA.phaseMappings ?? []) PHASE_MAP.set(`${m.source_type}:${m.source_id}`, m.phases ?? []);
+  }
+  return PHASE_MAP;
+}
+
+/**
+ * What phasesheet.mjs needs to sort an army's rules by phase: every unit's abilities (with the model that has
+ * them), its core abilities, the detachment rules, the stratagems, and the phase mapping of the rules data.
+ */
+export function phaseSheetInput(army) {
+  const pm = phaseMap();
+  const rules = armyRules(army);
+  const atArmyLevel = new Set([...rules, ...detachmentRules(army)].map(r => r.id));
+  const units = army.units.map(cu => {
+    const abilities = [];
+    let fnp = 0;
+    cu.members.forEach((m, mi) => {
+      for (const a of abilityRecords(m)) {
+        if (atArmyLevel.has(a.id)) continue;                         // the army rule and the detachment rules: listed once
+        if (a.type === 'core') {
+          const x = /^feel-no-pain-(\d)/.exec(String(a.id));
+          if (x) fnp = fnp ? Math.min(fnp, Number(x[1])) : Number(x[1]);
+          if (CORE_ON_SHEET.test(String(a.id))) continue;
+        }
+        // a rule of another detachment on a datasheet ("units with this ability"): an army-wide rule
+        abilities.push({ id: a.id, name: a.name, text: a.text, type: a.type === 'detachment' ? 'faction' : a.type, owner: { id: `${cu.key}:${mi}`, name: m.dcUnit.name, unit: cu.name } });
+      }
+    });
+    return { id: cu.key, name: cu.name, flags: { ...coreFlags(cu), fnp }, abilities };
+  });
+  return {
+    units,
+    armyRules: rules,
+    detachmentRules: detachmentRules(army),
+    stratagems: armyStratagems(army),
+    mapped: (id, type = 'ability') => pm.get(`${type}:${id}`) ?? null,
+  };
+}
+
+/**
+ * The army rule(s) of the list's faction (Combat Doctrines, Waaagh!, Martial Ka'tah): [{ id, name, text }].
+ * From the faction record's faction_rule_ids; a chapter without its own takes its parent faction's.
+ */
+export function armyRules(army) {
+  const facs = dc.RAW_DATA.factions ?? [];
+  const f = facs.find(x => x.id === army.roster.faction_id);
+  const ids = f?.faction_rule_ids?.length ? f.faction_rule_ids : facs.find(x => x.id === f?.parent_faction_id)?.faction_rule_ids ?? [];
+  const out = [];
+  for (const id of ids) {
+    const a = (dc.RAW_DATA.abilities ?? []).find(x => x.ability_id === id);
+    if (a) out.push({ id, name: a.name, text: conv.safeDescribe(a) });
   }
   return out;
 }
@@ -675,10 +832,14 @@ export function defenderProfile(cu, army = null) {
       const thisModel = /\bthis model\b/i.test(a.text) && !/this unit/i.test(a.text);
       // which groups does it cover?
       let groupKeys;
+      let carried = true;
       if (a.type === 'wargear') {
+        // 22.04: a wargear ability belongs to the models that carry the wargear. When the list names no carrier
+        // (the wargear is not in it) the rule is shown, switched off: no model gets it by default.
         const name = looseName(a.name);
         const carriers = memberGroups.filter(g => g.wargearNames.includes(name));
-        groupKeys = (carriers.length ? carriers : memberGroups).map(g => g.key);
+        carried = carriers.length > 0;
+        groupKeys = (carried ? carriers : memberGroups).map(g => g.key);
       } else if (otherChars) {
         groupKeys = groups.filter(g => g.character && g.member !== m.index).map(g => g.key);
       } else if (leading) {
@@ -688,7 +849,7 @@ export function defenderProfile(cu, army = null) {
       } else {
         groupKeys = null; // "this unit"
       }
-      const autoOn = permanent && (!leading || m.role === 'leader');
+      const autoOn = (always) => carried && (permanent || always) && (!leading || m.role === 'leader');
       effects.forEach((ef, k) => {
         rules.push({
           id: `${m.index}:${a.id}:${k}`,
@@ -696,7 +857,8 @@ export function defenderProfile(cu, army = null) {
           member: m.dcUnit.name,
           label: ef.label,
           text: a.text,
-          auto: autoOn,
+          auto: autoOn(!!ef.always),
+          notCarried: !carried,
           phases: ef.phases,
           apply: ef.apply,
           groupKeys,
@@ -715,6 +877,12 @@ export function defenderProfile(cu, army = null) {
       }));
     }
     for (const st of armyStratagems(army)) {
+      // Command Re-roll (15.02) can re-roll a save: one failed save, once in the phase
+      if (st.detachment === 'Core' && /^COMMAND RE-?ROLL$/i.test(st.name) && !st.missing) {
+        rules.push({ id: `strat:${st.id}:save`, source: `${st.name} (${st.cp}CP)`, member: 'Stratagem', label: 'Re-roll one save',
+          text: `WHEN: ${st.when}\nEFFECT: ${st.effect}`, auto: false, phases: ['shooting', 'fight'], apply: { rerollOneSave: true }, groupKeys: null, kind: 'stratagem', cp: st.cp });
+        continue;
+      }
       if (stratagemRole(st) !== 'defend' || !stratagemEligible(st, cu.keywords)) continue;
       const effects = st.missing ? [] : parseDefensiveText(st.effect);
       if (!effects.length) { stratText.push(st); continue; }
@@ -744,7 +912,7 @@ export function defenderSummary(profile) {
   };
 }
 
-const GROUP_FIELDS = new Set(['InSv', 'dr', 'fnp']);
+const GROUP_FIELDS = new Set(['InSv', 'dr', 'fnp', 'W']);
 
 /**
  * Engine defender for the chosen phase.
@@ -762,7 +930,8 @@ export function buildDefender(profile, enabled, phase, manual = {}, overrides = 
       const targets = r.groupKeys ? r.groupKeys.map(key => byKey.get(key)).filter(Boolean) : groups;
       if (GROUP_FIELDS.has(k)) {
         for (const g of targets) {
-          if (k === 'InSv') g.InSv = g.InSv ? Math.min(g.InSv, v) : v;
+          if (k === 'W') g.W += v;          // "+1 W" on the models that carry it
+          else if (k === 'InSv') g.InSv = g.InSv ? Math.min(g.InSv, v) : v;
           else if (k === 'fnp') g.fnp = g.fnp ? Math.min(g.fnp, v) : v;
           else if (k === 'dr') g.dr = v === 'half' || g.dr === 'half' ? 'half' : Math.max(g.dr || 0, v);
         }
@@ -770,6 +939,8 @@ export function buildDefender(profile, enabled, phase, manual = {}, overrides = 
         mods[k] = mods[k] ? Math.min(mods[k], v) : v;
       } else if (k === 'cover') {
         mods.cover = true;
+      } else if (k === 'rerollOneSave') {
+        mods.rerollOneSave = true;
       } else {
         mods[k] = (mods[k] ?? 0) + v;
       }
@@ -780,6 +951,8 @@ export function buildDefender(profile, enabled, phase, manual = {}, overrides = 
   for (const [k, v] of Object.entries(manual ?? {})) {
     if (v == null || v === 0 || v === false || v === '') continue;
     if (k === 'cover') out.cover = true;
+    // 17.03: only an engaged MONSTER / VEHICLE can be shot at all (with -1 to hit)
+    else if (k === 'engaged') { if ((profile.keywords ?? []).some(x => /^(MONSTER|VEHICLE)$/i.test(x))) out.engagedMV = true; }
     else if (k === 'fnp' || k === 'fnpMortal' || k === 'invuln') out[k] = out[k] ? Math.min(out[k], v) : v;
     else if (k === 'damageReduction') out.damageReduction = v;
     else out[k] = (out[k] ?? 0) + v;
@@ -824,14 +997,25 @@ function armyDetachmentRecords(army) {
   return out;
 }
 
-/** Detachment rule abilities: [{id, name, text}] */
+/**
+ * Detachment rule abilities: [{id, name, text, detachment}].
+ * The rules of a detachment are the abilities of type 'detachment' that name it
+ * (ability.detachment_id). The codex imports are linked that way only: their
+ * detachment record has no detachment_rule_id, or still points to the
+ * provisional rule from before the codex. So: the codex records (they carry a
+ * `source`) when there are any, else what detachment_rule_id(s) point to.
+ */
 export function detachmentRules(army) {
   const out = [];
+  const all = dc.RAW_DATA.abilities ?? [];
   for (const d of armyDetachmentRecords(army)) {
-    const rid = d.record?.detachment_rule_id;
-    if (!rid) continue;
-    const a = (dc.RAW_DATA.abilities ?? []).find(x => x.ability_id === rid);
-    if (a) out.push({ id: rid, name: `${a.name} (${d.name})`, text: conv.safeDescribe(a) });
+    if (!d.record) continue;
+    const linked = all.filter(a => a.ability_type === 'detachment' && a.detachment_id === d.record.id);
+    const codex = linked.filter(a => a.source);
+    const pointed = [d.record.detachment_rule_id, ...(d.record.detachment_rule_ids ?? [])].filter(Boolean)
+      .map(id => all.find(a => a.ability_id === id)).filter(Boolean);
+    const use = codex.length ? codex : [...new Map([...pointed, ...linked].map(a => [a.ability_id, a])).values()];
+    for (const a of use) out.push({ id: a.ability_id, name: `${a.name} (${d.name})`, text: conv.safeDescribe(a), detachment: d.name });
   }
   return out;
 }
@@ -855,7 +1039,14 @@ export function armyStratagems(army) {
  *   memberName, effects, apply, phases, scope, conds, text, cp, partial}]
  * plus `stratText`: the army's attack stratagems the parser could not model.
  */
+const RULES_CACHE = new WeakMap();   // combat unit -> Map(army -> { rules, stratText }); units are rebuilt when a list or its attachments change
 export function attackerRules(cu, army) {
+  let byArmy = RULES_CACHE.get(cu);
+  if (!byArmy) RULES_CACHE.set(cu, byArmy = new Map());
+  if (!byArmy.has(army)) byArmy.set(army, attackerRulesBuild(cu, army));
+  return byArmy.get(army);
+}
+function attackerRulesBuild(cu, army) {
   const rules = [];
   const one = (base, p, extra = {}) => ({
     ...base,
@@ -880,12 +1071,29 @@ export function attackerRules(cu, army) {
   for (const m of cu.members) {
     for (const a of abilityRecords(m)) {
       if (/^leader$/i.test(a.name)) continue;
+      // rules for named weapons of the unit ("this unit's: • Thunder Hammer weapons have ... • Other melee weapons have ...")
+      const bullets = parseWeaponBullets(a.text);
+      if (bullets) {
+        const named = bullets.map(b => b.weapon).filter(Boolean);
+        bullets.forEach((b, i) => rules.push({
+          id: `${m.index}:${a.id}:w${i}`, kind: 'ability', source: a.name, member: m.index, memberName: m.dcUnit.name, memberRole: m.role, text: a.text,
+          effects: b.effects, apply: b.effects.reduce((acc, e) => mergeMods(acc, e.apply), {}),
+          label: `${b.weapon ? b.weapon.replace(/\b\w/g, ch => ch.toUpperCase()) : `Other ${b.others === 'any' ? '' : `${b.others} `}weapons`}: ${b.effects.map(e => e.label).join(', ')}`,
+          phases: b.phases, scope: 'weapon', conds: b.conds, partial: false,
+          weapon: b.weapon, others: b.others, named,
+        }));
+        continue;
+      }
       push({ id: `${m.index}:${a.id}`, kind: a.type === 'detachment' ? 'detachment' : 'ability', source: a.name,
         member: m.index, memberName: m.dcUnit.name, memberRole: m.role, text: a.text }, parseOffensive(a.text));
     }
   }
+  const ownKw = new Set(cu.keywords.map(k => String(k).toUpperCase()));
   for (const d of detachmentRules(army)) {
-    push({ id: `det:${d.id}`, kind: 'detachment', source: d.name, member: null, memberName: 'Detachment', text: d.text }, parseOffensive(d.text));
+    const parsed = parseOffensive(d.text);
+    // a detachment rule for other units ("Attacks made by friendly Wulfen units ...") is not this unit's rule
+    if (parsed?.conds?.selfAny?.length && !parsed.conds.selfAny.some(ph => phraseInKeywords(ph, ownKw))) continue;
+    push({ id: `det:${d.id}`, kind: 'detachment', source: d.name, member: null, memberName: 'Detachment', text: d.text }, parsed);
   }
   const stratText = [];
   for (const st of armyStratagems(army)) {
@@ -931,15 +1139,68 @@ export function attackerRuleOn(r, override, ctx) {
  * member's weapons).
  */
 export function buildAttacker(cu, rows, manualMods, rules, enabledIds, phase) {
+  const { unitMods, perMember, perWeapon } = attackerMods(cu, manualMods, rules, enabledIds, phase);
+  return {
+    name: cu.name,
+    mods: unitMods,
+    weapons: rows.filter(r => r.count > 0).map(row => {
+      const w = engineWeapon(row);
+      const wm = weaponMods(row, perMember, perWeapon);
+      if (wm) w.mods = wm;
+      return w;
+    }),
+    allVehicleMonster: allVehicleMonster(cu),
+  };
+}
+
+/** The modifiers of one weapon row: its datasheet's (a leader's own rules) plus the rules for weapons of its name. */
+function weaponMods(row, perMember, perWeapon) {
+  const mi = Number(String(row.id).split(':')[0]);
+  let mods = perMember.get(mi) ?? null;
+  for (const r of perWeapon) {
+    const hit = r.weapon ? weaponNamed(row.label, r.weapon)
+      : (r.others === 'any' || (r.others === 'melee') === !!row.melee) && !r.named.some(n => weaponNamed(row.label, n));
+    if (hit) mods = mergeMods(mods ?? {}, r.apply);
+  }
+  return mods;
+}
+
+/**
+ * The weapon choice of one attacking unit against one target, for choose.mjs:
+ * every weapon row with its engine weapon (the unit's rules and modifiers
+ * applied), the groups of models, and the engine attacker and defender.
+ */
+export function choiceProblem(cu, rows, manualMods, rules, enabledIds, phase, defender, target = null) {
+  const { unitMods, perMember, perWeapon } = attackerMods(cu, manualMods, rules, enabledIds, phase);
+  return {
+    phase,
+    shooting: rows.shooting ?? 'normal',
+    groups: rows.groups ?? [],
+    target: target ? { T: target.T, Sv: target.Sv, InSv: target.InSv } : undefined,
+    attacker: { name: cu.name, mods: unitMods, allVehicleMonster: allVehicleMonster(cu) },
+    defender,
+    rows: rows.map(r => {
+      const { count, ...w } = engineWeapon(r);
+      const wm = weaponMods(r, perMember, perWeapon);
+      if (wm) w.mods = wm;
+      return { id: r.id, wkey: r.wkey, extra: r.extra, cq: r.cq, usable: r.usable, max: r.max, parts: r.parts, w };
+    }),
+  };
+}
+
+/** Unit-wide and per-datasheet modifiers of an attacking unit: manual ones plus the enabled rules. */
+function attackerMods(cu, manualMods, rules, enabledIds, phase) {
   let unitMods = { ...(manualMods ?? {}) };
   const perMember = new Map();
+  const perWeapon = [];        // rules for weapons of a given name (or "other melee weapons") of this unit
   // a model-scoped stratagem ("Select one CHARACTER model ... that model's melee weapons") goes to the characters
   const charMembers = cu.members.filter(m => m.role === 'leader' || (cu.members.length === 1 && (m.dcUnit.keywords ?? []).some(k => /^character$/i.test(k))));
   for (const r of rules) {
     if (!enabledIds.has(r.id) || !r.phases.includes(phase)) continue;
     const { mortals, ...apply } = r.apply;
     if (mortals?.length) unitMods = mergeMods(unitMods, { mortals });
-    if (r.scope === 'model' && r.member != null) perMember.set(r.member, mergeMods(perMember.get(r.member) ?? {}, apply));
+    if (r.scope === 'weapon') perWeapon.push({ weapon: r.weapon, others: r.others, named: r.named ?? [], apply });
+    else if (r.scope === 'model' && r.member != null) perMember.set(r.member, mergeMods(perMember.get(r.member) ?? {}, apply));
     else if (r.scope === 'model' && r.member == null && charMembers.length) for (const m of charMembers) perMember.set(m.index, mergeMods(perMember.get(m.index) ?? {}, apply));
     else unitMods = mergeMods(unitMods, apply);
   }
@@ -950,17 +1211,7 @@ export function buildAttacker(cu, rows, manualMods, rules, enabledIds, phase) {
       ...src, dice: src.dice === 'T' ? maxT : src.dice === 'models' ? cu.models : src.dice,
     }));
   }
-  return {
-    name: cu.name,
-    mods: unitMods,
-    weapons: rows.filter(r => r.count > 0).map(row => {
-      const w = engineWeapon(row);
-      const mi = Number(String(row.id).split(':')[0]);
-      if (perMember.has(mi)) w.mods = perMember.get(mi);
-      return w;
-    }),
-    allVehicleMonster: allVehicleMonster(cu),
-  };
+  return { unitMods, perMember, perWeapon };
 }
 
 // ---------------------------------------------------------------------------
@@ -1016,6 +1267,7 @@ export function armyIntel(army) {
   return {
     faction: army.faction,
     detachments: armyDetachmentRecords(army).map(d => d.name).filter(Boolean),
+    armyRules: armyRules(army),
     detachmentRules: detachmentRules(army),
     stratagems: strats,
   };
@@ -1025,18 +1277,118 @@ export function armyIntel(army) {
 // Board planner
 
 /**
+ * Core abilities that decide where a unit can be and who can see it (board, brief):
+ * { deepStrike, infiltrators, scouts (inches), loneOperative (inches, 0 = no), stealth, fightsFirst,
+ *   damaged (X of "Damaged X", 0 = no), deadlyDemise ('D3', '1', ... or null), firingDeck (models) }
+ * Deep Strike, Infiltrators, Scouts, Stealth and Fights First need every model of the unit to have them
+ * (24.09 "if every model in this unit has this ability"); Lone Operative does not work in an attached
+ * unit (24.24).
+ */
+export function coreFlags(cu) {
+  const idsOf = (m) => (m.dcUnit.ability_ids ?? []).map(String);
+  const every = (re) => cu.members.every(m => idsOf(m).some(id => re.test(id)));
+  const first = (re) => { for (const m of cu.members) for (const id of idsOf(m)) { const x = id.match(re); if (x) return x; } return null; };
+  const sc = cu.members.map(m => Number(idsOf(m).map(id => id.match(/^scouts-(\d+)/)).find(Boolean)?.[1] ?? 0));
+  const lone = cu.members.length === 1 ? first(/^lone-operative(?:-(\d+))?/) : null;
+  return {
+    deepStrike: every(/^deep-strike/), infiltrators: every(/^infiltrators/),
+    scouts: sc.every(n => n > 0) ? Math.min(...sc) : 0,
+    loneOperative: lone ? Number(lone[1] ?? 12) : 0,
+    stealth: every(/^stealth/), fightsFirst: every(/^fights-first/),
+    damaged: Number(first(/^damaged-(\d+)/)?.[1] ?? 0),      // Damaged X: -1 to hit at X wounds or fewer (24.39)
+    deadlyDemise: first(/^deadly-demise-(.+)$/)?.[1].toUpperCase() ?? null,
+    firingDeck: Number(first(/^firing-deck-(\d+)/)?.[1] ?? 0),
+  };
+}
+
+/**
+ * A rule that lets one unit a turn arrive from reserves as if the battle round were one higher (High King of
+ * Fenris: "when that unit makes an ingress move, treat the current battle round number as being one higher than
+ * it actually is"). November 2026 update, 20.03: such a unit can make an ingress move in the first turn.
+ * -> { name, owner } | null
+ */
+export function earlyArrival(army) {
+  for (const cu of army?.units ?? []) for (const m of cu.members) for (const a of abilityRecords(m)) {
+    if (/treat the (current )?battle round number as being one higher/i.test(a.text ?? '')) return { name: a.name, owner: m.dcUnit.name };
+  }
+  return null;
+}
+
+/**
+ * What an army has that changes how you deploy and move against it (the matchup brief): only what the list
+ * really has. -> [{ id, name, units: ['Scout Squad ×2', ...], note }]
+ * Rules read in the core rules text: 24.09 Deep Strike, 24.20 Infiltrators, 24.32 Scout move, 24.24 Lone
+ * Operative, 12.04 Fights First, 24.37 Torrent + 15.09 snap shooting, 10.07 indirect shooting.
+ */
+export function armyTricks(army) {
+  const by = { deepStrike: [], infiltrators: [], scouts: [], lone: [], fightsFirst: [], torrent: [], indirect: [] };
+  for (const cu of army.units) {
+    const f = coreFlags(cu);
+    const name = cu.name.replace(/ \(\d+\)$/, '');
+    if (f.deepStrike) by.deepStrike.push(name);
+    if (f.infiltrators) by.infiltrators.push(name);
+    if (f.scouts) by.scouts.push(`${name} ${f.scouts}"`);
+    if (f.loneOperative) by.lone.push(`${name} ${f.loneOperative}"`);
+    // the ability itself, or a rule of the unit that gives it ("... has the Fights First ability")
+    const ff = f.fightsFirst ? null : abilitiesOf(cu).find(x => /\bfights first\b/i.test(`${x.name} ${x.text}`));
+    if (f.fightsFirst) by.fightsFirst.push(name); else if (ff) by.fightsFirst.push(`${name} (${ff.name})`);
+    const guns = attackerRows(cu, 'shooting', null);
+    const list = (rows) => [...new Set(rows.map(r => `${r.label} ${r.range}`))].join(', ');
+    const tor = guns.filter(r => r.kw?.torrent), ind = guns.filter(r => r.kw?.indirect);
+    if (tor.length) by.torrent.push(`${name} (${list(tor)})`);
+    if (ind.length) by.indirect.push(`${name} (${list(ind)})`);
+  }
+  const tally = (l) => { const n = new Map(); for (const x of l) n.set(x, (n.get(x) ?? 0) + 1); return [...n].map(([k, c]) => (c > 1 ? `${k} ×${c}` : k)); };
+  const rows = [
+    ['deepStrike', 'Deep Strike', 'From battle round 2 they can arrive anywhere more than 8" from your units, inside your deployment zone too (24.09).'],
+    ['infiltrators', 'Infiltrators', 'They deploy anywhere more than 8" from your deployment zone and your units (24.20): expect them on the middle objectives.'],
+    ['scouts', 'Scouts', 'Before the first turn they move this far, and end more than 8" from your units (24.32).'],
+    ['lone', 'Lone Operative', 'Not visible to your models from further away than this (24.24): you have to get that close to shoot it.'],
+    ['fightsFirst', 'Fights First', 'Fights in the Fights First step without charging (12.04): in your turn it strikes after your first charging unit, before your others.'],
+    ['torrent', 'Torrent in overwatch', 'Torrent attacks hit automatically (24.37), while other weapons hit only on a 6 in Fire Overwatch (15.09). Counted at full effect here: stay out of the range shown, or charge something else first.'],
+    ['indirect', 'Indirect Fire', 'Can shoot units it cannot see (10.07): it then hits only on a 6, or on a 4+ if it stood still and another of their units sees the target; the target has cover.'],
+  ];
+  return rows.filter(([id]) => by[id].length).map(([id, name, note]) => ({ id, name, units: tally(by[id]), note }));
+}
+
+/**
  * What the board needs to draw / reason about a combat unit:
  * { members: [{ count, fp, label, leader }], move, ranges: [inches...], melee: bool }
  */
-export function boardUnit(cu) {
+/**
+ * Extra Move from a detachment rule for the units it names, e.g. Stormlance Task Force:
+ * "Friendly Adeptus Astartes Mounted/Speeder units have +2" M."  -> { bonus, source } (bonus 0 = none)
+ */
+export function detachmentMoveBonus(cu, army) {
+  let best = { bonus: 0, source: null };
+  if (!army) return best;
+  const own = new Set(cu.keywords.map(upperKw));
+  for (const d of detachmentRules(army)) {
+    const m = String(d.text ?? '').match(/^\s*friendly ([A-Za-z’' /-]+?) units have \+(\d+)" M\b/i);
+    if (!m) continue;
+    // "Adeptus Astartes Mounted/Speeder": Adeptus Astartes Mounted, or (Adeptus Astartes) Speeder
+    const parts = m[1].split('/').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const lead = parts[0].split(/\s+/).slice(0, -1).join(' ');
+    const phrases = [parts[0], ...parts.slice(1).flatMap(p => (lead ? [p, `${lead} ${p}`] : [p]))];
+    if (phrases.some(ph => phraseInKeywords(ph, own)) && Number(m[2]) > best.bonus) best = { bonus: Number(m[2]), source: d.name };
+  }
+  return best;
+}
+
+export function boardUnit(cu, army = null) {
   const members = cu.members.map(m => {
     const kw = [...(m.dcUnit.keywords ?? []), ...(m.dcUnit.faction_keywords ?? [])];
     const base = BASE_SIZE_OVERRIDES[m.dcUnit.id] ?? m.dcUnit.base_size_mm;
-    return { count: m.ru.model_count ?? 1, fp: footprint(base, kw), label: m.dcUnit.name, leader: m.role === 'leader' };
+    // oc: the Objective Control of ONE model (14.02 counts the models within range, not the unit)
+    return { count: m.ru.model_count ?? 1, fp: footprint(base, kw), label: m.dcUnit.name, leader: m.role === 'leader', oc: parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0 };
   });
-  const move = Math.min(...cu.members.map(m => Number(m.dcUnit.profiles?.[0]?.M) || 6));
+  // Move bonuses add up (02.02.01): a detachment rule for the unit's keywords, an enhancement for its unit
+  const det = detachmentMoveBonus(cu, army);
+  const enh = cu.members.map(m => enhancementGrants(m.ru)).filter(g => g.move > 0);
+  const mv = { bonus: det.bonus + enh.reduce((a, g) => a + g.move, 0), source: [det.source?.replace(/\s*\(.*$/, ''), ...enh.map(g => g.name)].filter(Boolean).join(' + ') || null };
+  const move = Math.min(...cu.members.map(m => Number(m.dcUnit.profiles?.[0]?.M) || 6)) + mv.bonus;
   const ranged = attackerRows(cu, 'shooting', null);
   const ranges = [...new Set(ranged.map(r => parseFloat(r.range)).filter(n => n > 0))].sort((a, b) => a - b);
   const rfMelta = [...new Set(ranged.filter(r => r.kw.rapidFire || r.kw.melta).map(r => parseFloat(r.range)).filter(n => n > 0))];
-  return { members, move, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0 };
+  return { members, move, moveBonus: mv.bonus, moveBonusFrom: mv.source, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0, flags: coreFlags(cu) };
 }

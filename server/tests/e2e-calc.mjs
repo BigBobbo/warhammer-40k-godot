@@ -248,9 +248,15 @@ try {
   await page.waitForSelector('#charge-need');
   for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g < 9; g += 0.5) await page.tap('button[data-action="charge-gap"][data-delta="0.5"]');
   for (let g = Number((await page.evaluate(() => window.__calc.state.charge.gap))); g > 9; g -= 0.5) await page.tap('button[data-action="charge-gap"][data-delta="-0.5"]');
-  check('9" gap needs a 7 (58%)', (await page.textContent('#charge-need')) === '7+' && (await page.textContent('#charge-p')) === '58%');
+  // 11.04: the target must be within the charge roll before the unit moves: 9" needs a 9 (28%), not a 7 (58%)
+  check('9" gap needs a 9 (28%)', (await page.textContent('#charge-need')) === '9+' && (await page.textContent('#charge-p')) === '28%', `${await page.textContent('#charge-need')} ${await page.textContent('#charge-p')}`);
   await page.tap('button[data-action="charge-reroll"]');
-  check('with a re-roll: 83%', (await page.textContent('#charge-p')) === '83%', await page.textContent('#charge-p'));
+  check('with a re-roll: 48%', (await page.textContent('#charge-p')) === '48%', await page.textContent('#charge-p'));
+  // modifiers add up (02.02.01): +2 makes it a 7+ (58%; 83% with the re-roll)
+  await page.tap('button[data-action="charge-mod"][data-value="2"]');
+  check('+2 to the charge roll: 83% with the re-roll', (await page.textContent('#charge-p')) === '83%', await page.textContent('#charge-p'));
+  await page.tap('button[data-action="charge-mod"][data-value="0"]');
+  check('the charge tool states the rule (11.04) and lists "over 12" as not chargeable', /11\.04/.test(await page.textContent('#charge-rule')) && /over 12"\s*—\s*cannot be charged/.test((await page.textContent('#sheet')).replace(/\s+/g, ' ')), (await page.textContent('#sheet')).replace(/\s+/g, ' ').slice(-400));
   await page.screenshot({ path: join(SHOTS, 'calc_12_charge.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
 
@@ -732,11 +738,18 @@ try {
   await page.waitForSelector('#chain-total', { timeout: 60000 });
   const ch = await page.evaluate(() => ({ r: window.__calc.state.chainResult, c: window.__calc.state.chain, setup: window.__calc.state.setups[`${window.__calc.state.side}:shooting`] }));
   check('turn chain opens from the board: Grey Hunters shoot, charge and fight the Meganobz', ch.c.chargerKey === bGh.tk.split(':')[1] && ch.setup.targetKey === mnTk.split(':')[1] && Math.abs(ch.c.gap - Math.round(chainGap)) < 0.01, JSON.stringify({ c: ch.c, t: ch.setup.targetKey }));
-  check('chain result: total = shooting + fight, odds in range', ch.r && Math.abs(ch.r.meanKills - ch.r.meanShoot - ch.r.meanFight) < 1e-9 && ch.r.pChargeGivenSurvive > 0 && ch.r.pChargeGivenSurvive <= 1 && ch.r.pWipe <= 1, JSON.stringify(ch.r && { s: ch.r.meanShoot, f: ch.r.meanFight, p: ch.r.pChargeGivenSurvive }));
+  check('chain result: total = shooting + fight, odds in range', ch.r && Math.abs(ch.r.meanKills - ch.r.meanShoot - ch.r.meanFight) < 1e-9 && ch.r.pChargeGivenSurvive >= 0 && ch.r.pChargeGivenSurvive <= 1 && ch.r.pWipe <= 1, JSON.stringify(ch.r && { s: ch.r.meanShoot, f: ch.r.meanFight, p: ch.r.pChargeGivenSurvive }));
   check('board passed cover = no for a target in plain sight', ch.setup.defManual?.cover === false);
-  const p0Charge = ch.r.pChargeGivenSurvive;
-  for (let i = 0; i < 6; i++) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
-  await page.waitForFunction((p) => window.__calc.state.chainResult && window.__calc.state.chainResult.pChargeGivenSurvive < p, p0Charge, { timeout: 60000 });
+  // 11.04: the target must be within 12" and within the charge roll - from more than 12" there is no charge
+  if (ch.c.gap > 12) check(`${ch.c.gap}" on the board: the chain says the charge cannot be made`, ch.r.pChargeGivenSurvive === 0 && ch.r.meanFight === 0 && /more than 12": cannot be charged/.test(await page.textContent('#chain-need')), await page.textContent('#chain-need'));
+  // at 9" it is a 9+ on 2D6: 28% (the old "gap - 2" rule made it 58%)
+  for (let g = ch.c.gap; g > 9; g -= 0.5) await page.tap('button[data-action="chain-gap"][data-delta="-0.5"]');
+  for (let g = ch.c.gap; g < 9; g += 0.5) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+  await page.waitForFunction(() => { const s = window.__calc.state; return s.chain.gap === 9 && s.chainResult && !s.chainBusy; }, null, { timeout: 60000 });
+  const p0Charge = await page.evaluate(() => window.__calc.state.chainResult.pChargeGivenSurvive);
+  check('a 9" charge in the chain lands about 28% of the time (9+ on 2D6)', Math.abs(p0Charge - 10 / 36) < 0.02 && /9\+ on 2D6/.test(await page.textContent('#chain-need')), `${p0Charge} | ${await page.textContent('#chain-need')}`);
+  for (let i = 0; i < 4; i++) await page.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+  await page.waitForFunction((p) => { const s = window.__calc.state; return s.chain.gap === 11 && s.chainResult && !s.chainBusy && s.chainResult.pChargeGivenSurvive < p; }, p0Charge, { timeout: 60000 });
   check('a longer charge lowers the odds', true);
   await page.screenshot({ path: join(SHOTS, 'calc_26_turn_chain.png') });
   await page.tap('.sheet button[data-action="close-sheet"]');
@@ -756,10 +769,11 @@ try {
   check('what-ifs listed (objectives, trading)', (await page.locator('#fc-levers tbody tr').count()) >= 4);
   await page.screenshot({ path: join(SHOTS, 'calc_27_mission_forecast.png') });
   // the forecast knows the armies: the 2,000-point list is the clear favourite over the 665-point one,
-  // and its units destroyed per turn come from the calculator
-  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
+  // and its units destroyed per turn come from the calculator. (Read once the unit-vs-unit odds are in:
+  // until then the forecast on screen uses the same default kill rate for both armies.)
   await page.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 120000 });
   mi = await page.evaluate(() => window.__calc.mission());
+  check('forecast favours the much bigger army (was a coin flip before 1.92)', mi.result.pWinA > 0.85 && mi.result.A.mean > mi.result.B.mean + 20, JSON.stringify({ win: mi.result.pWinA, A: mi.result.A.mean, B: mi.result.B.mean }));
   check('units destroyed per turn come from the calculator for both armies', mi.killRate.A.from === 'calc' && mi.killRate.B.from === 'calc' && mi.killRate.A.rate > mi.killRate.B.rate && mi.params.players.A.killRate === null && !!mi.params.fracs,
     JSON.stringify(mi.killRate));
   check('units left by round and wipe-out chance are shown', (await page.locator('#fc-units tbody tr').count()) === 2 && mi.result.B.pTabled > mi.result.A.pTabled && mi.result.B.unitsLeft[4] < mi.result.B.unitsLeft[0]);
@@ -1524,6 +1538,966 @@ try {
   check('non-breaking-hyphen units resolve (Caladius, 2x Contemptor-Galatus)',
     custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
     !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
+
+  // --- board and mission rules (1.101): control per model, Hidden, coherency, reserves, territory, Move bonus
+  {
+    const bctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const bp = await bctx.newPage();
+    bp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board rules: ${m.text()}`); });
+    bp.on('pageerror', e => consoleErrors.push(`board rules: ${e}`));
+    await bp.goto(`${BASE}/calc/`);
+    await bp.waitForSelector('textarea[data-side="A"]');
+    await bp.fill('textarea[data-side="A"]', SW_LIST); await bp.tap('button[data-action="parse"][data-side="A"]');
+    await bp.fill('textarea[data-side="B"]', ORK_LIST); await bp.tap('button[data-action="parse"][data-side="B"]');
+    await bp.tap('button[data-action="view"][data-value="board"]');
+    await bp.waitForSelector('#board-svg');
+    const bTokens = () => bp.evaluate(() => window.__calc.board().tokens);
+    const bScreen = (x, y) => bp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const bPlace = (tk, x, y) => bp.evaluate(([t, px, py]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[t], { x: px, y: py, rot: 0 }); }, [tk, x, y]);
+    const bSelect = async (tk) => {
+      await bp.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+      const e = await bScreen(43.5, 59.5); await bp.mouse.click(e.x, e.y);        // clear the selection (and redraw)
+      const t = (await bTokens()).find(x => x.tk === tk); const q = await bScreen(t.x, t.y); await bp.mouse.click(q.x, q.y);
+    };
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const gh = (await bTokens()).find(t => t.tk.startsWith('A:'));
+    // 14.02: the OC of the models within range. Find a spot where only part of the ten Grey Hunters reach an objective
+    const spot = await bp.evaluate(async (tk) => {
+      const E = await import('/calc/planeval.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      for (const o of l.objectives) for (let dy = 2; dy <= 9; dy += 0.25) for (const sx of [0, 1.5, -1.5]) {
+        const cand = { x: o.x + sx, y: o.y - dy, models: u.models };
+        if (cand.y < 2 || cand.y > 58) continue;
+        const total = u.models.reduce((a, m) => a + m.oc, 0);
+        const oc = E.ocInRange({ ...cand, oc: total }, o, l.pieces);
+        const others = l.objectives.filter(z => z.id !== o.id).some(z => E.inRange(cand, z, l.pieces));
+        if (oc > 0 && oc < total && !others) return { o: o.id, x: cand.x, y: cand.y, oc, total, each: u.models[0].oc };
+      }
+      return null;
+    }, gh.tk);
+    check('found a spot where only some of the Grey Hunters are in range of an objective', !!spot, JSON.stringify(spot));
+    await bPlace(gh.tk, spot.x, spot.y);
+    await bSelect(gh.tk);
+    const ctl = await bp.evaluate((id) => { const g = document.querySelector(`#board-svg [data-obj="${id}"]`); return g ? { a: Number(g.dataset.oca), b: Number(g.dataset.ocb), ctl: g.dataset.control, text: g.textContent.trim() } : null; }, spot.o);
+    check(`objective control counts the models in range: ${spot.oc} (${spot.oc / spot.each} models x OC ${spot.each}), not the whole unit's ${spot.total}`, ctl && ctl.a === spot.oc && ctl.a < spot.total && ctl.ctl === 'A' && ctl.text === `A ${spot.oc} · B 0`, JSON.stringify({ ctl, spot }));
+    await bp.screenshot({ path: join(SHOTS, 'calc_63_board_oc_models.png') });
+    // 03.03 coherency: the starting formation is legal; ten in one line is not, and the board says so
+    check('the starting formation is in coherency (no warning)', (await bp.locator('#board-coherency').count()) === 0);
+    await bp.locator('#board-panel button[data-action="board-formation"]', { hasText: 'Line' }).tap();
+    await bp.waitForSelector('#board-coherency');
+    check('ten models in one line: "Not in coherency" with the distance', /Not in coherency: two models are \d+\.\d" apart \(every model must be within 9" of every other\)/.test(await bp.textContent('#board-coherency')), await bp.textContent('#board-coherency'));
+    await bp.locator('#board-panel').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_64_board_coherency.png') });
+    await bp.locator('#board-panel button[data-action="board-formation"][data-value="5"]').tap();
+    check('back to rows of five: in coherency again', (await bp.locator('#board-coherency').count()) === 0);
+    // 13.09 (errata): infantry in an area with a LIGHT feature can be Hidden - the threat list says who can still shoot it
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    const sc1 = (await bTokens()).find(t => t.tk.startsWith('A:') && t.tk !== gh.tk);
+    const hide = await bp.evaluate(async (tk) => {
+      const S = await import('/calc/sight.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      const groups = S.areaGroups(l.pieces);
+      const lightOnly = new Set(l.pieces.filter(p => p.cls === 'feature' && p.cat === 'light').map(p => groups.get(p.id)));
+      const dense = new Set(l.pieces.filter(p => p.cls === 'feature' && p.cat === 'dense').map(p => groups.get(p.id)));
+      let any = null;
+      for (const a of l.pieces.filter(p => p.cls === 'area')) {
+        const cx = a.poly.reduce((s, q) => s + q[0], 0) / a.poly.length, cy = a.poly.reduce((s, q) => s + q[1], 0) / a.poly.length;
+        for (const per of [5, 3, 2, 1]) {
+          const B = await import('/calc/board.mjs');
+          const members = [{ count: u.models.length, fp: u.models[0].fp }];
+          const cand = { x: cx, y: cy, keywords: u.keywords, models: B.coherentFormation(members, { perRow: per, keepRows: true }) };
+          if (!S.canHide(cand, l.pieces)) continue;
+          const g = groups.get(a.id);
+          const res = { x: cx, y: cy, per, light: lightOnly.has(g) && !dense.has(g) };
+          if (res.light) return res;
+          any ??= res;
+        }
+      }
+      return any;
+    }, sc1.tk);
+    check('found a terrain area where the Scouts can be Hidden', !!hide, JSON.stringify(hide));
+    await bPlace(sc1.tk, hide.x, hide.y);
+    await bp.evaluate(([t, per]) => { const p = window.__calc.board().plan; p.steps[p.cur].tokens[t].per = per; }, [sc1.tk, hide.per]);
+    await bp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Flash Gitz' }).tap();
+    const gitz = (await bTokens()).find(t => t.tk.startsWith('B:'));
+    // the Flash Gitz stand 30" away: in range after a move, but not within 15"
+    const far = { x: Math.max(4, Math.min(40, hide.x)), y: hide.y > 30 ? hide.y - 30 : hide.y + 30 };
+    await bPlace(gitz.tk, far.x, far.y);
+    await bSelect(sc1.tk);
+    await bp.waitForSelector('#board-threats');
+    const thr = await bp.evaluate(() => { const el = document.getElementById('board-threats'); return { hide: el.dataset.hide, text: el.textContent.replace(/\s+/g, ' ').trim() }; });
+    check(`Hidden${hide.light ? ' in LIGHT terrain' : ''}: the board says the unit can be Hidden here and that the Flash Gitz cannot shoot it while it is`, thr.hide === '1' && /Can be Hidden here/.test(thr.text) && /only models within 15" can see it \(13\.09\)/.test(thr.text) && (/not while Hidden/.test(thr.text) || !/Flash Gitz/.test(thr.text)), JSON.stringify(thr));
+    await bp.locator('#board-panel').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_65_board_hidden.png') });
+    // Stormlance "+2" M" for Mounted units reaches the board
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Thunderwolf Cavalry' }).first().tap();
+    const tw = (await bTokens()).find(t => t.tk.startsWith('A:') && t.tk !== gh.tk && t.tk !== sc1.tk);
+    await bSelect(tw.tk);
+    const moveChip = await bp.locator('#board-panel button[data-action="board-ring"]', { hasText: 'Move' }).first().textContent();
+    check('Thunderwolf Cavalry move 14" on the board: 12" + 2" from the Stormlance detachment rule', /Move 14" \(\+2" Lightning-fast Strike\)/.test(moveChip), moveChip);
+    // reserves: a unit that first appears in "Turn 2"
+    await bp.tap('button[data-action="board-step-add"]');
+    await bp.tap('button[data-action="board-step-add"]');
+    check('two more steps: Turn 1 and Turn 2', (await bp.evaluate(() => window.__calc.board().plan.steps.map(s => s.name).join(','))) === 'Deploy,Turn 1,Turn 2', await bp.evaluate(() => window.__calc.board().plan.steps.map(s => s.name).join(',')));
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (2)' }).tap();
+    await bp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Logan Grimnar' }).tap();
+    const toks3 = await bTokens();
+    const names = await bp.evaluate(() => Object.fromEntries(window.__calc.board().units.map(u => [u.tk, (window.__calc.state.armies[u.tk[0]].units.find(x => `${u.tk[0]}:${x.key}` === u.tk) ?? {}).name])));
+    const scoutTk = toks3.find(t => /Scout Squad \(2\)/.test(names[t.tk] ?? ''))?.tk, loganTk = toks3.find(t => /Logan/.test(names[t.tk] ?? ''))?.tk;
+    check('Scouts and the Terminators (Deep Strike) are placed only in Turn 2: they arrive from reserves', !!scoutTk && !!loganTk, JSON.stringify(names));
+    // both in the middle of the board, far from any edge and from the enemy
+    const mid = await bp.evaluate(async () => {
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const en = d.tokens.filter(t => t.tk.startsWith('B:'));
+      const ok = (x, y) => en.every(e => Math.hypot(e.x - x, e.y - y) > 16);
+      const out = [];
+      for (let y = 22; y <= 38 && out.length < 2; y += 4) for (let x = 12; x <= 32 && out.length < 2; x += 10) if (ok(x, y) && out.every(o => Math.hypot(o.x - x, o.y - y) > 9)) out.push({ x, y });
+      return out;
+    });
+    await bPlace(scoutTk, mid[0].x, mid[0].y);
+    await bPlace(loganTk, mid[1].x, mid[1].y);
+    await bSelect(scoutTk);
+    await bp.waitForSelector('#board-warnings');
+    const warns = await bp.$$eval('#board-warnings li', els => els.map(e => ({ unit: e.dataset.unit, text: e.textContent.replace(/\s+/g, ' ').trim() })));
+    check('the Scouts (no Deep Strike) are warned: reserves are set up wholly within 6" of a battlefield edge (20.04)', warns.some(w => /Scout Squad \(2\)/.test(w.unit) && /more than 6" from a battlefield edge/.test(w.text)), JSON.stringify(warns));
+    check('the Terminators (every model has Deep Strike) are not warned in the same place (24.09)', !warns.some(w => /Logan/.test(w.unit)), JSON.stringify(warns));
+    await bp.locator('#board-warnings').scrollIntoViewIfNeeded();
+    await bp.screenshot({ path: join(SHOTS, 'calc_66_board_reserves.png') });
+    await bctx.close();
+  }
+
+  // --- stratagem limits, shooting type, Heavy / Damaged, engaged targets, rules for named weapons (1.102)
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attack rules: ${m.text()}`); });
+    sp.on('pageerror', e => consoleErrors.push(`attack rules: ${e}`));
+    await sp.goto(`${BASE}/calc/`);
+    await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="attack"]');
+    const done = () => sp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 });
+    const target = async (re) => { const v = await sp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source); await sp.selectOption('select[data-input="target"]', v); };
+    const add = async (name) => { await sp.tap('button[data-action="open-add"]'); await sp.tap(`.pick:has-text("${name}")`); await done(); };
+    const rowsOf = (card) => card.locator('.weapon[data-row]').evaluateAll(els => els.map(e => ({ name: e.querySelector('.wname').textContent.trim(), val: e.querySelector('.stepper .val').textContent.trim(), blocked: e.querySelector('.tag.warn')?.textContent.trim() ?? null, off: [...e.querySelectorAll('.tag.off')].map(t => t.textContent.trim()) })));
+    const row = (rows, re) => rows.find(r => re.test(r.name));
+    const wounds = () => sp.evaluate(() => window.__calc.state.result.meanWounds);
+    await target(/Battlewagon/);
+    await add('Scout Squad (1)');
+    const card = () => sp.locator('[data-attacker]').last();
+    // shooting type (10.04 - 10.06)
+    let rs = await rowsOf(card());
+    check('normal shooting: shotguns, krak missile and sniper rifle fire, pistols stay out', row(rs, /Shotgun/).val === '3/3' && row(rs, /Krak/).val === '1/1' && row(rs, /Sniper/).val === '1/1' && row(rs, /Bolt Pistol/).val === '0/5', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="assault"]').tap(); await done();
+    rs = await rowsOf(card());
+    check('after an advance only the Assault weapons shoot (the shotguns)', row(rs, /Shotgun/).val === '3/3' && row(rs, /Krak/).val === '0/1' && row(rs, /Krak/).blocked === 'After an advance only Assault weapons shoot' && row(rs, /Sniper/).val === '0/1', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="cq"]').tap(); await done();
+    rs = await rowsOf(card());
+    check('engaged: only the close-quarters weapons shoot (5 bolt pistols)', row(rs, /Bolt Pistol/).val === '5/5' && row(rs, /Shotgun/).blocked === 'Engaged: only Close-quarters weapons shoot', JSON.stringify(rs));
+    await card().locator('button[data-action="shooting-type"][data-value="normal"]').tap(); await done();
+    // Heavy (24.16): +1 to hit when no model moved more than 3"
+    const w0 = await wounds();
+    const heavy = card().locator('button[data-key="heavyOk"]');
+    check('a unit with Heavy weapons has the "Moved 3" or less" chip', (await heavy.count()) === 1 && /Heavy: \+1 to hit/.test(await heavy.textContent()));
+    await heavy.tap(); await done();
+    const w1 = await wounds();
+    const heavyOn = await sp.evaluate(() => window.__calc.scenario().attackers[0].mods.heavyOk);
+    check('Heavy +1 to hit reaches the engine and raises the damage of the Heavy weapon in use (the sniper rifle)', heavyOn === true && w1 > w0 * 1.01, `${w0} -> ${w1}`);
+    await sp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await sp.screenshot({ path: join(SHOTS, 'calc_67_shooting_type_heavy.png') });
+    // an engaged Monster / Vehicle: -1 to hit for shooting, no Blast (17.03)
+    await sp.locator('details.more', { hasText: 'Defender modifiers' }).locator('summary').tap();
+    await sp.locator('button[data-action="defmod-toggle"][data-key="engaged"]').tap(); await done();
+    const w2 = await wounds();
+    const sc = await sp.evaluate(() => window.__calc.scenario());
+    check('target engaged in melee: the engine gets -1 to hit for shooting at it', sc.defender.mods.engagedMV === true && w2 < w1 * 0.9, `${w1} -> ${w2}`);
+    await target(/Warboss \+ Boyz/); await done();
+    check('the "Engaged in melee" option is only for a Monster or Vehicle target', (await sp.locator('button[data-action="defmod-toggle"][data-key="engaged"]').count()) === 0);
+    // stratagems: one on a unit in a phase, each once in a phase (15.01)
+    await sp.tap('button[data-action="phase"][data-value="fight"]');
+    await target(/Battlewagon/);
+    await add('Thunderwolf Cavalry (1)');
+    const strats = (c) => c.locator('.modrow', { hasText: 'Stratagems (tap to use)' }).locator('button[data-action="arule"]');
+    const onNames = async (c) => strats(c).evaluateAll(els => els.filter(e => e.getAttribute('aria-pressed') === 'true').map(e => e.textContent.trim().slice(0, 60)));
+    const c1 = card();
+    const n = await strats(c1).count();
+    check('Thunderwolf Cavalry have several stratagems to choose from in the Fight phase', n >= 3, String(n));
+    const names = await strats(c1).evaluateAll(els => els.map(e => e.textContent.trim()));
+    const idxA = names.findIndex(t => /COMMAND RE-ROLL/.test(t)), idxB = names.findIndex(t => !/COMMAND RE-ROLL/.test(t) && !/^or:/.test(t));
+    await strats(c1).nth(idxB).tap(); await done();
+    check('one stratagem on', (await onNames(card())).length === 1, JSON.stringify(await onNames(card())));
+    await strats(card()).nth(idxA).tap(); await done();
+    const after = await onNames(card());
+    check('a second stratagem on the same unit switches the first off (one on a unit in a phase)', after.length === 1 && /COMMAND RE-ROLL/.test(after[0]), JSON.stringify(after));
+    check('the card states the rule', /One stratagem on a unit in a phase, and each stratagem once in a phase \(15\.01\)/.test(await card().locator('[data-strat-note]').textContent()));
+    // the same stratagem on a second unit: off on the first (each stratagem once in a phase)
+    await add('Grey Hunters');
+    const c2 = sp.locator('[data-attacker]').last(), c1b = sp.locator('[data-attacker]').first();
+    await strats(c2).filter({ hasText: 'COMMAND RE-ROLL' }).first().tap(); await done();
+    const first = await onNames(sp.locator('[data-attacker]').first()), second = await onNames(sp.locator('[data-attacker]').last());
+    check('Command Re-roll on the second unit takes it from the first (the same stratagem once in a phase)', first.length === 0 && second.length === 1 && /COMMAND RE-ROLL/.test(second[0]), JSON.stringify({ first, second }));
+    await sp.locator('[data-attacker]').last().locator('[data-strat-note]').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_68_stratagem_limit.png') });
+    // the defender can re-roll one save with Command Re-roll (15.02)
+    const dStrat = sp.locator('button[data-action="rule"]', { hasText: 'Re-roll one save' });
+    check('the target has "Re-roll one save" (Command Re-roll) among its stratagems', (await dStrat.count()) === 1 && /COMMAND RE-ROLL \(1CP\)/.test(await dStrat.textContent()), await dStrat.textContent().catch(() => 'missing'));
+    const before = await wounds();
+    await dStrat.tap(); await done();
+    const sc2 = await sp.evaluate(() => window.__calc.scenario());
+    check('it reaches the engine and lowers the damage a little', sc2.defender.mods.rerollOneSave === true && (await wounds()) < before, `${before} -> ${await wounds()}`);
+    // rules for named weapons: Terminators after a charge - Sustained Hits on the hammers against a Vehicle
+    await sp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await sp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await add('Logan Grimnar');
+    await card().locator('button[data-key="charged"]').tap(); await done();
+    const chips = await card().locator('button[data-action="arule"]').evaluateAll(els => els.map(e => ({ t: e.textContent.replace(/\s+/g, ' ').trim(), on: e.getAttribute('aria-pressed') === 'true' })));
+    const th = chips.find(c => /^Thunder Hammer: Sustained Hits 1/.test(c.t)), lc = chips.find(c => /^Lightning Claws: Sustained Hits 1/.test(c.t));
+    check('Terminatus Assault after a charge: Sustained Hits 1 on the thunder hammers against the Battlewagon, not on the lightning claws', th?.on === true && lc?.on === false, JSON.stringify({ th, lc }));
+    const sc3 = await sp.evaluate(() => window.__calc.scenario());
+    const hammers = sc3.attackers[0].weapons.find(w => w.name === 'Thunder Hammer'), claws = sc3.attackers[0].weapons.find(w => /Lightning Claws/.test(w.name));
+    check('the engine gets it on the hammers only', hammers?.mods?.sustained === 1 && !claws?.mods?.sustained, JSON.stringify({ hammers: hammers?.mods, claws: claws?.mods }));
+    await sctx.close();
+  }
+
+  // --- the exchange (1.103): the target fights back, overwatch, Deadly Demise; battle-shock odds
+  {
+    const xctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const xp = await xctx.newPage();
+    xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`exchange: ${m.text()}`); });
+    xp.on('pageerror', e => consoleErrors.push(`exchange: ${e}`));
+    await xp.goto(`${BASE}/calc/`);
+    await xp.waitForSelector('textarea[data-side="A"]');
+    await xp.fill('textarea[data-side="A"]', SW_LIST); await xp.tap('button[data-action="parse"][data-side="A"]');
+    await xp.fill('textarea[data-side="B"]', ORK_LIST); await xp.tap('button[data-action="parse"][data-side="B"]');
+    await xp.tap('button[data-action="view"][data-value="attack"]');
+    const xdone = () => xp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 });
+    const xtarget = async (re) => { const v = await xp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source); await xp.selectOption('select[data-input="target"]', v); };
+    const chainReady = () => xp.waitForFunction(() => { const s = window.__calc.state; return s.chainResult && !s.chainBusy; }, null, { timeout: 60000 });
+    const txt = async (q) => (await xp.textContent(q)).replace(/\s+/g, ' ').trim();
+    // battle-shock odds on the result of a plain attack: Thunderwolf Cavalry into the Boyz
+    await xp.tap('button[data-action="phase"][data-value="fight"]');
+    await xtarget(/Warboss \+ Boyz/);
+    await xp.tap('button[data-action="open-add"]'); await xp.tap('.pick:has-text("Thunderwolf Cavalry (1)")'); await xdone();
+    await xp.locator('[data-attacker]').last().locator('button[data-key="charged"]').tap(); await xdone();
+    await xp.tap('button[data-action="open-results"]');
+    await xp.waitForSelector('.sheet #shock-target');
+    const res = await xp.evaluate(() => { const r = window.__calc.state.result; return { half: r.killsAtLeast[21 - 10], wipe: r.pWipe }; });
+    const shock = await txt('.sheet #shock-target');
+    const m = shock.match(/half strength, and still on the table, (\d+|<1|>99)% of the time\. In its next Command phase it then tests on Ld (\d)\+ and fails (\d+)% of the time: battle-shocked (\d+|<1)%/);
+    check('the result says how often the target is left at or below half strength, and how often it then fails its battle-shock test', !!m && Math.abs(Number(m[1]) / 100 - (res.half - res.wipe)) < 0.011 && ['6', '7'].includes(m[2]), JSON.stringify({ shock, res }));
+    // 21 models (20 Boyz + the Warboss): half strength is 10 or fewer left = 11 or more destroyed
+    check('half strength counts the attached Warboss: 11 of 21 models destroyed', res.half > 0 && res.half < 1, JSON.stringify(res));
+    await xp.locator('.sheet #shock-target').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_69_battle_shock.png') });
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    // the turn chain with the enemy's part: the Meganobz fight back
+    await xtarget(/Meganobz/); await xdone();
+    await xp.tap('button[data-action="open-chain"]');
+    await xp.waitForSelector('#chain-total', { timeout: 60000 });
+    const twKey = await xp.evaluate(() => window.__calc.atkArmy().units.find(u => /Thunderwolf Cavalry \(1\)/.test(u.name)).key);
+    await xp.selectOption('select[data-input="chain-charger"]', twKey);
+    for (let g = await xp.evaluate(() => window.__calc.state.chain.gap); g > 6; g -= 0.5) await xp.tap('button[data-action="chain-gap"][data-delta="-0.5"]');
+    for (let g = await xp.evaluate(() => window.__calc.state.chain.gap); g < 6; g += 0.5) await xp.tap('button[data-action="chain-gap"][data-delta="0.5"]');
+    await chainReady();
+    await xp.waitForSelector('#chain-own');
+    const c1 = await xp.evaluate(() => { const s = window.__calc.state; return { charger: window.__calc.atkArmy().units.find(u => u.key === s.chain.chargerKey)?.name, own: s.chainResult.own, kills: s.chainResult.meanKills, pCharge: s.chainResult.pCharge }; });
+    check('the chain reports what the charge costs the charging unit: the Meganobz fight back', /Thunderwolf Cavalry/.test(c1.charger) && c1.own && c1.own.totalModels === 6 && c1.own.meanBack > 0.05 && Math.abs(c1.own.meanLost - c1.own.meanBack) < 1e-9, JSON.stringify(c1));
+    check('"What it costs Thunderwolf Cavalry": models lost and the chance the unit is destroyed', /What it costs Thunderwolf Cavalry/.test(await txt('#chain-own')) && (await txt('#chain-own-lost')) === c1.own.meanLost.toFixed(1) && /avg models lost of 6/.test(await txt('#chain-own')), await txt('#chain-own'));
+    check('points traded are shown', /Points: you destroy \d+ and lose \d+ on average/.test(await txt('#chain-trade')), await txt('#chain-own'));
+    await xp.locator('#chain-own').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_70_chain_exchange.png') });
+    // without the fight back nothing is lost; with Overwatch the unit loses models before it charges
+    await xp.tap('button[data-action="chain-back"]'); await chainReady();
+    check('"The target fights back" off: no report for your unit', (await xp.locator('#chain-own').count()) === 0);
+    await xp.tap('button[data-action="chain-back"]');
+    await xp.tap('button[data-action="chain-overwatch"]'); await chainReady();
+    await xp.waitForSelector('#chain-own-ow');
+    const c2 = await xp.evaluate(() => window.__calc.state.chainResult);
+    check('Fire Overwatch (1CP) on: snap shots (6s to hit) at the charging unit, counted before the charge', c2.own.meanOverwatch >= 0 && c2.own.meanOverwatch < 1.5 && c2.own.meanLost >= c1.own.meanLost - 0.05 && /Overwatch/.test(await txt('#chain-own')), JSON.stringify(c2.own));
+    await xp.tap('button[data-action="chain-overwatch"]');
+    // Deadly Demise: the Battlewagon (D6)
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    await xtarget(/Battlewagon/); await xdone();
+    await xp.tap('button[data-action="open-chain"]');
+    await xp.waitForSelector('#chain-total', { timeout: 60000 });
+    await chainReady();
+    await xp.waitForSelector('#chain-own-dd');
+    check('the charging unit chosen before is kept for the next target', /Thunderwolf Cavalry/.test(await txt('#chain-own')), await txt('#chain-own'));
+    const c3 = await xp.evaluate(() => window.__calc.state.chainResult);
+    check('a Battlewagon destroyed in the fight: Deadly Demise D6 can hit the charging unit', /Deadly Demise D6/.test(await txt('#chain-own')) && c3.own.meanDemise >= 0 && c3.own.meanDemise <= c3.pWipe, JSON.stringify({ dd: c3.own.meanDemise, wipe: c3.pWipe }));
+    await xctx.close();
+  }
+
+  // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
+  {
+    const wctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const wp = await wctx.newPage();
+    wp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`choice: ${m.text()}`); });
+    wp.on('pageerror', e => consoleErrors.push(`choice: ${e}`));
+    await wp.goto(`${BASE}/calc/`);
+    await wp.waitForSelector('textarea[data-side="A"]');
+    await wp.fill('textarea[data-side="A"]', SW_LIST); await wp.tap('button[data-action="parse"][data-side="A"]');
+    await wp.fill('textarea[data-side="B"]', ORK_LIST); await wp.tap('button[data-action="parse"][data-side="B"]');
+    await wp.tap('button[data-action="view"][data-value="attack"]');
+    await wp.tap('button[data-action="phase"][data-value="fight"]');
+    const pickTarget = async (re) => {
+      const v = await wp.$eval('select[data-input="target"]', (sel, src) => [...sel.options].find(o => new RegExp(src).test(o.textContent))?.value, re.source);
+      await wp.selectOption('select[data-input="target"]', v);
+    };
+    const rowsOf = (card) => card.locator('.weapon[data-row]').evaluateAll(els => els.map(e => ({
+      name: e.querySelector('.wname').textContent.trim(), val: e.querySelector('.stepper .val').textContent.trim(),
+      auto: !!e.querySelector('.tag.auto'), hand: !!e.querySelector('.tag.byhand'), blocked: e.querySelector('.tag.warn')?.textContent.trim() ?? null,
+      why: e.querySelector('.choice-why')?.textContent.trim() ?? null })));
+    const row = (rows, re) => rows.find(r => re.test(r.name));
+    // Wulfen against Boyz: before 1.100 the app picked the Hunter profile, blocked it, and no hammer attacked
+    await pickTarget(/Warboss \+ Boyz/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Wulfen with Storm Shields")');
+    await settle(wp);
+    const wulfen = wp.locator('[data-attacker]').last();
+    let rs = await rowsOf(wulfen);
+    check('Wulfen vs Boyz: all 10 thunder hammers attack with the normal profile (chosen by the app)',
+      row(rs, /Hammer – Melee/).val === '10/10' && row(rs, /Hammer – Melee/).auto && row(rs, /Hammer – Hunter/).val === '0/10', JSON.stringify(rs));
+    check('the Hunter profile says why it is not used: it only targets Monster or Vehicle units',
+      row(rs, /Hammer – Hunter/).blocked === 'Hunter profile: only targets Monster or Vehicle units', JSON.stringify(row(rs, /Hunter/)));
+    const scW = await wp.evaluate(() => window.__calc.scenario());
+    check('the engine gets the 10 hammers (2 attacks each)', scW.attackers[0].weapons.some(w => /Thunder Hammer – Melee/.test(w.name) && w.count === 10), JSON.stringify(scW.attackers[0].weapons.map(w => [w.name, w.count])));
+    const killsBoyz = await wp.evaluate(() => window.__calc.state.result.meanKills);
+    check('Wulfen now kill well over 5 Boyz on average (it was 2.6 with the Captain alone)', killsBoyz > 5, String(killsBoyz));
+    await wp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await wp.screenshot({ path: join(SHOTS, 'calc_60_choice_wulfen_boyz.png') });
+    // the same unit against a Vehicle: the Hunter profile, without the user doing anything
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Wulfen vs Battlewagon: the Hunter profile is used for all 10 (chosen by the app)',
+      row(rs, /Hammer – Hunter/).val === '10/10' && row(rs, /Hammer – Hunter/).auto && row(rs, /Hammer – Melee/).val === '0/10' && /at least as good in every way/.test(row(rs, /Hammer – Melee/).why ?? ''), JSON.stringify(rs));
+    await wp.screenshot({ path: join(SHOTS, 'calc_61_choice_wulfen_wagon.png') });
+    // by hand: one model takes the normal profile -> the Hunter count goes down with it (10 hammers in all)
+    await wp.locator('[data-attacker]').last().locator('.weapon', { hasText: 'Hammer – Melee' }).locator('button[data-delta="1"]').tap();
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('by hand: +1 on the normal profile takes one from the Hunter profile (1 + 9), both marked "set by hand"',
+      row(rs, /Hammer – Melee/).val === '1/10' && row(rs, /Hammer – Hunter/).val === '9/10' && row(rs, /Hammer – Melee/).hand && row(rs, /Hammer – Hunter/).hand, JSON.stringify(rs));
+    // a count set by hand is for that target: against the Boyz the app chooses again (no "0 hammers" trap)
+    await pickTarget(/Warboss \+ Boyz/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('a new target: the app chooses again (10 normal), the hand-set split is not carried over',
+      row(rs, /Hammer – Melee/).val === '10/10' && row(rs, /Hammer – Melee/).auto, JSON.stringify(rs));
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('back on the Battlewagon the hand-set split is still there, with the way back to "auto"',
+      row(rs, /Hammer – Melee/).val === '1/10' && (await wp.locator('button[data-action="count-auto"]').count()) === 1, JSON.stringify(rs));
+    await wp.tap('button[data-action="count-auto"]');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('"Let the app choose again" restores the choice', row(rs, /Hammer – Hunter/).val === '10/10' && row(rs, /Hammer – Hunter/).auto, JSON.stringify(rs));
+    // Logan Grimnar: Sweep against the horde, Strike against the vehicle - with the numbers behind it
+    await wp.locator('[data-attacker]').last().locator('button[data-action="remove"]').tap();
+    await pickTarget(/Warboss \+ Boyz/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Logan Grimnar")');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    const sweep = row(rs, /Sweep/), strike = row(rs, /Strike/);
+    const num = (s) => Number((s ?? '').match(/about ([\d.]+) wounds/)?.[1]);
+    check('Logan vs Boyz: Sweep is used, Strike is not, and both rows show what they would do',
+      sweep.val === '1/1' && sweep.auto && strike.val === '0/1' && /^Used/.test(sweep.why) && /^Not used/.test(strike.why) && num(sweep.why) > num(strike.why) + 2, JSON.stringify({ sweep, strike }));
+    check('his squad is not part of that choice: 9 hammers and the lightning claws attack', row(rs, /^Thunder Hammer$/).val === '9/9' && row(rs, /Lightning Claws/).val === '1/1' && !row(rs, /^Thunder Hammer$/).auto, JSON.stringify(rs));
+    await wp.evaluate(() => document.querySelector('[data-attacker]').scrollIntoView());
+    await wp.screenshot({ path: join(SHOTS, 'calc_62_choice_logan_boyz.png') });
+    await pickTarget(/Battlewagon/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Logan vs Battlewagon: Strike', row(rs, /Strike/).val === '1/1' && row(rs, /Strike/).auto && row(rs, /Sweep/).val === '0/1', JSON.stringify(rs));
+    // shooting: krak at the vehicle, frag at the horde
+    await wp.tap('button[data-action="phase"][data-value="shooting"]');
+    await pickTarget(/Battlewagon/);
+    await wp.tap('button[data-action="open-add"]');
+    await wp.tap('.pick:has-text("Scout Squad (1)")');
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Scouts vs Battlewagon: the missile launcher fires krak', row(rs, /Krak/).val === '1/1' && row(rs, /Frag/).val === '0/1', JSON.stringify(rs));
+    await pickTarget(/Warboss \+ Boyz/);
+    await settle(wp);
+    rs = await rowsOf(wp.locator('[data-attacker]').last());
+    check('Scouts vs Boyz: frag; pistols stay out while the other weapons fire (24.07)', row(rs, /Frag/).val === '1/1' && row(rs, /Krak/).val === '0/1' && row(rs, /Bolt Pistol/).val === '0/5', JSON.stringify(rs));
+    check('the card explains the choice once', /uses the option that removes the most wounds from this target/.test(await wp.locator('[data-attacker]').last().locator('.choice-foot').textContent()));
+    // the matchup grid makes the same choice (in the worker)
+    await wp.tap('button[data-action="phase"][data-value="fight"]');
+    const cell = await wp.evaluate(async () => {
+      const { simulate } = await import('/calc/engine.mjs');
+      const { resolveScenario } = await import('/calc/choose.mjs');
+      const st = window.__calc.state;
+      const wulfen = st.armies.A.units.find(u => /Wulfen/.test(u.name)), boyz = st.armies.B.units.find(u => /Boyz/.test(u.name));
+      const sc = window.__calc.defaultScenario(wulfen, boyz);
+      const out = resolveScenario(sc);
+      return { deferred: !!sc.attackers[0].choice || sc.attackers[0].weapons.some(w => /– Melee/.test(w.name)), weapons: out.attackers[0].weapons.map(w => [w.name, w.count]), kills: simulate({ ...out, trials: 2000 }).meanKills };
+    });
+    check('grid / forecast odds: Wulfen vs Boyz use the 10 hammers too', cell.weapons.some(([n, c]) => /Thunder Hammer – Melee/.test(n) && c === 10) && cell.kills > 5, JSON.stringify(cell));
+    await wctx.close();
+  }
+
+  // --- my army, phase by phase (1.104): Intel > By phase, once-per-battle ticks
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet: ${m.text()}`); });
+    pp.on('pageerror', e => consoleErrors.push(`phase sheet: ${e}`));
+    await pp.goto(`${BASE}/calc/`);
+    await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.waitForSelector('#intel-mode');
+    const txt = async (q) => (await pp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const names = (phase, strat = false) => pp.$$eval(`.phase-card[data-phase="${phase}"] ${strat ? 'details' : ':scope > '} .sheet-entry > b`.replace(':scope >  ', ''), els => els.map(e => e.textContent.trim()));
+    // the datasheets are the enemy's (as before); the army rule is now on its card
+    // the matchup brief: what their list has that you plan around
+    const trick = await txt('#brief-tricks');
+    check('brief: "Plan around" names the Ork unit with a Torrent weapon and its range', /Torrent in overwatch Meganobz \(.* 6"\)/.test(trick) && /hit automatically \(24\.37\)/.test(trick) && (await pp.locator('#brief-tricks [data-trick]').count()) === 1 && /Plan around \(1\)/.test(await txt('details[data-details="brief-tricks"] > summary')), trick);
+    await pp.locator('#brief-tricks').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_74_brief_tricks.png') });
+    check('Intel opens on the enemy datasheets, with its army rule', /B · Orks/.test(await txt('.seg button.on[data-action="intel-side"]')) && /Army rule: Waaagh!/.test(await txt('#intel-army-rule > summary')), await txt('#intel-army-rule > summary'));
+    await pp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await pp.waitForSelector('#phase-sheet');
+    check('"By phase" shows YOUR army first', /A · Space Wolves/.test(await txt('.seg button.on[data-action="intel-side"]')) && /Space Wolves, phase by phase/.test(await txt('#phase-sheet .title')), await txt('#phase-sheet .title'));
+    const strip = await pp.$$eval('#phase-strip .chip', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+    check('a chip per phase with the number of rules', strip.length === 9 && /^All 52$/.test(strip[0]) && /^Command 6$/.test(strip[2]) && /^Fight 16$/.test(strip[6]) && /^Opp\. turn 17$/.test(strip[7]), strip.join(' | '));
+    // once per battle: the three doctrines, and the extra Assault doctrine of Assault Mastery
+    const ticks = await pp.$$eval('#once-card .chip.tick', els => els.map(e => e.textContent.trim()));
+    check('once per battle: each combat doctrine, plus the additional Assault doctrine from Assault Mastery', ticks.join('|') === 'Assault doctrine|Assault doctrine (Assault Mastery)|Devastator doctrine|Tactical doctrine' && /4 of 4/.test(await txt('#once-left')), ticks.join('|'));
+    // one phase at a time
+    await pp.tap('#phase-strip button[data-value="fight"]');
+    await pp.waitForFunction(() => document.querySelectorAll('.phase-card').length === 1);
+    const fight = await pp.$$eval('.phase-card[data-phase="fight"] > .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('Fight phase: the rules that work after a charge are there, with their units', ['Thunderous Charge', 'Terminatus Assault', 'Full-throttle Assault', 'Into the Fray', 'Legendary Slayers (Saga of the Beastslayer)'].every(n => fight.includes(n)) && /Thunderwolf Cavalry/.test(await txt('.sheet-entry[data-entry="ab:thunderous-charge"]')), fight.join(' | '));
+    const fstr = await pp.$$eval('.phase-card[data-phase="fight"] details .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('Fight phase stratagems are open when one phase is shown', fstr.includes('EPIC CHALLENGE') && fstr.includes('ARMOUR OF CONTEMPT') && await pp.$eval('.phase-card[data-phase="fight"] details', d => d.open), fstr.join(' | '));
+    await pp.screenshot({ path: join(SHOTS, 'calc_71_phase_fight.png') });
+    await pp.tap('#phase-strip button[data-value="enemy"]');
+    await pp.waitForSelector('.phase-card[data-phase="enemy"]');
+    const opp = await pp.$$eval('.phase-card[data-phase="enemy"] details .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('the opponent’s turn: reactions in the order of their turn', opp[0] === 'FIRE OVERWATCH' && opp.includes('COUNTEROFFENSIVE') && opp.includes('HEROIC INTERVENTION') && opp.indexOf('FIRE OVERWATCH') < opp.indexOf('SMOKESCREEN') && opp.indexOf('SMOKESCREEN') < opp.indexOf('COUNTEROFFENSIVE'), opp.join(' | '));
+    // ticks: used ones are kept with the game, and a new game clears them
+    await pp.tap('#phase-strip button[data-value="command"]');
+    await pp.waitForSelector('.phase-card[data-phase="command"]');
+    check('Command phase: the army rule first, with its ticks in place', (await pp.$$eval('.phase-card[data-phase="command"] > .sheet-entry > b', els => els.map(e => e.textContent.trim())))[0] === 'Combat Doctrines' && (await pp.locator('.phase-card[data-phase="command"] .sheet-entry[data-entry="army:combat-doctrines"] .chip.tick').count()) === 4 && /ASSAULT DOCTRINE: When this unit/.test(await txt('.sheet-entry[data-entry="army:combat-doctrines"] .ruletext')));
+    await pp.locator('.phase-card[data-phase="command"] .chip.tick', { hasText: 'Devastator doctrine' }).tap();
+    await pp.waitForFunction(() => /3 of 4/.test(document.querySelector('#once-left')?.textContent ?? ''));
+    const pressed = await pp.$$eval('#once-card .chip.tick', els => els.map(e => e.getAttribute('aria-pressed')));
+    check('a tick marks the doctrine as used, in the list at the top too', pressed.join() === 'false,false,true,false' && (await pp.locator('#once-reset').count()) === 1, pressed.join());
+    await pp.evaluate(() => window.scrollTo(0, 0));
+    await pp.screenshot({ path: join(SHOTS, 'calc_72_phase_once.png') });
+    await pp.reload();
+    await pp.waitForSelector('#phase-sheet');
+    check('after a reload: still "By phase", the Command phase, and the tick', /3 of 4/.test(await txt('#once-left')) && (await pp.locator('.phase-card').count()) === 1 && (await pp.getAttribute('.phase-card', 'data-phase')) === 'command');
+    // the opponent's army: Waaagh! once per battle
+    await pp.tap('button[data-action="intel-side"][data-value="B"]');
+    await pp.waitForFunction(() => /Orks, phase by phase/.test(document.querySelector('#phase-sheet .title')?.textContent ?? ''));
+    check('the enemy army by phase: Waaagh! is once per battle', /Waaagh!/.test(await txt('#once-card')) && /1 of 1/.test(await txt('#once-left')), await txt('#once-card'));
+    await pp.tap('#phase-strip button[data-value="enemy"]');
+    await pp.waitForSelector('.phase-card[data-phase="enemy"]');
+    const def = await pp.$$eval('.phase-card[data-phase="enemy"] > .sheet-entry > b', els => els.map(e => e.textContent.trim()));
+    check('what protects the Orks when you attack them', ['Arrogant Invulnerability', 'Mobile Fortress', 'Deadly Demise D6', 'Feel No Pain 6+'].every(n => def.includes(n)), def.join(' | '));
+    await pp.tap('button[data-action="intel-side"][data-value="A"]');
+    await pp.waitForFunction(() => /Space Wolves, phase by phase/.test(document.querySelector('#phase-sheet .title')?.textContent ?? ''));
+    // seen from the other side of the table: the Space Wolves list has three things to plan around
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.waitForSelector('button[data-action="mission-me"][data-value="B"]');
+    await pp.tap('button[data-action="mission-me"][data-value="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('button[data-action="intel-mode"][data-value="units"]');
+    await pp.waitForSelector('#brief-tricks');
+    const tr2 = await pp.$$eval('#brief-tricks [data-trick]', els => els.map(e => `${e.dataset.trick}: ${e.querySelector('.tiny').textContent.trim()}`));
+    check('as the Ork player: Deep Strike, Infiltrators and Scouts of the Space Wolves list', tr2.join(' | ') === 'deepStrike: Logan Grimnar + Ancient in Terminator Armour + Terminator Assault Squad | infiltrators: Scout Squad ×2 | scouts: Scout Squad 6" ×2', tr2.join(' | '));
+    await pp.locator('#brief-tricks').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_75_brief_tricks_sw.png') });
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-me"][data-value="A"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await pp.waitForSelector('#phase-sheet');
+    // a new game clears the ticks
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await pp.waitForSelector('#play-reset');
+    await pp.locator('#play-reset').scrollIntoViewIfNeeded();
+    pp.once('dialog', d => d.accept());
+    await pp.tap('#play-reset');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.waitForSelector('#phase-sheet');
+    check('a new game clears the once-per-battle ticks', /4 of 4/.test(await txt('#once-left')) && (await pp.locator('#once-reset').count()) === 0, await txt('#once-left'));
+    // table mode keeps the sheet (rules reference), all phases
+    await pp.tap('#phase-strip button[data-value="all"]');
+    await pp.waitForFunction(() => document.querySelectorAll('.phase-card').length === 8);
+    check('all phases: 8 cards, stratagems folded', (await pp.locator('.phase-card').count()) === 8 && !(await pp.$eval('.phase-card[data-phase="fight"] details', d => d.open)));
+    await pctx.close();
+  }
+  // tablet, landscape: the sheet uses the width
+  {
+    const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const tp = await tctx.newPage();
+    tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet tablet: ${m.text()}`); });
+    tp.on('pageerror', e => consoleErrors.push(`phase sheet tablet: ${e}`));
+    await tp.goto(`${BASE}/calc/`);
+    await tp.waitForSelector('textarea[data-side="A"]');
+    await tp.fill('textarea[data-side="A"]', SW_LIST); await tp.tap('button[data-action="parse"][data-side="A"]');
+    await tp.tap('button[data-action="view"][data-value="intel"]');
+    await tp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await tp.waitForSelector('#phase-sheet');
+    check('one army loaded: the sheet works without an opponent', /Space Wolves, phase by phase/.test(await tp.textContent('#phase-sheet .title')) && (await tp.locator('.phase-card').count()) === 8);
+    await tp.screenshot({ path: join(SHOTS, 'calc_73_phase_tablet.png') });
+    await tctx.close();
+  }
+
+  // --- board overlays (1.105): where reserves can arrive, and from how far a hidden unit is seen
+  {
+    const octx = await browser.newContext({ ...devices['Pixel 7'] });
+    const op = await octx.newPage();
+    op.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board overlays: ${m.text()}`); });
+    op.on('pageerror', e => consoleErrors.push(`board overlays: ${e}`));
+    await op.goto(`${BASE}/calc/`);
+    await op.waitForSelector('textarea[data-side="A"]');
+    await op.fill('textarea[data-side="A"]', SW_LIST); await op.tap('button[data-action="parse"][data-side="A"]');
+    await op.fill('textarea[data-side="B"]', ORK_LIST); await op.tap('button[data-action="parse"][data-side="B"]');
+    await op.tap('button[data-action="view"][data-value="board"]');
+    await op.waitForSelector('#board-svg');
+    const oTokens = () => op.evaluate(() => window.__calc.board().tokens);
+    const oScreen = (x, y) => op.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const oPlace = (tk, x, y) => op.evaluate(([t, px, py]) => { const p = window.__calc.board().plan; Object.assign(p.steps[p.cur].tokens[t], { x: px, y: py, rot: 0 }); }, [tk, x, y]);
+    const oSelect = async (tk) => {
+      await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+      const e = await oScreen(43.5, 59.5); await op.mouse.click(e.x, e.y);
+      const t = (await oTokens()).find(x => x.tk === tk); const q = await oScreen(t.x, t.y); await op.mouse.click(q.x, q.y);
+    };
+    const otxt = async (q) => (await op.textContent(q)).replace(/\s+/g, ' ').trim();
+    // every Ork unit on the board; of the Space Wolves the Grey Hunters and a Scout Squad (the Terminators stay in reserves)
+    for (const n of ['Warboss + Boyz', 'Beastboss', 'Meganobz', 'Flash Gitz', 'Battlewagon']) await op.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    await op.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await op.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    const toks = await oTokens();
+    const sc = toks.filter(t => t.tk.startsWith('A:'))[1];
+    check('7 units placed', toks.length === 7, String(toks.length));
+    // where the reserves of A (Space Wolves) can arrive
+    await op.locator('button[data-action="board-arrive"][data-value="A"]').tap();
+    await op.waitForSelector('#board-svg #arrive-layer[data-for="A"]');
+    const lay = await op.$eval('#arrive-layer', g => ({ round: g.dataset.round, closed: g.dataset.closed, blocked: Number(g.dataset.blocked), ds: !!g.querySelector('[data-arr="deep-strike"]'), edge: !!g.querySelector('[data-arr="edge"]') }));
+    check('overlay for the Space Wolves at Deploy: battle round 2, edge band and Deep Strike area, the Ork zone still closed, 8" around each of the 31 Ork models', lay.round === '2' && lay.closed === '1' && lay.ds && lay.edge && lay.blocked === 31, JSON.stringify(lay));
+    const note = await otxt('#board-arrive-note');
+    check('the note names the rules and the units still in reserves, Deep Strike marked', /Battle round 2 \(the first round reserves can arrive\)/.test(note) && /wholly within 6" of an edge/.test(note) && /not in B's deployment zone before round 3 \(20\.04\)/.test(note) && /anywhere for a Deep Strike unit \(24\.09\)/.test(note) && /Not on the board in this step: .*Logan Grimnar.*\(Deep Strike\)/.test(note), note);
+    // the drawing agrees with the rule: next to an Ork model nothing arrives; far from them a Deep Strike unit does
+    const probe = await op.evaluate(async () => {
+      const E = await import('/calc/planeval.mjs');
+      const d = window.__calc.board();
+      const ork = d.units.find(u => u.tk.startsWith('B:'));
+      const m = ork.models[0], r = 0.63;
+      const z = d.arrive.zones;
+      // the point of the board farthest from every Ork model, on a 1" grid
+      let far = null;
+      for (let x = 1; x < 44; x++) for (let y = 1; y < 60; y++) { const dmin = Math.min(...z.blocked.map(b => Math.hypot(x - b.x, y - b.y) - b.r)); if (!far || dmin > far.d) far = { x, y, d: dmin }; }
+      return { near: E.canArrive(ork.x + m.dx + 4, ork.y + m.dy, r, z, { deepStrike: true, enemyZone: d.arrive.zone }), far: E.canArrive(far.x, far.y, r, z, { deepStrike: true, enemyZone: d.arrive.zone }), farD: far.d,
+        inZone: (() => { const zc = d.arrive.zone; const cx = zc.reduce((s, q) => s + q[0], 0) / zc.length, cy = zc.reduce((s, q) => s + q[1], 0) / zc.length; return { x: cx, y: cy }; })() };
+    });
+    check('4" from an Ork model: no; the spot farthest from all of them: yes for a Deep Strike unit', probe.near.ok === false && /within 8"/.test(probe.near.why) && probe.far.ok === true && probe.farD > 0, JSON.stringify(probe));
+    await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    await op.screenshot({ path: join(SHOTS, 'calc_76_board_arrive.png') });
+    // three turns on: round 3, the enemy deployment zone opens to units without Deep Strike
+    for (let i = 0; i < 3; i++) await op.locator('button[data-action="board-step-add"]').tap();
+    await op.waitForFunction(() => document.querySelector('#arrive-layer')?.dataset.round === '3');
+    check('Turn 3: battle round 3, the enemy deployment zone is open', (await op.getAttribute('#arrive-layer', 'data-closed')) === '0' && !/before round 3/.test(await otxt('#board-arrive-note')), await otxt('#board-arrive-note'));
+    // the Orks have no Deep Strike unit and are all on the board
+    await op.locator('button[data-action="board-arrive"][data-value="B"]').tap();
+    await op.waitForSelector('#board-svg #arrive-layer[data-for="B"]');
+    const noteB = await otxt('#board-arrive-note');
+    check('for the Orks: edge band only, and the note says why', (await op.locator('#arrive-layer [data-arr="deep-strike"]').count()) === 0 && (await op.locator('#arrive-layer [data-arr="edge"]').count()) === 1 && /B has no Deep Strike unit/.test(noteB) && /All of B's units are on the board in this step/.test(noteB), noteB);
+    await op.locator('button[data-action="board-arrive"][data-value="off"]').tap();
+    await op.waitForFunction(() => !document.querySelector('#arrive-layer'));
+    check('Off removes the overlay', (await op.locator('#board-arrive-note').count()) === 0);
+    // from how far a unit that can be Hidden is seen: the Scouts in a terrain area with a light or dense feature
+    const hide = await op.evaluate(async (tk) => {
+      const S = await import('/calc/sight.mjs');
+      const B = await import('/calc/board.mjs');
+      const { LAYOUTS } = await import('/calc/terrain-11e.mjs');
+      const d = window.__calc.board();
+      const l = LAYOUTS.find(x => x.id === d.layout);
+      const u = d.units.find(x => x.tk === tk);
+      for (const a of l.pieces.filter(p => p.cls === 'area')) {
+        const cx = a.poly.reduce((s, q) => s + q[0], 0) / a.poly.length, cy = a.poly.reduce((s, q) => s + q[1], 0) / a.poly.length;
+        for (const per of [5, 3, 2, 1]) {
+          const cand = { x: cx, y: cy, keywords: u.keywords, models: B.coherentFormation([{ count: u.models.length, fp: u.models[0].fp }], { perRow: per, keepRows: true }) };
+          if (S.canHide(cand, l.pieces)) return { x: cx, y: cy, per };
+        }
+      }
+      return null;
+    }, sc.tk);
+    await oPlace(sc.tk, hide.x, hide.y);
+    await op.evaluate(([t, per]) => { const p = window.__calc.board().plan; p.steps[p.cur].tokens[t].per = per; }, [sc.tk, hide.per]);
+    await oSelect(sc.tk);
+    await op.waitForSelector('#board-panel button[data-action="board-ring"][data-k="detect"]');
+    check('a unit that can be Hidden offers its detection ring', /Seen only within 15" while Hidden/.test(await otxt('#board-panel button[data-action="board-ring"][data-k="detect"]')));
+    await op.locator('#board-panel button[data-action="board-ring"][data-k="detect"]').tap();
+    await op.waitForSelector('#board-svg [data-ring="detect"]');
+    const ring = await op.$eval('#board-svg [data-ring="detect"]', g => ({ r: g.dataset.r, n: g.querySelectorAll('circle').length, radius: Number(g.querySelector('circle').getAttribute('r')) }));
+    const scBase = await op.evaluate((tk) => window.__calc.board().units.find(x => x.tk === tk).models[0].fp.r, sc.tk);
+    check('the ring is drawn 15" from the base of every model of the unit', ring.r === '15' && ring.n === 5 && Math.abs(ring.radius - (15 + scBase)) < 0.01, JSON.stringify({ ...ring, base: scBase }));
+    await op.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    await op.screenshot({ path: join(SHOTS, 'calc_77_board_detect.png') });
+    // the Grey Hunters in the open have no such ring
+    const ghTk = toks.filter(t => t.tk.startsWith('A:'))[0].tk;
+    await oPlace(ghTk, 22, 30);
+    await oSelect(ghTk);
+    await op.waitForSelector('#board-panel');
+    const canHideGh = await op.evaluate(async (tk) => { const S = await import('/calc/sight.mjs'); const { LAYOUTS } = await import('/calc/terrain-11e.mjs'); const d = window.__calc.board(); const u = d.units.find(x => x.tk === tk); return S.canHide(u, LAYOUTS.find(x => x.id === d.layout).pieces); }, ghTk);
+    check('a unit that cannot be Hidden where it stands has no detection ring', canHideGh || (await op.locator('#board-panel button[data-action="board-ring"][data-k="detect"]').count()) === 0, `canHide=${canHideGh}`);
+    await octx.close();
+  }
+
+  // --- going first / going second (1.105): two versions of a board plan from one deployment
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`plan versions: ${m.text()}`); });
+    sp.on('pageerror', e => consoleErrors.push(`plan versions: ${e}`));
+    await sp.goto(`${BASE}/calc/`);
+    await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="board"]');
+    await sp.waitForSelector('#board-svg');
+    const stxt = async (q) => (await sp.textContent(q)).replace(/\s+/g, ' ').trim();
+    for (const n of ['Grey Hunters', 'Thunderwolf Cavalry (1)', 'Scout Squad (1)']) await sp.locator('button[data-action="board-place"][data-side="A"]', { hasText: n }).tap();
+    for (const n of ['Warboss + Boyz', 'Meganobz', 'Flash Gitz']) await sp.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    await sp.locator('button[data-action="board-step-add"]').tap();          // Turn 1
+    await sp.locator('button[data-action="board-step"][data-i="0"]').tap();  // back to Deploy
+    // one tap: this plan is the going-first version, a copy is the going-second version
+    await sp.locator('#board-plan-split').scrollIntoViewIfNeeded();
+    await sp.locator('#board-plan-split').tap();
+    await sp.waitForSelector('#board-split-note');
+    const chips = await sp.$$eval('#board-variants button[data-action="board-plan-pick"]', els => els.map(e => `${e.textContent.trim()}${e.classList.contains('on') ? '*' : ''}`));
+    check('the plan is split into "Going first" (kept on screen) and "Going second"', chips.join('|') === 'Going first*|Going second' && (await sp.locator('#board-plan-split').count()) === 0, chips.join('|'));
+    check('both versions start from the same deployment, and the note says why', (await sp.getAttribute('#board-split-note', 'data-same')) === '1' && /you deploy before the roll-off for the first turn/.test(await stxt('#board-split-note')), await stxt('#board-split-note'));
+    // the going-second version: move a unit in its Deploy step -> the deployments differ -> one tap makes them the same
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="1"]').tap();
+    const moved = await sp.evaluate(() => { const p = window.__calc.board().plan; const tk = Object.keys(p.steps[0].tokens).find(k => k.startsWith('A:')); p.steps[0].tokens[tk].x += 3; return { tk, x: p.steps[0].tokens[tk].x }; });
+    await sp.locator('button[data-action="board-step"][data-i="0"]').tap();
+    await sp.waitForSelector('#board-split-note[data-same="0"]');
+    check('a different deployment in the second version is flagged', /⚠ The deployment differs/.test(await stxt('#board-split-note')) && (await sp.locator('#board-plan-sync').count()) === 1, await stxt('#board-split-note'));
+    await sp.locator('#board-split-note').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_78_plan_versions.png') });
+    await sp.locator('#board-plan-sync').tap();
+    await sp.waitForSelector('#board-split-note[data-same="1"]');
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="0"]').tap();
+    const firstX = await sp.evaluate((tk) => window.__calc.board().plan.steps[0].tokens[tk].x, moved.tk);
+    check('"Use this deployment in both" copies it to the going-first version', Math.abs(firstX - moved.x) < 1e-9, `${firstX} vs ${moved.x}`);
+    // Turn 1 differs: going second, the Thunderwolves hold back 6"
+    await sp.locator('#board-variants button[data-action="board-plan-pick"][data-i="1"]').tap();
+    await sp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    await sp.evaluate(() => { const p = window.__calc.board().plan; for (const [k, t] of Object.entries(p.steps[1].tokens)) if (k.startsWith('A:')) t.y = Math.max(3, t.y - 2); });
+    await sp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    // Mission: each version is forecast with its own first turn, and the roll-off row is their average
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 180000 });
+    await sp.waitForSelector('#fc-compare tr[data-when="second"]');
+    const cmp = await sp.evaluate(() => {
+      const m = window.__calc.mission();
+      const row = (w) => { const tr = document.querySelector(`#fc-compare tr[data-when="${w}"]`); return { text: tr.textContent.replace(/\s+/g, ' ').trim(), key: tr.dataset.plan }; };
+      const win = (key) => m.compare.find(c => c.key === key).result.pWinA;
+      const f = row('first'), s = row('second');
+      return { f, s, wf: win(f.key), ws: win(s.key), roll: Number(document.querySelector('#fc-rolloff').dataset.win), rollText: document.querySelector('#fc-rolloff').textContent.replace(/\s+/g, ' ').trim(), note: document.querySelector('#fc-rolloff-note').textContent };
+    });
+    check('"Your plans compared" marks each version with its first turn', /Board: Going first · you go first/.test(cmp.f.text) && /Board: Going second · you go second/.test(cmp.s.text), JSON.stringify([cmp.f.text, cmp.s.text]));
+    check('the roll-off row is the average of the two versions', Math.abs(cmp.roll - (cmp.wf + cmp.ws) / 2) < 1e-4 && /Roll-off: half your games each way/.test(cmp.rollText) && /winner of the roll-off takes the first turn/.test(cmp.note), JSON.stringify(cmp));
+    // with the going-first version as the source of the forecast, the forecast has me take the first turn
+    await sp.locator('button[data-action="mission-source"][data-value="0"]').scrollIntoViewIfNeeded();
+    await sp.locator('button[data-action="mission-source"][data-value="0"]').tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.params?.first === 'A'; }, null, { timeout: 120000 });
+    check('forecast from the going-first version: I take the first turn, and the page says so', /your going first version: the forecast has you take the first turn/.test(await stxt('#fc-first-tag')) && (await sp.locator('#fc-first').count()) === 0, await stxt('#fc-first-tag'));
+    await sp.locator('button[data-action="mission-source"][data-value="1"]').tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.params?.first === 'B'; }, null, { timeout: 120000 });
+    check('forecast from the going-second version: the opponent takes the first turn', /your going second version: the forecast has your opponent take the first turn/.test(await stxt('#fc-first-tag')));
+    await sp.locator('#fc-compare').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_79_plan_versions_forecast.png') });
+    // once the first turn is known, it wins over the label of the plan
+    await sp.locator('button[data-action="mission-first"][data-value="A"]').first().scrollIntoViewIfNeeded();
+    await sp.locator('button[data-action="mission-first"][data-value="A"]').first().tap();
+    await sp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.first === 'A' && m.params?.first === 'A' && (m.compare?.length ?? 0) >= 3; }, null, { timeout: 120000 });
+    check('first turn known (A): no roll-off row, the versions keep a plain label', (await sp.locator('#fc-rolloff').count()) === 0 && /made for going second/.test(await stxt('#fc-compare tr[data-when="second"]')) && (await sp.locator('#fc-first-tag').count()) === 0, await stxt('#fc-compare'));
+    await sctx.close();
+  }
+
+  // --- event aids (1.106): layout cycle, each round's result, 15VP per round, Fixed cards, the chess clock pause
+  {
+    const ectx = await browser.newContext({ ...devices['Pixel 7'] });
+    const ep = await ectx.newPage();
+    ep.on('console', m => { if (m.type() === 'error') consoleErrors.push(`event aids: ${m.text()}`); });
+    ep.on('pageerror', e => consoleErrors.push(`event aids: ${e}`));
+    const dialogs = [];
+    let answer = true;
+    ep.on('dialog', d => { dialogs.push(d.message()); if (answer) d.accept(); else d.dismiss(); });
+    await ep.goto(`${BASE}/calc/`);
+    await ep.waitForSelector('textarea[data-side="A"]');
+    await ep.fill('textarea[data-side="A"]', SW_LIST); await ep.tap('button[data-action="parse"][data-side="A"]');
+    const etxt = async (q) => (await ep.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => ep.evaluate(() => window.__calc.mission());
+    await ep.locator('#event-card > summary').tap();
+    const letters = await ep.$$eval('#event-rounds .event-round', rows => rows.map(r => r.querySelector('button[data-action="event-layout"].on').textContent.trim()).join(''));
+    check('a new event starts on layouts A, B, C, A, B (the cycle of GW events)', letters === 'ABCAB', letters);
+    await ep.tap('button[data-action="event-round-add"]');
+    check('a sixth round continues the cycle with C', (await ep.$eval('#event-rounds [data-round="6"] button[data-action="event-layout"].on', b => b.textContent.trim())) === 'C');
+    await ep.tap('button[data-action="event-round-del"]');
+    // two opponents: the Orks in round 1, the same Ork list again in round 2 (a result needs a game, not a new list)
+    await ep.fill('#event-paste', ORK_LIST);
+    await ep.tap('button[data-action="event-add"]');
+    const oid = await ep.evaluate(() => String(window.__calc.event().roster.find(r => /Waaagh/.test(r.name)).id));
+    await ep.selectOption('#event-rounds [data-round="1"] select[data-input="event-opp"]', oid);
+    await ep.selectOption('#event-rounds [data-round="2"] select[data-input="event-opp"]', oid);
+    await ep.tap('#event-rounds [data-round="1"] button[data-action="event-start"]');
+    await ep.waitForSelector('#brief');
+    // Fixed Missions for me: Assassination and Bring It Down
+    await ep.tap('button[data-action="view"][data-value="mission"]');
+    await ep.waitForSelector('details[data-details="mission-assume"] > summary');
+    await ep.locator('details[data-details="mission-assume"] > summary').tap();
+    await ep.locator('.seg[data-side="A"] button[data-action="mission-mode"][data-value="fixed"]').tap();
+    const picked = await ep.evaluate(() => window.__calc.state.mission.modes.A.fixed);
+    for (const id of picked) if (!['assassination', 'bring-it-down'].includes(id)) await ep.locator(`button[data-action="mission-fixed"][data-side="A"][data-id="${id}"]`).tap();
+    for (const id of ['assassination', 'bring-it-down']) if (!(await ep.evaluate((x) => window.__calc.state.mission.modes.A.fixed.includes(x), id))) await ep.locator(`button[data-action="mission-fixed"][data-side="A"][data-id="${id}"]`).tap();
+    check('Fixed Missions chosen for A: Assassination and Bring It Down', (await ep.evaluate(() => window.__calc.state.mission.modes.A.fixed.slice().sort().join())) === 'assassination,bring-it-down');
+    await ep.tap('button[data-action="mission-tab"][data-value="play"]');
+    await ep.waitForSelector('#fixed-A [data-fixed="assassination"]');
+    const fx0 = await etxt('#fixed-A');
+    check('Play: the two Fixed cards stay on the table, with what each pays at a time', /Assassination 0 of 20 VP \+3\+4 −1/.test(fx0) && /Bring It Down 0 of 20 VP \+4 −1/.test(fx0), fx0);
+    await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').tap();
+    let g = (await mission()).game;
+    check('a tap adds the VP to the card and to the secondary VP', g.A.fixedVp.assassination === 4 && g.A.secondary === 4 && /4 of 20 VP/.test(await etxt('#fixed-A [data-fixed-vp="assassination"]')) && (await etxt('#play-total-A')) === '14', JSON.stringify(g.A));
+    for (let i = 0; i < 5; i++) await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').tap({ force: true });
+    g = (await mission()).game;
+    check('a Fixed card stops at 20VP: the buttons close and the sixth tap adds nothing', g.A.fixedVp.assassination === 20 && g.A.secondary === 20 && /20 of 20 VP · full/.test(await etxt('#fixed-A [data-fixed-vp="assassination"]')) && await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="4"]').isDisabled(), JSON.stringify(g.A));
+    await ep.locator('#fixed-A [data-fixed="assassination"] button[data-vp="-1"]').tap();
+    g = (await mission()).game;
+    check('−1 takes a mistake back', g.A.fixedVp.assassination === 19 && g.A.secondary === 19);
+    await ep.locator('#fixed-A').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_80_fixed_cards.png') });
+    // 15VP per battle round: 19 secondary VP in round 1 is over the limit
+    const cap = await etxt('#play-cap-warn');
+    check('more than 15 secondary VP in a battle round is flagged, with how many do not count', /A has 19 secondary VP in battle round 1: the limit is 15 per battle round, so 4 of them do not count/.test(cap), cap);
+    // typed into the box: the warning follows without the page being redrawn
+    await ep.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '16');
+    await ep.locator('input[data-input="mission-score"][data-side="B"][data-k="primary"]').blur();
+    await ep.waitForSelector('#play-cap-warn [data-cap="B:1:primary"]');
+    check('a typed score over the limit is flagged too', /B has 16 primary VP in battle round 1.*so 1 of them do not count/.test(await etxt('#play-cap-warn [data-cap="B:1:primary"]')));
+    await ep.fill('input[data-input="mission-score"][data-side="B"][data-k="primary"]', '15');
+    await ep.locator('input[data-input="mission-score"][data-side="B"][data-k="primary"]').blur();
+    await ep.waitForFunction(() => !document.querySelector('#play-cap-warn [data-cap="B:1:primary"]'));
+    check('15 is the limit, not over it', (await ep.locator('#play-cap-warn [data-cap]').count()) === 1);
+    await ep.evaluate(() => window.scrollTo(0, 0));
+    await ep.screenshot({ path: join(SHOTS, 'calc_81_cap_warning.png') });
+    // the chess clock: the pause is locked
+    await ep.locator('button[data-action="mission-clock-mode"][data-value="chess"]').scrollIntoViewIfNeeded();
+    await ep.locator('button[data-action="mission-clock-mode"][data-value="chess"]').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('the chess clock starts with the pause locked', (await mission()).clock.running === 'A' && /🔒 Pause \(referee\)/.test(await etxt('#chess-pause')) && (await ep.getAttribute('#chess-lock', 'aria-pressed')) === 'true' && /only a referee may pause the clock \(UKTC\)/.test(await etxt('#chess-note')));
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('a tap on the running clock does not pause it', (await mission()).clock.running === 'A');
+    await ep.locator('button.clock-tile[data-side="B"]').tap();
+    check('a tap on the other player passes the clock', (await mission()).clock.running === 'B');
+    answer = false; dialogs.length = 0;
+    await ep.locator('#chess-pause').tap();
+    check('Pause asks first, and "Cancel" leaves the clock running', dialogs.length === 1 && /only a referee may pause it \(UKTC\)/.test(dialogs[0]) && (await mission()).clock.running === 'B', dialogs.join(' | '));
+    answer = true;
+    await ep.locator('#chess-pause').tap();
+    check('the referee pauses it: "OK" stops the clock', (await mission()).clock.running == null);
+    await ep.locator('#play-clock').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_82_chess_lock.png') });
+    await ep.locator('#chess-lock').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    await ep.locator('button.clock-tile[data-side="A"]').tap();
+    check('with the lock off, a tap on the running clock pauses it as before', (await mission()).clock.running == null && (await etxt('#chess-pause')) === 'Pause' && /A tap on the running clock pauses it/.test(await etxt('#chess-note')));
+    // results of the event: round 1 ends 29 - 25 (19 + 10 Battle Ready against 15 + 10); starting round 2 keeps it
+    await ep.tap('button[data-action="view"][data-value="armies"]');
+    await ep.waitForSelector('#event-rounds');
+    check('the round in play offers its score from the Play view', /From Play: 29 – 25/.test(await etxt('#event-take-1')));
+    dialogs.length = 0;
+    await ep.tap('#event-rounds [data-round="2"] button[data-action="event-start"]');
+    await ep.waitForSelector('#brief');
+    check('starting round 2 says that the score of round 1 is kept', dialogs.length === 1 && /its score is kept as the result of round 1/.test(dialogs[0]), dialogs.join(' | '));
+    await ep.tap('button[data-action="view"][data-value="armies"]');
+    await ep.waitForSelector('#event-rounds');
+    const r1 = await ep.evaluate(() => window.__calc.event().rounds[0].score);
+    check('round 1 has its result (29 - 25, a win) and the record counts it', r1.me === 29 && r1.opp === 25 && /Win/.test(await etxt('#event-rounds [data-round="1"] [data-result="0"]')) && /Record: 1 win · 0 losses · 29 VP for, 25 against \(1 game\)/.test(await etxt('#event-record')) && /round 2 · 1–0/.test(await etxt('#event-card > summary')), `${JSON.stringify(r1)} | ${await etxt('#event-record')} | ${await etxt('#event-card > summary')}`);
+    // round 2 by hand: 61 - 74
+    await ep.fill('#event-rounds [data-round="2"] input[data-k="me"]', '61');
+    await ep.locator('#event-rounds [data-round="2"] input[data-k="me"]').blur();
+    await ep.fill('#event-rounds [data-round="2"] input[data-k="opp"]', '74');
+    await ep.locator('#event-rounds [data-round="2"] input[data-k="opp"]').blur();
+    await ep.waitForFunction(() => /2 games/.test(document.getElementById('event-record')?.textContent ?? ''));
+    check('a typed result: loss, and the record adds up', /Loss/.test(await etxt('#event-rounds [data-round="2"] [data-result="1"]')) && /Record: 1 win · 1 loss · 90 VP for, 99 against \(2 games\)/.test(await etxt('#event-record')), await etxt('#event-record'));
+    await ep.locator('#event-rounds').scrollIntoViewIfNeeded();
+    await ep.screenshot({ path: join(SHOTS, 'calc_83_event_results.png') });
+    await ep.reload();
+    await ep.waitForSelector('#event-card');
+    check('the results are kept over a reload', (await ep.evaluate(() => JSON.stringify(window.__calc.event().rounds.slice(0, 2).map(r => r.score)))) === '[{"me":29,"opp":25},{"me":61,"opp":74}]');
+    await ectx.close();
+  }
+  // an event saved by an older version (every round on Layout A, never used) gets the cycle once; one in use is left alone
+  {
+    const mctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mp = await mctx.newPage();
+    mp.on('pageerror', e => consoleErrors.push(`event migration: ${e}`));
+    await mp.addInitScript(() => { if (!localStorage.getItem('w40k_calc_event_v1')) localStorage.setItem('w40k_calc_event_v1', JSON.stringify({ name: 'Old', rounds: [1, 2, 3, 4, 5].map(() => ({ layout: 1, opp: null })), round: null, open: false })); });
+    await mp.goto(`${BASE}/calc/`);
+    await mp.waitForSelector('#event-card');
+    check('an untouched event from an older version moves to A, B, C, A, B', (await mp.evaluate(() => window.__calc.event().rounds.map(r => r.layout).join(''))) === '12312');
+    await mp.evaluate(() => localStorage.setItem('w40k_calc_event_v1', JSON.stringify({ name: 'Used', rounds: [{ layout: 1, opp: 5 }, { layout: 1, opp: null }, { layout: 1, opp: null }], round: 1, open: false })));
+    await mp.reload();
+    await mp.waitForSelector('#event-card');
+    check('an event that is in use keeps the layouts it has', (await mp.evaluate(() => window.__calc.event().rounds.map(r => r.layout).join(''))) === '111');
+    await mctx.close();
+  }
+
+  // --- ease of use (1.107): the Play view runs a light forecast, rotation, legibility, rules in force
+  const AGG_LIST = `Update Test (500 points)
+
+Space Marines
+Ultramarines
+Gladius Task Force (1 Detachment Points)
+Take and Hold
+Incursion (1000 points)
+
+BATTLELINE
+
+Intercessor Squad (80 points)
+  • 1x Intercessor Sergeant
+    • 1x Bolt Pistol
+      1x Bolt Rifle
+  • 4x Intercessor
+    • 4x Bolt Pistol
+      4x Bolt Rifle
+
+OTHER DATASHEETS
+
+Aggressor Squad (95 points)
+  • 1x Aggressor Sergeant
+    • 1x Auto Boltstorm Gauntlets
+      1x Fragstorm Grenade Launcher
+      1x Twin Power Fists
+  • 2x Aggressor
+    • 2x Auto Boltstorm Gauntlets
+      2x Fragstorm Grenade Launcher
+      2x Twin Power Fists
+`;
+  {
+    const zctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const zp = await zctx.newPage();
+    zp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`ease of use: ${m.text()}`); });
+    zp.on('pageerror', e => consoleErrors.push(`ease of use: ${e}`));
+    await zp.goto(`${BASE}/calc/`);
+    await zp.waitForSelector('textarea[data-side="A"]');
+    await zp.fill('textarea[data-side="A"]', SW_LIST); await zp.tap('button[data-action="parse"][data-side="A"]');
+    await zp.fill('textarea[data-side="B"]', ORK_LIST); await zp.tap('button[data-action="parse"][data-side="B"]');
+    const ztxt = async (q) => (await zp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => zp.evaluate(() => { const m = window.__calc.mission(); return { trials: m.result?.trials, busy: m.busy, levers: m.levers?.length ?? 0, compare: m.compare?.length ?? 0, primary: m.game.A.primary }; });
+    // rules in force, today (before the announced update)
+    const line = await ztxt('#rules-line');
+    check('Armies: the rules-in-force line says what the rules were checked against, the data release and the next change',
+      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.2, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
+      && /World Championships rules updates, November 2026 \(UKTC events use it\): 5 of its 8 weapon changes are not in the numbers/.test(line) && /Next rules change: the quarterly balance update, the week beginning 7 December 2026 \(Warhammer Community, 29 Oct 2026\)/.test(line) && (await zp.locator('#rules-due').count()) === 0, line);
+    await zp.locator('#rules-line').scrollIntoViewIfNeeded();
+    await zp.screenshot({ path: join(SHOTS, 'calc_84_rules_in_force.png') });
+    // the installed app may turn with the device
+    const manifest = await (await zp.request.get(`${BASE}/calc/manifest.webmanifest`)).json();
+    check('the app manifest no longer locks the screen to portrait', manifest.orientation === 'any', manifest.orientation);
+    // Mission: a full run on Plan, a light run after a tap on Play
+    await zp.tap('button[data-action="view"][data-value="mission"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.levers?.length >= 4; }, null, { timeout: 180000 });
+    const full = await mission();
+    check('Plan: the full forecast (4,000 games, what-ifs, plan comparison)', full.trials === 4000 && full.levers >= 4 && full.compare >= 1, JSON.stringify(full));
+    await zp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await zp.waitForSelector('#play-bar');
+    await zp.waitForTimeout(700);
+    const same = await mission();
+    check('opening Play does not run the forecast again: the full one is still good', same.trials === 4000 && !same.busy, JSON.stringify(same));
+    await zp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.game.A.primary === 5 && m.result.trials === 1000; }, null, { timeout: 120000 });
+    const lite = await mission();
+    check('a tap on Play runs the light forecast (1,000 games, no what-ifs worked out)', lite.trials === 1000 && lite.levers === full.levers && /1,000 simulated games/.test(await ztxt('#mission-forecast')), JSON.stringify(lite));
+    // the controls on Play: nothing under 36 px
+    const small = await zp.evaluate(() => [...document.querySelectorAll('#app main button, #app main input, #app main select, #app main summary')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height && Math.min(r.width, r.height) < 35.5; }).map(e => `${e.tagName}.${e.className}:${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}`));
+    check('Play: every control is at least 36 px wide and high', small.length === 0, small.slice(0, 8).join(' | '));
+    await zp.evaluate(() => window.scrollTo(0, 0));
+    await zp.screenshot({ path: join(SHOTS, 'calc_85_play_controls.png') });
+    // back on Plan the what-ifs are worked out again for the new score
+    await zp.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.result.trials === 4000; }, null, { timeout: 180000 });
+    check('back on Plan: the full forecast for the new score', (await mission()).trials === 4000);
+    // the rule that lets a unit arrive a round early is in the overlay's note
+    await zp.tap('button[data-action="view"][data-value="board"]');
+    await zp.waitForSelector('#board-svg');
+    await zp.locator('button[data-action="board-arrive"][data-value="A"]').scrollIntoViewIfNeeded();
+    await zp.locator('button[data-action="board-arrive"][data-value="A"]').tap();
+    await zp.waitForSelector('#board-arrive-early');
+    check('Board: the reserves overlay names High King of Fenris (one unit a turn arrives a battle round early)', /High King of Fenris \(Logan Grimnar\): one unit a turn arrives as if the battle round were one higher, so it can come in battle round 1/.test(await ztxt('#board-arrive-early')), await ztxt('#board-arrive-early'));
+    // the ruling of the November update on Combat Doctrines, in the phase sheet
+    await zp.tap('button[data-action="view"][data-value="intel"]');
+    await zp.tap('button[data-action="intel-mode"][data-value="phase"]');
+    await zp.waitForSelector('#phase-sheet');
+    await zp.tap('#phase-strip button[data-value="command"]');
+    await zp.waitForSelector('[data-ruling="army:combat-doctrines"]');
+    check('By phase: Combat Doctrines carries the ruling of the November update', /Nov 2026 update \(UKTC events use it\): A doctrine made active for one unit by Strategic Acumen/.test(await ztxt('[data-ruling="army:combat-doctrines"]')));
+    await zctx.close();
+  }
+  // light theme, and a date after the announced update: readable grey text, and the warning that the rules may be behind
+  {
+    const lctx = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'light' });
+    const lp = await lctx.newPage();
+    lp.on('pageerror', e => consoleErrors.push(`ease of use (light): ${e}`));
+    await lp.addInitScript(() => {
+      const Real = Date, shift = new Real(2026, 11, 9, 12).getTime() - Real.now();
+      globalThis.Date = class extends Real { constructor(...a) { if (a.length) super(...a); else super(Real.now() + shift); } static now() { return Real.now() + shift; } };
+    });
+    await lp.goto(`${BASE}/calc/`);
+    await lp.waitForSelector('textarea[data-side="A"]');
+    await lp.fill('textarea[data-side="A"]', AGG_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
+    await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
+    const ltxt = async (q) => (await lp.textContent(q)).replace(/\s+/g, ' ').trim();
+    check('after 7 December: the rules line warns that a rules change was due', (await lp.getAttribute('#rules-line', 'data-due')) === '1' && /A rules change was due: the quarterly balance update, the week beginning 7 December 2026.*look for an app update/.test(await ltxt('#rules-due')) && (await lp.locator('#rules-next').count()) === 0, await ltxt('#rules-line'));
+    check('a list with a datasheet the November update changes says so under the list', /Nov 2026 update \(UKTC events use it\), not in the numbers: Aggressor Squad \(Auto boltstorm gauntlets: remove \[CLOSE-QUARTERS\]\)/.test(await ltxt('#update-A')), await ltxt('#data-A'));
+    await lp.locator('#rules-line').scrollIntoViewIfNeeded();
+    await lp.screenshot({ path: join(SHOTS, 'calc_86_rules_due_light.png') });
+    await lp.tap('button[data-action="view"][data-value="intel"]');
+    await lp.tap('button[data-action="intel-side"][data-value="A"]');
+    await lp.waitForSelector('.intel-unit');
+    await lp.locator('.intel-unit', { hasText: 'Aggressor Squad' }).locator('summary').first().tap();
+    check('Intel: the datasheet carries the note', /⚠ Nov 2026 update \(UKTC events use it\): Auto boltstorm gauntlets: remove \[CLOSE-QUARTERS\] — not in the numbers here/.test(await ltxt('.update-note')), await ltxt('.update-note'));
+    // grey text against what is behind it, light theme
+    const low = await lp.evaluate(() => {
+      const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const parse = (s) => { const m = /rgba?\(([^)]+)\)/.exec(s); if (!m) return null; const a = m[1].split(/[,\s/]+/).map(Number); return { rgb: a.slice(0, 3), a: a[3] ?? 1 }; };
+      const bgOf = (el) => { let base = [255, 255, 255]; const chain = []; for (let e = el; e; e = e.parentElement) chain.push(e); for (const e of chain.reverse()) { const c = parse(getComputedStyle(e).backgroundColor); if (c && c.a > 0) base = c.rgb.map((v, i) => v * c.a + base[i] * (1 - c.a)); } return base; };
+      const out = [];
+      for (const el of document.querySelectorAll('#app *')) {
+        if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+        const cs = getComputedStyle(el); const fg = parse(cs.color); if (!fg || el.closest('button:disabled')) continue;
+        const bg = bgOf(el), f = fg.rgb.map((v, i) => v * fg.a + bg[i] * (1 - fg.a));
+        const L1 = lum(f), L2 = lum(bg), ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+        if (ratio < 4.5) out.push(`${ratio.toFixed(2)} ${el.className || el.tagName} "${el.textContent.trim().slice(0, 20)}"`);
+      }
+      return out;
+    });
+    check('light theme, Intel: no text under 4.5:1 contrast', low.length === 0, low.slice(0, 6).join(' | '));
+    await lctx.close();
+  }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();

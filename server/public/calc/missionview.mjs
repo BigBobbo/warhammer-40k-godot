@@ -7,9 +7,9 @@
 
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
-import { abilitiesOf, armyData, fmtDataDate } from './adapter.mjs';
+import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
 import { boardContext, boardPlans } from './boardview.mjs';
-import { layoutLetter } from './board.mjs';
+import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
 
@@ -42,6 +42,7 @@ export function initMission(c) {
   m.table ??= false;
   m.awake ??= true;
   PT.ensureGame(m.game, { fresh: !inProgress() });
+  migratePlanSides(m);
 }
 
 function ms() {
@@ -118,18 +119,8 @@ function objectives() {
   const bc = boardContext();
   const l = bc.layout;
   if (!l) return [];
-  const sideOfZone = (z) => (z === 'player1' ? (bc.zoneA === 1 ? 'A' : 'B') : (bc.zoneA === 2 ? 'A' : 'B'));
-  const homes = l.objectives.filter(o => o.zone !== 'no_mans_land').map(o => ({ ...o, side: sideOfZone(o.zone) }));
-  const homeOf = (s) => homes.find(h => h.side === s);
-  const out = [];
-  for (const o of l.objectives) {
-    // roles come from the official 11e cards (home / central / expansion); some layouts have two centrals
-    if (o.role === 'home' || o.zone !== 'no_mans_land') { const side = sideOfZone(o.zone); out.push({ id: o.id, cls: 'home', side, label: `${side} home` }); continue; }
-    if (o.role === 'central') { out.push({ id: o.id, cls: 'central', side: null, label: 'Centre' }); continue; }
-    const hA = homeOf('A'), hB = homeOf('B');
-    const side = !hA || !hB ? null : Math.hypot(o.x - hA.x, o.y - hA.y) <= Math.hypot(o.x - hB.x, o.y - hB.y) ? 'A' : 'B';
-    out.push({ id: o.id, cls: 'exp', side, label: `${side}-side` });
-  }
+  // an expansion objective is on the side of the player whose TERRITORY it is in (board.mjs objectiveSides)
+  const out = objectiveSides(l, bc.deployment, bc.zoneA).map(o => ({ ...o, label: o.cls === 'home' ? `${o.side} home` : o.cls === 'central' ? 'Centre' : `${o.side}-side` }));
   const order = (o) => (o.cls === 'home' ? (o.side === 'A' ? 0 : 4) : o.cls === 'central' ? 2 : o.side === 'A' ? 1 : 3);
   out.sort((a, b) => order(a) - order(b));
   // number duplicates ("Centre 1", "A-side 2")
@@ -140,19 +131,46 @@ function objectives() {
   return out;
 }
 
+/** The plan a layout starts with: each player holds its home objective, and from round 2 the expansion objective in its territory. */
+function defaultPlan(objs) {
+  const p = {};
+  for (let r = 1; r <= RULES.rounds; r++) {
+    p[r] = {};
+    for (const o of objs) p[r][o.id] = o.cls === 'home' ? o.side : o.cls === 'exp' && r >= 2 ? o.side : 'c';
+  }
+  return p;
+}
+
 function plan() {
   const m = ms();
   const l = boardContext().layout;
   if (!l) return {};
-  if (!m.plans[l.id]) {
-    const p = {};
-    for (let r = 1; r <= RULES.rounds; r++) {
-      p[r] = {};
-      for (const o of objectives()) p[r][o.id] = o.cls === 'home' ? o.side : o.cls === 'exp' && r >= 2 ? o.side : 'c';
-    }
-    m.plans[l.id] = p;
-  }
+  if (!m.plans[l.id]) m.plans[l.id] = defaultPlan(objectives());
   return m.plans[l.id];
+}
+
+/**
+ * Before 1.101 an expansion objective's side was "the nearer home objective", which is the wrong
+ * player's territory in 18 of the 45 layouts. A stored plan that is still the old starting plan
+ * (never edited) becomes the new starting plan; a plan the player edited is left as it is.
+ */
+function migratePlanSides(m) {
+  if (m.sidesV === 2) return;
+  let changed = 0;
+  for (const [id, p] of Object.entries(m.plans ?? {})) {
+    const l = LAYOUTS.find(x => x.id === id);
+    if (!l) continue;
+    const dep = DEPLOYMENTS[l.deployment];
+    for (const zoneA of [1, 2]) {
+      const old = defaultPlan(objectiveSides(l, dep, zoneA, { byNearestHome: true }));
+      if (JSON.stringify(old) !== JSON.stringify(p)) continue;
+      const now = defaultPlan(objectiveSides(l, dep, zoneA));
+      if (JSON.stringify(now) !== JSON.stringify(p)) { m.plans[id] = now; changed++; }
+      break;
+    }
+  }
+  m.sidesV = 2;
+  if (changed) console.log(`[mission] ${changed} starting plan(s) updated: expansion objectives now follow the territory they are in`);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +185,7 @@ function geo() {
     zones: { A: pick(dep.zones, 'A'), B: pick(dep.zones, 'B') },
     territories: { A: pick(dep.territories, 'A'), B: pick(dep.territories, 'B') },
     pieces: l.pieces, objectives: l.objectives,
+    early: { A: earlyArrival(ctx.state.armies.A)?.name ?? null, B: earlyArrival(ctx.state.armies.B)?.name ?? null },
   };
 }
 
@@ -218,6 +237,8 @@ export function matchupData() {
 export function registerHost(id, fn) { HOSTS[id] = fn; }
 export function missionNewGame() { const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
 export const missionInProgress = () => inProgress();
+/** The score on the tracker (Battle Ready included), for the event card. */
+export const missionScore = () => ({ A: totalVp('A'), B: totalVp('B'), over: !!ms().game.over, started: inProgress() });
 
 // units destroyed per turn, from the calculator (null until the unit-vs-unit odds are in)
 function autoKill() {
@@ -273,7 +294,9 @@ function boardModel(vi) {
       if (!used(st, X) || !used(st, Y)) continue;
       // X attacks in round r from its round-r positions; the targets have already moved this
       // round (cur: they went first) or are still where round r - 1 left them (prev)
-      threats[r][X] = { cur: threatOptions(st[X], st[Y], m.pairs.table), prev: used(prevSt, Y) ? threatOptions(st[X], prevSt[Y], m.pairs.table) : threatOptions(st[X], st[Y], m.pairs.table) };
+      // (a Lone Operative, and infantry without guns that can be Hidden where it stands, must be approached: planeval detectRange)
+      const opts = (targets) => threatOptions(st[X], targets, m.pairs.table, 3, g?.pieces ?? null);
+      threats[r][X] = { cur: opts(st[Y]), prev: used(prevSt, Y) ? opts(prevSt[Y]) : opts(st[Y]) };
     }
   }
   return { rounds, threats, warnings: planWarnings(steps, g), stepsPlanned: steps.length, name: plan.name };
@@ -300,7 +323,10 @@ export function forecastParams(over = {}) {
   if (!pa || !pb || !bc.layout) return null;
   const g = m.game;
   const live = inProgress();
-  const first = m.first ?? (live ? 'A' : null);
+  const vi = over.boardPlan === undefined ? sourcePlan() : over.boardPlan;
+  // a board plan made for going first (or second) is forecast that way, until the first turn is known
+  const tag = vi == null ? null : boardPlans()[vi]?.when ?? null;
+  const first = m.first ?? (tag ? (tag === 'first' ? m.me : other(m.me)) : null) ?? (live ? 'A' : null);
   const fracs = killFracs();
   const player = (X) => ({
     mission: bc.missions[X], mode: over.mode?.[X]?.mode ?? m.modes[X].mode, fixed: over.mode?.[X]?.fixed ?? m.modes[X].fixed,
@@ -308,10 +334,9 @@ export function forecastParams(over = {}) {
     army: (X === 'A' ? pa : pb).profile, killRate: m.killAuto?.[X] === false ? m.killRate[X] : (fracs ? null : 1.3), killMul: over.killMul?.[X] ?? 1, actionP: m.actionP[X],
     rate: m.rate[X], vpEst: m.est?.[X] ?? {}, battleReady: m.battleReady[X],
     // (destroyed: this player's OWN units that are gone, by name — the forecast removes them from this army)
-    start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[X].destroyed } : null,
+    start: live ? { hand: g[X].hand, used: g[X].used, primary: g[X].primary, secondary: g[X].secondary, destroyed: g[X].destroyed, fixedVp: g[X].fixedVp ?? {} } : null,
   });
   const next = g.next ?? first ?? 'A';
-  const vi = over.boardPlan === undefined ? sourcePlan() : over.boardPlan;
   return {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
@@ -380,20 +405,33 @@ function modeParams() {
   return out;
 }
 
+// The Play view shows the headline and the advice on the cards in hand. It does not show the what-ifs or the
+// plan comparison, so a change made there (a score, a card, a turn) runs the forecast alone, with fewer
+// simulated games: about 1,000 instead of about 14,000 per tap. Plan and Cards get the full run.
+export const PLAY_TRIALS = 1000;
+const liteRun = () => ms().tab === 'play';
+let runLite = false;      // the run in progress is a Play-view run
+let lastSig = '';         // the inputs of the last run asked for
+let lastFull = '';        // the inputs of the last full run (what-ifs and plan comparison included)
 let worker = null, reqId = 0, timer = null;
 let planNotes = {};   // plan key -> "3 of 8 units placed" for board plans that miss part of my army
 let runModes = null;  // the inputs of the Fixed / Tactical table the run in progress works out (null: it has none)
-export function scheduleForecast() {
+export function scheduleForecast(sig = null) {
   clearTimeout(timer);
   // table mode: tracker only (no forecast is worked out, nothing to show it)
   if (ms().table) { ms().busy = false; return; }
+  // what this run is for: the next render does not ask for the same run again
+  if (sig == null) { const P0 = forecastParams({ trials: 0 }); sig = P0 ? JSON.stringify(P0) : ''; }
+  lastSig = sig;
+  if (!liteRun()) lastFull = sig;
   ms().busy = true;
   timer = setTimeout(runForecast, 150);
 }
 function runForecast() {
   // unit-vs-unit odds from the calculator: kill rates, and what each unit threatens on a board plan
   if (ctx.state.armies.A && ctx.state.armies.B) ensurePairs();
-  const P = forecastParams();
+  const lite = liteRun();
+  const P = forecastParams(lite ? { trials: PLAY_TRIALS } : {});
   const m = ms();
   reqId++;
   if (!P) { m.result = null; m.busy = false; refresh(); return; }
@@ -406,8 +444,11 @@ function runForecast() {
       if (ev.data.error) { console.error('[calc] forecast error', ev.data.error); mm.busy = false; refresh(); return; }
       mm.result = ev.data.base;
       const modes = ev.data.variants.filter(v => String(v.key).startsWith('mode:'));
-      mm.levers = ev.data.variants.filter(v => !v.compare && !String(v.key).startsWith('mode:'));
-      mm.compare = ev.data.variants.filter(v => v.compare);
+      // a Play-view run has no what-ifs and no plan comparison: the ones on the Plan view stay until its next full run
+      if (!runLite) {
+        mm.levers = ev.data.variants.filter(v => !v.compare && !String(v.key).startsWith('mode:'));
+        mm.compare = ev.data.variants.filter(v => v.compare);
+      }
       if (modes.length) mm.modeCompare = { sig: runModes, rows: modes };
       mm.busy = false;
       const r = mm.result;
@@ -416,6 +457,8 @@ function runForecast() {
     };
   }
   m.busy = true;
+  runLite = lite;
+  if (lite) { runModes = null; worker.postMessage({ id: reqId, forecast: { base: P, variants: [] } }); return; }
   // a board plan only knows the units placed on it: say so when part of my army is missing
   const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
   const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
@@ -495,7 +538,7 @@ function planView() {
       ${m.modes[X].mode === 'fixed' ? `<div class="chips" style="margin-top:6px">${FIXED_IDS.map(id => ctx.chip('mission-fixed', m.modes[X].fixed.includes(id), SECONDARY_BY_ID[id].name, `data-side="${X}" data-id="${id}"`)).join('')}</div>` : ''}</div>`;
   return `<div class="mlay plan"><div class="col">
     <section class="section a-setup o1"><div class="card">
-      <div class="small" id="mission-names"><b style="color:var(--side-a)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
+      <div class="small" id="mission-names"><b style="color:var(--side-a-ink)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b-ink)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
         <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'} — change it on the Board tab.</div></div>
       <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
@@ -603,6 +646,7 @@ function playView() {
       </div>
       ${m.first == null && !opening ? `<div class="row" style="gap:8px;margin-top:8px;align-items:center"><span class="small">Who took the first turn?</span>${ctx.seg('mission-first', 'roll', [['A', who('A')], ['B', who('B')]], 'compact')}</div>` : ''}
       <div class="small" id="play-turn" style="margin-top:8px">${turnLineHtml()}</div>
+      <div id="play-caps">${capsHtml()}</div>
       ${checklistHtml()}
     </div></section>
     <section class="section a-me o3">${playerCard(me)}</section>
@@ -629,6 +673,14 @@ function turnLineHtml() {
     ? `<b>${X}</b> ${[d[X].primary ? `${sign(d[X].primary)} primary` : '', d[X].secondary ? `${sign(d[X].secondary)} secondary` : ''].filter(Boolean).join(', ')}`
     : `<span class="muted">${X} nothing yet</span>`);
   return `Round ${g.round}, ${turnOf()}'s turn — scored this turn: ${part('A')} · ${part('B')}`;
+}
+
+// more than 15VP of primary, or of secondary, in one battle round (Event Companion: "Up to 15VP per battle round")
+function capsHtml() {
+  const g = ms().game;
+  const ws = PT.capWarnings(g, RULES.rounds, RULES.primaryRoundCap);
+  if (!ws.length) return '';
+  return `<div class="warnbox" id="play-cap-warn" style="margin-top:8px">${ws.map(w => `<div data-cap="${w.side}:${w.round}:${w.kind}">⚠ <b>${w.side}</b> has ${w.vp} ${w.kind} VP in battle round ${w.round}: the limit is ${RULES.primaryRoundCap} per battle round, so ${w.over} of them do not count${w.last ? ' (VP scored at the end of the battle are outside this limit)' : ''}.</div>`).join('')}</div>`;
 }
 
 // what to do in a turn, in the order of the rules (core rules 08, Event Companion step 6)
@@ -693,10 +745,11 @@ function clockHtml() {
     const tile = (X) => `<button class="clock-tile ${c.running === X ? 'on' : ''}" data-action="mission-clock" data-do="run" data-side="${X}" aria-label="Run the clock of ${X}" aria-pressed="${c.running === X}">
         <span class="tiny">${who(X)}</span><b id="clock-${X}">${PT.fmtClock(PT.chessLeft(c, X, now))}</b></button>`;
     body = `<div class="row" style="gap:8px;margin-top:8px">${tile('A')}${tile('B')}</div>
-      <div class="row" style="gap:8px;margin-top:8px"><button class="btn" data-action="mission-clock" data-do="chess-pause" ${c.running ? '' : 'disabled'}>Pause</button>
-        <button class="btn ghost" data-action="mission-clock" data-do="chess-reset">Reset</button></div>
+      <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center"><button class="btn" data-action="mission-clock" data-do="chess-pause" id="chess-pause" ${c.running ? '' : 'disabled'}>${PT.chessLocked(c) ? '🔒 Pause (referee)' : 'Pause'}</button>
+        <button class="btn ghost" data-action="mission-clock" data-do="chess-reset">Reset</button>
+        ${ctx.chip('mission-clock-lock', PT.chessLocked(c), 'Pause locked', 'id="chess-lock"')}</div>
       ${PT.chessStarted(c) ? '' : `<div class="modrow"><div class="lab">Time each</div>${ctx.seg('mission-clock-bank', c.bank, PT.CHESS_BANKS.map(v => [v, hm(v)]), 'compact')}</div>`}
-      <div class="tiny muted" style="margin-top:6px">Tap a player to run that player's clock (and again when it passes, for example for saves). “Turn done” passes it to the next player. UKTC recommends 1:25 each. The event's own clock is the one that counts.</div>`;
+      <div class="tiny muted" style="margin-top:6px" id="chess-note">Tap a player to run that player's clock (and the other player when it passes, for example for saves). “Turn done” passes it to the next player. UKTC recommends 1:25 each. ${PT.chessLocked(c) ? 'Pause locked: once started, only a referee may pause the clock (UKTC); a player with under 5 minutes left may pause it to call one. A tap on the running clock does nothing, and Pause asks first.' : 'A tap on the running clock pauses it.'} The event's own clock is the one that counts.</div>`;
   }
   return `<div class="card" id="play-clock"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><div class="title grow">Clock</div>
       ${ctx.seg('mission-clock-mode', c.mode, [['off', 'Off'], ['round', 'Round timer'], ['chess', 'Chess clock']], 'compact')}</div>${body}</div>`;
@@ -745,6 +798,7 @@ function heroHtml() {
     <div class="small" style="margin-top:6px" id="fc-verdict">${verdict(pWin, pLose, margin)}</div>
     <div class="chart" style="margin-top:8px">${rangeChart(r, me)}</div>
     ${m.first == null && !inProgress() && pFirst != null && pSecond != null ? `<div class="small" style="margin-top:6px" id="fc-first">First turn is a roll-off after deployment: you win <b>${pct(pFirst)}</b> going first, <b>${pct(pSecond)}</b> going second.</div>` : ''}
+    ${(() => { const vi = sourcePlan(), tag = m.first == null && vi != null ? boardPlans()[vi]?.when : null; return tag ? `<div class="small" style="margin-top:6px" id="fc-first-tag">This board plan is your <b>going ${tag}</b> version: the forecast has ${tag === 'first' ? 'you' : 'your opponent'} take the first turn. “Your plans compared” has both versions.</div>` : ''; })()}
     <div class="tiny muted" style="margin-top:4px">${r.trials.toLocaleString()} simulated games${m.busy ? ' (updating…)' : ''}. The range is where 8 games in 10 end.</div>`;
 }
 
@@ -832,10 +886,16 @@ function compareHtml(me, opp) {
   // the best complete plan gets the star: a plan with units missing is not comparable
   const complete = rows.filter(c => !planNotes[c.key]);
   const best = Math.max(...(complete.length ? complete : rows).map(win));
+  // versions made for going first / going second: each is forecast with that first turn (until it is known)
+  const plans = boardPlans();
+  const whenOf = (c) => { const x = /^plan(\d+)$/.exec(c.key); return x ? plans[Number(x[1])]?.when ?? null : null; };
+  const tagHtml = (c) => (whenOf(c) ? ` <span class="tiny muted">· ${m.first == null ? `you go ${whenOf(c)}` : `made for going ${whenOf(c)}`}</span>` : '');
+  const pf = rows.find(c => whenOf(c) === 'first'), ps = rows.find(c => whenOf(c) === 'second');
+  const rollOff = pf && ps && m.first == null ? `<tr id="fc-rolloff" data-win="${((win(pf) + win(ps)) / 2).toFixed(4)}"><td>Roll-off: half your games each way, the right plan for each</td><td><b>${pct((win(pf) + win(ps)) / 2)}</b></td><td>${fmt((pf.result[me].mean + ps.result[me].mean) / 2)}</td><td>${fmt((pf.result[opp].mean + ps.result[opp].mean) / 2)}</td></tr>` : '';
   return `<h2 class="sub" style="margin-top:14px">Your plans compared</h2>
     <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
-    ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}"><td>${esc(c.label)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn-ink)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}
-    </tbody></table>`;
+    ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}" data-when="${whenOf(c) ?? ''}"><td>${esc(c.label)}${tagHtml(c)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn-ink)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}${rollOff}
+    </tbody></table>${rollOff ? '<div class="tiny muted" id="fc-rolloff-note">The winner of the roll-off takes the first turn (Event Companion), so each version is used in half your games.</div>' : ''}`;
 }
 
 function verdict(pWin, pLose, margin) {
@@ -912,7 +972,7 @@ const KEEP_READY = {
   'behind-enemy-lines': 'Keep a fast / Deep Strike unit to get wholly into their deployment zone (3 VP each, max 5).',
   'engage-on-all-fronts': 'Spread units into 3–4 table quarters, more than 6" from the centre.',
   'centre-ground': 'Have a unit that can reach the centre and keep enemies 6" away from it.',
-  'outflank': 'Keep units near both long battlefield edges, outside your territory.',
+  'outflank': 'Two units within 6" of opposite battlefield edges, one or more of them outside your territory (5 VP); one unit on an edge outside your territory is 3 VP.',
   'display-of-might': 'Out-number them in No Man’s Land at the end of their turn (5 VP).',
   'beacon': 'Plan a durable unit to sit outside your territory (5 VP).',
   'plunder': 'Get a unit into a terrain area outside your territory in your Shooting phase.',
@@ -1014,7 +1074,7 @@ function hitListHtml(side) {
     const tags = [];
     if (u.characters) tags.push(`Assassination (${u.characters} character${u.characters > 1 ? 's' : ''})`);
     if (u.w10) tags.push(`Bring It Down (W10+ ×${u.w10})`);
-    if (u.bodyguardModels >= 13) tags.push('A Grievous Blow (13+ models)');
+    if (u.models >= 13) tags.push('A Grievous Blow (13+ models, leaders counted)');
     return { u, tags, value: tags.length * 5 + u.points / 100 };
   }).filter(x => x.tags.length).sort((a, b) => b.value - a.value);
   if (!rows.length) return '<p class="muted small">No units feed the kill cards (characters, W10+ or 13+ models).</p>';
@@ -1023,6 +1083,24 @@ function hitListHtml(side) {
 }
 
 // ---- in-game tracker
+
+// Fixed Missions: the two cards are active all battle and cannot be discarded; each pays at most 20VP in a game
+function fixedHtml(X) {
+  const m = ms(), g = m.game, esc = ctx.esc;
+  const ids = m.modes[X].fixed;
+  if (!ids.length) return '<div class="tiny muted" style="margin-top:6px">Fixed: pick two cards under Plan → Assumptions.</div>';
+  const row = (id) => {
+    const c = SECONDARY_BY_ID[id], vp = g[X].fixedVp?.[id] ?? 0, full = vp >= RULES.fixedCardCap;
+    const open = m.handOpen === `${X}:${id}`;
+    return `<div class="hand-row" data-fixed="${id}"><span class="grow"><button class="linkish" data-action="mission-hand-info" data-side="${X}" data-id="${id}" aria-expanded="${open}">${esc(c.name)}</button>
+        <span class="tiny ${full ? 'good' : 'muted'}" data-fixed-vp="${id}"> ${vp} of ${RULES.fixedCardCap} VP${full ? ' · full' : ''}</span>
+        ${open ? `<div class="tiny" data-text="${id}">${esc(c.fixedText ?? c.text)}</div>` : ''}</span>
+      ${PT.fixedSteps(c.fixedText).map(v => `<button class="mini score" data-action="mission-fixed-score" data-side="${X}" data-id="${id}" data-vp="${v}" ${full ? 'disabled' : ''} aria-label="${esc(c.name)} scored ${v} VP">+${v}</button>`).join('')}
+      <button class="mini" data-action="mission-fixed-score" data-side="${X}" data-id="${id}" data-vp="-1" ${vp ? '' : 'disabled'} aria-label="${esc(c.name)}: take 1 VP back">−1</button></div>`;
+  };
+  return `<div class="lab tiny muted" style="margin-top:10px">Fixed Missions — active all battle, never discarded, at most ${RULES.fixedCardCap} VP each. Tap what a card scored (it is added to the secondary VP)</div>
+    <div id="fixed-${X}">${ids.map(row).join('')}</div>`;
+}
 
 // one player's side of the table: scores (steppers), the cards in hand with what
 // they can pay, the draw box, units destroyed
@@ -1037,7 +1115,7 @@ function playerCard(X) {
       <button data-action="mission-score-step" data-side="${X}" data-k="${k}" data-delta="5" aria-label="${X} ${label} plus 5">+5</button></div></div>`;
   const total = g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0);
   return `<div class="card" data-player="${X}">
-      <div class="row"><div class="title grow" style="color:var(--side-${X.toLowerCase()})">${X} · ${esc(ctx.state.armies[X].faction)}${X === m.me ? ' (me)' : ''}</div>
+      <div class="row"><div class="title grow" style="color:var(--side-${X.toLowerCase()}-ink)">${X} · ${esc(ctx.state.armies[X].faction)}${X === m.me ? ' (me)' : ''}</div>
         <div class="small"><b id="play-total-${X}">${total}</b> VP${m.battleReady[X] ? ' <span class="tiny muted">incl. 10</span>' : ''}</div></div>
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap">${score('primary', 'Primary VP')}${score('secondary', 'Secondary VP')}</div>
       <div class="row cp-row" style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><span class="lab tiny muted">Command points</span>
@@ -1053,7 +1131,7 @@ function playerCard(X) {
         <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
         ${X === (g.next ?? m.first ?? 'A') && inProgress() ? `<div class="tiny muted" id="drawn-${X}">Drawn this turn: ${Math.min(RULES.drawPerTurn, g.drawn ?? 0)} of ${RULES.drawPerTurn}${(g.drawn ?? 0) < RULES.drawPerTurn && !m.table ? ` — the forecast draws the other ${RULES.drawPerTurn - (g.drawn ?? 0)} at random` : ''}.</div>` : ''}
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left${m.table ? '.' : `: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.`}${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
-        : `<div class="tiny muted" style="margin-top:6px">Fixed: ${m.modes[X].fixed.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ') || 'pick two under Plan → Assumptions'}.</div>`}
+        : fixedHtml(X)}
       <details class="more" style="margin-top:6px" data-details="mission-dead-${X}" ${isOpen(`mission-dead-${X}`) ? 'open' : ''}><summary>${X}'s units destroyed (${g[X].destroyed.length})</summary>
         <div class="chips">${ctx.state.armies[X].units.map(u => ctx.chip('mission-dead', g[X].destroyed.includes(u.name), u.name, `data-side="${X}" data-name="${esc(u.name)}"`)).join('')}</div></details>
     </div>`;
@@ -1137,6 +1215,12 @@ export function missionAction(action, el) {
       else if (el.dataset.do === 'discard' && X === turnOf()) { if (g[X].swapPending) g[X].swapPending = false; else g[X].cpAsk = true; }
       break;
     }
+    case 'mission-fixed-score': {
+      remember(`${X} ${SECONDARY_BY_ID[el.dataset.id]?.name ?? 'Fixed card'}`);
+      const got = PT.scoreFixed(g, X, el.dataset.id, Number(el.dataset.vp));
+      console.log(`[mission] Fixed card ${el.dataset.id}: ${got >= 0 ? '+' : ''}${got} VP for ${X} (${g[X].fixedVp[el.dataset.id]} of ${RULES.fixedCardCap})`);
+      break;
+    }
     case 'mission-score-step': {
       const k = el.dataset.k === 'primary' ? 'primary' : 'secondary';
       remember(`${X} ${k} VP`);
@@ -1147,6 +1231,9 @@ export function missionAction(action, el) {
     case 'mission-cp': remember(`${X} CP`); g[X].cp = Math.max(0, (g[X].cp || 0) + Number(el.dataset.delta)); persist(); return 'render';
     case 'mission-cp-discard': remember(`${X} CP for a discard`); PT.extraCp(g, X); g[X].cpAsk = false; persist(); return 'render';
     case 'mission-swap': remember(`${X} card swap`); g[X].swapped = g.round; g[X].swapPending = true; g[X].cp = Math.max(0, (g[X].cp || 0) - 1); persist(); return 'render';
+    // once-per-battle rules ticked as used (Intel > By phase)
+    case 'mission-once': { const o = (g.once ??= { A: {}, B: {} }); const id = el.dataset.tick; if (o[X][id]) delete o[X][id]; else o[X][id] = true; persist(); return 'render'; }
+    case 'mission-once-reset': (g.once ??= { A: {}, B: {} })[X] = {}; persist(); return 'render';
     case 'mission-undo': {
       const u = PT.popUndo(m.undo);
       if (!u) return 'render';
@@ -1158,6 +1245,7 @@ export function missionAction(action, el) {
     case 'mission-table': m.table = !m.table; if (m.table) m.tab = 'play'; toTop = true; persist(); if (!m.table) scheduleForecast(); return 'render';
     case 'mission-awake': m.awake = m.awake === false; persist(); return 'render';
     case 'mission-clock-mode': m.clock.mode = el.dataset.value; persist(); return 'render';
+    case 'mission-clock-lock': m.clock.lock = !PT.chessLocked(m.clock); persist(); return 'render';
     case 'mission-clock-len': PT.roundSetLen(m.clock, Number(el.dataset.value)); persist(); return 'render';
     case 'mission-clock-bank': PT.chessSetBank(m.clock, Number(el.dataset.value)); persist(); return 'render';
     case 'mission-clock': {
@@ -1168,9 +1256,13 @@ export function missionAction(action, el) {
         case 'reset': PT.roundReset(c); break;
         case 'minus': PT.roundSetLeft(c, PT.roundLeft(c, now) / 60000 - 5, now); break;
         case 'plus': PT.roundSetLeft(c, PT.roundLeft(c, now) / 60000 + 5, now); break;
-        // a tap on the running player's own tile pauses the clock
-        case 'run': if (c.running === X) PT.chessPause(c, now); else PT.chessRun(c, X, now); break;
-        case 'chess-pause': PT.chessPause(c, now); break;
+        // a tap on the running player's own tile pauses the clock - not while the pause is locked
+        case 'run': if (c.running !== X) PT.chessRun(c, X, now); else if (!PT.chessLocked(c)) PT.chessPause(c, now); break;
+        case 'chess-pause':
+          // UKTC: "Once started, only a referee may pause the chess clock" (under 5 minutes a player may, to call one)
+          if (PT.chessLocked(c) && !PT.chessMayPause(c, now) && !(globalThis.confirm?.('Pause the chess clock?\n\nOnce started, only a referee may pause it (UKTC). A player with under 5 minutes left may pause it to call a referee.') ?? true)) return null;
+          PT.chessPause(c, now);
+          break;
         case 'chess-reset': PT.chessReset(c); break;
         default:
       }
@@ -1237,6 +1329,7 @@ export function missionChange(el) {
     // the parts of the page that follow the score, re-drawn in place
     const set = (id, html) => { const n = document.getElementById(id); if (n) n.innerHTML = html; };
     set('play-turn', turnLineHtml());
+    set('play-caps', capsHtml());
     for (const P of ['A', 'B']) set(`play-total-${P}`, String(totalVp(P)));
     const sheet = document.getElementById('play-sheet');
     if (sheet) sheet.outerHTML = sheetHtml();
@@ -1288,7 +1381,6 @@ export async function syncWake() {
 }
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { syncWake(); });
 
-let lastSig = '';
 let toTop = false;   // a new Mission view starts at its top
 export function missionAfterRender() {
   if (toTop) { toTop = false; window.scrollTo(0, 0); }
@@ -1302,7 +1394,9 @@ export function missionAfterRender() {
   // the Fixed / Tactical table is worked out when the Cards view is open (not with every forecast)
   let needModes = false;
   if (P && modeWanted()) { const want = modeSig(); needModes = ms().modeCompare?.sig !== want && !(ms().busy && runModes === want); }
-  if (sig !== lastSig || (!ms().result && !ms().busy) || needModes) { lastSig = sig; scheduleForecast(); }
+  // Plan and Cards need a full run of these inputs; Play only needs a run of them (a full one will do)
+  const due = liteRun() ? sig !== lastSig : sig !== lastFull;
+  if (due || (!ms().result && !ms().busy) || needModes) scheduleForecast(sig);
 }
 
 // for tests

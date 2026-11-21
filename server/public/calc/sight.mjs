@@ -10,8 +10,13 @@
 //   13.08 Benefit of cover vs a ranged attack: every target model is
 //         INFANTRY / BEASTS / SWARM within a terrain area, or not fully
 //         visible to the attacker.
-//   13.09 Hidden: INFANTRY / BEASTS / SWARM within an area holding a DENSE
-//         feature is only visible within 15" (if it has not shot recently).
+//   13.09 Hidden: INFANTRY / BEASTS / SWARM within an area holding a LIGHT or
+//         DENSE feature (errata) is only visible within its detection range,
+//         15", while its unit has not shot this turn or the turn before.
+//   13.11.01 Gone to Ground: 3" less while it is also not fully visible
+//         because of dense features.
+//   24.24 Lone Operative: not visible from more than 12" (not in an attached
+//         unit).
 // Model heights, windows and floors are not modelled: answers close to the
 // line are flagged "check on the table" (see sightVerdict).
 //
@@ -21,7 +26,9 @@
 
 import { edgeRadius } from './board.mjs';
 
-export const HIDDEN_RANGE = 15;
+export const HIDDEN_RANGE = 15;       // 13.09: detection range
+export const GONE_TO_GROUND = 3;      // 13.11.01
+export const LONE_OPERATIVE = 12;     // 24.24
 const COVER_KW = /^(INFANTRY|BEASTS|SWARM)$/i;
 
 // ---------------------------------------------------------------------------
@@ -170,16 +177,37 @@ export function unitSight(att, tgt, pieces, { range = Infinity, groups = areaGro
   const coverEach = T.map((m, j) => (kwCover && inArea[j]) || !seenBy[j].full);
   const cover = T.length > 0 && coverEach.every(Boolean);
   const coverWhy = !cover ? '' : T.every((m, j) => kwCover && inArea[j]) ? 'in a terrain area' : T.every((m, j) => !seenBy[j].full) ? 'not fully visible' : 'in a terrain area / not fully visible';
-  // 13.09: could the target be Hidden from this attacker?
-  const denseGroups = new Set(pieces.filter(p => p.cat === 'dense' && p.cls !== 'area').map(p => groups.get(p.id)));
-  const hiddenCapable = kwCover && T.every((m, j) => [...tT[j].g].some(g => denseGroups.has(g)));
+  // 13.09: could the target be Hidden from this attacker? Every model in an area that holds a light or
+  // dense feature; then only models within its detection range can see it (while it has not shot).
+  const hideG = hideGroups(pieces, groups), denseG = hideGroups(pieces, groups, true);
+  const hiddenCapable = kwCover && T.length > 0 && T.every((m, j) => [...tT[j].g].some(g => hideG.has(g)));
+  // 13.11.01: gone to ground - also not fully visible to the attacker, in an area with a dense feature
+  const goneToGround = hiddenCapable && T.every((m, j) => !seenBy[j].full && [...tT[j].g].some(g => denseG.has(g)));
+  const detect = HIDDEN_RANGE - (goneToGround ? GONE_TO_GROUND : 0);
   const nearest = Math.min(...A.flatMap(ma => T.map(mb => gapBetween(ma, mb))));
   return {
     targetSeen: seenBy.filter(s => s.any).length, targetTotal: T.length,
     attackersSeeing: seeing.filter(Boolean).length, attackerTotal: A.length, seeingMask: seeing,
     cover, coverWhy,
-    hidden: hiddenCapable && nearest > HIDDEN_RANGE,
+    hiddenCapable, goneToGround, detect, nearest,
+    hidden: hiddenCapable && nearest > detect,
   };
+}
+
+/** The area groups that hold a light or dense terrain FEATURE (13.09 with its errata); denseOnly: a dense one. */
+function hideGroups(pieces, groups, denseOnly = false) {
+  return new Set(pieces.filter(p => p.cls === 'feature' && (p.cat === 'dense' || (!denseOnly && p.cat === 'light'))).map(p => groups.get(p.id)));
+}
+
+/**
+ * Can this unit be Hidden where it stands (13.09)? Every model is INFANTRY / BEASTS / SWARM and within
+ * a terrain area that holds a light or dense feature. (It is then hidden while it has not shot this
+ * turn or the turn before.)
+ */
+export function canHide(unit, pieces, groups = areaGroups(pieces)) {
+  if (!(unit.keywords ?? []).some(k => COVER_KW.test(k)) || !unit.models?.length) return false;
+  const hideG = hideGroups(pieces, groups);
+  return unit.models.every(m => [...modelTerrain(modelAbs(unit, m), pieces, groups).g].some(g => hideG.has(g)));
 }
 
 /** Clear / partial / blocked from a unitSight result. */
@@ -225,23 +253,36 @@ export function p2d6(n) {
 /**
  * How unit `enemy` threatens unit `me` next turn.
  * shoot: enemy's longest range reaches me after a normal move (gap <= M + range);
- * charge: P(the charge roll after a normal move ends within engagement range).
- * -> { gap, shoot: { range, margin } | null, charge: number | null }
+ * charge: P(the charge roll after a normal move is enough). 11.04: the charge
+ *   target must be within the charge roll (and within 12") before the charge
+ *   move, so the roll must be at least the gap that is left after the normal
+ *   move — not that gap minus the 2" engagement range. A normal move cannot
+ *   end engaged, so more than 2" are always left: at least a 3 is needed.
+ *   Units that are already engaged (gap <= engagement) fight without a charge.
+ * detect: `me` can only be seen from this many inches (Hidden 15" / gone to ground 12" / Lone
+ *   Operative 12"): the enemy must get that close to shoot, whatever its range.
+ * -> { gap, shoot: { range, margin } | null, unseen: in range but not close enough to see,
+ *      charge: number | null, engaged: boolean }
  */
-export function threatTo(enemy, me, { move, ranges = [], melee = false, engagement = 2 }) {
+export function threatTo(enemy, me, { move, ranges = [], melee = false, engagement = 2, detect = Infinity }) {
   let gap = Infinity;
   for (const ma of enemy.models) for (const mb of me.models) gap = Math.min(gap, gapBetween(modelAbs(enemy, ma), modelAbs(me, mb)));
   const maxR = ranges.length ? Math.max(...ranges) : 0;
-  const shoot = maxR > 0 && gap <= move + maxR ? { range: maxR, margin: move + maxR - gap } : null;
-  // charge: needs (gap - move - engagement) on 2D6 after moving straight in (2 is the minimum roll)
-  const need = Math.max(2, Math.ceil(gap - move - engagement - 1e-9));
-  const charge = melee && need <= 12 ? p2d6(need) : null;
-  return { gap, shoot, charge };
+  const reach = Math.min(maxR, detect);
+  const shoot = maxR > 0 && gap <= move + reach ? { range: maxR, margin: move + reach - gap } : null;
+  const unseen = maxR > 0 && !shoot && gap <= move + maxR;
+  const engaged = gap <= engagement + 1e-9;
+  const need = Math.max(3, Math.ceil(gap - move - 1e-9));
+  const charge = !melee ? null : engaged ? 1 : need <= 12 ? p2d6(need) : null;
+  return { gap, shoot, unseen, charge, engaged };
 }
 
-/** Charge reach (inches from the enemy's bases) achieved with at least probability p. */
-export function chargeReach(move, p, engagement = 2) {
+/**
+ * Charge reach (inches from the enemy's bases) achieved with at least probability p:
+ * a normal move, then a charge roll of at least what is left (11.04).
+ */
+export function chargeReach(move, p) {
   let best = null;
   for (let n = 2; n <= 12; n++) if (p2d6(n) >= p) best = n;
-  return best == null ? null : move + best + engagement;
+  return best == null ? null : move + best;
 }

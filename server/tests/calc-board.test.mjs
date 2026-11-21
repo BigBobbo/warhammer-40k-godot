@@ -97,3 +97,56 @@ test('11e only: objective counts match the official cards (21 layouts with 5, 24
     }
   }
 });
+
+// ---- round 3 fixes (1.101): territory of expansion objectives, coherency
+
+test('an expansion objective is on the side of the player whose TERRITORY it is in (not "the nearer home objective")', () => {
+  let exp = 0, differ = 0;
+  const layouts = new Set();
+  for (const l of B.LAYOUTS) {
+    const dep = B.DEPLOYMENTS[l.deployment];
+    const now = B.objectiveSides(l, dep, 1), old = B.objectiveSides(l, dep, 1, { byNearestHome: true });
+    for (const [i, o] of now.entries()) {
+      if (o.cls !== 'exp') { assert.deepEqual(o, old[i], 'home and central objectives are as before'); continue; }
+      exp++;
+      const src = l.objectives.find(x => x.id === o.id);
+      const terr = dep.territories.find(t => B.inPoly(src.x, src.y, t.poly));
+      assert.ok(terr, `${l.id} ${o.id}: every expansion objective lies in one territory`);
+      assert.equal(o.side, terr.player === 1 ? 'A' : 'B');
+      if (o.side !== old[i].side) { differ++; layouts.add(l.id); }
+    }
+  }
+  assert.deepEqual([B.LAYOUTS.length, exp, differ, layouts.size], [45, 90, 36, 18], 'the old rule was wrong for 36 of 90 expansion objectives, in 18 of the 45 layouts');
+  // Sweeping Engagement: the objective in player 1's territory is nearer player 2's home objective
+  const l = B.LAYOUTS.find(x => x.id === 'disruption_vs_disruption_3'), dep = B.DEPLOYMENTS[l.deployment];
+  assert.equal(B.objectiveSides(l, dep, 1).find(o => o.id === 'obj_nml_1').side, 'A');
+  assert.equal(B.objectiveSides(l, dep, 1, { byNearestHome: true }).find(o => o.id === 'obj_nml_1').side, 'B');
+  // the sides follow who has which zone
+  assert.equal(B.objectiveSides(l, dep, 2).find(o => o.id === 'obj_nml_1').side, 'B');
+  assert.deepEqual(B.objectiveSides(l, dep, 2).filter(o => o.cls === 'home').map(o => o.side).sort(), ['A', 'B']);
+});
+
+test('03.03 coherency: within 2" of one other model and within 9" of every other; starting formations keep to it', () => {
+  const fp = (mm) => B.footprint({ shape: 'round', diameter: mm });
+  // ten 40 mm bases in two rows of five, 1" apart: the far corners are more than 9" apart
+  const grid = B.formation([{ count: 10, fp: fp(40) }]);
+  const c = B.coherency(grid);
+  assert.ok(!c.ok && c.widest > 9 && c.alone === 0, JSON.stringify(c));
+  const fixed = B.coherentFormation([{ count: 10, fp: fp(40) }]);
+  assert.ok(B.coherency(fixed).ok && fixed.length === 10, JSON.stringify(B.coherency(fixed)));
+  // six 60 mm bases (Thunderwolf Cavalry), 21 x 32 mm (Boyz with a Warboss), 5 x 32 mm: all in coherency
+  for (const [n, mm] of [[6, 60], [21, 32], [5, 32], [3, 100], [30, 25], [1, 40]]) {
+    const f = B.coherentFormation([{ count: n, fp: fp(mm) }]);
+    assert.ok(f.length === n && B.coherency(f).ok, `${n} x ${mm} mm: ${JSON.stringify(B.coherency(f))}`);
+  }
+  // 32 mm bases 1" apart were already fine: unchanged
+  assert.deepEqual(B.coherentFormation([{ count: 10, fp: fp(32) }]), B.formation([{ count: 10, fp: fp(32) }]));
+  // a row width the player chose is kept, even when it cannot be in coherency (ten in one line): the board warns
+  const line = B.coherentFormation([{ count: 10, fp: fp(32) }], { perRow: 10, keepRows: true });
+  assert.ok(new Set(line.map(m => m.dy.toFixed(3))).size === 1 && !B.coherency(line).ok, 'one row, not in coherency');
+  // a model more than 2" from every other
+  const two = [{ dx: 0, dy: 0, fp: fp(32) }, { dx: 4, dy: 0, fp: fp(32) }];
+  assert.deepEqual([B.coherency(two).ok, B.coherency(two).alone], [false, 2]);
+  // models carry their own Objective Control (14.02 counts models)
+  assert.deepEqual(B.formation([{ count: 2, fp: fp(32), oc: 2 }, { count: 1, fp: fp(40), oc: 1, leader: true }]).map(m => m.oc).sort(), [1, 2, 2]);
+});

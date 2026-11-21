@@ -83,11 +83,21 @@ test('threat next turn: shooting envelope and charge odds after a normal move', 
   const t = S.threatTo(enemy, me, { move: 6, ranges: [12, 18], melee: true });
   assert.ok(Math.abs(t.gap - gap) < 1e-9);
   assert.ok(t.shoot && Math.abs(t.shoot.margin - (24 - gap)) < 1e-9, 'M6 + 18" reaches');
-  // needs ceil(gap - 6 - 2) = 11 on 2D6 = 3/36
-  assert.ok(Math.abs(t.charge - 3 / 36) < 1e-12, String(t.charge));
+  // 11.04: the roll must be at least what is left after the move. 18.74" - 6" = 12.74": more than 12", no charge
+  assert.equal(t.charge, null, String(t.charge));
+  // with an 8" move 10.74" are left: an 11 on 2D6 = 3/36 (the old "gap - 2" rule gave a 9: 28%)
+  const t8 = S.threatTo(enemy, me, { move: 8, ranges: [], melee: true });
+  assert.ok(Math.abs(t8.charge - 3 / 36) < 1e-12, String(t8.charge));
+  // a normal move cannot end engaged: more than 2" are always left, so at least a 3 is needed
+  const close = S.threatTo(unit(20, 5), unit(20, 5 + 32 / 25.4 + 4), { move: 10, ranges: [], melee: true });
+  assert.ok(Math.abs(close.gap - 4) < 1e-9 && Math.abs(close.charge - 35 / 36) < 1e-12 && !close.engaged, JSON.stringify(close));
+  // already engaged: no charge needed
+  const eng = S.threatTo(unit(20, 5), unit(20, 5 + 32 / 25.4 + 1.5), { move: 6, ranges: [], melee: true });
+  assert.ok(eng.engaged && eng.charge === 1, JSON.stringify(eng));
   assert.equal(S.threatTo(enemy, me, { move: 6, ranges: [12] }).shoot, null, '6 + 12 = 18 < gap');
   assert.equal(S.p2d6(7), 21 / 36);
-  assert.equal(S.chargeReach(6, 0.8), 6 + 5 + 2, '2D6 >= 5 is 83%');
+  assert.equal(S.chargeReach(6, 0.8), 6 + 5, '2D6 >= 5 is 83%: targets up to 5" from where the move ends');
+  assert.equal(S.chargeReach(6, 0.4), 6 + 8, '2D6 >= 8 is 42%');
 });
 
 test('performance: 10 vs 20 models across a real GW layout in well under a second', () => {
@@ -97,4 +107,36 @@ test('performance: 10 vs 20 models across a real GW layout in well under a secon
   const ms = Date.now() - t0;
   assert.ok(['clear', 'partial', 'blocked'].includes(v.verdict));
   assert.ok(ms < 1500, `${ms} ms`);
+});
+
+// ---- round 3 fixes (1.101): Hidden in light terrain, gone to ground, detection range in threats
+
+test('13.09 with its errata: an area with a LIGHT feature hides infantry too; 13.11.01 gone to ground is 12"', () => {
+  const pieces = [
+    { id: 'wood', cls: 'area', cat: 'light', poly: rect(20, 20, 26, 30) },
+    { id: 'trees', cls: 'feature', cat: 'light', parent: 'wood', poly: rect(22, 22, 23, 28) },
+    { id: 'bare', cls: 'area', cat: 'light', poly: rect(30, 40, 36, 50) },        // an area with no feature
+  ];
+  const inWood = unit(21, 25);
+  assert.equal(S.canHide(inWood, pieces), true, 'infantry in an area that holds a light feature');
+  assert.equal(S.canHide(unit(33, 45), pieces), false, 'an area without a light or dense feature does not hide');
+  assert.equal(S.canHide(unit(5, 5), pieces), false, 'open ground');
+  assert.equal(S.canHide(unit(21, 25, 1, ['VEHICLE']), pieces), false, 'only INFANTRY / BEASTS / SWARM');
+  const far = S.unitSight(unit(21, 5), inWood, pieces), near = S.unitSight(unit(21, 12), inWood, pieces);
+  assert.deepEqual([far.hiddenCapable, far.hidden, far.detect], [true, true, 15], `${far.nearest.toFixed(1)}" away`);
+  assert.deepEqual([near.hidden, near.detect], [false, 15], `${near.nearest.toFixed(1)}" away: inside the detection range`);
+  // the dense ruin of PIECES: behind its wall the unit is not fully visible -> gone to ground, 3" less
+  const behind = S.unitSight(unit(5, 25), unit(14.5, 25), PIECES);
+  assert.deepEqual([behind.hiddenCapable, behind.goneToGround, behind.detect], [true, true, 12]);
+});
+
+test('a unit that can only be seen from close by must be approached: detection range in the threat', () => {
+  const enemy = unit(20, 5), me = unit(20, 35);            // 28.7" apart
+  const open = S.threatTo(enemy, me, { move: 6, ranges: [36] });
+  assert.ok(open.shoot && !open.unseen, 'a 36" gun reaches after a 6" move');
+  const hidden = S.threatTo(enemy, me, { move: 6, ranges: [36], detect: S.HIDDEN_RANGE });
+  assert.deepEqual([hidden.shoot, hidden.unseen], [null, true], 'in range, but 6" + 15" does not bring it within the detection range');
+  const close = S.threatTo(unit(20, 16), me, { move: 6, ranges: [36], detect: S.HIDDEN_RANGE });
+  assert.ok(close.shoot && Math.abs(close.shoot.margin - (6 + 15 - close.gap)) < 1e-9, 'it can move to within 15"');
+  assert.equal(S.threatTo(enemy, me, { move: 6, ranges: [36], detect: S.LONE_OPERATIVE }).shoot, null, 'a Lone Operative: 12"');
 });

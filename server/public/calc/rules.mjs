@@ -9,6 +9,8 @@
 //   "Your unit's melee attacks have [Lethal Hits]."
 //   "This unit's attacks have [Lethal Hits: non-MONSTER/VEHICLE]."
 //   "Attacks that target this unit have -1 to wound rolls."
+//   "Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have [Lethal Hits: Character/Monster/Vehicle]."
+//   "Friendly Adeptus Astartes Dreadnought units can re-roll hit rolls of 1."      (detachment rules)
 // Anything the parser cannot recognise is still listed (text only) so the
 // player can set it with the manual modifiers.
 
@@ -51,7 +53,14 @@ const UNKNOWN_CONDITION = /\b(if|while|whilst|when|each time|you can|select|with
  */
 export function parseConditions(text) {
   let t = norm(text).replace(/\(Duration:[^)]*\)/gi, '');
-  const c = { targetKw: [], targetNotKw: [], selfKw: [], unknown: false };
+  const c = { targetKw: [], targetNotKw: [], selfKw: [], selfAny: [], unknown: false };
+  // "Attacks made by friendly Blood Claws/Thunderwolf Cavalry/Wulfen units have ..." and
+  // "Friendly Adeptus Astartes Dreadnought units can ..." - a rule for the units named: any one of the
+  // "/" alternatives, each of which may be several keywords (see phraseInKeywords)
+  t = t.replace(/\battacks made by (?:friendly )?([A-Za-z’' /-]+?) units?\b|^\s*friendly ([A-Za-z’' /-]+?) units(?=’? (?:can|have|gain|melee|ranged|attacks)\b)/i, (_, a, b) => {
+    c.selfAny.push(...String(a ?? b).split('/').map(s => s.trim().toUpperCase()).filter(Boolean));
+    return ' attacks ';
+  });
   // "If the unit has the ORKS keyword, ..." — the attacker's own keywords
   t = t.replace(/if (?:the|this|your) unit has the ([A-Za-z’' -]+?) keyword,?/gi, (_, k) => { c.selfKw.push(k.trim().toUpperCase()); return ' '; });
   t = t.replace(/for the rest of the battle,?/gi, ' ');
@@ -106,15 +115,33 @@ export function conditionsMet(c, ctx) {
   if (c.ingress && !ctx.ingress) return false;
   const own = new Set((ctx.attackerKeywords ?? []).map(k => k.toUpperCase()));
   if (c.selfKw?.length && !c.selfKw.every(k => own.has(k))) return false;
+  if (c.selfAny?.length && !c.selfAny.some(ph => phraseInKeywords(ph, own))) return false;
   const kws = new Set((ctx.targetKeywords ?? []).map(k => k.toUpperCase()));
   if (c.targetKw.length && !c.targetKw.some(k => kws.has(k))) return false;
   if (c.targetNotKw.length && c.targetNotKw.some(k => kws.has(k))) return false;
   return true;
 }
 
+/**
+ * Does a unit with keyword set `own` (upper case) match the phrase? The phrase is one or more
+ * keywords in a row ("ADEPTUS ASTARTES DREADNOUGHT" = ADEPTUS ASTARTES + DREADNOUGHT;
+ * "THUNDERWOLF CAVALRY" = one keyword): it matches when it can be cut into keywords the unit has.
+ */
+export function phraseInKeywords(phrase, own) {
+  const words = String(phrase ?? '').toUpperCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return false;
+  const ok = new Array(words.length + 1).fill(false);
+  ok[0] = true;
+  for (let i = 0; i < words.length; i++) {
+    if (!ok[i]) continue;
+    for (let j = i + 1; j <= words.length; j++) if (own.has(words.slice(i, j).join(' '))) ok[j] = true;
+  }
+  return ok[words.length];
+}
+
 export function describeConditions(c) {
   if (!c) return '';
-  const out = [];
+  const out = [];   // (c.selfAny - the units a rule is for - is not listed: the rule is only shown on those units)
   if (c.charged) out.push('charged');
   if (c.stationary) out.push('stationary');
   if (c.halfRange) out.push('half range');
@@ -138,6 +165,8 @@ export function describeConditions(c) {
 
 const OFFENSIVE_SUBJECT = new RegExp([
   `(this|your|that) (unit|model)${AP.source}?s? (melee |ranged )?(attacks|weapons)`,
+  `attacks made by (friendly )?[^.,:]*?units? (have|can|gain)`,
+  `^\\s*friendly [^.,:]*? units${AP.source}? ((melee |ranged )?attacks (have|can|gain)|can re-roll|have \\[)`,
   `weapons equipped by`,
   `units?${AP.source}? (melee |ranged )?attacks (have|can|gain)`,
   `(melee|ranged) attacks (have|can|gain)`,
@@ -257,6 +286,37 @@ function parseOffensiveOne(t, full) {
 }
 
 // ---------------------------------------------------------------------------
+// Rules for named weapons of a unit:
+//   "If this unit made a charge move this turn, this unit's: • Thunder Hammer weapons have +1 to hit
+//    rolls and [Sustained Hits 1]. • Other melee weapons have +1 D and [Sustained Hits 1]."
+// -> [{ weapon: 'thunder hammer' | null, others: 'melee' | 'ranged' | 'any' | null, effects, conds, phases }]
+//    (weapon: the name the rule is for; others: the unit's other weapons of that kind), or null.
+
+export function parseWeaponBullets(text) {
+  const t = norm(text);
+  const m = t.match(/^(.*?)\b(?:this|your) unit’s:\s*•\s*(.*)$/i);
+  if (!m) return null;
+  const pre = m[1];
+  const out = [];
+  for (const b of m[2].split('•').map(s => s.trim()).filter(Boolean)) {
+    const x = b.match(/^(?:(Other)(?: (melee|ranged))?|([A-Z][\w’' -]*?)) weapons (?:have|gain) (.+)$/i);
+    if (!x) return null;                 // a bullet that is not about weapons: not this kind of rule
+    // the rest reads like a unit rule ("this unit's attacks have ..."): the same parser, the same conditions
+    const kind = x[1] ? (x[2] ? x[2].toLowerCase() : 'any') : null;
+    const p = parseOffensiveOne(`${pre} this unit’s ${kind === 'melee' ? 'melee ' : kind === 'ranged' ? 'ranged ' : ''}attacks have ${x[4]}`, t);
+    if (!p) return null;
+    out.push({ weapon: x[3] ? x[3].trim().toLowerCase() : null, others: kind, effects: p.effects, conds: p.conds, phases: kind === 'melee' ? ['fight'] : kind === 'ranged' ? ['shooting'] : ['shooting', 'fight'] });
+  }
+  return out.length ? out : null;
+}
+
+/** Does a weapon (its name as on the datasheet, e.g. "Twin Lightning Claws") carry the rule's name ("lightning claws")? */
+export function weaponNamed(weaponName, ruleName) {
+  const n = (s) => String(s ?? '').toLowerCase().replace(/[’']/g, '').replace(/\s+–.*$/, '').replace(/s\b/g, '').replace(/\s+/g, ' ').trim();
+  return n(weaponName).includes(n(ruleName));
+}
+
+// ---------------------------------------------------------------------------
 // Mortal-wound sources ("Roll six D6: for each 4+, that enemy unit suffers 1
 // mortal wound", "Roll one D6: on a 2+, the target suffers D3 mortal wounds",
 // Crushing Impact's "number of D6 equal to the T characteristic"). Returns
@@ -328,6 +388,8 @@ export function parseDefensiveText(text) {
     else if (against.includes('psychic')) out.push({ label: `FNP ${v}+ vs psychic attacks`, apply: { fnpPsychic: v }, phases });
     else out.push({ label: `Feel No Pain ${v}+`, apply: { fnp: v }, phases });
   }
+  // a characteristic of the model itself ("This model has +1 W." - Storm Shield): part of its profile, always on
+  if ((m = t.match(/\b(?:this|that|the) (?:model|bearer)(?:’s unit)? (?:has|have|gains?) \+(\d) W\b/i))) out.push({ label: `+${m[1]} W`, apply: { W: Number(m[1]) }, phases: ['shooting', 'fight'], always: true });
   if (/\bhave -1 D\b|-1 Damage\b|subtract 1 from the Damage/i.test(t)) out.push({ label: '-1 Damage', apply: { dr: 1 }, phases });
   if (/halve the D(amage)?\b/i.test(t)) out.push({ label: 'Halve Damage', apply: { dr: 'half' }, phases });
   if (/(-1 to wound rolls|subtract 1 from the wound roll)/i.test(t) && targetsUs.test(t)) {

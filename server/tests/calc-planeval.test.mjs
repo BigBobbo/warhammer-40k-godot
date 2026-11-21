@@ -75,13 +75,86 @@ test('plan warnings: too-long moves and reserves arriving early in the enemy zon
 test('plan warnings: reserves must arrive more than 8" from enemy units (11e 20.04)', () => {
   // 32 mm bases: edge gap = centre gap - 1.26"
   const enemy = unit('B:y', 22, 40, 1), held = unit('A:x', 22, 5, 1);
+  const DS = { flags: { deepStrike: true } };
   const at = (gap) => [
     { name: 'Deploy', A: [held], B: [enemy] }, { name: 'Turn 1', A: [held], B: [enemy] },
-    { name: 'Turn 2', A: [held, unit('A:ds', 22, 40 - gap - 1.26, 1)], B: [enemy] },
+    { name: 'Turn 2', A: [held, unit('A:ds', 22, 40 - gap - 1.26, 1, DS)], B: [enemy] },
   ];
-  assert.ok(!E.planWarnings(at(8.4), GEO).some(w => w.unit === 'A:ds'), '8.4" away is legal');
+  assert.ok(!E.planWarnings(at(8.4), GEO).some(w => w.unit === 'A:ds'), '8.4" away is legal (a Deep Strike unit, anywhere on the battlefield)');
   const w = E.planWarnings(at(7.6), GEO);
   assert.ok(w.some(x => x.unit === 'A:ds' && /more than 8"/.test(x.msg)), JSON.stringify(w));
+});
+
+test('plan warnings: reserves by 20.03 / 20.04, and what Deep Strike (24.09) changes', () => {
+  const enemy = unit('B:y', 22, 30, 1), held = unit('A:x', 22, 5, 1);
+  const arrive = (step, u) => {
+    const steps = [{ name: 'Deploy', A: [held], B: [enemy] }];
+    for (let r = 1; r <= step; r++) steps.push({ name: `Turn ${r}`, A: r === step ? [held, u] : [held], B: [enemy] });
+    return E.planWarnings(steps, GEO).filter(x => x.unit === u.name).map(x => x.msg);
+  };
+  const DS = { flags: { deepStrike: true } };
+  const zB = GEO.zones.B, yB = Math.min(...zB.map(p => p[1])) + 4;      // well inside B's zone, away from the edges in x
+  // without Deep Strike: wholly within 6" of a battlefield edge
+  assert.deepEqual(arrive(2, unit('A:r', 3, 20, 1)), [], 'on the left edge, round 2: legal');
+  assert.match(arrive(2, unit('A:r', 12, 20, 1)).join('|'), /more than 6" from a battlefield edge/);
+  assert.deepEqual(arrive(2, unit('A:r', 12, 20, 1, DS)), [], 'the same place with Deep Strike: legal');
+  // the enemy deployment zone before round 3
+  assert.match(arrive(2, unit('A:r', 3, yB, 1)).join('|'), /enemy deployment zone before round 3/);
+  assert.deepEqual(arrive(3, unit('A:r', 3, yB, 1)), [], 'from round 3 it is allowed');
+  assert.deepEqual(arrive(2, unit('A:r', 3, yB, 1, DS)), [], 'Deep Strike: "even if that is within your opponent\'s deployment zone"');
+  // rounds
+  assert.match(arrive(1, unit('A:r', 3, 20, 1)).join('|'), /battle round 1: reserves arrive from the second battle round/);
+  assert.match(arrive(4, unit('A:r', 3, 20, 1)).join('|'), /end of round 3 is destroyed/);
+});
+
+test('plan warnings at deployment: wholly within the deployment zone, unless Infiltrators (24.20) or a Scout move (24.32)', () => {
+  const zA = GEO.zones.A, yEdge = Math.max(...zA.map(p => p[1]));       // A's zone is the top strip
+  const zB = GEO.zones.B, yBedge = Math.min(...zB.map(p => p[1]));
+  const dep = (u, enemies = []) => E.planWarnings([{ name: 'Deploy', A: [u], B: enemies }], GEO).filter(x => x.unit === u.name);
+  assert.deepEqual(dep(unit('A:in', 22, yEdge - 3, 1)), []);
+  const out = dep(unit('A:out', 22, yEdge + 5, 1));
+  assert.ok(out.length === 1 && out[0].info && /not wholly within its deployment zone/.test(out[0].msg), JSON.stringify(out));
+  // Infiltrators: anywhere more than 8" from the enemy zone and enemy units
+  const INF = { flags: { infiltrators: true } };
+  assert.deepEqual(dep(unit('A:inf', 22, yBedge - 10, 1, INF)), [], '10" from the enemy zone');
+  assert.match(dep(unit('A:inf', 22, yBedge - 6, 1, INF))[0].msg, /more than 8" from the enemy deployment zone/);
+  assert.match(dep(unit('A:inf', 22, 30, 1, INF), [unit('B:e', 22, 36, 1)])[0].msg, /Infiltrators/, '4.7" from an enemy unit');
+  // Scouts 6": up to 6" out of the zone
+  const SC = { flags: { scouts: 6 } };
+  assert.deepEqual(dep(unit('A:sc', 22, yEdge + 4, 1, SC)), []);
+  assert.match(dep(unit('A:sc', 22, yEdge + 9, 1, SC))[0].msg, /more than its 6" Scout move/);
+});
+
+test('14.02: the Objective Control of the MODELS within range counts, not the whole unit\'s', () => {
+  const o = GEO.objectives[0];                                           // centre of the board, 22 / 30
+  // ten OC 2 models in two rows of five, 1" apart; the unit stands so that only its nearest row reaches
+  const far = { ...unit('u', 22, 30 - 4.9, 10), oc: 20 };
+  far.models = far.models.map(m => ({ ...m, oc: 2 }));
+  const inR = far.models.filter(m => Math.hypot(far.x + m.dx - o.x, far.y + m.dy - o.y) - 16 / 25.4 <= B.OBJECTIVE_RANGE).length;
+  assert.ok(inR > 0 && inR < 10, `${inR} of 10 models in range`);
+  assert.equal(E.ocInRange(far, o, []), 2 * inR, 'only those models');
+  assert.equal(E.unitFacts(far, 'A', GEO).objOc.o1, 2 * inR);
+  assert.equal(E.unitFacts(far, 'A', GEO).oc, 20, 'the unit total is still reported');
+  // models without their own OC (a plan from an older version): the unit's OC by the share in range
+  const old = { ...unit('v', 22, 30 - 4.9, 10), oc: 20 };
+  assert.ok(Math.abs(E.ocInRange(old, o, []) - 20 * inR / 10) < 1e-9);
+  assert.equal(E.ocInRange(unit('w', 22, 10, 5), o, []), 0);
+});
+
+test('Outflank: two units on opposite edges, one of them outside your territory (5 VP); one unit on an edge outside it (3 VP)', () => {
+  const tA = GEO.territories.A, yIn = Math.min(...tA.map(p => p[1])) + 8, yOut = Math.max(...tA.map(p => p[1])) + 8;
+  const f = (x, y) => E.unitFacts(unit(`u${x}-${y}`, x, y, 1), 'A', GEO);
+  const left = (y) => f(3, y), right = (y) => f(41, y);
+  assert.deepEqual([left(yIn).outsideTerritory, left(yOut).outsideTerritory], [false, true]);
+  assert.ok(left(yIn).edges.includes('L'), 'the edge is reported inside the territory too');
+  let s = E.sideFacts([left(yIn), right(yOut)]);
+  assert.deepEqual([s.flank, s.flankOpposite], [true, true], 'one in the territory, one outside it, on opposite edges: 5 VP (the app gave 3)');
+  s = E.sideFacts([left(yIn), right(yIn)]);
+  assert.deepEqual([s.flank, s.flankOpposite], [false, false], 'both inside the territory: nothing');
+  s = E.sideFacts([left(yOut)]);
+  assert.deepEqual([s.flank, s.flankOpposite], [true, false], 'one unit on an edge outside the territory: 3 VP');
+  s = E.sideFacts([left(yOut), f(3, yOut + 6)]);
+  assert.equal(s.flankOpposite, false, 'the same edge twice is not "opposite"');
 });
 
 test('forecast board mode: Behind Enemy Lines and objectives measured from the plan, not rated', () => {
@@ -142,9 +215,11 @@ test('threat options: what a unit can do from where it stands (range, charge rea
   // the gun stands still (planned position): 24" reaches "near" (about 23" away), not "far" (about 47")
   assert.deepEqual(g.opts.map(o => o.t), ['B:near']);
   assert.ok(Math.abs(g.opts[0].mu - 4) < 1e-9 && Math.abs(g.opts[0].w - 0.2) < 1e-9, JSON.stringify(g.opts[0]));
-  // the blade has no gun: only the charge (about 3" to go: a 2D6 roll of 2+, certain) and the fight
+  // the blade has no gun: only the charge (2.74" to go: a 3+ on 2D6, 35 in 36 — a double 1 is never
+  // enough, 11.02.01) and the fight
   assert.equal(b.opts[0].t, 'B:near');
-  assert.ok(Math.abs(b.opts[0].mu - 8) < 1e-6 && Math.abs(b.opts[0].w - 0.5) < 1e-6, JSON.stringify(b.opts[0]));
+  const ch = 35 / 36;
+  assert.ok(Math.abs(b.opts[0].mu - 8 * ch) < 1e-6 && Math.abs(b.opts[0].w - 0.5 * ch) < 1e-6, JSON.stringify(b.opts[0]));
 });
 
 test('forecast board mode with threats: units attack from their planned positions; dead attackers stop, focus fire kills', () => {
@@ -165,4 +240,79 @@ test('forecast board mode with threats: units attack from their planned position
   for (let q = 1; q <= 5; q++) for (const k of ['cur', 'prev']) two.boardPlan.threats[q].A[k] = two.boardPlan.threats[q].A[k].slice(0, 2);
   const r2 = F.forecast(two);
   assert.ok(r2.B.unitsLeft[0] > 1.7, `two attackers rarely finish it in a turn: ${r2.B.unitsLeft}`);
+});
+
+test('where reserves can arrive: 6" from an edge, more than 8" from enemy models, the enemy zone from round 3; Deep Strike anywhere', () => {
+  // the defender (B) holds the middle of the bottom edge with one 32 mm model at (22, 57)
+  const guard = unit('g', 22, 57, 1);
+  const r = INF.r;                                   // 32 mm base: 0.63"
+  const z2 = E.arrivalZones([guard], 2);
+  assert.deepEqual([z2.round, z2.band, z2.zoneClosed, z2.early, z2.late], [2, 6, true, false, false]);
+  assert.equal(z2.blocked.length, 1);
+  assert.ok(Math.abs(z2.blocked[0].r - (8 + r)) < 1e-9, 'the 8" starts at the edge of the enemy base');
+  const opt = { enemyZone: GEO.zones.B };
+  // strategic reserves, round 2: the side edge in the middle of the board is fine
+  assert.deepEqual(E.canArrive(3, 30, r, z2), { ok: true });
+  // a base that pokes out of the 6" band is not "wholly within"
+  assert.match(E.canArrive(5.6, 30, r, z2).why, /wholly within 6" of a battlefield edge/);
+  assert.equal(E.canArrive(6 - r, 30, r, z2).ok, true, 'touching the 6" line from inside');
+  // the open middle: only with Deep Strike
+  assert.match(E.canArrive(22, 30, r, z2).why, /6" of a battlefield edge/);
+  assert.deepEqual(E.canArrive(22, 30, r, z2, { deepStrike: true }), { ok: true });
+  // more than 8" from the enemy model: 8" exactly is too close
+  const at = (d) => E.canArrive(22 + d + 2 * r, 57, r, z2, { deepStrike: true });
+  assert.match(at(8).why, /within 8" of an enemy unit/);
+  assert.equal(at(8.05).ok, true);
+  // the enemy deployment zone (bottom corner, far from the guard): closed before round 3, open from round 3
+  const corner = [2, 58];
+  assert.ok(B.inPoly(...corner, GEO.zones.B));
+  assert.match(E.canArrive(...corner, r, z2, opt).why, /enemy deployment zone before the third battle round/);
+  assert.deepEqual(E.canArrive(...corner, r, z2, { ...opt, deepStrike: true }), { ok: true }, '24.09: "even if that is within your opponent’s deployment zone"');
+  const z3 = E.arrivalZones([guard], 3);
+  assert.equal(z3.zoneClosed, false);
+  assert.deepEqual(E.canArrive(...corner, r, z3, opt), { ok: true });
+  // round 1: nothing arrives; after round 3 the overlay says the unit would be destroyed
+  assert.match(E.canArrive(3, 30, r, E.arrivalZones([guard], 1)).why, /second battle round/);
+  assert.equal(E.arrivalZones([guard], 4).late, true);
+  // a screen: three models 16" apart leave no 8" gap between them on the back edge
+  const screen = [unit('a', 6, 57, 1), unit('b', 22, 57, 1), unit('c', 38, 57, 1)];
+  const zs = E.arrivalZones(screen, 3);
+  for (let x = r; x <= 44 - r; x += 0.5) assert.equal(E.canArrive(x, 58, r, zs, { deepStrike: true }).ok, false, `x = ${x}`);
+  assert.equal(E.arrivalZones([], 2).blocked.length, 0, 'nobody on the board: nothing is blocked');
+  assert.equal(E.canArrive(-0.1, 30, r, z2, { deepStrike: true }).why, 'off the battlefield');
+});
+
+test('a rule that counts the battle round as one higher: one arriving unit a step comes a round early', () => {
+  const r = INF.r;
+  const mine = (...us) => us;
+  // step 0: A has one unit on the board, the rest in reserves; B far away at the bottom
+  const home = unit('home', 22, 5, 1), enemy = unit('enemy', 22, 55, 1);
+  const edge = unit('edge', 3, 30, 1);                              // wholly within 6" of the left edge
+  const zoneB = (() => { const z = GEO.zones.B; return [2, Math.max(...z.map(p => p[1])) - 2]; })();
+  const inZone = unit('inzone', zoneB[0], zoneB[1], 1);              // in B's deployment zone, on an edge
+  const steps = (r1, r2 = []) => [{ name: 'Deploy', A: mine(home), B: [enemy] }, { name: 'Turn 1', A: mine(home, ...r1), B: [enemy] }, { name: 'Turn 2', A: mine(home, ...r1, ...r2), B: [enemy] }];
+  const msgs = (ws) => ws.filter(w => w.side === 'A').map(w => `${w.step}|${w.unit}|${w.info ? 'info' : 'warn'}|${w.msg}`);
+  // without the rule: arriving in battle round 1 is not allowed
+  const plain = msgs(E.planWarnings(steps([edge]), GEO));
+  assert.equal(plain.length, 1);
+  assert.match(plain[0], /^Turn 1\|edge\|warn\|arrives in battle round 1/);
+  // with it: that unit arrives as if it were round 2, and the plan says which rule does it
+  const early = { ...GEO, early: { A: 'High King of Fenris', B: null } };
+  const withRule = msgs(E.planWarnings(steps([edge]), early));
+  assert.deepEqual(withRule, ['Turn 1|edge|info|arrives as if it were battle round 2: High King of Fenris (one unit a turn)']);
+  // one unit a turn: a second unit arriving in round 1 still gets the warning
+  const edge2 = unit('edge2', 41, 30, 1);
+  const two = msgs(E.planWarnings(steps([edge, edge2]), early));
+  assert.equal(two.filter(m => /arrives in battle round 1/.test(m)).length, 1, two.join(' ; '));
+  assert.equal(two.filter(m => /as if it were battle round 2/.test(m)).length, 1);
+  // round 2 counts as round 3 for it: the enemy deployment zone is open to that unit
+  const r2plain = msgs(E.planWarnings(steps([], [inZone]), GEO));
+  assert.match(r2plain.join(' ; '), /Turn 2\|inzone\|warn\|arrives in the enemy deployment zone before round 3/);
+  const r2early = msgs(E.planWarnings(steps([], [inZone]), early));
+  assert.deepEqual(r2early, ['Turn 2|inzone|info|arrives as if it were battle round 3: High King of Fenris (one unit a turn)']);
+  // the rule is the other army's: nothing changes for A
+  assert.deepEqual(msgs(E.planWarnings(steps([edge]), { ...GEO, early: { A: null, B: 'x' } })), plain);
+  // a unit that needs no help does not use it up
+  const fine = msgs(E.planWarnings(steps([], [edge]), early));
+  assert.deepEqual(fine, [], 'arriving on an edge in round 2 is allowed anyway: no note');
 });

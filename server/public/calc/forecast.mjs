@@ -90,7 +90,9 @@ export const MODEL = {
 export function armyProfile(units) {
   const us = units.map(u => ({
     name: u.name, models: u.models ?? 1, characters: u.characters ?? 0, charactersW4: u.charactersW4 ?? 0,
-    w10: u.w10 ?? 0, ss13: (u.bodyguardModels ?? u.models ?? 1) >= 13, aircraft: !!u.aircraft,
+    // starting strength: "The starting strength of an attached unit is the number of models that unit
+    // contains at the start of the first battle round" - its leaders count (A Grievous Blow: 13 or more)
+    w10: u.w10 ?? 0, ss13: (u.models ?? u.bodyguardModels ?? 1) >= 13, aircraft: !!u.aircraft,
     fast: !!u.fast, reserves: !!u.reserves, points: u.points ?? 0,
   }));
   const ground = us.filter(u => !u.aircraft);
@@ -136,6 +138,12 @@ function holdings(objs, owner, P) {
 // same VP) and endOfBattle(ctx) for end-of-battle VP.
 
 const killedOnObjective = (ctx) => ctx.kills.some(v => v.onObj);
+// Purge and Secure: "destroyed this turn by a friendly unit that was within range of one or more objectives",
+// or the enemy unit started the turn within range of one. The killer stands on an objective about as
+// often as any unit does (fObj).
+const killedOnOrFromObjective = (ctx) => ctx.kills.some(v => v.onObj || ctx.rnd() < (ctx.fObj ?? 0.45));
+// Punishment: up to 3 condemned enemy units; a kill hits one with probability ~3 / units left
+const condemnedDied = (c) => { const pc = Math.min(1, 3 / Math.max(1, c.enemyAlive + c.kills.length)); return c.kills.some(() => c.rnd() < pc); };
 const more = (ctx) => ctx.h.total > ctx.hOpp.total;
 // c.h / c.hOpp = control at the END of this turn (end-of-turn VP); c.hC / c.hOppC
 // = control at the end of the Command phase, i.e. what the previous turn left
@@ -150,7 +158,7 @@ const PRIMARY_FN = {
   'Determined Acquisition': (c) => ({ EOT: 2 * c.newly, C: c.r >= 2 ? 3 * c.hC.total + 3 * c.hC.oppTerritory : 0 }),
   'Immovable Object': (c) => ({ EOT: c.h.central ? 3 : 0, C: c.r >= 2 ? 5 * c.hC.nonHome : 0 }),
   'Inescapable Dominion': (c) => ({ EOT: c.h.total >= 3 ? 4 : 0, C: c.r >= 2 ? (c.hC.total >= 2 ? 5 : 0) + (moreC(c) ? 4 : 0) : 0 }),
-  'Purge and Secure': (c) => ({ EOT: (killedOnObjective(c) ? 3 : 0) + (c.r >= 2 && c.newly ? 3 : 0), C: c.r >= 2 ? 4 * c.hC.nonHome : 0 }),
+  'Purge and Secure': (c) => ({ EOT: (killedOnOrFromObjective(c) ? 3 : 0) + (c.r >= 2 && c.newly ? 3 : 0), C: c.r >= 2 ? 4 * c.hC.nonHome : 0 }),
   'Consecrate': (c) => {
     // each kill by a unit standing near a non-home objective can consecrate it (permanent)
     const can = Math.max(0, 4 - (c.ms.consecrated ?? 0));
@@ -162,11 +170,8 @@ const PRIMARY_FN = {
   },
   "Destroyer's Wrath": (c) => ({ EOT: (c.kills.length ? 3 : 0) + (c.r >= 2 && c.kills.length > c.lostPrev ? 4 : 0), C: c.r >= 2 ? (c.hC.nonHome ? 4 : 0) + (moreC(c) ? 6 : 0) : 0 }),
   'Meatgrinder': (c) => ({ EOT: (c.kills.length ? 3 : 0) + (c.r >= 2 ? (c.kills.length > c.lostPrev ? 5 : 0) + (c.h.oppHome ? 5 : 0) : 0), C: c.r >= 2 && c.hC.nonHome ? 4 : 0 }),
-  'Punishment': (c) => {
-    // up to 3 condemned enemy units each turn: a kill hits one with probability ~3 / units left
-    const pc = Math.min(1, 3 / Math.max(1, c.enemyAlive + c.kills.length));
-    return { EOT: c.kills.some(() => c.rnd() < pc) ? 5 : 0, C: c.r >= 2 ? (c.hC.nonHome ? 4 : 0) + (moreC(c) ? 5 : 0) : 0 };
-  },
+  // (the 5 VP are scored at the "End of a turn": the opponent's turn too - PRIMARY_OFF_TURN below)
+  'Punishment': (c) => ({ EOT: condemnedDied(c) ? 5 : 0, C: c.r >= 2 ? (c.hC.nonHome ? 4 : 0) + (moreC(c) ? 5 : 0) : 0 }),
   'Unstoppable Force': (c) => ({ EOT: (c.kills.length ? 3 : 0) + (c.r >= 2 && c.newly ? 3 : 0), C: c.r >= 2 ? 4 * c.hC.nonHome : 0 }),
   'Gather Intel': (c) => {
     let eot = c.r === 1 && c.h.central ? 6 : 0;
@@ -218,7 +223,8 @@ const PRIMARY_FN = {
     if (c.ms.traps && c.kills.some(() => c.rnd() < 0.3)) eot += 3;
     return { EOT: eot, C: c.r >= 2 && c.hC.nonHome ? 4 : 0 };
   },
-  'Delaying Action': (c) => ({ EOT: 2 * c.kills.length + (c.r >= 2 && c.h.central && (c.h.exp + c.h.oppExp) ? 3 : 0), C: c.r >= 2 && c.hC.nonHome ? 4 : 0 }),
+  // Command phase: "You control one or more objectives (excluding home objectives)" - neither home counts
+  'Delaying Action': (c) => ({ EOT: 2 * c.kills.length + (c.r >= 2 && c.h.central && (c.h.exp + c.h.oppExp) ? 3 : 0), C: c.r >= 2 && c.hC.total - c.hC.home - c.hC.oppHome > 0 ? 4 : 0 }),
   'Locate and Deny': (c) => ({
     EOT: (killedOnObjective(c) ? 4 : 0) + (c.r >= 4 && c.rnd() < 0.3 * c.pAct ? 4 : 0),
     C: c.r >= 2 && c.hC.nonHome ? 4 : 0,
@@ -233,6 +239,12 @@ const PRIMARY_FN = {
     c.ms.decoyed = d;
     return { EOT: 2 * d + 2 * deep, C: c.r >= 2 && c.hC.nonHome ? 4 : 0 };
   },
+};
+
+// Primary VP scored at the end of the OPPONENT's turn (card trigger "End of a turn"): the player who is
+// not active destroys units too, when it fights back (MODEL.fightBack).
+const PRIMARY_OFF_TURN = {
+  'Punishment': (c) => (condemnedDied(c) ? 5 : 0),
 };
 
 const END_OF_BATTLE = {
@@ -425,7 +437,8 @@ function simulateGame(P, rnd) {
     S[X] = {
       X, pl, deck: SECONDARIES.map(c => c.id).filter(id => !out.has(id)), hand: [...(start.hand ?? [])], used: [...(start.used ?? [])],
       prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, primTotal: start.primary ?? 0, secTotal: start.secondary ?? 0,
-      fixedVp: {}, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
+      // what each Fixed card has already paid in the game in progress (at most 20VP a card)
+      fixedVp: { ...(start.fixedVp ?? {}) }, ms: {}, stats: {}, lostPrev: 0, drawnAt: {}, turnNo: 0, estWin: {},
       enemyAlive: null, enemyHadChars: false, unitsLeft: [null, null, null, null, null],
     };
   }
@@ -529,12 +542,14 @@ function simulateGame(P, rnd) {
     const own = {};
     let centralContested = false;
     for (const o of P.objectives) {
-      const oc = (us) => us.reduce((a, u) => a + (u.f.objs.includes(o.id) ? u.f.oc : 0), 0);
+      // 14.02: the OC of the models within range (objOc); plans from before 1.101 only have the unit's OC
+      const oc = (us) => us.reduce((a, u) => a + (u.f.objOc ? (u.f.objOc[o.id] ?? 0) : u.f.objs.includes(o.id) ? u.f.oc : 0), 0);
       const coin = () => (rnd() < 0.5 ? 'A' : 'B');
       let w;
       if (ua && ub) {
         const a = oc(ua), b = oc(ub);
-        w = a > b ? 'A' : b > a ? 'B' : a > 0 ? coin() : '';
+        // equal levels of control: "not controlled by either player" (14.02) - not a coin flip
+        w = a > b ? 'A' : b > a ? 'B' : '';
         if (a > 0 && a === b && o.cls === 'central') centralContested = true;
       } else {
         // one army planned on the board, the other from the objective plan toggles
@@ -683,7 +698,7 @@ function simulateGame(P, rnd) {
       let primGain = 0, endGain = 0;
       const lastTurn = lastRound && t === 1;
       if (fn) {
-        const ctx = { r, h: hx, hOpp: hy, hC: hxC, hOppC: hyC, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: clamp01((sx.pl.actionP ?? 0.7) * easeX), ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX, ease: easeX, units: ground(X), cardPlay: M.cardPlay, hiShare: M.hiShare };
+        const ctx = { fObj: P.fObj ?? 0.45, r, h: hx, hOpp: hy, hC: hxC, hOppC: hyC, kills: killsX, lostPrev: sx.lostPrev, newly, pAct: clamp01((sx.pl.actionP ?? 0.7) * easeX), ms: sx.ms, rnd, army: sx.pl.army, enemyAlive: sx.enemyAlive.length, rate: sx.pl.rate ?? {}, pos: posX, ease: easeX, units: ground(X), cardPlay: M.cardPlay, hiShare: M.hiShare };
         const v = fn(ctx);
         primGain += (v.C ?? 0) + (v.EOT ?? 0);
         // end of battle (after the last turn): both players' end-of-battle VP
@@ -691,6 +706,9 @@ function simulateGame(P, rnd) {
       }
       addPrimary(sx, r, primGain);
       addPrimaryEnd(sx, endGain);
+      // the other player's primary VP for "End of a turn" (what it destroyed in this turn by fighting back)
+      const off = PRIMARY_OFF_TURN[sy.pl.mission];
+      if (off) addPrimary(sy, r, off({ kills: killsY, enemyAlive: sy.enemyAlive.length, rnd }));
       // --- secondaries at the end of this turn: active player first
       scoreSecondaries(sx, r, 'own', { h: hx, hOpp: hy, kills: killsX, centralContested: cur.centralContested, rnd, P, M, lastTurn, pos: posX, ease: easeX, units: ground(X) });
       scoreSecondaries(sy, r, 'opp', { h: hy, hOpp: hx, kills: killsY, centralContested: cur.centralContested, rnd, P, M, lastTurn, pos: posY, ease: easeY, units: ground(Y) });

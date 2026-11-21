@@ -274,14 +274,27 @@ test('damaged model is finished first (wounded model priority)', () => {
   near(r.meanKills, 5 / 6, 0.01, 'kills');
 });
 
-test('charge odds (11e: roll >= gap - 2" engagement range; modifiers net ±1; full re-roll)', () => {
-  assert.equal(E.chargeRollNeeded(9), 7);
-  assert.equal(E.chargeRollNeeded(9.5), 8, 'half inches round up');
-  assert.equal(E.chargeRollNeeded(3), 2);
+test('charge odds (11e 11.04: the roll must be at least the gap, and the gap 12" or less; modifiers add up; full re-roll)', () => {
+  // 11.04 example B: more than 7" away cannot be selected on a roll of 7, "even though the
+  // charging unit could end its charge move within 2" of this unit"
+  assert.equal(E.chargeRollNeeded(9), 9);
+  assert.equal(E.chargeRollNeeded(7), 7, 'exactly 7" away is within 7"');
+  assert.equal(E.chargeRollNeeded(7.1), 8, 'more than 7" away needs an 8');
+  assert.equal(E.chargeRollNeeded(8.5), 9, 'half inches round up');
+  assert.equal(E.chargeRollNeeded(2.5), 3, 'just outside the 2" engagement range: a double 1 is never enough (11.02.01)');
   near(E.chargeOdds(7), 21 / 36, 1e-12, 'P(2D6 >= 7)');
+  near(E.chargeOdds(E.chargeRollNeeded(9)), 10 / 36, 1e-12, 'a 9" charge (e.g. out of reserves) is 28%, not 58%');
+  near(E.chargeOdds(E.chargeRollNeeded(6)), 26 / 36, 1e-12, 'a 6" charge is 72%');
   near(E.chargeOdds(7, { reroll: true }), 21 / 36 + (15 / 36) * (21 / 36), 1e-12, 'with re-roll');
-  near(E.chargeOdds(9, { mod: 2 }), E.chargeOdds(8), 1e-12, '+2 nets to +1');
+  // 02.02.01: all modifiers are cumulative; only hit rolls and wound rolls are limited to ±1
+  near(E.chargeOdds(9, { mod: 2 }), E.chargeOdds(7), 1e-12, '+2 to the charge roll is +2');
+  near(E.chargeOdds(9, { mod: -2 }), E.chargeOdds(11), 1e-12, '-2 (e.g. a FLY unit that takes to the skies, 21.03)');
   near(E.chargeOdds(12, { mod: -1 }), 0, 1e-12, '12 with -1 impossible');
+  near(E.chargeOdds(12, { mod: 3 }), E.chargeOdds(9), 1e-12, 'a 12" charge with +3 needs a 9');
+  // "within 12" of your unit and within the maximum distance": more than 12" is never a charge target
+  assert.equal(E.chargeRollNeeded(12.5), 13);
+  assert.equal(E.chargeOdds(13, { mod: 2 }), 0, 'more than 12" away: no charge, whatever the modifier');
+  assert.equal(E.chargeOdds(12), 1 / 36, 'exactly 12": a double 6');
 });
 
 test('casualties: fewer models and a damaged model change the outcome', () => {
@@ -317,6 +330,59 @@ test('points removed: per-model points of the destroyed models', () => {
 });
 
 // ---------------------------------------------------------------------------
+test('Hazardous (24.15): one hazard roll for each weapon SELECTED, also when the target is destroyed before it attacks', () => {
+  // weapon 1 destroys the single 1-wound model every time (60 auto-hitting S8 attacks, no save);
+  // the Hazardous weapon after it has nothing left to attack, but it was selected: 4 hazard rolls, each failing on 1-2
+  const haz = weapon({ name: 'H', count: 4, kw: { hazardous: true } });
+  const r = run({ weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } }), haz], groups: [group({ count: 1 })] });
+  near(r.pWipe, 1, 1e-9, 'destroyed by the first weapon');
+  near(r.hazardMW, 4 / 3, 0.02, '4 hazard rolls, 1 mortal wound on 1-2');
+  // a unit of MONSTER / VEHICLE models takes 3 for each failed roll (06.03)
+  const big = run({ attackers: [{ name: 'A', mods: {}, allVehicleMonster: true, weapons: [haz] }], groups: pool() });
+  near(big.hazardMW, 4, 0.05, '3 mortal wounds for each failed roll');
+});
+
+test('hit-roll conditions: Heavy (24.16), Damaged (24.39), an engaged Monster / Vehicle (17.03), Psychic (24.29)', () => {
+  const hits = (w, amods = {}, dmods = {}) => run({ weapons: [weapon({ count: 60, ...w })], groups: pool(), amods, dmods }).steps.hits / 60;
+  // Heavy: +1 to hit when no model moved more than 3" (the unit need not have stood still)
+  near(hits({ kw: { heavy: true } }), 4 / 6, 0.005, 'BS3+ after a longer move');
+  near(hits({ kw: { heavy: true } }, { heavyOk: true }), 5 / 6, 0.005, 'moved 3" or less: 2+');
+  near(hits({ kw: { heavy: true } }, { stationary: true }), 5 / 6, 0.005, 'stationary qualifies too');
+  near(hits({}, { heavyOk: true }), 4 / 6, 0.005, 'not a Heavy weapon: nothing');
+  // Damaged: -1 to hit
+  near(hits({}, { damaged: true }), 3 / 6, 0.005, 'a damaged model hits on 4+');
+  near(hits({ kw: { heavy: true } }, { damaged: true, heavyOk: true }), 4 / 6, 0.005, '+1 and -1 cancel');
+  // shooting at an engaged Monster / Vehicle: -1, but not with close-quarters weapons of a unit engaged with it
+  near(hits({}, {}, { engagedMV: true }), 3 / 6, 0.005, 'into an engaged vehicle: 4+');
+  near(hits({ kw: { cq: true } }, { engaged: true }, { engagedMV: true }), 4 / 6, 0.005, 'a pistol of the unit engaged with it: no penalty');
+  near(hits({ kw: { cq: true } }, {}, { engagedMV: true }), 3 / 6, 0.005, 'a pistol from another unit: -1');
+  near(hits({ melee: true }, {}, { engagedMV: true }), 4 / 6, 0.005, 'not for melee attacks');
+  // modifiers still stop at -1 in total (02.02.01)
+  near(hits({}, { damaged: true }, { engagedMV: true, hitMod: -1 }), 3 / 6, 0.005, 'three -1s: still -1');
+  // Psychic: can ignore the harmful modifiers to BS / WS and to the hit roll - cover included
+  near(hits({ kw: { psychic: true } }, { damaged: true }, { hitMod: -1, cover: true }), 4 / 6, 0.005, 'a psychic attack keeps its BS3+');
+  near(hits({}, { damaged: true }, { hitMod: -1, cover: true }), 2 / 6, 0.005, 'the same without Psychic: cover (BS 4+) and -1: 5+');
+});
+
+test('saves: no ±1 limit on save-roll modifiers (02.02.01); Command Re-roll re-rolls one failed save in the phase (15.02)', () => {
+  // 300 AP0 hits wounding automatically... 60 torrent S8 attacks vs T4: wound on 2+
+  const unsaved = (dmods, groups = pool({ Sv: 5 })) => { const r = run({ weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } })], groups, dmods }); return r.steps.unsaved / r.steps.wounds; };
+  near(unsaved({}), 4 / 6, 0.01, 'Sv5+: 4 in 6 fail');
+  near(unsaved({ saveMod: 1 }), 3 / 6, 0.01, '+1: 4+');
+  near(unsaved({ saveMod: 2 }), 2 / 6, 0.01, '+2 is +2: 3+ (it was limited to +1)');
+  // one re-roll: with a single wound, P(fail) = (4/6)^2
+  const one = (dmods) => run({ weapons: [weapon({ count: 1, S: 8, kw: { torrent: true }, D: '1' })], groups: [group({ count: 1, Sv: 5 })], dmods });
+  near(one({}).meanKills, (5 / 6) * (4 / 6), 0.01, 'one wound, Sv5+');
+  near(one({ rerollOneSave: true }).meanKills, (5 / 6) * (4 / 6) * (4 / 6), 0.01, 'the failed save is re-rolled once');
+  // only ONE save in the phase: with many wounds the effect is one model at most
+  const many = (dmods) => run({ weapons: [weapon({ count: 30, S: 8, kw: { torrent: true } })], groups: pool({ Sv: 5 }), dmods }).meanKills;
+  const d = many({}) - many({ rerollOneSave: true });
+  assert.ok(d > 0.2 && d < 0.5, `one re-roll saves about a third of a model: ${d.toFixed(3)}`);
+  // no save possible (AP beats it): the re-roll is not spent - nothing changes
+  const noSave = (dmods) => run({ weapons: [weapon({ count: 30, S: 8, AP: -3, kw: { torrent: true } })], groups: pool({ Sv: 5 }), dmods }).meanKills;
+  near(noSave({ rerollOneSave: true }), noSave({}), 1e-9, 'no save to re-roll');
+});
+
 // Turn chain: shoot -> charge -> fight
 
 test('turn chain: casualties carry from shooting into the fight; charge odds; no fight when the charge cannot succeed', () => {
@@ -332,12 +398,19 @@ test('turn chain: casualties carry from shooting into the fight; charge odds; no
   near(sure.meanFight, 2, 0.03, 'fight kills on the survivors');
   near(sure.meanKills, sure.meanShoot + sure.meanFight, 1e-9, 'total = shooting + fight');
   near(sure.kills.reduce((a, b) => a + b, 0), 1, 1e-9, 'distribution sums to 1');
-  // gap 9" -> needs 7+ on 2D6 = 21/36; with a re-roll 1-(15/36)^2
+  // gap 9" -> needs 9+ on 2D6 = 10/36 (11.04: the target must be within the roll); with a re-roll 1-(26/36)^2
   const nine = E.simulateChain({ shoot: null, fight, charge: { gap: 9 }, trials: TRIALS, seed: 7 });
-  near(nine.pCharge, 21 / 36, 0.01, '7+ to charge');
-  near(nine.meanFight, 2 * 21 / 36, 0.03, 'fight only when the charge lands');
+  assert.equal(nine.need, 9);
+  near(nine.pCharge, 10 / 36, 0.01, '9+ to charge');
+  near(nine.meanFight, 2 * 10 / 36, 0.03, 'fight only when the charge lands');
   const rr = E.simulateChain({ shoot: null, fight, charge: { gap: 9, reroll: true }, trials: TRIALS, seed: 7 });
-  near(rr.pCharge, 1 - (15 / 36) ** 2, 0.01, 're-rolled charge');
+  near(rr.pCharge, 1 - (26 / 36) ** 2, 0.01, 're-rolled charge');
+  // modifiers add up (no ±1 limit on charge rolls): +2 turns the 9+ into a 7+
+  const plus2 = E.simulateChain({ shoot: null, fight, charge: { gap: 9, mod: 2 }, trials: TRIALS, seed: 7 });
+  near(plus2.pCharge, 21 / 36, 0.01, '9" with +2');
+  // more than 12" away is not a charge target, even with a modifier that would reach
+  const tooFar = E.simulateChain({ shoot: null, fight, charge: { gap: 12.5, mod: 2 }, trials: TRIALS, seed: 7 });
+  assert.equal(tooFar.pCharge, 0, 'more than 12"');
   // gap 20" -> needs 18: never; total = shooting alone
   const far = E.simulateChain({ shoot, fight, charge: { gap: 20 }, trials: TRIALS, seed: 7 });
   assert.equal(far.pCharge, 0);
@@ -360,4 +433,67 @@ test('turn chain: a target destroyed by shooting is not charged; the damaged mod
   const overkill = E.simulateChain({ shoot: big, fight, charge: { gap: 2 }, trials: 20000, seed: 3 });
   assert.ok(overkill.pWipeShoot > 0.99);
   assert.ok(overkill.pCharge < 0.01, 'nothing left to charge');
+});
+
+
+// ---------------------------------------------------------------------------
+// The exchange: what the turn costs the charging unit
+
+test('exchange: the target fights back with the models it has left; a destroyed target does not', () => {
+  // my unit: 10 x 1W, no save. Target: 10 x 1W, no save.
+  // My fight: 10 weapons, 1 attack each, hitting on 3+ and wounding on 2+ (S8 v T4): 10 * 2/3 * 5/6 = 5.56 kills
+  // Fight back: each surviving model has 1 weapon, 1 attack, 3+ / 2+: 0.556 kills a model -> (10 - 5.56) * 0.556 = 2.47
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tgt = { name: 'T', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const w = (o = {}) => weapon({ count: 10, melee: true, S: 8, ...o });
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: { charged: true }, weapons: [w()] }], defender: tgt };
+  const back = { phase: 'fight', attackers: [{ name: 'T', mods: {}, weapons: [w()] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, back, charge: { gap: 2 }, trials: TRIALS, seed: 5 });
+  near(r.meanFight, 10 * (2 / 3) * (5 / 6), 0.03, 'my fight');
+  near(r.own.meanBack, (10 - 10 * (2 / 3) * (5 / 6)) * (2 / 3) * (5 / 6), 0.04, 'the fight back comes from the survivors only');
+  near(r.own.meanLost, r.own.meanBack, 1e-9, 'no overwatch, no Deadly Demise: all losses are from the fight back');
+  assert.equal(r.own.totalModels, 10);
+  near(r.own.lost.reduce((a, b) => a + b, 0), 1, 1e-9, 'distribution of my losses sums to 1');
+  // without `back` nothing is reported for my unit (as before 1.103)
+  assert.equal(E.simulateChain({ shoot: null, fight, charge: { gap: 2 }, trials: 2000, seed: 5 }).own, null);
+  // a target wiped out by the charge does not strike: 60 attacks at 10 models
+  const wipe = E.simulateChain({ shoot: null, fight: { ...fight, attackers: [{ name: 'M', mods: {}, weapons: [w({ count: 60, kw: { torrent: true } })] }] }, back, charge: { gap: 2 }, trials: 5000, seed: 5 });
+  assert.ok(wipe.pWipe > 0.999 && wipe.own.meanBack < 0.01, `${wipe.pWipe} / ${wipe.own.meanBack}`);
+  // a failed charge: no fight, no fight back
+  const far = E.simulateChain({ shoot: null, fight, back, charge: { gap: 20 }, trials: 2000, seed: 5 });
+  assert.deepEqual([far.pCharge, far.meanFight, far.own.meanLost], [0, 0, 0]);
+});
+
+test('exchange: Fire Overwatch comes first (15.08) - the models it removes do not attack', () => {
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tgt = { name: 'T', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: { charged: true }, weapons: [weapon({ count: 10, melee: true, S: 8 })] }], defender: tgt };
+  // overwatch: 36 shots, hitting on unmodified 6s only, wounding on 2+: 36 * 1/6 * 5/6 = 5 of my 10 models
+  const overwatch = { phase: 'shooting', attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 36, S: 8 })] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, overwatch, charge: { gap: 2 }, trials: TRIALS, seed: 9 });
+  near(r.own.meanOverwatch, 36 * (1 / 6) * (5 / 6), 0.04, 'overwatch kills');
+  // my fight is made by the survivors: (10 - 5) * 2/3 * 5/6 = 2.78 instead of 5.56
+  near(r.meanFight, (10 - 5) * (2 / 3) * (5 / 6), 0.05, 'half the unit, half the attacks');
+  // torrent overwatch that wipes the unit stops the charge
+  const stop = E.simulateChain({ shoot: null, fight, overwatch: { ...overwatch, attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 60, S: 8, kw: { torrent: true } })] }] }, charge: { gap: 2 }, trials: 3000, seed: 9 });
+  assert.ok(stop.own.pWipe > 0.999 && stop.pCharge < 0.001 && stop.own.pStoppedByOverwatch > 0.999, JSON.stringify([stop.own.pWipe, stop.pCharge]));
+  // attached leaders keep their weapons while the bodyguard dies: 5 bodyguard models + 1 character
+  const led = { name: 'M', keywords: [], groups: [group({ count: 5, name: 'body' }), group({ count: 1, name: 'boss', character: true })], mods: {} };
+  const ledFight = { phase: 'fight', attackers: [{ name: 'M', mods: {}, weapons: [weapon({ count: 5, melee: true, S: 8, kw: { torrent: true } }), weapon({ name: 'boss', count: 1, melee: true, A: '6', S: 8, kw: { torrent: true }, lead: true })] }], defender: { ...tgt, groups: [group({ count: 40 })] } };
+  // overwatch that kills the 5 bodyguard models and stops there (5 mortal-wound-like hits: 5 torrent S8 attacks at 2+)
+  const ow5 = { phase: 'shooting', attackers: [{ name: 'T', mods: { overwatch: true }, weapons: [weapon({ count: 30, S: 8, kw: { torrent: true } })] }], defender: { ...led, groups: [group({ count: 5, name: 'body' }), group({ count: 1, name: 'boss', character: true, W: 99 })] } };
+  const lr = E.simulateChain({ shoot: null, fight: ledFight, overwatch: ow5, charge: { gap: 2 }, trials: 3000, seed: 9 });
+  near(lr.meanFight, 6 * (5 / 6), 0.1, 'the bodyguard is gone, the character still makes its 6 attacks');
+});
+
+test('exchange: Deadly Demise (24.08) - a D6 for each model destroyed next to my unit; on a 6, X mortal wounds', () => {
+  const mine = { name: 'M', keywords: [], groups: [group({ count: 10 })], mods: {} };
+  const tank = { name: 'T', keywords: ['VEHICLE'], groups: [group({ count: 1, W: 1 })], mods: {} };
+  const fight = { phase: 'fight', attackers: [{ name: 'M', mods: {}, weapons: [weapon({ count: 30, melee: true, S: 8, kw: { torrent: true } })] }], defender: tank };
+  const back = { phase: 'fight', attackers: [{ name: 'T', mods: {}, weapons: [weapon({ count: 1, melee: true })] }], defender: mine };
+  const r = E.simulateChain({ shoot: null, fight, back, demise: '3', charge: { gap: 2 }, trials: TRIALS, seed: 4 });
+  assert.ok(r.pWipe > 0.999);
+  near(r.own.meanDemise, 3 / 6, 0.02, 'one model destroyed: 1 in 6 that 3 mortal wounds remove 3 one-wound models');
+  near(r.own.meanBack, 0, 1e-9, 'the destroyed tank does not fight back');
+  near(E.simulateChain({ shoot: null, fight, back, demise: 'D3', charge: { gap: 2 }, trials: TRIALS, seed: 4 }).own.meanDemise, 2 / 6, 0.02, 'Deadly Demise D3');
 });
