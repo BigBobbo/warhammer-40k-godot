@@ -3163,13 +3163,18 @@ const INDIRECT_STATIONARY_TRUST_UNMOVED: float = 0.0  # >= 0.5: a friendly unit 
 # with no line of sight and no move of 3" or less considered, and it also
 # holds a unit set up this turn (a disembark is a set-up, 18.04), which has
 # no bonus to keep. With this on, a T7-26 hold (and only a T7-26 hold) is
-# re-examined: a unit set up on the battlefield this turn makes its planned
-# move instead; any other unit looks for a Normal move of 3" or less for
+# re-examined: a unit set up on the battlefield this turn (a reserves arrival
+# by its turn stamp) makes its planned move instead, as does one the engine
+# denies [HEAVY] whatever it does (ModifierStack's own test — today a unit
+# that arrived from reserves in an earlier turn: MV-1, the flag is never
+# cleared); any other unit looks for a Normal move of 3" or less for
 # every model (attached CHARACTERs included; the engine's own distance: path
 # legs plus its terrain cost) that buys cover (FIX_MOVE_COVER's end-spot
 # value, _mc_eval), range of its plan objective (14.02) or a firing lane (the
 # shot on offer over the targets RulesEngine.get_eligible_targets accepts
-# there), keeps every (target, [HEAVY] weapon) pair the engine allows from
+# there; a shot F002 would hold fire on to stay Hidden counts as not taken,
+# its Hidden being in the cover value — 13.09 never gives both), keeps every
+# (target, [HEAVY] weapon) pair the engine allows from
 # where it stands, passes FIX_MOVE_COVER's objective guards and beats holding
 # still by HEAVY_CREEP_MIN_GAIN — and makes that move. The mover is called
 # once with a 3" cap and its destinations are re-checked; anything that fails
@@ -7858,19 +7863,26 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# --- T7-26: Heavy weapon stationary bonus (MOV-3) ---
 			# Heavy weapons get +1 to hit when the unit remains stationary. If this unit
 			# has significant Heavy firepower and targets in range, prefer staying put.
-			# FIX_HEAVY_CREEP's set-up-this-turn fire tag waits here and is printed
-			# only with a move that is returned (one tag line per changed decision:
-			# a unit the rest of the chain still holds, or whose move finds no legal
-			# placement, did not change). "" unless the flag is on.
+			# FIX_HEAVY_CREEP's no-bonus-to-keep fire tag and thinking step wait here
+			# and are added only with a move that is returned (one tag line per
+			# changed decision: a unit the rest of the chain still holds, or whose
+			# move finds no legal placement, did not change — that hold exit adds
+			# a step saying why it held after all). "" unless the flag is on.
 			var hc_setup_tag := ""
+			var hc_setup_why := ""   # why it has no [HEAVY] bonus to keep (the steps' words)
+			var hc_setup_code := ""  # the tag's why= (the hold exits' debug lines)
 			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
 				var heavy_data = _get_unit_heavy_weapon_data(unit)
 				if _should_hold_for_heavy_bonus(unit, centroid, target_pos, enemies, move_inches, assignment, heavy_data):
 					# --- FIX_HEAVY_CREEP: keep [HEAVY] while moving 3" or less (11e 24.16) ---
 					# 24.16 only asks that no model moved more than 3" this turn (10e
 					# needed the unit to Remain Stationary — T7-26's model). Read only on
-					# a T7-26 hold. A unit set up on the battlefield this turn has no
-					# bonus to keep, so it goes on to its planned move (no return here).
+					# a T7-26 hold. A unit with no bonus to keep goes on to its planned
+					# move (no return here): one set up on the battlefield this turn
+					# (_heavy_creep_set_up_this_turn), or one the engine denies [HEAVY]
+					# whatever it does (_heavy_creep_engine_denies_heavy: ModifierStack's
+					# own test — today a unit that arrived from reserves in an earlier
+					# turn, whose flag the engine never clears, MV-1).
 					# Otherwise a Normal move of 3" or less that wins (_heavy_creep_stage:
 					# cover, its objective's range or a firing lane, every [HEAVY] target
 					# kept, re-checked on the mover's destinations) replaces the freeze;
@@ -7878,8 +7890,17 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					# the flag is the first term, nothing else is read.
 					var hc_on: bool = get_param("FIX_HEAVY_CREEP", FIX_HEAVY_CREEP) >= 0.5 and GameConstants.edition >= 11
 					if hc_on and _heavy_creep_set_up_this_turn(unit, snapshot):
-						hc_setup_tag = "AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=move why=set_up_this_turn" % unit_name
-						_add_thinking_step("%s: no [HEAVY] bonus to keep — it was set up on the battlefield this turn (24.16), so it makes its planned move instead of holding still" % unit_name)
+						hc_setup_code = "set_up_this_turn"
+						hc_setup_why = "it was set up on the battlefield this turn (24.16)"
+					elif hc_on:
+						var hc_deny := _heavy_creep_engine_denies_heavy(unit, snapshot)
+						if not hc_deny.is_empty():
+							hc_setup_code = "engine_denies_heavy"
+							hc_setup_why = str(hc_deny.why)
+							_debug_log_info("HEAVY_CREEP %s: ModifierStack.heavy_applies_11e denies [HEAVY] to %s whatever it does (arrived_from_reserves=%s, arrival round %d, this round %d) — no bonus to keep" % [
+								unit_name, str(hc_deny.unit_id), str(hc_deny.arrived), int(hc_deny.round), int(hc_deny.this_round)])
+					if hc_setup_code != "":
+						hc_setup_tag = "AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=move why=%s" % [unit_name, hc_setup_code]
 					else:
 						if hc_on and assignment_action == "move" and ro_move.is_empty() and target_pos != Vector2.INF \
 								and not _unit_has_indirect_weapon(unit, snapshot):
@@ -7889,14 +7910,27 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 								var hc_check: Dictionary = hc.check
 								var hc_terms: Dictionary = hc_check.terms
 								var hc_end: Vector2 = hc_check.end
-								print("AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=creep why=%s end=(%.0f,%.0f) moved=%.2f\" gain=%.2f cover=%.2f obj=%.2f lane=%.2f progress=%.2f loss=%.2f threat=%.2f pairs=%d probes=%d" % [
+								var hc_shot := str(hc_check.get("shot_mode", "shoot"))
+								print("AIDecisionMaker: [FIX_HEAVY_CREEP] %s heavy_hold old=hold new=creep why=%s end=(%.0f,%.0f) moved=%.2f\" gain=%.2f cover=%.2f obj=%.2f lane=%.2f progress=%.2f loss=%.2f threat=%.2f pairs=%d probes=%d shot=%s" % [
 									unit_name, str(hc_check.why_code), hc_end.x, hc_end.y, float(hc_check.moved_in),
 									float(hc_check.gain), float(hc_terms.get("hc_cover", 0.0)), float(hc_terms.get("hc_objective", 0.0)),
 									float(hc_terms.get("hc_lane", 0.0)), float(hc_terms.get("hc_progress", 0.0)),
 									float(hc_terms.get("hc_loss", 0.0)), float(hc_terms.get("hc_threat", 0.0)),
-									int(hc_check.n_pairs), int(hc.pick.probes)])
-								_add_thinking_step("%s: keeps its [HEAVY] +1 to hit — creeps %.1f\" instead of holding still (%s)" % [
-									unit_name, float(hc_check.moved_in), _stay_engaged_terms_text(hc_terms)])
+									int(hc_check.n_pairs), int(hc.pick.probes), hc_shot])
+								# The +1 to hit is claimed only for a shot it would take: F002 may
+								# hold fire at the spot to stay Hidden (13.09: a shot now ends Hidden
+								# next turn), or it has no target there — the creep is then for what
+								# the spot buys.
+								match hc_shot:
+									"hold_fire":
+										_add_thinking_step("%s: creeps %.1f\" instead of holding still — it would hold fire there, staying Hidden being worth more than its shot (%s)" % [
+											unit_name, float(hc_check.moved_in), _stay_engaged_terms_text(hc_terms)])
+									"no_target":
+										_add_thinking_step("%s: creeps %.1f\" instead of holding still — it has no target from there, so the move is for what the spot buys (%s)" % [
+											unit_name, float(hc_check.moved_in), _stay_engaged_terms_text(hc_terms)])
+									_:
+										_add_thinking_step("%s: keeps its [HEAVY] +1 to hit — creeps %.1f\" instead of holding still (%s)" % [
+											unit_name, float(hc_check.moved_in), _stay_engaged_terms_text(hc_terms)])
 								var hc_notes: Array = hc.notes
 								for n in hc_notes:
 									_add_thinking_step("%s move: %s" % [unit_name, n])
@@ -7905,9 +7939,9 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 									"actor_unit_id": unit_id,
 									"_ai_model_destinations": hc.dests,
 									"_ai_move_adjustments": hc_notes.duplicate(),
-									"_ai_description": "%s moves toward %s (%s, creeping %.1f\" to keep its [HEAVY] +1 to hit%s, obj: %.1f\" away)" % [
+									"_ai_description": "%s moves toward %s (%s, %s, obj: %.1f\" away)" % [
 										unit_name, assigned_obj_id, assignment.get("reason", "moving to objective"),
-										float(hc_check.moved_in), str(hc_check.reason_suffix), float(hc_check.gap_in)],
+										str(hc_check.action_phrase), float(hc_check.gap_in)],
 									# AIPlayer: a re-plan (staging retry, deferred move) stays inside 24.16's 3".
 									"_ai_move_cap_inches": HEAVY_CREEP_LIMIT_INCHES,
 								}
@@ -7938,6 +7972,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 								unit_name, closest_enemy_dist])
 							if hc_setup_tag != "":
 								print(hc_setup_tag)
+								_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+									"it moves instead of holding still: a Lone Operative retreat"))
 							return {
 								"type": "BEGIN_NORMAL_MOVE",
 								"actor_unit_id": unit_id,
@@ -7948,6 +7984,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						# Already safe, and moving toward objective might bring us too close
 						print("AIDecisionMaker: [T7-11] %s (Lone Operative) holds position (safe at %.1f\" from enemies)" % [
 							unit_name, closest_enemy_dist])
+						if hc_setup_tag != "":
+							_debug_log_info("HEAVY_CREEP %s: the FIX_HEAVY_CREEP why=%s tag line is not printed — it holds as a Lone Operative after all" % [
+								unit_name, hc_setup_code])
+							_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+								"it does not hold for [HEAVY] — it holds anyway: as a Lone Operative it is safe where it stands"))
 						return {
 							"type": "REMAIN_STATIONARY",
 							"actor_unit_id": unit_id,
@@ -7974,6 +8015,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							unit_name, dd_val, dist_to_enemy])
 						if hc_setup_tag != "":
 							print(hc_setup_tag)
+							_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+								"it moves instead of holding still: toward the enemy for its Deadly Demise"))
 						return {
 							"type": "BEGIN_NORMAL_MOVE",
 							"actor_unit_id": unit_id,
@@ -8290,7 +8333,12 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						_debug_log_info("INDIRECT_STATIONARY %s: %d batch-1 fire tag line(s) not printed — the move they describe is not made" % [
 							unit_name, pending_fix_tags.size()])
 					if hc_setup_tag != "":
-						_debug_log_info("INDIRECT_STATIONARY %s: the [FIX_HEAVY_CREEP] set-up-this-turn tag is not printed — the unit stays put after all" % unit_name)
+						# No bracketed tag in this diagnostic: DebugLogger echoes INFO lines
+						# to stdout, where the fire count greps for the tag.
+						_debug_log_info("INDIRECT_STATIONARY %s: the FIX_HEAVY_CREEP why=%s tag line is not printed — the unit stays put after all" % [
+							unit_name, hc_setup_code])
+						_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+							"it does not hold for [HEAVY] — it stays put anyway, to arm its indirect fire"))
 					if cover_kept or not shot_kept.is_empty():
 						var ind_dropped := "cover" if cover_kept else "shot"
 						_debug_log_info("INDIRECT_STATIONARY %s: the planned %s spot is dropped — any move loses the 1-3 band" % [
@@ -8321,6 +8369,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					print(tag_line)
 				if hc_setup_tag != "":
 					print(hc_setup_tag)
+					_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+						"it makes its planned move instead of holding still"))
 				# OBJ-GAP-1: the gap the unit's nearest model still has to close.
 				var obj_dist_inches = _unit_gap_to_objective_px(unit, target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
@@ -8353,7 +8403,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			else:
 				print("AIDecisionMaker: %s cannot find valid move toward %s" % [unit_name, assigned_obj_id])
 				if hc_setup_tag != "":
-					_debug_log_info("HEAVY_CREEP %s: the set-up-this-turn tag is not printed — its planned move found no legal placement" % unit_name)
+					_debug_log_info("HEAVY_CREEP %s: the why=%s tag line is not printed — its planned move found no legal placement" % [
+						unit_name, hc_setup_code])
+					_add_thinking_step(_heavy_creep_setup_step(unit_name, hc_setup_why,
+						"it would make its planned move — but no legal placement was found for it, so it remains stationary"))
 
 		# --- Fallback: remain stationary ---
 		if "REMAIN_STATIONARY" in move_types:
@@ -15846,18 +15899,75 @@ static func _should_hold_for_heavy_bonus(
 
 ## 24.16 bullet 2: was the unit set up on the battlefield this turn? A
 ## disembark is a set-up (18.04: "set up as described in Set Up"), as are a
-## reserves arrival and a Deep Strike — TransportManager's own 18.02 test,
-## over the whole Attached unit (the bodyguard and each attached CHARACTER).
-## Pure: no parameter reads.
+## reserves arrival and a Deep Strike — over the whole Attached unit (the
+## bodyguard and each attached CHARACTER). A reserves arrival counts only in
+## the turn it was made, by its stamp (_heavy_creep_arrived_this_turn):
+## flags.arrived_from_reserves alone says "arrived at some point", because the
+## engine never clears it (MV-1). Pure: no parameter reads.
 static func _heavy_creep_set_up_this_turn(unit: Dictionary, snapshot: Dictionary) -> bool:
 	for u in _indirect_components(unit, snapshot):
 		if bool(u.get("disembarked_this_phase", false)):
 			return true
 		var f: Dictionary = u.get("flags", {})
-		if bool(f.get("set_up_this_turn", false)) or bool(f.get("arrived_from_reserves", false)) \
-				or bool(f.get("deep_struck", false)) or bool(f.get("disembarked_this_turn", false)):
+		if bool(f.get("set_up_this_turn", false)) or bool(f.get("deep_struck", false)) \
+				or bool(f.get("disembarked_this_turn", false)):
+			return true
+		if _heavy_creep_arrived_this_turn(u, snapshot):
 			return true
 	return false
+
+## Did `u` arrive from reserves THIS turn? Its arrival stamp
+## (arrived_from_reserves_turn, the battle round MovementPhase writes at the
+## arrival) is the current battle round and its owner is the player whose turn
+## it is — OrkAbilities11e._made_ingress_this_turn's test, and the stamp
+## MovementPhase's own "arrived this turn, cannot move further" ban reads. The
+## owner half is skipped when the snapshot names no active player. Pure.
+static func _heavy_creep_arrived_this_turn(u: Dictionary, snapshot: Dictionary) -> bool:
+	var meta: Dictionary = snapshot.get("meta", {})
+	var at := int(u.get("arrived_from_reserves_turn", -1))
+	if at < 0 or at != int(meta.get("battle_round", snapshot.get("battle_round", 1))):
+		return false
+	var active := int(meta.get("active_player", -1))
+	return active < 0 or int(u.get("owner", 0)) == active
+
+## The engine's [HEAVY] verdict on a unit T7-26 would hold, as it would stand
+## after Remaining Stationary: does ModifierStack.heavy_applies_11e (24.16 as
+## the engine applies it) deny the +1 to some component of the Attached unit
+## because of that component's own flags — its verdict with them against the
+## same copy with none? Then the unit has no [HEAVY] bonus to keep whatever it
+## does. Today that is a unit that arrived from reserves in an EARLIER turn:
+## the engine reads flags.arrived_from_reserves, which it never clears (MV-1;
+## 24.16 bars only the turn of the set-up). Asking ModifierStack itself keeps
+## the AI in step with however that is fixed. {} when the engine allows the
+## bonus; else {unit_id, arrived, round (its arrival stamp, -1 unknown),
+## this_round, why (the thinking step's words)}.
+static func _heavy_creep_engine_denies_heavy(unit: Dictionary, snapshot: Dictionary) -> Dictionary:
+	var meta: Dictionary = snapshot.get("meta", {})
+	var this_round := int(meta.get("battle_round", snapshot.get("battle_round", 1)))
+	for u in _indirect_components(unit, snapshot):
+		var held: Dictionary = u.duplicate()
+		var f: Dictionary = (u.get("flags", {}) as Dictionary).duplicate()
+		f["remained_stationary"] = true
+		held["flags"] = f
+		var bare: Dictionary = u.duplicate()
+		bare["flags"] = {"remained_stationary": true}
+		if not ModifierStack.heavy_applies_11e(bare, snapshot) or ModifierStack.heavy_applies_11e(held, snapshot):
+			continue
+		var arrived := bool(f.get("arrived_from_reserves", false))
+		var rnd := int(u.get("arrived_from_reserves_turn", -1))
+		var why := "the game gives its [HEAVY] weapons no +1 to hit this turn whatever it does (24.16)"
+		if arrived:
+			why = "the game still counts its arrival from reserves%s as a set-up this turn and gives its [HEAVY] weapons no +1 to hit whatever it does (24.16 bars only the turn it arrived)" % [
+				(" in battle round %d" % rnd) if rnd > 0 else " in an earlier turn"]
+		return {"unit_id": str(u.get("id", "")), "arrived": arrived, "round": rnd, "this_round": this_round, "why": why}
+	return {}
+
+## FIX_HEAVY_CREEP's thinking step for a unit T7-26 would have held that has
+## no [HEAVY] bonus to keep (`why`), with what it does instead (`outcome`).
+## Added only where the chain's decision is returned, with the fire tag when
+## it is a move and on its own when the chain holds the unit after all.
+static func _heavy_creep_setup_step(unit_name: String, why: String, outcome: String) -> String:
+	return "%s: no [HEAVY] bonus to keep — %s, so %s" % [unit_name, why, outcome]
 
 ## The [HEAVY] ranged weapon ids the unit shoots with: the engine's own list
 ## (RulesEngine.get_unit_weapons — every alive bearer, attached CHARACTERs'
@@ -16021,11 +16131,15 @@ static func _heavy_creep_guard(hc: Dictionary, positions: Array) -> Dictionary:
 ##   hc_progress / hc_loss  per inch of that objective's gap closed / given up;
 ##   hc_threat    the rise in the distance-only danger (FIX_MOVE_COVER's
 ##                threat weight).
-## The lane (hc_lane) is added by the caller from an engine probe.
-static func _heavy_creep_terms(hc: Dictionary, g: Dictionary, positions: Array, p: Vector2) -> Dictionary:
+## The lane (hc_lane) is added by the caller from an engine probe. `ctx` is
+## the _mc_eval context (default the search's hc.mc_ctx, whose Gone-to-Ground
+## budget the stay and every screened spot share, FIX_MOVE_COVER's per-search
+## rule); the re-check passes its own with a fresh budget.
+static func _heavy_creep_terms(hc: Dictionary, g: Dictionary, positions: Array, p: Vector2,
+		ctx: Dictionary = {}) -> Dictionary:
 	var members: Array = hc.members
 	var threats := _mc_threat_union(hc.threats_stay, _move_cover_threats(members, positions, hc.enemies, hc.threat_cache))
-	var mctx: Dictionary = hc.mc_ctx
+	var mctx: Dictionary = ctx if not ctx.is_empty() else hc.mc_ctx
 	mctx["p"] = p
 	var ev := _mc_eval(hc.tm, hc.unit, members, positions, threats, mctx, true)
 	var thr := 0.0
@@ -16056,6 +16170,28 @@ static func _heavy_creep_probe(hc: Dictionary, positions: Array, probe: Dictiona
 			targets[tid] = units[tid]
 	pr["shot"] = _mc_shoot_worth(hc.unit, probe, targets, hc.snapshot)
 	return pr
+
+## F002's verdict for the formation at `positions` (centroid `p`), predicted
+## from the targets the engine accepts there (`elig`): would the unit hold
+## fire in its Shooting phase to keep Hidden (13.09) rather than take that
+## shot? FIX_MOVE_FOR_SHOT's mirror of the shooting decision's test
+## (_mfs_f002_would_hold on the best target there, _mfs_best_target), which
+## can predict a hold F002 would not make: it only ever withholds the lane.
+## Every spot where _mc_eval credits Hidden (hold_fire_ok: an upper bound on
+## the shot under the same forfeit) is one. False with F002 off
+## (HIDDEN_FORFEIT_PENALTY 0) or no target, and nothing else is read then.
+static func _heavy_creep_f002_holds(hc: Dictionary, positions: Array, p: Vector2, elig: Dictionary) -> bool:
+	if elig.is_empty() or get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY) <= 0.0:
+		return false
+	var best := _mfs_best_target(hc.unit, hc.snapshot, hc.members, positions, elig)
+	return _mfs_f002_would_hold(hc.unit, hc.members, positions, p, best, hc.enemies, hc.snapshot)
+
+## The shot the unit takes: `shot` (_mc_shoot_worth over the targets the
+## engine accepts), or none where F002 holds fire to stay Hidden. 13.09 counts
+## a ranged attack this turn against Hidden next turn, so the lane (hc_lane)
+## and the Hidden _mc_eval credits (hc_cover) are alternatives, never summed.
+static func _hc_taken_shot(shot: float, f002_hold: bool) -> float:
+	return 0.0 if f002_hold else shot
 
 ## Add a creep proposal, pulled onto the reach disc, unless it is no move at
 ## all (within 0.25" of the centroid) or within 0.5" of an earlier one.
@@ -16310,6 +16446,10 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 		hc["pairs_stay"] = stay_pairs
 		hc["elig_stay"] = stay_probe.elig
 		hc["shot_stay"] = shot_stay
+		# Holding still, F002 may hold fire to keep the Hidden e_stay credits:
+		# then the stay's shot is not taken either (_hc_taken_shot).
+		hc["f002_stay"] = _heavy_creep_f002_holds(hc, stay_pos, centroid, stay_probe.elig)
+		hc["shot_stay_taken"] = _hc_taken_shot(shot_stay, bool(hc.f002_stay))
 		var kind_rank := {"objective": 0, "cover": 1, "lane": 2}
 		survivors.sort_custom(func(a, b):
 			if absf(float(a.cheap) - float(b.cheap)) > 1e-6:
@@ -16331,7 +16471,12 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 			if not _hc_pairs_kept(stay_pairs, pr2.pairs):
 				rej.lane_lost += 1
 				continue
-			_t_add(sv.terms, "hc_lane", lane_w * (float(pr2.shot) - shot_stay))
+			# The shot taken there over the one taken holding still: where F002
+			# would hold fire to stay Hidden it is none (13.09), and that Hidden is
+			# already in hc_cover — never both.
+			var f002_sv := _heavy_creep_f002_holds(hc, sv.positions, sv.t, pr2.elig)
+			_t_add(sv.terms, "hc_lane", lane_w * (_hc_taken_shot(float(pr2.shot), f002_sv) - float(hc.shot_stay_taken)))
+			sv["f002_hold"] = f002_sv
 			sv["gain"] = _hc_sum(sv.terms)
 			sv["pairs"] = pr2.pairs
 			sv["elig"] = pr2.elig
@@ -16340,6 +16485,7 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 	diag["probes"] = probes_used
 	diag["pairs_stay"] = stay_pairs.size()
 	diag["shot_stay"] = shot_stay
+	diag["f002_stay"] = bool(hc.get("f002_stay", false))
 	diag["best_gain"] = float(best.gain) if not best.is_empty() else -INF
 	var min_gain := get_param("HEAVY_CREEP_MIN_GAIN", HEAVY_CREEP_MIN_GAIN)
 	var rej_txt := "cap=%d,path=%d,nudge=%d,place=%d,char=%d,penalty=%d,solid=%d,loss=%d,turns=%d,control=%d,oc=%d,lane_lost=%d" % [
@@ -16375,7 +16521,10 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 			unit_name, best.t.x, best.t.y, str(check.why), ms])
 		_add_thinking_step("%s: holds still for [HEAVY] — the planned creep did not survive placement (%s)" % [unit_name, str(check.why)])
 		return {}
-	# Why it creeps: the largest positive term; the action line's words.
+	# Why it creeps: the largest positive term; the action line's words. The
+	# cover term is Hidden's where _mc_eval credited Hidden there (FIX_MOVE_COVER's
+	# own "hidden" test: every model Hidden, F002 holding fire, a shooter
+	# blinded) — then the line says "ending Hidden", not "into cover".
 	var cterms: Dictionary = check.terms
 	var why_code := "cover"
 	var why_v := 0.0
@@ -16384,21 +16533,16 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 		if v > why_v:
 			why_v = v
 			why_code = str(k[1])
+	var ev_c: Dictionary = check.ev
+	if why_code == "cover" and bool(ev_c.get("all_hidden", false)) and bool(ev_c.get("hold_fire_ok", false)) \
+			and int(ev_c.get("n_blind", 0)) > 0:
+		why_code = "hidden"
 	var new_ids: Array = []
 	for tid in check.elig:
 		if not (hc.elig_stay as Dictionary).has(tid):
 			new_ids.append(tid)
 	check["why_code"] = why_code
 	check["new_ids"] = new_ids
-	match why_code:
-		"cover":
-			check["reason_suffix"] = ", into cover"
-		"objective":
-			check["reason_suffix"] = ", onto the objective"
-		"lane":
-			check["reason_suffix"] = (", for a line to %s" % _hc_names(snapshot, new_ids)) if not new_ids.is_empty() else ", for a better shot"
-		_:
-			check["reason_suffix"] = ""
 	# The area every model ends in (the note's words).
 	var area_label := ""
 	if bool(check.ev.get("in_area", false)):
@@ -16409,17 +16553,59 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 			area_label = "%s (%s terrain)" % [str(at.get("type", "terrain")).replace("_", " "), str(tm.category_of(at))] \
 				if not at.is_empty() else "terrain"
 	check["area_label"] = area_label
+	# The area a Hidden end is in: every base is within one (13.09), though a
+	# centre need not be — the region the spot was fitted into, else the first
+	# model centre's.
+	var hidden_area := area_label
+	if why_code == "hidden" and hidden_area == "":
+		if not (best.region as Dictionary).is_empty():
+			hidden_area = str(best.region.get("label", ""))
+		if hidden_area == "":
+			for pos in check.positions:
+				var at_h: Dictionary = tm.area_at(pos)
+				if not at_h.is_empty():
+					hidden_area = "%s (%s terrain)" % [str(at_h.get("type", "terrain")).replace("_", " "), str(tm.category_of(at_h))]
+					break
+	match why_code:
+		"cover":
+			check["reason_suffix"] = ", into cover"
+		"hidden":
+			check["reason_suffix"] = (", ending Hidden in the %s" % hidden_area) if hidden_area != "" else ", ending Hidden"
+		"objective":
+			check["reason_suffix"] = ", onto the objective"
+		"lane":
+			check["reason_suffix"] = (", for a line to %s" % _hc_names(snapshot, new_ids)) if not new_ids.is_empty() else ", for a better shot"
+		_:
+			check["reason_suffix"] = ""
+	# Does it shoot from there? The +1 to hit is claimed only for a shot it
+	# would take: none where F002 holds fire to stay Hidden (13.09), or where
+	# the engine accepts no target at all. "shoot" | "hold_fire" | "no_target".
+	var shot_mode := "shoot"
+	if bool(check.get("f002_hold", false)):
+		shot_mode = "hold_fire"
+	elif (check.elig as Dictionary).is_empty():
+		shot_mode = "no_target"
+	check["shot_mode"] = shot_mode
+	match shot_mode:
+		"hold_fire":
+			check["action_phrase"] = "creeping %.1f\"%s and holding fire there, Hidden being worth more than its shot" % [
+				float(check.moved_in), str(check.reason_suffix)]
+		"no_target":
+			check["action_phrase"] = "creeping %.1f\"%s, with no target from there" % [float(check.moved_in), str(check.reason_suffix)]
+		_:
+			check["action_phrase"] = "creeping %.1f\" to keep its [HEAVY] +1 to hit%s" % [float(check.moved_in), str(check.reason_suffix)]
 	var note := _heavy_creep_note(hc, check)
 	var notes: Array = [note]
 	notes.append_array(gen_notes)
 	_move_shape_notes = notes.duplicate()
 	diag["why"] = "creep"
 	best["probes"] = probes_used
-	_debug_log_info("HEAVY_CREEP %s: stay value=%.2f pairs=%d shot=%.2f threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d probes=%d best=(%.0f,%.0f) %s gain=%.2f -> creeps %.2f\" to (%.0f,%.0f), re-checked gain %.2f [%s] (%.1f ms)" % [
+	_debug_log_info("HEAVY_CREEP %s: stay value=%.2f pairs=%d shot=%.2f threats=%d regions=%d proposals=%d rejected{%s} evaluated=%d probes=%d best=(%.0f,%.0f) %s gain=%.2f -> creeps %.2f\" to (%.0f,%.0f), re-checked gain %.2f [%s] why=%s F002 holds fire: stay=%s spot=%s (%.1f ms)" % [
 		unit_name, float(hc.e_stay.value), stay_pairs.size(), shot_stay, (hc.threats_stay as Array).size(),
 		regions.size(), props.size(), rej_txt, survivors.size(), probes_used, best.t.x, best.t.y, str(best.kind),
 		float(best.gain), float(check.moved_in), check.end.x, check.end.y, float(check.gain),
-		_stay_engaged_terms_text(check.terms), ms])
+		_stay_engaged_terms_text(check.terms), why_code, str(bool(hc.get("f002_stay", false))),
+		str(bool(check.get("f002_hold", false))), ms])
 	return {"dests": dests, "notes": notes, "pick": best, "check": check}
 
 ## FIX_HEAVY_CREEP follow-through: is the creep still a creep, and still worth
@@ -16434,7 +16620,8 @@ static func _heavy_creep_stage(unit: Dictionary, unit_id: String, snapshot: Dict
 static func _heavy_creep_recheck(hc: Dictionary, dests: Dictionary) -> Dictionary:
 	var out := {"keep": false, "why": "", "gain": 0.0, "terms": {}, "moved_in": 0.0, "end": Vector2.INF,
 		"positions": [], "ev": {}, "n_threats": 0, "oc": 0, "loss_in": 0.0, "gap_in": 0.0, "pairs": {},
-		"elig": {}, "n_pairs": 0, "why_code": "", "reason_suffix": "", "new_ids": [], "area_label": ""}
+		"elig": {}, "n_pairs": 0, "why_code": "", "reason_suffix": "", "new_ids": [], "area_label": "",
+		"f002_hold": false, "action_phrase": ""}
 	if dests.is_empty():
 		out.why = "no legal placement for every model"
 		return out
@@ -16471,7 +16658,12 @@ static func _heavy_creep_recheck(hc: Dictionary, dests: Dictionary) -> Dictionar
 		return out
 	out["oc"] = int(g.oc)
 	out["gap_in"] = float(g.gap) / PIXELS_PER_INCH
-	var ct := _heavy_creep_terms(hc, g, positions, end)
+	# Its own Gone-to-Ground budget (as _move_cover_recheck builds one): the
+	# search may have spent the shared one, and an unpriced pair counts as
+	# visible, which would deny this spot the Hidden the search credited it.
+	var rc_ctx: Dictionary = (hc.mc_ctx as Dictionary).duplicate()
+	rc_ctx["gtg_budget"] = {"n": 0}
+	var ct := _heavy_creep_terms(hc, g, positions, end, rc_ctx)
 	var terms: Dictionary = ct.terms
 	out["ev"] = ct.ev
 	out["n_threats"] = int(ct.n_threats)
@@ -16482,7 +16674,11 @@ static func _heavy_creep_recheck(hc: Dictionary, dests: Dictionary) -> Dictionar
 	if not _hc_pairs_kept(hc.pairs_stay, pr.pairs):
 		out.why = "it would lose a [HEAVY] target it has from where it stands"
 		return out
-	_t_add(terms, "hc_lane", get_param("HEAVY_CREEP_LANE_WEIGHT", HEAVY_CREEP_LANE_WEIGHT) * (float(pr.shot) - float(hc.shot_stay)))
+	# The shot taken there, against the one taken holding still: none where F002
+	# holds fire to stay Hidden (13.09), whose Hidden hc_cover already has.
+	var f002 := _heavy_creep_f002_holds(hc, positions, end, pr.elig)
+	out["f002_hold"] = f002
+	_t_add(terms, "hc_lane", get_param("HEAVY_CREEP_LANE_WEIGHT", HEAVY_CREEP_LANE_WEIGHT) * (_hc_taken_shot(float(pr.shot), f002) - float(hc.shot_stay_taken)))
 	out["terms"] = terms
 	var gain := _hc_sum(terms)
 	out["gain"] = gain
@@ -16496,7 +16692,11 @@ static func _heavy_creep_recheck(hc: Dictionary, dests: Dictionary) -> Dictionar
 ## The player-visible move-shape note for a kept creep (Suggest (K) card and
 ## the "<unit> move: …" thinking step). "no model moves more than 3\"" is the
 ## stable anchor the windowed scenario reads. Every claim comes from the
-## re-check on the returned destinations (`check`).
+## re-check on the returned destinations (`check`). Where it would not shoot
+## from the spot (check.shot_mode: F002 holds fire there to stay Hidden —
+## 13.09: Hidden next turn and a shot now never both happen — or it has no
+## target there) no shot is claimed: not the +1 to hit, nor a target kept in
+## its sights.
 static func _heavy_creep_note(hc: Dictionary, check: Dictionary) -> String:
 	var snapshot: Dictionary = hc.snapshot
 	var terms: Dictionary = check.terms
@@ -16505,6 +16705,7 @@ static func _heavy_creep_note(hc: Dictionary, check: Dictionary) -> String:
 	var n_models := (hc.members as Array).size()
 	var n_thr := int(check.n_threats)
 	var plural := "" if n_thr == 1 else "s"
+	var hold_fire := bool(check.get("f002_hold", false))
 	var clauses: Array = []
 	if float(terms.get("hc_cover", 0.0)) > 0.0:
 		if bool(ev.get("all_hidden", false)) and bool(ev.get("hold_fire_ok", false)) and int(ev.get("n_blind", 0)) > 0:
@@ -16527,6 +16728,8 @@ static func _heavy_creep_note(hc: Dictionary, check: Dictionary) -> String:
 		else:
 			clauses.append("from there it can see %s (holding still it had %s)" % [_hc_names(snapshot, new_ids),
 				"no target" if stay_ids.is_empty() else _hc_names(snapshot, stay_ids)])
+		if bool(hc.get("f002_stay", false)):
+			clauses.append("holding still it would hold fire to stay Hidden")
 	if float(terms.get("hc_progress", 0.0)) > 0.0:
 		clauses.append("closes %.1f\" on %s" % [maxf(0.0, -float(check.loss_in)), obj_id])
 	var kept_ids: Array = []
@@ -16534,10 +16737,15 @@ static func _heavy_creep_note(hc: Dictionary, check: Dictionary) -> String:
 		var tid := str(k).get_slice("|", 0)
 		if not kept_ids.has(tid):
 			kept_ids.append(tid)
-	if not kept_ids.is_empty():
+	if not kept_ids.is_empty() and not hold_fire:
 		clauses.append("keeps %s in its sights" % _hc_names(snapshot, kept_ids))
-	return "Creeps %.1f\" instead of holding still — no model moves more than 3\", so its [HEAVY] weapons keep +1 to hit (24.16): %s" % [
-		float(check.moved_in), "; ".join(clauses) if not clauses.is_empty() else "its spot is worth more than standing still"]
+	var lead := "so its [HEAVY] weapons keep +1 to hit (24.16)"
+	if hold_fire:
+		lead = "so [HEAVY] would still give +1 to hit (24.16), but it would hold fire there to stay Hidden, which is worth more than its shot"
+	elif str(check.get("shot_mode", "shoot")) == "no_target":
+		lead = "so [HEAVY] would still give +1 to hit (24.16), but it has no target from there"
+	return "Creeps %.1f\" instead of holding still — no model moves more than 3\", %s: %s" % [
+		float(check.moved_in), lead, "; ".join(clauses) if not clauses.is_empty() else "its spot is worth more than standing still"]
 
 # =============================================================================
 # FIX_INDIRECT_STATIONARY: REMAIN STATIONARY TO ARM [INDIRECT FIRE] (11e 10.07 / 09.04)

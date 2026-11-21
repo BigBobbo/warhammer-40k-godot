@@ -1672,24 +1672,24 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 		push_error("AIPlayer: Pending advance for %s has no move cap — skipping" % unit_id)
 		return
 
+	_replan_deferred_move(player, decision, unit_id, float(actual_move_cap))
+	_execute_ai_movement(player, decision)
+
+## A deferred move's re-plan (the Advance roll resolved, or a stratagem window
+## was answered — also FUNGUS-FUEL INJECTION's raised cap): recompute the
+## destinations at the cap the unit actually has when _deferred_move_replan
+## calls for it; `decision` keeps its own when it does not, or when no re-plan
+## is found. Mutates `decision`; stages nothing (the caller does).
+func _replan_deferred_move(player: int, decision: Dictionary, unit_id: String, actual_move_cap: float) -> void:
 	# Check if we need to recompute destinations (actual roll differs from estimated M+2)
 	var unit = GameState.get_unit(unit_id)
 	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
-	var estimated_move = move_inches + 2.0  # Original estimate used by AIDecisionMaker
-	# A normal / fall-back move deferred by a stratagem window was planned at M.
-	if str(decision.get("type", "")) != "BEGIN_ADVANCE":
-		estimated_move = move_inches
-	var actual_differs = abs(actual_move_cap - estimated_move) > 0.1
-	# FIX_HEAVY_CREEP: a creep was planned within its own cap (24.16's 3"), not
-	# M — re-plan only when the real cap is below that, and never past it.
-	# Without the key: exactly as before.
-	var planned_cap := float(decision.get("_ai_move_cap_inches", 0.0))
-	if planned_cap > 0.0:
-		actual_differs = actual_move_cap < planned_cap - 0.1
+	var rp := _deferred_move_replan(decision, actual_move_cap, move_inches)
+	var estimated_move := float(rp.estimate)
 
-	if actual_differs:
+	if bool(rp.replan):
 		print("AIPlayer: Advance actual cap %.1f\" differs from estimate %.1f\" — recomputing destinations for %s" % [actual_move_cap, estimated_move, unit_id])
-		var new_destinations := recompute_destinations_for_cap(player, unit_id, unit, decision, _ai_move_cap_for(decision, actual_move_cap))
+		var new_destinations := recompute_destinations_for_cap(player, unit_id, unit, decision, float(rp.cap))
 		if new_destinations.is_empty():
 			print("AIPlayer: Recomputed destinations empty for %s with actual cap %.1f\" — trying with original destinations" % [unit_id, actual_move_cap])
 			# Fall through to use original destinations — staging will clamp or fail per-model
@@ -1697,7 +1697,25 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 			decision["_ai_model_destinations"] = new_destinations
 			print("AIPlayer: Recomputed %d model destinations for %s" % [new_destinations.size(), unit_id])
 
-	_execute_ai_movement(player, decision)
+## Should a deferred move be re-planned, and within what cap? An Advance was
+## planned at M+2" (AIDecisionMaker's estimate) and a normal / fall-back move
+## at M: re-plan at the real cap when it differs. FIX_HEAVY_CREEP: a decision
+## carrying "_ai_move_cap_inches" (a creep planned within 24.16's 3") was
+## planned within that cap, not M — re-plan only when the real cap is below
+## it, and never past it (_ai_move_cap_for), so a raised cap (FUNGUS-FUEL
+## INJECTION's M+2") or a lowered one that still clears it keeps the creep.
+## Without the key: exactly as before. {replan, cap (the re-plan's cap),
+## estimate (what it was planned at — the log line's words)}. Pure.
+static func _deferred_move_replan(decision: Dictionary, actual_move_cap: float, move_inches: float) -> Dictionary:
+	var estimated_move := move_inches + 2.0  # Original estimate used by AIDecisionMaker
+	# A normal / fall-back move deferred by a stratagem window was planned at M.
+	if str(decision.get("type", "")) != "BEGIN_ADVANCE":
+		estimated_move = move_inches
+	var actual_differs := absf(actual_move_cap - estimated_move) > 0.1
+	var planned_cap := float(decision.get("_ai_move_cap_inches", 0.0))
+	if planned_cap > 0.0:
+		actual_differs = actual_move_cap < planned_cap - 0.1
+	return {"replan": actual_differs, "cap": _ai_move_cap_for(decision, actual_move_cap), "estimate": estimated_move}
 
 ## FIX_HEAVY_CREEP: the cap a move decision was planned within — its
 ## "_ai_move_cap_inches" (a [HEAVY] creep's 3", 24.16) when it carries one,
@@ -2807,25 +2825,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> bool:
 		elif rebegin.has("stratagem_window_opened"):
 			break
 
-		var snapshot = GameState.create_snapshot(false)
-		var enemies = _get_enemies_for_recompute(player, snapshot)
-		var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
-		# Head toward the AI's originally chosen target (from the pre-scale
-		# destinations), not the nearest objective — same fix as the pending-advance
-		# recompute above. Otherwise a failed staging retry drifts the unit toward its
-		# own home objective instead of the enemy/objective it was told to move to.
-		var target_pos = _advance_heading_target(unit_fresh, decision.get("_ai_model_destinations", {}), move_stat)
-		if target_pos == Vector2.INF:
-			target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
-		# FIX_HEAVY_CREEP: a creep's retry scales its own 3" cap, not M (the
-		# first retry at 75% of M would throw [HEAVY] away). Without the key:
-		# move_stat, as before.
-		var scaled_move = _ai_move_cap_for(decision, move_stat) * recompute_scale
-
-		var new_dests = AIDecisionMaker._compute_movement_toward_target(
-			unit_fresh, unit_id, target_pos, scaled_move, snapshot, enemies,
-			0.0, [], parsed_objectives
-		)
+		var new_dests = _retry_move_destinations(player, unit_fresh, unit_id, decision, move_stat, recompute_scale)
 
 		if new_dests.is_empty():
 			continue
@@ -2882,6 +2882,36 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> bool:
 		"_ai_description": "%s remains stationary (all move attempts failed)" % [unit_name]
 	})
 	return false
+
+## One staging retry's re-plan (_execute_ai_movement, after the full-scale
+## staging failed): a fresh snapshot, the heading the AI originally chose (its
+## pre-scale destinations) and `recompute_scale` of the move
+## (_retry_move_inches). Stages nothing (the caller does).
+func _retry_move_destinations(player: int, unit_fresh: Dictionary, unit_id: String, decision: Dictionary,
+		move_stat: float, recompute_scale: float) -> Dictionary:
+	var snapshot = GameState.create_snapshot(false)
+	var enemies = _get_enemies_for_recompute(player, snapshot)
+	var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
+	# Head toward the AI's originally chosen target (from the pre-scale
+	# destinations), not the nearest objective — same fix as the pending-advance
+	# recompute above. Otherwise a failed staging retry drifts the unit toward its
+	# own home objective instead of the enemy/objective it was told to move to.
+	var target_pos = _advance_heading_target(unit_fresh, decision.get("_ai_model_destinations", {}), move_stat)
+	if target_pos == Vector2.INF:
+		target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
+	var scaled_move = _retry_move_inches(decision, move_stat, recompute_scale)
+
+	return AIDecisionMaker._compute_movement_toward_target(
+		unit_fresh, unit_id, target_pos, scaled_move, snapshot, enemies,
+		0.0, [], parsed_objectives
+	)
+
+## The length of a staging retry's re-plan: `recompute_scale` of the move —
+## FIX_HEAVY_CREEP: of the decision's own cap when it carries one (a creep's
+## 3": the first retry at 75% of M would throw [HEAVY] away), else of M, as
+## before. Pure.
+static func _retry_move_inches(decision: Dictionary, move_stat: float, recompute_scale: float) -> float:
+	return _ai_move_cap_for(decision, move_stat) * recompute_scale
 
 func _scale_destinations(destinations: Dictionary, origin_positions: Dictionary, scale: float) -> Dictionary:
 	var scaled = {}

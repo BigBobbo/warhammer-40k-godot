@@ -26,7 +26,13 @@ extends SceneTree
 # lose a [HEAVY] target, set up this turn, [INDIRECT FIRE], a VEHICLE's
 # terrain cost, the re-check's 3" limit, elevated / AIRCRAFT, T7-26 not
 # holding (the flag is never read), the batch-1 flags compose, AIPlayer's
-# re-plan cap helper.
+# re-plan cap helper. Review fixes: with F002 on the creep prices Hidden OR
+# the shot, never both, and claims no +1 to hit it would not take (n), nor
+# the stay's shot F002 would decline (q); the re-check prices Gone to Ground
+# on its own budget (r); a reserves arrival is a set-up only by its turn
+# stamp, while the engine's never-cleared flag (MV-1) still denies [HEAVY]
+# and the AI says so (g2); the chain's hold exits explain themselves (g3);
+# AIPlayer's deferred re-plan and staging retry, driven on a real board (l2).
 #
 # Run with: godot --headless --path . -s tests/unit/test_ai_fix_heavy_creep.gd
 # (runs once the scene tree is up: the stage reads RulesEngine /
@@ -54,8 +60,20 @@ const SPEAR_R := {"name": "Guardian spear - Ranged", "type": "Ranged", "range": 
 	"ballistic_skill": "2", "strength": "4", "ap": "-1", "damage": "2", "special_rules": "assault"}
 const SPEAR_M := {"name": "Guardian spear - Melee", "type": "Melee", "range": "Melee", "attacks": "5",
 	"weapon_skill": "2", "strength": "7", "ap": "-2", "damage": "2", "special_rules": ""}
+## A chip-shot rifle (the Gone-to-Ground board's enemy squad) and the
+## FIX_INDIRECT_STATIONARY test's spotter kit.
+const RIFLE := {"name": "Rifle", "type": "Ranged", "range": "24", "attacks": "2", "ballistic_skill": "3",
+	"strength": "4", "ap": "-1", "damage": "1", "special_rules": ""}
+const BOLTGUN := {"name": "Boltgun", "type": "Ranged", "range": "24", "attacks": "2", "ballistic_skill": "3",
+	"strength": "4", "ap": "0", "damage": "1", "special_rules": ""}
+const CCW := {"name": "Close combat weapon", "type": "Melee", "range": "Melee", "attacks": "2",
+	"weapon_skill": "3", "strength": "4", "ap": "0", "damage": "1", "special_rules": ""}
+## A melee-focused unit's [HEAVY] gun (MOV-1 does not hold it; T7-26 does).
+const HEAVY_STUB := {"name": "Heavy stub", "type": "Ranged", "range": "36", "attacks": "3", "ballistic_skill": "4",
+	"strength": "4", "ap": "0", "damage": "1", "special_rules": "heavy"}
 const KNOBS := ["FIX_HEAVY_CREEP", "HEAVY_CREEP_MIN_GAIN", "HEAVY_CREEP_PROBES", "FIX_MOVE_COVER", "FIX_MOVE_FOR_SHOT",
-	"FIX_MOVE_FOR_CHARGE", "FIX_INDIRECT_STATIONARY", "HIDDEN_FORFEIT_PENALTY", "FIX_MOVE_TERRAIN_11E"]
+	"FIX_MOVE_FOR_CHARGE", "FIX_INDIRECT_STATIONARY", "HIDDEN_FORFEIT_PENALTY", "FIX_MOVE_TERRAIN_11E",
+	"MOVE_COVER_MAX_GTG_CHECKS"]
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -110,13 +128,18 @@ func _run_tests():
 	test_on_objective_footprint()
 	test_on_lane_round_solid_wall()
 	test_guard_set_up_this_turn()
+	test_guard_arrival_stamp_and_engine_flag()
+	test_guard_hold_exits_explain()
 	test_guard_indirect_keeps_hold()
 	test_guard_vehicle_terrain_cost()
 	test_on_attached_character_carried()
 	test_guard_recheck_three_inch_limit()
 	test_aiplayer_move_cap_helper()
+	test_aiplayer_replan_call_sites()
 	test_ledger_sums()
 	test_composes_with_batch1_flags()
+	test_f002_stay_shot_not_taken()
+	test_recheck_own_gtg_budget()
 	test_guard_t726_not_holding_no_read()
 	test_guard_elevated_and_aircraft()
 
@@ -145,6 +168,11 @@ func _light_area(id: String, x0: float, y0: float, x1: float, y1: float) -> Dict
 	return {"id": id, "piece_class": "area", "type": "ruins", "category": "light", "height_category": "tall",
 		"traits": ["difficult_ground"], "can_move_through": {"INFANTRY": true, "MONSTER": false, "VEHICLE": false},
 		"polygon": _rect(x0, y0, x1, y1)}
+
+## A DENSE terrain AREA (13.09 Hidden; 13.11.01 Gone to Ground behind it).
+func _dense_area(id: String, x0: float, y0: float, x1: float, y1: float) -> Dictionary:
+	return {"id": id, "piece_class": "area", "type": "ruins", "category": "dense", "height_category": "tall",
+		"can_move_through": {"INFANTRY": true, "MONSTER": false, "VEHICLE": false}, "polygon": _rect(x0, y0, x1, y1)}
 
 ## A Solid wall: a dense FEATURE (13.11 — blocks sight lines at ground level).
 func _wall(id: String, x0: float, y0: float, x1: float, y1: float) -> Dictionary:
@@ -491,6 +519,103 @@ func test_guard_set_up_this_turn() -> void:
 	var plain := {"flags": {}, "attachment_data": {"attached_characters": []}}
 	_assert(not AIDM._heavy_creep_set_up_this_turn(plain, snap), "a unit that started the turn on the battlefield does not")
 
+func test_guard_arrival_stamp_and_engine_flag() -> void:
+	print("\n--- (g2) a reserves arrival is a set-up only in its own turn (the stamp); the engine's never-cleared flag (MV-1) still denies [HEAVY] — the AI follows the engine and says why ---")
+	# Battle round 3; B arrived from reserves in round 2. IngressMove set
+	# flags.arrived_from_reserves and MovementPhase stamped the round; no reset
+	# path ever removes the flag (MV-1), and ModifierStack still reads it.
+	var snap = _snapshot([_light_area("A", 300.0, 700.0, 560.0, 860.0)], [_obj(OBJ_FAR)], 3)
+	_add(snap, "B", 1, B_FORM, [HEAVY_BOLTER, SPEAR_M])
+	_add(snap, "T", 2, _line(300.0, 1660.0), [SPEAR_R, SPEAR_M])
+	var bu: Dictionary = snap.units["B"]
+	bu.flags["arrived_from_reserves"] = true
+	bu["arrived_from_reserves_turn"] = 2
+	_assert(not AIDM._heavy_creep_set_up_this_turn(bu, snap), "arrived in round 2, now round 3: NOT set up this turn (24.16)")
+	var held: Dictionary = bu.duplicate(true)
+	held.flags["remained_stationary"] = true
+	_assert(not ModifierStack.heavy_applies_11e(held, snap), "engine premise (MV-1): ModifierStack still denies [HEAVY] after holding still")
+	var deny: Dictionary = AIDM._heavy_creep_engine_denies_heavy(bu, snap)
+	_assert(not deny.is_empty() and int(deny.get("round", -1)) == 2 and bool(deny.get("arrived", false)),
+		"_heavy_creep_engine_denies_heavy names the round-2 arrival (got %s)" % str(deny))
+	_fix(0.0)
+	var d_off = _decide(snap)
+	_assert(str(d_off.get("_ai_description", "")).begins_with("B holds for Heavy weapon bonus"), "off: T7-26 holds (got %s)" % str(d_off.get("_ai_description", "")))
+	_fix(1.0)
+	var d_on = _decide(snap)
+	var steps := _steps_text(d_on)
+	print("  on: %s" % _shape(d_on))
+	_assert(str(d_on.get("type", "")) == "BEGIN_NORMAL_MOVE" and not d_on.has("_ai_move_cap_inches"),
+		"on: its planned move — no creep for a bonus the engine will not give (got %s)" % _shape(d_on))
+	_assert(steps.find("still counts its arrival from reserves in battle round 2") >= 0 and steps.find("set up on the battlefield this turn") < 0,
+		"the step names the engine's stale arrival, not a set-up this turn (got %s)" % steps)
+	# Once the engine clears the flag (MV-1 fixed), the old stamp alone neither
+	# sets it up nor denies [HEAVY]: the creep runs as on any other turn.
+	bu.flags.erase("arrived_from_reserves")
+	_assert(AIDM._heavy_creep_engine_denies_heavy(bu, snap).is_empty(), "flag cleared: the engine allows [HEAVY] again")
+	var d_clear = _decide(snap)
+	_assert(str(d_clear.get("type", "")) == "BEGIN_NORMAL_MOVE" and d_clear.has("_ai_move_cap_inches"),
+		"flag cleared: the creep (got %s)" % _shape(d_clear))
+	# The stamp for THIS turn: the round it arrived in, its owner's turn.
+	var snap2 = _board()
+	snap2["meta"]["active_player"] = 1
+	var b2: Dictionary = snap2.units["B"]
+	b2.flags["arrived_from_reserves"] = true
+	b2["arrived_from_reserves_turn"] = 2
+	_assert(AIDM._heavy_creep_set_up_this_turn(b2, snap2), "arrived this round in its owner's turn: set up this turn")
+	snap2["meta"]["active_player"] = 2
+	_assert(not AIDM._heavy_creep_set_up_this_turn(b2, snap2), "the same stamp in the opponent's turn: not its turn of arrival")
+
+func test_guard_hold_exits_explain() -> void:
+	print("\n--- (g3) no bonus to keep, but the chain holds it after all: the steps never say it makes its planned move ---")
+	# Lone Operative: a genuine disembark (18.04), an enemy 13\" north and one
+	# 13\" south of B's centroid (406, 638) — no safe retreat, so T7-11 holds
+	# it. No melee weapons on either side, so no charge intent overrides T7-26.
+	var snap = _snapshot([_light_area("A", 300.0, 700.0, 560.0, 860.0)], [_obj(OBJ_FAR)])
+	_add(snap, "B", 1, B_FORM, [HEAVY_BOLTER])
+	_add(snap, "N", 2, [Vector2(406.0, 638.0 - 13.0 * PX)], [SPEAR_R])
+	_add(snap, "T", 2, [Vector2(406.0, 638.0 + 13.0 * PX)], [SPEAR_R])
+	snap.units["B"]["disembarked_this_phase"] = true
+	snap.units["B"].meta["abilities"] = ["Lone Operative"]
+	_fix(1.0)
+	var d_lo = _decide(snap)
+	var steps_lo := _steps_text(d_lo)
+	print("  lone op: %s" % _shape(d_lo))
+	if str(d_lo.get("_ai_description", "")).find("Lone Operative safe") >= 0:
+		_assert(steps_lo.find("makes its planned move") < 0 and steps_lo.find("as a Lone Operative it is safe where it stands") >= 0,
+			"Lone Operative hold: the step says it holds anyway (got %s)" % steps_lo)
+	else:
+		_assert(false, "premise: T7-11 holds the Lone Operative (got %s)" % _shape(d_lo))
+	# FIX_INDIRECT_STATIONARY's stay: the IS test's spotted-battery board, the
+	# mortar unit carrying the engine's stale arrival flag from round 1.
+	var snap2 = _snapshot([_dense_area("hide", 1250.0, 1460.0, 1610.0, 1540.0)], [_obj(Vector2(430.0, 1300.0))])
+	_add(snap2, "B", 1, _line(300.0, 600.0), [HEAVY_MORTAR, SPEAR_M])
+	_add(snap2, "T", 2, _line(1300.0, 1500.0), [SPEAR_M])
+	_add(snap2, "S", 1, _line(900.0, 1300.0, 4, 55.0), [BOLTGUN, CCW], ["INFANTRY"], 1, 32, 45)
+	snap2.units["B"].flags["arrived_from_reserves"] = true
+	snap2.units["B"]["arrived_from_reserves_turn"] = 1
+	_knob("FIX_INDIRECT_STATIONARY", 1.0)
+	var d_is = _decide(snap2)
+	AIDM._config_overrides.erase("FIX_INDIRECT_STATIONARY")
+	var steps_is := _steps_text(d_is)
+	print("  IS stay: %s" % _shape(d_is))
+	_assert(str(d_is.get("type", "")) == "REMAIN_STATIONARY" and bool(d_is.get("_ai_indirect_hold", false)),
+		"premise: FIX_INDIRECT_STATIONARY keeps the battery stationary (got %s)" % _shape(d_is))
+	_assert(steps_is.find("makes its planned move") < 0 and steps_is.find("it stays put anyway, to arm its indirect fire") >= 0,
+		"IS stay: the step says it stays put anyway (got %s)" % steps_is)
+	# The planned move finds no legal placement (the mover's range clamp zeroes
+	# it): a melee-focused unit 35.9\" from its only target, its objective the
+	# other way, after a same-turn disembark.
+	var snap3 = _snapshot([], [_obj(Vector2(880.0, 60.0))])
+	_add(snap3, "B", 1, _line(750.0, 700.0), [HEAVY_STUB, SPEAR_M])
+	_add(snap3, "T", 2, _line(750.0, 700.0 + 1436.0), [SPEAR_M])
+	snap3.units["B"]["disembarked_this_phase"] = true
+	var d_np = _decide(snap3)
+	var steps_np := _steps_text(d_np)
+	print("  no placement: %s" % _shape(d_np))
+	_assert(str(d_np.get("type", "")) == "REMAIN_STATIONARY", "premise: no legal placement, so it remains stationary (got %s)" % _shape(d_np))
+	_assert(steps_np.find("makes its planned move instead of holding still") < 0 and steps_np.find("no legal placement was found for it") >= 0,
+		"no placement: the step says the planned move found no legal placement (got %s)" % steps_np)
+
 func test_guard_indirect_keeps_hold() -> void:
 	print("\n--- (h) guard: [INDIRECT FIRE] + [HEAVY] — Remaining Stationary arms 10.07's band: the hold is kept ---")
 	var snap = _board(HEAVY_MORTAR)
@@ -575,6 +700,78 @@ func test_aiplayer_move_cap_helper() -> void:
 	_assert(is_equal_approx(ai._ai_move_cap_for({"_ai_move_cap_inches": 3.0}, 2.0), 2.0), "a cap above M never raises it")
 	_assert(is_equal_approx(ai._ai_move_cap_for({}, 6.0), 6.0), "without the key: M, as before")
 
+func test_aiplayer_replan_call_sites() -> void:
+	print("\n--- (l2) AIPlayer's re-plan call sites: a deferred move is re-planned only below the creep's 3\"; a staging retry scales 3\", not M ---")
+	var ai = root.get_node_or_null("AIPlayer")
+	_assert(ai != null, "AIPlayer autoload present")
+	if ai == null:
+		return
+	var creep := {"type": "BEGIN_NORMAL_MOVE", "_ai_move_cap_inches": 3.0}
+	var plain := {"type": "BEGIN_NORMAL_MOVE"}
+	var adv := {"type": "BEGIN_ADVANCE"}
+	# _deferred_move_replan: the rule _execute_pending_advance_move applies. The
+	# cases that tell it from the old abs(cap - M) > 0.1 test: a cap of 3" or
+	# more that differs from M.
+	var r: Dictionary = ai._deferred_move_replan(creep, 8.0, 6.0)
+	_assert(not bool(r.replan), "creep, cap raised to M+2 = 8\" (FUNGUS-FUEL INJECTION): no re-plan — the old test re-planned at 8\" and lost the creep")
+	r = ai._deferred_move_replan(creep, 4.0, 6.0)
+	_assert(not bool(r.replan), "creep, cap lowered to 4\" (a -2\" debuff): no re-plan — the old test re-planned at 4\"")
+	r = ai._deferred_move_replan(creep, 2.0, 6.0)
+	_assert(bool(r.replan) and is_equal_approx(float(r.cap), 2.0), "creep, cap 2\": re-planned within 2\" (got %s)" % str(r))
+	r = ai._deferred_move_replan(plain, 8.0, 6.0)
+	_assert(bool(r.replan) and is_equal_approx(float(r.cap), 8.0) and is_equal_approx(float(r.estimate), 6.0),
+		"no key: a normal move planned at M 6 with cap 8 is re-planned at 8\", as before (got %s)" % str(r))
+	r = ai._deferred_move_replan(plain, 6.0, 6.0)
+	_assert(not bool(r.replan), "no key: cap == M, no re-plan")
+	r = ai._deferred_move_replan(adv, 7.0, 6.0)
+	_assert(bool(r.replan) and is_equal_approx(float(r.estimate), 8.0) and is_equal_approx(float(r.cap), 7.0),
+		"an Advance planned at M+2 = 8\" that rolled 7\": re-planned at 7\" (got %s)" % str(r))
+	r = ai._deferred_move_replan(adv, 8.0, 6.0)
+	_assert(not bool(r.replan), "an Advance that rolled its estimate: no re-plan")
+	_assert(is_equal_approx(ai._retry_move_inches(creep, 6.0, 0.75), 2.25) and is_equal_approx(ai._retry_move_inches(plain, 6.0, 0.75), 4.5),
+		"staging retry at 75%: 2.25\" for a creep (the old code: 4.5\"), 4.5\" without the key")
+	# The call sites' own steps on a real board in GameState (they stage nothing):
+	# the creep decide() returns, re-planned as the deferred move and as the
+	# first staging retry would.
+	var snap = _board()
+	_fix(1.0)
+	var d = _decide(snap)
+	_assert(str(d.get("type", "")) == "BEGIN_NORMAL_MOVE" and d.has("_ai_move_cap_inches"), "premise: decide() creeps")
+	if not d.has("_ai_model_destinations"):
+		return
+	var had_units: bool = gs.state.has("units")
+	var prev_units = gs.state.get("units", {})
+	gs.state["units"] = snap.units.duplicate(true)
+	var models: Array = AIDM._get_alive_models_with_positions(snap.units["B"])
+	var dests0: Dictionary = (d._ai_model_destinations as Dictionary).duplicate(true)
+	var dec_hi: Dictionary = d.duplicate(true)
+	ai._replan_deferred_move(1, dec_hi, "B", 8.0)
+	_assert(str(dec_hi._ai_model_destinations) == str(dests0), "_replan_deferred_move, cap 8\": the creep's own destinations are kept")
+	var dec_lo: Dictionary = d.duplicate(true)
+	ai._replan_deferred_move(1, dec_lo, "B", 2.0)
+	var mv_lo: float = AIDM._destinations_max_move_inches(models, dec_lo._ai_model_destinations)
+	_assert(str(dec_lo._ai_model_destinations) != str(dests0) and mv_lo <= 2.0 + 0.05,
+		"_replan_deferred_move, cap 2\": re-planned, no model moves more than 2\" (got %.2f\")" % mv_lo)
+	var dec_plain: Dictionary = d.duplicate(true)
+	dec_plain.erase("_ai_move_cap_inches")
+	var dec_plain_retry: Dictionary = dec_plain.duplicate(true)
+	ai._replan_deferred_move(1, dec_plain, "B", 8.0)
+	var mv_plain: float = AIDM._destinations_max_move_inches(models, dec_plain._ai_model_destinations)
+	_assert(str(dec_plain._ai_model_destinations) != str(dests0) and mv_plain > 3.0,
+		"_replan_deferred_move without the key, cap 8\": re-planned at 8\" as before (largest model move %.2f\")" % mv_plain)
+	var unit_fresh: Dictionary = gs.state.units["B"]
+	var rd_creep: Dictionary = ai._retry_move_destinations(1, unit_fresh, "B", d, 6.0, 0.75)
+	var mv_rc: float = AIDM._destinations_max_move_inches(models, rd_creep)
+	_assert(not rd_creep.is_empty() and mv_rc <= 2.25 + 0.05,
+		"_retry_move_destinations at 75%%: the creep is re-planned within 2.25\" (got %.2f\")" % mv_rc)
+	var rd_plain: Dictionary = ai._retry_move_destinations(1, unit_fresh, "B", dec_plain_retry, 6.0, 0.75)
+	var mv_rp: float = AIDM._destinations_max_move_inches(models, rd_plain)
+	_assert(mv_rp > 2.25 + 0.05, "_retry_move_destinations without the key: 75%% of M (4.5\"), as before (got %.2f\")" % mv_rp)
+	if had_units:
+		gs.state["units"] = prev_units
+	else:
+		gs.state.erase("units")
+
 func test_ledger_sums() -> void:
 	print("\n--- (m) ledger: the creep's terms sum to its gain ---")
 	var snap = _board()
@@ -589,7 +786,7 @@ func test_ledger_sums() -> void:
 		_assert(AIReasoningGlossary.TERMS.has(str(k)), "glossary labels ledger key %s" % str(k))
 
 func test_composes_with_batch1_flags() -> void:
-	print("\n--- (n) composes: FIX_MOVE_COVER / FIX_MOVE_FOR_SHOT / FIX_MOVE_FOR_CHARGE / FIX_INDIRECT_STATIONARY on change nothing ---")
+	print("\n--- (n) composes: FIX_MOVE_COVER / FIX_MOVE_FOR_SHOT / FIX_MOVE_FOR_CHARGE / FIX_INDIRECT_STATIONARY on change nothing; with F002 the creep prices Hidden OR the shot, never both ---")
 	var snap = _board()
 	_fix(1.0)
 	var d_alone = _decide(snap)
@@ -601,8 +798,126 @@ func test_composes_with_batch1_flags() -> void:
 	var d_f002 = _decide(snap)
 	_assert(str(d_f002.get("type", "")) == "BEGIN_NORMAL_MOVE" and d_f002.has("_ai_move_cap_inches"),
 		"with HIDDEN_FORFEIT_PENALTY 3 it still creeps (got %s)" % _shape(d_f002))
+	# F002 on: 13.09 voids Hidden next turn after a ranged attack this turn, so
+	# the creep prices Hidden (hc_cover) OR the shot (hc_lane), never both, and
+	# claims no +1 to hit for a shot it would hold fire on.
+	var note_f := "\n".join(PackedStringArray(d_f002.get("_ai_move_adjustments", [])))
+	var hidden_claim := note_f.find("ends Hidden next turn") >= 0
+	_assert(hidden_claim, "F002: the note says it ends Hidden next turn (got %s)" % note_f)
+	_assert(not (hidden_claim and note_f.find("can see") >= 0), "the note never claims both Hidden next turn and a new sight line (got %s)" % note_f)
+	_assert(not hidden_claim or (note_f.find("keep +1 to hit") < 0 and note_f.find("in its sights") < 0),
+		"a Hidden note claims no kept +1 to hit and no target kept in its sights (got %s)" % note_f)
+	var desc_f := str(d_f002.get("_ai_description", ""))
+	_assert(desc_f.begins_with("B moves toward obj (") and desc_f.find("ending Hidden") >= 0
+		and desc_f.find("to keep its [HEAVY] +1 to hit") < 0 and desc_f.find("into cover") < 0,
+		"the action line says 'ending Hidden', not 'into cover' or the +1 to hit (got %s)" % desc_f)
+	var diag := {}
+	var hc = _stage(snap, OBJ_FAR, diag)
+	_assert(not hc.is_empty(), "F002: the stage creeps (diag %s)" % str(diag))
+	if not hc.is_empty():
+		var ev: Dictionary = hc.check.ev
+		var terms: Dictionary = hc.check.terms
+		print("  F002 creep: terms %s gain %.3f ev all_hidden=%s hold_fire_ok=%s n_blind=%d in_area=%s why=%s" % [
+			str(terms), float(hc.check.gain), str(ev.get("all_hidden")), str(ev.get("hold_fire_ok")),
+			int(ev.get("n_blind", 0)), str(ev.get("in_area")), str(hc.check.why_code)])
+		_assert(bool(ev.get("all_hidden", false)) and bool(ev.get("hold_fire_ok", false)),
+			"premise: _mc_eval credits Hidden at the creep spot (every model Hidden, F002 would hold fire)")
+		_assert(bool(hc.check.f002_hold), "the re-check predicts F002 holds fire at the creep spot")
+		_assert(absf(float(terms.get("hc_lane", 0.0))) < 1e-9, "hc_lane = 0 where hold_fire_ok holds: no shot priced (got %s)" % str(terms))
+		_assert(float(terms.get("hc_cover", 0.0)) > 0.0 and str(hc.check.why_code) == "hidden",
+			"the gain is the Hidden in hc_cover and the why says so (why %s)" % str(hc.check.why_code))
+		_assert(absf(_sum(terms) - float(hc.check.gain)) < 1e-6, "Σ terms == gain")
+		# The engine half of the claim: the real shooting decision from the
+		# destinations holds fire (F002) — the shot hc_lane no longer prices.
+		var sb := _board_at(snap, "B", hc.dests)
+		sb.units["B"].flags["moved"] = true
+		sb.units["B"].flags["moved_max_inches"] = float(hc.check.moved_in)
+		sb.units["B"]["status"] = GameStateData.UnitStatus.MOVED
+		_reset()
+		var ds: Dictionary = AIDM.decide(8, sb, [{"type": "SELECT_SHOOTER", "actor_unit_id": "B"}, {"type": "END_SHOOTING"}], 1)
+		_assert(str(ds.get("type", "")) == "SKIP_UNIT", "the shooting decision from the creep spot holds fire to stay Hidden (got %s: %s)" % [
+			str(ds.get("type", "")), str(ds.get("_ai_description", ""))])
 	for k in ["FIX_MOVE_COVER", "FIX_MOVE_FOR_SHOT", "FIX_MOVE_FOR_CHARGE", "FIX_INDIRECT_STATIONARY", "HIDDEN_FORFEIT_PENALTY"]:
 		AIDM._config_overrides.erase(k)
+	# F002 off again: the same board's creep shoots, and says so (case (a)).
+	var d_back = _decide(snap)
+	_assert(str(d_back.get("_ai_description", "")).find("to keep its [HEAVY] +1 to hit") >= 0,
+		"F002 off: the action line claims the +1 to hit again (got %s)" % str(d_back.get("_ai_description", "")))
+
+func test_f002_stay_shot_not_taken() -> void:
+	print("\n--- (q) F002 holding still: Hidden where it stands with only a chip shot — that shot is priced as not taken ---")
+	# Every B base inside the light area A (Hidden, 13.09 as errata'd); T in the
+	# open ~25" south is visible (13.10 skips the area B is within) and its
+	# heavy bolter's shot is a chip shot (1.7 of T's 15 wounds).
+	var snap = _snapshot([_light_area("A", 300.0, 560.0, 560.0, 860.0)], [_obj(OBJ_FAR)])
+	_add(snap, "B", 1, B_FORM, [HEAVY_BOLTER, SPEAR_M])
+	_add(snap, "T", 2, _line(300.0, 1660.0), [SPEAR_R, SPEAR_M])
+	var unit: Dictionary = snap.units["B"]
+	var elig: Dictionary = re.get_eligible_targets("B", snap, false)
+	_assert(elig.has("T"), "premise (engine): T is an eligible target from where B stands (got %s)" % str(elig.keys()))
+	var members: Array = AIDM._move_cover_members(unit, snap, true)
+	var hc_min := {"unit": unit, "snapshot": snap, "members": members, "enemies": AIDM._get_enemy_units(snap, 1)}
+	var stay_pos: Array = AIDM._move_cover_shift(members, Vector2.ZERO)
+	var centroid: Vector2 = AIDM._get_unit_centroid(unit)
+	_assert(not AIDM._heavy_creep_f002_holds(hc_min, stay_pos, centroid, elig), "F002 off: no hold-fire predicted (and nothing priced)")
+	_knob("HIDDEN_FORFEIT_PENALTY", 3.0)
+	_assert(AIDM._heavy_creep_f002_holds(hc_min, stay_pos, centroid, elig), "F002 3: hold-fire predicted where it stands")
+	_assert(not AIDM._heavy_creep_f002_holds(hc_min, stay_pos, centroid, {}), "no eligible target: nothing to hold fire on")
+	# The real shooting decision agrees with the prediction.
+	var sb: Dictionary = snap.duplicate(true)
+	sb.units["B"].flags["remained_stationary"] = true
+	sb.units["B"].flags["in_engagement"] = false
+	sb.units["B"]["status"] = GameStateData.UnitStatus.MOVED
+	_reset()
+	var ds: Dictionary = AIDM.decide(8, sb, [{"type": "SELECT_SHOOTER", "actor_unit_id": "B"}, {"type": "END_SHOOTING"}], 1)
+	_assert(str(ds.get("type", "")) == "SKIP_UNIT", "engine-side: the shooting decision holds fire there (got %s: %s)" % [
+		str(ds.get("type", "")), str(ds.get("_ai_description", ""))])
+	_fix(1.0)
+	var diag := {}
+	var hc = _stage(snap, OBJ_FAR, diag)
+	print("  stage: %s diag %s" % ["{}" if hc.is_empty() else str(hc.check.terms), str(diag)])
+	_assert(bool(diag.get("f002_stay", false)) and float(diag.get("shot_stay", 0.0)) > 0.0,
+		"the stage marks the stay's shot as not taken (f002_stay) while its raw shot is > 0 (diag %s)" % str(diag))
+	_assert(is_equal_approx(AIDM._hc_taken_shot(1.5, true), 0.0) and is_equal_approx(AIDM._hc_taken_shot(1.5, false), 1.5),
+		"_hc_taken_shot: none where F002 holds fire, else the shot")
+	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
+
+func test_recheck_own_gtg_budget() -> void:
+	print("\n--- (r) the re-check prices Gone to Ground on its own budget (FIX_MOVE_COVER's re-check rule) ---")
+	# The review's board: light area A with B north of it, a dense wall W and a
+	# 10-model rifle squad S beyond it — the pick's Hidden needs Gone-to-Ground
+	# checks (13.11.01), more than half of MOVE_COVER_MAX_GTG_CHECKS.
+	var snap = _snapshot([_light_area("A", 300.0, 700.0, 560.0, 860.0), _wall("W", 100.0, 1100.0, 800.0, 1130.0)], [_obj(OBJ_FAR)])
+	_add(snap, "B", 1, B_FORM, [HEAVY_BOLTER, SPEAR_M])
+	var s_pos: Array = []
+	for row_y in [1560.0, 1612.0]:
+		for k in range(5):
+			s_pos.append(Vector2(302.0 + 52.0 * float(k), row_y))
+	_add(snap, "S", 2, s_pos, [RIFLE, SPEAR_M], ["INFANTRY"], 3, 32)
+	_fix(1.0)
+	_knob("HIDDEN_FORFEIT_PENALTY", 3.0)
+	var diag := {}
+	var hc = _stage(snap, OBJ_FAR, diag)
+	print("  default cap: %s diag why=%s recheck_why=%s best_gain=%s" % ["{}" if hc.is_empty() else str(hc.check.terms),
+		str(diag.get("why", "")), str(diag.get("recheck_why", "")), str(diag.get("best_gain", ""))])
+	_assert(not hc.is_empty() and str(diag.get("why", "")) == "creep",
+		"the picked creep survives its own re-check at the default Gone-to-Ground cap (diag why %s / %s)" % [
+			str(diag.get("why", "")), str(diag.get("recheck_why", ""))])
+	if not hc.is_empty():
+		_assert(int(hc.check.ev.get("n_blind", 0)) >= 1, "the re-check still credits the Hidden the search priced (n_blind %d)" % int(hc.check.ev.get("n_blind", 0)))
+		# S stands behind the dense wall: no target from the spot, so no shot to claim.
+		_assert(str(hc.check.get("shot_mode", "")) == "no_target" and (hc.check.elig as Dictionary).is_empty(),
+			"premise: the engine accepts no target from the spot (shot_mode %s)" % str(hc.check.get("shot_mode", "")))
+	var d = _decide(snap)
+	var desc := str(d.get("_ai_description", ""))
+	_assert(str(d.get("type", "")) == "BEGIN_NORMAL_MOVE" and d.has("_ai_move_cap_inches"),
+		"decide(): the creep, not T7-26's hold (got %s)" % desc)
+	_assert(desc.find("ending Hidden") >= 0 and desc.find("with no target from there") >= 0 and desc.find("+1 to hit") < 0,
+		"no target from the spot: the action line claims no +1 to hit (got %s)" % desc)
+	var note := "\n".join(PackedStringArray(d.get("_ai_move_adjustments", [])))
+	_assert(note.find("no model moves more than 3\"") >= 0 and note.find("it has no target from there") >= 0 and note.find("keep +1 to hit") < 0,
+		"the note keeps the 3\" anchor and says it has no target there (got %s)" % note)
+	AIDM._config_overrides.erase("HIDDEN_FORFEIT_PENALTY")
 
 func test_guard_t726_not_holding_no_read() -> void:
 	print("\n--- (o) guard: T7-26 does not hold (the objective is within M) — on == off, the flag never read ---")
