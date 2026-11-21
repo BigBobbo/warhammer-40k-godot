@@ -1973,27 +1973,40 @@ const FORECAST_SAFE_HOLD: float = 0.9
 const FORECAST_THREAT_HOLD: float = 0.55
 # FORECAST-PLAN (FORECAST_PLAN): 1 = after the greedy movement assignment,
 # try the FORECAST_PLAN_SWAPS closest calls (a unit's runner-up objective
-# within FORECAST_PLAN_MAX_GAP score of its pick), project each whole-army
-# plan's objective ownership (OC staying, leaving, arriving this turn / next),
-# forecast it, and adopt the best swap when it beats the plan by more than
-# FORECAST_PLAN_MIN_GAIN VP of final margin. 0 = the greedy plan.
-const FORECAST_PLAN: float = 0.0
+# within FORECAST_PLAN_MAX_GAP score of its pick, and every assignment that
+# coordination moved off the unit's own best objective), price each whole-army
+# plan, and adopt the best swap when it beats the plan by more than
+# FORECAST_PLAN_MIN_GAIN VP. 0 = the greedy plan.
+#
+# ON with the position look-ahead limited to THIS turn, reach only
+# (FORECAST_POSSIM 1, FORECAST_POSSIM_TURNS 1, FORECAST_POSSIM_DAMAGE 0): each
+# plan is walked forward on the real positions for the current turn, the
+# ownership it ends on is held to the end of the next round and the forecast
+# scores that window. About one swap a game — typically a fast unit sent to
+# take an objective this turn. Paired A/B 2026-11-20/21 (bench profile
+# forecast_plan_possim_turn, off = forecast_plan_off): asymmetric +2.0 VP
+# [-3.8, +7.8] (14 pairs), Custodes mirror +0.85 [-6.7, +8.4] (10), Ork mirror
+# +0.1 [-3.4, +3.6] (6); pooled +1.2 [-2.4, +4.9] over 30 pairs, no fixture
+# negative. The same comparison with every turn of the window played
+# (FORECAST_POSSIM_TURNS 0, damage on) lost 8.2 VP [-12.1, -4.3] on the
+# asymmetric fixture — do not widen the look-ahead without re-running it
+# (tools/ai_lab/README.md "Position look-ahead").
+const FORECAST_PLAN: float = 1.0
 # FORECAST-POSSIM (FORECAST_POSSIM): 1 = FORECAST-PLAN prices each plan with
-# the position look-ahead (AIPositionSim: units walk, shoot and charge on
-# their real positions for the rest of this round and the next, the forecast
-# scores the VP of that window) instead of the ownership projection. 0 = the
-# ownership projection. Only read when FORECAST_PLAN is on.
-const FORECAST_POSSIM: float = 0.0
+# the position look-ahead (AIPositionSim) instead of the ownership projection
+# (0), which could not rank moves at all (r = 0.00 against 138 measured rollouts).
+const FORECAST_POSSIM: float = 1.0
 # FORECAST_POSSIM_TURNS: player turns the look-ahead plays before holding
 # ownership as it stands (0 = the whole window). 1 = price only what a move
 # takes or loses THIS turn — the part paired real games bear out (r 0.44 at
 # this turn's end, 0.07 across the window when every turn is played).
 # FORECAST_POSSIM_DAMAGE: 0 = no shooting / melee in the look-ahead (reach only).
 # FORECAST_PLAN_ABS_GAP: 1 = a close call is a runner-up within
-# FORECAST_PLAN_MAX_GAP either way; 0 also re-opens every assignment that
-# coordination moved off the unit's own best objective.
-const FORECAST_POSSIM_TURNS: int = 0
-const FORECAST_POSSIM_DAMAGE: float = 1.0
+# FORECAST_PLAN_MAX_GAP either way (one swap every three games — too few to
+# matter); 0 also re-opens every assignment that coordination moved off the
+# unit's own best objective.
+const FORECAST_POSSIM_TURNS: int = 1
+const FORECAST_POSSIM_DAMAGE: float = 0.0
 const FORECAST_PLAN_ABS_GAP: float = 0.0
 const FORECAST_PLAN_SWAPS: int = 4
 const FORECAST_PLAN_MAX_GAP: float = 3.0
@@ -23503,7 +23516,8 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 		print("AIDecisionMaker: [FORECAST-PLAN] P%d %s: %s -> %s (score gap %.1f): forecast %s %+.1f vs greedy %+.1f (%+.1f)" % [
 			player, _dn(units.get(call.uid, {}), call.uid), str(assignments[call.uid].get("objective_id", "?")),
 			str(call.alt.objective_id), float(call.gap), window, m, base_m, gain])
-		scored.append({"description": "%s to %s instead" % [_dn(units.get(call.uid, {}), call.uid), call.alt.objective_id],
+		scored.append({"description": "%s to %s instead of %s" % [_dn(units.get(call.uid, {}), call.uid), call.alt.objective_id,
+				str(assignments[call.uid].get("objective_id", "?"))],
 			"score": gain, "key": call.uid, "score_breakdown": {"forecast_margin": m, "score_gap": float(call.gap)}})
 		if gain > best_gain:
 			best_gain = gain
@@ -23519,6 +23533,8 @@ static func _forecast_refine_plan(snapshot: Dictionary, assignments: Dictionary,
 	entry["assign_pass"] = "forecast_plan"
 	entry["coordination_note"] = "forecast: %s instead of %s improves the projected %s by %.1f VP" % [
 		str(entry.get("objective_id", "?")), from_oid, window, best_gain]
+	# said on the unit's own suggestion line too, where the player reads it first
+	entry["reason"] = "%s — forecast: worth about %.1f VP more than going to %s" % [str(entry.get("reason", "moving to objective")), best_gain, from_oid]
 	out[best.uid] = entry
 	# its candidate card leads with the adopted option
 	var cl: Array = (_last_movement_candidates.get(best.uid, []) as Array)

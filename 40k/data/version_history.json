@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.91.0",
+      "date": "2026-11-21",
+      "summary": "AI: checks its movement plan by walking it forward on the board",
+      "changes": [
+        "After planning its Movement phase the AI now walks the plan forward on the real positions for the current turn and tries a few alternatives (a unit sent to a different objective). If one takes or keeps an objective this turn and is worth at least 1 VP more by the end of the next round, it makes that swap - about once a game, typically a fast unit sent to grab an objective now.",
+        "The Suggest (K) card says so on the unit's line (\"forecast: worth about 1.2 VP more than going to obj_home_2\") and adds a FORECAST PLAN card listing the swaps it tried against its first plan.",
+        "Tested over 60 AI-vs-AI games: about +1 VP a game on average, never worse on any of the three test matchups."
+      ]
+    },
+    {
       "version": "1.90.3",
       "date": "2026-11-20",
       "summary": "Combat Calc: the Death Trap forecast counts every area you can trap",

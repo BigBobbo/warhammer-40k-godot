@@ -394,7 +394,7 @@ Pipeline (critic -> value -> fix -> bundle):
 `40k/scripts/AIForecast.gd` ports the Combat Calc forecast
 (`server/public/calc/forecast.mjs`) to GDScript; `test_ai_forecast.gd` holds it
 to the JS (card parity + 28 statistical scenarios, worst gap 0.45 VP). The AI
-uses it behind params, all **off** by default: `FORECAST_SECONDARIES`,
+uses it behind params, **off** by default except FORECAST-PLAN (see "This turn only" below): `FORECAST_SECONDARIES`,
 `FORECAST_TEMPO` (+ `FORECAST_CAL_A/B/SEAT`), `FORECAST_HORIZON_WEIGHT`,
 `FORECAST_SURVIVAL`, `FORECAST_PLAN`. `FORECAST_LOG` (on) records one
 forecast per own turn for `forecast_calibration.py`.
@@ -481,16 +481,39 @@ today, the plan picks a different objective for the unit in question in about
 half of them, so the other units' moves the sim is given are not the ones the
 rollout played.
 
-**Verdict: off.** The look-ahead predicts absolute ownership well and the
-immediate effect of a move moderately, but not how the difference between two
-plans plays out over the next round — and that difference is what a plan
-comparison needs. In the A/B it adopted ~2 swaps a game, each "worth" about
-+2 VP by its own estimate; most undid the planner's coordination (a unit sent
-back to the objective it scored best on, typically the centre) and the
-asymmetric fixture lost 8 VP a game. `FORECAST_PLAN` and `FORECAST_POSSIM`
-stay 0, and there is still no rollout pre-filter: r vs measured E is 0.12-0.17
-against a 0.3 bar. The sim, the truth traces and the sweep tools stay as lab
-instruments (the ownership -> VP table above is a to-do list for the forecast).
+**Verdict on the full window: off.** The look-ahead predicts absolute
+ownership well and the immediate effect of a move moderately, but not how the
+difference between two plans plays out over the next round. In the A/B it
+adopted ~2 swaps a game, each "worth" about +2 VP by its own estimate; most
+undid the planner's coordination (a unit sent back to the objective it scored
+best on, typically the centre) and the asymmetric fixture lost 8 VP a game.
+There is still no rollout pre-filter: r vs measured E is 0.12-0.24 against a
+0.3 bar.
+
+#### This turn only — shipped ON (2026-11-21)
+
+Playing only the CURRENT turn, reach only (`sim_turns` 1, no damage), then
+holding that ownership to the end of the window keeps the part real games bear
+out: r vs measured E +0.24 [-0.02, +0.45] (full window +0.13), and against the
+real ownership swing over the window in the 88 paired games +0.24 (full window
++0.07). It says "no difference" far more often (24 of the 46 real swings) and
+is rarely wrong when nothing changes (35 of 42).
+
+| Paired A/B, E = candidate minus baseline (VP) | asymmetric | Custodes mirror | Ork mirror | pooled |
+|---|---|---|---|---|
+| full window, damage on (`forecast_plan_possim`) | **-8.2** [-12.1, -4.3], 6 | +3.0 [-1.9, +8.0], 30 | — | +1.2, fails the -2 floor |
+| this turn only (`forecast_plan_possim_turn`) | +2.0 [-3.8, +7.8], 14 | +0.85 [-6.7, +8.4], 10 | +0.1 [-3.4, +3.6], 6 | **+1.2 [-2.4, +4.9], 30 pairs** |
+| this turn only, runner-ups within the gap either way (`..._turn_close`) | -0.7 [-9.4, +8.1], 6 | — | — | 0.3 swaps a game: inert |
+
+The this-turn version passes the gate (pooled > 0, no fixture below -2 VP, no
+stalls) and is the default: `FORECAST_PLAN` 1, `FORECAST_POSSIM` 1,
+`FORECAST_POSSIM_TURNS` 1, `FORECAST_POSSIM_DAMAGE` 0 (`forecast_plan_off`
+turns it off for attribution). About one swap a game, mostly a fast unit
+(Deffkoptas, Warbikers, Stormboyz, a Blade Champion) sent to take an objective
+this turn; ~1 s per movement plan. The pooled interval includes zero — it is
+shipped on the gate, not on significance — and the first 6 asymmetric pairs
+were also used to pick this variant (without them: +0.8 over 24 pairs).
+Windowed check: `tests/scenarios/sp/ai_forecast_plan_swap_11e.json`.
 
 ### Mission scoring fixed from recorded games — 2026-11-20
 

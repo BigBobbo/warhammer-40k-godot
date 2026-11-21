@@ -1,0 +1,95 @@
+{
+  "id": "ai_forecast_plan_swap_11e",
+  "covers": [
+    "ai.suggestion.breakdown_panel",
+    "scripts.AIPositionSim.run",
+    "scripts.AIDecisionMaker.forecast_plan",
+    "scripts.AIReasoningGlossary.forecast_terms"
+  ],
+  "fixture": "ai_forecast_plan_swap_r2",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 7,
+  "description": "FORECAST-PLAN with the position look-ahead (AIPositionSim, this turn only): round 2, P1 Custodes to move. The greedy plan sends Custodian Guard Sodality Beta back to obj_home_2; walking the plans forward on the board shows that sending it 5 in onto obj_center takes the centre THIS turn, worth about 1 VP more by the end of round 3, so the plan swaps it. The player sees it in the Suggest (K) card: the unit's line names the forecast, and a 'FORECAST PLAN' card lists the swaps that were tried against the greedy plan in player words. With FORECAST_PLAN off the same position sends the unit to obj_home_2. Accept carries the move out and the unit ends on the centre.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The suggestion for the first unit to move is the swapped one, tagged by the forecast pass",
+      "script": "AIDecisionMaker.reset_caches()\nvar d = AIPlayer.request_suggestion()\nvar a = d.get(\"_ai_assignment\", {})\nvar rec = false\nfor r in d.get(\"_ai_decision_records\", []):\n\tif str(r.get(\"decision_type\", \"\")) == \"forecast_plan\":\n\t\trec = true\nreturn \"%s|%s|%s|%s|%s|%s\" % [d.get(\"type\", \"\"), d.get(\"actor_unit_id\", \"\"), a.get(\"objective_id\", \"\"), a.get(\"assign_pass\", \"\"), str(str(d.get(\"_ai_description\", \"\")).contains(\"forecast: worth about\")), str(rec)]",
+      "equals": "BEGIN_NORMAL_MOVE|U_CUSTODIAN_GUARD_B|obj_center|forecast_plan|true|true"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.refresh_ai_suggestion_button()"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "K"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._ai_suggestion_panel != null and main._ai_suggestion_panel.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "The K card explains the swap in player words",
+      "script": "main._ai_suggestion_panel.breakdown_text.contains(\"FORECAST PLAN\") and main._ai_suggestion_panel.breakdown_text.contains(\"Custodian Guard Sodality Beta to obj_center instead of obj_home_2\") and main._ai_suggestion_panel.breakdown_text.contains(\"Forecast VP lead by the end of next round\") and main._ai_suggestion_panel.breakdown_text.contains(\"Greedy plan\") and main._ai_suggestion_panel.breakdown_text.contains(\"forecast: worth about\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_forecast_plan_swap_card"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Switch the forecast pass off: the same position sends the unit to obj_home_2 (so the swap is the forecast's doing)",
+      "script": "AIDecisionMaker._config_overrides[\"FORECAST_PLAN\"] = 0.0\nAIDecisionMaker.reset_caches()\nvar d = AIPlayer.request_suggestion(\"U_CUSTODIAN_GUARD_B\")\nvar a = d.get(\"_ai_assignment\", {})\nAIDecisionMaker._config_overrides.erase(\"FORECAST_PLAN\")\nAIDecisionMaker.reset_caches()\nreturn \"%s|%s\" % [a.get(\"objective_id\", \"\"), str(a.get(\"assign_pass\", \"\") == \"forecast_plan\")]",
+      "equals": "obj_home_2|false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Distance from the unit to the centre before the move",
+      "script": "var u = GameState.state.units.U_CUSTODIAN_GUARD_B\nvar c = Vector2.ZERO\nvar n = 0\nfor m in u.models:\n\tif m.get(\"alive\", true):\n\t\tc += Vector2(m.position.x, m.position.y)\n\t\tn += 1\nc /= float(n)\nEngine.set_meta(\"fp_d0\", c.distance_to(Vector2(880, 1200)) / 40.0)\nreturn float(Engine.get_meta(\"fp_d0\")) > 6.0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._on_ai_suggestion_accept()",
+      "comment": "The panel's Accept button handler: carries the suggested move out"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Starting the move opens the opponent's stratagem window; it is declined (the dialog's own action) and the accepted move is then placed",
+      "script": "var ph = PhaseManager.current_phase_instance\nvar n = 0\nwhile ph.has_pending_stratagem_window() and n < 4:\n\tvar w = ph.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\n\tn += 1\nreturn n >= 1",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The unit moved and ended on the centre objective (models within control range), not toward obj_home_2",
+      "script": "var u = GameState.state.units.U_CUSTODIAN_GUARD_B\nvar c = Vector2.ZERO\nvar n = 0\nvar best = 999.0\nfor m in u.models:\n\tif m.get(\"alive\", true):\n\t\tvar p = Vector2(m.position.x, m.position.y)\n\t\tc += p\n\t\tn += 1\n\t\tbest = min(best, p.distance_to(Vector2(880, 1200)) / 40.0)\nc /= float(n)\nvar d1 = c.distance_to(Vector2(880, 1200)) / 40.0\nreturn \"%s|%s|%s\" % [str(bool(u.flags.get(\"moved\", false))), str(d1 < float(Engine.get_meta(\"fp_d0\")) - 3.0), str(best <= 4.5)]",
+      "equals": "true|true|true"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_unit_on_the_centre"
+    }
+  ]
+}

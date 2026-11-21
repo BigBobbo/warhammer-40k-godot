@@ -1,0 +1,10 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Forecast plan off",
+  "description": "FORECAST_PLAN = 0: the greedy movement plan stands (no forecast swap). For attributing the FORECAST-PLAN default.",
+  "parameters": {
+    "FORECAST_PLAN": 0.0
+  },
+  "rules": []
+}

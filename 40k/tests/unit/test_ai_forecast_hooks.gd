@@ -185,7 +185,8 @@ func test_position_lookahead() -> void:
 		"taking the centre (Immovable Object) is worth VP by the end of next round (%+.1f vs %+.1f)" % [float(go_np.margin), float(stay.margin)])
 	_check(go.sim.turns.size() == 4 and float(go.sim.turns[0].own_end.obj_center[0]) > 0.5,
 		"the window is this round and the next (4 player turns) and the centre is ours at the end of this turn")
-	_check(AIDM.FORECAST_POSSIM == 0.0 and AIDM.FORECAST_PLAN == 0.0, "position look-ahead plan pricing ships off")
+	_check(AIDM.FORECAST_PLAN == 1.0 and AIDM.FORECAST_POSSIM == 1.0 and AIDM.FORECAST_POSSIM_TURNS == 1 and AIDM.FORECAST_POSSIM_DAMAGE == 0.0,
+		"shipped: plan swaps priced by the look-ahead, this turn only, reach only (the full window lost 8 VP a game)")
 
 func _unit_at(owner: int, n: int, at: Vector2) -> Dictionary:
 	var u := _unit(owner, n, ["INFANTRY"])
