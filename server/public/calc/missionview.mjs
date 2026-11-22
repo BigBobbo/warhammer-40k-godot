@@ -235,7 +235,25 @@ export function matchupData() {
   };
 }
 export function registerHost(id, fn) { HOSTS[id] = fn; }
-export function missionNewGame() { const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+/** The mission state (for a saved game) and the saved game it came from. */
+export const missionState = () => ms();
+export function missionSetSavedId(id) { ms().savedId = id; persist(); }
+/**
+ * Put a saved game on the tracker (games.mjs missionPart): its tracker, first turn, choices, objective plan and
+ * clock. Undo starts empty; the forecast is worked out again. Opens the Play view.
+ */
+export function missionLoadGame(part, id, fields) {
+  const m = ms();
+  for (const k of fields) if (part[k] !== undefined) m[k] = JSON.parse(JSON.stringify(part[k]));
+  m.clock = { ...PT.newClock(), ...(m.clock ?? {}) };
+  PT.ensureGame(m.game);
+  m.undo = []; m.savedId = id; m.tab = 'play';
+  m.result = null; m.levers = []; m.compare = []; m.modeCompare = null;
+  toTop = true;
+  persist();
+  scheduleForecast();
+}
 export const missionInProgress = () => inProgress();
 /** The score on the tracker (Battle Ready included), for the event card. */
 export const missionScore = () => ({ A: totalVp('A'), B: totalVp('B'), over: !!ms().game.over, started: inProgress() });
@@ -660,6 +678,7 @@ function playView() {
       <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode closes the forecast, the card advice, the calculator and the board planner, and leaves the tracker.'} Some events do not allow apps that help with decisions during a game: check your event pack.</div>
       <button class="btn ghost" style="margin-top:10px" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button>
     </div></section>
+    <section class="section a-games o8" id="play-games-host">${ctx.gamesCard?.('play') ?? ''}</section>
   </div></div>`;
 }
 
@@ -1280,6 +1299,8 @@ export function missionAction(action, el) {
       for (const P of ['A', 'B']) { g[P].cpAsk = false; g[P].swapPending = false; }
       if (m.clock.mode === 'chess' && m.clock.running) { if (res.ended) PT.chessPause(m.clock, Date.now()); else PT.chessRun(m.clock, g.next, Date.now()); }
       console.log(`[mission] turn done -> round ${g.round}, ${g.next}'s turn${res.ended ? ' (battle over)' : ''}; CP A ${g.A.cp} B ${g.B.cp}`);
+      // the end of the battle: the game is saved (Saved games), under its name if it has one
+      if (res.ended) ctx.autoSave?.('the battle is over');
       break;
     }
     case 'mission-tab': m.tab = el.dataset.value; toTop = true; persist(); return 'render';
@@ -1290,7 +1311,7 @@ export function missionAction(action, el) {
       break;
     }
     // a new game: the tracker is cleared (Undo brings it back) and the first turn is rolled for again
-    case 'mission-reset': remember('new game'); m.game = newGame(); m.first = null; break;
+    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; break;
     default: return null;
   }
   persist();

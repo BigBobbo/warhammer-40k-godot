@@ -14,9 +14,10 @@ import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, syncWake, _missionDebug } from './missionview.mjs';
-import { initEvent, eventCard, eventAction, eventChange, _eventDebug } from './eventview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, _boardDebug } from './boardview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, syncWake, _missionDebug } from './missionview.mjs';
+import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
+import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
 
 const LS_KEY = 'w40k_calc_v1';
@@ -73,6 +74,111 @@ function restoreLibrary() {
   try { state.library = JSON.parse(localStorage.getItem(LIB_KEY) ?? '[]') ?? []; } catch { state.library = []; }
 }
 
+// ---- Saved games (games.mjs): a game on the tracker kept under a name, loaded back later
+function persistGames() {
+  try { localStorage.setItem(GAMES_KEY, JSON.stringify(state.games)); return true; } catch (e) { console.warn('[calc] saved games: storage full', e); return false; }
+}
+function restoreGames() {
+  try { state.games = JSON.parse(localStorage.getItem(GAMES_KEY) ?? '[]') ?? []; } catch { state.games = []; }
+  if (!Array.isArray(state.games)) state.games = [];
+}
+function gameParts() {
+  return {
+    lists: { A: loadedText('A'), B: loadedText('B') }, attach: state.attach, armies: { A: state.armies.A?.faction, B: state.armies.B?.faction },
+    board: boardSnapshot(listsSignature({ A: loadedText('A'), B: loadedText('B') })), mission: missionState(), event: eventRoundInfo(), app: CALC_VERSION,
+  };
+}
+const linkedGame = () => { const id = state.mission?.savedId; return id ? state.games.find(g => g.id === id) ?? null : null; };
+function gameNote(msg) { state.gameMsg = msg; console.log(`[calc] saved games: ${msg}`); }
+/** A saved game is a game between two lists: the tracker stays linked to it only while they are loaded. */
+const loadedText = (X) => state.loaded?.[X] ?? state.texts[X];
+const sameLists = (rec) => !!rec && rec.lists.A === loadedText('A') && rec.lists.B === loadedText('B');
+/**
+ * Before a loaded list is replaced: a game is played between two lists, so the game on the tracker is saved
+ * (when it is under way) and the tracker starts a new game for the new lists.
+ */
+function leaveSavedGame(why) {
+  const kept = autoSave(why) ?? (missionInProgress() ? linkedGame() : null);
+  if (missionInProgress()) {
+    missionNewGame();
+    if (kept) gameNote(`Saved “${kept.name}”: a list changed, so a new game starts on the tracker. Load it from Saved games to carry on.`);
+  } else if (state.mission?.savedId) missionSetSavedId(null);
+}
+/** Save the game on the tracker: into the saved game it came from, or as a new one. */
+function saveGame({ asNew = false, name = null, why = '' } = {}) {
+  if (!state.armies.A || !state.armies.B) return null;
+  const link = linkedGame();
+  const linked = asNew || !sameLists(link) ? null : link;
+  const rec = makeGame({ ...gameParts(), id: linked?.id, name: name ?? (state.gameName?.trim() || linked?.name || '') });
+  const { games, dropped } = upsertGame(state.games, rec);
+  state.games = games;
+  if (!persistGames()) { gameNote('Could not save: this device has no room left. Delete old saved games or save a backup file.'); return null; }
+  missionSetSavedId(rec.id);
+  state.gameName = null;
+  gameNote(`${why ? `Saved (${why})` : 'Saved'}: “${rec.name}” at ${new Date(rec.saved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.${dropped.length ? ` The oldest saved game (${dropped.map(g => `“${g.name}”`).join(', ')}) was removed to make room.` : ''}`);
+  return rec;
+}
+/** Before the tracker is replaced: keep the game in progress (only when it changed since it was last saved). */
+function autoSave(why = '') {
+  if (!state.armies.A || !state.armies.B || !missionInProgress()) return null;
+  if (sameLists(linkedGame()) && sameGame(linkedGame(), gameParts())) return null;
+  return saveGame({ why });
+}
+function loadGame(id) {
+  const rec = state.games.find(g => g.id === id);
+  if (!rec) return;
+  const ok = checkGame(rec);
+  if (!ok.ok) { gameNote(ok.why); return; }
+  const kept = autoSave('before loading another game');
+  const listsChanged = state.texts.A !== rec.lists.A || state.texts.B !== rec.lists.B || JSON.stringify(state.attach) !== JSON.stringify(rec.attach);
+  state.texts = { ...rec.lists };
+  state.attach = { A: rec.attach?.A ?? null, B: rec.attach?.B ?? null };
+  parseArmy('A'); parseArmy('B');
+  if (listsChanged) {
+    for (const st of Object.values(state.setups)) { st.attackers = []; st.targetKey = null; st.defOverrides = {}; }
+    state.grid = null; state.result = null;
+  }
+  boardRestore(rec.board);
+  missionLoadGame(rec.mission, rec.id, MISSION_FIELDS);
+  state.view = 'mission';
+  gameNote(`Loaded “${rec.name}” (${stateText(rec)}).${kept ? ` The game that was on the tracker is saved as “${kept.name}”.` : ''}`);
+}
+const fmtSaved = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; };
+function gameRowsHtml() {
+  const cur = state.mission?.savedId;
+  return state.games.map(g => {
+    const s = summarize(g);
+    const me = s.me, opp = me === 'A' ? 'B' : 'A';
+    return `<div class="game-row${g.id === cur ? ' on' : ''}" data-game="${esc(g.id)}">
+      <div class="grow"><div><b>${esc(g.name)}</b>${g.id === cur ? ' <span class="pill good">on the tracker</span>' : ''}</div>
+        <div class="tiny muted">${esc(s.factions.A)} v ${esc(s.factions.B)} · ${esc(stateText(g))} · <b class="score">${s.score[me]}–${s.score[opp]}</b> VP · saved ${esc(fmtSaved(g.saved))}</div></div>
+      <button class="btn" data-action="game-load" data-id="${esc(g.id)}" aria-label="Load ${esc(g.name)}">Load</button>
+      <button class="icon-btn" data-action="game-delete" data-id="${esc(g.id)}" aria-label="Delete ${esc(g.name)}">✕</button></div>`;
+  }).join('');
+}
+/** The Saved games card: on the Play view (save and load) and on the Armies tab (load). */
+function gamesCard(where) {
+  const n = state.games.length;
+  const list = n ? `<div class="game-list" id="game-list-${where}">${gameRowsHtml()}</div>` : '<p class="hint" style="margin:6px 0">No saved games yet.</p>';
+  const msg = state.gameMsg ? `<div class="small" id="game-msg-${where}" style="margin-top:6px">${esc(state.gameMsg)}</div>` : '';
+  if (where !== 'play') {
+    return `<details class="more card" style="margin-top:12px" data-details="games" ${state.openGames ? 'open' : ''} id="games-card"><summary>Saved games (${n})</summary>
+      <p class="small muted" style="margin:6px 0">Load a game to carry on where you stopped: both lists, the board plans and the tracker come back. Save a game from Mission → Play.</p>${msg}${list}</details>`;
+  }
+  const linked = sameLists(linkedGame()) ? linkedGame() : null;
+  const same = linked && sameGame(linked, gameParts());
+  const name = state.gameName ?? linked?.name ?? defaultName({ armies: { A: state.armies.A?.faction, B: state.armies.B?.faction }, event: eventRoundInfo() });
+  return `<div class="card" id="play-games"><div class="row" style="align-items:baseline;gap:8px"><div class="title">Saved games</div>
+    <div class="tiny muted grow" id="game-status" title="Games are also saved when the battle ends, before New game, before another game is loaded and when a list changes.">${linked ? (same ? `Saved ${esc(fmtSaved(linked.saved))}` : 'Changes not saved yet') : 'This game is not saved yet'}</div></div>
+    <div class="row" style="gap:6px;margin-top:6px">
+      <input class="sel grow" data-input="game-name" id="game-name" value="${esc(name)}" maxlength="80" aria-label="Name of this game">
+      <button class="btn primary" data-action="game-save" id="game-save">💾 Save</button>
+    </div>
+    ${linked ? '<button class="btn ghost block" style="margin-top:6px" data-action="game-save-new" id="game-save-new">Save as a new game</button>' : ''}${msg}
+    ${n ? `<details class="more" data-details="games-play" ${state.openGamesPlay ? 'open' : ''} style="margin-top:8px"><summary>Load a saved game (${n})</summary>${list}</details>` : ''}
+  </div>`;
+}
+
 const SAVED_KEY = 'w40k_calc_saved_v1';
 function persistSaved() {
   try { localStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); } catch { /* best effort */ }
@@ -81,8 +187,8 @@ function restoreSaved() {
   try { state.saved = JSON.parse(localStorage.getItem(SAVED_KEY) ?? '[]') ?? []; } catch { state.saved = []; }
 }
 // Which lists a scenario was made with (unit keys are only valid for them).
-function listsSignature() {
-  const str = JSON.stringify([state.texts.A, state.texts.B, state.attach]);
+function listsSignature(texts = state.texts) {
+  const str = JSON.stringify([texts.A, texts.B, state.attach]);
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
@@ -136,6 +242,7 @@ function parseArmy(side) {
   if (!text.trim()) return;
   try {
     state.armies[side] = importArmy(text);
+    (state.loaded ??= {})[side] = text;   // the list this army was read from (the box can be edited before the next Load)
     if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
     console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units`);
   } catch (e) {
@@ -599,6 +706,7 @@ function armiesView() {
   return `<div class="lay2"><div class="col">${panel('A')}</div><div class="col">${panel('B')}</div></div>
     <button class="btn primary block" data-action="view" data-value="attack" ${ready ? '' : 'disabled'}>${ready ? 'Start calculating →' : 'Load both armies to start'}</button>
     ${eventCard()}
+    ${gamesCard('armies')}
     ${backupCard()}
     <p class="hint" id="data-footer">Lists stay on this device. Works offline once loaded. App version ${esc(CALC_VERSION)} · 11th edition rules · rules data: 40kdc ${esc(DATASET_VERSION)} with codex datasheets${ERRATA_RESULT.points || ERRATA_RESULT.weapons ? ` and the points and weapon profiles of ${esc(ERRATA_RESULT.from)}` : ''}, newest ${fmtDataDate(dataNewest())}. Rules changed after the date shown for an army are not in the numbers.
       <br><span id="data-credit">Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a> (Alpaca Software and the 40kdc community, CC BY 4.0).</span></p>
@@ -1207,6 +1315,7 @@ function librarySheet() {
 
 // Load a list into army `side`, dropping setups that referred to the old list's units.
 function loadListInto(side, text) {
+  if (state.armies[side] && text !== loadedText(side)) leaveSavedGame('a list was changed');
   state.texts[side] = text;
   state.attach[side] = null;
   parseArmy(side);
@@ -1712,6 +1821,20 @@ app.addEventListener('click', (ev) => {
     if (missionAction(a, el) === 'render') changed({ calc: false });
     return;
   }
+  if (a.startsWith('game-')) {
+    if (a === 'game-save') saveGame();
+    else if (a === 'game-save-new') saveGame({ asNew: true });
+    else if (a === 'game-load') loadGame(el.dataset.id);
+    else if (a === 'game-delete') {
+      const g = state.games.find(x => x.id === el.dataset.id);
+      if (!g || !window.confirm(`Delete the saved game “${g.name}”?`)) return;
+      state.games = removeGame(state.games, g.id);
+      persistGames();
+      if (state.mission?.savedId === g.id) missionSetSavedId(null);
+      gameNote(`Deleted “${g.name}”.`);
+    }
+    return changed({ calc: false });
+  }
   if (a.startsWith('board-')) {
     if (boardAction(a, el) === 'render') changed();
     return;
@@ -1747,6 +1870,7 @@ app.addEventListener('click', (ev) => {
     case 'parse': {
       const side = el.dataset.side;
       const ta = app.querySelector(`textarea[data-side="${side}"]`);
+      if (state.armies[side] && (ta?.value ?? '') !== loadedText(side)) leaveSavedGame('a list was changed');
       state.texts[side] = ta?.value ?? '';
       state.attach[side] = null; // a (re)loaded list starts from its own attachments
       parseArmy(side);
@@ -2157,6 +2281,7 @@ app.addEventListener('input', (ev) => {
   const el = ev.target;
   if (el.dataset.input === 'mission-score') { missionChange(el); return; }
   if (el.dataset.input === 'text') { state.texts[el.dataset.side] = el.value; persist(); }
+  if (el.dataset.input === 'game-name') { state.gameName = el.value; return; }
   if (el.dataset.input === 'intel-search') {
     state.intelQuery = el.value;
     const list = document.getElementById('intel-list');
@@ -2171,6 +2296,8 @@ app.addEventListener('toggle', (ev) => {
   if (el.dataset?.details?.startsWith('brief-')) (state.briefOpen ??= {})[el.dataset.details.slice(6)] = el.open;
   if (el.dataset?.details === 'board-tray' && state.board) state.board.trayClosed = !el.open;
   // Mission tab panels stay open while their buttons re-draw the page
+  if (el.dataset?.details === 'games') state.openGames = el.open;
+  if (el.dataset?.details === 'games-play') state.openGamesPlay = el.open;
   if (el.dataset?.details?.startsWith('mission-') && state.mission) (state.mission.open ??= {})[el.dataset.details] = el.open;
   if (el.dataset?.details === 'mods') {
     const e = findEntry(el.dataset.uid);
@@ -2184,6 +2311,7 @@ app.addEventListener('toggle', (ev) => {
 restore();
 restoreSaved();
 restoreLibrary();
+restoreGames();
 initBoard({
   state, esc, seg, chip, signature: listsSignature, wide,
   // one army's list (for "use my deployment against another opponent")
@@ -2209,7 +2337,7 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
-initMission({ state, esc, seg, chip, pairOdds, wide });
+initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave });
 initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
 parseArmy('A');

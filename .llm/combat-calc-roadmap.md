@@ -355,3 +355,19 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   doctrine effects beyond the chips; Hammer Blow; Imperium's Sword (its weapon
   text is cut off in the data). Not merged, not deployed: the live site is the
   build before this round.
+
+## Saved games (user: "save and load games", 22 Nov 2026)
+
+- BUILT in v1.108.0, browser-tested. `games.mjs` (pure, tests/calc-games.test.mjs):
+  a saved game = both list texts + attachments, the board settings and the plans
+  made with those lists (`boardview.boardSnapshot`), and the mission fields of a
+  game (`MISSION_FIELDS`: tracker, first turn, modes, objective plan, clock; a
+  running clock is stopped at save time). Stored under `w40k_calc_games_v1`
+  (part of backups and transfer codes), newest first, at most 100.
+- UI: a "Saved games" card on the Play view (name, Save / Save as a new game,
+  load list) and on the Armies tab (load / delete, works without lists loaded).
+- The tracker is linked to a saved game (`mission.savedId`) only while its two
+  lists are loaded (`state.loaded`: the text each army was read from). It is
+  saved automatically when the battle ends, before New game, before loading
+  another game, and before a different list is loaded; a new list starts a new
+  game on the tracker.

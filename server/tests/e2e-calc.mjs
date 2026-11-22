@@ -2499,6 +2499,108 @@ Aggressor Squad (95 points)
     await lctx.close();
   }
 
+  // --- saved games (1.108): save the game on the tracker, play another, load the first one back
+  {
+    const { readFileSync } = await import('fs');
+    const CUST = readFileSync('/home/user/warhammer-40k-godot/server/tests/fixtures/gw-custodes-nbhyphen.txt', 'utf8');
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`saved games: ${m.text()}`); });
+    gp.on('pageerror', e => consoleErrors.push(`saved games: ${e}`));
+    const dialogs = [];
+    gp.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
+    await gp.goto(`${BASE}/calc/`);
+    await gp.waitForSelector('textarea[data-side="A"]');
+    const gtxt = async (q) => (await gp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => gp.evaluate(() => { const s = window.__calc.state; const g = s.mission.game; return { savedId: s.mission.savedId ?? null, round: g.round, next: g.next, A: { p: g.A.primary, s: g.A.secondary, cp: g.A.cp, hand: g.A.hand }, B: { p: g.B.primary, cp: g.B.cp }, over: !!g.over, clock: s.mission.clock, lists: [s.armies.A?.faction, s.armies.B?.faction], games: s.games.map(x => x.name) }; });
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.fill('textarea[data-side="B"]', ORK_LIST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    check('Armies: a Saved games card, empty at first', /Saved games \(0\)/.test(await gtxt('#games-card > summary')));
+    // a board plan: the Grey Hunters on the board
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-svg');
+    await gp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await gp.evaluate(() => { const p = window.__calc.board().plan; const tk = Object.keys(p.steps[0].tokens)[0]; Object.assign(p.steps[0].tokens[tk], { x: 12.5, y: 8.5 }); });
+    await gp.locator('button[data-action="board-variant"][data-value="2"]').scrollIntoViewIfNeeded();
+    // the game: A scores 5 primary, draws a card, turn done; a chess clock runs
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-bar');
+    await gp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await gp.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
+    await gp.tap('#play-turn-done');
+    await gp.locator('button[data-action="mission-clock-mode"][data-value="chess"]').tap();
+    await gp.locator('button.clock-tile[data-side="B"]').tap();
+    await gp.waitForTimeout(2200);
+    check('Play: the game is not saved yet', /This game is not saved yet/.test(await gtxt('#game-status')) && (await gp.inputValue('#game-name')) === 'Space Wolves v Orks');
+    await gp.fill('#game-name', 'Practice game 1');
+    await gp.locator('#game-save').scrollIntoViewIfNeeded();
+    await gp.tap('#game-save');
+    let st = await mission();
+    const order = await gp.evaluate(() => { const y = (s) => document.querySelector(s).getBoundingClientRect().top; return { bar: y('#play-bar'), games: y('#play-games'), opts: y('#play-options') }; });
+    check('Play: the Saved games card sits at the end of the Play view, after the options', order.games > order.opts && order.opts > order.bar, JSON.stringify(order));
+    check('Save: the game is in the list under its name, and the tracker is linked to it', st.games.join('|') === 'Practice game 1' && !!st.savedId && /Saved: “Practice game 1”/.test(await gtxt('#game-msg-play')) && /^Saved /.test(await gtxt('#game-status')), JSON.stringify(st.games));
+    const saved1 = await gp.evaluate(() => window.__calc.state.games[0]);
+    check('the saved game holds the lists, the board plan, the tracker and a stopped clock', saved1.armies.A === 'Space Wolves' && saved1.armies.B === 'Orks' && saved1.mission.game.A.primary === 5 && saved1.mission.game.A.hand[0] === 'assassination' && saved1.mission.game.next === 'B'
+      && Object.keys(saved1.board.plans).length === 1 && saved1.mission.clock.running == null && saved1.mission.clock.left.B < 85 * 60000 && saved1.mission.clock.left.B > 84 * 60000, JSON.stringify({ plans: Object.keys(saved1.board.plans), clock: saved1.mission.clock }));
+    await gp.locator('#play-games').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_87_saved_game.png') });
+    // a change: "Changes since the last save"
+    await gp.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    check('a change since saving is shown', /Changes not saved yet/.test(await gtxt('#game-status')));
+    // another opponent: the Custodes as army B, and a new game against them
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.fill('textarea[data-side="B"]', CUST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-reset');
+    st = await mission();
+    const g1 = await gp.evaluate(() => window.__calc.state.games[0]);
+    check('loading another list saves the game first (with the change made after saving), and a new game starts on the tracker', st.games.length === 1 && st.savedId === null && st.A.p === 0 && st.B.p === 0 && g1.mission.game.B.primary === 5 && g1.name === 'Practice game 1' && g1.armies.B === 'Orks' && /This game is not saved yet/.test(await gtxt('#game-status')) && /a list changed, so a new game starts/.test(await gtxt('#game-msg-play')), JSON.stringify({ st, B: g1.mission.game.B, armies: g1.armies }));
+    await gp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="secondary"][data-delta="5"]');
+    // load the first game back from the Armies tab
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.locator('#games-card > summary').tap();
+    check('Armies: the saved game is listed with its score and state', /Practice game 1 Space Wolves v Orks · Round 1, B's turn · 15–15 VP/.test(await gtxt('#game-list-armies')), await gtxt('#game-list-armies'));
+    await gp.locator('#game-list-armies .game-row', { hasText: 'Practice game 1' }).locator('button[data-action="game-load"]').tap();
+    await gp.waitForSelector('#play-bar');
+    st = await mission();
+    check('Load: the Orks list, the score, the card in hand, the CP and the turn come back, on the Play view', st.lists.join('|') === 'Space Wolves|Orks' && st.A.p === 5 && st.B.p === 5 && st.A.hand[0] === 'assassination' && st.next === 'B' && st.A.cp === 2 && st.B.cp === 2 && st.round === 1, JSON.stringify(st));
+    const cg = await gp.evaluate(() => window.__calc.state.games.filter(g => /Custodes/.test(g.name)).map(g => ({ n: g.name, sec: g.mission.game.A.secondary })));
+    check('… the game that was on the tracker (vs Custodes, A 5 secondary) was saved first, as its own game', cg.length === 1 && cg[0].sec === 5 && /saved as “Space Wolves v Adeptus Custodes”/.test(await gtxt('#game-msg-play')), JSON.stringify(cg) + ' | ' + await gtxt('#game-msg-play'));
+    check('… the chess clock is back, stopped, with B\'s time as it was', st.clock.mode === 'chess' && st.clock.running == null && st.clock.left.B < 85 * 60000 && st.clock.left.B > 84 * 60000);
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-svg');
+    const tok = await gp.evaluate(() => window.__calc.board().tokens);
+    check('… and the board plan: the Grey Hunters where they were', tok.length === 1 && Math.abs(tok[0].x - 12.5) < 0.01 && Math.abs(tok[0].y - 8.5) < 0.01, JSON.stringify(tok));
+    // kept over a reload
+    await gp.reload();
+    await gp.waitForSelector('#app-version-mini');
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.waitForSelector('#games-card');
+    check('saved games are kept over a reload', (await gp.evaluate(() => window.__calc.state.games.length)) === 2 && /Saved games \(2\)/.test(await gtxt('#games-card > summary')));
+    // the end of the battle saves it
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-bar');
+    await gp.tap('button[data-action="mission-round"][data-value="5"]');
+    for (let i = 0; i < 3 && !(await mission()).over; i++) await gp.tap('#play-turn-done');
+    const over = await gp.evaluate(() => window.__calc.state.games.find(g => g.name === 'Practice game 1'));
+    check('the end of the battle saves the game', over.mission.game.over === true && /Battle over/.test(await gtxt('#game-status').catch(() => '')) === false, JSON.stringify(over.mission.game.round));
+    // delete
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.locator('#games-card > summary').tap().catch(() => {});
+    dialogs.length = 0;
+    await gp.locator('#game-list-armies .game-row', { hasText: 'Adeptus Custodes' }).first().locator('button[data-action="game-delete"]').tap();
+    check('delete asks first, then removes it', /Delete the saved game “Space Wolves v Adeptus Custodes”/.test(dialogs[0] ?? '') && (await gp.evaluate(() => window.__calc.state.games.map(g => g.name).join('|'))) === 'Practice game 1');
+    await gp.locator('#games-card').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_88_saved_games_armies.png') });
+    // a backup carries the saved games
+    const bk = await gp.evaluate(async () => { const B = await import('/calc/backup.mjs'); return B.describeBackup(B.makeBackup(localStorage)).summary; });
+    check('a backup (and a transfer code) carries the saved games', /1 saved game/.test(bk), bk);
+    await gctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

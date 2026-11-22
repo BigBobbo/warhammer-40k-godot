@@ -1191,6 +1191,22 @@ export function boardPlans() {
   }));
 }
 
+/** The board of a saved game: the settings, and the plans made with these two lists (signature `sig`). */
+export function boardSnapshot(sig) {
+  const b = boardState();
+  const plans = Object.fromEntries(Object.entries(b.plans).filter(([k]) => k.endsWith(`|${sig}`)));
+  const { photoMap, ...settings } = b.settings;
+  return JSON.parse(JSON.stringify({ settings, plans }));
+}
+/** Put a saved game's board back: its layout and dispositions, and its plans (other plans stay). */
+export function boardRestore(snap) {
+  const b = boardState();
+  b.settings = { ...(b.settings.photoMap ? { photoMap: b.settings.photoMap } : {}), ...(snap?.settings ?? {}) };
+  Object.assign(b.plans, JSON.parse(JSON.stringify(snap?.plans ?? {})));
+  b.sel = b.sel2 = null; b.view = null; b.danger = null; b.arrive = null;
+  persistBoard();
+}
+
 // for the Mission tab: the mission, layout and which deployment zone is A's
 /** Event / round set-up: the layout letter of the round, dispositions back to what the lists say. */
 export function boardSetup({ variant = null, listDispositions = false } = {}) {

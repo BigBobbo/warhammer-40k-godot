@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.108.0",
+      "date": "2026-11-22",
+      "summary": "Combat Calc: save and load games",
+      "changes": [
+        "Play: Saved games. Name the game and tap Save: both army lists, the board plans and the tracker (round, scores, CP, cards, units destroyed, once-per-battle ticks, clock) are kept. Save again to update it, or save it as a new game.",
+        "Load a saved game from the Play view or from the Armies tab to carry on where you stopped. A running clock is stopped when you save, so no time is lost.",
+        "Nothing is lost by accident: the game is saved when the battle ends, before New game clears the tracker, before another game is loaded, and when a different army list is loaded (a new game then starts on the tracker).",
+        "Saved games travel with backups and the transfer code to another device."
+      ]
+    },
+    {
       "version": "1.107.0",
       "date": "2026-11-20",
       "summary": "Combat Calc: faster at the table, readable in daylight, turns with a tablet, and says which rules are in force",

@@ -246,6 +246,12 @@ export function eventChange(el) {
   return false;
 }
 
+/** The event round the loaded opponent belongs to: { name, round } or null (for a saved game's name). */
+export function eventRoundInfo() {
+  const e = ev();
+  return roundLabel() ? { name: e.name ?? '', round: e.round } : null;
+}
+
 /** "Round 2 · Layout B · vs Orks – Waaagh" for the brief, when the loaded army B is this round's opponent. */
 export function roundLabel() {
   const e = ev(), st = ctx.state;
