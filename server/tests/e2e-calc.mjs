@@ -2601,6 +2601,47 @@ Aggressor Squad (95 points)
     await gctx.close();
   }
 
+  // --- matchup grid (1.108.1): Shooting / Fight in the grid; a tapped cell opens the matchup on the Attack tab
+  {
+    const mctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mp = await mctx.newPage();
+    mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`grid: ${m.text()}`); });
+    mp.on('pageerror', e => consoleErrors.push(`grid: ${e}`));
+    await mp.goto(`${BASE}/calc/`); await mp.waitForSelector('textarea[data-side="A"]');
+    await mp.fill('textarea[data-side="A"]', SW_LIST); await mp.tap('button[data-action="parse"][data-side="A"]');
+    await mp.fill('textarea[data-side="B"]', ORK_LIST); await mp.tap('button[data-action="parse"][data-side="B"]');
+    const st = () => mp.evaluate(() => { const s = window.__calc.state; const su = s.setups[`${s.side}:${s.phase}`]; return { view: s.view, sheet: s.sheet, phase: s.phase, side: s.side, target: su?.targetKey ?? null, attackers: (su?.attackers ?? []).map(a => a.unitKey), grid: s.grid ? { phase: s.grid.phase, done: s.grid.done } : null }; });
+    // from the Intel brief
+    await mp.tap('button[data-action="view"][data-value="intel"]');
+    await mp.waitForSelector('button[data-action="brief-grid"]');
+    await mp.tap('button[data-action="brief-grid"]');
+    await mp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 120000 });
+    check('the grid has a Shooting / Fight switch, on Shooting', (await mp.locator('#grid-phase button[data-value="shooting"].on').count()) === 1 && (await mp.textContent('#grid-host th.corner')).trim() === 'Shooting');
+    await mp.tap('#grid-phase button[data-value="fight"]');
+    await mp.waitForFunction(() => { const g = window.__calc.state.grid; return g?.phase === 'fight' && g.done; }, null, { timeout: 120000 });
+    let s = await st();
+    check('Fight: the grid is worked out again for the Fight phase', s.phase === 'fight' && s.sheet === 'grid' && (await mp.textContent('#grid-host th.corner')).trim() === 'Fight' && (await mp.locator('#grid-phase button[data-value="fight"].on').count()) === 1, JSON.stringify(s));
+    await mp.screenshot({ path: join(SHOTS, 'calc_89_grid_phase.png') });
+    const cell = mp.locator('#grid-host button.cell').first();
+    const want = { atk: await cell.getAttribute('data-atk'), def: await cell.getAttribute('data-def') };
+    await cell.tap();
+    await mp.waitForFunction(() => { const s = window.__calc.state; return s.view === 'attack' && s.result && !s.busy; }, null, { timeout: 60000 });
+    s = await st();
+    check('a tapped cell (opened from the Intel brief) opens that matchup on the Attack tab, in the Fight phase', s.view === 'attack' && s.sheet === null && s.phase === 'fight' && s.target === want.def && s.attackers.join() === want.atk && (await mp.locator('button[data-action="phase"][data-value="fight"].on').count()) === 1, JSON.stringify({ s, want }));
+    await mp.evaluate(() => window.scrollTo(0, 0));
+    await mp.screenshot({ path: join(SHOTS, 'calc_90_grid_opened.png') });
+    // back on Shooting from the Attack tab's grid
+    await mp.tap('button[data-action="open-grid"]');
+    await mp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 120000 });
+    await mp.tap('#grid-phase button[data-value="shooting"]');
+    await mp.waitForFunction(() => { const g = window.__calc.state.grid; return g?.phase === 'shooting' && g.done; }, null, { timeout: 120000 });
+    await mp.locator('#grid-host button.cell').nth(2).tap();
+    await mp.waitForFunction(() => window.__calc.state.sheet === null, null, { timeout: 10000 });
+    s = await st();
+    check('… and from the Attack tab, a Shooting cell opens a shooting matchup', s.view === 'attack' && s.phase === 'shooting' && !!s.target && s.attackers.length === 1, JSON.stringify(s));
+    await mctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

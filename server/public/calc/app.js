@@ -1289,7 +1289,8 @@ function updateGrid() {
 function gridSheet() {
   const g = state.grid;
   return `<div class="row"><h3 class="grow">Matchup grid</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
-    <div class="muted small" style="margin-bottom:8px">${esc(atkArmy().faction)} (rows) attacking ${esc(defArmy().faction)} (columns) · ${state.phase}. Always-on rules only — no stratagems or situational bonuses. Tap a cell to open that matchup.</div>
+    <div class="muted small" style="margin-bottom:8px">${esc(atkArmy().faction)} (rows) attacking ${esc(defArmy().faction)} (columns). Always-on rules only — no stratagems or situational bonuses. Tap a cell to open that matchup in the calculator.</div>
+    <div id="grid-phase" style="margin-bottom:6px">${seg('grid-phase', state.phase, [['shooting', 'Shooting'], ['fight', 'Fight']])}</div>
     ${seg('grid-metric', state.gridMetric, [['damage', '% W'], ['kills', 'Kills'], ['wipe', 'Wipe'], ['points', 'Pts'], ['eff', 'Pts/100']], 'compact')}
     <div class="tiny muted" style="margin-top:4px">${{ damage: '% of the unit’s wounds removed', kills: 'average models destroyed', wipe: 'chance the unit is destroyed', points: 'average points of models destroyed', eff: 'points destroyed per 100 points of the attacking unit' }[state.gridMetric] ?? ''}</div>
     <div class="grid-wrap" id="grid-host">${gridTable()}</div>
@@ -2026,11 +2027,23 @@ app.addEventListener('click', (ev) => {
     case 'grid-metric':
       state.gridMetric = el.dataset.value;
       return renderSheet();
+    case 'grid-phase':
+      // the grid follows the calculator's phase: switching it here switches the Attack tab too
+      if (state.phase === el.dataset.value) return;
+      state.phase = el.dataset.value;
+      persist();
+      startGrid();
+      return renderSheet();
     case 'grid-pick': {
-      // open that matchup: this unit is the only attacker, the column unit the target
-      s.targetKey = el.dataset.def;
-      s.attackers = [{ uid: uidSeq++, unitKey: el.dataset.atk, counts: {}, mods: {} }];
+      // open that matchup on the Attack tab (the grid can be opened from the Intel brief too):
+      // this unit is the only attacker, the column unit the target, in the grid's phase
+      if (state.grid) { state.side = state.grid.side; state.phase = state.grid.phase; }
+      const ps = setup();
+      ps.targetKey = el.dataset.def;
+      ps.attackers = [{ uid: uidSeq++, unitKey: el.dataset.atk, counts: {}, mods: {} }];
       state.sheet = null;
+      state.view = 'attack';
+      console.log(`[calc] grid: open ${el.dataset.atk} -> ${el.dataset.def} (${state.phase})`);
       window.scrollTo(0, 0);
       return changed();
     }

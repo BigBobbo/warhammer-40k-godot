@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.108.1",
+      "date": "2026-11-22",
+      "summary": "Combat Calc: the matchup grid switches between Shooting and Fight, and a tapped cell opens",
+      "changes": [
+        "Matchup grid: a Shooting / Fight switch at the top of the grid.",
+        "Tapping a cell now always opens that matchup in the calculator. Opened from the matchup brief on the Intel tab, it used to set the matchup up without leaving Intel, so the tap seemed to do nothing."
+      ]
+    },
+    {
       "version": "1.108.0",
       "date": "2026-11-22",
       "summary": "Combat Calc: save and load games",
