@@ -2642,6 +2642,116 @@ Aggressor Squad (95 points)
     await mctx.close();
   }
 
+  // --- branching plans (1.109): decisions and chances after a turn; the forecast of each branch
+  {
+    const tctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const tp = await tctx.newPage();
+    tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branches: ${m.text()}`); });
+    tp.on('pageerror', e => consoleErrors.push(`branches: ${e}`));
+    tp.on('dialog', d => d.accept());
+    await tp.goto(`${BASE}/calc/`); await tp.waitForSelector('textarea[data-side="A"]');
+    await tp.fill('textarea[data-side="A"]', SW_LIST); await tp.tap('button[data-action="parse"][data-side="A"]');
+    await tp.fill('textarea[data-side="B"]', ORK_LIST); await tp.tap('button[data-action="parse"][data-side="B"]');
+    const ttxt = async (q) => (await tp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const dbg = () => tp.evaluate(() => { const d = window.__calc.board(); return { tokens: d.tokens, v: window.__calc.state.board.plans, steps: [...document.querySelectorAll('button[data-action="board-step"]')].map(b => `${b.textContent.trim()}${b.classList.contains('on') ? '*' : ''}`) }; });
+    const pos = async (tk) => (await tp.evaluate(() => window.__calc.board().tokens)).find(t => t.tk === tk);
+    const setPos = (tk, x, y) => tp.evaluate(([t, px, py]) => { const toks = window.__calc.board().stepTokens; toks[t] = { ...(toks[t] ?? {}), x: px, y: py }; }, [tk, x, y]);
+    const redraw = () => tp.evaluate(() => document.querySelector('button[data-action="board-step"].on')?.click());
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-svg');
+    await tp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await tp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Meganobz' }).tap();
+    const toks = await tp.evaluate(() => window.__calc.board().tokens.map(t => t.tk));
+    const GH = toks.find(t => t.startsWith('A:')), MN = toks.find(t => t.startsWith('B:'));
+    await setPos(GH, 22, 26); await setPos(MN, 22, 36);
+    await tp.locator('button[data-action="board-step-add"]').tap();          // Turn 1
+    // ⑂ after Turn 1: my decision, go left or go right
+    await tp.locator('#board-branch').tap();
+    await tp.waitForSelector('#board-tree .tsplit');
+    let d = await dbg();
+    check('⑂ Branch here: a second path that starts at Turn 2, both paths have Turn 2', d.steps.join('|') === 'Deploy|Turn 1|Turn 2*' && (await tp.locator('#board-tree .topt').count()) === 2 && /After Turn 1/.test(await ttxt('#board-tree .tsplit')), d.steps.join('|'));
+    const opts = tp.locator('#board-tree .tsplit').first().locator(':scope > .topt');
+    await opts.nth(0).locator('input.tlabel').fill('Go left'); await opts.nth(0).locator('input.tlabel').blur();
+    await opts.nth(1).locator('input.tlabel').fill('Go right'); await opts.nth(1).locator('input.tlabel').blur();
+    await tp.waitForTimeout(300);
+    check('the branch shows its path: Main ▸ Go right', /◉ is on the board: Main ▸ Go right/.test(await ttxt('#board-tree')));
+    // in "Go right", Turn 2: the Grey Hunters go right
+    await setPos(GH, 36, 28); await redraw();
+    // a shared turn: move the Meganobz in Turn 1 of "Go right" -> it is the same Turn 1 in "Go left"
+    await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    await setPos(MN, 20, 34); await redraw();
+    await tp.locator('#board-tree .topt').first().locator('button[data-action="board-branch-view"]').tap();
+    const onLeft = /◉ is on the board: Main(?! ▸)/.test(await ttxt('#board-tree'));
+    await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    const leftT1 = await pos(MN);
+    await tp.locator('button[data-action="board-step"][data-i="2"]').tap();
+    const leftGh = await pos(GH);
+    check('turns before the split are shared: Turn 1 moved in one branch is moved in the other; Turn 2 is each branch’s own', onLeft && Math.abs(leftT1.x - 20) < 0.01 && Math.abs(leftGh.x - 22) < 0.01, JSON.stringify({ onLeft, leftT1, leftGh }));
+    // on "Go left", after Turn 2: a chance - their charge destroys the Grey Hunters
+    await setPos(MN, 22, 33); await redraw();       // the Meganobz end Turn 2 about 5" from the Grey Hunters
+    await tp.locator('#board-branch').tap();
+    await tp.waitForFunction(() => document.querySelectorAll('#board-tree .tsplit').length === 2);
+    const inner = tp.locator('#board-tree .tsplit').nth(1);
+    await inner.locator('button[data-action="board-split-kind"][data-value="chance"]').tap();
+    await tp.locator('#board-tree .tsplit').nth(1).locator('button[data-action="board-split-auto"][data-value="wipe"]').tap();
+    const in2 = () => tp.locator('#board-tree .tsplit').nth(1);
+    await in2().locator('select[data-input="board-split-atk"]').selectOption(MN);
+    await in2().locator('select[data-input="board-split-def"]').selectOption(GH);
+    await in2().locator('button[data-action="board-split-how"][data-value="charge"]').tap();
+    await tp.waitForFunction(() => /From the calculator: \d+%/.test(document.querySelectorAll('#board-tree .tsplit')[1]?.textContent ?? ''), null, { timeout: 120000 });
+    const why = await in2().locator('[data-auto-why]').textContent();
+    const labels = await in2().locator(':scope > .topt input.tlabel').evaluateAll(els => els.map(e => e.value));
+    const ph = await in2().locator(':scope > .topt input[data-input="board-branch-p"]').evaluateAll(els => els.map(e => e.placeholder));
+    check('a chance from the calculator: their charge (2D6 odds of the gap) × the Grey Hunters destroyed in the fight', /From the calculator: \d+% \(charge [\d.]+" needs \d+\+: \d+% × destroyed in the fight \d+%\)/.test(why) && labels.join('|') === 'Grey Hunters survives|Grey Hunters destroyed' && Number(ph[0]) + Number(ph[1]) === 100, `${why} | ${labels} | ${ph}`);
+    // the "destroyed" branch: the Grey Hunters are off the board from Turn 3
+    await in2().locator(':scope > .topt').nth(1).locator('button[data-action="board-branch-view"]').tap();
+    d = await dbg();
+    check('in the "destroyed" branch the Grey Hunters are off the board from Turn 3', d.steps.join('|') === 'Deploy|Turn 1|Turn 2|Turn 3*' && !d.tokens.some(t => t.tk === GH) && d.tokens.some(t => t.tk === MN), JSON.stringify(d.steps));
+    // my own chance: 50%
+    await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').fill('50');
+    await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').blur();
+    await tp.waitForFunction(() => document.querySelectorAll('#board-tree .tsplit')[1]?.querySelector('.topt input[data-input="board-branch-p"]')?.placeholder === '50');
+    check('a typed chance replaces the calculator’s (50 / 50)', (await in2().locator(':scope > .topt').nth(0).locator('input[data-input="board-branch-p"]').getAttribute('placeholder')) === '50');
+    await tp.locator('#board-tree').scrollIntoViewIfNeeded();
+    await tp.screenshot({ path: join(SHOTS, 'calc_91_branches_board.png') });
+    // Mission: each branch forecast, the best decision
+    await tp.tap('button[data-action="view"][data-value="mission"]');
+    await tp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && (m.compare?.length ?? 0) >= 4; }, null, { timeout: 240000 });
+    await tp.waitForSelector('.fc-tree');
+    const res = await tp.evaluate(() => {
+      const m = window.__calc.mission();
+      const w = (k) => m.compare.find(c => c.key === k)?.result.pWinA;
+      return { rows: m.compare.map(c => c.label), w: Object.fromEntries(m.compare.map(c => [c.key, w(c.key)])), head: document.querySelector('.fc-tree .small').textContent.replace(/\s+/g, ' ').trim(), items: [...document.querySelectorAll('.fc-tree li')].map(li => li.firstElementChild.textContent.replace(/\s+/g, ' ').trim() + ' = ' + li.querySelector(':scope > b').textContent) };
+    });
+    const v = res.w;
+    const leftVal = 0.5 * v.plan0 + 0.5 * v.plan2;
+    const best = Math.max(leftVal, v.plan1);
+    const shown = Number(/you win (\d+)%/.exec(res.head)?.[1]);
+    check('Mission compares each path by name (Main ▸ Go right …)', res.rows.includes('Board: Main ▸ Go right') && res.rows.includes('Board: Main ▸ Grey Hunters destroyed'), JSON.stringify(res.rows));
+    check('the plan is worth its best decision: Go left = 50% × survives + 50% × destroyed, against Go right', Math.abs(shown - Math.round(best * 100)) <= 1 && new RegExp(`best: ${leftVal >= v.plan1 ? 'Go left' : 'Go right'}`).test(res.head), JSON.stringify({ head: res.head, leftVal, right: v.plan1, items: res.items }));
+    await tp.locator('.fc-tree').scrollIntoViewIfNeeded();
+    await tp.screenshot({ path: join(SHOTS, 'calc_92_branches_forecast.png') });
+    // at the table: the charge came in and destroyed the Grey Hunters
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-tree');
+    await in2().locator(':scope > .topt').nth(1).locator('button[data-action="board-branch-chosen"]').tap();
+    await tp.waitForSelector('#board-tree .topt.gone');
+    check('"Happened": the other outcome is greyed, the board shows the branch that happened', /✓ Happened/.test(await ttxt('#board-tree')) && (await tp.locator('#board-tree .topt.gone').count()) === 1 && /Main ▸ Go left ▸ Grey Hunters destroyed|Main ▸ Grey Hunters destroyed/.test(await ttxt('#board-tree')), await ttxt('#board-tree'));
+    await tp.tap('button[data-action="view"][data-value="mission"]');
+    await tp.waitForSelector('.fc-tree');
+    const after = await tp.evaluate(() => [...document.querySelectorAll('.fc-tree li')].map(li => li.className + ':' + li.firstElementChild.textContent.replace(/\s+/g, ' ').trim()));
+    check('Mission: only what happened counts in that branch now', after.some(x => /✓ Grey Hunters destroyed/.test(x)) && after.some(x => /^ ?gone.*Grey Hunters survives/.test(x.trim())), JSON.stringify(after));
+    // kept over a reload; delete a branch
+    await tp.reload(); await tp.waitForSelector('#app-version-mini');
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-tree');
+    check('branches are kept over a reload', (await tp.locator('#board-tree .tsplit').count()) >= 1);
+    await tp.locator('#board-tree .topt', { has: tp.locator('input[value="Go right"]') }).locator('button[data-action="board-branch-delete"]').tap();
+    await tp.waitForFunction(() => ![...document.querySelectorAll('#board-tree input.tlabel')].some(i => i.value === 'Go right'));
+    check('a branch can be deleted', (await tp.evaluate(() => Object.values(window.__calc.state.board.plans)[0].variants.length)) === 2);
+    await tctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

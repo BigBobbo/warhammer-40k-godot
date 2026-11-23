@@ -371,3 +371,25 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   saved automatically when the battle ends, before New game, before loading
   another game, and before a different list is loaded; a new list starts a new
   game on the tracker.
+
+## Branching plans (user: "plans that hinge on a decision ... a 50/50 chance they wipe a squad", 23 Nov 2026)
+
+- BUILT in v1.109.0, browser-tested (options A + B + C of the discussion).
+  `plantree.mjs` (pure, tests/calc-plantree.test.mjs): a branch is a plan
+  variant with `parent` + `from`; its steps up to `from` are `null` and resolve
+  to the ancestor's step objects, so a shared turn edited in one branch is the
+  same turn in every branch. Split data lives on the parent: `splits[at] =
+  {kind: decision|chance, label, p, chosen, auto?}`.
+- Board: "⑂ Branch here" after any turn; a Branches panel (kind, option
+  names, %, Happened/Chosen, ＋ Another option, delete subtree). A chance can be
+  "A unit is destroyed": attacker, target, Shooting / Fight / Charge + fight;
+  the % comes from the calculator (`missionview.pairWipe`; charge = 2D6 odds
+  of the measured gap × destroyed in the fight). A typed % always wins (for
+  objective cards and anything else the app cannot work out). In a
+  "destroyed" branch the target is removed from the turns after the split.
+- Mission → Plan: every path is forecast in "Your plans compared"; "Your
+  branching plans" evaluates the tree (decision = best option ★, chance =
+  weighted by %, a marked Happened/Chosen option is the only one that counts).
+- Left open: no automatic chance for completing an objective card (typed
+  only); branch win values show on Mission → Plan only, not on the Board.
+  Not merged, not deployed.

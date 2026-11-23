@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.109.0",
+      "date": "2026-11-23",
+      "summary": "Combat Calc: branching plans — plan for each outcome and see which decision wins",
+      "changes": [
+        "Board: tap ⑂ Branch here after any turn to start a second path; the turns before the split are shared by every branch",
+        "Each split is your decision (◆) or a chance (●): name the options, type the chance, or let the calculator work out if a unit is destroyed (shooting, fight, or charge + fight from the measured gap)",
+        "In a 'destroyed' branch that unit is off the board from the next turn",
+        "Type your own % to override the calculator — e.g. the chance a unit completes an objective card",
+        "Tap Happened / Chosen at the table: the other options grey out and you carry on from that point",
+        "Mission → Plan: 'Your branching plans' shows the win chance of each branch, the best decision (★), and chance outcomes weighted by their odds"
+      ]
+    },
+    {
       "version": "1.108.1",
       "date": "2026-11-22",
       "summary": "Combat Calc: the matchup grid switches between Shooting and Fight, and a tapped cell opens",

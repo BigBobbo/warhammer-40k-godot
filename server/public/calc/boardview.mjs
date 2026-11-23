@@ -14,6 +14,8 @@ import { boardUnit, earlyArrival } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
+import { ensureIds, resolveSteps, rootOf, treeOf, pathLabel, subtree, branch as branchPlan, optionsAt } from './plantree.mjs';
+import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -28,6 +30,8 @@ const LS_KEY = 'w40k_calc_board_v1';
 
 export function initBoard(c) {
   ctx = c;
+  // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
+  ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
     if (saved) Object.assign(boardState(), { settings: saved.settings ?? {}, plans: saved.plans ?? {} });
@@ -78,6 +82,8 @@ function planRoot() {
   if (!k) return null;
   let root = b.plans[k] ?? { steps: [{ name: 'Deploy', tokens: {} }], cur: 0 };
   if (root.steps) root = { variants: [{ name: 'Main', steps: root.steps, cur: root.cur ?? 0 }], v: 0 }; // older single-plan saves
+  ensureIds(root.variants);
+  root.v = Math.min(root.v ?? 0, root.variants.length - 1);
   // which layout and lists this plan belongs to (to offer my deployment against another opponent)
   const l = currentLayout();
   if (l && ctx.sideSig) root.meta = { layout: l.id, a: ctx.sideSig('A'), b: ctx.sideSig('B'), aName: ctx.listName?.('A') ?? '', bName: ctx.listName?.('B') ?? '' };
@@ -85,7 +91,7 @@ function planRoot() {
   return root;
 }
 
-const sideTokens = (root, X) => root.variants.reduce((n, vv) => n + vv.steps.reduce((m, st) => m + Object.keys(st.tokens ?? {}).filter(tk => tk.startsWith(`${X}:`)).length, 0), 0);
+const sideTokens = (root, X) => root.variants.reduce((n, vv) => n + vv.steps.reduce((m, st) => m + Object.keys(st?.tokens ?? {}).filter(tk => tk.startsWith(`${X}:`)).length, 0), 0);
 /** A plan I made on this layout with the same list of mine against another opponent (the newest with units placed). */
 function reusablePlan() {
   const b = boardState(), root = planRoot(), l = currentLayout();
@@ -108,9 +114,11 @@ function reusePlan() {
   const me = ctx.me?.() ?? 'A';
   const mineOnly = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => tk.startsWith(`${me}:`)).map(([tk, pos]) => [tk, { ...pos }]));
   const theirs = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => !tk.startsWith(`${me}:`)));
+  const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
   root.variants = src.root.variants.map((sv, vi) => ({
-    name: sv.name, cur: 0,
-    steps: sv.steps.map((st, si) => ({ name: st.name, tokens: { ...theirs(root.variants[vi]?.steps[si]?.tokens ?? root.variants[0]?.steps[Math.min(si, (root.variants[0]?.steps.length ?? 1) - 1)]?.tokens), ...mineOnly(st.tokens) } })),
+    name: sv.name, cur: 0, id: sv.id, parent: sv.parent ?? null, from: sv.from ?? null, when: sv.when, splits: clone(sv.splits), branch: clone(sv.branch),
+    // a shared turn of a branch stays shared (null)
+    steps: sv.steps.map((st, si) => (st ? { name: st.name, tokens: { ...theirs(root.variants[vi]?.steps[si]?.tokens ?? root.variants[0]?.steps[Math.min(si, (root.variants[0]?.steps.length ?? 1) - 1)]?.tokens), ...mineOnly(st.tokens) } } : null)),
   }));
   root.v = 0;
   console.log(`[board] reused my deployment from the plan vs ${src.vs}: ${src.n} unit positions`);
@@ -120,12 +128,116 @@ function plan() {
   const root = planRoot();
   return root ? root.variants[Math.min(root.v, root.variants.length - 1)] : null;
 }
+/** The steps of the path on screen (a branch: the shared turns resolved to its ancestors' steps). */
+function curSteps() {
+  const root = planRoot();
+  return root ? resolveSteps(root.variants, Math.min(root.v, root.variants.length - 1)) : [];
+}
+const curIndex = () => { const p = plan(); return p ? Math.min(p.cur ?? 0, Math.max(0, curSteps().length - 1)) : 0; };
 const VARIANT_NAMES = ['Aggressive', 'Defensive', 'Plan C', 'Plan D', 'Plan E'];
+
+// ---- branches (plantree.mjs)
+/** Show path i, at the first turn after the split at `at` (or where it was). */
+function viewPath(root, i, at) {
+  root.v = i;
+  const n = resolveSteps(root.variants, i).length;
+  root.variants[i].cur = Math.min(n - 1, Math.max(at + 1, 0));
+  const b = boardState();
+  b.sel = b.sel2 = null;
+}
+/** Remove these paths (indices); the view goes to the nearest path that is left. */
+function removePaths(root, idx) {
+  const curId = root.variants[root.v]?.id;
+  const gone = new Set(idx.map(i => root.variants[i].id));
+  let keep = root.variants[root.v];
+  while (keep && gone.has(keep.id)) keep = root.variants.find(v => v.id === keep.parent);
+  root.variants = root.variants.filter(v => !gone.has(v.id));
+  root.v = Math.max(0, root.variants.findIndex(v => v.id === (keep?.id ?? curId)));
+}
+/** The split a control in the tree panel belongs to: { pi, at }. */
+function treeTarget(el) {
+  const box = el.closest('.tsplit');
+  const root = planRoot();
+  if (!box || !root) return null;
+  const pi = root.variants.findIndex(v => v.id === box.dataset.pi);
+  return pi < 0 ? null : { pi, at: Number(box.dataset.at) };
+}
+/** Where a unit stands in a step (for the charge distance of a chance split). */
+function tokenAt(tokens, tk) {
+  const pos = tokens?.[tk];
+  if (!pos) return null;
+  const [side, key] = tk.split(':');
+  const u = unitInfo(side, key);
+  return u ? { x: pos.x, y: pos.y, models: tokenModels(u, pos) } : null;
+}
+/**
+ * The worked-out chance of a chance split ("a unit is destroyed"): from the calculator's unit-vs-unit odds
+ * (ctx.pairWipe: { shoot, fight } = chance the attacker destroys it alone), and for a charge the 2D6 odds of
+ * the gap between the two units in the turn of the split (11.04). -> { p, why } | null
+ */
+export function splitChance(split) {
+  const root = planRoot();
+  const a = split?.auto;
+  if (!root || !a?.atk || !a?.def || a.atk.split(':')[0] === a.def.split(':')[0]) return null;
+  const pw = ctx.pairWipe?.(a.atk, a.def);
+  if (!pw) return { p: null, why: 'working out the unit-vs-unit odds…' };
+  if (a.how === 'shoot') return { p: pw.shoot, why: `destroyed by its shooting: ${Math.round(pw.shoot * 100)}%` };
+  if (a.how !== 'charge') return { p: pw.fight, why: `destroyed in a fight: ${Math.round(pw.fight * 100)}%` };
+  const step = resolveSteps(root.variants, split.pi)[split.at];
+  const s1 = tokenAt(step?.tokens, a.atk), s2 = tokenAt(step?.tokens, a.def);
+  if (!s1 || !s2) return { p: null, why: `place both units on the board in ${step?.name ?? 'that turn'} for the charge distance` };
+  const gap = unitGap(s1, s2);
+  if (gap <= ENGAGEMENT_RANGE) return { p: pw.fight, why: `already engaged; destroyed in a fight: ${Math.round(pw.fight * 100)}%` };
+  const need = chargeRollNeeded(gap), pc = chargeOdds(need);
+  return { p: pc * pw.fight, why: `charge ${gap.toFixed(1)}" needs ${need}+: ${Math.round(pc * 100)}% × destroyed in the fight ${Math.round(pw.fight * 100)}%` };
+}
+const autoP = (split) => splitChance(split)?.p ?? null;
+
+/** The branches panel: every split of the plan on screen, its options, their chances, and "it happened". */
+function treeHtml() {
+  const root = planRoot();
+  if (!root) return '';
+  const vs = root.variants, ri = rootOf(vs, root.v);
+  if (!vs.some((v, i) => v.parent != null && rootOf(vs, i) === ri)) return '';
+  const esc = ctx.esc;
+  const tree = treeOf(vs, ri, autoP);
+  const units = (X) => (ctx.state.armies[X]?.units ?? []).map(u => [`${X}:${u.key}`, `${X} · ${u.name}`]);
+  const sel = (input, val, opts, label) => `<select class="sel" data-input="${input}" aria-label="${label}"><option value="">${label}…</option>${opts.map(([v, n]) => `<option value="${esc(v)}" ${v === val ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+  const node = (n) => {
+    if (!n.split) return '';
+    const s = n.split, meta = vs[s.pi].splits[s.at];
+    const after = resolveSteps(vs, s.pi)[s.at]?.name ?? `step ${s.at}`;
+    const ch = s.kind === 'chance' ? splitChance({ ...meta, pi: s.pi, at: s.at }) : null;
+    const auto = s.kind === 'chance' ? `<div class="tauto">${ctx.seg('board-split-auto', meta.auto ? 'wipe' : 'typed', [['typed', 'Type the chances'], ['wipe', 'A unit is destroyed']], 'compact')}
+      ${meta.auto ? `<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${sel('board-split-atk', meta.auto.atk, [...units('A'), ...units('B')], 'Attacker')}${sel('board-split-def', meta.auto.def, [...units('A'), ...units('B')], 'Unit destroyed')}</div>
+        <div style="margin-top:6px">${ctx.seg('board-split-how', meta.auto.how ?? 'fight', [['shoot', 'Shooting'], ['fight', 'Fight'], ['charge', 'Charge + fight']], 'compact')}</div>
+        <div class="tiny" style="margin-top:4px" data-auto-why>${ch ? `From the calculator: <b>${ch.p == null ? '…' : `${Math.round(ch.p * 100)}%`}</b> (${esc(ch.why)}). Type a chance below to use your own.` : 'Pick the attacking unit and the unit at risk.'}</div>` : ''}</div>` : '';
+    const opts = n.options.map((o, oi) => {
+      const on = o.vi === root.v, gone = s.chosen && s.chosen !== o.id, hit = s.chosen === o.id;
+      return `<div class="topt${on ? ' on' : ''}${gone ? ' gone' : ''}" data-vid="${esc(o.id)}">
+        <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="chip nocheck${on ? ' on' : ''}" data-action="board-branch-view" data-vid="${esc(o.id)}" aria-label="Show ${esc(o.label)} on the board">${on ? '◉' : '○'}</button>
+          <input class="sel grow tlabel" data-input="board-branch-label" data-vid="${esc(o.id)}" value="${esc(o.label)}" maxlength="40" aria-label="Name of this option">
+          ${s.kind === 'chance' ? `<span class="tpct"><input class="num" type="number" min="0" max="100" inputmode="numeric" data-input="board-branch-p" data-vid="${esc(o.id)}" value="${o.typed ? Math.round(o.p * 100) : ''}" placeholder="${Math.round(o.p * 100)}" aria-label="Chance of ${esc(o.label)} (%)">%</span>` : ''}
+          <button class="mini${hit ? ' on' : ''}" data-action="board-branch-chosen" data-vid="${esc(o.id)}">${hit ? '✓ ' : ''}${s.kind === 'chance' ? 'Happened' : 'Chosen'}</button>
+          ${o.vi !== s.pi ? `<button class="icon-btn" data-action="board-branch-delete" data-vid="${esc(o.id)}" aria-label="Delete the branch ${esc(o.label)}">✕</button>` : ''}
+        </div>
+        ${o.node.split && !gone ? `<div class="tsub">${node(o.node)}</div>` : ''}</div>`;
+    }).join('');
+    return `<div class="tsplit" data-pi="${esc(vs[s.pi].id)}" data-at="${s.at}" data-kind="${s.kind}">
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="small">After <b>${esc(after)}</b></span>${ctx.seg('board-split-kind', s.kind, [['decision', '◆ My decision'], ['chance', '● Chance']], 'compact')}</div>
+      ${auto}${opts}
+      <button class="btn ghost" style="margin-top:4px" data-action="board-branch-add">＋ Another option</button></div>`;
+  };
+  return `<div class="card" id="board-tree" style="margin-top:8px"><div class="title">Branches of “${esc(vs[ri].name)}”</div>
+    <div class="tiny muted" style="margin:2px 0 6px">◉ is on the board: <b>${esc(pathLabel(vs, root.v))}</b>. Turns before a split are shared by every branch. Tap “${'Happened'}” or “Chosen” when you know; Mission → Plan compares the branches.</div>
+    ${node(tree)}</div>`;
+}
 
 // Going first / going second: the first turn is a roll-off AFTER both armies are deployed (Event Companion,
 // "Determine first turn: roll off, the winner takes the first turn"), so the two versions of a plan share
 // their deployment and differ from Turn 1 on. variant.when: 'first' | 'second' (from my side of the table).
-const deployKey = (vv) => JSON.stringify(Object.entries(vv.steps[0]?.tokens ?? {}).map(([tk, t]) => [tk, Math.round(t.x * 10), Math.round(t.y * 10), Math.round(t.rot ?? 0), t.per ?? 0]).sort());
+const deployKey = (vv) => JSON.stringify(Object.entries(vv.steps?.[0]?.tokens ?? {}).map(([tk, t]) => [tk, Math.round(t.x * 10), Math.round(t.y * 10), Math.round(t.rot ?? 0), t.per ?? 0]).sort());
 function splitNote() {
   const root = planRoot();
   const f = root?.variants.find(v => v.when === 'first'), s = root?.variants.find(v => v.when === 'second');
@@ -139,7 +251,7 @@ function splitNote() {
 // one table photo per plan step (the first plan keeps the original keys)
 function photoKey() {
   const root = planRoot(), p = plan();
-  return p ? (root.v ? `${planKey()}#v${root.v}#${p.cur}` : `${planKey()}#${p.cur}`) : null;
+  return p ? (root.v ? `${planKey()}#v${root.v}#${curIndex()}` : `${planKey()}#${curIndex()}`) : null;
 }
 function currentPhoto() {
   return photoFor(photoKey(), BOARD, () => { refreshBoard(); });
@@ -148,8 +260,8 @@ function currentPhoto() {
 const MAP_OVER_PHOTO = { photo: 0, both: 0.45, map: 1 };
 
 function stepTokens() {
-  const p = plan();
-  return p ? p.steps[p.cur].tokens : {};
+  const st = curSteps()[curIndex()];
+  return st ? (st.tokens ??= {}) : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -389,7 +501,7 @@ function arriveInfo(b) {
   const p = plan(), l = currentLayout();
   if (!X || !p || !l) return null;
   const toks = placed();
-  const round = Math.max(2, p.cur);      // step N = battle round N; at Deploy and Turn 1 it shows the first arrivals (round 2)
+  const round = Math.max(2, curIndex());      // step N = battle round N; at Deploy and Turn 1 it shows the first arrivals (round 2)
   const onBoard = new Set(toks.map(t => t.tk));
   const army = ctx.state.armies[X];
   const off = army.units.filter(u => !onBoard.has(`${X}:${u.key}`));
@@ -417,7 +529,7 @@ function arriveBar() {
   const short = (u) => shortName(u.name);
   return `<span class="lab tiny muted">⇣ Reserves can arrive</span>
     ${ctx.seg('board-arrive', b.arrive ?? 'off', [['off', 'Off'], ['A', 'A'], ['B', 'B']], 'compact')}
-    ${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${plan().cur < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
+    ${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${curIndex() < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
       ${a.early ? `<br><span id="board-arrive-early"><b>${ctx.esc(a.early.name)}</b> (${ctx.esc(a.early.owner)}): one unit a turn arrives as if the battle round were one higher, so it can come in battle round 1${a.zones.zoneClosed ? `, and into ${a.Y}'s deployment zone now` : ''}.</span>` : ''}
       <br>${a.off.length ? `Not on the board in this step: <b>${a.off.map(u => `${ctx.esc(short(u))}${a.dsOff.includes(u) ? ' (Deep Strike)' : ''}`).join(', ')}</b>.` : `All of ${a.X}'s units are on the board in this step.`}</span>` : ''}`;
 }
@@ -474,8 +586,9 @@ export function boardView() {
   // plan steps, Move / Ruler and the units still to place: above the map on a phone
   // (one swipeable line), at the top of the side pane on a tablet (the map gets the height)
   const stepsRow = `<div class="row" style="gap:6px;flex-wrap:wrap">
-        ${p ? p.steps.map((s, i) => `<button class="chip ${i === p.cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
+        ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
+        <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
         <span class="grow"></span>
         ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
       </div>`;
@@ -513,12 +626,13 @@ export function boardView() {
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-arrive-bar">${arriveBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
         <span class="lab tiny muted">Plan</span>
-        ${planRoot() ? planRoot().variants.map((vv, i) => `<button class="chip ${i === planRoot().v ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`).join('') : ''}
+        ${planRoot() ? planRoot().variants.map((vv, i) => (vv.parent != null ? '' : `<button class="chip ${i === rootOf(planRoot().variants, planRoot().v) ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`)).join('') : ''}
         <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
         ${planRoot() && !planRoot().variants.some(vv => vv.when) ? '<button class="chip" data-action="board-plan-split" id="board-plan-split">⇄ Going first / second</button>' : ''}
         ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
       ${splitNote()}
+      <div id="board-tree-host">${treeHtml()}</div>
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
     </section>
   </div></div>`;
@@ -550,7 +664,7 @@ function photoBar() {
       ${pick('📷 New', 'ghost')}
       <button class="icon-btn" data-action="board-photo-remove" aria-label="Remove the photo">✕</button>
     </div>
-    <div class="tiny muted" style="margin-top:2px">Photo for <b>${ctx.esc(p.steps[p.cur].name)}</b> · terrain on the photo not matching the map? The table differs from the GW layout — trust the photo. Tap bases, not heads: tall models lean in photos.</div>`;
+    <div class="tiny muted" style="margin-top:2px">Photo for <b>${ctx.esc(curSteps()[curIndex()]?.name ?? '')}</b> · terrain on the photo not matching the map? The table differs from the GW layout — trust the photo. Tap bases, not heads: tall models lean in photos.</div>`;
 }
 
 // little map for the corner screen: zones, and corners numbered 1-4 clockwise from the top-left
@@ -707,7 +821,7 @@ function stepWarningsHtml() {
   const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives,
     early: { A: earlyArrival(ctx.state.armies.A)?.name ?? null, B: earlyArrival(ctx.state.armies.B)?.name ?? null } };
   const steps = boardPlans()[Math.min(root.v, root.variants.length - 1)]?.steps ?? [];
-  const name = p.steps[p.cur]?.name;
+  const name = curSteps()[curIndex()]?.name;
   const ws = planWarnings(steps, geo).filter(w => w.step === name);
   if (!ws.length) return '';
   return `<div class="card" id="board-warnings" style="margin-top:8px"><div class="lab tiny muted">Check this step (11th edition rules)</div>
@@ -764,6 +878,8 @@ export function refreshBoard() {
   if (dbar) dbar.innerHTML = dangerBar();
   const abar = document.getElementById('board-arrive-bar');
   if (abar) abar.innerHTML = arriveBar();
+  const tree = document.getElementById('board-tree-host');
+  if (tree) tree.innerHTML = treeHtml();
   wireBoard();
 }
 
@@ -988,7 +1104,9 @@ export function boardAction(action, el) {
       const root = planRoot(), cur = plan();
       const used = new Set(root.variants.map(x => x.name));
       const name = VARIANT_NAMES.find(n => !used.has(n)) ?? `Plan ${root.variants.length + 1}`;
-      root.variants.push({ name, steps: JSON.parse(JSON.stringify(cur.steps)), cur: cur.cur });
+      // a copy of the path on screen, as a plan of its own (no branches)
+      root.variants.push({ name, steps: JSON.parse(JSON.stringify(curSteps())), cur: curIndex() });
+      ensureIds(root.variants);
       root.v = root.variants.length - 1;
       persistBoard();
       return 'render';
@@ -999,7 +1117,8 @@ export function boardAction(action, el) {
       const base = cur.name === 'Main' ? '' : cur.name.slice(0, 15);
       cur.when = 'first';
       cur.name = base ? `${base} (first)` : 'Going first';
-      root.variants.splice(root.v + 1, 0, { name: base ? `${base} (second)` : 'Going second', when: 'second', steps: JSON.parse(JSON.stringify(cur.steps)), cur: cur.cur });
+      root.variants.splice(root.v + 1, 0, { name: base ? `${base} (second)` : 'Going second', when: 'second', steps: JSON.parse(JSON.stringify(curSteps())), cur: curIndex() });
+      ensureIds(root.variants);
       persistBoard();
       console.log(`[board] plan split into "${cur.name}" and its going-second version`);
       return 'render';
@@ -1018,19 +1137,83 @@ export function boardAction(action, el) {
       return 'render';
     }
     case 'board-plan-delete': {
-      const root = planRoot();
-      if (root.variants.length < 2 || !(globalThis.confirm?.(`Delete the plan "${plan().name}"?`) ?? true)) return null;
-      root.variants.splice(root.v, 1);
-      root.v = Math.max(0, root.v - 1);
+      // the plan picked in the row (a root path) and all its branches
+      const root = planRoot(), ri = rootOf(root.variants, root.v);
+      const all = subtree(root.variants, ri);
+      if (root.variants.length - all.length < 1 || !(globalThis.confirm?.(`Delete the plan "${root.variants[ri].name}"${all.length > 1 ? ` and its ${all.length - 1} branch${all.length > 2 ? 'es' : ''}` : ''}?`) ?? true)) return null;
+      removePaths(root, all);
       persistBoard();
       return 'render';
     }
     case 'board-step-add': {
       const p = plan();
       if (!p) return null;
-      const last = p.steps[p.steps.length - 1];
-      p.steps.push({ name: `Turn ${p.steps.length}`, tokens: JSON.parse(JSON.stringify(p.steps[p.cur].tokens ?? last.tokens)) });
-      p.cur = p.steps.length - 1;
+      const steps = curSteps();
+      p.steps.push({ name: `Turn ${steps.length}`, tokens: JSON.parse(JSON.stringify(steps[curIndex()]?.tokens ?? steps[steps.length - 1]?.tokens ?? {})) });
+      p.cur = curSteps().length - 1;
+      persistBoard();
+      return 'render';
+    }
+    // ---- branches: split the plan after a turn (plantree.mjs)
+    case 'board-branch': {
+      const root = planRoot(), vs = root.variants, at = curIndex();
+      // the path that owns this turn (a shared turn of a branch belongs to an ancestor)
+      let pi = root.v;
+      while (vs[pi].parent != null && at <= vs[pi].from) pi = vs.findIndex(v => v.id === vs[pi].parent);
+      const nb = branchPlan(vs, pi, at, { kind: 'decision' });
+      viewPath(root, vs.indexOf(nb), at);
+      console.log(`[board] branch after ${curSteps()[at]?.name}: "${nb.branch.label}" (${vs.length} paths)`);
+      persistBoard();
+      return 'render';
+    }
+    case 'board-branch-add': {
+      const root = planRoot(), vs = root.variants, t = treeTarget(el);
+      if (!t) return null;
+      const nb = branchPlan(vs, t.pi, t.at);
+      viewPath(root, vs.indexOf(nb), t.at);
+      persistBoard();
+      return 'render';
+    }
+    case 'board-branch-view': {
+      const root = planRoot(), t = treeTarget(el);
+      const i = root.variants.findIndex(v => v.id === el.dataset.vid);
+      if (i < 0 || !t) return null;
+      viewPath(root, i, t.at);
+      persistBoard();
+      return 'render';
+    }
+    case 'board-branch-chosen': {
+      // at the table: this option was decided, or this outcome happened (tap again to undo)
+      const root = planRoot(), t = treeTarget(el);
+      if (!t) return null;
+      const meta = root.variants[t.pi].splits[t.at];
+      meta.chosen = meta.chosen === el.dataset.vid ? null : el.dataset.vid;
+      const i = root.variants.findIndex(v => v.id === el.dataset.vid);
+      if (meta.chosen && i >= 0) viewPath(root, i, t.at);
+      console.log(`[board] branch ${meta.chosen ? `"${el.dataset.vid}" happened` : 'reopened'} after step ${t.at}`);
+      persistBoard();
+      return 'render';
+    }
+    case 'board-branch-delete': {
+      const root = planRoot(), vs = root.variants;
+      const i = vs.findIndex(v => v.id === el.dataset.vid);
+      if (i < 0 || vs[i].parent == null) return null;
+      const all = subtree(vs, i);
+      if (!(globalThis.confirm?.(`Delete the branch "${vs[i].branch?.label ?? vs[i].name}"${all.length > 1 ? ` and the ${all.length - 1} below it` : ''}?`) ?? true)) return null;
+      const pi = vs.findIndex(v => v.id === vs[i].parent), at = vs[i].from;
+      removePaths(root, all);
+      const p2 = root.variants.findIndex(v => v.id === (vs[pi]?.id));
+      if (p2 >= 0 && optionsAt(root.variants, p2, at).length < 2) delete root.variants[p2].splits[at];
+      persistBoard();
+      return 'render';
+    }
+    case 'board-split-kind': case 'board-split-auto': case 'board-split-how': {
+      const root = planRoot(), t = treeTarget(el);
+      if (!t) return null;
+      const meta = root.variants[t.pi].splits[t.at];
+      if (action === 'board-split-kind') meta.kind = el.dataset.value;
+      if (action === 'board-split-auto') meta.auto = el.dataset.value === 'wipe' ? { atk: null, def: null, how: 'fight', ...(meta.auto ?? {}) } : null;
+      if (action === 'board-split-how') (meta.auto ??= {}).how = el.dataset.value;
       persistBoard();
       return 'render';
     }
@@ -1109,6 +1292,41 @@ export function boardChange(el) {
     if (file && key) photoTask(() => startPhoto(file, key, BOARD, { diagram: cornerDiagram }), 'import');
     return false;
   }
+  if (el.dataset.input === 'board-branch-label' || el.dataset.input === 'board-branch-p') {
+    const root = planRoot(), t = treeTarget(el);
+    if (!t) return false;
+    const vs = root.variants, meta = vs[t.pi].splits[t.at];
+    const isMain = el.dataset.vid === vs[t.pi].id, kid = vs.find(v => v.id === el.dataset.vid);
+    if (el.dataset.input === 'board-branch-label') {
+      const val = el.value.trim().slice(0, 40) || (isMain ? 'As planned' : 'Option');
+      if (isMain) meta.label = val; else if (kid) { kid.branch.label = val; kid.name = val; }
+    } else {
+      const raw = el.value.trim();
+      const p = raw === '' ? null : Math.max(0, Math.min(100, Number(raw))) / 100;
+      if (isMain) meta.p = p; else if (kid) kid.branch.p = p;
+    }
+    persistBoard();
+    return true;
+  }
+  if (el.dataset.input === 'board-split-atk' || el.dataset.input === 'board-split-def') {
+    const root = planRoot(), t = treeTarget(el);
+    if (!t) return false;
+    const vs = root.variants, meta = vs[t.pi].splits[t.at];
+    meta.auto ??= { how: 'fight' };
+    meta.auto[el.dataset.input === 'board-split-atk' ? 'atk' : 'def'] = el.value || null;
+    if (el.dataset.input === 'board-split-def' && el.value) {
+      // the first branch is "it happens": that unit is taken off the board from the next turn of that branch on
+      const opts = optionsAt(vs, t.pi, t.at), kid = vs[opts[1]?.vi];
+      const name = ctx.state.armies[el.value[0]]?.units.find(u => `${el.value[0]}:${u.key}` === el.value)?.name ?? 'The unit';
+      if (kid) {
+        kid.steps.forEach((st, k) => { if (st && k > t.at) delete st.tokens?.[el.value]; });
+        if (/^(It happens|Option \d+)$/.test(kid.branch.label)) { kid.branch.label = `${name} destroyed`; kid.name = kid.branch.label; }
+      }
+      if (/^(It does not happen|Option 1|As planned)$/.test(meta.label ?? '')) meta.label = `${name} survives`;
+    }
+    persistBoard();
+    return true;
+  }
   if (el.dataset.input === 'board-disp') {
     b.settings[`disp${el.dataset.side}`] = el.value;
     b.sel = b.sel2 = null;
@@ -1144,12 +1362,12 @@ async function shareImage() {
     const dep = l ? DEPLOYMENTS[l.deployment]?.name : '';
     g.fillStyle = '#1b1b1a';
     g.font = '600 24px system-ui, sans-serif';
-    g.fillText(`${p?.steps[p.cur]?.name ?? 'Plan'} · ${dispositionName(dispOf('A'))} vs ${dispositionName(dispOf('B'))} · Layout ${l ? layoutLetter(l.variant) : ''} · ${dep ?? ''}`, 16, 28);
+    g.fillText(`${curSteps()[curIndex()]?.name ?? 'Plan'} · ${dispositionName(dispOf('A'))} vs ${dispositionName(dispOf('B'))} · Layout ${l ? layoutLetter(l.variant) : ''} · ${dep ?? ''}`, 16, 28);
     g.font = '18px system-ui, sans-serif';
     g.fillStyle = C.A; g.fillText(`■ A ${ctx.state.armies.A?.faction ?? ''}: ${ms.A ?? ''}`, 16, 54);
     g.fillStyle = C.B; g.fillText(`■ B ${ctx.state.armies.B?.faction ?? ''}: ${ms.B ?? ''}`, 450, 54);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    const name = `${l?.id ?? 'board'}-${(p?.steps[p.cur]?.name ?? 'plan').replace(/\s+/g, '-').toLowerCase()}.png`;
+    const name = `${l?.id ?? 'board'}-${(curSteps()[curIndex()]?.name ?? 'plan').replace(/\s+/g, '-').toLowerCase()}.png`;
     const file = new File([blob], name, { type: 'image/png' });
     ctx.state.lastBoardImage = { name, size: blob.size };
     if (navigator.canShare?.({ files: [file] })) {
@@ -1176,8 +1394,8 @@ export function boardPlans() {
   const root = planRoot();
   if (!root) return [];
   return root.variants.map((vv, vi) => ({
-    index: vi, name: vv.name, when: vv.when ?? null,
-    steps: vv.steps.map(st => {
+    index: vi, name: pathLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
+    steps: resolveSteps(root.variants, vi).map(st => {
       const out = { name: st.name, A: [], B: [] };
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
         const [side, key] = tk.split(':');
@@ -1189,6 +1407,15 @@ export function boardPlans() {
       return out;
     }),
   }));
+}
+
+/** The plan trees for the Mission tab: [{ ri (root index), name, tree }] for every plan that has branches. */
+export function boardTrees() {
+  const root = planRoot();
+  if (!root) return [];
+  const vs = root.variants;
+  return vs.map((v, i) => i).filter(i => vs[i].parent == null && vs.some((v, k) => v.parent != null && rootOf(vs, k) === i))
+    .map(ri => ({ ri, name: vs[ri].name, tree: treeOf(vs, ri, autoP), stepName: (pi, at) => resolveSteps(vs, pi)[at]?.name ?? `step ${at}` }));
 }
 
 /** The board of a saved game: the settings, and the plans made with these two lists (signature `sig`). */
@@ -1236,7 +1463,7 @@ export function boardContext() {
 
 // for tests
 export function _boardDebug() {
-  return { layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
+  return { stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };
 }

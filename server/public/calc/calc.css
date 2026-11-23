@@ -484,3 +484,21 @@ details.more.card { padding: 10px 12px; }
 .game-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
 .game-row.on b:first-child { color: var(--text-primary); }
 .game-row .score { white-space: nowrap; }
+
+/* Branching plans: the tree on the Board, and the values on Mission > Plan */
+.tsplit { border-left: 3px solid var(--line); padding: 6px 0 6px 10px; margin-top: 8px; }
+.tsplit[data-kind="chance"] { border-left-color: var(--warn); }
+.tsplit[data-kind="decision"] { border-left-color: var(--accent); }
+.topt { padding: 6px 0; border-top: 1px solid var(--line); }
+.topt.on > .row .tlabel { border-color: var(--accent); }
+.topt.gone { opacity: .45; }
+.tsub { margin-left: 8px; }
+.tlabel { min-width: 8em; }
+.tpct { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.tpct input.num { width: 64px; margin-top: 0; text-align: center; }
+.mini.on { border-color: var(--accent); background: var(--series-1-wash); font-weight: 600; }
+.ftree { list-style: none; margin: 4px 0 0; padding: 0 0 0 10px; }
+.ftree li { padding: 3px 0; }
+.ftree li.gone { opacity: .45; }
+.ftree li.best > span:first-child { font-weight: 600; }
+.ftsplit .ftsplit { margin-left: 6px; }
