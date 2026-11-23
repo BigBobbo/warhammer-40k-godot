@@ -440,7 +440,9 @@ function modeParams() {
 // plan comparison, so a change made there (a score, a card, a turn) runs the forecast alone, with fewer
 // simulated games: about 1,000 instead of about 14,000 per tap. Plan and Cards get the full run.
 export const PLAY_TRIALS = 1000;
-const liteRun = () => ms().tab === 'play';
+const liteRun = () => ms().tab === 'play' && !forceFull;
+let forceFull = false;     // a full run asked for from outside the Plan view (the Board's branch map)
+let compareSigs = {};     // plan key -> the inputs its row was worked out from (a board plan changed since: no value)
 let runLite = false;      // the run in progress is a Play-view run
 let lastSig = '';         // the inputs of the last run asked for
 let lastFull = '';        // the inputs of the last full run (what-ifs and plan comparison included)
@@ -458,10 +460,34 @@ export function scheduleForecast(sig = null) {
   ms().busy = true;
   timer = setTimeout(runForecast, 150);
 }
+
+/** The Board's branch map: work out every path's win chance now (a full run with the plan comparison). */
+export function forecastBranches() {
+  if (ms().table) return false;
+  forceFull = true;
+  scheduleForecast();
+  return true;
+}
+
+/**
+ * My win chance on each board path from the last plan comparison, by variant index, only for the paths whose
+ * forecast inputs are still the same (a path moved since then has none). busy: a run is going on.
+ */
+export function branchWins() {
+  const m = ms(), wins = {};
+  for (const c of m.compare ?? []) {
+    if (!c.result || !String(c.key).startsWith('plan')) continue;
+    const vi = Number(c.key.slice(4));
+    const P = forecastParams({ boardPlan: vi, trials: 1500 });
+    if (P && compareSigs[c.key] === JSON.stringify(P)) wins[vi] = m.me === 'A' ? c.result.pWinA : c.result.pWinB;
+  }
+  return { wins, busy: !!m.busy, table: !!m.table };
+}
 function runForecast() {
   // unit-vs-unit odds from the calculator: kill rates, and what each unit threatens on a board plan
   if (ctx.state.armies.A && ctx.state.armies.B) ensurePairs();
   const lite = liteRun();
+  forceFull = false;
   const P = forecastParams(lite ? { trials: PLAY_TRIALS } : {});
   const m = ms();
   reqId++;
@@ -496,6 +522,7 @@ function runForecast() {
   const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
     ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, note: placed(p) < nMine ? `${placed(p)} of ${nMine} units placed` : '', P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
   planNotes = Object.fromEntries(compare.map(c => [c.key, c.note ?? '']));
+  compareSigs = Object.fromEntries(compare.map(c => [c.key, JSON.stringify(c.P)]));
   const modes = modeParams();
   runModes = modes.length ? modeSig() : null;
   worker.postMessage({ id: reqId, forecast: { base: P, variants: [...leverParams(), ...modes, ...compare.map(({ note, ...c }) => ({ ...c, compare: true }))] } });

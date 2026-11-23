@@ -15,7 +15,7 @@ import { chooseWeapons, families, decisions, adjustCount, overSidearms } from '.
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, _boardDebug } from './boardview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, syncWake, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
@@ -2326,7 +2326,7 @@ restoreSaved();
 restoreLibrary();
 restoreGames();
 initBoard({
-  state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost,
+  state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost, branchWins, forecastBranches,
   // one army's list (for "use my deployment against another opponent")
   sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap

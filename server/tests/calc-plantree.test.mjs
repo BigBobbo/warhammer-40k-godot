@@ -82,3 +82,29 @@ test('a worked-out chance (from the calculator) is used until a chance is typed'
   b.branch.p = 0.5;
   assert.deepEqual(T.treeOf(v, 0, () => 0.3).options.map(o => o.p), [0.5, 0.5]);
 });
+
+test('treeRows: one row per path, in tree order, with the chance to get there and the best decision', () => {
+  const vs = [{ id: 'm', name: 'Main', steps: [{ name: 'Deploy', tokens: {} }, { name: 'Turn 1', tokens: {} }], cur: 1, parent: null, from: null }];
+  const right = T.branch(vs, 0, 1, { kind: 'decision', label: 'Go right', parentLabel: 'Go left' });
+  const wiped = T.branch(vs, 0, 2, { kind: 'chance', label: 'Wiped', parentLabel: 'Survives' });
+  vs[0].splits[2].p = 0.6;
+  const win = { 0: 0.7, 1: 0.55, 2: 0.4 };
+  let rows = T.treeRows(T.evaluate(T.treeOf(vs, 0), (vi) => win[vi]));
+  assert.deepEqual(rows.map(r => r.vi), [0, 2, 1]);
+  assert.deepEqual(rows.map(r => r.path.at(-1).label), ['Survives', 'Wiped', 'Go right']);
+  assert.ok(Math.abs(rows[0].reach - 0.6) < 1e-9 && Math.abs(rows[1].reach - 0.4) < 1e-9 && rows[2].reach === 1);
+  assert.deepEqual(rows.map(r => r.onBest), [true, true, false]); // Go left 0.58 > Go right 0.55
+  vs[0].splits[2].chosen = wiped.id;                                  // wiped: left is worth 0.40 now
+  rows = T.treeRows(T.evaluate(T.treeOf(vs, 0), (vi) => win[vi]));
+  assert.deepEqual(rows.map(r => [r.gone, r.reach, r.onBest]), [[true, 0, false], [false, 1, false], [false, 1, true]]);
+  assert.equal(right.branch.label, 'Go right');
+});
+
+test('choiceLabel: every choice on the way, the main path’s own included', () => {
+  const vs = [{ id: 'm', name: 'Main', steps: [{ name: 'Deploy', tokens: {} }, { name: 'Turn 1', tokens: {} }], cur: 1, parent: null, from: null }];
+  T.branch(vs, 0, 1, { kind: 'decision', label: 'Go right', parentLabel: 'Go left' });
+  T.branch(vs, 0, 2, { kind: 'chance', label: 'Wiped', parentLabel: 'Survives' });
+  const deep = T.branch(vs, 1, 2, { kind: 'chance', label: 'Caught', parentLabel: 'Safe' });
+  assert.deepEqual(vs.map((v, i) => T.choiceLabel(vs, i)), ['Main ▸ Go left ▸ Survives', 'Main ▸ Go right ▸ Safe', 'Main ▸ Go left ▸ Wiped', 'Main ▸ Go right ▸ Caught']);
+  assert.equal(deep.from, 2);
+});

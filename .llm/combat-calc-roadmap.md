@@ -393,3 +393,20 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
 - Left open: no automatic chance for completing an objective card (typed
   only); branch win values show on Mission → Plan only, not on the Board.
   Not merged, not deployed.
+
+## Branch map on the Board (user: "see the tree of branches so that I can switch between them and compare", 23 Nov 2026)
+
+- BUILT in v1.110.0, browser-tested. `boardview.treeMapHtml`: an SVG map above the board
+  (side pane on a tablet) of the plan with branches: turns left to right, one row per path
+  (`plantree.treeRows`, tree order), ◆ decision / ● chance nodes, the path on the board drawn
+  in the accent colour with a ring on the turn on screen. Tap a turn = that path at that turn;
+  tap a name = that path at the same turn. Each row: last choice ("after Go left" below),
+  chance to get there, win chance; ★ on the best open decision; header = the plan's worth.
+- Win chances: `missionview.branchWins()` from the last plan comparison, only while the
+  path's forecast inputs are unchanged (`compareSigs`); ⚡ runs a full forecast from the
+  Board (`forecastBranches`, also from the Play tab). Not in table mode.
+- Compare with…: another path's units at the same turn as dashed bases + a dashed line,
+  distances listed; a unit gone in that path is crossed out (not in the share image).
+- Paths are named by every choice (`plantree.choiceLabel`), also in Mission → Plan.
+- Left open: the map folds (▾) but its open/closed state and the compare pick last for the
+  session only. Not merged, not deployed.
