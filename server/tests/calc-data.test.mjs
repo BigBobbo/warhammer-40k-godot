@@ -61,6 +61,23 @@ test('points check: other points in the list than in the data are reported with 
   assert.deepEqual(twc.mismatches, [], '230 + 30 of wargear, or 260 + 30 from the third unit');
 });
 
+test('points check: a list that prices the enhancement apart (New Recruit / WTC text) is read as the unit price + the enhancement', () => {
+  // "Telemon Heavy Dreadnought (310 pts)" with "Enhancement: Augury Uplink (+30 pts)": the importer keeps 280 + 30;
+  // the data's Telemon is 280 for the first one, 310 from the second. It was reported as 280 against 310 or 340.
+  const army = A.importArmy(list('nr-custodes-1995.txt'));
+  const tel = army.roster.units.find(u => u.ref?.raw_name === 'Telemon Heavy Dreadnought');
+  assert.deepEqual([tel.points, tel.enhancement_points, A.listedPoints(tel)], [280, 30, 310]);
+  const c = A.pointsCheck(army);
+  assert.equal(c.checked, 9);
+  assert.deepEqual(c.mismatches, []);
+  // the unit's value (points removed, efficiency) includes its enhancement, as in the GW app's lists
+  const cu = army.units.find(u => u.members.some(m => m.ru === tel));
+  assert.ok(cu.points >= 310, `unit points ${cu.points}`);
+  // and a wrong price is still reported, as the listed total
+  const off = A.pointsCheck(A.importArmy(list('nr-custodes-1995.txt').replace('Telemon Heavy Dreadnought (310 pts)', 'Telemon Heavy Dreadnought (300 pts)')));
+  assert.deepEqual(off.mismatches.map(m => [m.name, m.list, m.data]), [['Telemon Heavy Dreadnought', 300, [310, 340]]]);
+});
+
 test('the result is worked out once per set of units', () => {
   const army = A.importArmy(SW);
   assert.equal(A.armyData(army), A.armyData(army));
