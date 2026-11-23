@@ -2499,6 +2499,259 @@ Aggressor Squad (95 points)
     await lctx.close();
   }
 
+  // --- saved games (1.108): save the game on the tracker, play another, load the first one back
+  {
+    const { readFileSync } = await import('fs');
+    const CUST = readFileSync('/home/user/warhammer-40k-godot/server/tests/fixtures/gw-custodes-nbhyphen.txt', 'utf8');
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`saved games: ${m.text()}`); });
+    gp.on('pageerror', e => consoleErrors.push(`saved games: ${e}`));
+    const dialogs = [];
+    gp.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
+    await gp.goto(`${BASE}/calc/`);
+    await gp.waitForSelector('textarea[data-side="A"]');
+    const gtxt = async (q) => (await gp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mission = () => gp.evaluate(() => { const s = window.__calc.state; const g = s.mission.game; return { savedId: s.mission.savedId ?? null, round: g.round, next: g.next, A: { p: g.A.primary, s: g.A.secondary, cp: g.A.cp, hand: g.A.hand }, B: { p: g.B.primary, cp: g.B.cp }, over: !!g.over, clock: s.mission.clock, lists: [s.armies.A?.faction, s.armies.B?.faction], games: s.games.map(x => x.name) }; });
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.fill('textarea[data-side="B"]', ORK_LIST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    check('Armies: a Saved games card, empty at first', /Saved games \(0\)/.test(await gtxt('#games-card > summary')));
+    // a board plan: the Grey Hunters on the board
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-svg');
+    await gp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await gp.evaluate(() => { const p = window.__calc.board().plan; const tk = Object.keys(p.steps[0].tokens)[0]; Object.assign(p.steps[0].tokens[tk], { x: 12.5, y: 8.5 }); });
+    await gp.locator('button[data-action="board-variant"][data-value="2"]').scrollIntoViewIfNeeded();
+    // the game: A scores 5 primary, draws a card, turn done; a chess clock runs
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-bar');
+    await gp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await gp.selectOption('select[data-input="mission-draw"][data-side="A"]', 'assassination');
+    await gp.tap('#play-turn-done');
+    await gp.locator('button[data-action="mission-clock-mode"][data-value="chess"]').tap();
+    await gp.locator('button.clock-tile[data-side="B"]').tap();
+    await gp.waitForTimeout(2200);
+    check('Play: the game is not saved yet', /This game is not saved yet/.test(await gtxt('#game-status')) && (await gp.inputValue('#game-name')) === 'Space Wolves v Orks');
+    await gp.fill('#game-name', 'Practice game 1');
+    await gp.locator('#game-save').scrollIntoViewIfNeeded();
+    await gp.tap('#game-save');
+    let st = await mission();
+    const order = await gp.evaluate(() => { const y = (s) => document.querySelector(s).getBoundingClientRect().top; return { bar: y('#play-bar'), games: y('#play-games'), opts: y('#play-options') }; });
+    check('Play: the Saved games card sits at the end of the Play view, after the options', order.games > order.opts && order.opts > order.bar, JSON.stringify(order));
+    check('Save: the game is in the list under its name, and the tracker is linked to it', st.games.join('|') === 'Practice game 1' && !!st.savedId && /Saved: “Practice game 1”/.test(await gtxt('#game-msg-play')) && /^Saved /.test(await gtxt('#game-status')), JSON.stringify(st.games));
+    const saved1 = await gp.evaluate(() => window.__calc.state.games[0]);
+    check('the saved game holds the lists, the board plan, the tracker and a stopped clock', saved1.armies.A === 'Space Wolves' && saved1.armies.B === 'Orks' && saved1.mission.game.A.primary === 5 && saved1.mission.game.A.hand[0] === 'assassination' && saved1.mission.game.next === 'B'
+      && Object.keys(saved1.board.plans).length === 1 && saved1.mission.clock.running == null && saved1.mission.clock.left.B < 85 * 60000 && saved1.mission.clock.left.B > 84 * 60000, JSON.stringify({ plans: Object.keys(saved1.board.plans), clock: saved1.mission.clock }));
+    await gp.locator('#play-games').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_87_saved_game.png') });
+    // a change: "Changes since the last save"
+    await gp.tap('button[data-action="mission-score-step"][data-side="B"][data-k="primary"][data-delta="5"]');
+    check('a change since saving is shown', /Changes not saved yet/.test(await gtxt('#game-status')));
+    // another opponent: the Custodes as army B, and a new game against them
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.fill('textarea[data-side="B"]', CUST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-reset');
+    st = await mission();
+    const g1 = await gp.evaluate(() => window.__calc.state.games[0]);
+    check('loading another list saves the game first (with the change made after saving), and a new game starts on the tracker', st.games.length === 1 && st.savedId === null && st.A.p === 0 && st.B.p === 0 && g1.mission.game.B.primary === 5 && g1.name === 'Practice game 1' && g1.armies.B === 'Orks' && /This game is not saved yet/.test(await gtxt('#game-status')) && /a list changed, so a new game starts/.test(await gtxt('#game-msg-play')), JSON.stringify({ st, B: g1.mission.game.B, armies: g1.armies }));
+    await gp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="secondary"][data-delta="5"]');
+    // load the first game back from the Armies tab
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.locator('#games-card > summary').tap();
+    check('Armies: the saved game is listed with its score and state', /Practice game 1 Space Wolves v Orks · Round 1, B's turn · 15–15 VP/.test(await gtxt('#game-list-armies')), await gtxt('#game-list-armies'));
+    await gp.locator('#game-list-armies .game-row', { hasText: 'Practice game 1' }).locator('button[data-action="game-load"]').tap();
+    await gp.waitForSelector('#play-bar');
+    st = await mission();
+    check('Load: the Orks list, the score, the card in hand, the CP and the turn come back, on the Play view', st.lists.join('|') === 'Space Wolves|Orks' && st.A.p === 5 && st.B.p === 5 && st.A.hand[0] === 'assassination' && st.next === 'B' && st.A.cp === 2 && st.B.cp === 2 && st.round === 1, JSON.stringify(st));
+    const cg = await gp.evaluate(() => window.__calc.state.games.filter(g => /Custodes/.test(g.name)).map(g => ({ n: g.name, sec: g.mission.game.A.secondary })));
+    check('… the game that was on the tracker (vs Custodes, A 5 secondary) was saved first, as its own game', cg.length === 1 && cg[0].sec === 5 && /saved as “Space Wolves v Adeptus Custodes”/.test(await gtxt('#game-msg-play')), JSON.stringify(cg) + ' | ' + await gtxt('#game-msg-play'));
+    check('… the chess clock is back, stopped, with B\'s time as it was', st.clock.mode === 'chess' && st.clock.running == null && st.clock.left.B < 85 * 60000 && st.clock.left.B > 84 * 60000);
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-svg');
+    const tok = await gp.evaluate(() => window.__calc.board().tokens);
+    check('… and the board plan: the Grey Hunters where they were', tok.length === 1 && Math.abs(tok[0].x - 12.5) < 0.01 && Math.abs(tok[0].y - 8.5) < 0.01, JSON.stringify(tok));
+    // kept over a reload
+    await gp.reload();
+    await gp.waitForSelector('#app-version-mini');
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.waitForSelector('#games-card');
+    check('saved games are kept over a reload', (await gp.evaluate(() => window.__calc.state.games.length)) === 2 && /Saved games \(2\)/.test(await gtxt('#games-card > summary')));
+    // the end of the battle saves it
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await gp.waitForSelector('#play-bar');
+    await gp.tap('button[data-action="mission-round"][data-value="5"]');
+    for (let i = 0; i < 3 && !(await mission()).over; i++) await gp.tap('#play-turn-done');
+    const over = await gp.evaluate(() => window.__calc.state.games.find(g => g.name === 'Practice game 1'));
+    check('the end of the battle saves the game', over.mission.game.over === true && /Battle over/.test(await gtxt('#game-status').catch(() => '')) === false, JSON.stringify(over.mission.game.round));
+    // delete
+    await gp.tap('button[data-action="view"][data-value="armies"]');
+    await gp.locator('#games-card > summary').tap().catch(() => {});
+    dialogs.length = 0;
+    await gp.locator('#game-list-armies .game-row', { hasText: 'Adeptus Custodes' }).first().locator('button[data-action="game-delete"]').tap();
+    check('delete asks first, then removes it', /Delete the saved game “Space Wolves v Adeptus Custodes”/.test(dialogs[0] ?? '') && (await gp.evaluate(() => window.__calc.state.games.map(g => g.name).join('|'))) === 'Practice game 1');
+    await gp.locator('#games-card').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_88_saved_games_armies.png') });
+    // a backup carries the saved games
+    const bk = await gp.evaluate(async () => { const B = await import('/calc/backup.mjs'); return B.describeBackup(B.makeBackup(localStorage)).summary; });
+    check('a backup (and a transfer code) carries the saved games', /1 saved game/.test(bk), bk);
+    await gctx.close();
+  }
+
+  // --- matchup grid (1.108.1): Shooting / Fight in the grid; a tapped cell opens the matchup on the Attack tab
+  {
+    const mctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mp = await mctx.newPage();
+    mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`grid: ${m.text()}`); });
+    mp.on('pageerror', e => consoleErrors.push(`grid: ${e}`));
+    await mp.goto(`${BASE}/calc/`); await mp.waitForSelector('textarea[data-side="A"]');
+    await mp.fill('textarea[data-side="A"]', SW_LIST); await mp.tap('button[data-action="parse"][data-side="A"]');
+    await mp.fill('textarea[data-side="B"]', ORK_LIST); await mp.tap('button[data-action="parse"][data-side="B"]');
+    const st = () => mp.evaluate(() => { const s = window.__calc.state; const su = s.setups[`${s.side}:${s.phase}`]; return { view: s.view, sheet: s.sheet, phase: s.phase, side: s.side, target: su?.targetKey ?? null, attackers: (su?.attackers ?? []).map(a => a.unitKey), grid: s.grid ? { phase: s.grid.phase, done: s.grid.done } : null }; });
+    // from the Intel brief
+    await mp.tap('button[data-action="view"][data-value="intel"]');
+    await mp.waitForSelector('button[data-action="brief-grid"]');
+    await mp.tap('button[data-action="brief-grid"]');
+    await mp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 120000 });
+    check('the grid has a Shooting / Fight switch, on Shooting', (await mp.locator('#grid-phase button[data-value="shooting"].on').count()) === 1 && (await mp.textContent('#grid-host th.corner')).trim() === 'Shooting');
+    await mp.tap('#grid-phase button[data-value="fight"]');
+    await mp.waitForFunction(() => { const g = window.__calc.state.grid; return g?.phase === 'fight' && g.done; }, null, { timeout: 120000 });
+    let s = await st();
+    check('Fight: the grid is worked out again for the Fight phase', s.phase === 'fight' && s.sheet === 'grid' && (await mp.textContent('#grid-host th.corner')).trim() === 'Fight' && (await mp.locator('#grid-phase button[data-value="fight"].on').count()) === 1, JSON.stringify(s));
+    await mp.screenshot({ path: join(SHOTS, 'calc_89_grid_phase.png') });
+    const cell = mp.locator('#grid-host button.cell').first();
+    const want = { atk: await cell.getAttribute('data-atk'), def: await cell.getAttribute('data-def') };
+    await cell.tap();
+    await mp.waitForFunction(() => { const s = window.__calc.state; return s.view === 'attack' && s.result && !s.busy; }, null, { timeout: 60000 });
+    s = await st();
+    check('a tapped cell (opened from the Intel brief) opens that matchup on the Attack tab, in the Fight phase', s.view === 'attack' && s.sheet === null && s.phase === 'fight' && s.target === want.def && s.attackers.join() === want.atk && (await mp.locator('button[data-action="phase"][data-value="fight"].on').count()) === 1, JSON.stringify({ s, want }));
+    await mp.evaluate(() => window.scrollTo(0, 0));
+    await mp.screenshot({ path: join(SHOTS, 'calc_90_grid_opened.png') });
+    // back on Shooting from the Attack tab's grid
+    await mp.tap('button[data-action="open-grid"]');
+    await mp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 120000 });
+    await mp.tap('#grid-phase button[data-value="shooting"]');
+    await mp.waitForFunction(() => { const g = window.__calc.state.grid; return g?.phase === 'shooting' && g.done; }, null, { timeout: 120000 });
+    await mp.locator('#grid-host button.cell').nth(2).tap();
+    await mp.waitForFunction(() => window.__calc.state.sheet === null, null, { timeout: 10000 });
+    s = await st();
+    check('… and from the Attack tab, a Shooting cell opens a shooting matchup', s.view === 'attack' && s.phase === 'shooting' && !!s.target && s.attackers.length === 1, JSON.stringify(s));
+    await mctx.close();
+  }
+
+  // --- branching plans (1.109): decisions and chances after a turn; the forecast of each branch
+  {
+    const tctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const tp = await tctx.newPage();
+    tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branches: ${m.text()}`); });
+    tp.on('pageerror', e => consoleErrors.push(`branches: ${e}`));
+    tp.on('dialog', d => d.accept());
+    await tp.goto(`${BASE}/calc/`); await tp.waitForSelector('textarea[data-side="A"]');
+    await tp.fill('textarea[data-side="A"]', SW_LIST); await tp.tap('button[data-action="parse"][data-side="A"]');
+    await tp.fill('textarea[data-side="B"]', ORK_LIST); await tp.tap('button[data-action="parse"][data-side="B"]');
+    const ttxt = async (q) => (await tp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const dbg = () => tp.evaluate(() => { const d = window.__calc.board(); return { tokens: d.tokens, v: window.__calc.state.board.plans, steps: [...document.querySelectorAll('button[data-action="board-step"]')].map(b => `${b.textContent.trim()}${b.classList.contains('on') ? '*' : ''}`) }; });
+    const pos = async (tk) => (await tp.evaluate(() => window.__calc.board().tokens)).find(t => t.tk === tk);
+    const setPos = (tk, x, y) => tp.evaluate(([t, px, py]) => { const toks = window.__calc.board().stepTokens; toks[t] = { ...(toks[t] ?? {}), x: px, y: py }; }, [tk, x, y]);
+    const redraw = () => tp.evaluate(() => document.querySelector('button[data-action="board-step"].on')?.click());
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-svg');
+    await tp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await tp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Meganobz' }).tap();
+    const toks = await tp.evaluate(() => window.__calc.board().tokens.map(t => t.tk));
+    const GH = toks.find(t => t.startsWith('A:')), MN = toks.find(t => t.startsWith('B:'));
+    await setPos(GH, 22, 26); await setPos(MN, 22, 36);
+    await tp.locator('button[data-action="board-step-add"]').tap();          // Turn 1
+    // ⑂ after Turn 1: my decision, go left or go right
+    await tp.locator('#board-branch').tap();
+    await tp.waitForSelector('#board-tree .tsplit');
+    let d = await dbg();
+    check('⑂ Branch here: a second path that starts at Turn 2, both paths have Turn 2', d.steps.join('|') === 'Deploy|Turn 1|Turn 2*' && (await tp.locator('#board-tree .topt').count()) === 2 && /After Turn 1/.test(await ttxt('#board-tree .tsplit')), d.steps.join('|'));
+    const opts = tp.locator('#board-tree .tsplit').first().locator(':scope > .topt');
+    await opts.nth(0).locator('input.tlabel').fill('Go left'); await opts.nth(0).locator('input.tlabel').blur();
+    await opts.nth(1).locator('input.tlabel').fill('Go right'); await opts.nth(1).locator('input.tlabel').blur();
+    await tp.waitForTimeout(300);
+    check('the branch shows its path: Main ▸ Go right', /◉ is on the board: Main ▸ Go right/.test(await ttxt('#board-tree')));
+    // in "Go right", Turn 2: the Grey Hunters go right
+    await setPos(GH, 36, 28); await redraw();
+    // a shared turn: move the Meganobz in Turn 1 of "Go right" -> it is the same Turn 1 in "Go left"
+    await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    await setPos(MN, 20, 34); await redraw();
+    await tp.locator('#board-tree .topt').first().locator('button[data-action="board-branch-view"]').tap();
+    const onLeft = /◉ is on the board: Main(?! ▸)/.test(await ttxt('#board-tree'));
+    await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    const leftT1 = await pos(MN);
+    await tp.locator('button[data-action="board-step"][data-i="2"]').tap();
+    const leftGh = await pos(GH);
+    check('turns before the split are shared: Turn 1 moved in one branch is moved in the other; Turn 2 is each branch’s own', onLeft && Math.abs(leftT1.x - 20) < 0.01 && Math.abs(leftGh.x - 22) < 0.01, JSON.stringify({ onLeft, leftT1, leftGh }));
+    // on "Go left", after Turn 2: a chance - their charge destroys the Grey Hunters
+    await setPos(MN, 22, 33); await redraw();       // the Meganobz end Turn 2 about 5" from the Grey Hunters
+    await tp.locator('#board-branch').tap();
+    await tp.waitForFunction(() => document.querySelectorAll('#board-tree .tsplit').length === 2);
+    const inner = tp.locator('#board-tree .tsplit').nth(1);
+    await inner.locator('button[data-action="board-split-kind"][data-value="chance"]').tap();
+    await tp.locator('#board-tree .tsplit').nth(1).locator('button[data-action="board-split-auto"][data-value="wipe"]').tap();
+    const in2 = () => tp.locator('#board-tree .tsplit').nth(1);
+    await in2().locator('select[data-input="board-split-atk"]').selectOption(MN);
+    await in2().locator('select[data-input="board-split-def"]').selectOption(GH);
+    await in2().locator('button[data-action="board-split-how"][data-value="charge"]').tap();
+    await tp.waitForFunction(() => /From the calculator: \d+%/.test(document.querySelectorAll('#board-tree .tsplit')[1]?.textContent ?? ''), null, { timeout: 120000 });
+    const why = await in2().locator('[data-auto-why]').textContent();
+    const labels = await in2().locator(':scope > .topt input.tlabel').evaluateAll(els => els.map(e => e.value));
+    const ph = await in2().locator(':scope > .topt input[data-input="board-branch-p"]').evaluateAll(els => els.map(e => e.placeholder));
+    check('a chance from the calculator: their charge (2D6 odds of the gap) × the Grey Hunters destroyed in the fight', /From the calculator: \d+% \(charge [\d.]+" needs \d+\+: \d+% × destroyed in the fight \d+%\)/.test(why) && labels.join('|') === 'Grey Hunters survives|Grey Hunters destroyed' && Number(ph[0]) + Number(ph[1]) === 100, `${why} | ${labels} | ${ph}`);
+    // the "destroyed" branch: the Grey Hunters are off the board from Turn 3
+    await in2().locator(':scope > .topt').nth(1).locator('button[data-action="board-branch-view"]').tap();
+    d = await dbg();
+    check('in the "destroyed" branch the Grey Hunters are off the board from Turn 3', d.steps.join('|') === 'Deploy|Turn 1|Turn 2|Turn 3*' && !d.tokens.some(t => t.tk === GH) && d.tokens.some(t => t.tk === MN), JSON.stringify(d.steps));
+    // my own chance: 50%
+    await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').fill('50');
+    await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').blur();
+    await tp.waitForFunction(() => document.querySelectorAll('#board-tree .tsplit')[1]?.querySelector('.topt input[data-input="board-branch-p"]')?.placeholder === '50');
+    check('a typed chance replaces the calculator’s (50 / 50)', (await in2().locator(':scope > .topt').nth(0).locator('input[data-input="board-branch-p"]').getAttribute('placeholder')) === '50');
+    await tp.locator('#board-tree').scrollIntoViewIfNeeded();
+    await tp.screenshot({ path: join(SHOTS, 'calc_91_branches_board.png') });
+    // Mission: each branch forecast, the best decision
+    await tp.tap('button[data-action="view"][data-value="mission"]');
+    await tp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && (m.compare?.length ?? 0) >= 4; }, null, { timeout: 240000 });
+    await tp.waitForSelector('.fc-tree');
+    const res = await tp.evaluate(() => {
+      const m = window.__calc.mission();
+      const w = (k) => m.compare.find(c => c.key === k)?.result.pWinA;
+      return { rows: m.compare.map(c => c.label), w: Object.fromEntries(m.compare.map(c => [c.key, w(c.key)])), head: document.querySelector('.fc-tree .small').textContent.replace(/\s+/g, ' ').trim(), items: [...document.querySelectorAll('.fc-tree li')].map(li => li.firstElementChild.textContent.replace(/\s+/g, ' ').trim() + ' = ' + li.querySelector(':scope > b').textContent) };
+    });
+    const v = res.w;
+    const leftVal = 0.5 * v.plan0 + 0.5 * v.plan2;
+    const best = Math.max(leftVal, v.plan1);
+    const shown = Number(/you win (\d+)%/.exec(res.head)?.[1]);
+    check('Mission compares each path by name (Main ▸ Go right …)', res.rows.includes('Board: Main ▸ Go right') && res.rows.includes('Board: Main ▸ Grey Hunters destroyed'), JSON.stringify(res.rows));
+    check('the plan is worth its best decision: Go left = 50% × survives + 50% × destroyed, against Go right', Math.abs(shown - Math.round(best * 100)) <= 1 && new RegExp(`best: ${leftVal >= v.plan1 ? 'Go left' : 'Go right'}`).test(res.head), JSON.stringify({ head: res.head, leftVal, right: v.plan1, items: res.items }));
+    await tp.locator('.fc-tree').scrollIntoViewIfNeeded();
+    await tp.screenshot({ path: join(SHOTS, 'calc_92_branches_forecast.png') });
+    // at the table: the charge came in and destroyed the Grey Hunters
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-tree');
+    await in2().locator(':scope > .topt').nth(1).locator('button[data-action="board-branch-chosen"]').tap();
+    await tp.waitForSelector('#board-tree .topt.gone');
+    check('"Happened": the other outcome is greyed, the board shows the branch that happened', /✓ Happened/.test(await ttxt('#board-tree')) && (await tp.locator('#board-tree .topt.gone').count()) === 1 && /Main ▸ Go left ▸ Grey Hunters destroyed|Main ▸ Grey Hunters destroyed/.test(await ttxt('#board-tree')), await ttxt('#board-tree'));
+    await tp.tap('button[data-action="view"][data-value="mission"]');
+    await tp.waitForSelector('.fc-tree');
+    const after = await tp.evaluate(() => [...document.querySelectorAll('.fc-tree li')].map(li => li.className + ':' + li.firstElementChild.textContent.replace(/\s+/g, ' ').trim()));
+    check('Mission: only what happened counts in that branch now', after.some(x => /✓ Grey Hunters destroyed/.test(x)) && after.some(x => /^ ?gone.*Grey Hunters survives/.test(x.trim())), JSON.stringify(after));
+    // kept over a reload; delete a branch
+    await tp.reload(); await tp.waitForSelector('#app-version-mini');
+    await tp.tap('button[data-action="view"][data-value="board"]');
+    await tp.waitForSelector('#board-tree');
+    check('branches are kept over a reload', (await tp.locator('#board-tree .tsplit').count()) >= 1);
+    await tp.locator('#board-tree .topt', { has: tp.locator('input[value="Go right"]') }).locator('button[data-action="board-branch-delete"]').tap();
+    await tp.waitForFunction(() => ![...document.querySelectorAll('#board-tree input.tlabel')].some(i => i.value === 'Go right'));
+    check('a branch can be deleted', (await tp.evaluate(() => Object.values(window.__calc.state.board.plans)[0].variants.length)) === 2);
+    await tctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

@@ -29,7 +29,7 @@ test('a backup holds every Combat Calc key and nothing else, and says what is in
   assert.deepEqual(Object.keys(b.data).sort(), ['w40k_calc_board_v1', 'w40k_calc_lists_v1', 'w40k_calc_mission_v1', 'w40k_calc_v1']);
   const d = B.describeBackup(b);
   assert.equal(d.ok, true);
-  assert.deepEqual(d.counts, { lists: 2, library: 2, plans: 3, saved: 0, inGame: true });
+  assert.deepEqual(d.counts, { lists: 2, library: 2, plans: 3, saved: 0, games: 0, inGame: true });
   assert.match(d.summary, /2 loaded lists \(Gaelcon Awoo \(2000 points\) \/ Calc Test Waaagh \(1000 points\)\)/);
   assert.match(d.summary, /3 board plans/);
   assert.match(d.summary, /a game in progress \(round 3\)/);
@@ -109,4 +109,14 @@ test('server: a code stops working when its time is up', async () => {
     await new Promise(r => setTimeout(r, 700));
     assert.equal((await fetch(`${base}/api/calc-transfer/${code}`)).status, 404);
   });
+});
+
+test('saved games travel with a backup (and a transfer code)', () => {
+  const dev = DEVICE();
+  dev.setItem('w40k_calc_games_v1', JSON.stringify([{ id: 'g1', name: 'Space Wolves v Orks' }, { id: 'g2', name: 'R2' }]));
+  const b = B.makeBackup(dev);
+  assert.ok('w40k_calc_games_v1' in b.data);
+  const d = B.describeBackup(b);
+  assert.equal(d.counts.games, 2);
+  assert.match(d.summary, /2 saved games/);
 });

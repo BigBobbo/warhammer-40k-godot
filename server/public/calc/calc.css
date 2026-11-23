@@ -423,15 +423,15 @@ details.brief-sec > summary { font-size: 12px; text-transform: uppercase; letter
 }
 
 /* ---- table tools (Mission > Play): clock, command points, checklist, score sheet */
-.mlay .o7 { order: 7; }
+.mlay .o7 { order: 7; } .mlay .o8 { order: 8; }
 .bar-main { display: flex; flex-direction: column; gap: 8px; }
 /* two panes: the turn bar across the top, the two players side by side, the tools under them */
 @media (min-width: 900px) {
-  .mlay.play { grid-template-areas: "bar bar" "me opp" "clock score" "fc opts"; }
+  .mlay.play { grid-template-areas: "bar bar" "me opp" "clock score" "fc opts" "fc games"; }
   .mlay.play > .col { display: contents; }
   .mlay.play > .col > .section { min-width: 0; }
   .mlay.play .a-bar { grid-area: bar; } .mlay.play .a-me { grid-area: me; } .mlay.play .a-opp { grid-area: opp; }
-  .mlay.play .a-clock { grid-area: clock; } .mlay.play .a-score { grid-area: score; } .mlay.play .a-fc { grid-area: fc; } .mlay.play .a-opts { grid-area: opts; }
+  .mlay.play .a-clock { grid-area: clock; } .mlay.play .a-score { grid-area: score; } .mlay.play .a-fc { grid-area: fc; } .mlay.play .a-opts { grid-area: opts; } .mlay.play .a-games { grid-area: games; }
   .bar-main { flex-direction: row; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
   .bar-main .acts { flex: 1; min-width: 320px; }
 }
@@ -479,3 +479,26 @@ details.more.card { padding: 10px 12px; }
 /* rules in force, and what the November update changes on a datasheet */
 .update-note { margin-top: 4px; color: var(--text-secondary); }
 #rules-line { margin-top: 10px; }
+
+/* Saved games */
+.game-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.game-row.on b:first-child { color: var(--text-primary); }
+.game-row .score { white-space: nowrap; }
+
+/* Branching plans: the tree on the Board, and the values on Mission > Plan */
+.tsplit { border-left: 3px solid var(--line); padding: 6px 0 6px 10px; margin-top: 8px; }
+.tsplit[data-kind="chance"] { border-left-color: var(--warn); }
+.tsplit[data-kind="decision"] { border-left-color: var(--accent); }
+.topt { padding: 6px 0; border-top: 1px solid var(--line); }
+.topt.on > .row .tlabel { border-color: var(--accent); }
+.topt.gone { opacity: .45; }
+.tsub { margin-left: 8px; }
+.tlabel { min-width: 8em; }
+.tpct { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.tpct input.num { width: 64px; margin-top: 0; text-align: center; }
+.mini.on { border-color: var(--accent); background: var(--series-1-wash); font-weight: 600; }
+.ftree { list-style: none; margin: 4px 0 0; padding: 0 0 0 10px; }
+.ftree li { padding: 3px 0; }
+.ftree li.gone { opacity: .45; }
+.ftree li.best > span:first-child { font-weight: 600; }
+.ftsplit .ftsplit { margin-left: 6px; }

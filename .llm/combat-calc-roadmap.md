@@ -355,3 +355,41 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   doctrine effects beyond the chips; Hammer Blow; Imperium's Sword (its weapon
   text is cut off in the data). Not merged, not deployed: the live site is the
   build before this round.
+
+## Saved games (user: "save and load games", 22 Nov 2026)
+
+- BUILT in v1.108.0, browser-tested. `games.mjs` (pure, tests/calc-games.test.mjs):
+  a saved game = both list texts + attachments, the board settings and the plans
+  made with those lists (`boardview.boardSnapshot`), and the mission fields of a
+  game (`MISSION_FIELDS`: tracker, first turn, modes, objective plan, clock; a
+  running clock is stopped at save time). Stored under `w40k_calc_games_v1`
+  (part of backups and transfer codes), newest first, at most 100.
+- UI: a "Saved games" card on the Play view (name, Save / Save as a new game,
+  load list) and on the Armies tab (load / delete, works without lists loaded).
+- The tracker is linked to a saved game (`mission.savedId`) only while its two
+  lists are loaded (`state.loaded`: the text each army was read from). It is
+  saved automatically when the battle ends, before New game, before loading
+  another game, and before a different list is loaded; a new list starts a new
+  game on the tracker.
+
+## Branching plans (user: "plans that hinge on a decision ... a 50/50 chance they wipe a squad", 23 Nov 2026)
+
+- BUILT in v1.109.0, browser-tested (options A + B + C of the discussion).
+  `plantree.mjs` (pure, tests/calc-plantree.test.mjs): a branch is a plan
+  variant with `parent` + `from`; its steps up to `from` are `null` and resolve
+  to the ancestor's step objects, so a shared turn edited in one branch is the
+  same turn in every branch. Split data lives on the parent: `splits[at] =
+  {kind: decision|chance, label, p, chosen, auto?}`.
+- Board: "⑂ Branch here" after any turn; a Branches panel (kind, option
+  names, %, Happened/Chosen, ＋ Another option, delete subtree). A chance can be
+  "A unit is destroyed": attacker, target, Shooting / Fight / Charge + fight;
+  the % comes from the calculator (`missionview.pairWipe`; charge = 2D6 odds
+  of the measured gap × destroyed in the fight). A typed % always wins (for
+  objective cards and anything else the app cannot work out). In a
+  "destroyed" branch the target is removed from the turns after the split.
+- Mission → Plan: every path is forecast in "Your plans compared"; "Your
+  branching plans" evaluates the tree (decision = best option ★, chance =
+  weighted by %, a marked Happened/Chosen option is the only one that counts).
+- Left open: no automatic chance for completing an objective card (typed
+  only); branch win values show on Mission → Plan only, not on the Board.
+  Not merged, not deployed.

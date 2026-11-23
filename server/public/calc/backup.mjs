@@ -7,7 +7,7 @@
 // The pure functions take a Storage-like object (getItem / setItem / removeItem)
 // so they are unit-tested without a browser (tests/calc-backup.test.mjs).
 
-export const BACKUP_KEYS = ['w40k_calc_v1', 'w40k_calc_lists_v1', 'w40k_calc_saved_v1', 'w40k_calc_board_v1', 'w40k_calc_mission_v1', 'w40k_calc_event_v1'];
+export const BACKUP_KEYS = ['w40k_calc_v1', 'w40k_calc_lists_v1', 'w40k_calc_saved_v1', 'w40k_calc_board_v1', 'w40k_calc_mission_v1', 'w40k_calc_event_v1', 'w40k_calc_games_v1'];
 export const UNDO_KEY = 'w40k_calc_before_restore_v1';
 export const LAST_KEY = 'w40k_calc_last_backup_v1';
 const FORMAT = 'combat-calc-backup';
@@ -35,6 +35,7 @@ export function describeBackup(b) {
   const plans = Object.values(d.w40k_calc_board_v1?.plans ?? {}).reduce((n, root) => n + (root?.variants?.length ?? (root?.steps ? 1 : 0)), 0);
   const library = Array.isArray(d.w40k_calc_lists_v1) ? d.w40k_calc_lists_v1.length : 0;
   const saved = Array.isArray(d.w40k_calc_saved_v1) ? d.w40k_calc_saved_v1.length : 0;
+  const games = Array.isArray(d.w40k_calc_games_v1) ? d.w40k_calc_games_v1.length : 0;
   const game = d.w40k_calc_mission_v1?.game;
   const inGame = !!game && (game.round > 1 || ['A', 'B'].some(X => game[X]?.hand?.length || game[X]?.used?.length || game[X]?.primary || game[X]?.secondary));
   const parts = [
@@ -42,9 +43,10 @@ export function describeBackup(b) {
     library ? `${library} list${library > 1 ? 's' : ''} in the library` : null,
     plans ? `${plans} board plan${plans > 1 ? 's' : ''}` : null,
     saved ? `${saved} saved scenario${saved > 1 ? 's' : ''}` : null,
+    games ? `${games} saved game${games > 1 ? 's' : ''}` : null,
     inGame ? `a game in progress (round ${game.round})` : null,
   ].filter(Boolean);
-  return { ok: true, exported: b.exported ?? null, app: b.app ?? '', summary: parts.length ? parts.join(', ') : 'settings only', counts: { lists, library, plans, saved, inGame } };
+  return { ok: true, exported: b.exported ?? null, app: b.app ?? '', summary: parts.length ? parts.join(', ') : 'settings only', counts: { lists, library, plans, saved, games, inGame } };
 }
 
 /**

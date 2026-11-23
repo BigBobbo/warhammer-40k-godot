@@ -8,7 +8,8 @@
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
-import { boardContext, boardPlans } from './boardview.mjs';
+import { boardContext, boardPlans, boardTrees } from './boardview.mjs';
+import { evaluate as evalTree } from './plantree.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
@@ -235,7 +236,37 @@ export function matchupData() {
   };
 }
 export function registerHost(id, fn) { HOSTS[id] = fn; }
-export function missionNewGame() { const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+/**
+ * For a chance branch on the Board: the chance that unit atkTk destroys unit defTk on its own ({ shoot, fight }),
+ * from the unit-vs-unit odds of the two lists (null while they are being worked out; asking starts the work).
+ */
+export function pairWipe(atkTk, defTk) {
+  const st = ctx.state;
+  if (!st.armies.A || !st.armies.B) return null;
+  const m = ms();
+  if (!ensurePairs()) return null;
+  const c = m.pairs.table[atkTk]?.[defTk];
+  return c ? { shoot: c.shoot ?? 0, fight: c.fight ?? 0 } : { shoot: 0, fight: 0 };
+}
+export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+/** The mission state (for a saved game) and the saved game it came from. */
+export const missionState = () => ms();
+export function missionSetSavedId(id) { ms().savedId = id; persist(); }
+/**
+ * Put a saved game on the tracker (games.mjs missionPart): its tracker, first turn, choices, objective plan and
+ * clock. Undo starts empty; the forecast is worked out again. Opens the Play view.
+ */
+export function missionLoadGame(part, id, fields) {
+  const m = ms();
+  for (const k of fields) if (part[k] !== undefined) m[k] = JSON.parse(JSON.stringify(part[k]));
+  m.clock = { ...PT.newClock(), ...(m.clock ?? {}) };
+  PT.ensureGame(m.game);
+  m.undo = []; m.savedId = id; m.tab = 'play';
+  m.result = null; m.levers = []; m.compare = []; m.modeCompare = null;
+  toTop = true;
+  persist();
+  scheduleForecast();
+}
 export const missionInProgress = () => inProgress();
 /** The score on the tracker (Battle Ready included), for the event card. */
 export const missionScore = () => ({ A: totalVp('A'), B: totalVp('B'), over: !!ms().game.over, started: inProgress() });
@@ -660,6 +691,7 @@ function playView() {
       <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode closes the forecast, the card advice, the calculator and the board planner, and leaves the tracker.'} Some events do not allow apps that help with decisions during a game: check your event pack.</div>
       <button class="btn ghost" style="margin-top:10px" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button>
     </div></section>
+    <section class="section a-games o8" id="play-games-host">${ctx.gamesCard?.('play') ?? ''}</section>
   </div></div>`;
 }
 
@@ -895,7 +927,33 @@ function compareHtml(me, opp) {
   return `<h2 class="sub" style="margin-top:14px">Your plans compared</h2>
     <table class="dist" id="fc-compare"><thead><tr><th>Plan</th><th>Win</th><th>You</th><th>Opp</th></tr></thead><tbody>
     ${rows.map(c => { const w = win(c), note = planNotes[c.key]; return `<tr data-plan="${c.key}" data-when="${whenOf(c) ?? ''}"><td>${esc(c.label)}${tagHtml(c)}${!note && w === best ? ' ★' : ''}${note ? `<div class="tiny" style="color:var(--warn-ink)">${esc(note)}: the rest hold and score nothing</div>` : ''}</td><td><b>${pct(w)}</b></td><td>${fmt(c.result[me].mean)} <span class="tiny muted">${c.result[me].p10}–${c.result[me].p90}</span></td><td>${fmt(c.result[opp].mean)}</td></tr>`; }).join('')}${rollOff}
-    </tbody></table>${rollOff ? '<div class="tiny muted" id="fc-rolloff-note">The winner of the roll-off takes the first turn (Event Companion), so each version is used in half your games.</div>' : ''}`;
+    </tbody></table>${treesHtml(me)}${rollOff ? '<div class="tiny muted" id="fc-rolloff-note">The winner of the roll-off takes the first turn (Event Companion), so each version is used in half your games.</div>' : ''}`;
+}
+
+// Branching board plans: the chance to win down each branch, the best option at each of my decisions, the
+// chance outcomes weighted by their chance, and what already happened (plantree.mjs evaluate)
+function treesHtml(me) {
+  const trees = boardTrees();
+  if (!trees.length) return '';
+  const m = ms(), esc = ctx.esc;
+  const win = (vi) => { const c = (m.compare ?? []).find(r => r.key === `plan${vi}`)?.result; return c ? (me === 'A' ? c.pWinA : c.pWinB) : null; };
+  const val = (n) => (n.value == null ? '…' : `${pct(n.value)}${n.partial ? '*' : ''}`);
+  const nodeHtml = (n, t) => {
+    if (!n.split) return '';
+    const s = n.split;
+    const head = `After <b>${esc(t.stepName(s.pi, s.at))}</b> · ${s.kind === 'chance' ? '● chance' : '◆ your decision'}${s.chosen ? ' · <b>known</b>' : ''}`;
+    return `<div class="ftsplit" data-kind="${s.kind}"><div class="tiny muted">${head}</div><ul class="ftree">${n.options.map(o => {
+      const hit = s.chosen === o.id, gone = s.chosen && !hit, best = !s.chosen && s.kind === 'decision' && n.best === o.id;
+      return `<li data-opt="${esc(o.id)}" class="${gone ? 'gone' : ''}${best ? ' best' : ''}"><span>${hit ? '✓ ' : ''}${esc(o.label)}${s.kind === 'chance' && !s.chosen ? ` <span class="tiny muted">(${pct(o.p)})</span>` : ''}</span> <b>${val(o.node)}</b>${best ? ' ★' : ''}
+        ${gone ? '' : nodeHtml(o.node, t)}</li>`;
+    }).join('')}</ul></div>`;
+  };
+  return `<h2 class="sub" style="margin-top:14px">Your branching plans</h2>${trees.map(t => {
+    const ev = evalTree(t.tree, win);
+    const lead = ev.split?.kind === 'decision' && !ev.split.chosen && ev.best ? ` · best: <b>${esc(ev.options.find(o => o.id === ev.best)?.label ?? '')}</b>` : '';
+    return `<div class="card fc-tree" data-root="${t.ri}" style="margin-top:6px"><div class="small"><b>${esc(t.name)}</b>: you win <b>${val(ev)}</b>${lead}</div>${nodeHtml(ev, t)}</div>`;
+  }).join('')}
+  <div class="tiny muted" id="fc-tree-note">At your decisions the better option counts (★); chance outcomes are weighted by their chance; once you mark an option on the Board as chosen or happened, only it counts. * = some branches not worked out yet.</div>`;
 }
 
 function verdict(pWin, pLose, margin) {
@@ -1280,6 +1338,8 @@ export function missionAction(action, el) {
       for (const P of ['A', 'B']) { g[P].cpAsk = false; g[P].swapPending = false; }
       if (m.clock.mode === 'chess' && m.clock.running) { if (res.ended) PT.chessPause(m.clock, Date.now()); else PT.chessRun(m.clock, g.next, Date.now()); }
       console.log(`[mission] turn done -> round ${g.round}, ${g.next}'s turn${res.ended ? ' (battle over)' : ''}; CP A ${g.A.cp} B ${g.B.cp}`);
+      // the end of the battle: the game is saved (Saved games), under its name if it has one
+      if (res.ended) ctx.autoSave?.('the battle is over');
       break;
     }
     case 'mission-tab': m.tab = el.dataset.value; toTop = true; persist(); return 'render';
@@ -1290,7 +1350,7 @@ export function missionAction(action, el) {
       break;
     }
     // a new game: the tracker is cleared (Undo brings it back) and the first turn is rolled for again
-    case 'mission-reset': remember('new game'); m.game = newGame(); m.first = null; break;
+    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; break;
     default: return null;
   }
   persist();
