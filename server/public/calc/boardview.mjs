@@ -14,7 +14,7 @@ import { boardUnit, earlyArrival } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
-import { ensureIds, resolveSteps, rootOf, treeOf, pathLabel, subtree, branch as branchPlan, optionsAt } from './plantree.mjs';
+import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -31,6 +31,7 @@ const LS_KEY = 'w40k_calc_board_v1';
 export function initBoard(c) {
   ctx = c;
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
+  ctx.registerHost?.('board-treemap-host', treeMapHtml);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
@@ -230,8 +231,168 @@ function treeHtml() {
       <button class="btn ghost" style="margin-top:4px" data-action="board-branch-add">＋ Another option</button></div>`;
   };
   return `<div class="card" id="board-tree" style="margin-top:8px"><div class="title">Branches of “${esc(vs[ri].name)}”</div>
-    <div class="tiny muted" style="margin:2px 0 6px">◉ is on the board: <b>${esc(pathLabel(vs, root.v))}</b>. Turns before a split are shared by every branch. Tap “${'Happened'}” or “Chosen” when you know; Mission → Plan compares the branches.</div>
+    <div class="tiny muted" style="margin:2px 0 6px">◉ is on the board: <b>${esc(choiceLabel(vs, root.v))}</b>. Turns before a split are shared by every branch. Tap “${'Happened'}” or “Chosen” when you know; Mission → Plan compares the branches.</div>
     ${node(tree)}</div>`;
+}
+
+// ---- the branch map: every path of the plan at a glance (turns left to right, one row per path); tap a turn of a
+// path to put it on the board; each path's win chance from the forecast (Mission → Plan, or ⚡ here); compare the
+// positions of another path at the same turn (ghost bases on the board)
+const shortStep = (name, i) => (i === 0 ? 'D' : /^Turn (\d+)/.exec(name ?? '')?.[1] ? `T${/^Turn (\d+)/.exec(name)[1]}` : String(i));
+/** The part of the path on screen each variant owns: variant index -> [first step, last step]. */
+function pathOwners(vs, vi) {
+  const c = chain(vs, vi), out = new Map();
+  c.forEach((k, j) => {
+    const start = j === 0 ? 0 : vs[k].from + 1;
+    const end = j === c.length - 1 ? resolveSteps(vs, k).length - 1 : vs[c[j + 1]].from;
+    out.set(k, [start, end]);
+  });
+  return out;
+}
+function treeMapData() {
+  const root = planRoot();
+  if (!root) return null;
+  const vs = root.variants, ri = rootOf(vs, root.v);
+  if (!vs.some((v, k) => v.parent != null && rootOf(vs, k) === ri)) return null;
+  const w = ctx.branchWins?.() ?? { wins: {}, busy: false };
+  const ev = evaluate(treeOf(vs, ri, autoP), (vi) => w.wins[vi] ?? null);
+  return { root, vs, ri, ev, rows: treeRows(ev), w };
+}
+function treeMapHtml() {
+  const d = treeMapData();
+  if (!d) return '';
+  const { root, vs, ri, ev, rows, w } = d;
+  const esc = ctx.esc;
+  const steps = new Map(rows.map(r => [r.vi, resolveSteps(vs, r.vi)]));
+  const ncol = Math.max(...[...steps.values()].map(s => s.length));
+  const rowOf = new Map(rows.map((r, i) => [r.vi, i]));
+  const twoLines = rows.some(r => r.path.length > 1);
+  const W = 360, X0 = 12, RH = twoLines ? 36 : 30, Y0 = 30, CW = Math.min(30, 150 / Math.max(1, ncol - 1));
+  const x = (c) => X0 + c * CW, y = (r) => Y0 + r * RH;
+  const LX = x(ncol - 1) + 16, H = y(rows.length - 1) + 16;
+  const own = (vi) => [vs[vi].parent != null ? vs[vi].from + 1 : 0, steps.get(vi).length - 1];
+  const onPath = pathOwners(vs, root.v);
+  const isOn = (vi, c) => { const r = onPath.get(vi); return !!r && c >= r[0] && c <= r[1]; };
+  const cur = curIndex();
+  const fullSteps = resolveSteps(vs, ri);
+  const parts = [];
+  // turn names along the top
+  for (let c = 0; c < ncol; c++) {
+    const nm = [...steps.values()].find(s => s[c])?.[c]?.name;
+    parts.push(`<text class="tm-col" x="${x(c)}" y="12" text-anchor="middle">${esc(shortStep(nm, c))}</text>`);
+  }
+  parts.push(`<text class="tm-col" x="${W - 4}" y="12" text-anchor="end">${Object.keys(w.wins).length ? 'You win' : ''}</text>`);
+  // lines: the turns of each path, and where a branch leaves its parent
+  for (const r of rows) {
+    const vi = r.vi, [s0, s1] = own(vi), yy = y(rowOf.get(vi));
+    const fade = r.gone ? ' gone' : '';
+    if (vs[vi].parent != null) {
+      const pi = vs.findIndex(v => v.id === vs[vi].parent), py = y(rowOf.get(pi)), x1 = x(vs[vi].from), x2 = x(s0), xm = (x1 + x2) / 2;
+      parts.push(`<path class="tm-edge${isOn(vi, s0) ? ' on' : ''}${fade}" d="M${x1} ${py} C${xm} ${py} ${xm} ${yy} ${x2} ${yy}"/>`);
+    }
+    for (let c = s0; c < s1; c++) parts.push(`<line class="tm-edge${isOn(vi, c + 1) ? ' on' : ''}${fade}" x1="${x(c)}" y1="${yy}" x2="${x(c + 1)}" y2="${yy}"/>`);
+  }
+  // the turns: tap one to put that path, at that turn, on the board
+  for (const r of rows) {
+    const vi = r.vi, [s0, s1] = own(vi), yy = y(rowOf.get(vi));
+    for (let c = s0; c <= s1; c++) {
+      const split = vs[vi].splits?.[c] && optionsAt(vs, vi, c).length > 1 ? vs[vi].splits[c] : null;
+      const on = isOn(vi, c), here = on && c === cur;
+      const cls = `tm-node${on ? ' on' : ''}${r.gone ? ' gone' : ''}`;
+      const shape = split?.kind === 'chance' ? `<circle class="${cls}" cx="${x(c)}" cy="${yy}" r="6"/>`
+        : split ? `<rect class="${cls}" x="${x(c) - 5}" y="${yy - 5}" width="10" height="10" transform="rotate(45 ${x(c)} ${yy})"/>`
+          : `<circle class="${cls}" cx="${x(c)}" cy="${yy}" r="4"/>`;
+      parts.push(`<g class="tm-go" data-action="board-tree-go" data-vid="${esc(vs[vi].id)}" data-i="${c}" role="button" aria-label="${esc(choiceLabel(vs, vi))}, ${esc(steps.get(vi)[c]?.name ?? '')}">
+        <circle cx="${x(c)}" cy="${yy}" r="${Math.max(10, CW / 2)}" fill="transparent"/>${here ? `<circle class="tm-here" cx="${x(c)}" cy="${yy}" r="9"/>` : ''}${shape}</g>`);
+    }
+  }
+  // one label per path: the last choice on the way there, its chance, the win chance; tap it to show that path
+  for (const r of rows) {
+    const vi = r.vi, yy = y(rowOf.get(vi)), last = r.path.at(-1);
+    const on = vi === root.v;
+    const lab = last?.label ?? vs[vi].name;
+    const room = Math.max(6, Math.floor((W - LX - 46) / 6.6));
+    const txt = lab.length > room ? `${lab.slice(0, room - 1)}…` : lab;
+    const chance = r.path.some(c => c.kind === 'chance' && !c.hit) && !r.gone ? ` <tspan class="tm-p">${Math.round(r.reach * 100)}%</tspan>` : '';
+    const mark = r.gone ? '' : r.path.length && r.path.every(c => c.hit || c.kind !== 'chance' && !c.open) && r.path.some(c => c.hit) ? '✓ ' : r.onBest ? '★ ' : '';
+    const wv = w.wins[vi];
+    parts.push(`<g class="tm-row${on ? ' on' : ''}${r.gone ? ' gone' : ''}" data-action="board-tree-go" data-vid="${esc(vs[vi].id)}" data-i="-1" role="button" aria-label="Show ${esc(choiceLabel(vs, vi))}">
+      <rect x="${LX - 6}" y="${yy - RH / 2 + 2}" width="${W - LX + 6}" height="${RH - 4}" rx="6" class="tm-hit"/>
+      <text class="tm-lab" x="${LX}" y="${yy + (r.path.length > 1 ? 0 : 4)}">${mark}${esc(txt)}${chance}</text>${r.path.length > 1 ? `<text class="tm-sub" x="${LX}" y="${yy + 12}">after ${esc(r.path.slice(0, -1).map(c => c.label).join(' ▸ ').slice(0, room + 8))}</text>` : ''}
+      <text class="tm-win" x="${W - 6}" y="${yy + 4}" text-anchor="end">${wv == null ? (w.busy ? '…' : '') : `${Math.round(wv * 100)}%`}</text></g>`);
+  }
+  const svg = `<svg class="tm-svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="The branches of this plan: turns left to right, one row per path">${parts.join('')}</svg>`;
+  // the plan's worth, the best decision now; or work the win chances out
+  const missing = rows.some(r => w.wins[r.vi] == null);
+  const top = ev.split && !ev.split.chosen && ev.split.kind === 'decision' && ev.best ? ev.options.find(o => o.id === ev.best) : null;
+  const head = ev.value != null ? `You win <b>${Math.round(ev.value * 100)}%${ev.partial ? '*' : ''}</b>${top ? ` · best now: <b>${esc(top.label)}</b>` : ''}` : 'Win chance of each path:';
+  const act = w.table ? '<span class="tiny muted">(not worked out in table mode)</span>'
+    : w.busy ? '<span class="tiny muted" id="board-tree-busy">working out…</span>'
+      : missing ? '<button class="chip" data-action="board-tree-forecast" id="board-tree-forecast">⚡ Work out win chances</button>' : '';
+  // compare: another path's units at this turn, as ghost bases on the board
+  const cmpId = boardState().cmp;
+  const others = rows.filter(r => r.vi !== root.v);
+  const cmpSel = `<select class="sel" data-input="board-cmp" id="board-cmp" aria-label="Compare with another path"><option value="">Compare with…</option>${others.map(r => `<option value="${esc(vs[r.vi].id)}" ${vs[r.vi].id === cmpId ? 'selected' : ''}>${esc(choiceLabel(vs, r.vi))}</option>`).join('')}</select>`;
+  const diff = compareInfo();
+  const shut = !!boardState().tmHide;
+  const fold = `<button class="icon-btn" data-action="board-tree-fold" id="board-tree-fold" aria-expanded="${!shut}" aria-label="${shut ? 'Show' : 'Hide'} the branch map">${shut ? '▸' : '▾'}</button>`;
+  if (shut) {
+    return `<div class="card tm" id="board-treemap" data-shut="1"><div class="row" style="gap:6px;align-items:center">${fold}<span class="small grow">⑂ On the board: <b>${esc(choiceLabel(vs, root.v))}</b>${ev.value != null ? ` · you win ${Math.round(ev.value * 100)}%` : ''}</span></div>
+      ${diff ? `<div class="tiny" id="board-cmp-info" style="margin-top:4px">${diff}</div>` : ''}</div>`;
+  }
+  return `<div class="card tm" id="board-treemap">
+    <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">${fold}<span class="small grow">⑂ <b>${esc(vs[ri].name)}</b>: ${head}</span>${act}</div>
+    ${svg}
+    <div class="tiny muted">Tap a turn to see it · ◆ your decision · ● chance · ★ best · % = chance to get there</div>
+    <div class="row" style="gap:6px;margin-top:6px;align-items:center">${cmpSel}</div>
+    ${diff ? `<div class="tiny" id="board-cmp-info" style="margin-top:4px">${diff}</div>` : ''}</div>`;
+}
+
+/** The path picked under "Compare with…": its units at the turn on screen (or its last turn). */
+function compareTokens() {
+  const root = planRoot(), id = boardState().cmp;
+  if (!root || !id) return null;
+  const k = root.variants.findIndex(v => v.id === id);
+  if (k < 0 || k === root.v || rootOf(root.variants, k) !== rootOf(root.variants, root.v)) return null;
+  const st = resolveSteps(root.variants, k);
+  const at = Math.min(curIndex(), st.length - 1);
+  return { k, name: choiceLabel(root.variants, k), label: root.variants[k].branch?.label ?? root.variants[k].name, step: st[at]?.name ?? '', tokens: st[at]?.tokens ?? {} };
+}
+const GHOST_MIN = 0.25; // inches: a unit nearer than this to where it is in the other path is "in the same place"
+function compareInfo() {
+  const c = compareTokens();
+  if (!c) return '';
+  const esc = ctx.esc, mine = stepTokens(), lines = [];
+  const name = (tk) => { const [s, k] = tk.split(':'); return unitInfo(s, k)?.cu.name ?? tk; };
+  for (const tk of new Set([...Object.keys(mine), ...Object.keys(c.tokens)])) {
+    const a = mine[tk], g = c.tokens[tk];
+    if (a && g) { const dd = Math.hypot(a.x - g.x, a.y - g.y); if (dd > GHOST_MIN) lines.push(`${esc(name(tk))} ${dd.toFixed(1)}" away`); }
+    else if (a) lines.push(`${esc(name(tk))} is not on the board there`);
+    else lines.push(`${esc(name(tk))} is only on the board there`);
+  }
+  return `Dashed bases: <b>${esc(c.name)}</b> at ${esc(c.step)}. ${lines.length ? lines.join(' · ') : 'Every unit is in the same place.'}`;
+}
+function ghostSvg() {
+  const c = compareTokens();
+  if (!c) return '';
+  const mine = stepTokens(), out = ['<g id="board-ghosts" pointer-events="none">'];
+  for (const [tk, g] of Object.entries(c.tokens)) {
+    const [side, key] = tk.split(':');
+    const u = unitInfo(side, key);
+    if (!u) continue;
+    const a = mine[tk];
+    if (a && Math.hypot(a.x - g.x, a.y - g.y) <= GHOST_MIN) continue;
+    if (a) out.push(`<line x1="${f2(a.x)}" y1="${f2(a.y)}" x2="${f2(g.x)}" y2="${f2(g.y)}" stroke="${C[side]}" stroke-width="0.18" stroke-dasharray="0.6 0.4" opacity="0.8"/>`);
+    out.push(`<g data-ghost="${tk}" transform="translate(${f2(g.x)},${f2(g.y)})" opacity="0.85">${tokenModels(u, g).map(m => shapeSvg(m.fp, m.dx, m.dy, 'none', C[side], 0.16, m.rot)).join('').replaceAll('stroke-width="0.16"', 'stroke-width="0.16" stroke-dasharray="0.45 0.3"')}</g>`);
+  }
+  // a unit that is gone in the other path: a dashed cross over it
+  for (const tk of Object.keys(mine)) {
+    if (c.tokens[tk]) continue;
+    const a = mine[tk];
+    out.push(`<g data-ghost-gone="${tk}" stroke="#c0392b" stroke-width="0.25" stroke-dasharray="0.5 0.3"><line x1="${f2(a.x - 1.6)}" y1="${f2(a.y - 1.6)}" x2="${f2(a.x + 1.6)}" y2="${f2(a.y + 1.6)}"/><line x1="${f2(a.x + 1.6)}" y1="${f2(a.y - 1.6)}" x2="${f2(a.x - 1.6)}" y2="${f2(a.y + 1.6)}"/></g>`);
+  }
+  out.push('</g>');
+  return out.join('');
 }
 
 // Going first / going second: the first turn is a roll-off AFTER both armies are deployed (Event Companion,
@@ -418,6 +579,7 @@ export function boardSvg({ forExport = false } = {}) {
       parts.push(`<g opacity="0.16" data-ring="${k}">${sel.models.map(m => `<circle cx="${f2(sel.x + m.dx)}" cy="${f2(sel.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
     }
   }
+  if (!forExport) parts.push(ghostSvg());
   for (const t of toks) {
     const isSel = t.tk === b.sel || t.tk === b.sel2;
     const fill = C[t.side];
@@ -597,6 +759,7 @@ export function boardView() {
   return `<div id="board-dock" class="board-dock">${dockHtml()}</div><div class="blay"><div class="col map">
     <section class="section b-steps">
       ${wideNow ? '' : stepsRow + trayHtml}
+      ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -605,7 +768,7 @@ export function boardView() {
         <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
     </section>
     </div><div class="col side">
-    ${wideNow ? `<section class="section">${stepsRow}</section>` : ''}
+    ${wideNow ? `<section class="section">${stepsRow}<div id="board-treemap-host">${treeMapHtml()}</div></section>` : ''}
     <section class="section" id="board-panel">${selectionPanel()}</section>
     <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
@@ -880,6 +1043,8 @@ export function refreshBoard() {
   if (abar) abar.innerHTML = arriveBar();
   const tree = document.getElementById('board-tree-host');
   if (tree) tree.innerHTML = treeHtml();
+  const tmap = document.getElementById('board-treemap-host');
+  if (tmap) tmap.innerHTML = treeMapHtml();
   wireBoard();
 }
 
@@ -1174,6 +1339,31 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-tree-go': {
+      // the branch map: that path on the board, at that turn (the row label: the turn on screen, or the path's first own turn)
+      const root = planRoot();
+      const i = root.variants.findIndex(v => v.id === el.dataset.vid);
+      if (i < 0) return null;
+      const n = resolveSteps(root.variants, i).length;
+      const at = Number(el.dataset.i);
+      const own = root.variants[i].parent != null ? root.variants[i].from + 1 : 0;
+      const keep = i === root.v ? curIndex() : Math.max(curIndex(), own);
+      root.v = i;
+      root.variants[i].cur = Math.min(n - 1, at >= 0 ? at : keep);
+      b.sel = b.sel2 = null;
+      if (b.cmp === root.variants[i].id) b.cmp = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-tree-fold':
+      b.tmHide = !b.tmHide;
+      persistBoard();
+      refreshBoard();
+      return null;
+    case 'board-tree-forecast':
+      ctx.forecastBranches?.();
+      refreshBoard();
+      return null;
     case 'board-branch-view': {
       const root = planRoot(), t = treeTarget(el);
       const i = root.variants.findIndex(v => v.id === el.dataset.vid);
@@ -1285,6 +1475,7 @@ export function boardAction(action, el) {
 
 export function boardChange(el) {
   const b = boardState();
+  if (el.dataset.input === 'board-cmp') { b.cmp = el.value || null; persistBoard(); refreshBoard(); return null; }
   if (el.dataset.input === 'board-photo') {
     const file = el.files?.[0];
     const key = photoKey();
@@ -1394,7 +1585,7 @@ export function boardPlans() {
   const root = planRoot();
   if (!root) return [];
   return root.variants.map((vv, vi) => ({
-    index: vi, name: pathLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
+    index: vi, name: choiceLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
     steps: resolveSteps(root.variants, vi).map(st => {
       const out = { name: st.name, A: [], B: [] };
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {

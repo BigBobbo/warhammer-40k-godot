@@ -2681,7 +2681,7 @@ Aggressor Squad (95 points)
     await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
     await setPos(MN, 20, 34); await redraw();
     await tp.locator('#board-tree .topt').first().locator('button[data-action="board-branch-view"]').tap();
-    const onLeft = /◉ is on the board: Main(?! ▸)/.test(await ttxt('#board-tree'));
+    const onLeft = /◉ is on the board: Main ▸ Go left(?! ▸)/.test(await ttxt('#board-tree'));
     await tp.locator('button[data-action="board-step"][data-i="1"]').tap();
     const leftT1 = await pos(MN);
     await tp.locator('button[data-action="board-step"][data-i="2"]').tap();
@@ -2727,7 +2727,7 @@ Aggressor Squad (95 points)
     const leftVal = 0.5 * v.plan0 + 0.5 * v.plan2;
     const best = Math.max(leftVal, v.plan1);
     const shown = Number(/you win (\d+)%/.exec(res.head)?.[1]);
-    check('Mission compares each path by name (Main ▸ Go right …)', res.rows.includes('Board: Main ▸ Go right') && res.rows.includes('Board: Main ▸ Grey Hunters destroyed'), JSON.stringify(res.rows));
+    check('Mission compares each path by name (Main ▸ Go right …)', res.rows.includes('Board: Main ▸ Go right') && res.rows.includes('Board: Main ▸ Go left ▸ Grey Hunters destroyed') && res.rows.includes('Board: Main ▸ Go left ▸ Grey Hunters survives'), JSON.stringify(res.rows));
     check('the plan is worth its best decision: Go left = 50% × survives + 50% × destroyed, against Go right', Math.abs(shown - Math.round(best * 100)) <= 1 && new RegExp(`best: ${leftVal >= v.plan1 ? 'Go left' : 'Go right'}`).test(res.head), JSON.stringify({ head: res.head, leftVal, right: v.plan1, items: res.items }));
     await tp.locator('.fc-tree').scrollIntoViewIfNeeded();
     await tp.screenshot({ path: join(SHOTS, 'calc_92_branches_forecast.png') });
@@ -2750,6 +2750,99 @@ Aggressor Squad (95 points)
     await tp.waitForFunction(() => ![...document.querySelectorAll('#board-tree input.tlabel')].some(i => i.value === 'Go right'));
     check('a branch can be deleted', (await tp.evaluate(() => Object.values(window.__calc.state.board.plans)[0].variants.length)) === 2);
     await tctx.close();
+  }
+
+  // --- branch map (1.110): every path at a glance above the board; tap to switch; win chances; compare positions
+  {
+    const mctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mp = await mctx.newPage();
+    mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branch map: ${m.text()}`); });
+    mp.on('pageerror', e => consoleErrors.push(`branch map: ${e}`));
+    mp.on('dialog', d => d.accept());
+    await mp.goto(`${BASE}/calc/`); await mp.waitForSelector('textarea[data-side="A"]');
+    await mp.fill('textarea[data-side="A"]', SW_LIST); await mp.tap('button[data-action="parse"][data-side="A"]');
+    await mp.fill('textarea[data-side="B"]', ORK_LIST); await mp.tap('button[data-action="parse"][data-side="B"]');
+    const mtxt = async (q) => (await mp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const mset = (tk, x, y) => mp.evaluate(([t, px, py]) => { const toks = window.__calc.board().stepTokens; toks[t] = { ...(toks[t] ?? {}), x: px, y: py }; document.querySelector('button[data-action="board-step"].on')?.click(); }, [tk, x, y]);
+    const mstate = () => mp.evaluate(() => { const d = window.__calc.board(); return { cur: d.cur, steps: [...document.querySelectorAll('button[data-action="board-step"]')].map(b => b.textContent.trim()), path: document.querySelector('.tm-row.on .tm-lab')?.textContent.trim(), tokens: d.tokens }; });
+    await mp.tap('button[data-action="view"][data-value="board"]');
+    await mp.waitForSelector('#board-svg');
+    check('no branch map until the plan has a branch', (await mp.locator('#board-treemap').count()) === 0);
+    await mp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await mp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Meganobz' }).tap();
+    const mt = await mp.evaluate(() => window.__calc.board().tokens.map(t => t.tk));
+    const GH = mt.find(t => t.startsWith('A:')), MN = mt.find(t => t.startsWith('B:'));
+    await mset(GH, 22, 26); await mset(MN, 22, 36);
+    await mp.locator('button[data-action="board-step-add"]').tap();                  // Turn 1
+    await mp.locator('#board-branch').tap();                                          // after Turn 1: a decision
+    await mp.waitForSelector('#board-treemap');
+    const o1 = mp.locator('#board-tree .tsplit').first().locator(':scope > .topt');
+    await o1.nth(0).locator('input.tlabel').fill('Go left'); await o1.nth(0).locator('input.tlabel').blur();
+    await o1.nth(1).locator('input.tlabel').fill('Go right'); await o1.nth(1).locator('input.tlabel').blur();
+    await mset(GH, 40, 28);                                                           // Go right, Turn 2
+    await mp.locator('#board-tree .topt').first().locator('button[data-action="board-branch-view"]').tap();
+    await mset(MN, 22, 31);                                                           // Go left, Turn 2: the Meganobz close in
+    await mp.locator('#board-branch').tap();                                          // after Turn 2: a chance
+    await mp.waitForFunction(() => document.querySelectorAll('#board-tree .tsplit').length === 2);
+    const in2 = () => mp.locator('#board-tree .tsplit').nth(1);
+    await in2().locator('button[data-action="board-split-kind"][data-value="chance"]').tap();
+    await in2().locator(':scope > .topt').nth(0).locator('input.tlabel').fill('Hunters survive'); await in2().locator(':scope > .topt').nth(0).locator('input.tlabel').blur();
+    await in2().locator(':scope > .topt').nth(1).locator('input.tlabel').fill('Hunters wiped'); await in2().locator(':scope > .topt').nth(1).locator('input.tlabel').blur();
+    await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').fill('40'); await in2().locator(':scope > .topt').nth(1).locator('input[data-input="board-branch-p"]').blur();
+    await mp.evaluate(([gh]) => { const toks = window.__calc.board().stepTokens; delete toks[gh]; document.querySelector('button[data-action="board-step"].on')?.click(); }, [GH]); // wiped: off the board at Turn 3
+    await mp.waitForTimeout(300);
+    // the map: three paths, the one on the board highlighted
+    const rows = await mp.$$eval('#board-treemap .tm-row', els => els.map(e => e.querySelector('.tm-lab').textContent.trim()));
+    check('the branch map lists every path, in tree order, with the chance to get there', rows.length === 3 && /^Hunters survive 60%$/.test(rows[0]) && /^Hunters wiped 40%$/.test(rows[1]) && /^Go right$/.test(rows[2]), JSON.stringify(rows));
+    check('each path names the choices before it (“after Go left”)', (await mp.$$eval('#board-treemap .tm-sub', els => els.map(e => e.textContent.trim()))).join('|') === 'after Go left|after Go left');
+    check('the path on the board is highlighted on the map, at the turn on screen', /Hunters wiped/.test((await mstate()).path ?? '') && (await mp.locator('#board-treemap .tm-here').count()) === 1);
+    // tap a turn on another path: that path at that turn is on the board
+    const goRight = await mp.evaluate(() => Object.values(window.__calc.state.board.plans)[0].variants.find(v => v.branch?.label === 'Go right').id);
+    await mp.locator(`#board-treemap g.tm-go[data-vid="${goRight}"][data-i="2"]`).tap();
+    let s = await mstate();
+    check('tap a turn on the map: that path, at that turn, is on the board', s.path === 'Go right' && s.cur === 2 && Math.abs(s.tokens.find(t => t.tk === GH).x - 40) < 0.01, JSON.stringify({ path: s.path, cur: s.cur }));
+    // tap a path's name: the same turn on that path
+    await mp.locator('#board-treemap .tm-row').nth(0).tap();
+    s = await mstate();
+    check('tap a path’s name: that path at the same turn', /^Hunters survive/.test(s.path) && s.cur === 2 && Math.abs(s.tokens.find(t => t.tk === MN).y - 31) < 0.01, JSON.stringify({ path: s.path, cur: s.cur }));
+    // win chances worked out from here
+    check('⚡ Work out win chances is offered before any forecast', (await mp.locator('#board-tree-forecast').count()) === 1);
+    await mp.locator('#board-tree-forecast').tap();
+    await mp.waitForFunction(() => [...document.querySelectorAll('#board-treemap .tm-win')].every(t => /^\d+%$/.test(t.textContent.trim())), null, { timeout: 240000 });
+    const wins = await mp.evaluate(() => { const m = window.__calc.mission(); return Object.fromEntries(m.compare.map(c => [c.key, Math.round(c.result.pWinA * 100)])); });
+    const shown = await mp.$$eval('#board-treemap .tm-win', els => els.map(e => Number(e.textContent.replace('%', ''))));
+    const head = await mtxt('#board-treemap .small');
+    const left = 0.6 * wins.plan0 + 0.4 * wins.plan2;
+    const best = left >= wins.plan1 ? 'Go left' : 'Go right';
+    const starred = await mp.$$eval('#board-treemap .tm-lab', els => els.map(e => e.textContent.trim().startsWith('★')));
+    check('each path shows its win chance (the same as Mission → Plan), the plan’s worth and the best decision now', shown.join() === [wins.plan0, wins.plan2, wins.plan1].join() && new RegExp(`best now: ${best}`).test(head) && Math.abs(Number(/You win (\d+)%/.exec(head)?.[1]) - Math.max(left, wins.plan1)) <= 1.01 && (best === 'Go left' ? starred.join() === 'true,true,false' : starred.join() === 'false,false,true'), JSON.stringify({ shown, wins, head, starred }));
+    await mp.locator('#board-treemap').scrollIntoViewIfNeeded();
+    await mp.screenshot({ path: join(SHOTS, 'calc_93_branch_map.png') });
+    // the map folds to one line (the board moves up) and opens again
+    await mp.locator('#board-tree-fold').tap();
+    await mp.waitForSelector('#board-treemap[data-shut="1"]');
+    check('the branch map folds to one line: the path on the board and the plan’s win chance', /On the board: Main ▸ Go left ▸ Hunters survive · you win \d+%/.test(await mtxt('#board-treemap')) && (await mp.locator('#board-treemap svg').count()) === 0, await mtxt('#board-treemap'));
+    await mp.locator('#board-tree-fold').tap();
+    await mp.waitForSelector('#board-treemap svg');
+    // compare: Go right's positions as ghost bases at this turn
+    await mp.selectOption('#board-cmp', goRight);
+    await mp.waitForSelector('#board-ghosts [data-ghost]');
+    const info = await mtxt('#board-cmp-info');
+    check('compare with another path: its units at this turn as dashed bases, and how far apart', /Dashed bases: Main ▸ Go right at Turn 2\./.test(info) && /Grey Hunters [\d.]+" away/.test(info) && /Meganobz [\d.]+" away/.test(info) && (await mp.locator('#board-ghosts [data-ghost]').count()) === 2, info);
+    await mp.screenshot({ path: join(SHOTS, 'calc_94_branch_compare.png') });
+    // at Turn 3, the wiped path: the Grey Hunters are gone there, a cross over them
+    const wiped = await mp.evaluate(() => Object.values(window.__calc.state.board.plans)[0].variants.find(v => v.branch?.label === 'Hunters wiped').id);
+    await mp.locator('#board-treemap .tm-row').nth(0).tap();
+    await mp.locator('button[data-action="board-step"][data-i="3"]').tap();
+    await mp.selectOption('#board-cmp', wiped);
+    await mp.waitForSelector('#board-ghosts [data-ghost-gone]');
+    check('a unit destroyed in the other path is crossed out', /Grey Hunters is not on the board there/.test(await mtxt('#board-cmp-info')));
+    // moving a path after the forecast: its win chance is not shown until worked out again
+    await mset(MN, 30, 31);
+    await mp.waitForTimeout(200);
+    const after = await mp.$$eval('#board-treemap .tm-win', els => els.map(e => e.textContent.trim()));
+    check('a path changed after the forecast loses its win chance (no stale numbers); ⚡ is offered again', after[0] === '' && /^\d+%$/.test(after[2]) && (await mp.locator('#board-tree-forecast').count()) === 1, JSON.stringify(after));
+    await mctx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

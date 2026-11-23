@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.110.0",
+      "date": "2026-11-23",
+      "summary": "Combat Calc: a branch map on the Board — see every path, switch with a tap, compare",
+      "changes": [
+        "Board: a branch map above the board shows every path of the plan (turns left to right, one row per path); tap a turn to put that path on the board at that turn, or a path's name to switch at the same turn",
+        "Each path shows the chance to get there and your win chance; ★ marks the best decision now; ⚡ Work out win chances runs the forecast from the Board",
+        "Compare with…: another path's units at the same turn appear as dashed bases, with how far each unit is from where it is in that path; a unit destroyed there is crossed out",
+        "Paths are named by every choice on the way (Main ▸ Go left ▸ Hunters survive), here and in Mission → Plan",
+        "The map folds to one line so the board moves up; a win chance is hidden once a path is moved after the forecast"
+      ]
+    },
+    {
       "version": "1.109.0",
       "date": "2026-11-23",
       "summary": "Combat Calc: branching plans — plan for each outcome and see which decision wins",

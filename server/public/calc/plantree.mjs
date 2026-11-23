@@ -159,3 +159,46 @@ export function branch(variants, i, at, { kind = 'decision', label = null, paren
   variants.push(nb);
   return nb;
 }
+
+/**
+ * The leaves of a tree (evaluated or not), top to bottom: one row per path, in the order of the tree (at each split
+ * the parent's continuation first). Row: { vi, value, path: [{ pi, at, kind, id, vi, label, p, hit, gone, best }],
+ * reach (chance of ending up on this path from here: chance splits not yet known multiply, a known one is 1 or 0),
+ * gone (an option on the way did not happen / was not chosen), onBest (every open decision on the way is the best one) }.
+ */
+export function treeRows(tree) {
+  const rows = [];
+  const walk = (n, path) => {
+    if (!n.split) { rows.push({ vi: n.vi, value: n.value ?? null, path }); return; }
+    const s = n.split;
+    const open = s.kind === 'decision' && !s.chosen && n.best != null;
+    for (const o of n.options) {
+      walk(o.node, [...path, { pi: s.pi, at: s.at, kind: s.kind, id: o.id, vi: o.vi, label: o.label, p: o.p,
+        hit: s.chosen === o.id, gone: !!s.chosen && s.chosen !== o.id, best: open && n.best === o.id, open }]);
+    }
+  };
+  walk(tree, []);
+  for (const r of rows) {
+    r.reach = r.path.reduce((a, c) => a * (c.gone ? 0 : c.hit || c.kind !== 'chance' ? 1 : c.p ?? 0), 1);
+    r.gone = r.path.some(c => c.gone);
+    r.onBest = r.path.some(c => c.open) && r.path.every(c => !c.open || c.best);
+  }
+  return rows;
+}
+
+/**
+ * "Main ▸ Go left ▸ Survives": the name of path i by every choice on the way, the parent's own continuations
+ * included (pathLabel names only the branches: the main path would be just "Main").
+ */
+export function choiceLabel(variants, i) {
+  const c = chain(variants, i), out = [variants[c[0]].name];
+  c.forEach((k, j) => {
+    const v = variants[k], next = c[j + 1] != null ? variants[c[j + 1]] : null;
+    const from = j === 0 ? -1 : v.from, upto = next ? next.from : Infinity;
+    for (const at of Object.keys(v.splits ?? {}).map(Number).filter(a => a > from && a <= upto).sort((a, b) => a - b)) {
+      if (optionsAt(variants, k, at).length < 2) continue;
+      out.push(next && at === upto ? next.branch?.label ?? next.name : v.splits[at].label ?? 'As planned');
+    }
+  });
+  return out.join(' ▸ ');
+}

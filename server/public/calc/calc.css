@@ -502,3 +502,23 @@ details.more.card { padding: 10px 12px; }
 .ftree li.gone { opacity: .45; }
 .ftree li.best > span:first-child { font-weight: 600; }
 .ftsplit .ftsplit { margin-left: 6px; }
+
+/* the branch map on the Board (boardview.treeMapHtml) */
+.tm { padding: 8px 10px; margin-top: 8px; }
+.tm-svg { display: block; margin: 4px 0 2px; max-width: 520px; }
+.tm-col { font-size: 10px; fill: var(--text-muted); font-family: system-ui, sans-serif; }
+.tm-edge { fill: none; stroke: var(--text-muted); stroke-width: 2; opacity: 0.55; }
+.tm-edge.on { stroke: var(--accent); stroke-width: 3.5; opacity: 1; }
+.tm-edge.gone, .tm-node.gone { stroke-dasharray: 3 3; opacity: 0.3; }
+.tm-node { fill: var(--surface-1); stroke: var(--text-muted); stroke-width: 2; }
+.tm-node.on { fill: var(--accent); stroke: var(--accent); }
+.tm-here { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0.5; }
+.tm-go, .tm-row { cursor: pointer; }
+.tm-hit { fill: transparent; }
+.tm-row.on .tm-hit { fill: var(--accent); fill-opacity: 0.12; }
+.tm-row.gone { opacity: 0.45; }
+.tm-lab { font-size: 13px; fill: var(--text-primary); font-family: system-ui, sans-serif; }
+.tm-row.on .tm-lab { font-weight: 700; }
+.tm-p { font-size: 11px; fill: var(--text-muted); }
+.tm-win { font-size: 13px; font-weight: 700; fill: var(--text-primary); font-family: system-ui, sans-serif; }
+.tm-sub { font-size: 10px; fill: var(--text-muted); font-family: system-ui, sans-serif; }
