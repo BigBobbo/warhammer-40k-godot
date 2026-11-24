@@ -13,7 +13,8 @@ import {
 import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
-import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
+import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, photoScaleAt, _photoDebug } from './photoview.mjs';
+import { BASE_SIZES, baseToBase, measureError, fmtIn as fmtBase } from './measure.mjs';
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
@@ -833,6 +834,7 @@ export function boardSvg({ forExport = false } = {}) {
       + label((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, `${g.toFixed(1)}"`));
   }
   if (!forExport) parts.push(`<g id="ruler-layer">${rulerSvg(b.ruler)}</g>`);
+  if (!forExport && b.mode === 'meas') parts.push(`<g id="meas-layer">${measSvg(b.meas)}</g>`);
   const size = forExport ? 'width="880" height="1200"' : '';
   return `<svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="${f2(vb.x)} ${f2(vb.y)} ${f2(vb.w)} ${f2(vb.h)}" ${size} preserveAspectRatio="xMidYMid meet" style="touch-action:none;display:block;width:100%;height:auto;background:${forExport ? '#ffffff' : 'transparent'}">${parts.join('')}</svg>`;
 }
@@ -949,6 +951,48 @@ function arriveBar() {
       <br>${a.off.length ? `Not on the board in this step: <b>${a.off.map(u => `${ctx.esc(short(u))}${a.dsOff.includes(u) ? ' (Deep Strike)' : ''}`).join(', ')}</b>.` : `All of ${a.X}'s units are on the board in this step.`}</span>` : ''}`;
 }
 
+// ---- 📐 Bases: two base circles you line up with bases on the table photo (or anywhere on the map); the
+// distance between their closest points (01.04), and how sure it is on a photo (measure.mjs)
+function measInfo(m) {
+  if (!m?.a || !m?.b) return null;
+  const r = baseToBase(m.a, m.b);
+  const key = photoKey(), shown = (boardState().settings.photoMap ?? 'both') !== 'map';
+  const sa = shown && photoScaleAt(key, BOARD, m.a.x, m.a.y), sb = shown && photoScaleAt(key, BOARD, m.b.x, m.b.y);
+  const err = sa && sb ? measureError({ sA: sa.s, sB: sb.s, sCorner: sa.sCorner, dist: r.edge }) : null;
+  return { ...r, err, ppi: sa && sb ? Math.min(sa.s, sb.s) : null };
+}
+function measSvg(m) {
+  if (!m?.a) return '';
+  const R = (mm) => Math.max(0.18, (mm || 0) / 25.4 / 2);
+  const mark = (k, p) => `<g data-meas="${k}" style="cursor:grab"><circle cx="${f2(p.x)}" cy="${f2(p.y)}" r="${f2(R(p.mm) + 0.9)}" fill="#000" fill-opacity="0.001"/>`
+    + `<circle cx="${f2(p.x)}" cy="${f2(p.y)}" r="${f2(R(p.mm))}" fill="${C.ruler}" fill-opacity="0.12" stroke="${C.ruler}" stroke-width="0.1"/>`
+    + `<path d="M${f2(p.x - 0.3)} ${f2(p.y)}H${f2(p.x + 0.3)}M${f2(p.x)} ${f2(p.y - 0.3)}V${f2(p.y + 0.3)}" stroke="${C.ruler}" stroke-width="0.06"/>`
+    + `<text x="${f2(p.x)}" y="${f2(p.y - R(p.mm) - 0.35)}" font-size="0.8" text-anchor="middle" fill="${C.ruler}" stroke="#fff" stroke-width="0.25" paint-order="stroke" font-weight="700" font-family="system-ui,sans-serif">${k.toUpperCase()}</text></g>`;
+  const i = measInfo(m);
+  let line = '';
+  if (i) {
+    const [p, q] = [i.p, i.q], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    const txt = `${fmtBase(i.edge)}${i.err != null ? ` ±${i.err.toFixed(1)}` : ''}`;
+    const w = Math.max(2.6, txt.length * 0.58 + 0.4);
+    line = `<line x1="${f2(p[0])}" y1="${f2(p[1])}" x2="${f2(q[0])}" y2="${f2(q[1])}" stroke="${C.ruler}" stroke-width="0.12" pointer-events="none"/>`
+      + `<g id="meas-label" pointer-events="none"><rect x="${f2(mx - w / 2)}" y="${f2(my - 0.8)}" width="${f2(w)}" height="1.4" rx="0.3" fill="#fff" stroke="${C.ruler}" stroke-width="0.06"/><text x="${f2(mx)}" y="${f2(my + 0.32)}" font-size="0.95" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif" fill="#111">${txt}</text></g>`;
+  }
+  return line + mark('a', m.a) + (m.b ? mark('b', m.b) : '');
+}
+function measPanel() {
+  const b = boardState(), m = b.meas ?? {}, i = measInfo(m);
+  const sizeSeg = (k) => m[k] ? `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Base ${k.toUpperCase()}</div><div class="seg compact" id="board-meas-mm-${k}">${BASE_SIZES.map(v => `<button data-action="board-meas-mm" data-which="${k}" data-value="${v}" class="${v === m[k].mm ? 'on' : ''}">${v ? `${v}` : 'Point'}</button>`).join('')}</div></div>` : '';
+  return `<div class="card" id="board-meas">
+    <div class="row" style="gap:6px;align-items:baseline"><span class="title grow">📐 Base to base</span>${m.a ? '<button class="chip" data-action="board-meas-clear">Clear</button>' : ''}</div>
+    ${i ? `<div style="font-size:28px;font-weight:800;line-height:1.1" id="board-meas-edge">${fmtBase(i.edge)}${i.err != null ? ` <span class="small muted" style="font-weight:600">± ${i.err.toFixed(1)}"</span>` : ''}</div>
+      <div class="tiny muted" id="board-meas-centre">Centre to centre ${i.centre.toFixed(1)}"${i.ppi ? ` · the photo shows ${Math.round(i.ppi)} px per inch there` : ''}</div>`
+      : `<div class="small" style="margin-top:4px">${m.a ? 'Tap the second base.' : 'Tap a base, then another.'}</div>`}
+    ${sizeSeg('a')}${sizeSeg('b')}
+    <div class="tiny muted" style="margin-top:6px">Drag a circle onto the base in the photo (zoom in with ＋ first), and pick the base size: the number is between the closest edges, as 40k measures. <b>Point</b> measures to a spot (a hull, an objective's centre). A tap with both down starts again.
+    ${i?.err != null ? ' The ± is an estimate from how sharp the photo is there and how well the corners were tapped: a photo from higher and more square-on is better. Not a table ruling.' : ' Add a table photo (below) to measure on the real table.'}</div>
+  </div>`;
+}
+
 function rulerSvg(r) {
   if (!r) return '';
   const { x1, y1, x2, y2 } = r;
@@ -1005,7 +1049,7 @@ export function boardView() {
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
         <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
         <span class="grow"></span>
-        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
+        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}
       </div>`;
   const di = drillInfo();
   const trayHtml = di ? drillHtml(di) : left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
@@ -1129,6 +1173,7 @@ async function photoTask(fn, label) {
 // map does not scroll away (the full panel is below the map; on a tablet it is beside it).
 function dockHtml() {
   const b = boardState();
+  if (b.mode === 'meas') { const i = measInfo(b.meas); return i ? `<div class="row" style="gap:8px;align-items:baseline" id="board-meas-dock"><span class="title grow">📐 ${fmtBase(i.edge)}${i.err != null ? ` <span class="small muted">± ${i.err.toFixed(1)}"</span>` : ''}</span><span class="tiny muted">centre ${i.centre.toFixed(1)}"</span><button class="chip" data-action="board-meas-clear">Clear</button></div>` : ''; }
   const esc = ctx.esc;
   const toks = placed();
   const s1 = toks.find(t => t.tk === b.sel);
@@ -1201,6 +1246,7 @@ function transportPanel(s1) {
 
 function selectionPanel() {
   const b = boardState();
+  if (b.mode === 'meas') return measPanel();
   const esc = ctx.esc;
   const toks = placed();
   const s1 = toks.find(t => t.tk === b.sel);
@@ -1432,6 +1478,19 @@ function wireBoard() {
       return;
     }
     const tokEl = ev.target.closest?.('[data-tok]'), scEl = ev.target.closest?.('[data-scout]');
+    if (b.mode === 'meas') {
+      const mEl = ev.target.closest?.('[data-meas]');
+      const m = (b.meas ??= {});
+      let k = mEl?.dataset.meas;
+      if (!k) {
+        if (!m.a || (m.a && m.b)) { m.a = { x: p.x, y: p.y, mm: m.a?.mm ?? 32 }; if (m.b) m.b = null; k = 'a'; }
+        else { m.b = { x: p.x, y: p.y, mm: m.a.mm }; k = 'b'; }
+      }
+      gesture = { kind: 'meas', k, dx: p.x - m[k].x, dy: p.y - m[k].y };
+      const layer = svg.querySelector('#meas-layer');
+      if (layer) layer.innerHTML = measSvg(m);
+      return;
+    }
     if (b.mode !== 'ruler' && scEl) {
       const tk = scEl.dataset.scout, sc = stepTokens()[tk]?.scout;
       if (sc) { gesture = { kind: 'drag', tk, el: scEl, obj: sc, from: { ...sc }, dx: p.x - sc.x, dy: p.y - sc.y, start: p, moved: false, t0: Date.now() }; return; }
@@ -1473,6 +1532,11 @@ function wireBoard() {
       const dx = (ev.clientX - gesture.start.x) * scale, dy = (ev.clientY - gesture.start.y) * scale;
       if (Math.abs(dx) + Math.abs(dy) > 0.3) gesture.moved = true;
       if (b.view) setView({ x: v0.x - dx, y: v0.y - dy, w: v0.w });
+    } else if (gesture.kind === 'meas') {
+      const m = b.meas;
+      Object.assign(m[gesture.k], { x: Math.max(0, Math.min(BOARD.w, p.x - gesture.dx)), y: Math.max(0, Math.min(BOARD.h, p.y - gesture.dy)) });
+      const layer = svg.querySelector('#meas-layer');
+      if (layer) layer.innerHTML = measSvg(m);
     } else if (gesture.kind === 'ruler') {
       b.ruler = { x1: gesture.start.x, y1: gesture.start.y, x2: p.x, y2: p.y };
       // redraw only the ruler layer: replacing the SVG would drop the pointer capture
@@ -1487,6 +1551,13 @@ function wireBoard() {
     const g = gesture;
     if (g.kind === 'pinch') { if (pointers.size === 0) gesture = null; return; }
     gesture = null;
+    if (g.kind === 'meas') {
+      const i = measInfo(b.meas);
+      if (i) console.log(`[board] base to base: ${i.edge.toFixed(2)}" (centre ${i.centre.toFixed(2)}")${i.err != null ? ` ±${i.err.toFixed(2)} on the photo, ${Math.round(i.ppi)} px/inch` : ''}`);
+      const panel = document.getElementById('board-panel'); if (panel) panel.innerHTML = selectionPanel();
+      const dock = document.getElementById('board-dock'); if (dock) dock.innerHTML = dockHtml();
+      return;
+    }
     if (g.kind === 'drag') {
       if (!g.moved && !g.obj) selectToken(g.tk);
       if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
@@ -1538,6 +1609,17 @@ export function boardAction(action, el) {
       b.mode = el.dataset.value;
       b.ruler = null;
       return 'render';
+    case 'board-meas-clear':
+      b.meas = null;
+      refreshBoard();
+      return null;
+    case 'board-meas-mm': {
+      const m = b.meas, k = el.dataset.which === 'b' ? 'b' : 'a';
+      if (!m?.[k]) return null;
+      m[k].mm = Number(el.dataset.value) || 0;
+      refreshBoard();
+      return null;
+    }
     case 'board-place': {
       const side = el.dataset.side, key = el.dataset.key;
       const tk = `${side}:${key}`;

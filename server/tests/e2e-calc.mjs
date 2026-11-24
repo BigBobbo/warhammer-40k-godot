@@ -3563,6 +3563,80 @@ Aggressor Squad (95 points)
     await vctx.close();
   }
 
+  // --- 1.124: 📐 base-to-base measuring on a table photo. A synthetic tablet photo of the table taken from one end
+  // (perspective, 2400 px wide) with a 32 mm base at (12, 20) and a 40 mm base at (24, 34): truth 17.02" edge to edge.
+  {
+    const { writeFileSync } = await import('fs');
+    const mctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, hasTouch: true });
+    const mp = await mctx.newPage();
+    mp.on('pageerror', e => consoleErrors.push(`meas: ${e}`));
+    mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`meas: ${m.text()}`); });
+    await mp.goto(`${BASE}/calc/`); await mp.waitForSelector('textarea[data-side="A"]');
+    await mp.fill('textarea[data-side="A"]', SW_LIST); await mp.tap('button[data-action="parse"][data-side="A"]');
+    await mp.fill('textarea[data-side="B"]', ORK_LIST); await mp.tap('button[data-action="parse"][data-side="B"]');
+    await mp.tap('button[data-action="view"][data-value="board"]');
+    await mp.waitForSelector('#board-svg');
+    const A = { x: 12, y: 20, mm: 32 }, Bb = { x: 24, y: 34, mm: 40 };
+    const truth = Math.hypot(Bb.x - A.x, Bb.y - A.y) - (A.mm + Bb.mm) / 25.4 / 2;
+    const PC = [[620, 260], [1780, 270], [2330, 1640], [80, 1620]]; // table corners in the 2400x1700 photo
+    const b64 = await mp.evaluate(async ([pc, a, b]) => {
+      const P = await import('/calc/photo.mjs');
+      const K = 40; // px per inch on the flat table image
+      const bc = document.createElement('canvas'); bc.width = 44 * K; bc.height = 60 * K;
+      const g = bc.getContext('2d');
+      g.fillStyle = '#7d8f5a'; g.fillRect(0, 0, bc.width, bc.height);              // mat
+      g.fillStyle = '#6b5b4a'; g.fillRect(16 * K, 26 * K, 8 * K, 5 * K);           // a ruin footprint
+      const base = (p, col) => { g.fillStyle = '#222'; g.beginPath(); g.arc(p.x * K, p.y * K, p.mm / 25.4 / 2 * K, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(p.x * K, p.y * K, p.mm / 25.4 / 2 * K * 0.8, 0, 7); g.fill(); };
+      base(a, '#ff00ff'); base(b, '#00ffff');
+      const H = P.homography(pc, [[0, 0], [44 * K, 0], [44 * K, 60 * K], [0, 60 * K]]);
+      const out = P.warpToBoard(g.getImageData(0, 0, bc.width, bc.height), H, { w: 2400, h: 1700 }, 1);
+      for (let i = 0; i < out.data.length; i += 4) if (out.data[i + 3] === 0) { out.data[i] = 50; out.data[i + 1] = 40; out.data[i + 2] = 32; out.data[i + 3] = 255; }
+      const c = document.createElement('canvas'); c.width = 2400; c.height = 1700;
+      c.getContext('2d').putImageData(new ImageData(out.data, 2400, 1700), 0, 0);
+      return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+    }, [PC, A, Bb]);
+    const file = join(SHOTS, 'calc_synthetic_measure_photo.jpg');
+    writeFileSync(file, Buffer.from(b64, 'base64'));
+    await mp.locator('#board-photo-bar').scrollIntoViewIfNeeded();
+    await mp.setInputFiles('input[data-input="board-photo"]', file);
+    await mp.waitForSelector('.photo-ov #photo-svg image');
+    const imgToScreen = (x, y) => mp.evaluate(([ix, iy]) => { const svg = document.getElementById('photo-svg'); const pt = svg.createSVGPoint(); pt.x = ix; pt.y = iy; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    for (const i of [0, 1, 2, 3]) { const q = await imgToScreen(...PC[i]); await mp.mouse.click(q.x, q.y); }
+    await mp.click('.photo-ov [data-ov="ok"]');
+    await mp.waitForSelector('#board-svg #board-photo', { timeout: 20000 });
+    await mp.click('button[data-action="board-photo-map"][data-value="photo"]');
+    // where the bases show on the flattened photo (what you line the circles up with)
+    const seen = await mp.evaluate(async () => {
+      const im = document.querySelector('#board-svg #board-photo');
+      const img = new Image(); img.src = im.getAttribute('href'); await img.decode();
+      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data, ppi = c.width / 44;
+      const cen = (test) => { let n = 0, sx = 0, sy = 0; for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const o = (y * c.width + x) * 4; if (test(d[o], d[o + 1], d[o + 2])) { n++; sx += x; sy += y; } } return n ? { x: (sx / n + 0.5) / ppi, y: (sy / n + 0.5) / ppi } : null; };
+      return { a: cen((r, gg, b) => r > 190 && gg < 110 && b > 190), b: cen((r, gg, b) => r < 110 && gg > 190 && b > 190) };
+    });
+    await mp.click('button[data-action="board-mode"][data-value="meas"]');
+    await mp.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
+    const toScreen = (x, y) => mp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const pa = await toScreen(seen.a.x, seen.a.y); await mp.mouse.click(pa.x, pa.y);
+    const pb = await toScreen(seen.b.x, seen.b.y); await mp.mouse.click(pb.x, pb.y);
+    await mp.click('#board-meas-mm-b button[data-value="40"]');
+    await mp.waitForSelector('#board-meas-edge');
+    const edgeTxt = (await mp.textContent('#board-meas-edge')).replace(/\s+/g, ' ');
+    const val = Number(edgeTxt.match(/([\d.]+)"/)?.[1]), pm = Number(edgeTxt.match(/± ([\d.]+)"/)?.[1]);
+    check(`📐 Bases on a table photo: base to base ${val}" ± ${pm}" — the real distance (${truth.toFixed(2)}") is inside it`, Number.isFinite(val) && Number.isFinite(pm) && Math.abs(val - truth) <= pm + 0.05 && pm < 0.6, JSON.stringify({ edgeTxt, truth, seen }));
+    const lab = await mp.textContent('#meas-label');
+    check('the distance is on the map too, between the two base circles', /\d+\.\d" ±\d\.\d/.test(lab), lab);
+    // Point: measuring to a spot drops the base radius
+    await mp.click('#board-meas-mm-b button[data-value="0"]');
+    const pt = Number((await mp.textContent('#board-meas-edge')).match(/([\d.]+)"/)?.[1]);
+    check('“Point” for B measures to the spot (40 mm radius no longer taken off: +0.8")', Math.abs(pt - val - 40 / 25.4 / 2) < 0.15, `${pt} vs ${val}`);
+    await mp.click('#board-meas-mm-b button[data-value="40"]');
+    await mp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0.7"]')?.click(); });
+    await mp.screenshot({ path: join(SHOTS, 'calc_121_photo_measure.png') });
+    await mctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
