@@ -2845,6 +2845,24 @@ Aggressor Squad (95 points)
     await mctx.close();
   }
 
+  // --- points with an enhancement priced apart (1.110.1): a New Recruit / WTC list
+  {
+    const qctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const qp = await qctx.newPage();
+    qp.on('pageerror', e => consoleErrors.push(`points: ${e}`));
+    qp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`points: ${m.text()}`); });
+    await qp.goto(`${BASE}/calc/`); await qp.waitForSelector('textarea[data-side="A"]');
+    await qp.fill('textarea[data-side="A"]', readFileSync(join(here, 'fixtures', 'nr-custodes-1995.txt'), 'utf8'));
+    await qp.tap('button[data-action="parse"][data-side="A"]');
+    await qp.waitForSelector('#points-A');
+    const t = (await qp.textContent('#points-A')).replace(/\s+/g, ' ').trim();
+    check('a list that prices enhancements apart: every datasheet costs what the data says (Telemon 280 + 30 = 310)', /✓ Points: all 9 datasheets cost what the rules data says/.test(t), t);
+    await qp.locator('#points-A').scrollIntoViewIfNeeded();
+    await qp.evaluate(() => window.scrollBy(0, -260));
+    await qp.screenshot({ path: join(SHOTS, 'calc_96_points_enhancement.png') });
+    await qctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

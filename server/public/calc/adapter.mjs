@@ -144,6 +144,14 @@ export function dataProvenance(army) {
 }
 
 /**
+ * What the list says a unit costs, its enhancement included. Importers differ: the GW app's unit header already
+ * includes the enhancement (enhancement_points null), the New Recruit / WTC text gives the unit price and the
+ * enhancement apart ("Telemon Heavy Dreadnought (310 pts)" + "Enhancement: Augury Uplink (+30 pts)" is stored as
+ * 280 + 30), as the list builder does (store.js: points + enhancement_points).
+ */
+export const listedPoints = (ru) => (ru.points == null ? null : ru.points + (ru.enhancement_points ?? 0));
+
+/**
  * The points in the pasted list against the rules data: the datasheet at its
  * size (any of its price steps for a 1st, 2nd, 3rd... copy), its priced
  * wargear and its enhancement. A unit with no points in the list, or with an
@@ -167,8 +175,8 @@ export function pointsCheck(army) {
     }
     if (!want.size) continue;
     out.checked++;
-    if (!want.has(ru.points)) {
-      out.mismatches.push({ unit: cu.key, name: m.dcUnit.name, models: ru.model_count ?? 1, list: ru.points, data: [...want].sort((a, b) => a - b),
+    if (!want.has(listedPoints(ru))) {
+      out.mismatches.push({ unit: cu.key, name: m.dcUnit.name, models: ru.model_count ?? 1, list: listedPoints(ru), data: [...want].sort((a, b) => a - b),
         enhancement: enh ? { name: enh.name, cost: enh.cost } : null, ...recordStamp(m.dcUnit) });
     }
   }
@@ -311,7 +319,7 @@ export function combatUnits(roster, attachments = defaultAttachments(roster)) {
       members,
       keywords: [...keywords],
       models: members.reduce((s, m) => s + (m.ru.model_count ?? 1), 0),
-      points: members.reduce((s, m) => s + (m.ru.points ?? 0), 0),
+      points: members.reduce((s, m) => s + (listedPoints(m.ru) ?? 0), 0),
       // a lone character that could join a unit
       canJoin: !leaders.length && attachRole(p) != null,
       // a non-character unit that characters can join
@@ -808,7 +816,7 @@ export function defenderProfile(cu, army = null) {
         count: g.count,
         W: p.W, Sv: p.Sv, InSv: p.invuln_sv ?? 0, T: p.T,
         character: char && m.role !== 'bodyguard',
-        ptsPerModel: (m.ru.points ?? 0) / Math.max(1, m.ru.model_count ?? 1),
+        ptsPerModel: (listedPoints(m.ru) ?? 0) / Math.max(1, m.ru.model_count ?? 1),
         wargearNames: g.wargear.map(w => looseName(conv.wres.resolve(m.factionId, w.id)?.name ?? w.id.replace(/-/g, ' '))),
       });
     });

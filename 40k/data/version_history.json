@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.110.1",
+      "date": "2026-11-23",
+      "summary": "Combat Calc: points check fixed for lists that price enhancements separately",
+      "changes": [
+        "Lists from New Recruit / WTC text (unit price with \"Enhancement: … (+30 pts)\" underneath) no longer show a false points warning: the unit's price already includes its enhancement",
+        "A unit's points (points removed, efficiency) now include its enhancement for those lists too"
+      ]
+    },
+    {
       "version": "1.110.0",
       "date": "2026-11-23",
       "summary": "Combat Calc: a branch map on the Board — see every path, switch with a tap, compare",
