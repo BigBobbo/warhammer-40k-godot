@@ -3637,6 +3637,70 @@ Aggressor Squad (95 points)
     await mctx.close();
   }
 
+  // --- 1.125: AR measuring test page (/calc/ar-test.html). Real AR needs a device with ARCore: here (1) a browser
+  // without AR must say so, and (2) with a STAND-IN WebXR device (scripted hit-test points; no camera, no ARCore)
+  // the page's own logic must measure, record and drift-test correctly. (2) is not a test of real AR accuracy.
+  {
+    const actx = await browser.newContext({ ...devices['Pixel 7'] });
+    const ap = await actx.newPage();
+    ap.on('pageerror', e => consoleErrors.push(`ar: ${e}`));
+    await ap.goto(`${BASE}/calc/ar-test.html`);
+    await ap.waitForFunction(() => !/Checking/.test(document.getElementById('support').textContent));
+    const sup = (await ap.textContent('#support')).replace(/\s+/g, ' ');
+    check('AR test page: on a browser without AR it says so, and Start AR stays off', /✗/.test(sup) && await ap.isDisabled('#start'), sup.slice(0, 160));
+    await actx.close();
+
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    await sctx.addInitScript(() => {
+      // a stand-in WebXR device: hit-test returns window.__hit (metres); select is fired by window.__tap()
+      const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+      window.__hit = [0, 0, -0.5];
+      class FakeSession extends EventTarget {
+        constructor() { super(); this.enabledFeatures = ['hit-test', 'local', 'dom-overlay']; this.renderState = {}; this.ended = false; }
+        updateRenderState(s) { Object.assign(this.renderState, s); }
+        async requestReferenceSpace() { return {}; }
+        async requestHitTestSource() { return {}; }
+        requestAnimationFrame(cb) { if (!this.ended) setTimeout(() => cb(performance.now(), frame), 16); return 1; }
+        async end() { this.ended = true; this.dispatchEvent(new Event('end')); }
+      }
+      const frame = {
+        getViewerPose: () => ({ views: [{ projectionMatrix: I, transform: { inverse: { matrix: I } } }] }),
+        getHitTestResults: () => [{ getPose: () => ({ transform: { position: { x: window.__hit[0], y: window.__hit[1], z: window.__hit[2] } } }) }],
+        getPose: () => null,
+      };
+      window.XRWebGLLayer = class { constructor() { this.framebuffer = null; } getViewport() { return { x: 0, y: 0, width: 100, height: 100 }; } };
+      Object.defineProperty(navigator, 'xr', { value: { isSessionSupported: async (m) => m === 'immersive-ar', requestSession: async () => (window.__session = new FakeSession()) }, configurable: true });
+      window.__tap = () => window.__session.dispatchEvent(new Event('select'));
+    });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`ar-stub: ${e}`));
+    await sp.goto(`${BASE}/calc/ar-test.html`);
+    await sp.waitForFunction(() => !document.getElementById('start').disabled);
+    await sp.tap('#start');
+    await sp.waitForFunction(() => document.getElementById('ov').classList.contains('on'));
+    // a 24" tape: 0 at x = 0, the 24" mark at x = 0.6096 m; the stand-in reads 24.2"
+    const M = 0.0254;
+    await sp.evaluate(() => { window.__hit = [0, 0, -0.5]; });
+    await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap());
+    await sp.evaluate((m) => { window.__hit = [24.2 * m, 0, -0.5]; }, M);
+    await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap());
+    await sp.waitForFunction(() => /24\.20"/.test(document.getElementById('ov-dist').textContent));
+    await sp.fill('#ov-true', '24');
+    await sp.click('#ov-record');
+    // drift: the same spot marked twice, 0.3" apart
+    await sp.click('#ov-drift');
+    await sp.evaluate(() => { window.__hit = [0.2, 0, -0.4]; }); await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap());
+    await sp.evaluate((m) => { window.__hit = [0.2 + 0.3 * m, 0, -0.4]; }, M); await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap());
+    await sp.waitForTimeout(80);
+    await sp.screenshot({ path: join(SHOTS, 'calc_122_ar_test_stub.png') });
+    await sp.click('#ov-end');
+    await sp.waitForFunction(() => !document.getElementById('ov').classList.contains('on'));
+    const res = await sp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_artest_v1')));
+    const sum = (await sp.textContent('#summary')).replace(/\s+/g, ' ');
+    check('stand-in AR: 2 taps on a 24" tape read 24.20", Record logs +0.20"; a drift test logs 0.30"', res.length === 2 && res[0].kind === 'distance' && Math.abs(res[0].errIn - 0.2) < 0.01 && res[1].kind === 'drift' && Math.abs(res[1].measIn - 0.3) < 0.01 && /average error 0\.20"/.test(sum), JSON.stringify({ res, sum }));
+    await sctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

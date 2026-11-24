@@ -990,6 +990,7 @@ function measPanel() {
     ${sizeSeg('a')}${sizeSeg('b')}
     <div class="tiny muted" style="margin-top:6px">Drag a circle onto the base in the photo (zoom in with ＋ first), and pick the base size: the number is between the closest edges, as 40k measures. <b>Point</b> measures to a spot (a hull, an objective's centre). A tap with both down starts again.
     ${i?.err != null ? ' The ± is an estimate from how sharp the photo is there and how well the corners were tapped: a photo from higher and more square-on is better. Not a table ruling.' : ' Add a table photo (below) to measure on the real table.'}</div>
+    <div class="tiny" style="margin-top:6px"><a href="./ar-test.html" id="ar-test-link">Live AR measuring test →</a> <span class="muted">checks whether this tablet can measure the table in AR, and how accurately.</span></div>
   </div>`;
 }
 
