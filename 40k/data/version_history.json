@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.117.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: exposure heat map, and your own statistics from saved games",
+      "changes": [
+        "Board: ⚠ Danger next turn → 🔥 Heat map shades every square by how much of that army can reach it next turn (each unit that can shoot it after moving, plus each unit's chance to charge it); tap a square to see who",
+        "Saved games: 📊 My statistics — wins, losses, draws and average score, by opponent, by your army, by mission, by layout and going first or second (finished games only, kept on this device)"
+      ]
+    },
+    {
       "version": "1.116.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: layouts checked and stamped, table set-up measurements, saved lists against today's points, how an attack usually goes",

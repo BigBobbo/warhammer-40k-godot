@@ -490,3 +490,7 @@ User: work through the ranked list, no clock (item 4 skipped).
   📏 set-up measurements (terrain areas' corner nearest an edge, objectives). `adapter.listPointsNow`
   (library rows + army card). Attack details: 9 in 10 / 1 in 2 / 1 in 10 table. Not done: a fast/slow
   save-allocation toggle (needs the 11e allocation wording for mixed saves checked first).
+- 1.117.0 (items 5, 9): 🔥 heat map (boardview threatsAt / heatCells, 1" cells: shooters after a move +
+  each unit's charge chance by 11.04 odds; tap a square for the list; no LOS / terrain). 📊 My statistics
+  (gamestats.mjs: finished saved games; by opponent, my army, mission from the dispositions, layout,
+  first / second).

@@ -9,6 +9,8 @@ import {
   phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments, listPointsNow,
 } from './adapter.mjs';
 import { storeName } from './gamelists.mjs';
+import { gameRows, tally, statsBy } from './gamestats.mjs';
+import { matchupFor } from './board.mjs';
 import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
 import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
 import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
@@ -159,13 +161,41 @@ function gameRowsHtml() {
   }).join('');
 }
 /** The Saved games card: on the Play view (save and load) and on the Armies tab (load). */
+// ---- my statistics from the saved games (gamestats.mjs): finished battles only
+const dispCache = new Map();
+function dispOfText(text) {
+  if (!dispCache.has(text)) { let d = null; try { d = importArmy(text).roster.force_disposition ?? null; } catch { d = null; } dispCache.set(text, d); }
+  return dispCache.get(text);
+}
+function missionOfGame(rec) {
+  const me = rec.mission?.me ?? 'A', opp = me === 'A' ? 'B' : 'A', st = rec.board?.settings ?? {};
+  const mine = st[`disp${me}`] ?? dispOfText(rec.lists?.[me] ?? ''), theirs = st[`disp${opp}`] ?? dispOfText(rec.lists?.[opp] ?? '');
+  return mine && theirs ? matchupFor(mine, theirs)?.mine ?? null : null;
+}
+function statsHtml() {
+  const rows = gameRows(state.games, missionOfGame);
+  if (!rows.length) return '<p class="tiny muted" id="my-stats" style="margin-top:8px">📊 Your statistics appear here once a saved game has ended (“End the battle” on Mission → Play).</p>';
+  const t = tally(rows);
+  const pctTxt = (p) => (p == null ? '–' : `${Math.round(p * 100)}%`);
+  const table = (title, key) => {
+    const by = statsBy(rows, key);
+    if (!by.length) return '';
+    return `<div class="lab tiny muted" style="margin-top:8px">${title}</div><table class="dist" data-stats="${key}"><thead><tr><th></th><th>Games</th><th>W-L-D</th><th>Win</th><th>VP</th></tr></thead><tbody>
+      ${by.map(r => `<tr><td>${esc(r.key === 'first' ? 'Going first' : r.key === 'second' ? 'Going second' : key === 'layout' ? `Layout ${r.key}` : r.key)}</td><td>${r.n}</td><td>${r.w}-${r.l}-${r.d}</td><td>${pctTxt(r.winRate)}</td><td>${Math.round(r.vpFor)}–${Math.round(r.vpAgainst)}</td></tr>`).join('')}</tbody></table>`;
+  };
+  return `<details class="more" id="my-stats" style="margin-top:10px"><summary>📊 My statistics: ${t.n} game${t.n === 1 ? '' : 's'}, ${t.w}-${t.l}-${t.d} (${pctTxt(t.winRate)})</summary>
+    <div class="small" style="margin-top:6px">Average score <b>${Math.round(t.vpFor)}–${Math.round(t.vpAgainst)}</b> · primary ${Math.round(t.primary)} · secondary ${Math.round(t.secondary)} per game.</div>
+    ${table('By opponent', 'oppFaction')}${table('By my army', 'myFaction')}${table('By mission (my primary)', 'mission')}${table('By layout', 'layout')}${table('Going first or second', 'first')}
+    <div class="tiny muted" style="margin-top:6px">From your saved games whose battle was ended on the tracker; a draw counts as half a win. Kept on this device only.</div></details>`;
+}
+
 function gamesCard(where) {
   const n = state.games.length;
   const list = n ? `<div class="game-list" id="game-list-${where}">${gameRowsHtml()}</div>` : '<p class="hint" style="margin:6px 0">No saved games yet.</p>';
   const msg = state.gameMsg ? `<div class="small" id="game-msg-${where}" style="margin-top:6px">${esc(state.gameMsg)}</div>` : '';
   if (where !== 'play') {
     return `<details class="more card" style="margin-top:12px" data-details="games" ${state.openGames ? 'open' : ''} id="games-card"><summary>Saved games (${n})</summary>
-      <p class="small muted" style="margin:6px 0">Load a game to carry on where you stopped: both lists, the board plans and the tracker come back. Save a game from Mission → Play.</p>${msg}${list}</details>`;
+      <p class="small muted" style="margin:6px 0">Load a game to carry on where you stopped: both lists, the board plans and the tracker come back. Save a game from Mission → Play.</p>${msg}${list}${statsHtml()}</details>`;
   }
   const linked = sameLists(linkedGame()) ? linkedGame() : null;
   const same = linked && sameGame(linked, gameParts());

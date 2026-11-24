@@ -3222,6 +3222,74 @@ Aggressor Squad (95 points)
     await vctx.close();
   }
 
+  // --- 1.117: exposure heat map — how much of the enemy can reach each square next turn; tap a square for who
+  {
+    const hctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const hp = await hctx.newPage();
+    hp.on('pageerror', e => consoleErrors.push(`heat: ${e}`));
+    hp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`heat: ${m.text()}`); });
+    await hp.goto(`${BASE}/calc/`); await hp.waitForSelector('textarea[data-side="A"]');
+    await hp.fill('textarea[data-side="A"]', SW_LIST); await hp.tap('button[data-action="parse"][data-side="A"]');
+    await hp.fill('textarea[data-side="B"]', ORK_LIST); await hp.tap('button[data-action="parse"][data-side="B"]');
+    await hp.tap('button[data-action="view"][data-value="board"]');
+    await hp.waitForSelector('#board-svg');
+    for (const n of ['Meganobz', 'Flash Gitz']) await hp.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    const toks = await hp.evaluate(() => window.__calc.board().units.map(u => ({ tk: u.tk, n: u.models.length })));
+    const MN = toks.find(t => t.n === 3).tk, FG = toks.find(t => t.n === 5).tk;
+    await hp.evaluate(([mn, fg]) => { const s = window.__calc.board().stepTokens; s[mn] = { ...s[mn], x: 22, y: 20 }; s[fg] = { ...s[fg], x: 30, y: 14 }; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, [MN, FG]);
+    await hp.tap('button[data-action="board-danger"][data-value="B"]');
+    await hp.tap('#board-heat-chip');
+    await hp.waitForSelector('#heat-layer');
+    const h = await hp.evaluate(() => ({ cells: document.querySelectorAll('#heat-layer rect').length, max: Number(document.getElementById('heat-layer').dataset.max) }));
+    check('🔥 Heat map: every square the Orks can reach next turn is shaded, darkest where most of them can (shoot + charge chance)', h.cells > 200 && h.max > 1.5 && h.max <= 4, JSON.stringify(h));
+    // tap an empty square next to the Meganobz (5" away): who can reach it
+    await hp.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'center' }));
+    const box = await hp.locator('#board-svg').boundingBox();
+    const vb = await hp.evaluate(() => { const v = document.getElementById('board-svg').viewBox.baseVal; return { x: v.x, y: v.y, w: v.width, h: v.height }; });
+    const sx = box.x + (22 - vb.x) / vb.w * box.width, sy = box.y + (26 - vb.y) / vb.h * box.height;
+    await hp.mouse.click(sx, sy);
+    await hp.waitForSelector('#heat-at');
+    const info = (await hp.textContent('#board-heat-info')).replace(/\s+/g, ' ');
+    check('tap a square: the units that can reach it, with each one’s charge chance', /At 2\d" across, 2\d" down:/.test(info) && /Meganobz [^·]*charge \d+%/.test(info) && /Flash Gitz shoot/.test(info), info);
+    await hp.locator('#board-host').scrollIntoViewIfNeeded();
+    await hp.screenshot({ path: join(SHOTS, 'calc_112_heat_map.png') });
+    await hctx.close();
+  }
+
+  // --- 1.117: my statistics from saved games
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`stats: ${e}`));
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`stats: ${m.text()}`); });
+    sp.on('dialog', d => d.accept());
+    await sp.goto(`${BASE}/calc/`); await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('#games-card > summary').catch(() => {});
+    check('no finished game yet: the stats say how they will appear', /appear here once a saved game has ended/.test(await sp.textContent('#my-stats')));
+    // a game: A goes first, scores, the battle is ended (it saves itself)
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.tap('button[data-action="mission-table"]').catch(() => {});
+    await sp.tap('button[data-action="mission-tab"][data-value="play"]').catch(() => {});
+    await sp.waitForSelector('#play-bar');
+    await sp.tap('button[data-action="mission-first"][data-value="A"]').catch(() => {});
+    for (const [side, k] of [['A', 'primary'], ['A', 'primary'], ['A', 'secondary'], ['B', 'primary']]) await sp.tap(`button[data-action="mission-score-step"][data-side="${side}"][data-k="${k}"][data-delta="5"]`);
+    for (let i = 0; i < 10; i++) { if (await sp.isDisabled('#play-turn-done')) break; await sp.tap('#play-turn-done'); }
+    await sp.waitForFunction(() => window.__calc.mission().game?.over === true || window.__calc.state.mission?.game?.over === true);
+    await sp.waitForFunction(() => window.__calc.state.games.length === 1);
+    await sp.tap('button[data-action="view"][data-value="armies"]');
+    await sp.waitForSelector('#games-card');
+    if (!(await sp.evaluate(() => document.getElementById('games-card').open))) await sp.tap('#games-card > summary');
+    await sp.tap('#my-stats > summary');
+    const txt = (await sp.textContent('#my-stats')).replace(/\s+/g, ' ');
+    const byOpp = await sp.$$eval('#my-stats [data-stats="oppFaction"] tbody tr', trs => trs.map(t => [...t.cells].map(c => c.textContent.trim()).join(' ')));
+    check('📊 My statistics: the finished game counted — 1 game, 1-0-0, the score with Battle Ready, by opponent / mission / layout / going first', /1 game, 1-0-0 \(100%\)/.test(txt) && /Average score 25–15/.test(txt) && byOpp.length === 1 && /Orks 1 1-0-0 100% 25–15/.test(byOpp[0]) && /Going first/.test(txt) && /By mission \(my primary\)/.test(txt), `${txt} | ${byOpp}`);
+    await sp.locator('#my-stats').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_113_my_stats.png') });
+    await sctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

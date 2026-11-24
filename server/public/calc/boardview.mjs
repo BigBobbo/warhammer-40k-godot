@@ -702,10 +702,50 @@ export function boardSvg({ forExport = false } = {}) {
 // move (M + longest range) and charge (M + the 2D6 charge roll: likely >= 80%,
 // possible >= 40%). Terrain and line of sight are ignored and the edge is
 // blurred ~1": a planning envelope, not a measurement.
+// ---- exposure heat map: for each 1" square, how much of that army can reach it next turn — 1 for each unit that can
+// shoot it after a normal move (move + range, no line of sight), plus each unit's chance to charge it (move, then a
+// 2D6 charge: rule 11.04 odds). Tap a square for the list.
+function threatsAt(side, x, y, toks = placed().filter(t => t.side === side)) {
+  const out = [];
+  for (const t of toks) {
+    const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
+    let dmin = Infinity;
+    for (const m of t.models) dmin = Math.min(dmin, Math.hypot(x - (t.x + m.dx), y - (t.y + m.dy)) - Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0));
+    const shoot = maxR > 0 && dmin <= t.u.move + maxR;
+    const charge = t.u.melee ? chargeOdds(chargeRollNeeded(Math.max(0, dmin - t.u.move))) : 0;
+    if (shoot || charge > 0.005) out.push({ tk: t.tk, name: t.u.cu.name, shoot, charge });
+  }
+  return out;
+}
+const heatCache = { key: null, cells: null, max: 0 };
+function heatCells(side) {
+  const toks = placed().filter(t => t.side === side);
+  const key = side + JSON.stringify(toks.map(t => [t.tk, t.x, t.y, t.rot, t.per, t.gap]));
+  if (heatCache.key === key) return heatCache;
+  const cells = [];
+  let max = 0;
+  for (let y = 0; y < BOARD.h; y++) for (let x = 0; x < BOARD.w; x++) {
+    const th = threatsAt(side, x + 0.5, y + 0.5, toks);
+    const s = th.reduce((a, t) => a + (t.shoot ? 1 : 0) + t.charge, 0);
+    if (s > 0) { cells.push({ x, y, s }); max = Math.max(max, s); }
+  }
+  Object.assign(heatCache, { key, cells, max });
+  return heatCache;
+}
+function heatSvg(side) {
+  const h = heatCells(side);
+  if (!h.cells.length) return '';
+  return `<g id="heat-layer" data-from="${side}" data-max="${h.max.toFixed(2)}" pointer-events="none" fill="#c0392b">${h.cells.map(c => `<rect x="${c.x}" y="${c.y}" width="1" height="1" fill-opacity="${(0.05 + 0.6 * c.s / h.max).toFixed(3)}"/>`).join('')}</g>`;
+}
+
 function dangerSvg(b) {
   const side = b.danger;
   if (!side) return '';
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
+  if (kinds.heat) {
+    const at = b.heatAt;
+    return heatSvg(side) + (at ? `<circle id="heat-at" cx="${f2(at.x)}" cy="${f2(at.y)}" r="0.6" fill="none" stroke="#111" stroke-width="0.2" pointer-events="none"/>` : '');
+  }
   const layers = { shoot: [], likely: [], possible: [] };
   for (const t of placed().filter(x => x.side === side)) {
     const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
@@ -877,12 +917,20 @@ export function boardView() {
   </div></div>`;
 }
 
+function heatInfoHtml(b) {
+  const esc = ctx.esc, h = heatCells(b.danger), at = b.heatAt;
+  const list = at ? threatsAt(b.danger, at.x, at.y).sort((p, q) => (q.charge + (q.shoot ? 1 : 0)) - (p.charge + (p.shoot ? 1 : 0))) : null;
+  return `<span class="tiny" id="board-heat-info" style="flex-basis:100%">${!h.cells.length ? 'Nothing of that army is on the board in this step.'
+    : `Darker = more of ${esc(b.danger)} can reach that square next turn (up to ${h.max.toFixed(1)}: 1 per unit that can shoot it after moving, plus each unit’s chance to charge it). Tap a square for who.`}
+    ${list ? `<br><b>At ${at.x.toFixed(0)}" across, ${at.y.toFixed(0)}" down:</b> ${list.length ? list.map(t => `${esc(t.name)} ${[t.shoot ? 'shoot' : '', t.charge > 0.005 ? `charge ${Math.round(t.charge * 100)}%` : ''].filter(Boolean).join(' + ')}`).join(' · ') : 'nothing can reach it'}` : ''}</span>`;
+}
+
 function dangerBar() {
   const b = boardState();
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
   return `<span class="lab tiny muted">⚠ Danger next turn</span>
     ${ctx.seg('board-danger', b.danger ?? 'off', [['off', 'Off'], ['A', 'From A'], ['B', 'From B']], 'compact')}
-    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}
+    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
     <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
 }
 
@@ -1265,6 +1313,7 @@ function wireBoard() {
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
       b.sel = null; b.sel2 = null;
+      if (b.danger && b.dangerKinds?.heat) { const p = toBoard(svg, ev.clientX, ev.clientY); b.heatAt = { x: Math.max(0, Math.min(BOARD.w, p.x)), y: Math.max(0, Math.min(BOARD.h, p.y)) }; }
       refreshBoard();
     }
   };
