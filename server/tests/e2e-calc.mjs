@@ -2897,6 +2897,20 @@ Aggressor Squad (95 points)
     await up.tap('button[data-action="view"][data-value="board"]');
     await up.tap('#board-disp-override-B button[data-action="board-disp-list"]');
     check('"Use the list\'s" puts B back on its list\'s disposition', (await up.locator('#board-disp-override-B').count()) === 0 && (await settings()).dispB === undefined);
+    // after deployment (Turn 1 on), the set-up card is gone: only Share image and a pointer to the Deploy step
+    await up.tap('button[data-action="board-step-add"]');
+    await up.waitForSelector('#board-setup-turn');
+    check('Board, Turn 1: no dispositions / layout / zones card, Share image stays', (await up.locator('#board-setup').count()) === 0 && (await up.locator('select[data-input="board-disp"]').count()) === 0
+      && (await up.locator('#board-setup-turn button[data-action="board-share"]').count()) === 1 && (await up.evaluate(() => window.__calc.board().cur)) === 1);
+    await up.locator('#board-setup-turn').scrollIntoViewIfNeeded();
+    await up.screenshot({ path: join(SHOTS, 'calc_100_board_turn_no_setup.png') });
+    await up.tap('button[data-action="board-step"][data-i="0"]');
+    check('…and back on the Deploy step it is there again', (await up.locator('#board-setup select[data-input="board-disp"]').count()) === 2);
+    await up.tap('button[data-action="board-step"][data-i="1"]');
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('#setup-list-plan [data-step="layout"] button[data-value="board"]');
+    await up.waitForSelector('#board-setup');
+    check('the checklist\'s Board button opens the Deploy step (where the set-up is)', (await up.evaluate(() => window.__calc.board().cur)) === 0);
     // the event preparation table overrides B's disposition: flagged, and a new B list drops it
     await up.tap('button[data-action="view"][data-value="armies"]');
     await up.locator('#event-card > summary').tap();

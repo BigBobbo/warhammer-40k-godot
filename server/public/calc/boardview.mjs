@@ -756,6 +756,8 @@ export function boardView() {
   const dep = l ? DEPLOYMENTS[l.deployment] : null;
   const p = plan();
   const locked = setupLocked();
+  // the mission set-up (dispositions, layout, zones) only on the Deploy step: later turns are about moving units
+  const onDeploy = curIndex() === 0;
   const dispSel = (side) => `<select class="sel" data-input="board-disp" data-side="${side}" aria-label="Force Disposition of army ${side}">
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
@@ -794,7 +796,10 @@ export function boardView() {
     <section class="section" id="board-panel">${selectionPanel()}</section>
     <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
-    <section class="section"><div class="card" id="board-setup">
+    ${onDeploy ? '' : `<section class="section"><div class="row" style="gap:6px" id="board-setup-turn">
+      <span class="tiny muted grow">Dispositions, layout and zones are set on the Deploy step.</span>
+      <button class="btn ghost" data-action="board-share">⇪ Share image</button></div></section>`}
+    ${!onDeploy ? '' : `<section class="section"><div class="card" id="board-setup">
       ${locked ? `<div class="lockbox" id="board-setup-lock"><span class="grow">🔒 Mission set-up locked: a game is on the tracker (round ${ctx.gameRound?.() ?? '?'}). Changing it now changes both primaries and the map under that game.</span>
         <button class="btn ghost" data-action="board-setup-unlock" id="board-setup-unlock">Change anyway</button></div>` : ''}
       <fieldset class="plain" ${locked ? 'disabled' : ''}>
@@ -811,7 +816,7 @@ export function boardView() {
         <button class="btn ghost grow" data-action="board-swap-zones" ${locked ? 'disabled' : ''}>⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
       </div>
-    </div></section>
+    </div></section>`}
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-arrive-bar">${arriveBar()}</div>
@@ -1220,6 +1225,16 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-open-setup': {
+      // from the Mission tab's set-up checklist: the Board, on the Deploy step (where the set-up is)
+      const p = plan();
+      if (p) p.cur = 0;
+      b.sel = b.sel2 = null;
+      st.view = 'board';
+      st.sheet = null;
+      persistBoard();
+      return 'render';
+    }
     case 'board-setup-unlock':
       if (!window.confirm('A game is on the tracker. Change the mission set-up anyway? The primaries, the deployment map and the board plans follow the new set-up; the scores on the tracker stay.')) return null;
       b.unlock = true;

@@ -590,7 +590,8 @@ function miniHtml() {
 // Armies -> dispositions (from the lists) -> primaries -> layout + zones -> deployment -> secondaries -> first turn.
 function setupRows() {
   const st = ctx.state, m = ms(), bc = boardContext(), si = boardSetupInfo();
-  const go = (view, label) => `<button class="btn ghost setup-go" data-action="view" data-value="${view}">${label}</button>`;
+  // Board: opens on the Deploy step, where dispositions, layout and zones are set
+  const go = (view, label) => `<button class="btn ghost setup-go" data-action="${view === 'board' ? 'board-open-setup' : 'view'}" data-value="${view}">${label}</button>`;
   const toCards = '<button class="btn ghost setup-go" data-action="mission-tab" data-value="cards">Cards</button>';
   const disp = (X) => `${X} ${dispositionName(X === 'A' ? bc.dispA : bc.dispB)}${si.overridden[X] ? ` (list: ${dispositionName(si.listDisp[X])})` : ''}`;
   const ev = st.event, round = ev?.round ? ev.rounds?.[ev.round - 1] : null;
