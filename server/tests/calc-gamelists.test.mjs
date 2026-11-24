@@ -51,3 +51,12 @@ test('send to the game and back: the same units, models, enhancements and prices
   assert.deepEqual(sig(back.roster), sig(army.roster));
   assert.deepEqual(back.roster.units.filter(u => u.ref?.raw_name === 'Shield-Captain').map(u => A.listedPoints(u)).sort(), [220, 225]);
 });
+
+test('the game-file converter prices a second copy of a datasheet as a second copy (Shield-Captain 205, then 225)', async () => {
+  const I = await import(new URL('../public/js/builder/importers.js', import.meta.url).href);
+  const { game } = A.armyToGame(A.importArmy(fixture('nr-custodes-1995.txt')));
+  const { roster } = I.importGameObject(game, { name: 'x' });
+  const sc = roster.units.filter(u => u.ref?.raw_name === 'Shield-Captain').map(u => [u.points, u.enhancement_points]);
+  assert.deepEqual(sc, [[205, 15], [225, null]]);
+  assert.equal(roster.points.total_computed, 1995);
+});

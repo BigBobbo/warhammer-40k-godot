@@ -427,3 +427,22 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   and not sent from this device is refused (GET by name is ambiguous across players).
 - Left open: attached characters are not in the game's file format (the game attaches at
   deployment), so loaded lists come in unattached.
+
+## Fixes and card faces (user, 24 Nov 2026) — v1.112.0, browser-tested
+
+- "Layout selection, press Start, nothing happens": the Event card's Start ▶ (the game's own
+  menu was checked too: picking layout 3 and Start Game loads it). Two causes: Start ▶ was
+  greyed out with no reason until an opponent and army A were set; and after Start the new
+  tab (Intel) kept the Armies scroll position, so the brief was off screen. Now: Start says
+  what is missing, scrolls to the top, and shows a "Round N started" note (opponent, layout,
+  missions, Board → / Mission →).
+- Army Builder converter (`gameformat.gameToRoster`): priced every copy as the first
+  (second Shield-Captain 205, not 225); it now counts copies like rosterToGame / repriceAll.
+  The builder screen itself was already right (repriceAll on load).
+- Matchup grid / sheets: scroll chained to the page behind; `overscroll-behavior: contain`
+  on .sheet / .grid-wrap (overflow:hidden on the page made it jump to the top, not used).
+  Control run with the fix off: the page moved 300 -> 2714; with it: stays at 300.
+- Secondary cards drawn as cards (`cardface.mjs`): Mission → Cards detail, 🂠 Cards gallery,
+  the hand on Play. Text is the app's summary (no printed card text in the app or 40kdc).
+- Pre-existing, not touched: `npm test` 2 overlay-parity failures and e2e-builder's
+  Enhancement-select timeout fail the same before these changes.

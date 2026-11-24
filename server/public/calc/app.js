@@ -611,7 +611,13 @@ function intelView() {
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
   const phaseMode = state.intelMode === 'phase';
-  return `<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
+  const rs = state.roundStart;
+  const started = rs ? `<div class="okbox" id="round-started" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px"><div class="grow small">
+      <b>Round ${rs.round} started</b> against <b>${esc(rs.opp)}</b> (army B) on <b>Layout ${esc(rs.layout)}</b>${rs.deployment && rs.deployment !== '?' ? ` · ${esc(rs.deployment)}` : ''}.
+      ${rs.mine ? `You play <b>${esc(rs.mine)}</b>, they play <b>${esc(rs.theirs ?? '?')}</b>. ` : ''}The Board is set to this layout and the Play tracker starts a new game.
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn" data-action="view" data-value="board">Board →</button><button class="btn" data-action="view" data-value="mission">Mission →</button></div></div>
+      <button class="icon-btn" data-action="round-started-ok" aria-label="Dismiss">✕</button></div>` : '';
+  return `${started}<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
     ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
@@ -1156,6 +1162,8 @@ function renderResultViews() {
 function renderSheet() {
   const host = document.getElementById('sheet');
   if (!host) return;
+  // the page behind a sheet stays put: a scroll in the sheet (the matchup grid) does not move it
+  document.documentElement.classList.toggle('sheet-open', !!state.sheet);
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
     : state.sheet === 'charge' ? chargeSheet()
@@ -1931,7 +1939,13 @@ app.addEventListener('click', (ev) => {
     return;
   }
   if (a.startsWith('event-')) {
-    if (eventAction(a, el) === 'render') changed();
+    const view0 = state.view;
+    if (eventAction(a, el) === 'render') {
+      changed();
+      // Start ▶ opens another tab: show it from the top (the event card is at the bottom of Armies, and the new
+      // tab kept that scroll position — the round looked as if it had not started)
+      if (state.view !== view0) window.scrollTo(0, 0);
+    }
     return;
   }
   switch (a) {
@@ -2090,6 +2104,9 @@ app.addEventListener('click', (ev) => {
       console.log(`[calc] library list "${l.name}" loaded into ${el.dataset.side}`);
       return changed();
     }
+    case 'round-started-ok':
+      state.roundStart = null;
+      return render();
     case 'store-lists':
       fetchGameLists();
       return;

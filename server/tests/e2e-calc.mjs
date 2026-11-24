@@ -2914,6 +2914,80 @@ Aggressor Squad (95 points)
     await gctx.close();
   }
 
+  // --- 1.112: event Start says what is missing / what it set up; the page behind a sheet stays put; cards drawn as cards
+  {
+    const xctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const xp = await xctx.newPage();
+    xp.on('pageerror', e => consoleErrors.push(`1.112: ${e}`));
+    xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.112: ${m.text()}`); });
+    xp.on('dialog', d => d.accept());
+    await xp.goto(`${BASE}/calc/`); await xp.waitForSelector('textarea[data-side="A"]');
+    const xt = async (sel) => (await xp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // the event card: Start with nothing loaded says what to do (it used to be greyed out)
+    await xp.locator('summary', { hasText: 'Event' }).first().click();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForSelector('#event-msg');
+    check('Event: Start ▶ with no list loaded says to load your list as army A', /load your own list as army A/.test(await xt('#event-msg')), await xt('#event-msg'));
+    // an opponent in the library, my list as A
+    await xp.fill('textarea[data-side="B"]', ORK_LIST); await xp.tap('button[data-action="parse"][data-side="B"]');
+    await xp.tap('button[data-action="open-library"][data-side="B"]');
+    await xp.fill('input[data-input="lib-name"]', 'R1 Orks'); await xp.tap('button[data-action="lib-save"]');
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    await xp.fill('textarea[data-side="A"]', SW_LIST); await xp.tap('button[data-action="parse"][data-side="A"]');
+    if (!(await xp.locator('.event-round').count())) await xp.locator('summary', { hasText: 'Event' }).first().click();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForFunction(() => /pick its opponent/.test(document.querySelector('#event-msg')?.textContent ?? ''));
+    check('Event: Start ▶ with no opponent picked says to pick it', true);
+    await xp.selectOption('select[data-input="event-opp"][data-r="0"]', { label: 'R1 Orks' });
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-layout"][data-value="3"]').tap();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForSelector('#round-started');
+    const lay = await xp.evaluate(() => window.__calc.board().layout);
+    check('Event: Start ▶ opens Intel at the top, saying what it set up (round, opponent, layout, missions); the Board has that layout', /Round 1 started against R1 Orks \(army B\) on Layout C/.test(await xt('#round-started')) && /_3$/.test(lay) && (await xp.evaluate(() => window.__calc.state.view)) === 'intel' && (await xp.evaluate(() => window.scrollY)) === 0 && (await xp.locator('#round-started').boundingBox()).y < 400, `${await xt('#round-started')} | ${lay} | scrollY ${await xp.evaluate(() => window.scrollY)}`);
+    await xp.screenshot({ path: join(SHOTS, 'calc_99_round_started.png') });
+    await xp.locator('#round-started button[data-value="board"]').tap();
+    await xp.waitForSelector('#board-svg');
+    check('the banner’s Board → opens the board on that layout', (await xp.evaluate(() => window.__calc.board().layout)) === lay);
+    // the matchup grid: a scroll inside it does not move the page behind
+    await xp.tap('button[data-action="view"][data-value="attack"]');
+    await xp.tap('button[data-action="open-grid"]');
+    await xp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 60000 });
+    // a long page behind the open sheet (the Attack view with nothing picked fits one screen): a spacer, scrolled to 300
+    await xp.evaluate(() => { const d = document.createElement('div'); d.id = 'test-spacer'; d.style.height = '3000px'; document.body.appendChild(d); window.scrollTo(0, 300); });
+    const before = await xp.evaluate(() => window.scrollY);
+    const locked = await xp.evaluate(() => getComputedStyle(document.documentElement).overflow + '/' + getComputedStyle(document.querySelector('.grid-wrap')).overscrollBehaviorY);
+    const box = await xp.locator('#grid-host').boundingBox();
+    for (let k = 0; k < 6; k++) await xp.mouse.wheel(0, 900, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    await xp.waitForTimeout(300);
+    const after = await xp.evaluate(() => window.scrollY);
+    check('matchup grid: the page behind stays put while the grid scrolls (the scroll stops at the grid’s edge)', before === 300 && after === before && locked.endsWith('/contain'), JSON.stringify({ before, after, locked }));
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    check('closing the sheet unlocks the page', (await xp.evaluate(() => document.documentElement.classList.contains('sheet-open'))) === false);
+    // the secondary cards as cards
+    await xp.tap('button[data-action="view"][data-value="mission"]');
+    await xp.tap('button[data-action="mission-tab"][data-value="cards"]');
+    await xp.waitForSelector('#mission-cards .card-row');
+    await xp.locator('.card-row[data-card="engage-on-all-fronts"] button[data-action="mission-card"]').tap();
+    await xp.waitForSelector('.card-detail [data-cardface="engage-on-all-fronts"]');
+    const face = await xt('.card-detail [data-cardface="engage-on-all-fronts"]');
+    check('tap a card: it is drawn as a card — name, Tactical / Fixed, when it scores, a VP badge per line, the Fixed version', /Engage on All Fronts/i.test(face) && /Tactical\s*Fixed/.test(face) && /End of your turn/.test(face) && (await xp.locator('.card-detail .cf-vp').count()) === 4 && /Fixed mission/.test(face), face);
+    await xp.locator('.card-detail .cf').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_100_card_face.png') });
+    await xp.tap('button[data-action="mission-cards-look"][data-value="faces"]');
+    await xp.waitForSelector('#card-faces .cf');
+    check('🂠 Cards: every secondary card drawn as a card, with the app’s numbers under it', (await xp.locator('#card-faces .cf').count()) === 18 && (await xp.locator('#card-faces .cf-foot').count()) === 18, String(await xp.locator('#card-faces .cf').count()));
+    await xp.locator('#card-faces').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_101_card_gallery.png') });
+    await xp.tap('button[data-action="mission-cards-look"][data-value="list"]');
+    // the hand on Play
+    await xp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await xp.selectOption('select[data-input="mission-draw"][data-side="A"]', 'behind-enemy-lines');
+    await xp.locator('.hand-row[data-card="behind-enemy-lines"] button[data-action="mission-hand-info"]').tap();
+    await xp.waitForSelector('.hand-row [data-cardface="behind-enemy-lines"]');
+    check('a card in hand opens as a card, “When drawn” included', /When drawn/.test(await xt('.hand-row [data-cardface="behind-enemy-lines"]')));
+    await xctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

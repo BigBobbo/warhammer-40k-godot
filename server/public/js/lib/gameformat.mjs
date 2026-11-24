@@ -980,6 +980,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
 
     const rosterUnits = [];
     let computed = 0;
+    // the 2nd, 3rd... copy of a datasheet can cost more (price steps by copy), as rosterToGame and the Army
+    // Builder's repriceAll count them: a second Shield-Captain was priced as the first
+    const copies = new Map();
     for (const [key, gu] of Object.entries(gameJson?.units ?? {})) {
       const meta = gu?.meta ?? {};
       const unitName = meta.name ?? key;
@@ -1094,7 +1097,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         break; // one enhancement per unit
       }
 
-      const basePoints = pointsFor(dcUnit, modelCount) + wargearPointsFor(dcUnit, unitFactionId, counts);
+      const ordinal = (copies.get(dcUnit.id) ?? 0) + 1;
+      copies.set(dcUnit.id, ordinal);
+      const basePoints = pointsFor(dcUnit, modelCount, ordinal) + wargearPointsFor(dcUnit, unitFactionId, counts);
       computed += basePoints + (enhancementPoints ?? 0);
 
       rosterUnits.push({

@@ -85,7 +85,7 @@ export function eventCard() {
         <b style="min-width:26px">R${i + 1}</b>
         <span class="tiny muted">Layout</span>${ctx.seg('event-layout', r.layout, [[1, 'A'], [2, 'B'], [3, 'C']], `compact" data-r="${i}`)}
         <span class="grow"></span>
-        <button class="btn primary" data-action="event-start" data-r="${i}" ${o && me ? '' : 'disabled'} aria-label="Start round ${i + 1}">Start ▶</button>
+        <button class="btn ${o && me ? 'primary' : ''}" data-action="event-start" data-r="${i}" aria-label="Start round ${i + 1}">Start ▶</button>
       </div>
       <select class="sel" style="margin-top:6px" data-input="event-opp" data-r="${i}" aria-label="Opponent in round ${i + 1}">${oppOptions(r.opp)}</select>
       ${mu ? `<div class="tiny muted" style="margin-top:3px">You: <b>${esc(mu.mine ?? '?')}</b> · they: <b>${esc(mu.theirs ?? '?')}</b> · ${esc(depName(lay))}</div>` : ''}
@@ -197,7 +197,9 @@ export function eventAction(action, el) {
     case 'event-start': {
       const i = Number(el.dataset.r), r = e.rounds[i];
       const l = st.library.find(x => String(x.id) === String(r?.opp));
-      if (!l || !myArmy()) return null;
+      // say what is missing (the button used to be greyed out with no reason)
+      if (!myArmy()) { note(`To start round ${i + 1}, load your own list as army A first (Armies tab).`); break; }
+      if (!l) { note(st.library.length ? `To start round ${i + 1}, pick its opponent in the list under the layout.` : `To start round ${i + 1}, save the opponent's list first: paste it as army B and tap 📚 → Save, or add lists to the event below. Then pick it under the layout.`); break; }
       if (ctx.gameInProgress() && !window.confirm(`Start round ${i + 1} against ${l.name}? The game tracked on the Play view is cleared${e.round && e.round !== i + 1 && !played(e.rounds[e.round - 1] ?? {}) ? ` (its score is kept as the result of round ${e.round})` : ''}.`)) return null;
       // the game on the tracker was the round before: keep its score as that round's result (unless one is typed in)
       const prev = e.round && e.round !== i + 1 ? e.rounds[e.round - 1] : null, sc = ctx.gameScore?.();
@@ -209,6 +211,12 @@ export function eventAction(action, el) {
       st.view = 'intel';
       st.intelSide = 'B';
       e.msg = '';
+      {
+        // what was set up, shown at the top of Intel (dismissed with ✕)
+        const mu = matchupFor(myDisp(), listInfo(l).disp);
+        const lay = mu?.layouts[r.layout - 1];
+        st.roundStart = { round: i + 1, opp: l.name, layout: layoutLetter(r.layout), deployment: depName(lay), mine: mu?.mine ?? null, theirs: mu?.theirs ?? null };
+      }
       console.log(`[event] round ${i + 1}: ${l.name}, layout ${layoutLetter(r.layout)}`);
       break;
     }

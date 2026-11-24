@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.112.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: secondary cards drawn as cards; Event Start fixed; grid scrolling fixed",
+      "changes": [
+        "Secondary cards are drawn as cards: name, Tactical / Fixed, When drawn, when it scores, each scoring line with its VP, and the Fixed version — tap a card on Mission → Cards or in your hand on Play, or switch Cards to 🂠 to see them all",
+        "Event: Start ▶ now opens Intel at the top with a note of what it set up (opponent, layout, missions) and buttons to the Board and Mission; it used to keep the scroll position, so it looked as if nothing happened",
+        "Event: Start ▶ is never greyed out without a reason: it says to load your list or pick the opponent",
+        "Scrolling the matchup grid (or any sheet) no longer scrolls the page behind it",
+        "Army Builder / game lists: a second copy of a datasheet loaded from the game is priced as a second copy (e.g. Shield-Captain 225, not 205)"
+      ]
+    },
+    {
       "version": "1.111.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: load lists from the game, and send lists to it",
