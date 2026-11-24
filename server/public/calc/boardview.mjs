@@ -940,7 +940,9 @@ export function boardView() {
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
+        <button class="btn ghost grow" data-action="share-link" data-from="board" id="share-board">🔗 Share link</button>
       </div>
+      ${ctx.shareLinkHtml?.('board') ?? ''}
     </div></section>
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
@@ -1895,6 +1897,13 @@ export function boardSnapshot(sig) {
   const { photoMap, ...settings } = b.settings;
   return JSON.parse(JSON.stringify({ settings, plans }));
 }
+/** For a share link: the settings and the plan for the layout on screen (no table photo). */
+export function boardShareSnap() {
+  const b = boardState(), k = planKey(), root = planRoot();
+  const { photoMap, ...settings } = b.settings;
+  return JSON.parse(JSON.stringify({ settings, plans: k && root ? { [k]: { ...root, meta: undefined } } : {} }));
+}
+export function persistBoardNow() { persistBoard(); }
 /** Put a saved game's board back: its layout and dispositions, and its plans (other plans stay). */
 export function boardRestore(snap) {
   const b = boardState();

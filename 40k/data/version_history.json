@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.119.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: share a plan or an attack as a link",
+      "changes": [
+        "Board → 🔗 Share link, and Attack → 💾 Saved → Share this set-up: a link with both lists and your plan or attack inside it (about 2 KB; nothing is stored on a server)",
+        "Opening a link shows it read-only under a banner: you can look around and try things, but nothing is saved and your own lists and plans are untouched",
+        "Keep a copy saves the shared lists and plan on your device; Close goes back to your own; a link cut short when copied says so"
+      ]
+    },
+    {
       "version": "1.118.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: practise the deployment drop by drop",

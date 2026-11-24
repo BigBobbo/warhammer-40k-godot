@@ -18,7 +18,8 @@ import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, _boardDebug } from './boardview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, _boardDebug } from './boardview.mjs';
+import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
@@ -59,6 +60,84 @@ const state = {
 };
 
 let uidSeq = 1;
+
+// A shared link being viewed (state.viewing): nothing is written to this device's storage, so the viewer's own
+// lists, plans and games stay as they were. "Keep a copy" turns it off and saves; "Close" reloads without the link.
+const _setItem = Storage.prototype.setItem, _removeItem = Storage.prototype.removeItem;
+const _skipped = new Set();
+Storage.prototype.setItem = function (k, v) {
+  if (state.viewing && this === globalThis.localStorage) { if (!_skipped.has(k)) { _skipped.add(k); console.log(`[calc] shared view: not saving ${k}`); } return; }
+  return _setItem.call(this, k, v);
+};
+Storage.prototype.removeItem = function (k) {
+  if (state.viewing && this === globalThis.localStorage) return;
+  return _removeItem.call(this, k);
+};
+
+// ---- share links (sharelink.mjs): the lists, the attack set-up and the board plan, inside the link
+async function makeShareLink(from) {
+  const key = `${state.side}:${state.phase}`;
+  const p = {
+    view: from, ver: CALC_VERSION, names: { A: listLabel('A'), B: listLabel('B') },
+    texts: { A: state.texts.A, B: state.texts.B }, attach: state.attach, side: state.side, phase: state.phase,
+    setup: state.setups[key] ?? null, board: from === 'board' ? boardShareSnap() : null,
+  };
+  try {
+    const url = `${location.origin}${location.pathname}${SHARE_PREFIX}${await packShare(p)}`;
+    state.shareLink = { from, url, title: shareTitle(p) };
+    console.log(`[calc] share link (${from}): ${url.length} characters`);
+  } catch (e) {
+    state.shareLink = { from, error: `Could not make a link on this browser (${e?.message ?? e}).` };
+    console.warn('[calc] share link failed', e);
+  }
+  render();
+  if (state.sheet) renderSheet();
+}
+function shareLinkHtml(from) {
+  const s = state.shareLink;
+  if (!s || s.from !== from) return '';
+  if (s.error) return `<div class="warnbox" id="share-link-box" style="margin-top:8px">${esc(s.error)}</div>`;
+  return `<div class="okbox" id="share-link-box" style="margin-top:8px;text-align:left">
+    <div class="small"><b>🔗 ${esc(s.title)}</b><br><span class="muted">Anyone with the link sees this, read-only — no account, and it does not touch their own lists. The two lists are inside the link (${(s.url.length / 1024).toFixed(1)} KB).</span></div>
+    <input class="sel" id="share-link-url" readonly value="${esc(s.url)}" style="width:100%;margin-top:6px" aria-label="Share link">
+    <div class="row" style="gap:6px;margin-top:6px"><button class="btn primary grow" data-action="share-link-copy" id="share-link-copy">${s.copied ? '✓ Copied' : 'Copy link'}</button>${navigator.share ? '<button class="btn grow" data-action="share-link-send">Send…</button>' : ''}<button class="icon-btn" data-action="share-link-close" aria-label="Close">✕</button></div>
+  </div>`;
+}
+function sharedBanner() {
+  if (state.shareError) return `<div class="wrap"><div class="warnbox" id="shared-error" style="margin-top:8px;display:flex;gap:8px;align-items:center"><span class="grow">${esc(state.shareError)}</span><button class="icon-btn" data-action="shared-error-close" aria-label="Close">✕</button></div></div>`;
+  const v = state.viewing;
+  if (!v) return '';
+  return `<div class="wrap"><div class="warnbox" id="shared-banner" style="margin-top:8px">
+    <div>👁 ${v.loading ? 'Opening a shared link…' : `<b>Shared: ${esc(v.title)}</b>`}</div>
+    <div class="tiny" style="margin-top:2px">Read-only: you can look around and try things, but nothing here is saved, and your own lists and plans are untouched.${v.ver && v.ver !== CALC_VERSION ? ` Made with v${esc(v.ver)}.` : ''}</div>
+    ${v.loading ? '' : `<div class="row" style="gap:6px;margin-top:6px"><button class="btn primary grow" data-action="shared-keep" id="shared-keep">Keep a copy</button><button class="btn grow" data-action="shared-close" id="shared-close">Close</button></div>`}
+  </div></div>`;
+}
+async function openShared(code) {
+  try {
+    const p = await unpackShare(code);
+    state.viewing = { title: shareTitle(p), ver: p.ver ?? '' };
+    state.texts = { A: p.texts.A, B: p.texts.B };
+    state.attach = { A: p.attach?.A ?? null, B: p.attach?.B ?? null };
+    state.side = p.side === 'B' ? 'B' : 'A';
+    state.phase = p.phase === 'fight' ? 'fight' : 'shooting';
+    if (p.setup) state.setups = { ...state.setups, [`${state.side}:${state.phase}`]: p.setup };
+    for (const a of p.setup?.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
+    parseArmy('A'); parseArmy('B');
+    if (p.board) boardRestore(p.board);
+    const ready = state.armies.A && state.armies.B;
+    state.view = ready && (p.view === 'board' || p.view === 'attack') ? p.view : 'armies';
+    state.sheet = null;
+    console.log(`[calc] opened a shared link: ${state.viewing.title} (made with v${p.ver ?? '?'})`);
+  } catch (e) {
+    state.viewing = null;
+    state.shareError = e?.message ?? String(e);
+    history.replaceState(null, '', location.pathname + location.search);
+    console.warn('[calc] shared link could not be opened', e);
+  }
+  render();
+  scheduleCalc();
+}
 
 function persist() {
   try {
@@ -277,7 +356,8 @@ function parseArmy(side) {
     (state.loaded ??= {})[side] = text;   // the list this army was read from (the box can be edited before the next Load)
     if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
     else {
-      // attachments chosen for this list before (the list itself may not say them)
+      // attachments chosen for this list before (the list itself may not say them; not for a shared link: it carries its own)
+      if (state.viewing) return console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units (shared)`);
       const rem = attachMemory()[listKey(text)];
       if (rem && Object.keys(rem).length) {
         setAttachments(state.armies[side], rem);
@@ -569,6 +649,7 @@ function render() {
         <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
+    ${sharedBanner()}
     <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'mission' && ready ? missionView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
@@ -1564,6 +1645,7 @@ function savedSheet() {
   const defName = names.length && t ? `${names.join(' + ')} → ${t.name} (${state.phase})` : '';
   const sig = listsSignature();
   return `<div class="row"><h3 class="grow">Saved scenarios</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    ${defName ? `<button class="btn ghost" style="width:100%;margin-bottom:8px" data-action="share-link" data-from="attack" id="share-attack">🔗 Share this set-up as a link</button>${shareLinkHtml('attack')}` : ''}
     ${defName ? `<div class="row" style="gap:6px"><input class="sel grow" data-input="save-name" value="${esc(defName)}" aria-label="Scenario name">
       <button class="btn primary" data-action="save-scenario">Save</button></div>` : '<p class="hint">Set a target and attackers to save this setup.</p>'}
     ${state.savedNote ? `<div class="warnbox">${esc(state.savedNote)}</div>` : ''}
@@ -2273,6 +2355,42 @@ app.addEventListener('click', (ev) => {
       window.scrollTo(0, 0);
       return changed();
     }
+    case 'share-link':
+      makeShareLink(el.dataset.from === 'board' ? 'board' : 'attack');
+      return;
+    case 'share-link-copy': {
+      const s = state.shareLink;
+      if (!s?.url) return;
+      const done = () => { s.copied = true; render(); if (state.sheet) renderSheet(); };
+      (navigator.clipboard?.writeText(s.url) ?? Promise.reject(new Error('no clipboard'))).then(done).catch(() => {
+        const inp = document.getElementById('share-link-url');
+        inp?.select(); try { if (document.execCommand('copy')) done(); } catch { /* select it for the user */ }
+      });
+      return;
+    }
+    case 'share-link-send':
+      navigator.share?.({ title: `Combat Calc: ${state.shareLink?.title ?? ''}`, url: state.shareLink?.url }).catch(() => {});
+      return;
+    case 'share-link-close':
+      state.shareLink = null;
+      render(); if (state.sheet) renderSheet();
+      return;
+    case 'shared-error-close':
+      state.shareError = null;
+      return render();
+    case 'shared-keep':
+      if (!state.viewing) return;
+      if (!window.confirm('Keep a copy: these two lists become your armies A and B, and the shared plan is saved with them. Your saved lists, games and other plans stay.')) return;
+      state.viewing = null;
+      persistBoardNow();
+      history.replaceState(null, '', location.pathname + location.search);
+      console.log('[calc] shared link: kept a copy');
+      return changed();
+    case 'shared-close':
+      state.viewing = null;
+      history.replaceState(null, '', location.pathname + location.search);
+      location.reload();
+      return;
     case 'open-saved':
       state.sheet = 'saved';
       state.savedNote = null;
@@ -2554,7 +2672,7 @@ restoreGames();
 initBoard({
   state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost, branchWins, forecastBranches,
   // one army's list (for "use my deployment against another opponent")
-  sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
+  shareLinkHtml, sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
   openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
@@ -2579,11 +2697,16 @@ initBoard({
 initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave });
 initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
+// a share link (#s=...): view it read-only, over this device's own state (nothing is saved while viewing)
+const shareCode = location.hash.startsWith(SHARE_PREFIX) ? location.hash.slice(SHARE_PREFIX.length) : null;
+if (shareCode) state.viewing = { loading: true };
+window.addEventListener('hashchange', () => { if (location.hash.startsWith(SHARE_PREFIX)) location.reload(); });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
 render();
 scheduleCalc();
+if (shareCode) openShared(shareCode);
 
 // ask the browser not to clear the saved lists and plans when the device runs low on space
 if (navigator.storage?.persist && (state.armies.A || state.armies.B)) {

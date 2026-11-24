@@ -3351,6 +3351,90 @@ Aggressor Squad (95 points)
     await dctx.close();
   }
 
+  // --- 1.119: read-only share links — the lists, the attack set-up and the board plan inside the link
+  {
+    const mk = async (tag) => {
+      const c = await browser.newContext({ ...devices['Pixel 7'] });
+      const pg = await c.newPage();
+      pg.on('pageerror', e => consoleErrors.push(`${tag}: ${e}`));
+      pg.on('console', m => { if (m.type() === 'error') consoleErrors.push(`${tag}: ${m.text()}`); });
+      pg.on('dialog', d => d.accept());
+      return { c, pg };
+    };
+    // the sharer: both lists, two units on the board
+    const { c: c1, pg: s1 } = await mk('share-from');
+    await s1.goto(`${BASE}/calc/`); await s1.waitForSelector('textarea[data-side="A"]');
+    await s1.fill('textarea[data-side="A"]', SW_LIST); await s1.tap('button[data-action="parse"][data-side="A"]');
+    await s1.fill('textarea[data-side="B"]', ORK_LIST); await s1.tap('button[data-action="parse"][data-side="B"]');
+    await s1.tap('button[data-action="view"][data-value="board"]');
+    await s1.waitForSelector('#board-svg');
+    await s1.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
+    await s1.locator('#board-tray button[data-action="board-place"][data-side="B"]').first().tap();
+    const mine = await s1.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    await s1.tap('#share-board');
+    await s1.waitForSelector('#share-link-url');
+    const url = await s1.inputValue('#share-link-url');
+    const box = (await s1.textContent('#share-link-box')).replace(/\s+/g, ' ');
+    check('🔗 Board → Share link: a link with the lists and plan inside it (no server)', url.startsWith(`${BASE}/calc/#s=`) && url.length < 12000 && /board plan/.test(box), `${url.length} chars | ${box.slice(0, 120)}`);
+    await s1.locator('#share-link-box').scrollIntoViewIfNeeded();
+    await s1.screenshot({ path: join(SHOTS, 'calc_115_share_link.png') });
+    // the attack set-up can be shared too (Saved sheet)
+    await s1.tap('button[data-action="view"][data-value="attack"]');
+    await s1.waitForSelector('select[data-input="target"]');
+    const tv = await s1.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await s1.selectOption('select[data-input="target"]', tv);
+    await s1.tap('button[data-action="open-add"]');
+    await s1.tap('.pick:has-text("Grey Hunters")');
+    await s1.tap('button[data-action="open-saved"]');
+    const hasAtk = await s1.locator('#share-attack').count();
+    let atkUrl = '';
+    if (hasAtk) { await s1.tap('#share-attack'); await s1.waitForSelector('#share-link-url'); atkUrl = await s1.inputValue('#share-link-url'); }
+    check('Attack → 💾 Saved → share this set-up as a link', hasAtk === 1 && atkUrl.includes('#s='), `${hasAtk} ${atkUrl.length}`);
+    await c1.close();
+
+    // the viewer has their own list loaded; opening the link must not change it
+    const { c: c2, pg: v } = await mk('share-to');
+    await v.goto(`${BASE}/calc/`); await v.waitForSelector('textarea[data-side="A"]');
+    await v.fill('textarea[data-side="A"]', ORK_LIST); await v.tap('button[data-action="parse"][data-side="A"]');
+    const before = await v.evaluate(() => ({ main: localStorage.getItem('w40k_calc_v1'), board: localStorage.getItem('w40k_calc_board_v1') }));
+    await v.goto(url);
+    await v.waitForSelector('#shared-banner #shared-keep');
+    await v.waitForSelector('#board-svg');
+    const seen = await v.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    const banner = (await v.textContent('#shared-banner')).replace(/\s+/g, ' ');
+    check('opening the link: the Board with the same units in the same places, under a read-only banner', JSON.stringify(seen) === JSON.stringify(mine) && /Shared: .*Space Wolves.*vs.*Orks.*board plan/.test(banner) && /Read-only/.test(banner), `${JSON.stringify(seen)} vs ${JSON.stringify(mine)} | ${banner.slice(0, 140)}`);
+    await v.screenshot({ path: join(SHOTS, 'calc_116_shared_view.png') });
+    // try something in the view (place another unit): nothing is saved
+    await v.locator('#board-tray button[data-action="board-place"]').first().tap();
+    const during = await v.evaluate(() => ({ main: localStorage.getItem('w40k_calc_v1'), board: localStorage.getItem('w40k_calc_board_v1') }));
+    check('while viewing, nothing is written to this device (own lists and plans untouched)', during.main === before.main && during.board === before.board);
+    await v.tap('#shared-close');
+    await v.waitForSelector('textarea[data-side="A"]');
+    const after = await v.evaluate(() => ({ hash: location.hash, A: window.__calc.state.armies.A?.faction ?? null, B: window.__calc.state.armies.B?.faction ?? null, banner: !!document.getElementById('shared-banner') }));
+    check('Close: back to your own lists (Orks in A, nothing in B), the link gone', after.hash === '' && /Ork/.test(after.A ?? '') && after.B === null && !after.banner, JSON.stringify(after));
+    // open again and keep a copy: saved, and still there after a reload
+    await v.goto(url);
+    await v.waitForSelector('#shared-keep');
+    await v.tap('#shared-keep');
+    await v.waitForFunction(() => !document.getElementById('shared-banner'));
+    await v.goto(`${BASE}/calc/`);
+    await v.tap('button[data-action="view"][data-value="board"]').catch(() => {});
+    await v.waitForSelector('#board-svg');
+    const kept = await v.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    check('Keep a copy: the lists and the plan are saved on this device', JSON.stringify(kept) === JSON.stringify(mine), JSON.stringify(kept));
+    // a cut-short link says so
+    await v.goto(url.slice(0, url.indexOf('#s=') + 40));
+    await v.waitForSelector('#shared-error');
+    check('a link cut short when copied says so (and changes nothing)', /incomplete or damaged/.test(await v.textContent('#shared-error')));
+    // the attack link opens on the Attack tab with the same attacker and target
+    await v.goto(atkUrl);
+    await v.waitForSelector('#shared-keep');
+    await v.waitForSelector('[data-attacker]');
+    const atk = await v.evaluate(() => ({ view: window.__calc.state.view, n: document.querySelectorAll('[data-attacker]').length, txt: document.querySelector('[data-attacker]')?.textContent ?? '', tgt: document.querySelector('select[data-input="target"]')?.selectedOptions[0]?.textContent ?? '' }));
+    check('an attack link opens on Attack with the same attacker and target', atk.view === 'attack' && atk.n === 1 && /Grey Hunters/.test(atk.txt) && /Warboss \+ Boyz/.test(atk.tgt), JSON.stringify({ ...atk, txt: atk.txt.slice(0, 40) }));
+    await c2.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
