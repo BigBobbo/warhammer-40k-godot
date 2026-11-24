@@ -78,6 +78,17 @@ test('points check: a list that prices the enhancement apart (New Recruit / WTC 
   assert.deepEqual(off.mismatches.map(m => [m.name, m.list, m.data]), [['Telemon Heavy Dreadnought', 300, [310, 340]]]);
 });
 
+test('what a list costs with today\'s points: each changed unit, the totals, the limit', () => {
+  const orks = A.listPointsNow(A.importArmy(list('gw-orks-1000.txt')));
+  assert.deepEqual([orks.listed, orks.now, orks.limit, orks.over], [665, 730, 1000, false]);
+  assert.deepEqual(orks.changed.map(c => [c.name, c.list, c.now]), [['Warboss', 70, 100], ['Meganobz', 100, 105], ['Flash Gitz', 80, 110]]);
+  const sw = A.listPointsNow(A.importArmy(SW));
+  assert.deepEqual([sw.listed, sw.now, sw.changed.length], [2000, 2000, 0]);
+  // a list at the limit whose units went up is over it
+  const up = A.listPointsNow(A.importArmy(SW.replace('Grey Hunters (180 points)', 'Grey Hunters (150 points)')));
+  assert.deepEqual([up.listed, up.now, up.over], [1970, 2000, false]);
+});
+
 test('the result is worked out once per set of units', () => {
   const army = A.importArmy(SW);
   assert.equal(A.armyData(army), A.armyData(army));

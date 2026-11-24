@@ -69,6 +69,8 @@ export const UNIT_ALIASES = {
 export const BASE_SIZE_OVERRIDES = {
   // Stompa: no GW base (uses the model); play it on a 180mm round footprint.
   'stompa': { shape: 'round', diameter: 180 },
+  // Event Companion v1.3 (Oct 2026), "Base Size Guide: Wazbom Blastajet updated": 120x92mm oval (the data has 150x95)
+  'wazbom-blastajet': { shape: 'oval', width: 120, length: 92 },
 };
 
 // 10e -> 11e weapon renames (matched via looseName; -> 11e weapon id),

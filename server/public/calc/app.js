@@ -6,7 +6,7 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
-  phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments,
+  phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments, listPointsNow,
 } from './adapter.mjs';
 import { storeName } from './gamelists.mjs';
 import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
@@ -781,7 +781,7 @@ function dataStampHtml(side, army) {
     : !bad.length ? `<div class="ok" id="points-${side}">✓ Points: ${pts.checked === n ? `all ${n}` : `${pts.checked} of ${n}`} datasheets cost what the rules data says${pts.checked === n ? '' : ' (the others cannot be checked)'}.</div>`
       : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
           ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
-          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
+          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.${(() => { const r = listPointsNow(army); return ` <span id="points-now-${side}">With today’s points the list costs <b>${r.now}</b>${r.limit ? ` of ${r.limit}` : ''} (listed ${r.listed})${r.over ? ` — <b>over the limit by ${r.now - r.limit}</b>` : ''}.</span>`; })()}</div>`;
   const changed = army.units.flatMap(cu => cu.members.flatMap(m => unitUpdates(m.dcUnit.name).filter(c => !c.inData).map(c => `${m.dcUnit.name} (${c.weapon}: ${c.change})`)));
   const upd = changed.length ? `<div class="tiny" id="update-${side}" style="color:var(--warn-ink);margin-top:4px">⚠ ${esc(UPDATE.short)} (${esc(UPDATE.used)}), not in the numbers: ${esc([...new Set(changed)].join('; '))}.</div>` : '';
   return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}${upd}</div>`;
@@ -1341,6 +1341,25 @@ function gridSheet() {
 
 // ---- List library (tournament mode: keep every opponent's list on the phone)
 
+// what a saved list costs with today's points (after a points update): cached per list text
+const libPtsCache = new Map();
+function libPoints(text) {
+  if (!libPtsCache.has(text)) {
+    let r = null;
+    try { r = listPointsNow(importArmy(text)); } catch { r = null; }
+    libPtsCache.set(text, r);
+  }
+  return libPtsCache.get(text);
+}
+function libPointsHtml(l) {
+  const r = libPoints(l.text);
+  if (!r) return '';
+  const lim = r.limit ? ` of ${r.limit}` : '';
+  if (!r.changed.length) return `<div class="tiny ok" data-lib-points>✓ Points current: ${r.now}${lim}</div>`;
+  return `<details class="tiny" data-lib-points><summary style="color:var(--warn-ink)">⚠ ${r.changed.length} unit${r.changed.length === 1 ? '' : 's'} cost${r.changed.length === 1 ? 's' : ''} something else now: ${r.listed} → <b>${r.now}</b>${lim}${r.over ? ` — <b>over the limit by ${r.now - r.limit}</b>` : ''}</summary>
+    ${r.changed.map(c => `<div>${esc(c.name)}: ${c.list} → <b>${c.now}</b></div>`).join('')}${r.unknown ? `<div class="muted">${r.unknown} unit${r.unknown === 1 ? '' : 's'} the rules data cannot price (kept at the listed price).</div>` : ''}</details>`;
+}
+
 function librarySheet() {
   const side = state.sheetArg?.side ?? 'A';
   const army = state.armies[side];
@@ -1350,7 +1369,7 @@ function librarySheet() {
     ${army ? `<div class="row" style="gap:6px"><input class="sel grow" data-input="lib-name" value="${esc(defName)}" aria-label="List name">
       <button class="btn primary" data-action="lib-save" data-side="${side}">Save army ${side}</button></div>` : `<p class="hint">Load a list into army ${side} to save it here.</p>`}
     <div class="section">${state.library.length ? state.library.map((l, i) => `<div class="pick" style="cursor:default">
-        <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div></div>
+        <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div>${libPointsHtml(l)}</div>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="A">→ A</button>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="B">→ B</button>
         <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>
@@ -1826,6 +1845,22 @@ function shockHtml(who, sh, id) {
     <span class="tiny muted">A battle-shocked unit has OC “–”, cannot be the target of its player's stratagems, cannot start actions and can only fall back by Desperate Escape.</span></div>`;
 }
 
+/**
+ * How the attack usually goes, not just its average: the most that is reached 9 times in 10, half the time and
+ * 1 time in 10 (from the "at least" distribution), for models destroyed and for damage.
+ */
+export function spreadLevels(atLeast, levels = [0.9, 0.5, 0.1]) {
+  return levels.map(p => { let k = 0; for (let i = 0; i < atLeast.length; i++) if (atLeast[i] >= p - 1e-9) k = i; return k; });
+}
+function spreadHtml(r) {
+  if (!r.killsAtLeast?.length || !r.woundsAtLeast?.length) return '';
+  const [k90, k50, k10] = spreadLevels(r.killsAtLeast), [w90, w50, w10] = spreadLevels(r.woundsAtLeast);
+  const row = (label, a, b, c, unit) => `<tr><td>${label}</td><td><b>${a}</b>+</td><td><b>${b}</b>+</td><td><b>${c}</b>+</td></tr>`;
+  return `<table class="dist" id="res-spread" style="margin-top:8px"><thead><tr><th>At least…</th><th>9 in 10</th><th>1 in 2</th><th>1 in 10</th></tr></thead><tbody>
+    ${row('Models destroyed', k90, k50, k10)}${row('Damage', w90, w50, w10)}</tbody></table>
+    <div class="tiny muted">9 in 10: what you can count on; 1 in 10: a good roll. The average alone hides how swingy an attack is.</div>`;
+}
+
 function resultsSheet() {
   const r = state.result;
   if (!r) return '<div class="muted">No result yet.</div>';
@@ -1845,6 +1880,7 @@ function resultsSheet() {
       <div class="cell"><b>${pct(r.pWipe)}</b><span>chance unit destroyed</span></div>
       <div class="cell"><b>${fx(r.meanWounds)}</b><span>avg damage of ${r.totalWounds} W</span></div>
     </div>
+    ${spreadHtml(r)}
     ${r.totalPoints ? (() => {
       const atkPts = s.attackers.reduce((a, e) => a + (atkArmy()?.units.find(u => u.key === e.unitKey)?.points ?? 0), 0);
       return `<div class="hero" style="grid-template-columns:1fr 1fr;margin-top:8px">

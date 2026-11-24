@@ -16,6 +16,7 @@ import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -530,6 +531,41 @@ function freeSpot(side, key) {
 
 const f2 = (n) => Math.round(n * 100) / 100;
 
+// ---- table set-up measurements: for each terrain piece its corner nearest a board edge, and each objective, in
+// inches from the nearest side edge (↔) and the nearest short edge (↕) — to set up the real table from the layout
+const fontK0 = (vb) => Math.max(0.55, Math.min(1.2, vb.w / (BOARD.w + 1)));
+const fmtIn = (v) => `${Math.round(v * 4) / 4}"`.replace('.25"', '¼"').replace('.5"', '½"').replace('.75"', '¾"');
+export function edgeMeasure(x, y) {
+  const dx = Math.min(x, BOARD.w - x), dy = Math.min(y, BOARD.h - y);
+  return { dx, dy, fromLeft: x <= BOARD.w - x, fromTop: y <= BOARD.h - y };
+}
+function measureSvg(l, k) {
+  if (!l) return '';
+  const out = ['<g id="board-measure" pointer-events="none" font-family="system-ui,sans-serif" font-weight="700">'];
+  const label = (x, y, txt, col) => {
+    const w = (txt.length * 0.52 + 0.6) * k, h = 1.25 * k, ox = x < BOARD.w / 2 ? 0.4 * k : -w - 0.4 * k, oy = y < BOARD.h / 2 ? 0.4 * k : -h - 0.4 * k;
+    return `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(0.28 * k)}" fill="${col}"/><rect x="${f2(x + ox)}" y="${f2(y + oy)}" width="${f2(w)}" height="${f2(h)}" rx="${f2(0.25 * k)}" fill="#ffffff" fill-opacity="0.92" stroke="${col}" stroke-width="${f2(0.08 * k)}"/>`
+      + `<text x="${f2(x + ox + w / 2)}" y="${f2(y + oy + h * 0.72)}" font-size="${f2(0.85 * k)}" text-anchor="middle" fill="#222">${txt}</text>`;
+  };
+  // the terrain areas (a wall or feature that sits on an area is placed with it), one label each, none on top of another
+  const placedAt = [];
+  const free = (x, y) => !placedAt.some(q => Math.hypot(q.x - x, q.y - y) < 2.2);
+  for (const p of l.pieces ?? []) {
+    if (!p.poly?.length || p.parent || (p.cls && p.cls !== 'area')) continue;
+    // the corner nearest a board edge (the one to measure from when setting the piece down)
+    const v = p.poly.map(([x, y]) => ({ x, y, m: edgeMeasure(x, y) })).sort((a, b) => (a.m.dx + a.m.dy) - (b.m.dx + b.m.dy)).find(c => free(c.x, c.y));
+    if (!v) continue;
+    placedAt.push(v);
+    out.push(`<g data-measure="${ctx.esc(p.id)}">${label(v.x, v.y, `↔${fmtIn(v.m.dx)} ↕${fmtIn(v.m.dy)}`, '#1f5fa8')}</g>`);
+  }
+  for (const o of l.objectives ?? []) {
+    const m = edgeMeasure(o.x, o.y);
+    out.push(`<g data-measure-obj="${ctx.esc(o.id)}">${label(o.x, o.y, `↔${fmtIn(m.dx)} ↕${fmtIn(m.dy)}`, '#a36a00')}</g>`);
+  }
+  out.push('</g>');
+  return out.join('');
+}
+
 /** The letter on a base: the first letter of the first word of the datasheet name ("Prosecutor Squad" -> P). */
 export const baseLetter = (name) => (/[A-Za-z0-9]/.exec(String(name ?? '')) ?? ['?'])[0].toUpperCase();
 /** Half width / height of a base footprint (round r, oval rx/ry, hull hw/hh). */
@@ -590,6 +626,7 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<circle cx="${o.x}" cy="${o.y}" r="0.79" fill="${C.obj}" stroke="${C.objEdge}" stroke-width="0.12"/>`);
   }
   parts.push('</g>');
+  if (b.measure && !forExport) parts.push(measureSvg(l, fontK0(vb)));
   if (!forExport || b.danger) parts.push(dangerSvg(b));
   if (b.arrive) parts.push(arriveSvg(b));
   // over a photo the bases are see-through so the real models show underneath
@@ -814,6 +851,8 @@ export function boardView() {
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
+      <div class="tiny muted" id="board-layout-source" style="margin-top:8px">Layouts: ${esc(LAYOUTS_SOURCE.version)} (${esc(LAYOUTS_SOURCE.date)}; ${esc(LAYOUTS_SOURCE.note)}). Checked ${esc(longDate(LAYOUTS_SOURCE.checked))}: ${esc(LAYOUTS_SOURCE.sample)}.</div>
+      <div class="row" style="margin-top:6px">${ctx.chip('board-measure', !!b.measure, '📏 Table set-up measurements', 'id="board-measure-chip"')}</div>
       <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
       <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
       <div class="row" style="margin-top:8px;gap:6px">
@@ -1251,6 +1290,10 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-measure':
+      b.measure = !b.measure;
+      persistBoard();
+      return 'render';
     case 'board-variant':
       b.settings.variant = Number(el.dataset.value);
       b.sel = b.sel2 = null;

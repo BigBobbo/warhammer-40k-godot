@@ -2413,7 +2413,7 @@ Aggressor Squad (95 points)
     // rules in force, today (before the announced update)
     const line = await ztxt('#rules-line');
     check('Armies: the rules-in-force line says what the rules were checked against, the data release and the next change',
-      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.2, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
+      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.3, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
       && /World Championships rules updates, November 2026 \(UKTC events use it\): 5 of its 8 weapon changes are not in the numbers/.test(line) && /Next rules change: the quarterly balance update, the week beginning 7 December 2026 \(Warhammer Community, 29 Oct 2026\)/.test(line) && (await zp.locator('#rules-due').count()) === 0, line);
     await zp.locator('#rules-line').scrollIntoViewIfNeeded();
     await zp.screenshot({ path: join(SHOTS, 'calc_84_rules_in_force.png') });
@@ -3171,6 +3171,55 @@ Aggressor Squad (95 points)
     await pp.waitForFunction(() => (window.__calc.mission().game.strats ?? []).length === 0);
     check('Undo takes it back (the CP too)', (await pp.evaluate(() => window.__calc.mission().game.B.cp)) === cpB);
     await pctx.close();
+  }
+
+  // --- 1.116: layouts stamped and measured for set-up, how an attack usually goes, saved lists against today's points
+  {
+    const vctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const vp = await vctx.newPage();
+    vp.on('pageerror', e => consoleErrors.push(`1.116: ${e}`));
+    vp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.116: ${m.text()}`); });
+    vp.on('dialog', d => d.accept());
+    await vp.goto(`${BASE}/calc/`); await vp.waitForSelector('textarea[data-side="A"]');
+    // the library: an old Ork list (10th edition prices) against today's points
+    await vp.fill('textarea[data-side="B"]', ORK_LIST); await vp.tap('button[data-action="parse"][data-side="B"]');
+    check('army card: what the list costs with today’s points', /With today’s points the list costs 730 of 1000 \(listed 665\)/.test((await vp.textContent('#points-now-B')).replace(/\s+/g, ' ')));
+    await vp.tap('button[data-action="open-library"][data-side="B"]');
+    await vp.fill('input[data-input="lib-name"]', 'Old Orks'); await vp.tap('button[data-action="lib-save"]');
+    const lp = vp.locator('.sheet .pick', { hasText: 'Old Orks' }).locator('[data-lib-points]');
+    await lp.locator('summary').tap();
+    const lt = (await lp.textContent()).replace(/\s+/g, ' ');
+    check('📚 library: each saved list says which units cost something else now, and its total today', /3 units cost something else now: 665 → 730 of 1000/.test(lt) && /Warboss: 70 → 100/.test(lt), lt);
+    await vp.screenshot({ path: join(SHOTS, 'calc_109_library_points.png') });
+    await vp.tap('.sheet button[data-action="close-sheet"]');
+    await vp.fill('textarea[data-side="A"]', SW_LIST); await vp.tap('button[data-action="parse"][data-side="A"]');
+    // Attack: 9 in 10 / 1 in 2 / 1 in 10
+    await vp.tap('button[data-action="view"][data-value="attack"]');
+    await vp.waitForSelector('select[data-input="target"]');
+    const tv = await vp.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await vp.selectOption('select[data-input="target"]', tv);
+    await vp.tap('button[data-action="open-add"]');
+    await vp.tap('.pick:has-text("Grey Hunters")');
+    await vp.waitForFunction(() => !!window.__calc.state.result && !window.__calc.state.busy, null, { timeout: 60000 });
+    await vp.tap('button[data-action="open-results"]');
+    await vp.waitForSelector('#res-spread');
+    const sp = await vp.$$eval('#res-spread tbody tr', trs => trs.map(tr => [...tr.cells].map(c => c.textContent.trim())));
+    const ok = sp.length === 2 && sp.every(r => { const [a, b, c] = r.slice(1).map(x => Number(x.replace('+', ''))); return a <= b && b <= c; });
+    check('Attack details: at least … 9 in 10 / 1 in 2 / 1 in 10, for models destroyed and damage (in order)', ok, JSON.stringify(sp));
+    await vp.locator('#res-spread').scrollIntoViewIfNeeded();
+    await vp.screenshot({ path: join(SHOTS, 'calc_110_attack_spread.png') });
+    await vp.tap('.sheet button[data-action="close-sheet"]');
+    // Board: the layout's source, and the set-up measurements
+    await vp.tap('button[data-action="view"][data-value="board"]');
+    await vp.waitForSelector('#board-svg');
+    check('Board: the layouts’ source is stated (Event Companion v1.3, unchanged since v1.2, how they were checked)', /Layouts: Event Companion v1\.3 \(October 2026; layouts unchanged since v1\.2, August 2026\)\. Checked 24 November 2026: 12 of 45 compared with the official PDF/.test((await vp.textContent('#board-layout-source')).replace(/\s+/g, ' ')));
+    await vp.tap('#board-measure-chip');
+    await vp.waitForSelector('#board-measure');
+    const ms = await vp.evaluate(() => ({ pieces: document.querySelectorAll('#board-measure [data-measure]').length, objs: document.querySelectorAll('#board-measure [data-measure-obj]').length, first: document.querySelector('#board-measure [data-measure] text')?.textContent, n: window.__calc.board().layout }));
+    check('📏 Table set-up measurements: every terrain piece and objective labelled in inches from the nearest edges', ms.pieces >= 10 && ms.objs >= 5 && /^↔[\d½¼¾]+" ↕[\d½¼¾]+"$/.test(ms.first ?? ''), JSON.stringify(ms));
+    await vp.locator('#board-host').scrollIntoViewIfNeeded();
+    await vp.screenshot({ path: join(SHOTS, 'calc_111_setup_measure.png') });
+    await vctx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

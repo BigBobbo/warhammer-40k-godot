@@ -482,3 +482,11 @@ User: work through the ranked list, no clock (item 4 skipped).
   🎲 Random draw shown full screen; Stratagems now (phase picker in the fold, usable in this phase and
   turn for both players, Use spends CP + logs, once per phase; Undo). playtools stratUsable /
   useStrat / stratUsedThisPhase. Table mode already hid card odds, advice and the board.
+- 1.116.0 (items 3, 8, 10; 7 already existed as the Event preparation table):
+  Event Companion v1.3 PDF read (scratch ec_pdf): "WHAT'S NEW: Base Size Guide: Wazbom Blastajet
+  updated" and "LAYOUTS UPDATED: None". 12 of 45 layouts compared by eye with the PDF maps (one sheet per
+  deployment shape): no difference in zones, terrain positions, objectives. `rulesnote.LAYOUTS_SOURCE`
+  shown on the Board; RULES_SOURCES now v1.3. Wazbom Blastajet 120x92mm oval (BASE_SIZE_OVERRIDES).
+  📏 set-up measurements (terrain areas' corner nearest an edge, objectives). `adapter.listPointsNow`
+  (library rows + army card). Attack details: 9 in 10 / 1 in 2 / 1 in 10 table. Not done: a fast/slow
+  save-allocation toggle (needs the 11e allocation wording for mixed saves checked first).

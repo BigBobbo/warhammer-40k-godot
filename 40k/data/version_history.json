@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.116.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: layouts checked and stamped, table set-up measurements, saved lists against today's points, how an attack usually goes",
+      "changes": [
+        "Board: the layouts' source is stated — Event Companion v1.3 (October 2026), whose layouts are unchanged since v1.2; 12 of the 45 were compared with the official PDF",
+        "Board: 📏 Table set-up measurements label every terrain area and objective in inches from the nearest edges, to set up the real table",
+        "Wazbom Blastajet on its new 120x92mm oval base (Event Companion v1.3)",
+        "List library: each saved list says which units cost something else with today's points, its total now, and whether it is over the limit; the army card says the total too",
+        "Attack details: at least how many models / how much damage 9 times in 10, half the time and 1 time in 10"
+      ]
+    },
+    {
       "version": "1.115.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: show the score to your opponent, random card draws they can see, stratagems usable now with a CP log",

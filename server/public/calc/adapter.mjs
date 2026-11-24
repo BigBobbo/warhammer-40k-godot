@@ -158,6 +158,33 @@ export const listedPoints = (ru) => (ru.points == null ? null : ru.points + (ru.
  * wargear and its enhancement. A unit with no points in the list, or with an
  * enhancement the data does not know, is not checked.
  */
+/**
+ * A list's prices against the rules data today (after a points update): each unit's listed price and what it costs
+ * now (its copy of the datasheet counted in list order, its wargear and its enhancement), the totals, and the limit.
+ * -> { listed, now, limit, over, changed: [{ name, list, now }], unknown: n (units the data cannot price) }
+ */
+export function listPointsNow(army) {
+  const out = { listed: 0, now: 0, limit: army.roster.points?.declared_limit ?? null, changed: [], unknown: 0 };
+  const copies = new Map();
+  for (const ru of army.roster.units ?? []) {
+    const listed = listedPoints(ru);
+    out.listed += listed ?? 0;
+    const id = ru.ref?.id, data = id ? unitData(id, ru._unit_faction_id ?? army.roster.faction_id) : null;
+    const ord = (copies.get(id) ?? 0) + 1;
+    copies.set(id, ord);
+    let now = NaN;
+    if (data) { try { now = unitBasePoints(data, ru.model_count ?? 1, countsOf(ru), ord); } catch { /* no price for this size */ } }
+    const enhId = ru.enhancement?.id ?? ru.enhancement?.ref?.id ?? null;
+    const enh = enhId ? (dc.RAW_DATA.enhancements ?? []).find(e => e.id === enhId) : null;
+    if (!Number.isFinite(now) || (ru.enhancement && !Number.isFinite(enh?.cost))) { out.unknown++; out.now += listed ?? 0; continue; }
+    now += enh?.cost ?? 0;
+    out.now += now;
+    if (listed != null && listed !== now) out.changed.push({ name: ru.ref?.raw_name ?? id, list: listed, now });
+  }
+  out.over = out.limit != null && out.now > out.limit;
+  return out;
+}
+
 export function pointsCheck(army) {
   const out = { checked: 0, mismatches: [] };
   for (const cu of army.units) for (const m of cu.members) {
