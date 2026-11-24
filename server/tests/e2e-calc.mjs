@@ -1499,14 +1499,14 @@ try {
   await lp.locator('#board-host').scrollIntoViewIfNeeded();
   await lp.screenshot({ path: join(SHOTS, 'calc_21_board_tablet_landscape.png') });
   {
-    // --- two panes on a landscape tablet: the map with its controls beside it, no pinned dock
+    // --- three columns on a landscape tablet (1.125.0): my army | the map | the opponent, no pinned dock
     await lp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
     const rects = await lp.evaluate(() => {
       const r = (q) => { const e = document.querySelector(q); const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; };
-      return { map: r('#board-host'), panel: r('#board-panel'), vw: innerWidth, vh: innerHeight, scroll: scrollY, dock: getComputedStyle(document.getElementById('board-dock')).display };
+      return { map: r('#board-host'), me: r('#board-army-A'), opp: r('#board-army-B'), panel: r('#board-army-A #board-panel'), vw: innerWidth, vh: innerHeight, dock: !!document.getElementById('board-dock') };
     });
-    check('tablet Board: map on the left, the selected unit\'s panel beside it, both on screen without scrolling',
-      rects.panel.l >= rects.map.r - 2 && rects.map.b <= rects.vh && rects.panel.t < rects.vh / 2 && rects.map.w > 350 && rects.dock === 'none', JSON.stringify(rects));
+    check('tablet Board: my army left of the map, the opponent right of it, the selected unit\'s panel in my column, all on screen',
+      rects.me.r <= rects.map.l + 2 && rects.opp.l >= rects.map.r - 2 && rects.map.b <= rects.vh && rects.panel.t < rects.vh && rects.map.w > 350 && !rects.dock, JSON.stringify(rects));
     await lp.screenshot({ path: join(SHOTS, 'calc_39_tablet_board.png') });
     await lp.tap('button[data-action="view"][data-value="mission"]');
     await lp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy; }, null, { timeout: 120000 });
@@ -2908,7 +2908,7 @@ Aggressor Squad (95 points)
     await up.locator('#board-setup-turn').scrollIntoViewIfNeeded();
     await up.screenshot({ path: join(SHOTS, 'calc_124_board_turn_no_setup.png') });
     await up.tap('button[data-action="board-step"][data-i="0"]');
-    check('…and back on the Deploy step it is there again', (await up.locator('#board-setup select[data-input="board-disp"]').count()) === 2);
+    check('…and back on the Deploy step it is there again', (await up.locator('#board-setup').count()) === 1 && (await up.locator('select[data-input="board-disp"]').count()) === 2);
     await up.tap('button[data-action="board-step"][data-i="1"]');
     await up.tap('button[data-action="view"][data-value="mission"]');
     await up.tap('#setup-list-plan [data-step="layout"] button[data-value="board"]');
@@ -3447,7 +3447,7 @@ Aggressor Squad (95 points)
     await dp.tap('button[data-action="view"][data-value="board"]');
     await dp.waitForSelector('#board-svg');
     // the real deployment: one Space Wolves unit already placed
-    await dp.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
+    await dp.locator('button[data-action="board-place"][data-side="A"]').first().tap();
     const realTk = await dp.evaluate(() => window.__calc.board().units[0]?.tk);
     const n = await dp.evaluate(() => ({ A: window.__calc.state.armies.A.units.length, B: window.__calc.state.armies.B.units.length }));
     await dp.tap('#board-drill-ask');
@@ -3513,8 +3513,8 @@ Aggressor Squad (95 points)
     await s1.fill('textarea[data-side="B"]', ORK_LIST); await s1.tap('button[data-action="parse"][data-side="B"]');
     await s1.tap('button[data-action="view"][data-value="board"]');
     await s1.waitForSelector('#board-svg');
-    await s1.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
-    await s1.locator('#board-tray button[data-action="board-place"][data-side="B"]').first().tap();
+    await s1.locator('button[data-action="board-place"][data-side="A"]').first().tap();
+    await s1.locator('button[data-action="board-place"][data-side="B"]').first().tap();
     const mine = await s1.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
     await s1.tap('#share-board');
     await s1.waitForSelector('#share-link-url');
@@ -3550,7 +3550,7 @@ Aggressor Squad (95 points)
     check('opening the link: the Board with the same units in the same places, under a read-only banner', JSON.stringify(seen) === JSON.stringify(mine) && /Shared: .*Space Wolves.*vs.*Orks.*board plan/.test(banner) && /Read-only/.test(banner), `${JSON.stringify(seen)} vs ${JSON.stringify(mine)} | ${banner.slice(0, 140)}`);
     await v.screenshot({ path: join(SHOTS, 'calc_116_shared_view.png') });
     // try something in the view (place another unit): nothing is saved
-    await v.locator('#board-tray button[data-action="board-place"]').first().tap();
+    await v.locator('button[data-action="board-place"]').first().tap();
     const during = await v.evaluate(() => ({ main: localStorage.getItem('w40k_calc_v1'), board: localStorage.getItem('w40k_calc_board_v1') }));
     check('while viewing, nothing is written to this device (own lists and plans untouched)', during.main === before.main && during.board === before.board);
     await v.tap('#shared-close');
@@ -3591,7 +3591,7 @@ Aggressor Squad (95 points)
     await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
     await sp.tap('button[data-action="view"][data-value="board"]');
     await sp.waitForSelector('#board-svg');
-    await sp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    await sp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
     await sp.waitForSelector('#board-scout');
     const head = (await sp.textContent('#board-scout')).replace(/\s+/g, ' ');
     await sp.tap('#board-scout-chip');
@@ -3685,7 +3685,7 @@ Aggressor Squad (95 points)
     await vp.fill('textarea[data-side="B"]', ORK_LIST); await vp.tap('button[data-action="parse"][data-side="B"]');
     await vp.tap('button[data-action="view"][data-value="board"]');
     await vp.waitForSelector('#board-svg');
-    await vp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await vp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
     await vp.tap('button[data-action="board-ring"][data-k="see"]');
     await vp.waitForSelector('#see-layer');
     const note = await vp.textContent('#board-see-note').catch(() => '');
@@ -3694,7 +3694,7 @@ Aggressor Squad (95 points)
     await vp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); document.getElementById('board-host').scrollIntoView({ block: 'start' }); });
     await vp.screenshot({ path: join(SHOTS, 'calc_120_what_it_sees.png') });
     // hull: the Battlewagon has no hull size in the data; enter the one you measured
-    await vp.locator('#board-tray button[data-action="board-place"][data-side="B"]', { hasText: 'Battlewagon' }).tap();
+    await vp.locator('button[data-action="board-place"][data-side="B"]', { hasText: 'Battlewagon' }).tap();
     await vp.waitForSelector('#board-hull');
     const before = (await vp.textContent('#board-hull')).replace(/\s+/g, ' ');
     const inp = vp.locator('#board-hull input[data-dim="l"]');
@@ -3706,6 +3706,94 @@ Aggressor Squad (95 points)
     const kept = await vp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_hulls_v1') ?? '{}'));
     check('the hull size is kept on this device', Object.values(kept).some(h => h.l === 9), JSON.stringify(kept));
     await vctx.close();
+  }
+
+  // --- tablet Board in three columns (1.125.0): me | map | opponent; portrait: map on top, armies below
+  {
+    const tctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const tp3 = await tctx3.newPage();
+    tp3.on('pageerror', e => consoleErrors.push(`tri: ${e}`));
+    tp3.on('console', m => { if (m.type() === 'error') consoleErrors.push(`tri: ${m.text()}`); });
+    const t3 = async (q) => (await tp3.textContent(q)).replace(/\s+/g, ' ').trim();
+    const bs = () => tp3.evaluate(() => ({ sel: window.__calc.board().sel, sel2: window.__calc.board().sel2, danger: window.__calc.state.board.danger ?? null, arrive: window.__calc.state.board.arrive ?? null }));
+    const rect = (q) => tp3.evaluate((qq) => { const b = document.querySelector(qq)?.getBoundingClientRect(); return b ? { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width } : null; }, q);
+    await tp3.goto(`${BASE}/calc/`); await tp3.waitForSelector('textarea[data-side="A"]');
+    await tp3.fill('textarea[data-side="A"]', SW_LIST); await tp3.tap('button[data-action="parse"][data-side="A"]');
+    await tp3.fill('textarea[data-side="B"]', ORK_LIST); await tp3.tap('button[data-action="parse"][data-side="B"]');
+    await tp3.tap('button[data-action="view"][data-value="board"]');
+    await tp3.waitForSelector('#board-tri');
+    // Deploy: each army's disposition and its units to place, in its own column
+    check('tablet Board: three columns — my army (A) left, the map in the middle, B right; no dock',
+      (await tp3.locator('#board-army-A.tri-l').count()) === 1 && (await tp3.locator('#board-army-B.tri-r').count()) === 1 && (await tp3.locator('#board-dock').count()) === 0);
+    check('Deploy step: each column has its Force Disposition and the units still to place',
+      (await tp3.locator('#board-army-A select[data-input="board-disp"]').count()) === 1 && (await tp3.locator('#board-army-B select[data-input="board-disp"]').count()) === 1
+      && /Plays Battlefield Dominance/.test(await t3('#board-army-B')) && (await tp3.locator('#board-army-A button.tri-unit[data-action="board-place"]').count()) === 8);
+    await tp3.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    await tp3.locator('#board-army-B button[data-action="board-place"]', { hasText: 'Warboss + Boyz' }).tap();
+    await tp3.evaluate(() => window.scrollTo(0, 0));
+    await tp3.screenshot({ path: join(SHOTS, 'calc_126_tablet_deploy.png') });
+    await tp3.tap('button[data-action="board-step-add"]');
+    // the lists select units: mine, then theirs as the target -> the matchup card in their column
+    const gh = await tp3.evaluate(() => window.__calc.board().tokens.find(t => t.tk.startsWith('A:')).tk);
+    const wb = await tp3.evaluate(() => window.__calc.board().tokens.find(t => t.tk.startsWith('B:')).tk);
+    // placing the Warboss selected it: a tap on its row again clears the selection (as on the map)
+    { const cur = (await bs()).sel; if (cur) await tp3.locator(`button[data-action="board-pick"][data-tk="${cur}"]`).tap(); }
+    check('a tap on the selected unit\'s row clears the selection', (await bs()).sel === null);
+    await tp3.locator(`#board-army-A button[data-action="board-pick"][data-tk="${gh}"]`).tap();
+    check('a tap on my unit in my list selects it: its panel opens under its row, rings first, position folded',
+      (await bs()).sel === gh && (await tp3.locator('#board-army-A .tri-selbox #board-panel button[data-action="board-ring"][data-k="move"]').count()) === 1 && (await tp3.locator('#board-pos-box').count()) === 0);
+    await tp3.tap('#board-pos-toggle');
+    check('"Position · facing · formation" unfolds the facing, nudge and formation controls', (await tp3.locator('#board-pos-box button[data-action="board-rotate"]').count()) === 4 && (await tp3.locator('#board-pos-box button[data-action="board-formation"]').count()) > 0);
+    await tp3.locator('#board-pos-box button[data-action="board-rotate"][data-deg="45"]').tap();
+    check('…and stays open while I use them', (await tp3.locator('#board-pos-box').count()) === 1 && /Facing 45°/.test(await t3('#board-pos-box')));
+    await tp3.tap('#board-pos-toggle');
+    await tp3.locator('#board-panel button[data-action="board-ring"][data-k="move"]').tap();
+    await tp3.locator(`#board-army-B button[data-action="board-pick"][data-tk="${wb}"]`).tap();
+    const st3 = await bs();
+    check('a tap on their unit in their list makes it the target: the matchup card is at the top of their column, with Shoot → / Fight →',
+      st3.sel === gh && st3.sel2 === wb && (await tp3.locator('#board-army-B #board-pair #board-gap').count()) === 1 && (await tp3.locator('#board-army-B #board-pair button[data-action="board-attack"]').count()) >= 2
+      && (await tp3.locator('#board-army-A #board-pair').count()) === 0 && (await tp3.locator('#board-army-B .tri-unit.tgt').count()) === 1, JSON.stringify(st3));
+    await tp3.evaluate(() => window.scrollTo(0, 0));
+    await tp3.screenshot({ path: join(SHOTS, 'calc_127_tablet_turn.png') });
+    // per-army overlays
+    await tp3.tap('#board-danger-B');
+    check('"⚠ Danger" in B\'s column shows where B can reach next turn, with its options in that column', (await bs()).danger === 'B' && (await tp3.locator('#board-svg #danger-layer[data-from="B"]').count()) === 1 && (await tp3.locator('#board-army-B #board-heat-chip').count()) === 1);
+    await tp3.tap('#board-danger-B');
+    await tp3.tap('#board-arrive-A');
+    check('"⇣ Reserves" in my column shows where my reserves can arrive', (await bs()).arrive === 'A' && (await tp3.locator('#board-army-A #board-arrive-note').count()) === 1);
+    await tp3.tap('#board-arrive-A');
+    check('…and off again', (await bs()).danger === null && (await bs()).arrive === null);
+    const lay = { map: await rect('#board-host'), l: await rect('#board-army-A'), r: await rect('#board-army-B'), vh: await tp3.evaluate(() => innerHeight) };
+    check('the map sits between the two armies and fits on screen', lay.l.r <= lay.map.l + 2 && lay.r.l >= lay.map.r - 2 && lay.map.b <= lay.vh && lay.map.w > 400, JSON.stringify(lay));
+    // "I am B" on the Mission tab: my army moves to the left
+    await tp3.tap('button[data-action="view"][data-value="mission"]');
+    await tp3.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await tp3.tap('button[data-action="mission-me"][data-value="B"]');
+    await tp3.tap('button[data-action="view"][data-value="board"]');
+    await tp3.waitForSelector('#board-tri');
+    check('"I am B": B is the left column, marked (me)', (await tp3.locator('#board-army-B.tri-l').count()) === 1 && (await tp3.locator('#board-army-A.tri-r').count()) === 1 && /\(me\)/.test(await t3('#board-army-B')));
+    await tp3.tap('button[data-action="view"][data-value="mission"]');
+    await tp3.tap('button[data-action="mission-me"][data-value="A"]');
+    // portrait tablet: the map on top, the two armies side by side below it
+    await tp3.setViewportSize({ width: 712, height: 1138 });
+    await tp3.tap('button[data-action="view"][data-value="board"]');
+    await tp3.waitForSelector('#board-tri');
+    const por = { map: await rect('#board-host'), l: await rect('#board-army-A'), r: await rect('#board-army-B') };
+    check('portrait tablet: the map on top, my army and theirs side by side under it', por.l.t >= por.map.b - 2 && Math.abs(por.l.t - por.r.t) < 2 && por.l.r <= por.r.l + 2 && por.map.w > 500, JSON.stringify(por));
+    await tp3.locator('#board-army-A').scrollIntoViewIfNeeded();
+    await tp3.evaluate(() => window.scrollBy(0, -380));
+    await tp3.screenshot({ path: join(SHOTS, 'calc_128_tablet_portrait.png') });
+    await tctx3.close();
+    // phones keep the one-column board with the dock
+    const pctx3 = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp3 = await pctx3.newPage();
+    await pp3.goto(`${BASE}/calc/`); await pp3.waitForSelector('textarea[data-side="A"]');
+    await pp3.fill('textarea[data-side="A"]', SW_LIST); await pp3.tap('button[data-action="parse"][data-side="A"]');
+    await pp3.fill('textarea[data-side="B"]', ORK_LIST); await pp3.tap('button[data-action="parse"][data-side="B"]');
+    await pp3.tap('button[data-action="view"][data-value="board"]');
+    await pp3.waitForSelector('#board-svg');
+    check('phone: the board stays one column (no army columns), with its tray of units to place', (await pp3.locator('#board-tri').count()) === 0 && (await pp3.locator('#board-tray').count()) === 1);
+    await pctx3.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.125.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: the Board on a tablet — my army on the left, the map in the middle, theirs on the right",
+      "changes": [
+        "Tablet Board: three columns. Left: your army (Mission → I am). Middle: turns, the map and the plan tools. Right: the opponent",
+        "Each army's column: its Force Disposition (Deploy step), its primary, VP and CP during a game, ⚠ Danger and ⇣ Reserves for that army, and its units: tap one to select it, or ＋ to place it",
+        "The selected unit opens under its row: what to show around it first; position, facing and formation fold away",
+        "Tap an enemy unit (on the map or in its list): the matchup card (gap, line of sight, cover, Shoot → / Fight →) opens at the top of their column",
+        "Deploy step: the layout letter and Swap zones sit above the map; missions, measurements and sharing below it",
+        "Portrait tablet: the map on top, the two armies side by side under it. Phones keep the one-column board"
+      ]
+    },
+    {
       "version": "1.124.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: a set-up checklist, and the mission no longer changes under a running game",
