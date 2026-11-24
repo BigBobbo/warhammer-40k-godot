@@ -80,7 +80,8 @@ export function briefHtml() {
   }
   const dead = { mine: d.dead(me), theirs: d.dead(opp) };
   const wideNow = ctx.wide?.() ?? false;
-  const watch = armyIntel(theirs).stratagems.filter(s => /opponent/i.test(s.turn ?? '') && !s.missing).slice(0, 8);
+  // every stratagem they can use in my turn, in full (the effect was cut at 190 characters, the list at 8)
+  const watch = armyIntel(theirs).stratagems.filter(s => /opponent/i.test(s.turn ?? '') && !s.missing);
   // what their list has that changes how you deploy and move (cached: the lists do not change while the brief is open)
   const tricks = (TRICKS.get(theirs.units) ?? TRICKS.set(theirs.units, armyTricks(theirs)).get(theirs.units));
   return `<div class="card brief-card" id="brief">
@@ -104,6 +105,6 @@ export function briefHtml() {
         <div class="small">${dead.mine.length ? `Dead for you (no targets): <b>${esc(dead.mine.join(', '))}</b>.` : 'No dead cards for you.'} ${dead.theirs.length ? `Dead for them: <b>${esc(dead.theirs.join(', '))}</b>.` : 'None dead for them.'}</div>
         <div class="lab tiny muted" style="margin-top:8px">Their units worth secondary VP to you</div>${d.hitList(me)}`, wideNow)}</section>
       ${watch.length ? `<section class="section">${fold('watch', `They can do this in your turn (${watch.length})`, watch.map(s =>
-        `<div class="ability"><b>${esc(s.name)}</b> <span class="muted tiny">${s.cp}CP · ${esc(s.phase ?? '')}</span><div class="muted">${esc(s.when ?? '')}${s.effect ? ` — ${esc(s.effect.length > 190 ? `${s.effect.slice(0, 190)}…` : s.effect)}` : ''}</div></div>`).join(''), wideNow)}</section>` : ''}
+        `<div class="ability" data-watch="${esc(s.name)}"><b>${esc(s.name)}</b> <span class="muted tiny">${s.cp}CP · ${esc(s.phase ?? '')}</span><div class="muted">${s.when ? `<b>When:</b> ${esc(s.when)}` : ''}${s.effect ? `${s.when ? '<br>' : ''}<b>Effect:</b> ${esc(s.effect)}` : ''}</div></div>`).join(''), wideNow)}</section>` : ''}
     </div></div>`;
 }

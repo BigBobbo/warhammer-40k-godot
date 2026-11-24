@@ -69,6 +69,8 @@ export const UNIT_ALIASES = {
 export const BASE_SIZE_OVERRIDES = {
   // Stompa: no GW base (uses the model); play it on a 180mm round footprint.
   'stompa': { shape: 'round', diameter: 180 },
+  // Event Companion v1.3 (Oct 2026), "Base Size Guide: Wazbom Blastajet updated": 120x92mm oval (the data has 150x95)
+  'wazbom-blastajet': { shape: 'oval', width: 120, length: 92 },
 };
 
 // 10e -> 11e weapon renames (matched via looseName; -> 11e weapon id),
@@ -980,6 +982,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
 
     const rosterUnits = [];
     let computed = 0;
+    // the 2nd, 3rd... copy of a datasheet can cost more (price steps by copy), as rosterToGame and the Army
+    // Builder's repriceAll count them: a second Shield-Captain was priced as the first
+    const copies = new Map();
     for (const [key, gu] of Object.entries(gameJson?.units ?? {})) {
       const meta = gu?.meta ?? {};
       const unitName = meta.name ?? key;
@@ -1094,7 +1099,9 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         break; // one enhancement per unit
       }
 
-      const basePoints = pointsFor(dcUnit, modelCount) + wargearPointsFor(dcUnit, unitFactionId, counts);
+      const ordinal = (copies.get(dcUnit.id) ?? 0) + 1;
+      copies.set(dcUnit.id, ordinal);
+      const basePoints = pointsFor(dcUnit, modelCount, ordinal) + wargearPointsFor(dcUnit, unitFactionId, counts);
       computed += basePoints + (enhancementPoints ?? 0);
 
       rosterUnits.push({

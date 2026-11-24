@@ -140,3 +140,18 @@ test('a unit that can only be seen from close by must be approached: detection r
   assert.ok(close.shoot && Math.abs(close.shoot.margin - (6 + 15 - close.gap)) < 1e-9, 'it can move to within 15"');
   assert.equal(S.threatTo(enemy, me, { move: 6, ranges: [36], detect: S.LONE_OPERATIVE }).shoot, null, 'a Lone Operative: 12"');
 });
+
+test('what a unit can see (visibleCells): the same answer as unitSight for a model on each square, on a real layout', () => {
+  const l = B.LAYOUTS[0];
+  const u = unit(22, 8, 5);
+  const v = S.visibleCells(u, l.pieces, { step: 4 });
+  assert.equal(v.cols, 11); assert.equal(v.rows, 15);
+  const groups = S.areaGroups(l.pieces);
+  let seen = 0;
+  for (let i = 0; i < v.cols; i++) for (let j = 0; j < v.rows; j++) {
+    const s = S.unitSight(u, unit((i + 0.5) * 4, (j + 0.5) * 4, 1, []), l.pieces, { groups });
+    assert.equal(v.cells[i * v.rows + j], s.targetSeen > 0 ? 1 : 0, `square ${i},${j}`);
+    seen += v.cells[i * v.rows + j];
+  }
+  assert.ok(seen > 10 && seen < v.cells.length, `some squares seen, some hidden: ${seen}`);
+});

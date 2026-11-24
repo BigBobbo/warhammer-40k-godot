@@ -58,7 +58,7 @@ export const SECONDARIES = [
     drawn: 'Battle round 1: shuffle it back and draw a new card (not optional).',
     text: 'End of opponent’s turn (from round 2): 3 VP if you control your home objective, +2 if no enemy unit is in your deployment zone.' },
   { id: 'display-of-might', name: 'Display of Might', timing: 'own', kind: 'position',
-    text: 'More of your units than enemy units wholly in No Man’s Land: 2 VP at the end of your turn, or 5 VP at the end of your opponent’s.' },
+    text: 'More of your units than enemy units wholly in No Man’s Land: 2 VP at the end of your turn, or 5 VP at the end of your opponent’s turn.' },
   { id: 'engage-on-all-fronts', name: 'Engage on All Fronts', fixed: true, timing: 'own', kind: 'position',
     text: 'Units wholly in table quarters (not within 6" of the centre): 3 VP for three quarters, 5 VP for four.',
     fixedText: '2 VP for three quarters, 4 VP for four (max 20 per game).' },

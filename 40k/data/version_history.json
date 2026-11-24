@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.111.0",
+      "version": "1.124.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: a set-up checklist, and the mission no longer changes under a running game",
       "changes": [
@@ -12,6 +12,142 @@
         "Board: the Move, Move + Advance and Charge rings stay where the unit ended the previous turn while you move it (its start is outlined, dashed); weapon ranges still follow the unit",
         "Board: a disposition that is not the one the list names is flagged, with Use the list's to put it back",
         "Event preparation table: planning another matchup no longer leaves army B on the wrong disposition — it is flagged on the Board, a new B list drops it, and it is refused during a game"
+      ]
+    },
+    {
+      "version": "1.123.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what a unit can see, and set your vehicles' hull sizes",
+      "changes": [
+        "Board → select a unit → 👁 What it can see: shades every square where a model would be visible to it, with the same sight lines as the rest of the app",
+        "Vehicles have no hull dimensions in the rules data: enter your model's hull length × width once and ranges, gaps and sight lines are measured from it (kept on your device, for every list)"
+      ]
+    },
+    {
+      "version": "1.122.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: print a game-day sheet",
+      "changes": [
+        "Intel → 🖨 Game-day sheet: one or two A4 pages to take to the table — their units (profile, guns, protection), what to plan around, their stratagems split by whose turn, and your army phase by phase",
+        "Names, costs, phases and the app's own numbers only — no rule text; once-per-battle rules get a box to tick",
+        "Print it or save it as a PDF from the print dialog; only the sheet is printed"
+      ]
+    },
+    {
+      "version": "1.121.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what your list is missing",
+      "changes": [
+        "Armies → 🔍 What is this list missing?: your whole list against eight fixed targets (hordes, elite and heavy infantry, transport, monster, battle tank, Knight)",
+        "For each: how many a turn removes with shooting and with your best three units in combat, which units do it best, and Gap / Thin / Covered",
+        "Targets your shooting barely touches are marked in amber: a melee-only answer"
+      ]
+    },
+    {
+      "version": "1.120.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: plan Scout moves before the first turn",
+      "changes": [
+        "Board → Deploy: select a unit with Scouts (or a Dedicated Transport whose passengers all have it) → 🏃 Plan a Scout move: a dashed ghost shows where the move ends, and you drag it",
+        "It shows how far each move goes and turns red when it starts outside your deployment zone, goes further than the unit's Scouts distance, or ends within 8\" of enemy units",
+        "＋ Next turn starts Turn 1 from the Scout positions; the unit's deployed position stays in the Deploy step"
+      ]
+    },
+    {
+      "version": "1.119.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: share a plan or an attack as a link",
+      "changes": [
+        "Board → 🔗 Share link, and Attack → 💾 Saved → Share this set-up: a link with both lists and your plan or attack inside it (about 2 KB; nothing is stored on a server)",
+        "Opening a link shows it read-only under a banner: you can look around and try things, but nothing is saved and your own lists and plans are untouched",
+        "Keep a copy saves the shared lists and plan on your device; Close goes back to your own; a link cut short when copied says so"
+      ]
+    },
+    {
+      "version": "1.118.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: practise the deployment drop by drop",
+      "changes": [
+        "Board → 🎯 Drop drill: pick who is the Defender, then set up one unit at a time, alternating, in a plan of its own (your real deployment is untouched)",
+        "It shows whose drop it is, how many units each side has left, who finishes first and how many units the other side then places knowing where everything is",
+        "TITANIC units skip their player's next drop; ⤓ puts a unit in reserves (not set up); Undo takes back the last drop"
+      ]
+    },
+    {
+      "version": "1.117.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: exposure heat map, and your own statistics from saved games",
+      "changes": [
+        "Board: ⚠ Danger next turn → 🔥 Heat map shades every square by how much of that army can reach it next turn (each unit that can shoot it after moving, plus each unit's chance to charge it); tap a square to see who",
+        "Saved games: 📊 My statistics — wins, losses, draws and average score, by opponent, by your army, by mission, by layout and going first or second (finished games only, kept on this device)"
+      ]
+    },
+    {
+      "version": "1.116.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: layouts checked and stamped, table set-up measurements, saved lists against today's points, how an attack usually goes",
+      "changes": [
+        "Board: the layouts' source is stated — Event Companion v1.3 (October 2026), whose layouts are unchanged since v1.2; 12 of the 45 were compared with the official PDF",
+        "Board: 📏 Table set-up measurements label every terrain area and objective in inches from the nearest edges, to set up the real table",
+        "Wazbom Blastajet on its new 120x92mm oval base (Event Companion v1.3)",
+        "List library: each saved list says which units cost something else with today's points, its total now, and whether it is over the limit; the army card says the total too",
+        "Attack details: at least how many models / how much damage 9 times in 10, half the time and 1 time in 10"
+      ]
+    },
+    {
+      "version": "1.115.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: show the score to your opponent, random card draws they can see, stratagems usable now with a CP log",
+      "changes": [
+        "Play: 📺 Show puts the score full screen for your opponent (both totals, CP, cards in hand, the score sheet by round, this round's stratagems) and turns it to face them — tournament packs only count a score both players can see",
+        "Play: 🎲 Draw at random draws a secondary card from your deck and shows it full screen, for both players to see",
+        "Play: pick the phase; Stratagems now lists what each player can use in that phase and turn; Use spends the CP, logs it, and blocks the same stratagem twice in a phase; Undo takes it back"
+      ]
+    },
+    {
+      "version": "1.114.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: transports, tighter formations, letters on bases, stratagems in full",
+      "changes": [
+        "Board: tap a transport to embark units (capacity and who may ride from the rules data, e.g. Mega Armour takes 2 spaces); embarked units leave the board, move with the transport and stay inside in later turns; Disembark sets them up within 3\"",
+        "Units can start the game inside a transport; embarked units control no objectives in the forecast and are not counted as missing or in reserves",
+        "Board: Gap between bases — Auto, Touching, ¼\", ½\", 1\" or 2\" — to make a unit's formation tighter or looser",
+        "Board: every base shows the first letter of its datasheet (Prosecutor Squad: P; an attached character shows its own letter)",
+        "Intel: \"They can do this in your turn\" shows every stratagem with its When and Effect in full (they were cut off)"
+      ]
+    },
+    {
+      "version": "1.113.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: attach characters during army set-up — suggested, and remembered per list",
+      "changes": [
+        "A list that does not say which characters lead which units (New Recruit / WTC text, lists from the game) now asks: the Attached characters fold opens with a note",
+        "✨ Suggest attaches every character to a unit it may lead in one tap (Leaders to units without a character, Supports with a Leader, bigger units first); change any of them after",
+        "Attachments you set are remembered for that list: loading it again — pasted, from the library, from the game or at an event round — keeps them",
+        "Attachment choices are part of backups and transfer codes"
+      ]
+    },
+    {
+      "version": "1.112.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: secondary cards drawn as cards; Event Start fixed; grid scrolling fixed",
+      "changes": [
+        "Secondary cards are drawn as cards: name, Tactical / Fixed, When drawn, when it scores, each scoring line with its VP, and the Fixed version — tap a card on Mission → Cards or in your hand on Play, or switch Cards to 🂠 to see them all",
+        "Event: Start ▶ now opens Intel at the top with a note of what it set up (opponent, layout, missions) and buttons to the Board and Mission; it used to keep the scroll position, so it looked as if nothing happened",
+        "Event: Start ▶ is never greyed out without a reason: it says to load your list or pick the opponent",
+        "Scrolling the matchup grid (or any sheet) no longer scrolls the page behind it",
+        "Army Builder / game lists: a second copy of a datasheet loaded from the game is priced as a second copy (e.g. Shield-Captain 225, not 205)"
+      ]
+    },
+    {
+      "version": "1.111.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: load lists from the game, and send lists to it",
+      "changes": [
+        "List library (📚) → Lists in the game: the army lists saved in the game and its Army Builder; load one into army A or B with one tap",
+        "Send army A or B to the game: it appears in the game's army list, ready to play (anyone who uses the game can see the lists there)",
+        "A name someone else already uses in the game is refused; a list you sent from this phone can be replaced",
+        "Loaded lists keep the prices they were saved with, so the points check still tells you which units have changed since"
       ]
     },
     {

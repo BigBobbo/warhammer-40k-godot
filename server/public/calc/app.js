@@ -6,15 +6,25 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
-  phaseSheetInput,
+  phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments, listPointsNow,
 } from './adapter.mjs';
+import { storeName } from './gamelists.mjs';
+import { gameRows, tally, statsBy } from './gamestats.mjs';
+import { matchupFor } from './board.mjs';
+import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
 import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
 import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardListChanged, _boardDebug } from './boardview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, boardListChanged, _boardDebug } from './boardview.mjs';
+import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
+import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
+import { printSheetHtml } from './printsheet.mjs';
+import { armyTricks } from './adapter.mjs';
+import { boardContext } from './boardview.mjs';
+import { roundLabel } from './eventview.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
@@ -55,6 +65,84 @@ const state = {
 };
 
 let uidSeq = 1;
+
+// A shared link being viewed (state.viewing): nothing is written to this device's storage, so the viewer's own
+// lists, plans and games stay as they were. "Keep a copy" turns it off and saves; "Close" reloads without the link.
+const _setItem = Storage.prototype.setItem, _removeItem = Storage.prototype.removeItem;
+const _skipped = new Set();
+Storage.prototype.setItem = function (k, v) {
+  if (state.viewing && this === globalThis.localStorage) { if (!_skipped.has(k)) { _skipped.add(k); console.log(`[calc] shared view: not saving ${k}`); } return; }
+  return _setItem.call(this, k, v);
+};
+Storage.prototype.removeItem = function (k) {
+  if (state.viewing && this === globalThis.localStorage) return;
+  return _removeItem.call(this, k);
+};
+
+// ---- share links (sharelink.mjs): the lists, the attack set-up and the board plan, inside the link
+async function makeShareLink(from) {
+  const key = `${state.side}:${state.phase}`;
+  const p = {
+    view: from, ver: CALC_VERSION, names: { A: listLabel('A'), B: listLabel('B') },
+    texts: { A: state.texts.A, B: state.texts.B }, attach: state.attach, side: state.side, phase: state.phase,
+    setup: state.setups[key] ?? null, board: from === 'board' ? boardShareSnap() : null,
+  };
+  try {
+    const url = `${location.origin}${location.pathname}${SHARE_PREFIX}${await packShare(p)}`;
+    state.shareLink = { from, url, title: shareTitle(p) };
+    console.log(`[calc] share link (${from}): ${url.length} characters`);
+  } catch (e) {
+    state.shareLink = { from, error: `Could not make a link on this browser (${e?.message ?? e}).` };
+    console.warn('[calc] share link failed', e);
+  }
+  render();
+  if (state.sheet) renderSheet();
+}
+function shareLinkHtml(from) {
+  const s = state.shareLink;
+  if (!s || s.from !== from) return '';
+  if (s.error) return `<div class="warnbox" id="share-link-box" style="margin-top:8px">${esc(s.error)}</div>`;
+  return `<div class="okbox" id="share-link-box" style="margin-top:8px;text-align:left">
+    <div class="small"><b>🔗 ${esc(s.title)}</b><br><span class="muted">Anyone with the link sees this, read-only — no account, and it does not touch their own lists. The two lists are inside the link (${(s.url.length / 1024).toFixed(1)} KB).</span></div>
+    <input class="sel" id="share-link-url" readonly value="${esc(s.url)}" style="width:100%;margin-top:6px" aria-label="Share link">
+    <div class="row" style="gap:6px;margin-top:6px"><button class="btn primary grow" data-action="share-link-copy" id="share-link-copy">${s.copied ? '✓ Copied' : 'Copy link'}</button>${navigator.share ? '<button class="btn grow" data-action="share-link-send">Send…</button>' : ''}<button class="icon-btn" data-action="share-link-close" aria-label="Close">✕</button></div>
+  </div>`;
+}
+function sharedBanner() {
+  if (state.shareError) return `<div class="wrap"><div class="warnbox" id="shared-error" style="margin-top:8px;display:flex;gap:8px;align-items:center"><span class="grow">${esc(state.shareError)}</span><button class="icon-btn" data-action="shared-error-close" aria-label="Close">✕</button></div></div>`;
+  const v = state.viewing;
+  if (!v) return '';
+  return `<div class="wrap"><div class="warnbox" id="shared-banner" style="margin-top:8px">
+    <div>👁 ${v.loading ? 'Opening a shared link…' : `<b>Shared: ${esc(v.title)}</b>`}</div>
+    <div class="tiny" style="margin-top:2px">Read-only: you can look around and try things, but nothing here is saved, and your own lists and plans are untouched.${v.ver && v.ver !== CALC_VERSION ? ` Made with v${esc(v.ver)}.` : ''}</div>
+    ${v.loading ? '' : `<div class="row" style="gap:6px;margin-top:6px"><button class="btn primary grow" data-action="shared-keep" id="shared-keep">Keep a copy</button><button class="btn grow" data-action="shared-close" id="shared-close">Close</button></div>`}
+  </div></div>`;
+}
+async function openShared(code) {
+  try {
+    const p = await unpackShare(code);
+    state.viewing = { title: shareTitle(p), ver: p.ver ?? '' };
+    state.texts = { A: p.texts.A, B: p.texts.B };
+    state.attach = { A: p.attach?.A ?? null, B: p.attach?.B ?? null };
+    state.side = p.side === 'B' ? 'B' : 'A';
+    state.phase = p.phase === 'fight' ? 'fight' : 'shooting';
+    if (p.setup) state.setups = { ...state.setups, [`${state.side}:${state.phase}`]: p.setup };
+    for (const a of p.setup?.attackers ?? []) uidSeq = Math.max(uidSeq, (a.uid ?? 0) + 1);
+    parseArmy('A'); parseArmy('B');
+    if (p.board) boardRestore(p.board);
+    const ready = state.armies.A && state.armies.B;
+    state.view = ready && (p.view === 'board' || p.view === 'attack') ? p.view : 'armies';
+    state.sheet = null;
+    console.log(`[calc] opened a shared link: ${state.viewing.title} (made with v${p.ver ?? '?'})`);
+  } catch (e) {
+    state.viewing = null;
+    state.shareError = e?.message ?? String(e);
+    history.replaceState(null, '', location.pathname + location.search);
+    console.warn('[calc] shared link could not be opened', e);
+  }
+  render();
+  scheduleCalc();
+}
 
 function persist() {
   try {
@@ -157,13 +245,41 @@ function gameRowsHtml() {
   }).join('');
 }
 /** The Saved games card: on the Play view (save and load) and on the Armies tab (load). */
+// ---- my statistics from the saved games (gamestats.mjs): finished battles only
+const dispCache = new Map();
+function dispOfText(text) {
+  if (!dispCache.has(text)) { let d = null; try { d = importArmy(text).roster.force_disposition ?? null; } catch { d = null; } dispCache.set(text, d); }
+  return dispCache.get(text);
+}
+function missionOfGame(rec) {
+  const me = rec.mission?.me ?? 'A', opp = me === 'A' ? 'B' : 'A', st = rec.board?.settings ?? {};
+  const mine = st[`disp${me}`] ?? dispOfText(rec.lists?.[me] ?? ''), theirs = st[`disp${opp}`] ?? dispOfText(rec.lists?.[opp] ?? '');
+  return mine && theirs ? matchupFor(mine, theirs)?.mine ?? null : null;
+}
+function statsHtml() {
+  const rows = gameRows(state.games, missionOfGame);
+  if (!rows.length) return '<p class="tiny muted" id="my-stats" style="margin-top:8px">📊 Your statistics appear here once a saved game has ended (“End the battle” on Mission → Play).</p>';
+  const t = tally(rows);
+  const pctTxt = (p) => (p == null ? '–' : `${Math.round(p * 100)}%`);
+  const table = (title, key) => {
+    const by = statsBy(rows, key);
+    if (!by.length) return '';
+    return `<div class="lab tiny muted" style="margin-top:8px">${title}</div><table class="dist" data-stats="${key}"><thead><tr><th></th><th>Games</th><th>W-L-D</th><th>Win</th><th>VP</th></tr></thead><tbody>
+      ${by.map(r => `<tr><td>${esc(r.key === 'first' ? 'Going first' : r.key === 'second' ? 'Going second' : key === 'layout' ? `Layout ${r.key}` : r.key)}</td><td>${r.n}</td><td>${r.w}-${r.l}-${r.d}</td><td>${pctTxt(r.winRate)}</td><td>${Math.round(r.vpFor)}–${Math.round(r.vpAgainst)}</td></tr>`).join('')}</tbody></table>`;
+  };
+  return `<details class="more" id="my-stats" style="margin-top:10px"><summary>📊 My statistics: ${t.n} game${t.n === 1 ? '' : 's'}, ${t.w}-${t.l}-${t.d} (${pctTxt(t.winRate)})</summary>
+    <div class="small" style="margin-top:6px">Average score <b>${Math.round(t.vpFor)}–${Math.round(t.vpAgainst)}</b> · primary ${Math.round(t.primary)} · secondary ${Math.round(t.secondary)} per game.</div>
+    ${table('By opponent', 'oppFaction')}${table('By my army', 'myFaction')}${table('By mission (my primary)', 'mission')}${table('By layout', 'layout')}${table('Going first or second', 'first')}
+    <div class="tiny muted" style="margin-top:6px">From your saved games whose battle was ended on the tracker; a draw counts as half a win. Kept on this device only.</div></details>`;
+}
+
 function gamesCard(where) {
   const n = state.games.length;
   const list = n ? `<div class="game-list" id="game-list-${where}">${gameRowsHtml()}</div>` : '<p class="hint" style="margin:6px 0">No saved games yet.</p>';
   const msg = state.gameMsg ? `<div class="small" id="game-msg-${where}" style="margin-top:6px">${esc(state.gameMsg)}</div>` : '';
   if (where !== 'play') {
     return `<details class="more card" style="margin-top:12px" data-details="games" ${state.openGames ? 'open' : ''} id="games-card"><summary>Saved games (${n})</summary>
-      <p class="small muted" style="margin:6px 0">Load a game to carry on where you stopped: both lists, the board plans and the tracker come back. Save a game from Mission → Play.</p>${msg}${list}</details>`;
+      <p class="small muted" style="margin:6px 0">Load a game to carry on where you stopped: both lists, the board plans and the tracker come back. Save a game from Mission → Play.</p>${msg}${list}${statsHtml()}</details>`;
   }
   const linked = sameLists(linkedGame()) ? linkedGame() : null;
   const same = linked && sameGame(linked, gameParts());
@@ -244,11 +360,35 @@ function parseArmy(side) {
     state.armies[side] = importArmy(text);
     (state.loaded ??= {})[side] = text;   // the list this army was read from (the box can be edited before the next Load)
     if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
+    else {
+      // attachments chosen for this list before (the list itself may not say them; not for a shared link: it carries its own)
+      if (state.viewing) return console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units (shared)`);
+      const rem = attachMemory()[listKey(text)];
+      if (rem && Object.keys(rem).length) {
+        setAttachments(state.armies[side], rem);
+        state.attach[side] = state.armies[side].attachments;
+        state.armies[side].attachRemembered = true;
+        console.log(`[calc] army ${side}: attachments remembered for this list (${Object.keys(rem).length})`);
+      }
+    }
     console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units`);
   } catch (e) {
     state.errors[side] = e.message ?? String(e);
     console.warn(`[calc] army ${side} parse failed`, e);
   }
+}
+
+// Attachments set by hand, remembered per list (the same list loaded again — pasted, from the library, from the
+// game, at an event round — gets them back): { [hash of the list text]: { [characterIndex]: bodyguardIndex } }.
+const ATTACH_KEY = 'w40k_calc_attach_v1';
+const listKey = (text) => hashStr(String(text ?? '').replace(/\s+/g, ' ').trim());
+function attachMemory() { try { return JSON.parse(localStorage.getItem(ATTACH_KEY) ?? '{}') ?? {}; } catch { return {}; } }
+function rememberAttach(text, att) {
+  const m = attachMemory(), k = listKey(text);
+  if (att) m[k] = att; else delete m[k];
+  const keys = Object.keys(m);
+  if (keys.length > 200) for (const old of keys.slice(0, keys.length - 200)) delete m[old];
+  try { localStorage.setItem(ATTACH_KEY, JSON.stringify(m)); } catch { /* best effort */ }
 }
 
 // Attach / detach a character (roster index) to a bodyguard (roster index, null = detach)
@@ -269,6 +409,7 @@ function applyAttachments(side, att, { edited = true } = {}) {
   const before = { ...(army.attachments ?? {}) };
   setAttachments(army, att);
   state.attach[side] = edited ? army.attachments : null;
+  rememberAttach(state.loaded?.[side] ?? state.texts[side], edited ? army.attachments : null);
   const remap = new Map();
   for (const [c, b] of Object.entries(army.attachments)) if (before[c] !== b && b != null) remap.set(`u${c}`, `u${b}`);
   const valid = new Set(army.units.map(u => u.key));
@@ -513,6 +654,7 @@ function render() {
         <button class="tab ${state.view === 'mission' ? 'on' : ''}" data-action="view" data-value="mission" ${ready ? '' : 'disabled'}>Mission</button>
       </nav>
     </div></header>
+    ${sharedBanner()}
     <main class="wrap">${state.view === 'attack' && ready ? attackView() : state.view === 'board' && ready ? boardView() : state.view === 'mission' && ready ? missionView() : state.view === 'intel' && (a || b) ? intelView() : armiesView()}</main>
     <div id="resultbar"></div>
     <div id="sheet"></div>`;
@@ -595,6 +737,29 @@ function phaseSheetHtml(side) {
     <section class="section">${strip}${sheet.phases.filter(p => shown === 'all' || p.id === shown).map(card).join('')}</section>`;
 }
 
+// ---- Printable game-day sheet (printsheet.mjs): you = the Play tracker's side (A by default)
+function printData() {
+  const me = state.mission?.me ?? 'A', opp = other(me);
+  const mine = state.armies[me], theirs = state.armies[opp];
+  const bc = boardContext(), label = roundLabel();
+  const sheet = sheetOf(mine), used = new Set();
+  return {
+    esc, title: label ? `${label}: ${theirs.faction}` : `Game day: ${mine.faction} vs ${theirs.faction}`,
+    me: { label: listLabel(me) }, them: { label: listLabel(opp) },
+    setting: [bc.layout ? `Layout ${['A', 'B', 'C'][bc.layout.variant - 1] ?? '?'}` : '', bc.deployment?.name ?? '', bc.missions?.[me] ? `you play ${bc.missions[me]}` : '', bc.missions?.[opp] ? `they play ${bc.missions[opp]}` : ''].filter(Boolean).join(' · '),
+    theirUnits: theirs.units.map(cu => unitIntel(cu, theirs)),
+    tricks: armyTricks(theirs),
+    theirStrats: armyIntel(theirs).stratagems.map(s => ({ name: s.name, cp: s.cp, phase: s.phase, turn: s.turn })),
+    // each rule once: in the first phase it is used in
+    myPhases: sheet.phases.map(ph => ({ name: ph.name, entries: ph.entries.filter(e => !used.has(e.key) && used.add(e.key)).map(e => ({ name: e.name, kind: e.kind, cp: e.cp, once: e.usage?.per === 'battle', units: sheetUnits(e) })) })),
+  };
+}
+function printSheet() {
+  return `<div class="row no-print"><h3 class="grow">Game-day sheet</h3><button class="btn primary" data-action="print-go" id="print-go">🖨 Print / save as PDF</button><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="tiny muted no-print" style="margin-bottom:8px">For the table on paper. Names, costs, phases and the app's own numbers only — no rule text. Your side: army ${state.mission?.me ?? 'A'} (Mission → Play).</div>
+    <div class="ps-preview" id="print-preview">${printSheetHtml(printData())}</div>`;
+}
+
 function intelView() {
   const side = intelSide();
   const army = state.armies[side];
@@ -609,8 +774,14 @@ function intelView() {
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
   const phaseMode = state.intelMode === 'phase';
-  return `<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
-    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+  const rs = state.roundStart;
+  const started = rs ? `<div class="okbox" id="round-started" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px"><div class="grow small">
+      <b>Round ${rs.round} started</b> against <b>${esc(rs.opp)}</b> (army B) on <b>Layout ${esc(rs.layout)}</b>${rs.deployment && rs.deployment !== '?' ? ` · ${esc(rs.deployment)}` : ''}.
+      ${rs.mine ? `You play <b>${esc(rs.mine)}</b>, they play <b>${esc(rs.theirs ?? '?')}</b>. ` : ''}The Board is set to this layout and the Play tracker starts a new game.
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn" data-action="view" data-value="board">Board →</button><button class="btn" data-action="view" data-value="mission">Mission →</button></div></div>
+      <button class="icon-btn" data-action="round-started-ok" aria-label="Dismiss">✕</button></div>` : '';
+  return `${started}<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
+    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div><button class="btn ghost block" style="margin-top:6px" data-action="open-print" id="open-print">🖨 Game-day sheet (print / PDF)</button></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
@@ -666,7 +837,15 @@ function attachOverview(side, army) {
   const chars = army.roster.units.map((ru, i) => i).filter(i => joinCandidates({ ...army, attachments: {} }, i).length);
   if (!chars.length) return '';
   const edited = state.attach[side] != null;
-  return `<details class="more" ${edited ? 'open' : ''}><summary>Attached characters · ${Object.keys(army.attachments ?? {}).length} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+  const n = Object.keys(army.attachments ?? {}).length;
+  const listSays = Object.keys(army.defaultAttachments ?? {}).length > 0;
+  // a list that does not say who leads which unit: open, with the question asked
+  const ask = !n && !listSays;
+  const canSuggest = Object.keys(suggestAttachments(army)).length > n;
+  return `<details class="more" id="attach-${side}" ${edited || ask ? 'open' : ''}><summary>${ask ? '⚠ ' : ''}Attached characters · ${n} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+    ${ask ? `<div class="warnbox" id="attach-ask-${side}" style="margin-top:6px">This list does not say which characters lead which units. Pick them below, or let the app suggest (you can change any of them).</div>` : ''}
+    ${canSuggest ? `<button class="btn ${ask ? 'primary' : 'ghost'}" style="margin-top:6px" data-action="attach-suggest" data-side="${side}" id="attach-suggest-${side}">✨ Suggest${n ? ' for the others' : ''}</button>` : ''}
+    ${edited ? `<div class="tiny muted" style="margin-top:4px" id="attach-remembered-${side}">Remembered for this list: loading it again (pasted, from the library, the game or an event round) keeps these.</div>` : ''}
     ${chars.map(ci => {
       const cur = army.attachments?.[ci];
       const opts = joinCandidates({ ...army, attachments: { ...army.attachments, [ci]: undefined } }, ci);
@@ -676,7 +855,7 @@ function attachOverview(side, army) {
           ${opts.map(o => `<option value="${o.index}" ${o.index === cur ? 'selected' : ''}>${esc(o.name)}${o.eligible ? '' : ' (not on Leader list)'}</option>`).join('')}
         </select></div>`;
     }).join('')}
-    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">Reset to the list's attachments</button>` : ''}
+    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">${listSays ? 'Reset to the list’s attachments' : 'Clear them (the list says none)'}</button>` : ''}
   </details>`;
 }
 
@@ -700,6 +879,7 @@ function armiesView() {
         ${army.units.map(u => `<div class="ability"><b>${esc(u.name)}</b> <span class="muted">· ${u.models} models</span></div>`).join('')}
         ${army.warnings.map(w => `<div class="tiny muted">• ${esc(w)}</div>`).join('')}
       </details>` : ''}
+      ${army ? `<button class="btn ghost block" style="margin-top:6px" data-action="open-gaps" data-side="${side}" id="gaps-${side}">🔍 What is this list missing?</button>` : ''}
     </div></section>`;
   };
   const ready = state.armies.A && state.armies.B;
@@ -741,7 +921,7 @@ function dataStampHtml(side, army) {
     : !bad.length ? `<div class="ok" id="points-${side}">✓ Points: ${pts.checked === n ? `all ${n}` : `${pts.checked} of ${n}`} datasheets cost what the rules data says${pts.checked === n ? '' : ' (the others cannot be checked)'}.</div>`
       : `<div class="warn" id="points-${side}">⚠ Points: ${bad.length} of ${pts.checked} datasheets cost something else in your list than in the rules data —
           ${bad.map(m => `<b>${esc(m.name)}</b> ${m.list} (data ${orList(m.data)})`).join(', ')}.
-          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.</div>`;
+          Points change when the rules change, so these datasheets may be out of date (or the list was written by hand): check them against your codex before you trust their numbers.${(() => { const r = listPointsNow(army); return ` <span id="points-now-${side}">With today’s points the list costs <b>${r.now}</b>${r.limit ? ` of ${r.limit}` : ''} (listed ${r.listed})${r.over ? ` — <b>over the limit by ${r.now - r.limit}</b>` : ''}.</span>`; })()}</div>`;
   const changed = army.units.flatMap(cu => cu.members.flatMap(m => unitUpdates(m.dcUnit.name).filter(c => !c.inData).map(c => `${m.dcUnit.name} (${c.weapon}: ${c.change})`)));
   const upd = changed.length ? `<div class="tiny" id="update-${side}" style="color:var(--warn-ink);margin-top:4px">⚠ ${esc(UPDATE.short)} (${esc(UPDATE.used)}), not in the numbers: ${esc([...new Set(changed)].join('; '))}.</div>` : '';
   return `<div class="small datastamp" id="data-${side}" style="margin-top:8px"><div><b>Rules data:</b> ${groups}${prov.groups.length === 1 && n > 1 ? ` — all ${n} datasheets` : ''}.</div>${points}${upd}</div>`;
@@ -1154,6 +1334,8 @@ function renderResultViews() {
 function renderSheet() {
   const host = document.getElementById('sheet');
   if (!host) return;
+  // the page behind a sheet stays put: a scroll in the sheet (the matchup grid) does not move it
+  document.documentElement.classList.toggle('sheet-open', !!state.sheet);
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
     : state.sheet === 'charge' ? chargeSheet()
@@ -1162,6 +1344,8 @@ function renderSheet() {
     : state.sheet === 'library' ? librarySheet()
     : state.sheet === 'threats' ? threatsSheet()
     : state.sheet === 'saved' ? savedSheet()
+    : state.sheet === 'gaps' ? gapsSheet()
+    : state.sheet === 'print' ? printSheet()
     : state.sheet === 'attach' ? attachSheet()
       : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
@@ -1175,7 +1359,10 @@ function renderSheet() {
 function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const profile = defenderProfile(defCu, defArmyObj);
   const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {});
-  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile), defender };
+  return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
+}
+/** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
+function scenarioVs(atkArmyObj, atkCu, tinfo, phase) {
   const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
   // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
   const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
@@ -1184,7 +1371,7 @@ function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const attacker = buildAttacker(atkCu, rows, {}, rules, on, phase);
   if (problem && decisions(problem).length) attacker.choice = { groups: problem.groups, rows: problem.rows, shooting: problem.shooting, target: problem.target };
   else if (!attacker.weapons.length) return null;
-  return { phase, attackers: [attacker], defender, seed: 99 };
+  return { phase, attackers: [attacker], defender: tinfo.defender, seed: 99 };
 }
 // Unit-vs-unit odds for the Mission tab's board plans: P(target destroyed)
 // when one unit shoots / fights another, default rules, a quick batch run.
@@ -1243,6 +1430,71 @@ function startGrid() {
   gridWorker.postMessage({ id, batch, trials: 2000 });
 }
 
+// ---- List gap-finder (gapfinder.mjs): the whole list against eight fixed reference targets
+let gapWorker = null, gapFrame = 0;
+function runGaps(side) {
+  const army = state.armies[side];
+  if (!army) return;
+  const sig = `${side}|${listsSignature()}`;
+  if (state.gaps?.sig === sig) return;
+  gapWorker?.terminate();
+  const batch = [];
+  for (const t of GAP_TARGETS) for (const phase of ['shooting', 'fight']) {
+    const profile = gapProfile(t, phase);
+    const tinfo = { cu: { key: `gap:${t.id}`, name: t.name, keywords: profile.keywords, members: [] }, profile, summary: defenderSummary(profile), defender: buildDefender(profile, new Set(), phase, {}, {}) };
+    for (const cu of army.units) {
+      const sc = scenarioVs(army, cu, tinfo, phase);
+      if (sc) batch.push({ key: `${cu.key}|${t.id}|${phase}`, scenario: sc });
+    }
+  }
+  state.gaps = { sig, side, cells: {}, total: batch.length, running: true, done: false };
+  const id = Date.now();
+  gapWorker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+  gapWorker.onmessage = (ev) => {
+    const msg = ev.data, g = state.gaps;
+    if (msg.id !== id || !g || g.sig !== sig) return;
+    if (msg.done) { g.running = false; g.done = true; console.log(`[calc] gap-finder done: army ${side}, ${g.total} matchups`); }
+    else g.cells[msg.key] = msg.result ?? { error: msg.error };
+    if (state.sheet === 'gaps' && !gapFrame) gapFrame = requestAnimationFrame(() => { gapFrame = 0; const h = document.getElementById('gaps-host'); if (h) h.innerHTML = gapsBody(); });
+  };
+  gapWorker.postMessage({ id, batch, trials: 1000 });
+  console.log(`[calc] gap-finder: army ${side}, ${batch.length} matchups`);
+}
+function gapsBody() {
+  const g = state.gaps, army = g && state.armies[g.side];
+  if (!army) return '';
+  const name = (k) => army.units.find(u => u.key === k)?.name ?? k;
+  const cells = Object.entries(g.cells).filter(([, r]) => r && !r.error).map(([k, r]) => {
+    const [unit, target, phase] = k.split('|');
+    return { unit, name: name(unit), target, phase, frac: r.meanWounds / Math.max(1, r.totalWounds) };
+  });
+  const sum = gapSummary(cells);
+  const n = (v) => (v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  const badge = { gap: ['Gap', '#c0392b'], thin: ['Thin', '#b7791f'], ok: ['Covered', '#2f855a'] };
+  const short = (s) => (s.length > 26 ? `${s.slice(0, 25)}…` : s);
+  return `<div class="tiny muted" id="gaps-progress">${g.done ? `${g.total} matchups · 1,000 rolls each` : `Calculating ${Object.keys(g.cells).length}/${g.total}…`}</div>
+    <table class="gap-table" id="gaps-table" style="width:100%;margin-top:6px;border-collapse:collapse;font-size:14px">
+      <thead><tr class="tiny muted"><th style="text-align:left">Per turn</th><th>Shoot</th><th>Fight</th><th>Total</th><th></th></tr></thead>
+      <tbody>${sum.map((s) => { const [lab, col] = badge[s.level]; return `<tr data-gap-row="${s.id}" style="border-top:1px solid var(--line)"><td style="padding:5px 0">${esc(s.name)}${s.weakest && g.done ? ' <span class="tiny" style="color:#c0392b">weakest</span>' : ''}</td><td style="text-align:center${s.meleeOnly ? ';color:#b7791f;font-weight:700' : ''}" ${s.meleeOnly ? 'title="Your shooting removes under half of one: mostly a melee answer"' : ''}>${n(s.shoot)}</td><td style="text-align:center">${n(s.fight)}</td><td style="text-align:center"><b>${n(s.total)}</b></td><td style="text-align:right;color:${col};font-weight:700" class="tiny">${lab}</td></tr>`; }).join('')}</tbody></table>
+    <div class="lab tiny muted" style="margin-top:10px">Each target</div>
+    ${sum.map((s, i) => {
+      const t = GAP_TARGETS[i], [lab, col] = badge[s.level];
+      return `<div class="card gap-row" data-gap="${s.id}" data-level="${s.level}" style="margin-top:6px;padding:8px;border-left:4px solid ${col}">
+        <div class="row" style="gap:6px;align-items:baseline"><b class="grow">${esc(s.name)}${s.weakest && g.done ? ' <span class="tiny" style="color:#c0392b">· weakest</span>' : ''}</b><span class="tiny" style="color:${col};font-weight:700">${lab}</span></div>
+        <div class="tiny muted">${esc(gapStats(t))} · like ${esc(t.like)}</div>
+        <div class="small" style="margin-top:2px">A turn removes <b>${n(s.total)}</b> of these: shooting ${n(s.shoot)} · fight ${n(s.fight)}</div>
+        ${s.meleeOnly && s.total >= 1 ? '<div class="tiny" style="color:#b7791f">Mostly in melee: your shooting removes under half of one — you have to get there first.</div>' : ''}
+        ${s.best.length ? `<div class="tiny" style="margin-top:2px">Best: ${s.best.map(b => `${esc(short(b.name))} ${Math.round(b.frac * 100)}% (${b.phase === 'fight' ? 'fight' : 'shoot'})`).join(' · ')}</div>` : '<div class="tiny bad">Nothing in the list hurts it.</div>'}
+      </div>`;
+    }).join('')}`;
+}
+function gapsSheet() {
+  const g = state.gaps, army = g && state.armies[g.side];
+  return `<div class="row"><h3 class="grow">What is ${esc(army ? listLabel(g.side) : 'this list')} missing?</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="tiny muted">The whole list against eight reference targets (stat lines from 11th edition datasheets, no special rules), as if every unit could reach it: how many of each it removes in one shooting phase plus your best three units in one fight phase, on average. Each unit counts at most one target. <b>Gap</b>: not even one a turn; <b>Thin</b>: under two.</div>
+    <div id="gaps-host">${gapsBody()}</div>`;
+}
+
 function gridValue(c, row) {
   if (!c || c.error) return null;
   if (state.gridMetric === 'points') return { v: c.meanPoints, frac: c.meanPoints / Math.max(1, c.totalPoints), text: fx(c.meanPoints, 0) };
@@ -1299,6 +1551,25 @@ function gridSheet() {
 
 // ---- List library (tournament mode: keep every opponent's list on the phone)
 
+// what a saved list costs with today's points (after a points update): cached per list text
+const libPtsCache = new Map();
+function libPoints(text) {
+  if (!libPtsCache.has(text)) {
+    let r = null;
+    try { r = listPointsNow(importArmy(text)); } catch { r = null; }
+    libPtsCache.set(text, r);
+  }
+  return libPtsCache.get(text);
+}
+function libPointsHtml(l) {
+  const r = libPoints(l.text);
+  if (!r) return '';
+  const lim = r.limit ? ` of ${r.limit}` : '';
+  if (!r.changed.length) return `<div class="tiny ok" data-lib-points>✓ Points current: ${r.now}${lim}</div>`;
+  return `<details class="tiny" data-lib-points><summary style="color:var(--warn-ink)">⚠ ${r.changed.length} unit${r.changed.length === 1 ? '' : 's'} cost${r.changed.length === 1 ? 's' : ''} something else now: ${r.listed} → <b>${r.now}</b>${lim}${r.over ? ` — <b>over the limit by ${r.now - r.limit}</b>` : ''}</summary>
+    ${r.changed.map(c => `<div>${esc(c.name)}: ${c.list} → <b>${c.now}</b></div>`).join('')}${r.unknown ? `<div class="muted">${r.unknown} unit${r.unknown === 1 ? '' : 's'} the rules data cannot price (kept at the listed price).</div>` : ''}</details>`;
+}
+
 function librarySheet() {
   const side = state.sheetArg?.side ?? 'A';
   const army = state.armies[side];
@@ -1308,10 +1579,98 @@ function librarySheet() {
     ${army ? `<div class="row" style="gap:6px"><input class="sel grow" data-input="lib-name" value="${esc(defName)}" aria-label="List name">
       <button class="btn primary" data-action="lib-save" data-side="${side}">Save army ${side}</button></div>` : `<p class="hint">Load a list into army ${side} to save it here.</p>`}
     <div class="section">${state.library.length ? state.library.map((l, i) => `<div class="pick" style="cursor:default">
-        <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div></div>
+        <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div>${libPointsHtml(l)}</div>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="A">→ A</button>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="B">→ B</button>
-        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>`;
+        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>
+    ${gameSection(side, army)}`;
+}
+
+// ---- Lists in the game: the game's shared army store on this server (the Army Builder's "Save to cloud" and the
+// game write there). Load one into A or B; send army A or B there so the game can play it. gamelists.mjs.
+const SENT_KEY = 'w40k_calc_sent_v1';   // names this device has sent to the game (it may replace those)
+const sentNames = () => { try { return JSON.parse(localStorage.getItem(SENT_KEY) ?? '[]') ?? []; } catch { return []; } };
+function gameSection(side, army) {
+  const g = state.gameLists ?? {};
+  const rows = (g.items ?? []).map((a, i) => `<div class="pick" style="cursor:default" data-game-list="${esc(a.army_name)}">
+      <div class="grow"><div class="title">${esc(a.army_name)}</div><div class="muted tiny">saved ${new Date(a.updated_at).toLocaleDateString()}</div></div>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="A">→ A</button>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="B">→ B</button></div>`).join('');
+  const list = g.busy ? '<p class="hint" id="game-busy">Loading the game’s lists…</p>'
+    : g.error ? `<div class="warnbox" id="game-error">${esc(g.error)}</div>`
+      : g.items ? (rows || '<p class="hint">No lists in the game yet.</p>') : '';
+  const sendName = g.sendName ?? storeName(army ? (army.name && army.name !== 'Army' ? army.name : army.faction) : '');
+  const send = army ? `<div class="section" id="game-send">
+      <div class="lab tiny muted">Send army ${side} to the game</div>
+      <div class="row" style="gap:6px"><input class="sel grow" data-input="store-send-name" value="${esc(sendName)}" aria-label="Name in the game" maxlength="60">
+        <button class="btn primary" data-action="store-send" data-side="${side}">⇪ Send</button></div>
+      <div class="tiny muted" style="margin-top:4px">The game lists it under its armies. Anyone who uses the game can see and load the lists there. Attached characters are chosen in the game.</div>
+      ${g.sendMsg ? `<div class="${g.sendOk ? 'ok' : 'warnbox'} small" id="game-send-msg" style="margin-top:6px">${esc(g.sendMsg)}</div>` : ''}</div>` : '';
+  return `<h3 style="margin-top:16px">Lists in the game</h3>
+    <p class="hint">The army lists saved in the game (and from its Army Builder) on this server.</p>
+    ${g.items || g.busy ? '' : '<button class="btn" data-action="store-lists" id="game-lists-btn">🎮 Show the game’s lists</button>'}
+    <div class="section" id="game-lists">${list}</div>${send}`;
+}
+async function fetchGameLists() {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const items = await gameListArmies();
+    state.gameLists = { ...state.gameLists, busy: false, items: items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0)) };
+    console.log(`[calc] game lists: ${items.length}`);
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not reach the game’s lists (${e.message}). They need a connection to this server.` };
+    console.log('[calc] game lists failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
+}
+async function loadGameList(side, name) {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const res = await gameGetArmy(name);
+    const data = typeof res.army_data === 'string' ? JSON.parse(res.army_data) : res.army_data;
+    const best = gameArmyToText(data, name);
+    state.gameLists = { ...state.gameLists, busy: false };
+    loadListInto(side, best.text);
+    state.sheet = null;
+    console.log(`[calc] game list "${name}" loaded into ${side} (${best.how}, ${best.recognised}/${best.units} units, points ${best.pointsOk}/${best.checked})`);
+    changed();
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not load “${name}”: ${e.message}` };
+    console.log('[calc] game list load failed:', e.message);
+    renderSheet();
+  }
+}
+async function sendToGame(side) {
+  const army = state.armies[side];
+  if (!army) return;
+  const name = storeName(app.querySelector('input[data-input="store-send-name"]')?.value);
+  const g = state.gameLists = { ...(state.gameLists ?? {}), sendName: name, sendMsg: null };
+  try {
+    const items = await gameListArmies();
+    g.items = items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    const mine = sentNames();
+    if (items.some(a => a.army_name === name) && !mine.includes(name)) {
+      g.sendOk = false;
+      g.sendMsg = `A list called “${name}” is already in the game (saved by someone else, or from the Army Builder). Pick another name.`;
+      return renderSheet();
+    }
+    if (mine.includes(name) && items.some(a => a.army_name === name) && !confirm(`Replace “${name}” in the game with army ${side}?`)) return;
+    const { game, warnings } = armyToGame(army);
+    if (!game) throw new Error('this army has no faction');
+    await gamePutArmy(name, game);
+    try { localStorage.setItem(SENT_KEY, JSON.stringify([...new Set([name, ...mine])].slice(0, 200))); } catch { /* best effort */ }
+    g.items = (await gameListArmies()).slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    g.sendOk = true;
+    g.sendMsg = `Sent: the game lists army ${side} as “${name}” (${Object.keys(game.units).length} units)${warnings.length ? `. ${warnings.length} note(s): ${warnings.slice(0, 3).join('; ')}` : ''}.`;
+    console.log(`[calc] army ${side} sent to the game as "${name}" (${Object.keys(game.units).length} units, ${warnings.length} notes)`);
+  } catch (e) {
+    g.sendOk = false;
+    g.sendMsg = `Not sent: ${e.message}.`;
+    console.log('[calc] send to the game failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
 }
 
 // Load a list into army `side`, dropping setups that referred to the old list's units.
@@ -1386,6 +1745,7 @@ function savedSheet() {
   const defName = names.length && t ? `${names.join(' + ')} → ${t.name} (${state.phase})` : '';
   const sig = listsSignature();
   return `<div class="row"><h3 class="grow">Saved scenarios</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    ${defName ? `<button class="btn ghost" style="width:100%;margin-bottom:8px" data-action="share-link" data-from="attack" id="share-attack">🔗 Share this set-up as a link</button>${shareLinkHtml('attack')}` : ''}
     ${defName ? `<div class="row" style="gap:6px"><input class="sel grow" data-input="save-name" value="${esc(defName)}" aria-label="Scenario name">
       <button class="btn primary" data-action="save-scenario">Save</button></div>` : '<p class="hint">Set a target and attackers to save this setup.</p>'}
     ${state.savedNote ? `<div class="warnbox">${esc(state.savedNote)}</div>` : ''}
@@ -1697,6 +2057,22 @@ function shockHtml(who, sh, id) {
     <span class="tiny muted">A battle-shocked unit has OC “–”, cannot be the target of its player's stratagems, cannot start actions and can only fall back by Desperate Escape.</span></div>`;
 }
 
+/**
+ * How the attack usually goes, not just its average: the most that is reached 9 times in 10, half the time and
+ * 1 time in 10 (from the "at least" distribution), for models destroyed and for damage.
+ */
+export function spreadLevels(atLeast, levels = [0.9, 0.5, 0.1]) {
+  return levels.map(p => { let k = 0; for (let i = 0; i < atLeast.length; i++) if (atLeast[i] >= p - 1e-9) k = i; return k; });
+}
+function spreadHtml(r) {
+  if (!r.killsAtLeast?.length || !r.woundsAtLeast?.length) return '';
+  const [k90, k50, k10] = spreadLevels(r.killsAtLeast), [w90, w50, w10] = spreadLevels(r.woundsAtLeast);
+  const row = (label, a, b, c, unit) => `<tr><td>${label}</td><td><b>${a}</b>+</td><td><b>${b}</b>+</td><td><b>${c}</b>+</td></tr>`;
+  return `<table class="dist" id="res-spread" style="margin-top:8px"><thead><tr><th>At least…</th><th>9 in 10</th><th>1 in 2</th><th>1 in 10</th></tr></thead><tbody>
+    ${row('Models destroyed', k90, k50, k10)}${row('Damage', w90, w50, w10)}</tbody></table>
+    <div class="tiny muted">9 in 10: what you can count on; 1 in 10: a good roll. The average alone hides how swingy an attack is.</div>`;
+}
+
 function resultsSheet() {
   const r = state.result;
   if (!r) return '<div class="muted">No result yet.</div>';
@@ -1716,6 +2092,7 @@ function resultsSheet() {
       <div class="cell"><b>${pct(r.pWipe)}</b><span>chance unit destroyed</span></div>
       <div class="cell"><b>${fx(r.meanWounds)}</b><span>avg damage of ${r.totalWounds} W</span></div>
     </div>
+    ${spreadHtml(r)}
     ${r.totalPoints ? (() => {
       const atkPts = s.attackers.reduce((a, e) => a + (atkArmy()?.units.find(u => u.key === e.unitKey)?.points ?? 0), 0);
       return `<div class="hero" style="grid-template-columns:1fr 1fr;margin-top:8px">
@@ -1842,7 +2219,13 @@ app.addEventListener('click', (ev) => {
     return;
   }
   if (a.startsWith('event-')) {
-    if (eventAction(a, el) === 'render') changed();
+    const view0 = state.view;
+    if (eventAction(a, el) === 'render') {
+      changed();
+      // Start ▶ opens another tab: show it from the top (the event card is at the bottom of Armies, and the new
+      // tab kept that scroll position — the round looked as if it had not started)
+      if (state.view !== view0) window.scrollTo(0, 0);
+    }
     return;
   }
   switch (a) {
@@ -1885,6 +2268,15 @@ app.addEventListener('click', (ev) => {
       state.armies[el.dataset.side] = null;
       for (const k of Object.keys(state.setups)) if (k.startsWith(el.dataset.side + ':') || k.startsWith(other(el.dataset.side) + ':')) state.setups[k] = { targetKey: null, attackers: [], ruleOverrides: {}, defManual: {} };
       return changed();
+    case 'attach-suggest': {
+      const side = el.dataset.side;
+      const army = state.armies[side];
+      if (!army) return;
+      const sug = suggestAttachments(army);
+      console.log(`[calc] army ${side}: suggested attachments ${JSON.stringify(sug)}`);
+      applyAttachments(side, sug);
+      return changed();
+    }
     case 'reset-attach': {
       const side = el.dataset.side;
       const army = state.armies[side];
@@ -1980,6 +2372,7 @@ app.addEventListener('click', (ev) => {
     case 'open-library':
       state.sheet = 'library';
       state.sheetArg = { side: el.dataset.side };
+      if (state.gameLists) state.gameLists = { ...state.gameLists, sendMsg: null, sendName: null, error: null };
       return renderSheet();
     case 'lib-save': {
       const side = el.dataset.side;
@@ -2001,6 +2394,20 @@ app.addEventListener('click', (ev) => {
       console.log(`[calc] library list "${l.name}" loaded into ${el.dataset.side}`);
       return changed();
     }
+    case 'round-started-ok':
+      state.roundStart = null;
+      return render();
+    case 'store-lists':
+      fetchGameLists();
+      return;
+    case 'store-load': {
+      const a = state.gameLists?.items?.[Number(el.dataset.i)];
+      if (a) loadGameList(el.dataset.side, a.army_name);
+      return;
+    }
+    case 'store-send':
+      sendToGame(el.dataset.side);
+      return;
     case 'lib-delete':
       state.library.splice(Number(el.dataset.i), 1);
       persistLibrary();
@@ -2049,6 +2456,58 @@ app.addEventListener('click', (ev) => {
       window.scrollTo(0, 0);
       return changed();
     }
+    case 'share-link':
+      makeShareLink(el.dataset.from === 'board' ? 'board' : 'attack');
+      return;
+    case 'share-link-copy': {
+      const s = state.shareLink;
+      if (!s?.url) return;
+      const done = () => { s.copied = true; render(); if (state.sheet) renderSheet(); };
+      (navigator.clipboard?.writeText(s.url) ?? Promise.reject(new Error('no clipboard'))).then(done).catch(() => {
+        const inp = document.getElementById('share-link-url');
+        inp?.select(); try { if (document.execCommand('copy')) done(); } catch { /* select it for the user */ }
+      });
+      return;
+    }
+    case 'share-link-send':
+      navigator.share?.({ title: `Combat Calc: ${state.shareLink?.title ?? ''}`, url: state.shareLink?.url }).catch(() => {});
+      return;
+    case 'share-link-close':
+      state.shareLink = null;
+      render(); if (state.sheet) renderSheet();
+      return;
+    case 'shared-error-close':
+      state.shareError = null;
+      return render();
+    case 'shared-keep':
+      if (!state.viewing) return;
+      if (!window.confirm('Keep a copy: these two lists become your armies A and B, and the shared plan is saved with them. Your saved lists, games and other plans stay.')) return;
+      state.viewing = null;
+      persistBoardNow();
+      history.replaceState(null, '', location.pathname + location.search);
+      console.log('[calc] shared link: kept a copy');
+      return changed();
+    case 'shared-close':
+      state.viewing = null;
+      history.replaceState(null, '', location.pathname + location.search);
+      location.reload();
+      return;
+    case 'open-print':
+      state.sheet = 'print';
+      return renderSheet();
+    case 'print-go': {
+      // print only the sheet: a copy of it in #print-root (calc.css @media print hides everything else)
+      let root = document.getElementById('print-root');
+      if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
+      root.innerHTML = printSheetHtml(printData());
+      console.log('[calc] print: game-day sheet');
+      window.print();
+      return;
+    }
+    case 'open-gaps':
+      state.sheet = 'gaps';
+      runGaps(el.dataset.side === 'B' ? 'B' : 'A');
+      return renderSheet();
     case 'open-saved':
       state.sheet = 'saved';
       state.savedNote = null;
@@ -2332,7 +2791,7 @@ initBoard({
   // the mission set-up is locked while a game is on the tracker
   gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round,
   // one army's list (for "use my deployment against another opponent")
-  sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
+  shareLinkHtml, sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
   openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
@@ -2357,11 +2816,16 @@ initBoard({
 initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave });
 initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
+// a share link (#s=...): view it read-only, over this device's own state (nothing is saved while viewing)
+const shareCode = location.hash.startsWith(SHARE_PREFIX) ? location.hash.slice(SHARE_PREFIX.length) : null;
+if (shareCode) state.viewing = { loading: true };
+window.addEventListener('hashchange', () => { if (location.hash.startsWith(SHARE_PREFIX)) location.reload(); });
 parseArmy('A');
 parseArmy('B');
 if (!(state.armies.A && state.armies.B)) state.view = 'armies';
 render();
 scheduleCalc();
+if (shareCode) openShared(shareCode);
 
 // ask the browser not to clear the saved lists and plans when the device runs low on space
 if (navigator.storage?.persist && (state.armies.A || state.armies.B)) {

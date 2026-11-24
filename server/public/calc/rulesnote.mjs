@@ -14,7 +14,14 @@
 
 /** The day the rules in the app were last read against their sources. */
 export const RULES_CHECKED = '2026-11-20';
-export const RULES_SOURCES = ['the core rules and rules appendix', 'Event Companion v1.2', 'the GW Grand Tournament pack 2026', 'UKTC policies'];
+export const RULES_SOURCES = ['the core rules and rules appendix', 'Event Companion v1.3', 'the GW Grand Tournament pack 2026', 'UKTC policies'];
+/**
+ * The terrain layouts behind the Board and the forecast. Event Companion v1.3 (October 2026), read 24 Nov 2026:
+ * "WHAT'S NEW? Base Size Guide: Wazbom Blastajet updated." and "LAYOUTS UPDATED: None." — the layouts are v1.2's
+ * (August 2026). The app's layout files come from the 40kdc data (17 Sep 2026, after v1.2); 12 of the 45 were
+ * compared by eye with the v1.3 PDF (zones, terrain positions, objectives): no difference found.
+ */
+export const LAYOUTS_SOURCE = { version: 'Event Companion v1.3', date: 'October 2026', note: 'layouts unchanged since v1.2, August 2026', checked: '2026-11-24', sample: '12 of 45 compared with the official PDF' };
 /** The newest release of the rules dataset on the day of the check. */
 export const DATASET_NEWEST = { version: '1.5.1', date: '2026-11-13' };
 /** The next rules change that has a date. */

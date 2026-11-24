@@ -7,9 +7,10 @@
 
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
-import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
+import { abilitiesOf, armyData, fmtDataDate, earlyArrival, armyIntel } from './adapter.mjs';
 import { boardContext, boardPlans, boardTrees, boardSetupInfo } from './boardview.mjs';
 import { evaluate as evalTree } from './plantree.mjs';
+import { cardFace } from './cardface.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS, dispositionName } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
@@ -77,7 +78,7 @@ const isOpening = () => { const g = ms().game; return g.round === 1 && !g.turnsD
 const totalVp = (X) => { const m = ms(), g = m.game; return g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0); };
 function persist() {
   const m = ms();
-  const { result, levers, busy, compare, pairs, modeCompare, handOpen, tableNotice, ...keep } = m;
+  const { result, levers, busy, compare, pairs, modeCompare, handOpen, tableNotice, show, ...keep } = m;
   try { localStorage.setItem(LS_KEY, JSON.stringify(keep)); } catch { /* best effort */ }
 }
 
@@ -518,7 +519,8 @@ function runForecast() {
   if (lite) { runModes = null; worker.postMessage({ id: reqId, forecast: { base: P, variants: [] } }); return; }
   // a board plan only knows the units placed on it: say so when part of my army is missing
   const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
-  const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
+  // a unit inside a transport counts as placed (it is on the battlefield, embarked)
+  const placed = (p) => new Set(p.steps.flatMap(st => [...st[m.me].map(u => u.name), ...(st.embarked?.[m.me] ?? []).map(e => e.name)])).size;
   const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
     ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, note: placed(p) < nMine ? `${placed(p)} of ${nMine} units placed` : '', P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
   planNotes = Object.fromEntries(compare.map(c => [c.key, c.note ?? '']));
@@ -557,7 +559,59 @@ export function missionView() {
   const top = m.table ? `<div class="seg table-top"><button class="on" disabled id="table-flag">Play · table mode</button><button data-action="mission-table" id="table-leave">Leave table mode</button></div>
       ${closed ? `<div class="tiny table-locked" id="table-locked">${closed} closed in table mode.</div>` : ''}` : ctx.seg('mission-tab', tab, TABS);
   return `<div class="mission-top" id="mission-top">${top}<div id="fc-mini">${miniHtml()}</div></div>
-    ${tab === 'plan' ? planView() : tab === 'cards' ? cardsView() : playView()}`;
+    ${tab === 'plan' ? planView() : tab === 'cards' ? cardsView() : playView()}${showHtml()}`;
+}
+
+// ---- shown to the opponent: the score (tournament packs: a private score sheet "holds no weight", the score must be
+// "mutually accessible"), and a secondary card drawn at random where they can see it. No forecast, no odds.
+function showHtml() {
+  const m = ms(), g = m.game, esc = ctx.esc, sh = m.show;
+  if (!sh) return '';
+  const flip = m.flip ? ' flip' : '';
+  const bar = `<div class="show-bar"><button class="btn" data-action="mission-show-flip" id="show-flip">↻ Turn to face ${m.flip ? 'me' : 'them'}</button><span class="grow"></span><button class="icon-btn" data-action="mission-show-close" id="show-close" aria-label="Close">✕</button></div>`;
+  if (sh.draw) {
+    const c = SECONDARY_BY_ID[sh.draw.id];
+    const more = sh.draw.X === turnOf() && (g.drawn ?? 0) < RULES.drawPerTurn;
+    return `<div class="show-layer" id="show-draw" role="dialog" aria-modal="true"><div class="show-inner${flip}">${bar}
+      <div class="show-head">${esc(sh.draw.X)} · ${esc(ctx.state.armies[sh.draw.X]?.faction ?? '')} drew at random</div>
+      ${c ? cardFace(c, { esc }) : ''}
+      <div class="tiny muted" style="margin-top:6px">From the ${sh.draw.left} cards left in the deck (${esc(sh.draw.at)}).</div>
+      <div class="row" style="gap:8px;margin-top:10px">${more ? `<button class="btn" data-action="mission-draw-random" data-side="${sh.draw.X}" id="show-draw-again">🎲 Draw another</button>` : ''}<button class="btn primary grow" data-action="mission-show-close">Done</button></div></div></div>`;
+  }
+  const s = PT.scoreSheet(g, RULES.rounds);
+  const side = (X) => {
+    const total = g[X].primary + g[X].secondary + (m.battleReady[X] ? RULES.battleReady : 0);
+    return `<div class="show-side" data-show-side="${X}"><div class="show-army" style="color:var(--side-${X.toLowerCase()}-ink)">${X} · ${esc(ctx.state.armies[X].faction)}</div>
+      <div class="show-total" id="show-total-${X}">${total}<small> VP</small></div>
+      <div class="small">Primary <b>${g[X].primary}</b> · Secondary <b>${g[X].secondary}</b>${m.battleReady[X] ? ` · Battle Ready <b>${RULES.battleReady}</b>` : ''} · CP <b>${g[X].cp ?? 0}</b></div>
+      ${m.modes[X].mode === 'tactical' ? `<div class="tiny" style="margin-top:4px">In hand: ${g[X].hand.length ? g[X].hand.map(id => `<b>${esc(SECONDARY_BY_ID[id]?.name ?? id)}</b>`).join(', ') : '<span class="muted">none</span>'}</div>
+        <div class="tiny muted">Scored or discarded: ${g[X].used.length}</div>`
+        : `<div class="tiny" style="margin-top:4px">Fixed: ${(m.modes[X].fixed ?? []).map(id => `<b>${esc(SECONDARY_BY_ID[id]?.name ?? id)}</b> ${g[X].fixedVp?.[id] ?? 0}`).join(' · ')}</div>`}</div>`;
+  };
+  const cell = (v) => (v ? String(v) : '–');
+  return `<div class="show-layer" id="show-score" role="dialog" aria-modal="true"><div class="show-inner${flip}">${bar}
+    <div class="show-head">${g.over ? 'Battle over' : `Battle round ${g.round} · ${esc(turnOf())}'s turn`}</div>
+    <div class="show-sides">${side('A')}${side('B')}</div>
+    <table class="dist scoresheet" style="margin-top:10px"><thead><tr><th>Round</th><th>A prim.</th><th>A sec.</th><th>B prim.</th><th>B sec.</th></tr></thead><tbody>
+      ${s.rows.map(r => `<tr${r.round === g.round && !g.over ? ' class="cur"' : ''}><td>${r.round}</td><td>${cell(r.A.primary)}</td><td>${cell(r.A.secondary)}</td><td>${cell(r.B.primary)}</td><td>${cell(r.B.secondary)}</td></tr>`).join('')}
+      <tr class="total"><td>Total</td><td>${cell(s.total.A.primary)}</td><td>${cell(s.total.A.secondary)}</td><td>${cell(s.total.B.primary)}</td><td>${cell(s.total.B.secondary)}</td></tr></tbody></table>
+    ${(g.strats ?? []).some(s => s.round === g.round) ? `<div class="small" style="margin-top:8px" id="show-strats"><b>Stratagems this round:</b> ${(g.strats ?? []).filter(s => s.round === g.round).map(s => `${esc(s.side)} ${esc(s.name)} (${s.cp}CP)`).join(' · ')}</div>` : ''}
+    <div class="tiny muted" style="margin-top:6px">The score as entered on this phone, for both players to check.</div></div></div>`;
+}
+/** A secondary card at random from what is left of X's deck (crypto random), shown full screen. */
+function drawRandom(X) {
+  const m = ms(), g = m.game;
+  const deck = SECONDARIES.map(c => c.id).filter(id => !g[X].hand.includes(id) && !g[X].used.includes(id));
+  if (!deck.length) return false;
+  const r = new Uint32Array(1);
+  (globalThis.crypto ?? window.crypto).getRandomValues(r);
+  const id = deck[r[0] % deck.length];
+  remember(`${SECONDARY_BY_ID[id]?.name ?? 'card'} drawn`);
+  g[X].hand.push(id);
+  if (X === (g.next ?? m.first ?? 'A')) g.drawn = (g.drawn ?? 0) + 1;
+  m.show = { draw: { X, id, left: deck.length, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } };
+  console.log(`[mission] ${X} drew ${id} at random from ${deck.length} cards`);
+  return true;
 }
 
 // the running clock, for the pinned line
@@ -717,7 +771,7 @@ function handHtml(X) {
           : `<span class="muted">${pct(s.scoreRate)} to score by the end · ${fmt(s.perDraw, 1)} VP${c.vps.length > 1 && g.round < MODEL.holdUntil ? ` · before round ${MODEL.holdUntil}, hold a part score for the full ${c.max}` : ''}</span>`;
     const open = m.handOpen === `${X}:${id}`;
     return `<div class="hand-row" data-card="${id}"><span class="grow"><button class="linkish" data-action="mission-hand-info" data-side="${X}" data-id="${id}" aria-expanded="${open}">${esc(c.name)}</button>
-        ${open ? `<div class="tiny" data-text="${id}">${esc(c.text)}${c.drawn ? ` <span class="muted">When drawn: ${esc(c.drawn)}</span>` : ''}</div>` : ''}
+        ${open ? `<div data-text="${id}" style="margin:6px 0">${cardFace(c, { esc })}</div>` : ''}
         ${m.table ? '' : `<div class="tiny" data-advice="${id}">${tip}</div>`}</span>
       ${c.vps.map(v => `<button class="mini score" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="scored" data-vp="${v}" aria-label="${esc(c.name)} scored ${v} VP">+${v}</button>`).join('')}
       <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="discard" aria-label="Discard ${esc(c.name)}">✕</button></div>`;
@@ -742,6 +796,7 @@ function playView() {
         </div>
         <div class="row acts" style="gap:8px">
           <button class="btn primary grow" data-action="mission-turn-done" id="play-turn-done" ${g.over ? 'disabled' : ''}>${g.over ? 'Battle over' : lastTurn ? 'End the battle ▶' : 'Turn done ▶'}</button>
+          <button class="btn" data-action="mission-show" id="play-show" aria-label="Show the score to the opponent">📺 Show</button>
           <button class="btn" data-action="mission-undo" id="play-undo" ${m.undo.length ? '' : 'disabled'} aria-label="Undo the last change${m.undo.length ? `: ${ctx.esc(m.undo[m.undo.length - 1].label)}` : ''}">↶ Undo</button>
         </div>
       </div>
@@ -749,6 +804,7 @@ function playView() {
       <div class="small" id="play-turn" style="margin-top:8px">${turnLineHtml()}</div>
       <div id="play-caps">${capsHtml()}</div>
       ${checklistHtml()}
+      <div id="play-strats-host">${stratNowHtml()}</div>
     </div></section>
     <section class="section a-me o3">${playerCard(me)}</section>
     </div><div class="col">
@@ -759,11 +815,47 @@ function playView() {
     <section class="section a-opts o7"><div class="card" id="play-options">
       ${!m.table && setupRows().some(r => r.status === 'warn') ? `<div style="margin-bottom:8px">${setupHtml('play')}</div>` : ''}
       <div class="chips">${ctx.chip('mission-table', !!m.table, 'Table mode: tracker only')}${ctx.chip('mission-awake', m.awake !== false, 'Screen stays on')}</div>
-      <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode closes the forecast, the card advice, the calculator and the board planner, and leaves the tracker.'} Some events do not allow apps that help with decisions during a game: check your event pack.</div>
+      <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode leaves only the tracker: no forecast, card advice, calculator or board.'} Some events ban decision aids during games: check your pack.</div>
       <button class="btn ghost" style="margin-top:10px" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button>
     </div></section>
     <section class="section a-games o8" id="play-games-host">${ctx.gamesCard?.('play') ?? ''}</section>
   </div></div>`;
+}
+
+// ---- stratagems in play: what each player can use in this phase, Use (spends the CP, once per phase), the log
+const stratCache = new Map();
+function stratsOf(X) {
+  const army = ctx.state.armies[X];
+  if (!army) return [];
+  if (!stratCache.has(army)) {
+    const seen = new Set();
+    stratCache.set(army, armyIntel(army).stratagems.filter(s => !seen.has(s.name) && seen.add(s.name)));
+  }
+  return stratCache.get(army);
+}
+function stratNowHtml() {
+  const m = ms(), g = m.game, esc = ctx.esc, cur = turnOf();
+  const phaseName = PT.PHASES.find(p => p[0] === (g.phase ?? 'command'))?.[1] ?? '';
+  const block = (X) => {
+    const list = stratsOf(X).filter(s => PT.stratUsable(s, g.phase ?? 'command', X === cur));
+    const rows = list.map(s => {
+      const used = PT.stratUsedThisPhase(g, X, s.name, cur), cp = Number(s.cp) || 0, short = (g[X].cp || 0) < cp;
+      return `<div class="strat-now" data-strat="${esc(s.name)}" data-side="${X}"><details><summary><b>${esc(s.name)}</b> <span class="tiny muted">${cp}CP${s.detachment ? ` · ${esc(s.detachment)}` : ''}</span></summary>
+        <div class="tiny muted">${s.missing ? 'No 11e text in the rules data.' : `<b>When:</b> ${esc(s.when ?? '')}<br><b>Effect:</b> ${esc(s.effect ?? '')}`}</div></details>
+        <button class="mini${used ? ' on' : ''}" data-action="mission-strat" data-side="${X}" data-name="${esc(s.name)}" ${used || short ? 'disabled' : ''}>${used ? '✓ Used' : short ? `${cp}CP` : `Use · ${cp}CP`}</button></div>`;
+    }).join('');
+    counts[X] = list.length;
+    return `<div class="strat-side"><div class="lab tiny muted">${X}${X === m.me ? ' (me)' : ''} · ${X === cur ? 'their turn' : 'opponent’s turn'} · ${g[X].cp ?? 0}CP · ${list.length} usable</div>${rows || '<div class="tiny muted">None in this phase.</div>'}</div>`;
+  };
+  const log = (g.strats ?? []).slice().reverse();
+  const counts = {};
+  const body = block(cur) + block(other(cur));
+  return `<details class="more" id="play-strats" data-details="mission-strats" ${isOpen('mission-strats') ? 'open' : ''}><summary><b>Stratagems now</b> <span class="tiny muted">· ${esc(phaseName)}: ${esc(cur)} ${counts[cur]}, ${esc(other(cur))} ${counts[other(cur)]} usable · ${log.length} used</span></summary>
+    <div style="margin-top:6px"><div class="lab tiny muted">Phase of ${esc(cur)}'s turn</div>${ctx.seg('mission-phase', g.phase ?? 'command', PT.PHASE_SHORT, 'compact')}</div>
+    ${body}
+    <div class="tiny muted" style="margin-top:4px">Use spends the CP and logs it; the same stratagem once per phase. Move the phase on as the turn goes; “Turn done” starts the next turn in the Command phase.</div>
+    <details class="more" data-details="mission-strat-log" ${isOpen('mission-strat-log') ? 'open' : ''}><summary>Stratagems used (${log.length})</summary>
+      ${log.length ? `<ul class="keep" id="strat-log">${log.map(s => `<li><b>${esc(s.side)}</b> ${esc(s.name)} <span class="tiny muted">${s.cp}CP · round ${s.round}, ${esc(s.turn ?? '?')}'s turn, ${esc(PT.PHASES.find(p => p[0] === s.phase)?.[1] ?? s.phase)}</span></li>`).join('')}</ul>` : '<div class="tiny muted">None yet. Undo takes back the last one.</div>'}</details></details>`;
 }
 
 // what was scored since the turn began (a check before "Turn done")
@@ -1143,8 +1235,7 @@ function cardsHtml() {
     // (the tag follows the name and wraps under it on a narrow phone: no column of its own)
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''} ${tag}</td>
       <td>${dead ? '–' : fixedMode ? (perDraw == null ? '…' : fmt(perDraw, 1)) : estPickHtml(c, side, est[c.id], perDraw)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
-      ${open ? `<tr class="card-detail"><td colspan="4"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
-        ${c.fixedText ? `<div class="tiny muted">Fixed: ${esc(c.fixedText)}</div>` : ''}
+      ${open ? `<tr class="card-detail"><td colspan="4">${cardFace(c, { esc })}
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
           : `<div class="tiny muted" style="margin-top:4px">${est[c.id] != null ? 'Using your estimate.'
               : c.kind === 'kill' ? 'App estimate: from units destroyed in the forecast and which enemy units are valid targets.'
@@ -1152,7 +1243,14 @@ function cardsHtml() {
               : onBoard ? 'App estimate: from the objectives your units hold on the board plan.' : 'App estimate: from your objective plan; when the plan does not give it, you play for the card at the real-game rate.'}</div>${realLine}
             ${fixedMode ? '<div class="tiny muted">Taken as Fixed: your estimate applies to Tactical play only.</div>' : estimateHtml(c, side, est[c.id], perDraw)}`}</td></tr>` : ''}`;
   };
-  return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
+  if (m.cardsLook === 'faces') {
+    // every card drawn as a card, best first, with the app's numbers under each
+    const face = (r) => cardFace(r.c, { esc, foot: `${r.dead ? '<span class="pill bad">Dead</span> no targets in this army' : `VP if drawn <b>${r.perDraw == null ? '…' : fmt(r.perDraw, 1)}</b> · quick <b>${r.quick == null ? '–' : pct(r.quick)}</b>`}` });
+    return `<div class="row" style="gap:6px;flex-wrap:wrap">${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}${ctx.seg('mission-cards-look', 'faces', [['list', '☰ List'], ['faces', '🂠 Cards']], 'compact')}</div>
+      <div class="cf-grid" id="card-faces" style="margin-top:8px">${rows.map(face).join('')}</div>
+      <div class="tiny muted">The cards in the app's words (a summary, not the printed text). Best first for ${side}.</div>`;
+  }
+  return `<div class="row" style="gap:6px;flex-wrap:wrap">${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}${ctx.seg('mission-cards-look', 'list', [['list', '☰ List'], ['faces', '🂠 Cards']], 'compact')}</div>
     <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
     <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a VP if drawn number to set your own (0 up to Max) — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character; pick “app” to go back. Tap a card name for its rules.</div>
 `;
@@ -1255,9 +1353,9 @@ function playerCard(X) {
           : `<span class="tiny muted" id="cp-discard-${X}">No CP for this discard: the one extra CP of round ${g.round} is taken.</span>`) : ''}
         ${mode === 'tactical' ? `<button class="mini cpx" data-action="mission-swap" data-side="${X}" id="swap-${X}" ${g[X].swapped ? 'disabled' : ''}>${g[X].swapped ? `Card swap used (round ${g[X].swapped})` : '↻ New card for 1CP (once)'}</button>` : ''}
       </div>
-      ${mode === 'tactical' ? `<div class="lab tiny muted" style="margin-top:10px">Cards in hand — tap what a card scored (it is added to the secondary VP), ✕ to discard, the name for its rules</div>
+      ${mode === 'tactical' ? `<div class="lab tiny muted" style="margin-top:10px">Cards in hand — tap the VP it scored, ✕ to discard, its name to see it</div>
         <div id="hand-${X}">${handHtml(X)}</div>
-        <select class="sel" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew" style="margin-top:6px"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select>
+        <div class="row" style="gap:6px;margin-top:6px;align-items:center"><select class="sel grow" data-input="mission-draw" data-side="${X}" aria-label="Card ${X} drew"><option value="">＋ Drew a card…</option>${deck.map(id => `<option value="${id}">${esc(SECONDARY_BY_ID[id].name)}</option>`).join('')}</select><button class="btn" data-action="mission-draw-random" data-side="${X}" id="draw-random-${X}" ${deck.length ? '' : 'disabled'} title="Draw at random, shown full screen for both players">🎲 Random</button></div>
         ${X === (g.next ?? m.first ?? 'A') && inProgress() ? `<div class="tiny muted" id="drawn-${X}">Drawn this turn: ${Math.min(RULES.drawPerTurn, g.drawn ?? 0)} of ${RULES.drawPerTurn}${(g.drawn ?? 0) < RULES.drawPerTurn && !m.table ? ` — the forecast draws the other ${RULES.drawPerTurn - (g.drawn ?? 0)} at random` : ''}.</div>` : ''}
         <div class="tiny muted" id="odds-${X}">${deck.length} cards left${m.table ? '.' : `: each has a ${pct(Math.min(1, RULES.drawPerTurn / Math.max(1, deck.length)))} chance to come up next draw.`}${g[X].used.length ? ` Done: ${g[X].used.map(id => esc(SECONDARY_BY_ID[id].name)).join(', ')}.` : ''}</div>`
         : fixedHtml(X)}
@@ -1276,6 +1374,20 @@ export function missionAction(action, el) {
   if (!el.dataset.id && el.closest('[data-id]')) el.dataset.id = el.closest('[data-id]').dataset.id;
   switch (action) {
     case 'mission-me': m.me = el.dataset.value; m.sheetSide = null; break;
+    case 'mission-show': m.show = 'score'; persist(); return 'render';
+    case 'mission-phase': g.phase = el.dataset.value; persist(); return 'render';
+    case 'mission-strat': {
+      const st = stratsOf(X).find(s => s.name === el.dataset.name);
+      if (!st) return null;
+      remember(`${X} ${st.name}`);
+      const r = PT.useStrat(g, X, st, turnOf());
+      console.log(`[mission] ${X} uses ${st.name} (${st.cp}CP): ${r.ok ? 'ok' : r.why}`);
+      persist();
+      return 'render';
+    }
+    case 'mission-show-flip': m.flip = !m.flip; persist(); return 'render';
+    case 'mission-show-close': m.show = null; persist(); return 'render';
+    case 'mission-draw-random': if (!drawRandom(X)) return null; break;
     case 'mission-first':
       m.first = el.dataset.value === 'roll' ? null : el.dataset.value;
       // (before any turn is done the turn shown is the first player's)
@@ -1307,6 +1419,7 @@ export function missionAction(action, el) {
       break;
     }
     case 'mission-sheet-side': m.sheetSide = el.dataset.value; m.cardOpen = null; persist(); refresh(); return null;
+    case 'mission-cards-look': m.cardsLook = el.dataset.value; persist(); refresh(); return null;
     case 'mission-card': {
       const k = `${m.sheetSide ?? m.me}:${el.dataset.id}`;
       m.cardOpen = m.cardOpen === k ? null : k;
