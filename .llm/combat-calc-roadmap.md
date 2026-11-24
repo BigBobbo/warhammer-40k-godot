@@ -410,3 +410,20 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
 - Paths are named by every choice (`plantree.choiceLabel`), also in Mission → Plan.
 - Left open: the map folds (▾) but its open/closed state and the compare pick last for the
   session only. Not merged, not deployed.
+
+## Lists from / to the game (user: "access the lists that are already on the game or upload", 24 Nov 2026)
+
+- BUILT in v1.111.0, browser-tested, and the game loads a sent list (MCP bridge:
+  ArmyListManager.load_army_list on the calculator's file: units, models, points right).
+- Library 📚 → "Lists in the game": GET /api/armies (public, the game's and the Army Builder's
+  shared store); → A / → B: `adapter.gameArmyToText` turns the game file into list text, the
+  better of two ways (the builder's converter + WTC full text, or `gamelists.gameArmyText` line
+  by line: the builder's converter cannot place Space Wolves datasheets). The file's prices are
+  kept (the converter reprices; old lists then hide that they are out of date).
+  On the 16 live lists: 14 fully recognised, 2 March Ork uploads have Burna Boyz / Lootas
+  (not 11e datasheets in the data).
+- Send: `adapter.armyToGame` (conv.rosterToGame, as the Army Builder's "Save to cloud"),
+  PUT /api/armies/:name with the shared player id (builder api.js). A name already in the store
+  and not sent from this device is refused (GET by name is ambiguous across players).
+- Left open: attached characters are not in the game's file format (the game attaches at
+  deployment), so loaded lists come in unattached.

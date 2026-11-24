@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.111.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: load lists from the game, and send lists to it",
+      "changes": [
+        "List library (📚) → Lists in the game: the army lists saved in the game and its Army Builder; load one into army A or B with one tap",
+        "Send army A or B to the game: it appears in the game's army list, ready to play (anyone who uses the game can see the lists there)",
+        "A name someone else already uses in the game is refused; a list you sent from this phone can be replaced",
+        "Loaded lists keep the prices they were saved with, so the points check still tells you which units have changed since"
+      ]
+    },
+    {
       "version": "1.110.1",
       "date": "2026-11-23",
       "summary": "Combat Calc: points check fixed for lists that price enhancements separately",

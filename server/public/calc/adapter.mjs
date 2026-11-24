@@ -5,10 +5,11 @@
 // Reuses the Army Builder's importer and patched 40kdc dataset (store.js /
 // importers.js), so every list format the builder accepts works here too.
 
-import { conv, factionName, dc, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
+import { conv, factionName, dc, ds, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
 import { CODEX_OVERLAY_FACTIONS } from '../js/lib/data-patches.mjs';
 import { ERRATA } from './errata-data.mjs';
-import { importText } from '../js/builder/importers.js';
+import { importText, importGameObject } from '../js/builder/importers.js';
+import { gameArmyText } from './gamelists.mjs';
 import { normName, looseName } from '../js/lib/dckit.mjs';
 import { mergeMods } from './engine.mjs';
 import { solveCounts, quickStat } from './choose.mjs';
@@ -185,6 +186,50 @@ export function pointsCheck(army) {
 
 // ---------------------------------------------------------------------------
 // Import
+
+/**
+ * A list from the game's army store (a game army file) as list text for importArmy. Two ways, the better one kept:
+ * the Army Builder's converter (game file -> roster -> WTC text: exact when it knows every datasheet, it keeps the
+ * loadout per model), and the file written out line by line (gamelists.gameArmyText: for the units the builder's
+ * converter cannot place, e.g. the Space Wolves datasheets). Better = more units recognised, then more units whose
+ * points match the rules data, then fewer import notes. -> { text, how, units, recognised, pointsOk, checked }
+ */
+export function gameArmyToText(json, name = '') {
+  const tries = [];
+  try {
+    const { roster } = importGameObject(json, { name });
+    // the converter prices each unit again (a second copy at the first copy's price): keep the file's price
+    const metas = Object.values(json?.units ?? {}).map(u => u?.meta).filter(m => m?.name);
+    if (metas.length === roster.units.length) {
+      roster.units.forEach((ru, k) => {
+        const p = Number(metas[k].points);
+        if (Number.isFinite(p) && p > 0 && looseName(metas[k].name) === looseName(ru.ref?.raw_name ?? metas[k].name)) ru.points = p - (ru.enhancement_points ?? 0);
+      });
+    }
+    const t = dc.exportRoster(roster, 'newrecruit-wtc-full', ds);
+    tries.push({ how: 'builder', text: typeof t === 'string' ? t : String(t?.text ?? t) });
+  } catch (e) { console.log('[calc] game list: the builder\'s converter failed:', e.message); }
+  try { tries.push({ how: 'lines', text: gameArmyText(json, name) }); } catch (e) { console.log('[calc] game list: line by line failed:', e.message); }
+  let best = null;
+  for (const t of tries) {
+    let army;
+    try { army = importArmy(t.text); } catch { continue; }
+    const pc = pointsCheck(army);
+    const r = { ...t, units: army.roster.units.length, recognised: army.roster.units.filter(u => u.ref?.id).length, pointsOk: pc.checked - pc.mismatches.length, checked: pc.checked, notes: army.warnings.length };
+    const better = (a, b) => (a.recognised - b.recognised) || (a.pointsOk - b.pointsOk) || (b.notes - a.notes);
+    if (!best || better(r, best) > 0) best = r;
+  }
+  if (!best) throw new Error('This army could not be read.');
+  console.log(`[calc] game list "${name}": ${best.how}, ${best.recognised}/${best.units} units recognised, points ${best.pointsOk}/${best.checked}`);
+  return best;
+}
+
+/** An army read in the calculator as a game army file (the Army Builder's converter, as its "Save to cloud"). */
+export function armyToGame(army, today = new Date()) {
+  const createdDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const { army: game, warnings } = conv.rosterToGame(army.roster, { createdDate });
+  return { game, warnings: warnings ?? [] };
+}
 
 export function importArmy(text) {
   const { roster, report } = importText(text);

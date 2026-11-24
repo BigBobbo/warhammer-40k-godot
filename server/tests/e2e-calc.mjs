@@ -2863,6 +2863,57 @@ Aggressor Squad (95 points)
     await qctx.close();
   }
 
+  // --- lists in the game (1.111): load a list from the game's army store; send army A / B there
+  {
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`game lists: ${e}`));
+    gp.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) consoleErrors.push(`game lists: ${m.text()}`); });
+    gp.on('dialog', d => d.accept());
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    const gtxt = async (sel) => (await gp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // someone else's list already in the game
+    const other = await gp.evaluate(async () => (await fetch('/api/armies/Taken', { method: 'PUT', headers: { 'X-Player-ID': 'someone-else-0001', 'Content-Type': 'application/json' }, body: JSON.stringify({ army_data: { faction: { name: 'Orks', points: 500 }, units: { U_A: { meta: { name: 'Warboss', points: 70, wargear: [], enhancements: [] }, models: [{}] } } } }) })).status);
+    check('(set-up) another player’s list “Taken” is in the game', other === 200);
+    await gp.tap('button[data-action="open-library"][data-side="A"]');
+    await gp.tap('#game-lists-btn');
+    await gp.waitForSelector('[data-game-list="Taken"]');
+    check('📚 → Show the game’s lists: the lists in the game, to load into A or B', (await gp.locator('#game-lists .pick').count()) === 1 && (await gp.locator('[data-game-list="Taken"] button[data-action="store-load"]').count()) === 2);
+    // send army A under a name someone else uses: refused
+    await gp.fill('input[data-input="store-send-name"]', 'Taken');
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg');
+    check('a name someone else uses in the game is refused (the game finds lists by name)', /already in the game .* Pick another name/.test(await gtxt('#game-send-msg')), await gtxt('#game-send-msg'));
+    // send it as "Gaelcon Wolves"
+    await gp.fill('input[data-input="store-send-name"]', 'Gaelcon Wolves');
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg.ok');
+    const stored = await gp.evaluate(async () => (await (await fetch('/api/armies/Gaelcon_Wolves')).json()).army_data);
+    check('⇪ Send: army A is in the game as “Gaelcon_Wolves”, in the game’s format (12 units, its faction and detachments)', /Sent: the game lists army A as “Gaelcon_Wolves” \(12 units\)/.test(await gtxt('#game-send-msg')) && Object.keys(stored.units).length === 12 && stored.faction.name === 'Space Wolves' && (stored.detachments ?? stored.faction.detachments).length === 3 && (await gp.locator('[data-game-list="Gaelcon_Wolves"]').count()) === 1, JSON.stringify(stored.faction));
+    await gp.locator('#game-send').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_97_game_lists.png') });
+    // sending the same name again from this phone replaces it (after a confirm)
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg.ok');
+    check('the same phone can replace a list it sent', (await gp.locator('[data-game-list="Gaelcon_Wolves"]').count()) === 1);
+    // load it from the game into B
+    await gp.locator('[data-game-list="Gaelcon_Wolves"] button[data-action="store-load"][data-side="B"]').tap();
+    await gp.waitForSelector('#points-B');
+    const b = await gp.evaluate(() => ({ faction: window.__calc.state.armies.B?.faction, n: window.__calc.state.armies.B?.units.length, tas: window.__calc.state.armies.B?.roster.units.find(u => u.ref?.raw_name === 'Terminator Assault Squad') }));
+    check('→ B: the game’s list is army B — Space Wolves, every datasheet priced as the rules data says, enhancements kept', b.faction === 'Space Wolves' && /✓ Points: all 12 datasheets cost what the rules data says/.test(await gtxt('#points-B')) && b.tas?.enhancement?.raw_name === 'Furious Assault' && b.tas?.model_count === 10, JSON.stringify({ f: b.faction, n: b.n, pts: await gtxt('#points-B') }));
+    await gp.locator('#points-B').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_98_game_list_loaded.png') });
+    // no connection to the server: says so
+    await gp.route('**/api/armies', r => r.abort());
+    await gp.evaluate(() => { window.__calc.state.gameLists = null; });
+    await gp.tap('button[data-action="open-library"][data-side="A"]');
+    await gp.tap('#game-lists-btn');
+    await gp.waitForSelector('#game-error');
+    check('offline: the library says the game’s lists need a connection', /need a connection/.test(await gtxt('#game-error')));
+    await gctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

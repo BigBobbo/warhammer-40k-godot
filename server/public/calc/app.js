@@ -6,8 +6,10 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
-  phaseSheetInput,
+  phaseSheetInput, gameArmyToText, armyToGame,
 } from './adapter.mjs';
+import { storeName } from './gamelists.mjs';
+import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
 import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
 import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
@@ -1311,7 +1313,95 @@ function librarySheet() {
         <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div></div>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="A">→ A</button>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="B">→ B</button>
-        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>`;
+        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>
+    ${gameSection(side, army)}`;
+}
+
+// ---- Lists in the game: the game's shared army store on this server (the Army Builder's "Save to cloud" and the
+// game write there). Load one into A or B; send army A or B there so the game can play it. gamelists.mjs.
+const SENT_KEY = 'w40k_calc_sent_v1';   // names this device has sent to the game (it may replace those)
+const sentNames = () => { try { return JSON.parse(localStorage.getItem(SENT_KEY) ?? '[]') ?? []; } catch { return []; } };
+function gameSection(side, army) {
+  const g = state.gameLists ?? {};
+  const rows = (g.items ?? []).map((a, i) => `<div class="pick" style="cursor:default" data-game-list="${esc(a.army_name)}">
+      <div class="grow"><div class="title">${esc(a.army_name)}</div><div class="muted tiny">saved ${new Date(a.updated_at).toLocaleDateString()}</div></div>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="A">→ A</button>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="B">→ B</button></div>`).join('');
+  const list = g.busy ? '<p class="hint" id="game-busy">Loading the game’s lists…</p>'
+    : g.error ? `<div class="warnbox" id="game-error">${esc(g.error)}</div>`
+      : g.items ? (rows || '<p class="hint">No lists in the game yet.</p>') : '';
+  const sendName = g.sendName ?? storeName(army ? (army.name && army.name !== 'Army' ? army.name : army.faction) : '');
+  const send = army ? `<div class="section" id="game-send">
+      <div class="lab tiny muted">Send army ${side} to the game</div>
+      <div class="row" style="gap:6px"><input class="sel grow" data-input="store-send-name" value="${esc(sendName)}" aria-label="Name in the game" maxlength="60">
+        <button class="btn primary" data-action="store-send" data-side="${side}">⇪ Send</button></div>
+      <div class="tiny muted" style="margin-top:4px">The game lists it under its armies. Anyone who uses the game can see and load the lists there. Attached characters are chosen in the game.</div>
+      ${g.sendMsg ? `<div class="${g.sendOk ? 'ok' : 'warnbox'} small" id="game-send-msg" style="margin-top:6px">${esc(g.sendMsg)}</div>` : ''}</div>` : '';
+  return `<h3 style="margin-top:16px">Lists in the game</h3>
+    <p class="hint">The army lists saved in the game (and from its Army Builder) on this server.</p>
+    ${g.items || g.busy ? '' : '<button class="btn" data-action="store-lists" id="game-lists-btn">🎮 Show the game’s lists</button>'}
+    <div class="section" id="game-lists">${list}</div>${send}`;
+}
+async function fetchGameLists() {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const items = await gameListArmies();
+    state.gameLists = { ...state.gameLists, busy: false, items: items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0)) };
+    console.log(`[calc] game lists: ${items.length}`);
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not reach the game’s lists (${e.message}). They need a connection to this server.` };
+    console.log('[calc] game lists failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
+}
+async function loadGameList(side, name) {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const res = await gameGetArmy(name);
+    const data = typeof res.army_data === 'string' ? JSON.parse(res.army_data) : res.army_data;
+    const best = gameArmyToText(data, name);
+    state.gameLists = { ...state.gameLists, busy: false };
+    loadListInto(side, best.text);
+    state.sheet = null;
+    console.log(`[calc] game list "${name}" loaded into ${side} (${best.how}, ${best.recognised}/${best.units} units, points ${best.pointsOk}/${best.checked})`);
+    changed();
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not load “${name}”: ${e.message}` };
+    console.log('[calc] game list load failed:', e.message);
+    renderSheet();
+  }
+}
+async function sendToGame(side) {
+  const army = state.armies[side];
+  if (!army) return;
+  const name = storeName(app.querySelector('input[data-input="store-send-name"]')?.value);
+  const g = state.gameLists = { ...(state.gameLists ?? {}), sendName: name, sendMsg: null };
+  try {
+    const items = await gameListArmies();
+    g.items = items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    const mine = sentNames();
+    if (items.some(a => a.army_name === name) && !mine.includes(name)) {
+      g.sendOk = false;
+      g.sendMsg = `A list called “${name}” is already in the game (saved by someone else, or from the Army Builder). Pick another name.`;
+      return renderSheet();
+    }
+    if (mine.includes(name) && items.some(a => a.army_name === name) && !confirm(`Replace “${name}” in the game with army ${side}?`)) return;
+    const { game, warnings } = armyToGame(army);
+    if (!game) throw new Error('this army has no faction');
+    await gamePutArmy(name, game);
+    try { localStorage.setItem(SENT_KEY, JSON.stringify([...new Set([name, ...mine])].slice(0, 200))); } catch { /* best effort */ }
+    g.items = (await gameListArmies()).slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    g.sendOk = true;
+    g.sendMsg = `Sent: the game lists army ${side} as “${name}” (${Object.keys(game.units).length} units)${warnings.length ? `. ${warnings.length} note(s): ${warnings.slice(0, 3).join('; ')}` : ''}.`;
+    console.log(`[calc] army ${side} sent to the game as "${name}" (${Object.keys(game.units).length} units, ${warnings.length} notes)`);
+  } catch (e) {
+    g.sendOk = false;
+    g.sendMsg = `Not sent: ${e.message}.`;
+    console.log('[calc] send to the game failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
 }
 
 // Load a list into army `side`, dropping setups that referred to the old list's units.
@@ -1978,6 +2068,7 @@ app.addEventListener('click', (ev) => {
     case 'open-library':
       state.sheet = 'library';
       state.sheetArg = { side: el.dataset.side };
+      if (state.gameLists) state.gameLists = { ...state.gameLists, sendMsg: null, sendName: null, error: null };
       return renderSheet();
     case 'lib-save': {
       const side = el.dataset.side;
@@ -1999,6 +2090,17 @@ app.addEventListener('click', (ev) => {
       console.log(`[calc] library list "${l.name}" loaded into ${el.dataset.side}`);
       return changed();
     }
+    case 'store-lists':
+      fetchGameLists();
+      return;
+    case 'store-load': {
+      const a = state.gameLists?.items?.[Number(el.dataset.i)];
+      if (a) loadGameList(el.dataset.side, a.army_name);
+      return;
+    }
+    case 'store-send':
+      sendToGame(el.dataset.side);
+      return;
     case 'lib-delete':
       state.library.splice(Number(el.dataset.i), 1);
       persistLibrary();
