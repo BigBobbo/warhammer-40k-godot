@@ -3529,6 +3529,40 @@ Aggressor Squad (95 points)
     await pctx.close();
   }
 
+  // --- 1.123: what a unit can see (shaded squares) and hull sizes you measured
+  {
+    const vctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const vp = await vctx.newPage();
+    vp.on('pageerror', e => consoleErrors.push(`see: ${e}`));
+    vp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`see: ${m.text()}`); });
+    await vp.goto(`${BASE}/calc/`); await vp.waitForSelector('textarea[data-side="A"]');
+    await vp.fill('textarea[data-side="A"]', SW_LIST); await vp.tap('button[data-action="parse"][data-side="A"]');
+    await vp.fill('textarea[data-side="B"]', ORK_LIST); await vp.tap('button[data-action="parse"][data-side="B"]');
+    await vp.tap('button[data-action="view"][data-value="board"]');
+    await vp.waitForSelector('#board-svg');
+    await vp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await vp.tap('button[data-action="board-ring"][data-k="see"]');
+    await vp.waitForSelector('#see-layer');
+    const note = await vp.textContent('#board-see-note').catch(() => '');
+    const seen = await vp.evaluate(() => ({ n: Number(document.getElementById('see-layer').dataset.seen), rects: document.querySelectorAll('#see-layer rect').length }));
+    check('👁 What it can see: the squares where a model would be visible to the unit are shaded (terrain hides the rest)', seen.n > 200 && seen.n < 2640 && seen.rects > 10 && /not a table ruling/.test(note), JSON.stringify(seen));
+    await vp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); document.getElementById('board-host').scrollIntoView({ block: 'start' }); });
+    await vp.screenshot({ path: join(SHOTS, 'calc_120_what_it_sees.png') });
+    // hull: the Battlewagon has no hull size in the data; enter the one you measured
+    await vp.locator('#board-tray button[data-action="board-place"][data-side="B"]', { hasText: 'Battlewagon' }).tap();
+    await vp.waitForSelector('#board-hull');
+    const before = (await vp.textContent('#board-hull')).replace(/\s+/g, ' ');
+    const inp = vp.locator('#board-hull input[data-dim="l"]');
+    await inp.fill('9'); await inp.dispatchEvent('change');
+    await vp.waitForFunction(() => /your measurement/.test(document.getElementById('board-hull')?.textContent ?? ''));
+    const fp = await vp.evaluate(() => { const u = window.__calc.board().units.find(t => t.tk.startsWith('B:') && t.models[0]?.fp?.shape === 'rect'); return u?.models[0]?.fp ?? null; });
+    check('Hull: “rough size” until you enter your model’s length × width; the board then measures from it', /rough size/.test(before) && fp?.measured && Math.abs(fp.hw - 4.5) < 0.01, JSON.stringify({ before: before.slice(0, 80), fp }));
+    await vp.reload(); await vp.waitForSelector('#board-svg');
+    const kept = await vp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_hulls_v1') ?? '{}'));
+    check('the hull size is kept on this device', Object.values(kept).some(h => h.l === 9), JSON.stringify(kept));
+    await vctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

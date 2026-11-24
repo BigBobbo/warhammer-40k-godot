@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.123.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what a unit can see, and set your vehicles' hull sizes",
+      "changes": [
+        "Board → select a unit → 👁 What it can see: shades every square where a model would be visible to it, with the same sight lines as the rest of the app",
+        "Vehicles have no hull dimensions in the rules data: enter your model's hull length × width once and ranges, gaps and sight lines are measured from it (kept on your device, for every list)"
+      ]
+    },
+    {
       "version": "1.122.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: print a game-day sheet",

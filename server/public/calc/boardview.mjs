@@ -11,7 +11,7 @@ import {
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
-import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
+import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
@@ -438,9 +438,12 @@ function unitInfo(side, key) {
   const army = ctx.state.armies[side];
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
-  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}`;
+  const hulls = hullSizes(), mine = cu.members.map(m => hulls[m.dcUnit.name]).filter(Boolean);
+  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu, army);
+    // a hull size you measured replaces the rough one (length across the token, width down it)
+    for (const m of bu.members) { const h = hulls[m.label]; if (h && m.fp.approx && m.fp.shape === 'rect') m.fp = { shape: 'rect', hw: h.l / 2, hh: h.w / 2, measured: true }; }
     // Objective Control: each model's OC (datasheet), summed over the unit
     const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
     unitCache.set(ck, { cu, ...bu, oc, models: coherentFormation(bu.members), formations: new Map() });
@@ -585,6 +588,44 @@ function scoutToTurn1(tk, from, to) {
   const t1 = curSteps()[1]?.tokens?.[tk];
   if (t1 && from && Math.hypot(t1.x - from.x, t1.y - from.y) < 0.05) Object.assign(t1, { x: to.x, y: to.y });
 }
+
+// ---- "What it can see" (sight.visibleCells): squares where a 32 mm model would be visible to the selected unit
+let seeCache = { key: null, v: null };
+function seeOf(sel) {
+  const l = currentLayout();
+  if (!l) return null;
+  const key = `${l.id}|${sel.tk}|${sel.x.toFixed(2)}|${sel.y.toFixed(2)}|${sel.rot}|${sel.models.length}|${sel.models.map(m => `${m.dx.toFixed(2)},${m.dy.toFixed(2)}`).join(';')}`;
+  if (seeCache.key !== key) {
+    const t0 = performance.now();
+    seeCache = { key, v: visibleCells(sel, l.pieces) };
+    const n = seeCache.v.cells.reduce((s, c) => s + c, 0);
+    console.log(`[board] what ${sel.tk} can see: ${n} of ${seeCache.v.cells.length} squares (${Math.round(performance.now() - t0)} ms)`);
+  }
+  return seeCache.v;
+}
+function seeSvg(sel) {
+  const v = seeOf(sel);
+  if (!v) return '';
+  // one rectangle per run of seen squares down a column
+  const out = [`<g id="see-layer" data-seen="${v.cells.reduce((s, c) => s + c, 0)}" fill="${C[sel.side]}" fill-opacity="0.22" pointer-events="none">`];
+  for (let i = 0; i < v.cols; i++) {
+    let j = 0;
+    while (j < v.rows) {
+      if (!v.cells[i * v.rows + j]) { j++; continue; }
+      let k = j;
+      while (k < v.rows && v.cells[i * v.rows + k]) k++;
+      out.push(`<rect x="${i * v.step}" y="${j * v.step}" width="${v.step}" height="${(k - j) * v.step}"/>`);
+      j = k;
+    }
+  }
+  out.push('</g>');
+  return out.join('');
+}
+
+// ---- hull sizes you measured (vehicles and monsters without a base: the data has no hull dimensions)
+const HULL_KEY = 'w40k_calc_hulls_v1';
+let hullMemo = null;
+function hullSizes() { if (!hullMemo) { try { hullMemo = JSON.parse(localStorage.getItem(HULL_KEY) ?? '{}') ?? {}; } catch { hullMemo = {}; } } return hullMemo; }
 
 function zoneCentroid(side) {
   const l = currentLayout();
@@ -734,6 +775,7 @@ export function boardSvg({ forExport = false } = {}) {
   if (sel && !forExport) {
     const kinds = Object.keys(b.rings).filter(k => b.rings[k]);
     for (const k of kinds) {
+      if (k === 'see') { parts.push(seeSvg(sel)); continue; }
       if (k === 'detect') {
         // who can see it: only models inside this line (dashed, in the enemy's colour)
         const det = detectionOf(sel).range;
@@ -1112,6 +1154,20 @@ function dockHtml() {
 }
 
 /** The selected transport's passengers: who is inside (spaces used / capacity), embark, disembark. */
+function hullPanel(s1) {
+  const esc = ctx.esc;
+  const seen = new Set();
+  const rows = s1.u.members.filter(m => m.fp.shape === 'rect' && (m.fp.approx || m.fp.measured) && !seen.has(m.label) && seen.add(m.label));
+  if (!rows.length) return '';
+  return `<div class="card" id="board-hull" style="margin-top:6px;padding:8px">${rows.map(m => `<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
+      <span class="grow small"><b>${esc(m.label)}</b> hull: ${m.fp.measured ? 'your measurement' : '<span class="bad">rough size</span> (no hull dimensions in the data)'}</span>
+      <input class="sel" style="width:72px" type="number" min="1" max="30" step="0.1" inputmode="decimal" data-input="board-hull" data-label="${esc(m.label)}" data-dim="l" value="${(m.fp.hw * 2).toFixed(1)}" aria-label="Hull length in inches">
+      <span class="tiny">×</span>
+      <input class="sel" style="width:72px" type="number" min="1" max="30" step="0.1" inputmode="decimal" data-input="board-hull" data-label="${esc(m.label)}" data-dim="w" value="${(m.fp.hh * 2).toFixed(1)}" aria-label="Hull width in inches">
+      <span class="tiny">"</span></div>`).join('')}
+    <div class="tiny muted" style="margin-top:4px">Measure your model's hull (length × width, in inches) and enter it: ranges, gaps and sight lines are then measured from it, for every list with this datasheet.</div>
+  </div>`;
+}
 function scoutPanel(s1) {
   if (curIndex() !== 0) return '';
   const X = scoutDist(s1.side, s1.key), pos = stepTokens()[s1.tk];
@@ -1155,6 +1211,7 @@ function selectionPanel() {
   const det = detectionOf(s1);
   const rings = [
     det.range ? ringChip('detect', det.lone && det.lone <= det.range ? `Seen only within ${det.range}" (Lone Operative)` : `Seen only within ${det.range}" while Hidden`) : '',
+    ringChip('see', '👁 What it can see'),
     ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom ?? 'detachment'})` : ''}`),
     ringChip('advance', `Move + Advance (max ${u.move + 6}")`),
     u.melee ? ringChip('charge', `Charge threat (${u.move}" + 7" avg)`) : '',
@@ -1201,6 +1258,7 @@ function selectionPanel() {
     })() : ''}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
+    ${hullPanel(s1)}
     ${s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : ''}
     ${(() => {
       // 03.03: within 2" of one other model and within 9" of every other model of the unit
@@ -1208,6 +1266,7 @@ function selectionPanel() {
       return c.ok ? '' : `<div class="tiny" id="board-coherency" style="color:var(--warn-ink);margin-top:4px">⚠ Not in coherency: ${c.widest > COHERENCY.all ? `two models are ${c.widest.toFixed(1)}" apart (every model must be within ${COHERENCY.all}" of every other)` : `${c.alone} model${c.alone > 1 ? 's are' : ' is'} more than ${COHERENCY.near}" from any other`} (03.03). Use fewer models per row.</div>`;
     })()}
     <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
+    ${b.rings.see ? '<div class="tiny muted" id="board-see-note" style="margin-top:4px">👁 Shaded: where a model on a 32 mm base would be visible to this unit (any part of it, 13.x sight lines through light and dense terrain). Geometric only — no rule that changes visibility, and not a table ruling.</div>' : ''}
     ${pair}
     ${threatHtml(s1, toks)}
   </div>`;
@@ -1836,6 +1895,20 @@ export function boardAction(action, el) {
 
 export function boardChange(el) {
   const b = boardState();
+  if (el.dataset.input === 'board-hull') {
+    const v = Number(el.value), label = el.dataset.label;
+    if (!label || !(v >= 1 && v <= 30)) return null;
+    const hulls = hullSizes(), s = b.sel && placed().find(t => t.tk === b.sel);
+    const cur = s?.u.members.find(m => m.label === label)?.fp;
+    const h = hulls[label] ?? { l: +(cur?.hw * 2 || 5).toFixed(1), w: +(cur?.hh * 2 || 3).toFixed(1) };
+    h[el.dataset.dim === 'w' ? 'w' : 'l'] = +v.toFixed(1);
+    hulls[label] = h;
+    try { localStorage.setItem(HULL_KEY, JSON.stringify(hulls)); } catch { /* best effort */ }
+    hullMemo = hulls;
+    unitCache.clear();
+    console.log(`[board] hull of ${label}: ${h.l}" x ${h.w}"`);
+    return 'render';
+  }
   if (el.dataset.input === 'board-embark') {
     const tk = el.value, ttk = b.sel;
     if (!tk || !ttk) return null;

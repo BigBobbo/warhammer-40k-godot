@@ -494,3 +494,26 @@ User: work through the ranked list, no clock (item 4 skipped).
   each unit's charge chance by 11.04 odds; tap a square for the list; no LOS / terrain). 📊 My statistics
   (gamestats.mjs: finished saved games; by opponent, my army, mission from the dispositions, layout,
   first / second).
+- 1.118.0 (item 6): 🎯 Drop drill (droporder.mjs dropState: alternate from the Defender, TITANIC skips the
+  next drop, the other player sets up the rest once one is done; reserves and embarked units not set up).
+  A plan variant of its own (`variant.drill = { first, log, res }`), so the real deployment is untouched;
+  Undo, End drill (keeps the set-up as a plan). Done and tested (browser + unit).
+- 1.119.0 (item 12): 🔗 share links (sharelink.mjs: deflate-raw + base64url in `#s=`; ~2 KB for two
+  2000-point lists + a plan; nothing on the server). Opening one sets `state.viewing`: localStorage writes
+  are skipped (Storage.prototype.setItem guard), banner with Keep a copy / Close. Board and Attack
+  (Saved sheet) can share. Done and tested.
+- 1.120.0 (item 11): Scout moves on the Deploy step (`pos.scout`, dashed draggable ghost; planeval
+  scoutCheck by 24.31/24.32 as read on Wahapedia 11e core rules: start wholly in your zone, up to X", end
+  more than 8" horizontally from enemy units; players alternate from the first-turn player per the FAQ).
+  Next turn starts from the Scout positions. Not modelled: the path / terrain of the move, Infiltrators
+  as a pre-game move (they are a deployment rule, already checked), redeploy rules.
+- 1.121.0 (item 14): 🔍 list gap-finder (gapfinder.mjs: eight reference targets with stat lines from 11e
+  datasheets, no special rules; shooting = every unit, fight = best three units; Gap < 1, Thin < 2,
+  amber when shooting removes under half of one). Not done: "cheapest unit in the faction that fixes it"
+  (would need every faction datasheet built as an army unit) and meta benchmarks.
+- 1.122.0 (item 13): 🖨 game-day sheet (printsheet.mjs; names, costs, phases and the app's numbers, no
+  rule text; @media print prints #print-root only; checked as an A4 PDF, two pages for the test lists).
+- 1.123.0 (item 15, partly): 👁 What it can see (sight.visibleCells: same answer as unitSight for a 32 mm
+  model on each 1" square, ~7x faster) and hull sizes you measure (`w40k_calc_hulls_v1`, per datasheet
+  name; replaces the rough rectangle). Not done: traced hull polygons — the rules data has no hull
+  dimensions (24 datasheets are `"hull", draft`), so there is nothing to trace from.
