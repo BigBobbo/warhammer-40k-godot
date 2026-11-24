@@ -60,6 +60,27 @@ function dispOf(side) {
   return b.settings[`disp${side}`] ?? ctx.state.armies[side]?.roster?.force_disposition ?? 'take-and-hold';
 }
 
+/** The Force Disposition the list itself names (null: the list does not say). */
+function listDisp(side) {
+  return ctx.state.armies[side]?.roster?.force_disposition ?? null;
+}
+/** A disposition picked on the Board that differs from the one the list names. */
+function dispOverridden(side) {
+  const v = boardState().settings[`disp${side}`], l = listDisp(side);
+  return v != null && l != null && v !== l;
+}
+/**
+ * The mission set-up (dispositions, layout, zones) is locked while a game is on the
+ * tracker: changing it mid-game swaps both primaries, the deployment map and the
+ * board plans under the game. "Change anyway" unlocks it until that game ends.
+ */
+function setupLocked() {
+  const b = boardState();
+  const live = !!ctx.gameInProgress?.();
+  if (!live) b.unlock = false;
+  return live && !b.unlock;
+}
+
 function currentLayout() {
   const b = boardState();
   const list = layoutsFor(dispOf('A'), dispOf('B'));
@@ -726,6 +747,15 @@ function detectionOf(t) {
   return { range: Number.isFinite(d) ? d : 0, lone, hide };
 }
 
+const MOVE_RINGS = new Set(['move', 'advance', 'charge']);
+/** Where a unit on the board started this turn: its position on the previous step (null on Deploy, or if it was not on the board). */
+function turnStart(t) {
+  const i = curIndex();
+  if (i < 1) return null;
+  const pos = curSteps()[i - 1]?.tokens?.[t.tk];
+  if (!pos) return null;
+  return { x: pos.x, y: pos.y, models: tokenModels(t.u, pos) };
+}
 function ringRadius(u, kind) {
   if (kind === 'move') return u.move;
   if (kind === 'advance') return u.move + 6;
@@ -774,6 +804,7 @@ export function boardSvg({ forExport = false } = {}) {
   const sel = toks.find(t => t.tk === b.sel);
   if (sel && !forExport) {
     const kinds = Object.keys(b.rings).filter(k => b.rings[k]);
+    const start = turnStart(sel);
     for (const k of kinds) {
       if (k === 'see') { parts.push(seeSvg(sel)); continue; }
       if (k === 'detect') {
@@ -783,7 +814,14 @@ export function boardSvg({ forExport = false } = {}) {
         continue;
       }
       const R = ringRadius(sel.u, k);
-      parts.push(`<g opacity="0.16" data-ring="${k}">${sel.models.map(m => `<circle cx="${f2(sel.x + m.dx)}" cy="${f2(sel.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
+      // movement rings (Move, Advance, Charge) are measured from where the unit started this turn:
+      // its position at the end of the previous step, so they stay put while the unit is moved
+      const o = MOVE_RINGS.has(k) && start ? start : { x: sel.x, y: sel.y, models: sel.models };
+      parts.push(`<g opacity="0.16" data-ring="${k}" data-from="${o === start ? 'start' : 'here'}">${o.models.map(m => `<circle cx="${f2(o.x + m.dx)}" cy="${f2(o.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
+    }
+    // where it started this turn: a dashed outline, once it has been moved away from there
+    if (start && kinds.some(k => MOVE_RINGS.has(k)) && Math.hypot(start.x - sel.x, start.y - sel.y) > 0.05) {
+      parts.push(`<g data-start="${sel.tk}" transform="translate(${f2(start.x)},${f2(start.y)})" opacity="0.8" pointer-events="none">${start.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'none', C[sel.side], 0.14, m.rot)).join('').replaceAll('stroke-width="0.14"', 'stroke-width="0.14" stroke-dasharray="0.45 0.3"')}</g>`);
     }
   }
   if (!forExport) parts.push(ghostSvg());
@@ -987,6 +1025,9 @@ export function boardView() {
   const ms = missionsFor(dispOf('A'), dispOf('B'));
   const dep = l ? DEPLOYMENTS[l.deployment] : null;
   const p = plan();
+  const locked = setupLocked();
+  // the mission set-up (dispositions, layout, zones) only on the Deploy step: later turns are about moving units
+  const onDeploy = curIndex() === 0;
   const dispSel = (side) => `<select class="sel" data-input="board-disp" data-side="${side}" aria-label="Force Disposition of army ${side}">
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
@@ -1026,22 +1067,33 @@ export function boardView() {
     <section class="section" id="board-panel">${selectionPanel()}</section>
     <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
-    <section class="section"><div class="card">
+    ${onDeploy ? '' : `<section class="section"><div class="row" style="gap:6px" id="board-setup-turn">
+      <span class="tiny muted grow">Dispositions, layout and zones are set on the Deploy step.</span>
+      <button class="btn ghost" data-action="board-share">⇪ Share image</button>
+      <button class="btn ghost" data-action="share-link" data-from="board" id="share-board">🔗 Share link</button></div>
+      ${ctx.shareLinkHtml?.('board') ?? ''}</section>`}
+    ${!onDeploy ? '' : `<section class="section"><div class="card" id="board-setup">
+      ${locked ? `<div class="lockbox" id="board-setup-lock"><span class="grow">🔒 Mission set-up locked: a game is on the tracker (round ${ctx.gameRound?.() ?? '?'}). Changing it now changes both primaries and the map under that game.</span>
+        <button class="btn ghost" data-action="board-setup-unlock" id="board-setup-unlock">Change anyway</button></div>` : ''}
+      <fieldset class="plain" ${locked ? 'disabled' : ''}>
       <div class="row" style="gap:8px">
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
+      ${['A', 'B'].filter(dispOverridden).map(X => `<div class="warnbox" id="board-disp-override-${X}" style="display:flex;gap:8px;align-items:center"><span class="grow"><b>${X}</b> is set to <b>${esc(dispositionName(dispOf(X)))}</b> here, but ${X}'s list says <b>${esc(dispositionName(listDisp(X)))}</b>. The missions and layouts follow the one set here.</span>
+        <button class="btn" data-action="board-disp-list" data-side="${X}">Use the list's</button></div>`).join('')}
       <div class="tiny muted" id="board-layout-source" style="margin-top:8px">Layouts: ${esc(LAYOUTS_SOURCE.version)} (${esc(LAYOUTS_SOURCE.date)}; ${esc(LAYOUTS_SOURCE.note)}). Checked ${esc(longDate(LAYOUTS_SOURCE.checked))}: ${esc(LAYOUTS_SOURCE.sample)}.</div>
       <div class="row" style="margin-top:6px">${ctx.chip('board-measure', !!b.measure, '📏 Table set-up measurements', 'id="board-measure-chip"')}</div>
       <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
       <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
+      </fieldset>
       <div class="row" style="margin-top:8px;gap:6px">
-        <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
+        <button class="btn ghost grow" data-action="board-swap-zones" ${locked ? 'disabled' : ''}>⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
         <button class="btn ghost grow" data-action="share-link" data-from="board" id="share-board">🔗 Share link</button>
       </div>
       ${ctx.shareLinkHtml?.('board') ?? ''}
-    </div></section>
+    </div></section>`}
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-arrive-bar">${arriveBar()}</div>
@@ -1521,16 +1573,40 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-open-setup': {
+      // from the Mission tab's set-up checklist: the Board, on the Deploy step (where the set-up is)
+      const p = plan();
+      if (p) p.cur = 0;
+      b.sel = b.sel2 = null;
+      st.view = 'board';
+      st.sheet = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-setup-unlock':
+      if (!window.confirm('A game is on the tracker. Change the mission set-up anyway? The primaries, the deployment map and the board plans follow the new set-up; the scores on the tracker stay.')) return null;
+      b.unlock = true;
+      console.log('[board] mission set-up unlocked during a game');
+      return 'render';
+    case 'board-disp-list':
+      if (setupLocked()) return 'render';
+      console.log(`[board] ${el.dataset.side}: disposition back to the list's (${listDisp(el.dataset.side)})`);
+      delete b.settings[`disp${el.dataset.side}`];
+      b.sel = b.sel2 = null;
+      persistBoard();
+      return 'render';
     case 'board-measure':
       b.measure = !b.measure;
       persistBoard();
       return 'render';
     case 'board-variant':
+      if (setupLocked()) { console.log('[board] layout change ignored: set-up locked during a game'); return 'render'; }
       b.settings.variant = Number(el.dataset.value);
       b.sel = b.sel2 = null;
       persistBoard();
       return 'render';
     case 'board-swap-zones':
+      if (setupLocked()) return 'render';
       b.settings.swapZones = !b.settings.swapZones;
       persistBoard();
       return 'render';
@@ -1962,6 +2038,7 @@ export function boardChange(el) {
     return true;
   }
   if (el.dataset.input === 'board-disp') {
+    if (setupLocked()) { console.log('[board] disposition change ignored: set-up locked during a game'); return 'render'; }
     b.settings[`disp${el.dataset.side}`] = el.value;
     b.sel = b.sel2 = null;
     persistBoard();
@@ -2086,6 +2163,28 @@ export function boardSetup({ variant = null, listDispositions = false } = {}) {
   if (listDispositions) { delete b.settings.dispA; delete b.settings.dispB; }
   b.sel = b.sel2 = null;
   persistBoard();
+}
+/** A different list was loaded into `side`: its disposition comes from the new list again. */
+export function boardListChanged(side) {
+  const b = boardState();
+  if (b.settings[`disp${side}`] == null) return;
+  console.log(`[board] ${side}: new list, the disposition picked on the Board (${b.settings[`disp${side}`]}) is dropped`);
+  delete b.settings[`disp${side}`];
+  persistBoard();
+}
+/** For the Mission tab's set-up checklist. */
+export function boardSetupInfo() {
+  const st = ctx.state, b = boardState();
+  const deploy = curSteps()[0]?.tokens ?? {};
+  const keys = new Set(Object.keys(deploy));
+  const count = (X) => (st.armies[X]?.units ?? []).filter(u => keys.has(`${X}:${u.key}`)).length;
+  return {
+    listDisp: { A: listDisp('A'), B: listDisp('B') },
+    overridden: { A: dispOverridden('A'), B: dispOverridden('B') },
+    swapped: !!b.settings.swapZones, locked: setupLocked(),
+    placed: { A: count('A'), B: count('B') },
+    total: { A: st.armies.A?.units.length ?? 0, B: st.armies.B?.units.length ?? 0 },
+  };
 }
 /** Layout ids on which a plan holds units of my list (signature `sig` on side X). */
 export function plannedLayouts(X, sig) {

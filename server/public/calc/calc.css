@@ -522,6 +522,21 @@ details.more.card { padding: 10px 12px; }
 .tm-p { font-size: 11px; fill: var(--text-muted); }
 .tm-win { font-size: 13px; font-weight: 700; fill: var(--text-primary); font-family: system-ui, sans-serif; }
 .tm-sub { font-size: 10px; fill: var(--text-muted); font-family: system-ui, sans-serif; }
+
+/* Mission set-up checklist (Mission > Plan / Play) and the set-up lock on the Board */
+.setup > summary { font-weight: 600; }
+.setup-list { list-style: none; margin: 6px 0; padding: 0; }
+.setup-row { display: flex; gap: 8px; align-items: center; padding: 2px 0; border-top: 1px solid var(--line); }
+.setup-row:first-child { border-top: 0; }
+.setup-ic { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--surface-3); color: var(--text-muted); }
+.setup-row.ok .setup-ic { background: var(--series-1-wash); color: var(--accent); }
+.setup-row.warn .setup-ic { background: transparent; color: var(--warn-ink); font-size: 15px; }
+.setup-row.warn .small { color: var(--warn-ink); }
+fieldset.plain { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.plain:disabled { opacity: .55; }
+.lockbox { display: flex; gap: 8px; align-items: center; border-left: 3px solid var(--accent); padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 13px; margin-bottom: 8px; }
+#board-setup .btn:disabled { opacity: .55; cursor: default; }
+.setup-go { flex: none; min-height: 36px; padding: 0 12px; }
 .okbox { border-left: 3px solid var(--accent); padding: 8px 10px; background: var(--surface-2); border-radius: 6px; }
 
 /* a sheet is open: scrolls inside the sheet / the grid stop at their edges instead of moving the page behind

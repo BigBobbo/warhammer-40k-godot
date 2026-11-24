@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.124.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: a set-up checklist, and the mission no longer changes under a running game",
+      "changes": [
+        "Mission → Plan and Play: a Set-up checklist in the order to do it (armies, Force Dispositions, primaries, layout, deployment, secondaries, first turn), with a button to where each is changed",
+        "Board: while a game is on the tracker, dispositions, layout and zones are locked (🔒). Change anyway unlocks them if the set-up was wrong",
+        "Board: the dispositions / layout / zones card shows only on the Deploy step; later turns keep just Share image. The checklist's Board buttons open the Deploy step",
+        "Board: the Move, Move + Advance and Charge rings stay where the unit ended the previous turn while you move it (its start is outlined, dashed); weapon ranges still follow the unit",
+        "Board: a disposition that is not the one the list names is flagged, with Use the list's to put it back",
+        "Event preparation table: planning another matchup no longer leaves army B on the wrong disposition — it is flagged on the Board, a new B list drops it, and it is refused during a game"
+      ]
+    },
+    {
       "version": "1.123.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: see what a unit can see, and set your vehicles' hull sizes",
