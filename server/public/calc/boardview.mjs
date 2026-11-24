@@ -542,6 +542,15 @@ function detectionOf(t) {
   return { range: Number.isFinite(d) ? d : 0, lone, hide };
 }
 
+const MOVE_RINGS = new Set(['move', 'advance', 'charge']);
+/** Where a unit on the board started this turn: its position on the previous step (null on Deploy, or if it was not on the board). */
+function turnStart(t) {
+  const i = curIndex();
+  if (i < 1) return null;
+  const pos = curSteps()[i - 1]?.tokens?.[t.tk];
+  if (!pos) return null;
+  return { x: pos.x, y: pos.y, models: tokenModels(t.u, pos) };
+}
 function ringRadius(u, kind) {
   if (kind === 'move') return u.move;
   if (kind === 'advance') return u.move + 6;
@@ -589,6 +598,7 @@ export function boardSvg({ forExport = false } = {}) {
   const sel = toks.find(t => t.tk === b.sel);
   if (sel && !forExport) {
     const kinds = Object.keys(b.rings).filter(k => b.rings[k]);
+    const start = turnStart(sel);
     for (const k of kinds) {
       if (k === 'detect') {
         // who can see it: only models inside this line (dashed, in the enemy's colour)
@@ -597,7 +607,14 @@ export function boardSvg({ forExport = false } = {}) {
         continue;
       }
       const R = ringRadius(sel.u, k);
-      parts.push(`<g opacity="0.16" data-ring="${k}">${sel.models.map(m => `<circle cx="${f2(sel.x + m.dx)}" cy="${f2(sel.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
+      // movement rings (Move, Advance, Charge) are measured from where the unit started this turn:
+      // its position at the end of the previous step, so they stay put while the unit is moved
+      const o = MOVE_RINGS.has(k) && start ? start : { x: sel.x, y: sel.y, models: sel.models };
+      parts.push(`<g opacity="0.16" data-ring="${k}" data-from="${o === start ? 'start' : 'here'}">${o.models.map(m => `<circle cx="${f2(o.x + m.dx)}" cy="${f2(o.y + m.dy)}" r="${f2(R + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))}" fill="${C[sel.side]}"/>`).join('')}</g>`);
+    }
+    // where it started this turn: a dashed outline, once it has been moved away from there
+    if (start && kinds.some(k => MOVE_RINGS.has(k)) && Math.hypot(start.x - sel.x, start.y - sel.y) > 0.05) {
+      parts.push(`<g data-start="${sel.tk}" transform="translate(${f2(start.x)},${f2(start.y)})" opacity="0.8" pointer-events="none">${start.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'none', C[sel.side], 0.14, m.rot)).join('').replaceAll('stroke-width="0.14"', 'stroke-width="0.14" stroke-dasharray="0.45 0.3"')}</g>`);
     }
   }
   if (!forExport) parts.push(ghostSvg());

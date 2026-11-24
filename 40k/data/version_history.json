@@ -9,6 +9,7 @@
         "Mission → Plan and Play: a Set-up checklist in the order to do it (armies, Force Dispositions, primaries, layout, deployment, secondaries, first turn), with a button to where each is changed",
         "Board: while a game is on the tracker, dispositions, layout and zones are locked (🔒). Change anyway unlocks them if the set-up was wrong",
         "Board: the dispositions / layout / zones card shows only on the Deploy step; later turns keep just Share image. The checklist's Board buttons open the Deploy step",
+        "Board: the Move, Move + Advance and Charge rings stay where the unit ended the previous turn while you move it (its start is outlined, dashed); weapon ranges still follow the unit",
         "Board: a disposition that is not the one the list names is flagged, with Use the list's to put it back",
         "Event preparation table: planning another matchup no longer leaves army B on the wrong disposition — it is flagged on the Board, a new B list drops it, and it is refused during a game"
       ]

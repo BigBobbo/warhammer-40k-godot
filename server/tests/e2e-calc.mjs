@@ -2953,6 +2953,61 @@ Aggressor Squad (95 points)
     await uctx.close();
   }
 
+  // --- movement rings stay where the unit started the turn (1.111.0): drag it, the Move ring does not follow
+  {
+    const rctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const rp = await rctx.newPage();
+    rp.on('pageerror', e => consoleErrors.push(`rings: ${e}`));
+    rp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`rings: ${m.text()}`); });
+    const rScreen = (x, y) => rp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const rTok = (tk) => rp.evaluate((k) => window.__calc.board().tokens.find(t => t.tk === k), tk);
+    // the centre of the first circle of a ring (the first model's), in board inches
+    const ringAt = (k) => rp.evaluate((kk) => { const c = document.querySelector(`#board-svg [data-ring="${kk}"] circle`); const g = c?.parentNode; return c ? { x: +c.getAttribute('cx'), y: +c.getAttribute('cy'), from: g.dataset.from } : null; }, k);
+    const drag = async (from, dy) => {
+      const p0 = await rScreen(from.x, from.y), p1 = await rScreen(from.x, from.y + dy);
+      await rp.mouse.move(p0.x, p0.y); await rp.mouse.down();
+      for (let i = 1; i <= 6; i++) await rp.mouse.move(p0.x, p0.y + (p1.y - p0.y) * i / 6);
+      await rp.mouse.up();
+    };
+    await rp.goto(`${BASE}/calc/`); await rp.waitForSelector('textarea[data-side="A"]');
+    await rp.fill('textarea[data-side="A"]', SW_LIST); await rp.tap('button[data-action="parse"][data-side="A"]');
+    await rp.fill('textarea[data-side="B"]', ORK_LIST); await rp.tap('button[data-action="parse"][data-side="B"]');
+    await rp.tap('button[data-action="view"][data-value="board"]');
+    await rp.waitForSelector('#board-svg');
+    await rp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const gh = (await rp.evaluate(() => window.__calc.board().tokens))[0];
+    // Turn 1: select it, show its Move ring
+    await rp.tap('button[data-action="board-step-add"]');
+    await rp.locator('#board-host').scrollIntoViewIfNeeded();
+    // (placing a unit selects it; a tap on a selected unit clears the selection)
+    if ((await rp.evaluate(() => window.__calc.board().sel)) !== gh.tk) { const s0 = await rScreen(gh.x, gh.y); await rp.mouse.click(s0.x, s0.y); }
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="move"]').tap();
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="r24"]').tap();
+    const m0 = await ringAt('move');
+    // drag it 5" forward, and again 3" (two drops in the same turn)
+    await drag(gh, 5);
+    const g1 = await rTok(gh.tk);
+    await drag(g1, 3);
+    const g2 = await rTok(gh.tk), m2 = await ringAt('move'), r2 = await ringAt('r24');
+    check('dragging the unit in Turn 1 moves it (~8" in two drags)', Math.abs(g2.y - gh.y - 8) < 0.6, `${gh.y} -> ${g2.y}`);
+    check('the Move ring stays where the unit ended the Deploy step (it does not follow the drop)', m0 && m2 && m2.from === 'start' && Math.abs(m2.x - m0.x) < 0.01 && Math.abs(m2.y - m0.y) < 0.01, JSON.stringify({ m0, m2 }));
+    check('a weapon range ring follows the unit (shooting is after the move)', r2 && r2.from === 'here' && Math.abs(r2.y - m2.y - (g2.y - gh.y)) < 0.05, JSON.stringify({ r2, m2 }));
+    check('the start of the turn is outlined (dashed) once the unit has moved', (await rp.locator(`#board-svg [data-start="${gh.tk}"]`).count()) === 1);
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="r24"]').tap();
+    await rp.locator('#board-host').scrollIntoViewIfNeeded();
+    await rp.screenshot({ path: join(SHOTS, 'calc_101_move_ring_pinned.png') });
+    // Turn 2: the Move ring starts from where it ended Turn 1
+    await rp.tap('button[data-action="board-step-add"]');
+    const m3 = await ringAt('move');
+    check('Turn 2: the Move ring is measured from where the unit ended Turn 1', m3 && Math.abs(m3.y - m0.y - (g2.y - gh.y)) < 0.05 && (await rp.locator(`#board-svg [data-start="${gh.tk}"]`).count()) === 0, JSON.stringify({ m0, m3 }));
+    // Deploy: no previous turn, the ring is around the unit
+    await rp.tap('button[data-action="board-step"][data-i="0"]');
+    { const s1 = await rScreen(gh.x, gh.y); await rp.mouse.click(s1.x, s1.y); } // a new step clears the selection
+    const md = await ringAt('move');
+    check('Deploy step: the Move ring is around the unit where it stands', md && md.from === 'here' && Math.abs(md.y - m0.y) < 0.01, JSON.stringify(md));
+    await rctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
