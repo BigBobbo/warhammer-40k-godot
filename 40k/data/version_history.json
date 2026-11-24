@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.121.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what your list is missing",
+      "changes": [
+        "Armies → 🔍 What is this list missing?: your whole list against eight fixed targets (hordes, elite and heavy infantry, transport, monster, battle tank, Knight)",
+        "For each: how many a turn removes with shooting and with your best three units in combat, which units do it best, and Gap / Thin / Covered",
+        "Targets your shooting barely touches are marked in amber: a melee-only answer"
+      ]
+    },
+    {
       "version": "1.120.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: plan Scout moves before the first turn",

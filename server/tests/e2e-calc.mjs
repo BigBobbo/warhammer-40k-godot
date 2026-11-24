@@ -3474,6 +3474,27 @@ Aggressor Squad (95 points)
     await sctx.close();
   }
 
+  // --- 1.121: list gap-finder — the whole list against eight fixed reference targets
+  {
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`gaps: ${e}`));
+    gp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`gaps: ${m.text()}`); });
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.tap('#gaps-A');
+    await gp.waitForSelector('#gaps-host');
+    await gp.waitForFunction(() => /matchups · 1,000 rolls each/.test(document.getElementById('gaps-progress')?.textContent ?? ''), null, { timeout: 180000 });
+    const rows = await gp.$$eval('.gap-row', rs => rs.map(r => ({ id: r.dataset.gap, level: r.dataset.level, txt: r.textContent.replace(/\s+/g, ' ').trim() })));
+    const num = (r) => Number(r.txt.match(/A turn removes ([\d.]+) of these/)?.[1]);
+    const horde = rows.find(r => r.id === 'horde'), knight = rows.find(r => r.id === 'knight');
+    check('🔍 What is this list missing: eight reference targets, each with what a turn removes and the best units', rows.length === 8 && rows.every(r => /A turn removes [\d.]+ of these: shooting [\d.]+ · fight [\d.]+/.test(r.txt)) && /Best: /.test(horde.txt), JSON.stringify(rows.map(r => `${r.id}:${r.level}:${num(r)}`)));
+    check('a horde of light infantry comes off far more easily than a Knight (sanity of the numbers)', num(horde) > 1.5 * num(knight) && num(knight) > 0, `${num(horde)} vs ${num(knight)}`);
+    check('the weakest matchup is flagged', rows.filter(r => / · weakest/.test(r.txt)).length >= 1, rows.map(r => r.txt.slice(0, 30)).join(' | '));
+    await gp.screenshot({ path: join(SHOTS, 'calc_118_list_gaps.png') });
+    await gctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

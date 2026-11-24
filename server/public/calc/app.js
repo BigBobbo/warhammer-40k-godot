@@ -20,6 +20,7 @@ import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, _boardDebug } from './boardview.mjs';
 import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
+import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
@@ -851,6 +852,7 @@ function armiesView() {
         ${army.units.map(u => `<div class="ability"><b>${esc(u.name)}</b> <span class="muted">· ${u.models} models</span></div>`).join('')}
         ${army.warnings.map(w => `<div class="tiny muted">• ${esc(w)}</div>`).join('')}
       </details>` : ''}
+      ${army ? `<button class="btn ghost block" style="margin-top:6px" data-action="open-gaps" data-side="${side}" id="gaps-${side}">🔍 What is this list missing?</button>` : ''}
     </div></section>`;
   };
   const ready = state.armies.A && state.armies.B;
@@ -1315,6 +1317,7 @@ function renderSheet() {
     : state.sheet === 'library' ? librarySheet()
     : state.sheet === 'threats' ? threatsSheet()
     : state.sheet === 'saved' ? savedSheet()
+    : state.sheet === 'gaps' ? gapsSheet()
     : state.sheet === 'attach' ? attachSheet()
       : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
@@ -1328,7 +1331,10 @@ function renderSheet() {
 function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const profile = defenderProfile(defCu, defArmyObj);
   const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {});
-  const tinfo = { cu: defCu, profile, summary: defenderSummary(profile), defender };
+  return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
+}
+/** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
+function scenarioVs(atkArmyObj, atkCu, tinfo, phase) {
   const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
   // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
   const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
@@ -1337,7 +1343,7 @@ function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const attacker = buildAttacker(atkCu, rows, {}, rules, on, phase);
   if (problem && decisions(problem).length) attacker.choice = { groups: problem.groups, rows: problem.rows, shooting: problem.shooting, target: problem.target };
   else if (!attacker.weapons.length) return null;
-  return { phase, attackers: [attacker], defender, seed: 99 };
+  return { phase, attackers: [attacker], defender: tinfo.defender, seed: 99 };
 }
 // Unit-vs-unit odds for the Mission tab's board plans: P(target destroyed)
 // when one unit shoots / fights another, default rules, a quick batch run.
@@ -1394,6 +1400,71 @@ function startGrid() {
     if (state.sheet === 'grid') updateGrid();
   };
   gridWorker.postMessage({ id, batch, trials: 2000 });
+}
+
+// ---- List gap-finder (gapfinder.mjs): the whole list against eight fixed reference targets
+let gapWorker = null, gapFrame = 0;
+function runGaps(side) {
+  const army = state.armies[side];
+  if (!army) return;
+  const sig = `${side}|${listsSignature()}`;
+  if (state.gaps?.sig === sig) return;
+  gapWorker?.terminate();
+  const batch = [];
+  for (const t of GAP_TARGETS) for (const phase of ['shooting', 'fight']) {
+    const profile = gapProfile(t, phase);
+    const tinfo = { cu: { key: `gap:${t.id}`, name: t.name, keywords: profile.keywords, members: [] }, profile, summary: defenderSummary(profile), defender: buildDefender(profile, new Set(), phase, {}, {}) };
+    for (const cu of army.units) {
+      const sc = scenarioVs(army, cu, tinfo, phase);
+      if (sc) batch.push({ key: `${cu.key}|${t.id}|${phase}`, scenario: sc });
+    }
+  }
+  state.gaps = { sig, side, cells: {}, total: batch.length, running: true, done: false };
+  const id = Date.now();
+  gapWorker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+  gapWorker.onmessage = (ev) => {
+    const msg = ev.data, g = state.gaps;
+    if (msg.id !== id || !g || g.sig !== sig) return;
+    if (msg.done) { g.running = false; g.done = true; console.log(`[calc] gap-finder done: army ${side}, ${g.total} matchups`); }
+    else g.cells[msg.key] = msg.result ?? { error: msg.error };
+    if (state.sheet === 'gaps' && !gapFrame) gapFrame = requestAnimationFrame(() => { gapFrame = 0; const h = document.getElementById('gaps-host'); if (h) h.innerHTML = gapsBody(); });
+  };
+  gapWorker.postMessage({ id, batch, trials: 1000 });
+  console.log(`[calc] gap-finder: army ${side}, ${batch.length} matchups`);
+}
+function gapsBody() {
+  const g = state.gaps, army = g && state.armies[g.side];
+  if (!army) return '';
+  const name = (k) => army.units.find(u => u.key === k)?.name ?? k;
+  const cells = Object.entries(g.cells).filter(([, r]) => r && !r.error).map(([k, r]) => {
+    const [unit, target, phase] = k.split('|');
+    return { unit, name: name(unit), target, phase, frac: r.meanWounds / Math.max(1, r.totalWounds) };
+  });
+  const sum = gapSummary(cells);
+  const n = (v) => (v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  const badge = { gap: ['Gap', '#c0392b'], thin: ['Thin', '#b7791f'], ok: ['Covered', '#2f855a'] };
+  const short = (s) => (s.length > 26 ? `${s.slice(0, 25)}…` : s);
+  return `<div class="tiny muted" id="gaps-progress">${g.done ? `${g.total} matchups · 1,000 rolls each` : `Calculating ${Object.keys(g.cells).length}/${g.total}…`}</div>
+    <table class="gap-table" id="gaps-table" style="width:100%;margin-top:6px;border-collapse:collapse;font-size:14px">
+      <thead><tr class="tiny muted"><th style="text-align:left">Per turn</th><th>Shoot</th><th>Fight</th><th>Total</th><th></th></tr></thead>
+      <tbody>${sum.map((s) => { const [lab, col] = badge[s.level]; return `<tr data-gap-row="${s.id}" style="border-top:1px solid var(--line)"><td style="padding:5px 0">${esc(s.name)}${s.weakest && g.done ? ' <span class="tiny" style="color:#c0392b">weakest</span>' : ''}</td><td style="text-align:center${s.meleeOnly ? ';color:#b7791f;font-weight:700' : ''}" ${s.meleeOnly ? 'title="Your shooting removes under half of one: mostly a melee answer"' : ''}>${n(s.shoot)}</td><td style="text-align:center">${n(s.fight)}</td><td style="text-align:center"><b>${n(s.total)}</b></td><td style="text-align:right;color:${col};font-weight:700" class="tiny">${lab}</td></tr>`; }).join('')}</tbody></table>
+    <div class="lab tiny muted" style="margin-top:10px">Each target</div>
+    ${sum.map((s, i) => {
+      const t = GAP_TARGETS[i], [lab, col] = badge[s.level];
+      return `<div class="card gap-row" data-gap="${s.id}" data-level="${s.level}" style="margin-top:6px;padding:8px;border-left:4px solid ${col}">
+        <div class="row" style="gap:6px;align-items:baseline"><b class="grow">${esc(s.name)}${s.weakest && g.done ? ' <span class="tiny" style="color:#c0392b">· weakest</span>' : ''}</b><span class="tiny" style="color:${col};font-weight:700">${lab}</span></div>
+        <div class="tiny muted">${esc(gapStats(t))} · like ${esc(t.like)}</div>
+        <div class="small" style="margin-top:2px">A turn removes <b>${n(s.total)}</b> of these: shooting ${n(s.shoot)} · fight ${n(s.fight)}</div>
+        ${s.meleeOnly && s.total >= 1 ? '<div class="tiny" style="color:#b7791f">Mostly in melee: your shooting removes under half of one — you have to get there first.</div>' : ''}
+        ${s.best.length ? `<div class="tiny" style="margin-top:2px">Best: ${s.best.map(b => `${esc(short(b.name))} ${Math.round(b.frac * 100)}% (${b.phase === 'fight' ? 'fight' : 'shoot'})`).join(' · ')}</div>` : '<div class="tiny bad">Nothing in the list hurts it.</div>'}
+      </div>`;
+    }).join('')}`;
+}
+function gapsSheet() {
+  const g = state.gaps, army = g && state.armies[g.side];
+  return `<div class="row"><h3 class="grow">What is ${esc(army ? listLabel(g.side) : 'this list')} missing?</h3><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="tiny muted">The whole list against eight reference targets (stat lines from 11th edition datasheets, no special rules), as if every unit could reach it: how many of each it removes in one shooting phase plus your best three units in one fight phase, on average. Each unit counts at most one target. <b>Gap</b>: not even one a turn; <b>Thin</b>: under two.</div>
+    <div id="gaps-host">${gapsBody()}</div>`;
 }
 
 function gridValue(c, row) {
@@ -2391,6 +2462,10 @@ app.addEventListener('click', (ev) => {
       history.replaceState(null, '', location.pathname + location.search);
       location.reload();
       return;
+    case 'open-gaps':
+      state.sheet = 'gaps';
+      runGaps(el.dataset.side === 'B' ? 'B' : 'A');
+      return renderSheet();
     case 'open-saved':
       state.sheet = 'saved';
       state.savedNote = null;
