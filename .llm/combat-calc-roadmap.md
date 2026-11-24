@@ -446,3 +446,16 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   the hand on Play. Text is the app's summary (no printed card text in the app or 40kdc).
 - Pre-existing, not touched: `npm test` 2 overlay-parity failures and e2e-builder's
   Enhancement-select timeout fail the same before these changes.
+
+## Attachments during army set-up (user: "lists don't add characters to units", 24 Nov 2026) — v1.113.0
+
+- `adapter.suggestAttachments`: unattached characters to a unit on their Leader list with the slot
+  free; least choice first, Leaders to units without a character, Supports where a Leader is, then
+  the unit with the most points; keeps what is attached. On the two GW app lists that state their
+  attachments it suggests exactly those (Space Wolves 4/4, Orks 1/1).
+- Armies tab: a list that states none opens the "Attached characters" fold with a note and
+  ✨ Suggest. Hand-set attachments are remembered per list text (`w40k_calc_attach_v1`, in
+  backups): the same list loaded again (paste, library, game store, event round) gets them back.
+- e2e: the event section clears that memory first (the attachments set earlier in the run would
+  otherwise come back, with the board plans made with them). Seen once: "opening Play does not run
+  the forecast again" failed (a light run, 1,000 trials); the rerun passed 444/444 — timing.

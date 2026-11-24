@@ -7,7 +7,7 @@
 // The pure functions take a Storage-like object (getItem / setItem / removeItem)
 // so they are unit-tested without a browser (tests/calc-backup.test.mjs).
 
-export const BACKUP_KEYS = ['w40k_calc_v1', 'w40k_calc_lists_v1', 'w40k_calc_saved_v1', 'w40k_calc_board_v1', 'w40k_calc_mission_v1', 'w40k_calc_event_v1', 'w40k_calc_games_v1'];
+export const BACKUP_KEYS = ['w40k_calc_v1', 'w40k_calc_lists_v1', 'w40k_calc_saved_v1', 'w40k_calc_board_v1', 'w40k_calc_mission_v1', 'w40k_calc_event_v1', 'w40k_calc_games_v1', 'w40k_calc_attach_v1'];
 export const UNDO_KEY = 'w40k_calc_before_restore_v1';
 export const LAST_KEY = 'w40k_calc_last_backup_v1';
 const FORMAT = 'combat-calc-backup';

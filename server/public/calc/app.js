@@ -6,7 +6,7 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
-  phaseSheetInput, gameArmyToText, armyToGame,
+  phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments,
 } from './adapter.mjs';
 import { storeName } from './gamelists.mjs';
 import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
@@ -246,11 +246,34 @@ function parseArmy(side) {
     state.armies[side] = importArmy(text);
     (state.loaded ??= {})[side] = text;   // the list this army was read from (the box can be edited before the next Load)
     if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
+    else {
+      // attachments chosen for this list before (the list itself may not say them)
+      const rem = attachMemory()[listKey(text)];
+      if (rem && Object.keys(rem).length) {
+        setAttachments(state.armies[side], rem);
+        state.attach[side] = state.armies[side].attachments;
+        state.armies[side].attachRemembered = true;
+        console.log(`[calc] army ${side}: attachments remembered for this list (${Object.keys(rem).length})`);
+      }
+    }
     console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units`);
   } catch (e) {
     state.errors[side] = e.message ?? String(e);
     console.warn(`[calc] army ${side} parse failed`, e);
   }
+}
+
+// Attachments set by hand, remembered per list (the same list loaded again — pasted, from the library, from the
+// game, at an event round — gets them back): { [hash of the list text]: { [characterIndex]: bodyguardIndex } }.
+const ATTACH_KEY = 'w40k_calc_attach_v1';
+const listKey = (text) => hashStr(String(text ?? '').replace(/\s+/g, ' ').trim());
+function attachMemory() { try { return JSON.parse(localStorage.getItem(ATTACH_KEY) ?? '{}') ?? {}; } catch { return {}; } }
+function rememberAttach(text, att) {
+  const m = attachMemory(), k = listKey(text);
+  if (att) m[k] = att; else delete m[k];
+  const keys = Object.keys(m);
+  if (keys.length > 200) for (const old of keys.slice(0, keys.length - 200)) delete m[old];
+  try { localStorage.setItem(ATTACH_KEY, JSON.stringify(m)); } catch { /* best effort */ }
 }
 
 // Attach / detach a character (roster index) to a bodyguard (roster index, null = detach)
@@ -271,6 +294,7 @@ function applyAttachments(side, att, { edited = true } = {}) {
   const before = { ...(army.attachments ?? {}) };
   setAttachments(army, att);
   state.attach[side] = edited ? army.attachments : null;
+  rememberAttach(state.loaded?.[side] ?? state.texts[side], edited ? army.attachments : null);
   const remap = new Map();
   for (const [c, b] of Object.entries(army.attachments)) if (before[c] !== b && b != null) remap.set(`u${c}`, `u${b}`);
   const valid = new Set(army.units.map(u => u.key));
@@ -674,7 +698,15 @@ function attachOverview(side, army) {
   const chars = army.roster.units.map((ru, i) => i).filter(i => joinCandidates({ ...army, attachments: {} }, i).length);
   if (!chars.length) return '';
   const edited = state.attach[side] != null;
-  return `<details class="more" ${edited ? 'open' : ''}><summary>Attached characters · ${Object.keys(army.attachments ?? {}).length} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+  const n = Object.keys(army.attachments ?? {}).length;
+  const listSays = Object.keys(army.defaultAttachments ?? {}).length > 0;
+  // a list that does not say who leads which unit: open, with the question asked
+  const ask = !n && !listSays;
+  const canSuggest = Object.keys(suggestAttachments(army)).length > n;
+  return `<details class="more" id="attach-${side}" ${edited || ask ? 'open' : ''}><summary>${ask ? '⚠ ' : ''}Attached characters · ${n} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+    ${ask ? `<div class="warnbox" id="attach-ask-${side}" style="margin-top:6px">This list does not say which characters lead which units. Pick them below, or let the app suggest (you can change any of them).</div>` : ''}
+    ${canSuggest ? `<button class="btn ${ask ? 'primary' : 'ghost'}" style="margin-top:6px" data-action="attach-suggest" data-side="${side}" id="attach-suggest-${side}">✨ Suggest${n ? ' for the others' : ''}</button>` : ''}
+    ${edited ? `<div class="tiny muted" style="margin-top:4px" id="attach-remembered-${side}">Remembered for this list: loading it again (pasted, from the library, the game or an event round) keeps these.</div>` : ''}
     ${chars.map(ci => {
       const cur = army.attachments?.[ci];
       const opts = joinCandidates({ ...army, attachments: { ...army.attachments, [ci]: undefined } }, ci);
@@ -684,7 +716,7 @@ function attachOverview(side, army) {
           ${opts.map(o => `<option value="${o.index}" ${o.index === cur ? 'selected' : ''}>${esc(o.name)}${o.eligible ? '' : ' (not on Leader list)'}</option>`).join('')}
         </select></div>`;
     }).join('')}
-    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">Reset to the list's attachments</button>` : ''}
+    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">${listSays ? 'Reset to the list’s attachments' : 'Clear them (the list says none)'}</button>` : ''}
   </details>`;
 }
 
@@ -1987,6 +2019,15 @@ app.addEventListener('click', (ev) => {
       state.armies[el.dataset.side] = null;
       for (const k of Object.keys(state.setups)) if (k.startsWith(el.dataset.side + ':') || k.startsWith(other(el.dataset.side) + ':')) state.setups[k] = { targetKey: null, attackers: [], ruleOverrides: {}, defManual: {} };
       return changed();
+    case 'attach-suggest': {
+      const side = el.dataset.side;
+      const army = state.armies[side];
+      if (!army) return;
+      const sug = suggestAttachments(army);
+      console.log(`[calc] army ${side}: suggested attachments ${JSON.stringify(sug)}`);
+      applyAttachments(side, sug);
+      return changed();
+    }
     case 'reset-attach': {
       const side = el.dataset.side;
       const army = state.armies[side];

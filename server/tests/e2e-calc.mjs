@@ -1147,6 +1147,9 @@ try {
   // --- event: opponents' lists, layout letter per round, one tap to start a round, the matchup brief, my deployment reused
   {
     await page.tap('button[data-action="view"][data-value="armies"]');
+    // the list as it comes (1.113 remembers attachments per list: the Captain on Bike set on the Grey Hunters above
+    // would come back, and the board plans made with it would count as this list's planned layouts)
+    await page.evaluate(() => localStorage.removeItem('w40k_calc_attach_v1'));
     await page.fill('textarea[data-side="A"]', SW_LIST);
     await page.tap('button[data-action="parse"][data-side="A"]');
     await page.locator('#event-card > summary').tap();
@@ -2986,6 +2989,56 @@ Aggressor Squad (95 points)
     await xp.waitForSelector('.hand-row [data-cardface="behind-enemy-lines"]');
     check('a card in hand opens as a card, “When drawn” included', /When drawn/.test(await xt('.hand-row [data-cardface="behind-enemy-lines"]')));
     await xctx.close();
+  }
+
+  // --- attachments during army set-up (1.113): ask when the list says none, suggest, remember per list
+  {
+    const actx = await browser.newContext({ ...devices['Pixel 7'] });
+    const ap = await actx.newPage();
+    ap.on('pageerror', e => consoleErrors.push(`attach: ${e}`));
+    ap.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attach: ${m.text()}`); });
+    ap.on('dialog', d => d.accept());
+    const CUST = readFileSync(join(here, 'fixtures', 'nr-custodes-1995.txt'), 'utf8');
+    const at = async (sel) => (await ap.textContent(sel)).replace(/\s+/g, ' ').trim();
+    await ap.goto(`${BASE}/calc/`); await ap.waitForSelector('textarea[data-side="A"]');
+    await ap.fill('textarea[data-side="A"]', CUST); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForSelector('#attach-ask-A');
+    check('a list that does not say who leads which unit: the Attached characters fold is open and asks', (await ap.locator('#attach-A[open]').count()) === 1 && /⚠ Attached characters · 0 of 3 attached/.test(await at('#attach-A summary')) && /does not say which characters lead which units/.test(await at('#attach-ask-A')));
+    await ap.locator('#attach-A').scrollIntoViewIfNeeded();
+    await ap.screenshot({ path: join(SHOTS, 'calc_102_attach_ask.png') });
+    await ap.tap('#attach-suggest-A');
+    await ap.waitForFunction(() => /3 of 3 attached/.test(document.querySelector('#attach-A summary')?.textContent ?? ''));
+    const units = await ap.evaluate(() => window.__calc.state.armies.A.units.map(u => u.name));
+    check('✨ Suggest: every character joins a unit it may lead (9 datasheets -> 6 units)', units.length === 6 && units.some(n => /Trajann Valoris \+ Allarus Custodians/.test(n)) && units.filter(n => /Shield-Captain \+ Sentinel Guard Sodality/.test(n)).length === 2, JSON.stringify(units));
+    // change one by hand: Trajann to the 2-model Allarus unit
+    const sel = ap.locator('select[data-input="attach"]').filter({ has: ap.locator('option[selected]', { hasText: 'Allarus' }) }).first();
+    const opts = await sel.locator('option').evaluateAll(os => os.map(o => [o.value, o.textContent]));
+    const small = opts.find(([, t]) => /Allarus Custodians \(2\)/.test(t));
+    await sel.selectOption(small[0]);
+    await ap.waitForFunction(() => window.__calc.state.armies.A.units.some(u => /Trajann Valoris \+ Allarus Custodians/.test(u.name) && u.models === 3));
+    check('a choice changed by hand', true);
+    await ap.locator('#attach-A').scrollIntoViewIfNeeded();
+    await ap.screenshot({ path: join(SHOTS, 'calc_103_attach_set.png') });
+    check('it says the choice is remembered for this list', /Remembered for this list/.test(await at('#attach-remembered-A')));
+    // the same list again: clear, then from the library, and as a fresh paste
+    await ap.tap('button[data-action="open-library"][data-side="A"]');
+    await ap.fill('input[data-input="lib-name"]', 'My Custodes'); await ap.tap('button[data-action="lib-save"]');
+    await ap.tap('.sheet button[data-action="close-sheet"]');
+    await ap.tap('button[data-action="clear"][data-side="A"]');
+    await ap.tap('button[data-action="open-library"][data-side="B"]');
+    await ap.locator('.sheet .pick', { hasText: 'My Custodes' }).locator('button[data-action="lib-load"][data-side="B"]').tap();
+    await ap.waitForFunction(() => window.__calc.state.armies.B?.units.length === 6);
+    const b = await ap.evaluate(() => window.__calc.state.armies.B.units.map(u => `${u.name}:${u.models}`));
+    check('the same list loaded again (from the library, as army B) keeps the attachments set for it', b.includes('Trajann Valoris + Allarus Custodians:3') && b.filter(x => /Shield-Captain \+ Sentinel Guard Sodality/.test(x)).length === 2, JSON.stringify(b));
+    await ap.reload(); await ap.waitForSelector('#app-version-mini');
+    await ap.fill('textarea[data-side="A"]', CUST + '\n'); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForFunction(() => window.__calc.state.armies.A?.units.length === 6);
+    check('…and pasted again after a reload', true);
+    // a list that says its attachments: no question asked, the list's own kept
+    await ap.fill('textarea[data-side="A"]', SW_LIST); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForSelector('#attach-A');
+    check('a GW app list that names its attachments: no question, 4 of 4 attached from the list', (await ap.locator('#attach-ask-A').count()) === 0 && /4 of 4 attached/.test(await at('#attach-A summary')));
+    await actx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

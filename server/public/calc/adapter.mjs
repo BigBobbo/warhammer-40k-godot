@@ -329,6 +329,39 @@ export function enhancementGrants(ru) {
   return out;
 }
 
+/**
+ * Attachments to suggest when a list does not say who leads which unit: every character that is not attached yet
+ * goes to a unit on its Leader list with that slot (Leader / Support) free. The characters with the fewest
+ * possible units go first; a Leader prefers a unit with no character yet, a Support one that already has a
+ * Leader (the GW pairing: Logan Grimnar + Ancient in Terminator Armour with the Terminators); then the unit
+ * with the most points. Keeps the attachments already made. -> { [characterIndex]: bodyguardIndex }
+ */
+export function suggestAttachments(army) {
+  const parts = rosterParts(army.roster);
+  const att = { ...(army.attachments ?? {}) };
+  const roleOf = new Map(parts.map(p => [p.index, attachRole(p)]));
+  const bodyguards = parts.filter(p => !roleOf.get(p.index) && !isCharacter(p.dcUnit));
+  const chars = parts.filter(p => roleOf.get(p.index) && att[p.index] == null)
+    .map(p => ({ p, role: roleOf.get(p.index), ids: eligibleBodyguardIds(p) }))
+    .map(c => ({ ...c, n: bodyguards.filter(b => c.ids.has(b.dcUnit.id)).length }))
+    .filter(c => c.n > 0)
+    // leaders before supports (a support goes where a leader is), then the least choice first
+    .sort((a, b) => (a.role === 'support') - (b.role === 'support') || a.n - b.n || a.p.index - b.p.index);
+  const on = (bi) => Object.entries(att).filter(([, x]) => x === bi).map(([ci]) => roleOf.get(Number(ci)));
+  const pts = (p) => listedPoints(p.ru) ?? 0;
+  for (const c of chars) {
+    const free = bodyguards.filter(b => c.ids.has(b.dcUnit.id) && !on(b.index).includes(c.role));
+    if (!free.length) continue;
+    const score = (b) => {
+      const here = on(b.index);
+      return [c.role === 'leader' ? (here.length ? 0 : 1) : (here.includes('leader') ? 1 : 0), pts(b)];
+    };
+    free.sort((a, b) => { const x = score(a), y = score(b); return (y[0] - x[0]) || (y[1] - x[1]) || (a.index - b.index); });
+    att[c.p.index] = free[0].index;
+  }
+  return att;
+}
+
 /** Roster -> combat units. A bodyguard and the characters attached to it are one unit. */
 export function combatUnits(roster, attachments = defaultAttachments(roster)) {
   const parts = rosterParts(roster);
