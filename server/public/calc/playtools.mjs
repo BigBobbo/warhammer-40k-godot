@@ -143,6 +143,8 @@ export function ensureGame(g, { fresh = false } = {}) {
   g.turnsDone ??= 0;            // turns closed with "Turn done"
   g.drawn ??= 0;
   g.once ??= { A: {}, B: {} };  // once-per-battle rules ticked as used (Intel > By phase): { tickId: true }
+  g.phase ??= 'command';        // the phase of the turn in progress (the stratagems usable now)
+  g.strats ??= [];              // stratagems used: { round, turn (whose turn), phase, side, name, cp }
   return g;
 }
 
@@ -178,6 +180,7 @@ export function endTurn(g, first, rounds = 5) {
   if (lastTurn) { g.over = true; return { ended: true }; }
   if (cur !== firstP) g.round++;
   g.next = other(cur);
+  g.phase = 'command';
   g.A.cp = (g.A.cp || 0) + 1;
   g.B.cp = (g.B.cp || 0) + 1;
   return { ended: false };
@@ -295,4 +298,30 @@ export function pushUndo(stack, game, label) {
 export function popUndo(stack) {
   const e = stack.pop();
   return e ? { game: JSON.parse(e.g), label: e.label } : null;
+}
+
+// ---- stratagems in play: which can be used now, the once-per-phase limit, the log (CP spent)
+export const PHASES = [['command', 'Command'], ['movement', 'Movement'], ['shooting', 'Shooting'], ['charge', 'Charge'], ['fight', 'Fight']];
+/** Short names for the phase buttons (a phone screen is narrow). */
+export const PHASE_SHORT = [['command', 'Cmd'], ['movement', 'Move'], ['shooting', 'Shoot'], ['charge', 'Charge'], ['fight', 'Fight']];
+/** Can a stratagem ({ phase, turn } as the rules data words them) be used in this phase by a player whose turn it is (mine) or not? */
+export function stratUsable(st, phase, mine) {
+  const p = String(st.phase ?? '').toLowerCase(), t = String(st.turn ?? '').toLowerCase().replace(/’/g, "'");
+  const name = (PHASES.find(x => x[0] === phase)?.[1] ?? phase).toLowerCase();
+  const phaseOk = /any phase/.test(p) || p.includes(name);
+  const turnOk = /either/.test(t) || (/opponent/.test(t) ? !mine : /your turn/.test(t) ? mine : true);
+  return phaseOk && turnOk;
+}
+/** Has `side` used the stratagem `name` in this phase of this turn already? (a stratagem once per phase) */
+export function stratUsedThisPhase(g, side, name, turn) {
+  return (g.strats ?? []).some(s => s.round === g.round && s.turn === turn && s.phase === g.phase && s.side === side && s.name === name);
+}
+/** Use a stratagem in `turn` (whose turn it is): spend its CP and log it. -> { ok, why } */
+export function useStrat(g, side, st, turn) {
+  const cp = Number(st.cp) || 0;
+  if ((g[side].cp || 0) < cp) return { ok: false, why: `${side} has ${g[side].cp || 0}CP, ${st.name} costs ${cp}CP` };
+  if (stratUsedThisPhase(g, side, st.name, turn)) return { ok: false, why: `${st.name} was already used in this phase` };
+  g[side].cp = (g[side].cp || 0) - cp;
+  (g.strats ??= []).push({ round: g.round, turn, phase: g.phase ?? 'command', side, name: st.name, cp });
+  return { ok: true };
 }

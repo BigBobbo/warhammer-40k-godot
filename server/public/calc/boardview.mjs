@@ -11,11 +11,13 @@ import {
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
-import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
-import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
+import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
+import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
+import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
+import { dropState } from './droporder.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -436,9 +438,12 @@ function unitInfo(side, key) {
   const army = ctx.state.armies[side];
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
-  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}`;
+  const hulls = hullSizes(), mine = cu.members.map(m => hulls[m.dcUnit.name]).filter(Boolean);
+  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu, army);
+    // a hull size you measured replaces the rough one (length across the token, width down it)
+    for (const m of bu.members) { const h = hulls[m.label]; if (h && m.fp.approx && m.fp.shape === 'rect') m.fp = { shape: 'rect', hw: h.l / 2, hh: h.w / 2, measured: true }; }
     // Objective Control: each model's OC (datasheet), summed over the unit
     const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
     unitCache.set(ck, { cu, ...bu, oc, models: coherentFormation(bu.members), formations: new Map() });
@@ -489,6 +494,139 @@ function placed() {
   return out;
 }
 
+// ---- drop-order drill (droporder.mjs): a plan of its own whose Deploy step is set up one unit at a time,
+// alternating from the Defender. plan().drill = { first, log: [{ X, tk }], res: [tk] } (res = strategic reserves).
+const isTitanic = (side, key) => (unitInfo(side, key)?.cu.keywords ?? []).some(k => /^TITANIC$/i.test(k));
+function drillInfo() {
+  const p = plan();
+  if (!p?.drill || curIndex() !== 0) return null;
+  const toks = stepTokens(), emb = embarkedIn(toks), res = new Set(p.drill.res ?? []);
+  const totals = { A: 0, B: 0 };
+  for (const side of ['A', 'B']) for (const u of ctx.state.armies[side]?.units ?? []) {
+    const tk = `${side}:${u.key}`;
+    if (!res.has(tk) && !emb.has(tk)) totals[side]++;
+  }
+  const log = (p.drill.log ?? []).filter(e => toks[e.tk] && !emb.has(e.tk) && !res.has(e.tk));
+  const s = dropState(p.drill.first, totals, log, (tk) => isTitanic(...tk.split(':')));
+  return { d: p.drill, s, log, res, emb, toks };
+}
+function drillHtml(di) {
+  const esc = ctx.esc, st = ctx.state, { s, log, res } = di, X = s.next;
+  const Y = (P) => (P === 'A' ? 'B' : 'A');
+  const unitBtns = X ? st.armies[X].units.filter(u => !di.toks[`${X}:${u.key}`] && !res.has(`${X}:${u.key}`)).map(u => {
+    const tk = `${X}:${u.key}`, ti = isTitanic(X, u.key);
+    return `<span class="drill-u"><button class="chip" data-action="board-place" data-side="${X}" data-key="${esc(u.key)}" style="border-color:${C[X]}">＋ ${esc(u.name)}${ti ? ' <span class="tiny">(TITANIC: skip your next drop)</span>' : ''}</button><button class="icon-btn" data-action="board-drill-res" data-tk="${esc(tk)}" aria-label="Put ${esc(u.name)} in reserves" title="Strategic reserves: not set up">⤓</button></span>`;
+  }).join('') : '';
+  const resList = [...res].map(tk => { const [sd, k] = tk.split(':'); const u = unitInfo(sd, k); return u ? `<button class="chip" data-action="board-drill-res" data-tk="${esc(tk)}" style="border-color:${C[sd]}">↩ ${esc(u.cu.name)}</button>` : ''; }).join('');
+  const nameOf = (tk) => { const [sd, k] = tk.split(':'); return unitInfo(sd, k)?.cu.name ?? tk; };
+  const ahead = s.finishesFirst ? `${s.finishesFirst} finishes first${s.lastRun ? `; then ${s.lastRun.side} sets up its last ${s.lastRun.n} knowing where all of ${Y(s.lastRun.side)} is` : ''}.` : '';
+  return `<div class="card drill" id="board-drill" style="margin-top:6px;border-color:${X ? C[X] : 'var(--line)'}">
+    <div class="row" style="gap:6px;align-items:center"><span class="grow" id="board-drill-turn">${X
+      ? `🎯 Drop ${log.length + 1}: <b style="color:${C[X]}">${X}</b> (${esc(st.armies[X].faction)}) sets up a unit`
+      : '✓ Every unit is set up'}</span>
+      ${log.length ? '<button class="chip" data-action="board-drill-undo" id="board-drill-undo">↶ Undo</button>' : ''}
+      <button class="chip" data-action="board-drill-end" id="board-drill-end" title="Stop the drill; the set-up stays as a plan">End drill</button></div>
+    <div class="tiny muted" id="board-drill-left" style="margin-top:2px">Units still to set up: A ${s.left.A} · B ${s.left.B}. ${esc(ahead)}</div>
+    ${X ? `<div class="unit-strip drill-tray ${ctx.wide?.() ? 'wrap' : ''}" id="board-drill-tray">${unitBtns}</div>` : ''}
+    ${resList ? `<div class="row tiny" style="margin-top:6px;gap:4px;flex-wrap:wrap;align-items:center" id="board-drill-res"><span class="muted">In reserves (not set up):</span>${resList}</div>` : ''}
+    ${log.length ? `<details class="tiny" style="margin-top:6px" id="board-drill-log"><summary>Order so far (${log.length})</summary><ol style="margin:4px 0 0 18px;padding:0">${log.map(e => `<li><b style="color:${C[e.X]}">${e.X}</b> ${esc(nameOf(e.tk))}</li>`).join('')}</ol></details>` : ''}
+    <details class="tiny muted" style="margin-top:4px"><summary>How the drops work</summary>Players set up one unit at a time, starting with the Defender; a TITANIC unit makes its player skip their next turn to set up; once one player is done the other sets up the rest. Units in reserves (⤓) and units embarked in a transport are not set up on their own.</details>
+  </div>`;
+}
+
+// ---- Scout moves (24.31 / 24.32), planned on the Deploy step: pos.scout = { x, y } is where the unit ends its
+// Scout move (drawn as a dashed ghost you can drag); the unit itself stays at its deployment position. Turn 1
+// starts from the Scout position. A DEDICATED TRANSPORT whose passengers all have Scouts can make one too.
+function scoutDist(side, key, toks = stepTokens()) {
+  const u = unitInfo(side, key);
+  if (!u) return 0;
+  if (u.flags?.scouts) return u.flags.scouts;
+  if (!(u.cu.keywords ?? []).some(k => /^DEDICATED TRANSPORT$/i.test(k))) return 0;
+  const inside = [...embarkedIn(toks)].filter(([, x]) => x === `${side}:${key}`).map(([tk]) => unitInfo(...tk.split(':'))?.flags?.scouts ?? 0);
+  return inside.length && inside.every(n => n > 0) ? Math.min(...inside) : 0;
+}
+function myZone(side) {
+  const l = currentLayout();
+  return (l && DEPLOYMENTS[l.deployment]?.zones.find(z => z.player === zoneOf(side))?.poly) ?? null;
+}
+/** Every planned Scout move in the Deploy step: [{ tk, side, name, X, moved, msgs }]. Enemies are checked where they
+ * end up after their own Scout moves (players alternate them). */
+function scoutMoves() {
+  if (curIndex() !== 0) return [];
+  const toks = placed(), raw = stepTokens(), out = [];
+  const after = (t) => (raw[t.tk]?.scout ? { ...t, x: raw[t.tk].scout.x, y: raw[t.tk].scout.y } : t);
+  for (const t of toks) {
+    const sc = raw[t.tk]?.scout;
+    if (!sc) continue;
+    const X = scoutDist(t.side, t.key);
+    const chk = scoutCheck({ X, from: t, to: { ...t, x: sc.x, y: sc.y } }, { myDZ: myZone(t.side), enemies: toks.filter(o => o.side !== t.side).map(after) });
+    if (!X) chk.msgs.unshift('has no Scouts ability (24.31)');
+    out.push({ tk: t.tk, side: t.side, name: t.u.cu.name, X, ...chk });
+  }
+  return out;
+}
+function scoutSvg() {
+  const mv = scoutMoves();
+  if (!mv.length) return '';
+  const raw = stepTokens(), out = ['<g id="board-scouts">'];
+  for (const s of mv) {
+    const pos = raw[s.tk], u = unitInfo(...s.tk.split(':')), sc = pos.scout, bad = s.msgs.length > 0;
+    const col = bad ? '#c0392b' : C[s.side];
+    out.push(`<line x1="${f2(pos.x)}" y1="${f2(pos.y)}" x2="${f2(sc.x)}" y2="${f2(sc.y)}" stroke="${col}" stroke-width="0.22" stroke-dasharray="0.7 0.4" pointer-events="none"/>`);
+    const ms = tokenModels(u, pos), ext = ms.reduce((a, m) => { const h = halfBase(m.fp); return { x0: Math.min(a.x0, m.dx - h.hx), x1: Math.max(a.x1, m.dx + h.hx), y0: Math.min(a.y0, m.dy - h.hy), y1: Math.max(a.y1, m.dy + h.hy) }; }, { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+    out.push(`<g data-scout="${s.tk}" data-ok="${bad ? 0 : 1}" transform="translate(${f2(sc.x)},${f2(sc.y)})" opacity="0.9" style="cursor:grab">`
+      // grab area over the whole formation (as for a unit)
+      + `<rect class="scout-grab" x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" fill="${C[s.side]}" fill-opacity="0.04"/>`
+      + tokenModels(u, pos).map(m => shapeSvg(m.fp, m.dx, m.dy, C[s.side], col, 0.2, m.rot)).join('').replaceAll('stroke-width="0.2"', 'stroke-width="0.2" stroke-dasharray="0.4 0.25" fill-opacity="0.18"')
+      + `<text x="0" y="${f2(-1.9)}" font-size="0.9" text-anchor="middle" fill="${col}" stroke="#ffffff" stroke-width="0.3" paint-order="stroke" font-family="system-ui,sans-serif" font-weight="700" pointer-events="none">Scout ${s.moved.toFixed(1)}"/${s.X}"${bad ? ' ✗' : ''}</text></g>`);
+  }
+  out.push('</g>');
+  return out.join('');
+}
+/** Turn 1 starts where the Scout move ends: move this unit there in the next step too, if it had not been moved. */
+function scoutToTurn1(tk, from, to) {
+  const t1 = curSteps()[1]?.tokens?.[tk];
+  if (t1 && from && Math.hypot(t1.x - from.x, t1.y - from.y) < 0.05) Object.assign(t1, { x: to.x, y: to.y });
+}
+
+// ---- "What it can see" (sight.visibleCells): squares where a 32 mm model would be visible to the selected unit
+let seeCache = { key: null, v: null };
+function seeOf(sel) {
+  const l = currentLayout();
+  if (!l) return null;
+  const key = `${l.id}|${sel.tk}|${sel.x.toFixed(2)}|${sel.y.toFixed(2)}|${sel.rot}|${sel.models.length}|${sel.models.map(m => `${m.dx.toFixed(2)},${m.dy.toFixed(2)}`).join(';')}`;
+  if (seeCache.key !== key) {
+    const t0 = performance.now();
+    seeCache = { key, v: visibleCells(sel, l.pieces) };
+    const n = seeCache.v.cells.reduce((s, c) => s + c, 0);
+    console.log(`[board] what ${sel.tk} can see: ${n} of ${seeCache.v.cells.length} squares (${Math.round(performance.now() - t0)} ms)`);
+  }
+  return seeCache.v;
+}
+function seeSvg(sel) {
+  const v = seeOf(sel);
+  if (!v) return '';
+  // one rectangle per run of seen squares down a column
+  const out = [`<g id="see-layer" data-seen="${v.cells.reduce((s, c) => s + c, 0)}" fill="${C[sel.side]}" fill-opacity="0.22" pointer-events="none">`];
+  for (let i = 0; i < v.cols; i++) {
+    let j = 0;
+    while (j < v.rows) {
+      if (!v.cells[i * v.rows + j]) { j++; continue; }
+      let k = j;
+      while (k < v.rows && v.cells[i * v.rows + k]) k++;
+      out.push(`<rect x="${i * v.step}" y="${j * v.step}" width="${v.step}" height="${(k - j) * v.step}"/>`);
+      j = k;
+    }
+  }
+  out.push('</g>');
+  return out.join('');
+}
+
+// ---- hull sizes you measured (vehicles and monsters without a base: the data has no hull dimensions)
+const HULL_KEY = 'w40k_calc_hulls_v1';
+let hullMemo = null;
+function hullSizes() { if (!hullMemo) { try { hullMemo = JSON.parse(localStorage.getItem(HULL_KEY) ?? '{}') ?? {}; } catch { hullMemo = {}; } } return hullMemo; }
+
 function zoneCentroid(side) {
   const l = currentLayout();
   const dep = l && DEPLOYMENTS[l.deployment];
@@ -529,6 +667,41 @@ function freeSpot(side, key) {
 // SVG
 
 const f2 = (n) => Math.round(n * 100) / 100;
+
+// ---- table set-up measurements: for each terrain piece its corner nearest a board edge, and each objective, in
+// inches from the nearest side edge (↔) and the nearest short edge (↕) — to set up the real table from the layout
+const fontK0 = (vb) => Math.max(0.55, Math.min(1.2, vb.w / (BOARD.w + 1)));
+const fmtIn = (v) => `${Math.round(v * 4) / 4}"`.replace('.25"', '¼"').replace('.5"', '½"').replace('.75"', '¾"');
+export function edgeMeasure(x, y) {
+  const dx = Math.min(x, BOARD.w - x), dy = Math.min(y, BOARD.h - y);
+  return { dx, dy, fromLeft: x <= BOARD.w - x, fromTop: y <= BOARD.h - y };
+}
+function measureSvg(l, k) {
+  if (!l) return '';
+  const out = ['<g id="board-measure" pointer-events="none" font-family="system-ui,sans-serif" font-weight="700">'];
+  const label = (x, y, txt, col) => {
+    const w = (txt.length * 0.52 + 0.6) * k, h = 1.25 * k, ox = x < BOARD.w / 2 ? 0.4 * k : -w - 0.4 * k, oy = y < BOARD.h / 2 ? 0.4 * k : -h - 0.4 * k;
+    return `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(0.28 * k)}" fill="${col}"/><rect x="${f2(x + ox)}" y="${f2(y + oy)}" width="${f2(w)}" height="${f2(h)}" rx="${f2(0.25 * k)}" fill="#ffffff" fill-opacity="0.92" stroke="${col}" stroke-width="${f2(0.08 * k)}"/>`
+      + `<text x="${f2(x + ox + w / 2)}" y="${f2(y + oy + h * 0.72)}" font-size="${f2(0.85 * k)}" text-anchor="middle" fill="#222">${txt}</text>`;
+  };
+  // the terrain areas (a wall or feature that sits on an area is placed with it), one label each, none on top of another
+  const placedAt = [];
+  const free = (x, y) => !placedAt.some(q => Math.hypot(q.x - x, q.y - y) < 2.2);
+  for (const p of l.pieces ?? []) {
+    if (!p.poly?.length || p.parent || (p.cls && p.cls !== 'area')) continue;
+    // the corner nearest a board edge (the one to measure from when setting the piece down)
+    const v = p.poly.map(([x, y]) => ({ x, y, m: edgeMeasure(x, y) })).sort((a, b) => (a.m.dx + a.m.dy) - (b.m.dx + b.m.dy)).find(c => free(c.x, c.y));
+    if (!v) continue;
+    placedAt.push(v);
+    out.push(`<g data-measure="${ctx.esc(p.id)}">${label(v.x, v.y, `↔${fmtIn(v.m.dx)} ↕${fmtIn(v.m.dy)}`, '#1f5fa8')}</g>`);
+  }
+  for (const o of l.objectives ?? []) {
+    const m = edgeMeasure(o.x, o.y);
+    out.push(`<g data-measure-obj="${ctx.esc(o.id)}">${label(o.x, o.y, `↔${fmtIn(m.dx)} ↕${fmtIn(m.dy)}`, '#a36a00')}</g>`);
+  }
+  out.push('</g>');
+  return out.join('');
+}
 
 /** The letter on a base: the first letter of the first word of the datasheet name ("Prosecutor Squad" -> P). */
 export const baseLetter = (name) => (/[A-Za-z0-9]/.exec(String(name ?? '')) ?? ['?'])[0].toUpperCase();
@@ -590,6 +763,7 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<circle cx="${o.x}" cy="${o.y}" r="0.79" fill="${C.obj}" stroke="${C.objEdge}" stroke-width="0.12"/>`);
   }
   parts.push('</g>');
+  if (b.measure && !forExport) parts.push(measureSvg(l, fontK0(vb)));
   if (!forExport || b.danger) parts.push(dangerSvg(b));
   if (b.arrive) parts.push(arriveSvg(b));
   // over a photo the bases are see-through so the real models show underneath
@@ -601,6 +775,7 @@ export function boardSvg({ forExport = false } = {}) {
   if (sel && !forExport) {
     const kinds = Object.keys(b.rings).filter(k => b.rings[k]);
     for (const k of kinds) {
+      if (k === 'see') { parts.push(seeSvg(sel)); continue; }
       if (k === 'detect') {
         // who can see it: only models inside this line (dashed, in the enemy's colour)
         const det = detectionOf(sel).range;
@@ -612,6 +787,7 @@ export function boardSvg({ forExport = false } = {}) {
     }
   }
   if (!forExport) parts.push(ghostSvg());
+  parts.push(scoutSvg());
   for (const t of toks) {
     const isSel = t.tk === b.sel || t.tk === b.sel2;
     const fill = C[t.side];
@@ -665,10 +841,50 @@ export function boardSvg({ forExport = false } = {}) {
 // move (M + longest range) and charge (M + the 2D6 charge roll: likely >= 80%,
 // possible >= 40%). Terrain and line of sight are ignored and the edge is
 // blurred ~1": a planning envelope, not a measurement.
+// ---- exposure heat map: for each 1" square, how much of that army can reach it next turn — 1 for each unit that can
+// shoot it after a normal move (move + range, no line of sight), plus each unit's chance to charge it (move, then a
+// 2D6 charge: rule 11.04 odds). Tap a square for the list.
+function threatsAt(side, x, y, toks = placed().filter(t => t.side === side)) {
+  const out = [];
+  for (const t of toks) {
+    const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
+    let dmin = Infinity;
+    for (const m of t.models) dmin = Math.min(dmin, Math.hypot(x - (t.x + m.dx), y - (t.y + m.dy)) - Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0));
+    const shoot = maxR > 0 && dmin <= t.u.move + maxR;
+    const charge = t.u.melee ? chargeOdds(chargeRollNeeded(Math.max(0, dmin - t.u.move))) : 0;
+    if (shoot || charge > 0.005) out.push({ tk: t.tk, name: t.u.cu.name, shoot, charge });
+  }
+  return out;
+}
+const heatCache = { key: null, cells: null, max: 0 };
+function heatCells(side) {
+  const toks = placed().filter(t => t.side === side);
+  const key = side + JSON.stringify(toks.map(t => [t.tk, t.x, t.y, t.rot, t.per, t.gap]));
+  if (heatCache.key === key) return heatCache;
+  const cells = [];
+  let max = 0;
+  for (let y = 0; y < BOARD.h; y++) for (let x = 0; x < BOARD.w; x++) {
+    const th = threatsAt(side, x + 0.5, y + 0.5, toks);
+    const s = th.reduce((a, t) => a + (t.shoot ? 1 : 0) + t.charge, 0);
+    if (s > 0) { cells.push({ x, y, s }); max = Math.max(max, s); }
+  }
+  Object.assign(heatCache, { key, cells, max });
+  return heatCache;
+}
+function heatSvg(side) {
+  const h = heatCells(side);
+  if (!h.cells.length) return '';
+  return `<g id="heat-layer" data-from="${side}" data-max="${h.max.toFixed(2)}" pointer-events="none" fill="#c0392b">${h.cells.map(c => `<rect x="${c.x}" y="${c.y}" width="1" height="1" fill-opacity="${(0.05 + 0.6 * c.s / h.max).toFixed(3)}"/>`).join('')}</g>`;
+}
+
 function dangerSvg(b) {
   const side = b.danger;
   if (!side) return '';
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
+  if (kinds.heat) {
+    const at = b.heatAt;
+    return heatSvg(side) + (at ? `<circle id="heat-at" cx="${f2(at.x)}" cy="${f2(at.y)}" r="0.6" fill="none" stroke="#111" stroke-width="0.2" pointer-events="none"/>` : '');
+  }
   const layers = { shoot: [], likely: [], possible: [] };
   for (const t of placed().filter(x => x.side === side)) {
     const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
@@ -791,7 +1007,8 @@ export function boardView() {
         <span class="grow"></span>
         ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
       </div>`;
-  const trayHtml = left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
+  const di = drillInfo();
+  const trayHtml = di ? drillHtml(di) : left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
         <span class="tiny muted" style="flex:none">Place ${left}:</span>${tray('A')}${tray('B')}</div>` : '';
   return `<div id="board-dock" class="board-dock">${dockHtml()}</div><div class="blay"><div class="col map">
     <section class="section b-steps">
@@ -814,12 +1031,16 @@ export function boardView() {
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
+      <div class="tiny muted" id="board-layout-source" style="margin-top:8px">Layouts: ${esc(LAYOUTS_SOURCE.version)} (${esc(LAYOUTS_SOURCE.date)}; ${esc(LAYOUTS_SOURCE.note)}). Checked ${esc(longDate(LAYOUTS_SOURCE.checked))}: ${esc(LAYOUTS_SOURCE.sample)}.</div>
+      <div class="row" style="margin-top:6px">${ctx.chip('board-measure', !!b.measure, '📏 Table set-up measurements', 'id="board-measure-chip"')}</div>
       <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
       <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
+        <button class="btn ghost grow" data-action="share-link" data-from="board" id="share-board">🔗 Share link</button>
       </div>
+      ${ctx.shareLinkHtml?.('board') ?? ''}
     </div></section>
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
@@ -828,9 +1049,12 @@ export function boardView() {
         <span class="lab tiny muted">Plan</span>
         ${planRoot() ? planRoot().variants.map((vv, i) => (vv.parent != null ? '' : `<button class="chip ${i === rootOf(planRoot().variants, planRoot().v) ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`)).join('') : ''}
         <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
+        ${plan()?.drill ? '' : ctx.chip('board-drill-ask', !!b.drillAsk, '🎯 Drop drill', 'id="board-drill-ask" title="Practise the deployment: set up one unit at a time, alternating"')}
         ${planRoot() && !planRoot().variants.some(vv => vv.when) ? '<button class="chip" data-action="board-plan-split" id="board-plan-split">⇄ Going first / second</button>' : ''}
         ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
+      ${b.drillAsk && !plan()?.drill ? `<div class="card" id="board-drill-start" style="margin-top:6px"><div class="small">Who is the <b>Defender</b>? They set up first. The drill is a new plan with an empty Deploy step: your real deployment stays as it is.</div>
+        <div class="row" style="gap:6px;margin-top:6px">${['A', 'B'].map(X => `<button class="btn grow" data-action="board-drill-start" data-first="${X}" style="border-color:${C[X]}">${X} · ${esc(st.armies[X].faction)}</button>`).join('')}</div></div>` : ''}
       ${splitNote()}
       <div id="board-tree-host">${treeHtml()}</div>
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
@@ -838,12 +1062,20 @@ export function boardView() {
   </div></div>`;
 }
 
+function heatInfoHtml(b) {
+  const esc = ctx.esc, h = heatCells(b.danger), at = b.heatAt;
+  const list = at ? threatsAt(b.danger, at.x, at.y).sort((p, q) => (q.charge + (q.shoot ? 1 : 0)) - (p.charge + (p.shoot ? 1 : 0))) : null;
+  return `<span class="tiny" id="board-heat-info" style="flex-basis:100%">${!h.cells.length ? 'Nothing of that army is on the board in this step.'
+    : `Darker = more of ${esc(b.danger)} can reach that square next turn (up to ${h.max.toFixed(1)}: 1 per unit that can shoot it after moving, plus each unit’s chance to charge it). Tap a square for who.`}
+    ${list ? `<br><b>At ${at.x.toFixed(0)}" across, ${at.y.toFixed(0)}" down:</b> ${list.length ? list.map(t => `${esc(t.name)} ${[t.shoot ? 'shoot' : '', t.charge > 0.005 ? `charge ${Math.round(t.charge * 100)}%` : ''].filter(Boolean).join(' + ')}`).join(' · ') : 'nothing can reach it'}` : ''}</span>`;
+}
+
 function dangerBar() {
   const b = boardState();
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
   return `<span class="lab tiny muted">⚠ Danger next turn</span>
     ${ctx.seg('board-danger', b.danger ?? 'off', [['off', 'Off'], ['A', 'From A'], ['B', 'From B']], 'compact')}
-    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}
+    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
     <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
 }
 
@@ -922,6 +1154,32 @@ function dockHtml() {
 }
 
 /** The selected transport's passengers: who is inside (spaces used / capacity), embark, disembark. */
+function hullPanel(s1) {
+  const esc = ctx.esc;
+  const seen = new Set();
+  const rows = s1.u.members.filter(m => m.fp.shape === 'rect' && (m.fp.approx || m.fp.measured) && !seen.has(m.label) && seen.add(m.label));
+  if (!rows.length) return '';
+  return `<div class="card" id="board-hull" style="margin-top:6px;padding:8px">${rows.map(m => `<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
+      <span class="grow small"><b>${esc(m.label)}</b> hull: ${m.fp.measured ? 'your measurement' : '<span class="bad">rough size</span> (no hull dimensions in the data)'}</span>
+      <input class="sel" style="width:72px" type="number" min="1" max="30" step="0.1" inputmode="decimal" data-input="board-hull" data-label="${esc(m.label)}" data-dim="l" value="${(m.fp.hw * 2).toFixed(1)}" aria-label="Hull length in inches">
+      <span class="tiny">×</span>
+      <input class="sel" style="width:72px" type="number" min="1" max="30" step="0.1" inputmode="decimal" data-input="board-hull" data-label="${esc(m.label)}" data-dim="w" value="${(m.fp.hh * 2).toFixed(1)}" aria-label="Hull width in inches">
+      <span class="tiny">"</span></div>`).join('')}
+    <div class="tiny muted" style="margin-top:4px">Measure your model's hull (length × width, in inches) and enter it: ranges, gaps and sight lines are then measured from it, for every list with this datasheet.</div>
+  </div>`;
+}
+function scoutPanel(s1) {
+  if (curIndex() !== 0) return '';
+  const X = scoutDist(s1.side, s1.key), pos = stepTokens()[s1.tk];
+  if (!X && !pos?.scout) return '';
+  const s = scoutMoves().find(m => m.tk === s1.tk);
+  return `<div class="card" id="board-scout" style="margin-top:6px;padding:8px">
+    <div class="row" style="gap:6px;align-items:center"><span class="grow small"><b>🏃 Scouts ${X}"</b>${s ? ` · moves <b>${s.moved.toFixed(1)}"</b> ${s.msgs.length ? '<span class="bad">✗</span>' : '✓'}` : ''}</span>
+      ${ctx.chip('board-scout', !!pos?.scout, pos?.scout ? 'Planned' : 'Plan a Scout move', 'id="board-scout-chip"')}</div>
+    ${s?.msgs.length ? `<ul class="keep warn tiny" style="margin:4px 0 0">${s.msgs.map(m => `<li>${ctx.esc(m)}</li>`).join('')}</ul>` : ''}
+    <div class="tiny muted" style="margin-top:4px">${pos?.scout ? 'Drag the dashed ghost to where the move ends; the unit stays where it deployed. Turn 1 starts from the ghost.' : 'Before the first turn, from wholly within your deployment zone: up to ' + X + '", ending more than 8" from enemy units.'} Players alternate Scout moves, starting with whoever takes the first turn. Straight-line check: terrain is not.</div>
+  </div>`;
+}
 function transportPanel(s1) {
   const tr = transportOf(s1.u.cu);
   if (!tr) return '';
@@ -953,6 +1211,7 @@ function selectionPanel() {
   const det = detectionOf(s1);
   const rings = [
     det.range ? ringChip('detect', det.lone && det.lone <= det.range ? `Seen only within ${det.range}" (Lone Operative)` : `Seen only within ${det.range}" while Hidden`) : '',
+    ringChip('see', '👁 What it can see'),
     ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom ?? 'detachment'})` : ''}`),
     ringChip('advance', `Move + Advance (max ${u.move + 6}")`),
     u.melee ? ringChip('charge', `Charge threat (${u.move}" + 7" avg)`) : '',
@@ -998,6 +1257,8 @@ function selectionPanel() {
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}
     ${transportPanel(s1)}
+    ${scoutPanel(s1)}
+    ${hullPanel(s1)}
     ${s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : ''}
     ${(() => {
       // 03.03: within 2" of one other model and within 9" of every other model of the unit
@@ -1005,6 +1266,7 @@ function selectionPanel() {
       return c.ok ? '' : `<div class="tiny" id="board-coherency" style="color:var(--warn-ink);margin-top:4px">⚠ Not in coherency: ${c.widest > COHERENCY.all ? `two models are ${c.widest.toFixed(1)}" apart (every model must be within ${COHERENCY.all}" of every other)` : `${c.alone} model${c.alone > 1 ? 's are' : ' is'} more than ${COHERENCY.near}" from any other`} (03.03). Use fewer models per row.</div>`;
     })()}
     <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
+    ${b.rings.see ? '<div class="tiny muted" id="board-see-note" style="margin-top:4px">👁 Shaded: where a model on a 32 mm base would be visible to this unit (any part of it, 13.x sight lines through light and dense terrain). Geometric only — no rule that changes visibility, and not a table ruling.</div>' : ''}
     ${pair}
     ${threatHtml(s1, toks)}
   </div>`;
@@ -1045,6 +1307,7 @@ function stepWarningsHtml() {
   const steps = boardPlans()[Math.min(root.v, root.variants.length - 1)]?.steps ?? [];
   const name = curSteps()[curIndex()]?.name;
   const ws = planWarnings(steps, geo).filter(w => w.step === name);
+  for (const s of scoutMoves()) for (const m of s.msgs) ws.push({ side: s.side, unit: s.name, msg: `Scout move: ${m}` });
   if (!ws.length) return '';
   return `<div class="card" id="board-warnings" style="margin-top:8px"><div class="lab tiny muted">Check this step (11th edition rules)</div>
     <ul class="keep warn">${ws.slice(0, 6).map(w => `<li${w.info ? ' class="info"' : ''} data-unit="${ctx.esc(w.unit)}"><b style="color:var(--side-${w.side.toLowerCase()}-ink)">${ctx.esc(shortName(w.unit))}</b> ${ctx.esc(w.msg)}</li>`).join('')}</ul>
@@ -1168,7 +1431,11 @@ function wireBoard() {
       gesture = { kind: 'pinch', d0: Math.hypot(a.x - c.x, a.y - c.y), view0: { ...(b.view ?? fullView()) }, mid: toBoard(svg, (a.x + c.x) / 2, (a.y + c.y) / 2) };
       return;
     }
-    const tokEl = ev.target.closest?.('[data-tok]');
+    const tokEl = ev.target.closest?.('[data-tok]'), scEl = ev.target.closest?.('[data-scout]');
+    if (b.mode !== 'ruler' && scEl) {
+      const tk = scEl.dataset.scout, sc = stepTokens()[tk]?.scout;
+      if (sc) { gesture = { kind: 'drag', tk, el: scEl, obj: sc, from: { ...sc }, dx: p.x - sc.x, dy: p.y - sc.y, start: p, moved: false, t0: Date.now() }; return; }
+    }
     if (b.mode === 'ruler') {
       gesture = { kind: 'ruler', start: p, t0: Date.now() };
       b.ruler = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
@@ -1198,7 +1465,7 @@ function wireBoard() {
     if (gesture.kind === 'drag') {
       if (Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) > 0.2) gesture.moved = true;
       const x = Math.max(0, Math.min(BOARD.w, p.x - gesture.dx)), y = Math.max(0, Math.min(BOARD.h, p.y - gesture.dy));
-      Object.assign(stepTokens()[gesture.tk], { x, y }); // keep facing and formation
+      Object.assign(gesture.obj ?? stepTokens()[gesture.tk], { x, y }); // keep facing and formation
       gesture.el.setAttribute('transform', `translate(${f2(x)},${f2(y)})`);
     } else if (gesture.kind === 'pan') {
       const v0 = gesture.view0;
@@ -1221,11 +1488,14 @@ function wireBoard() {
     if (g.kind === 'pinch') { if (pointers.size === 0) gesture = null; return; }
     gesture = null;
     if (g.kind === 'drag') {
-      if (!g.moved) selectToken(g.tk);
+      if (!g.moved && !g.obj) selectToken(g.tk);
+      if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
+      if (g.obj && !g.moved) { b.sel = g.tk; b.sel2 = null; }
       persistBoard();
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
       b.sel = null; b.sel2 = null;
+      if (b.danger && b.dangerKinds?.heat) { const p = toBoard(svg, ev.clientX, ev.clientY); b.heatAt = { x: Math.max(0, Math.min(BOARD.w, p.x)), y: Math.max(0, Math.min(BOARD.h, p.y)) }; }
       refreshBoard();
     }
   };
@@ -1251,6 +1521,10 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-measure':
+      b.measure = !b.measure;
+      persistBoard();
+      return 'render';
     case 'board-variant':
       b.settings.variant = Number(el.dataset.value);
       b.sel = b.sel2 = null;
@@ -1267,9 +1541,12 @@ export function boardAction(action, el) {
     case 'board-place': {
       const side = el.dataset.side, key = el.dataset.key;
       const tk = `${side}:${key}`;
+      const di = drillInfo();
+      if (di && di.s.next !== side) { console.log(`[board] drill: not ${side}'s turn to set up (next: ${di.s.next})`); return null; }
       const spot = freeSpot(side, key);
       stepTokens()[tk] = spot;
       b.sel = tk; b.sel2 = null;
+      if (di) { di.d.log = [...di.log, { X: side, tk }]; console.log(`[board] drill: drop ${di.d.log.length} ${tk}${isTitanic(side, key) ? ' (TITANIC)' : ''}`); }
       persistBoard();
       return 'render';
     }
@@ -1346,6 +1623,65 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-drill-ask':
+      b.drillAsk = !b.drillAsk;
+      return 'render';
+    case 'board-drill-start': {
+      const root = planRoot();
+      if (!root) return null;
+      const used = new Set(root.variants.map(x => x.name));
+      let name = 'Drop drill';
+      for (let n = 2; used.has(name); n++) name = `Drop drill ${n}`;
+      root.variants.push({ name, steps: [{ name: curSteps()[0]?.name ?? 'Deploy', tokens: {} }], cur: 0, drill: { first: el.dataset.first === 'B' ? 'B' : 'A', log: [], res: [] } });
+      ensureIds(root.variants);
+      root.v = root.variants.length - 1;
+      b.drillAsk = false; b.sel = b.sel2 = null;
+      persistBoard();
+      console.log(`[board] drop drill started: ${el.dataset.first} is the Defender`);
+      return 'render';
+    }
+    case 'board-drill-res': {
+      const p = plan(), tk = el.dataset.tk;
+      if (!p?.drill || !tk) return null;
+      const res = new Set(p.drill.res ?? []);
+      if (res.has(tk)) res.delete(tk); else { res.add(tk); delete stepTokens()[tk]; }
+      p.drill.res = [...res];
+      persistBoard();
+      return 'render';
+    }
+    case 'board-drill-undo': {
+      const p = plan(), di = drillInfo();
+      if (!p?.drill || !di?.log.length) return null;
+      const last = di.log[di.log.length - 1];
+      delete stepTokens()[last.tk];
+      for (const [ptk, x] of di.emb) if (x === last.tk) delete stepTokens()[ptk]; // its passengers too
+      p.drill.log = di.log.slice(0, -1);
+      if (b.sel === last.tk) b.sel = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-drill-end': {
+      const p = plan();
+      if (!p?.drill) return null;
+      console.log(`[board] drop drill ended after ${p.drill.log?.length ?? 0} drops`);
+      delete p.drill;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-scout': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos || curIndex() !== 0) return null;
+      if (pos.scout) { scoutToTurn1(b.sel, pos.scout, pos); delete pos.scout; }
+      else {
+        // start the ghost up to X" toward the middle of the board (the player drags it from there)
+        const X = scoutDist(...b.sel.split(':')) || 6, dx = BOARD.w / 2 - pos.x, dy = BOARD.h / 2 - pos.y, d = Math.hypot(dx, dy) || 1, k = Math.min(X, d) / d;
+        pos.scout = { x: +(pos.x + dx * k * 0.98).toFixed(2), y: +(pos.y + dy * k * 0.98).toFixed(2) };
+        scoutToTurn1(b.sel, pos, pos.scout);
+      }
+      console.log(`[board] scout move ${b.sel}: ${pos.scout ? 'planned' : 'removed'}`);
+      persistBoard();
+      return 'render';
+    }
     case 'board-plan-copy': {
       // a copy of the current plan to try something else (e.g. aggressive vs defensive)
       const root = planRoot(), cur = plan();
@@ -1396,7 +1732,9 @@ export function boardAction(action, el) {
       const p = plan();
       if (!p) return null;
       const steps = curSteps();
-      p.steps.push({ name: `Turn ${steps.length}`, tokens: JSON.parse(JSON.stringify(steps[curIndex()]?.tokens ?? steps[steps.length - 1]?.tokens ?? {})) });
+      const nt = JSON.parse(JSON.stringify(steps[curIndex()]?.tokens ?? steps[steps.length - 1]?.tokens ?? {}));
+      for (const pos of Object.values(nt)) if (pos?.scout) { pos.x = pos.scout.x; pos.y = pos.scout.y; delete pos.scout; } // Turn 1 starts after the Scout moves
+      p.steps.push({ name: `Turn ${steps.length}`, tokens: nt });
       p.cur = curSteps().length - 1;
       persistBoard();
       return 'render';
@@ -1557,6 +1895,20 @@ export function boardAction(action, el) {
 
 export function boardChange(el) {
   const b = boardState();
+  if (el.dataset.input === 'board-hull') {
+    const v = Number(el.value), label = el.dataset.label;
+    if (!label || !(v >= 1 && v <= 30)) return null;
+    const hulls = hullSizes(), s = b.sel && placed().find(t => t.tk === b.sel);
+    const cur = s?.u.members.find(m => m.label === label)?.fp;
+    const h = hulls[label] ?? { l: +(cur?.hw * 2 || 5).toFixed(1), w: +(cur?.hh * 2 || 3).toFixed(1) };
+    h[el.dataset.dim === 'w' ? 'w' : 'l'] = +v.toFixed(1);
+    hulls[label] = h;
+    try { localStorage.setItem(HULL_KEY, JSON.stringify(hulls)); } catch { /* best effort */ }
+    hullMemo = hulls;
+    unitCache.clear();
+    console.log(`[board] hull of ${label}: ${h.l}" x ${h.w}"`);
+    return 'render';
+  }
   if (el.dataset.input === 'board-embark') {
     const tk = el.value, ttk = b.sel;
     if (!tk || !ttk) return null;
@@ -1710,6 +2062,13 @@ export function boardSnapshot(sig) {
   const { photoMap, ...settings } = b.settings;
   return JSON.parse(JSON.stringify({ settings, plans }));
 }
+/** For a share link: the settings and the plan for the layout on screen (no table photo). */
+export function boardShareSnap() {
+  const b = boardState(), k = planKey(), root = planRoot();
+  const { photoMap, ...settings } = b.settings;
+  return JSON.parse(JSON.stringify({ settings, plans: k && root ? { [k]: { ...root, meta: undefined } } : {} }));
+}
+export function persistBoardNow() { persistBoard(); }
 /** Put a saved game's board back: its layout and dispositions, and its plans (other plans stay). */
 export function boardRestore(snap) {
   const b = boardState();

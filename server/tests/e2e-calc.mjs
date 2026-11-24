@@ -2413,7 +2413,7 @@ Aggressor Squad (95 points)
     // rules in force, today (before the announced update)
     const line = await ztxt('#rules-line');
     check('Armies: the rules-in-force line says what the rules were checked against, the data release and the next change',
-      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.2, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
+      /Rules in force\. Checked on 20 Nov 2026 against the core rules and rules appendix, Event Companion v1\.3, the GW Grand Tournament pack 2026 and UKTC policies/.test(line) && /newest release \(40kdc 1\.5\.1, 13 Nov 2026\)/.test(line)
       && /World Championships rules updates, November 2026 \(UKTC events use it\): 5 of its 8 weapon changes are not in the numbers/.test(line) && /Next rules change: the quarterly balance update, the week beginning 7 December 2026 \(Warhammer Community, 29 Oct 2026\)/.test(line) && (await zp.locator('#rules-due').count()) === 0, line);
     await zp.locator('#rules-line').scrollIntoViewIfNeeded();
     await zp.screenshot({ path: join(SHOTS, 'calc_84_rules_in_force.png') });
@@ -3110,6 +3110,457 @@ Aggressor Squad (95 points)
     const warn = await kp.textContent('#board-warnings').catch(() => '');
     check('disembark: set up within 3" of the transport, not flagged as a reserve arrival (noted as disembarking)', gap >= 0 && gap <= 3 && /disembarks from Battlewagon/.test(warn ?? '') && !/arrives/.test(warn ?? ''), JSON.stringify({ gap, warn }));
     await kctx.close();
+  }
+
+  // --- 1.115: the score shown to the opponent, a random draw they can see, stratagems usable now + the log
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('pageerror', e => consoleErrors.push(`1.115: ${e}`));
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.115: ${m.text()}`); });
+    pp.on('dialog', d => d.accept());
+    await pp.goto(`${BASE}/calc/`); await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    const pt = async (sel) => (await pp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await pp.waitForSelector('#play-bar');
+    await pp.tap('button[data-action="mission-first"][data-value="A"]').catch(() => {});
+    // a random draw, full screen
+    await pp.tap('#draw-random-A');
+    await pp.waitForSelector('#show-draw .cf');
+    const drawn = await pp.evaluate(() => window.__calc.mission().game?.A?.hand ?? []);
+    const shown = await pp.getAttribute('#show-draw [data-cardface]', 'data-cardface');
+    check('🎲 Draw at random: a card from the deck goes into A’s hand and is shown full screen as a card', drawn.length === 1 && drawn[0] === shown && /A · Space Wolves drew at random/.test(await pt('#show-draw .show-head')) && /From the 18 cards left/.test(await pt('#show-draw')), JSON.stringify({ drawn, shown }));
+    await pp.screenshot({ path: join(SHOTS, 'calc_106_draw_random.png') });
+    await pp.tap('#show-draw-again');
+    await pp.waitForFunction(() => window.__calc.mission().game.A.hand.length === 2);
+    check('“Draw another”: the second card of the turn, then no more offered', (await pp.locator('#show-draw-again').count()) === 0);
+    await pp.tap('#show-draw button[data-action="mission-show-close"]');
+    // score something, then show it to the opponent
+    await pp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await pp.tap('#play-show');
+    await pp.waitForSelector('#show-score');
+    check('📺 Show: both scores, CP and the cards in hand, the score sheet by round, nothing about odds', /5/.test(await pt('#show-total-A')) && /In hand:/.test(await pt('[data-show-side="A"]')) && /CP/.test(await pt('[data-show-side="B"]')) && /Battle round 1/.test(await pt('#show-score .show-head')) && !/%/.test(await pt('#show-score')), await pt('#show-score'));
+    await pp.tap('#show-flip');
+    check('↻ turns the screen to face the opponent', await pp.evaluate(() => !!document.querySelector('#show-score .show-inner.flip')));
+    await pp.screenshot({ path: join(SHOTS, 'calc_107_show_opponent.png') });
+    await pp.tap('#show-score button[data-action="mission-show-flip"]');
+    await pp.tap('#show-close');
+    // stratagems usable now: A's Shooting phase
+    await pp.locator('#play-strats > summary').tap();
+    await pp.tap('button[data-action="mission-phase"][data-value="shooting"]');
+    await pp.waitForSelector('#play-strats[open] .strat-now');
+    const sum = await pt('#play-strats > summary');
+    const rowsA = await pp.$$eval('#play-strats .strat-now[data-side="A"]', els => els.map(e => e.getAttribute('data-strat')));
+    const rowsB = await pp.$$eval('#play-strats .strat-now[data-side="B"]', els => els.map(e => e.getAttribute('data-strat')));
+    check('Stratagems now: only the ones usable in this phase, for the player whose turn it is and for the opponent', /Shooting: A \d+, B \d+ usable/.test(sum) && rowsA.length > 0 && rowsB.length > 0, JSON.stringify({ sum, rowsA, rowsB }));
+    const cpB = await pp.evaluate(() => window.__calc.mission().game.B.cp);
+    const name = rowsB[0];
+    await pp.locator(`#play-strats .strat-now[data-side="B"][data-strat="${name}"] button[data-action="mission-strat"]`).tap();
+    await pp.waitForFunction((n) => window.__calc.mission().game.strats?.some(s => s.name === n), name);
+    const after = await pp.evaluate(() => ({ cp: window.__calc.mission().game.B.cp, log: window.__calc.mission().game.strats }));
+    const btn = pp.locator(`#play-strats .strat-now[data-side="B"][data-strat="${name}"] button[data-action="mission-strat"]`);
+    check('Use: B spends the CP, it is logged (round, turn, phase), and it shows ✓ Used for the rest of the phase', after.cp < cpB && after.log.length === 1 && after.log[0].phase === 'shooting' && after.log[0].turn === 'A' && /✓ Used/.test(await btn.textContent()) && await btn.isDisabled(), JSON.stringify(after));
+    await pp.locator('#play-strats details[data-details="mission-strat-log"] > summary').tap();
+    check('the stratagem log lists it', new RegExp(`B ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(await pt('#strat-log')));
+    await pp.locator('#play-strats').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_108_strats_now.png') });
+    await pp.tap('#play-undo');
+    await pp.waitForFunction(() => (window.__calc.mission().game.strats ?? []).length === 0);
+    check('Undo takes it back (the CP too)', (await pp.evaluate(() => window.__calc.mission().game.B.cp)) === cpB);
+    await pctx.close();
+  }
+
+  // --- 1.116: layouts stamped and measured for set-up, how an attack usually goes, saved lists against today's points
+  {
+    const vctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const vp = await vctx.newPage();
+    vp.on('pageerror', e => consoleErrors.push(`1.116: ${e}`));
+    vp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.116: ${m.text()}`); });
+    vp.on('dialog', d => d.accept());
+    await vp.goto(`${BASE}/calc/`); await vp.waitForSelector('textarea[data-side="A"]');
+    // the library: an old Ork list (10th edition prices) against today's points
+    await vp.fill('textarea[data-side="B"]', ORK_LIST); await vp.tap('button[data-action="parse"][data-side="B"]');
+    check('army card: what the list costs with today’s points', /With today’s points the list costs 730 of 1000 \(listed 665\)/.test((await vp.textContent('#points-now-B')).replace(/\s+/g, ' ')));
+    await vp.tap('button[data-action="open-library"][data-side="B"]');
+    await vp.fill('input[data-input="lib-name"]', 'Old Orks'); await vp.tap('button[data-action="lib-save"]');
+    const lp = vp.locator('.sheet .pick', { hasText: 'Old Orks' }).locator('[data-lib-points]');
+    await lp.locator('summary').tap();
+    const lt = (await lp.textContent()).replace(/\s+/g, ' ');
+    check('📚 library: each saved list says which units cost something else now, and its total today', /3 units cost something else now: 665 → 730 of 1000/.test(lt) && /Warboss: 70 → 100/.test(lt), lt);
+    await vp.screenshot({ path: join(SHOTS, 'calc_109_library_points.png') });
+    await vp.tap('.sheet button[data-action="close-sheet"]');
+    await vp.fill('textarea[data-side="A"]', SW_LIST); await vp.tap('button[data-action="parse"][data-side="A"]');
+    // Attack: 9 in 10 / 1 in 2 / 1 in 10
+    await vp.tap('button[data-action="view"][data-value="attack"]');
+    await vp.waitForSelector('select[data-input="target"]');
+    const tv = await vp.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await vp.selectOption('select[data-input="target"]', tv);
+    await vp.tap('button[data-action="open-add"]');
+    await vp.tap('.pick:has-text("Grey Hunters")');
+    await vp.waitForFunction(() => !!window.__calc.state.result && !window.__calc.state.busy, null, { timeout: 60000 });
+    await vp.tap('button[data-action="open-results"]');
+    await vp.waitForSelector('#res-spread');
+    const sp = await vp.$$eval('#res-spread tbody tr', trs => trs.map(tr => [...tr.cells].map(c => c.textContent.trim())));
+    const ok = sp.length === 2 && sp.every(r => { const [a, b, c] = r.slice(1).map(x => Number(x.replace('+', ''))); return a <= b && b <= c; });
+    check('Attack details: at least … 9 in 10 / 1 in 2 / 1 in 10, for models destroyed and damage (in order)', ok, JSON.stringify(sp));
+    await vp.locator('#res-spread').scrollIntoViewIfNeeded();
+    await vp.screenshot({ path: join(SHOTS, 'calc_110_attack_spread.png') });
+    await vp.tap('.sheet button[data-action="close-sheet"]');
+    // Board: the layout's source, and the set-up measurements
+    await vp.tap('button[data-action="view"][data-value="board"]');
+    await vp.waitForSelector('#board-svg');
+    check('Board: the layouts’ source is stated (Event Companion v1.3, unchanged since v1.2, how they were checked)', /Layouts: Event Companion v1\.3 \(October 2026; layouts unchanged since v1\.2, August 2026\)\. Checked 24 November 2026: 12 of 45 compared with the official PDF/.test((await vp.textContent('#board-layout-source')).replace(/\s+/g, ' ')));
+    await vp.tap('#board-measure-chip');
+    await vp.waitForSelector('#board-measure');
+    const ms = await vp.evaluate(() => ({ pieces: document.querySelectorAll('#board-measure [data-measure]').length, objs: document.querySelectorAll('#board-measure [data-measure-obj]').length, first: document.querySelector('#board-measure [data-measure] text')?.textContent, n: window.__calc.board().layout }));
+    check('📏 Table set-up measurements: every terrain piece and objective labelled in inches from the nearest edges', ms.pieces >= 10 && ms.objs >= 5 && /^↔[\d½¼¾]+" ↕[\d½¼¾]+"$/.test(ms.first ?? ''), JSON.stringify(ms));
+    await vp.locator('#board-host').scrollIntoViewIfNeeded();
+    await vp.screenshot({ path: join(SHOTS, 'calc_111_setup_measure.png') });
+    await vctx.close();
+  }
+
+  // --- 1.117: exposure heat map — how much of the enemy can reach each square next turn; tap a square for who
+  {
+    const hctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const hp = await hctx.newPage();
+    hp.on('pageerror', e => consoleErrors.push(`heat: ${e}`));
+    hp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`heat: ${m.text()}`); });
+    await hp.goto(`${BASE}/calc/`); await hp.waitForSelector('textarea[data-side="A"]');
+    await hp.fill('textarea[data-side="A"]', SW_LIST); await hp.tap('button[data-action="parse"][data-side="A"]');
+    await hp.fill('textarea[data-side="B"]', ORK_LIST); await hp.tap('button[data-action="parse"][data-side="B"]');
+    await hp.tap('button[data-action="view"][data-value="board"]');
+    await hp.waitForSelector('#board-svg');
+    for (const n of ['Meganobz', 'Flash Gitz']) await hp.locator('button[data-action="board-place"][data-side="B"]', { hasText: n }).first().tap();
+    const toks = await hp.evaluate(() => window.__calc.board().units.map(u => ({ tk: u.tk, n: u.models.length })));
+    const MN = toks.find(t => t.n === 3).tk, FG = toks.find(t => t.n === 5).tk;
+    await hp.evaluate(([mn, fg]) => { const s = window.__calc.board().stepTokens; s[mn] = { ...s[mn], x: 22, y: 20 }; s[fg] = { ...s[fg], x: 30, y: 14 }; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, [MN, FG]);
+    await hp.tap('button[data-action="board-danger"][data-value="B"]');
+    await hp.tap('#board-heat-chip');
+    await hp.waitForSelector('#heat-layer');
+    const h = await hp.evaluate(() => ({ cells: document.querySelectorAll('#heat-layer rect').length, max: Number(document.getElementById('heat-layer').dataset.max) }));
+    check('🔥 Heat map: every square the Orks can reach next turn is shaded, darkest where most of them can (shoot + charge chance)', h.cells > 200 && h.max > 1.5 && h.max <= 4, JSON.stringify(h));
+    // tap an empty square next to the Meganobz (5" away): who can reach it
+    await hp.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'center' }));
+    const box = await hp.locator('#board-svg').boundingBox();
+    const vb = await hp.evaluate(() => { const v = document.getElementById('board-svg').viewBox.baseVal; return { x: v.x, y: v.y, w: v.width, h: v.height }; });
+    const sx = box.x + (22 - vb.x) / vb.w * box.width, sy = box.y + (26 - vb.y) / vb.h * box.height;
+    await hp.mouse.click(sx, sy);
+    await hp.waitForSelector('#heat-at');
+    const info = (await hp.textContent('#board-heat-info')).replace(/\s+/g, ' ');
+    check('tap a square: the units that can reach it, with each one’s charge chance', /At 2\d" across, 2\d" down:/.test(info) && /Meganobz [^·]*charge \d+%/.test(info) && /Flash Gitz shoot/.test(info), info);
+    await hp.locator('#board-host').scrollIntoViewIfNeeded();
+    await hp.screenshot({ path: join(SHOTS, 'calc_112_heat_map.png') });
+    await hctx.close();
+  }
+
+  // --- 1.117: my statistics from saved games
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`stats: ${e}`));
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`stats: ${m.text()}`); });
+    sp.on('dialog', d => d.accept());
+    await sp.goto(`${BASE}/calc/`); await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('#games-card > summary').catch(() => {});
+    check('no finished game yet: the stats say how they will appear', /appear here once a saved game has ended/.test(await sp.textContent('#my-stats')));
+    // a game: A goes first, scores, the battle is ended (it saves itself)
+    await sp.tap('button[data-action="view"][data-value="mission"]');
+    await sp.tap('button[data-action="mission-table"]').catch(() => {});
+    await sp.tap('button[data-action="mission-tab"][data-value="play"]').catch(() => {});
+    await sp.waitForSelector('#play-bar');
+    await sp.tap('button[data-action="mission-first"][data-value="A"]').catch(() => {});
+    for (const [side, k] of [['A', 'primary'], ['A', 'primary'], ['A', 'secondary'], ['B', 'primary']]) await sp.tap(`button[data-action="mission-score-step"][data-side="${side}"][data-k="${k}"][data-delta="5"]`);
+    for (let i = 0; i < 10; i++) { if (await sp.isDisabled('#play-turn-done')) break; await sp.tap('#play-turn-done'); }
+    await sp.waitForFunction(() => window.__calc.mission().game?.over === true || window.__calc.state.mission?.game?.over === true);
+    await sp.waitForFunction(() => window.__calc.state.games.length === 1);
+    await sp.tap('button[data-action="view"][data-value="armies"]');
+    await sp.waitForSelector('#games-card');
+    if (!(await sp.evaluate(() => document.getElementById('games-card').open))) await sp.tap('#games-card > summary');
+    await sp.tap('#my-stats > summary');
+    const txt = (await sp.textContent('#my-stats')).replace(/\s+/g, ' ');
+    const byOpp = await sp.$$eval('#my-stats [data-stats="oppFaction"] tbody tr', trs => trs.map(t => [...t.cells].map(c => c.textContent.trim()).join(' ')));
+    check('📊 My statistics: the finished game counted — 1 game, 1-0-0, the score with Battle Ready, by opponent / mission / layout / going first', /1 game, 1-0-0 \(100%\)/.test(txt) && /Average score 25–15/.test(txt) && byOpp.length === 1 && /Orks 1 1-0-0 100% 25–15/.test(byOpp[0]) && /Going first/.test(txt) && /By mission \(my primary\)/.test(txt), `${txt} | ${byOpp}`);
+    await sp.locator('#my-stats').scrollIntoViewIfNeeded();
+    await sp.screenshot({ path: join(SHOTS, 'calc_113_my_stats.png') });
+    await sctx.close();
+  }
+
+  // --- 1.118: deployment drop-order drill — one unit at a time from the Defender, in a plan of its own
+  {
+    const dctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const dp = await dctx.newPage();
+    dp.on('pageerror', e => consoleErrors.push(`drill: ${e}`));
+    dp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`drill: ${m.text()}`); });
+    await dp.goto(`${BASE}/calc/`); await dp.waitForSelector('textarea[data-side="A"]');
+    await dp.fill('textarea[data-side="A"]', SW_LIST); await dp.tap('button[data-action="parse"][data-side="A"]');
+    await dp.fill('textarea[data-side="B"]', ORK_LIST); await dp.tap('button[data-action="parse"][data-side="B"]');
+    await dp.tap('button[data-action="view"][data-value="board"]');
+    await dp.waitForSelector('#board-svg');
+    // the real deployment: one Space Wolves unit already placed
+    await dp.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
+    const realTk = await dp.evaluate(() => window.__calc.board().units[0]?.tk);
+    const n = await dp.evaluate(() => ({ A: window.__calc.state.armies.A.units.length, B: window.__calc.state.armies.B.units.length }));
+    await dp.tap('#board-drill-ask');
+    await dp.waitForSelector('#board-drill-start');
+    await dp.tap('#board-drill-start button[data-first="B"]');
+    await dp.waitForSelector('#board-drill');
+    const t1 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const sides1 = await dp.$$eval('#board-drill-tray button[data-action="board-place"]', bs => [...new Set(bs.map(b => b.dataset.side))]);
+    const empty = await dp.evaluate(() => window.__calc.board().units.length);
+    check('🎯 Drop drill: the Defender (B) sets up first; only B’s units are offered; the drill board starts empty', /Drop 1: B/.test(t1) && sides1.join() === 'B' && empty === 0, `${t1} | ${sides1} | on board ${empty}`);
+    const left0 = (await dp.textContent('#board-drill-left')).replace(/\s+/g, ' ');
+    check('units left per side, and who finishes first', left0.includes(`A ${n.A} · B ${n.B}`) && /finishes first/.test(left0), left0);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    const t2 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const sides2 = await dp.$$eval('#board-drill-tray button[data-action="board-place"]', bs => [...new Set(bs.map(b => b.dataset.side))]);
+    check('after B’s drop it is A’s turn (A’s units only)', /Drop 2: A/.test(t2) && sides2.join() === 'A', `${t2} | ${sides2}`);
+    // A puts a unit in reserves: it is not set up, so A has one fewer drop; still A's turn
+    await dp.locator('#board-drill-tray button[data-action="board-drill-res"]').first().tap();
+    const left1 = (await dp.textContent('#board-drill-left')).replace(/\s+/g, ' ');
+    const t3 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    check('⤓ reserves: that unit is not set up (A has one fewer to set up); still A’s drop', left1.includes(`A ${n.A - 1} · B ${n.B - 1}`) && /Drop 2: A/.test(t3) && await dp.locator('#board-drill-res button').count() === 1, `${left1} | ${t3}`);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    const t4 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const log = await dp.$$eval('#board-drill-log li', ls => ls.map(l => l.textContent.trim()[0]));
+    check('the order so far: B, A, B — and A to set up next', /Drop 4: A/.test(t4) && log.join('') === 'BAB', `${t4} | ${log.join('')}`);
+    await dp.tap('#board-drill-undo');
+    const t5 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const on5 = await dp.evaluate(() => window.__calc.board().units.length);
+    check('↶ Undo takes the last unit back off the board and gives that player the drop again', /Drop 3: B/.test(t5) && on5 === 2, `${t5} | on board ${on5}`);
+    // reload: the drill is kept with the plan
+    await dp.reload(); await dp.waitForSelector('#board-svg');
+    const t6 = await dp.textContent('#board-drill-turn').catch(() => '');
+    check('the drill survives a reload', /Drop 3: B/.test(t6 ?? ''), t6);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    await dp.evaluate(() => document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click());
+    await dp.screenshot({ path: join(SHOTS, 'calc_114_drop_drill.png') });
+    // the real deployment is untouched
+    await dp.locator('#board-variants button[data-action="board-plan-pick"]').first().tap();
+    const main = await dp.evaluate(() => window.__calc.board().units.map(u => u.tk));
+    check('your real deployment (the first plan) is untouched by the drill', main.length === 1 && main[0] === realTk, JSON.stringify(main));
+    await dp.locator('#board-variants button[data-action="board-plan-pick"]', { hasText: 'Drop drill' }).tap();
+    await dp.tap('#board-drill-end');
+    const ended = await dp.evaluate(() => ({ drill: !!document.getElementById('board-drill'), units: window.__calc.board().units.length }));
+    check('End drill: the set-up stays as a plan of its own', !ended.drill && ended.units === 3, JSON.stringify(ended));
+    await dctx.close();
+  }
+
+  // --- 1.119: read-only share links — the lists, the attack set-up and the board plan inside the link
+  {
+    const mk = async (tag) => {
+      const c = await browser.newContext({ ...devices['Pixel 7'] });
+      const pg = await c.newPage();
+      pg.on('pageerror', e => consoleErrors.push(`${tag}: ${e}`));
+      pg.on('console', m => { if (m.type() === 'error') consoleErrors.push(`${tag}: ${m.text()}`); });
+      pg.on('dialog', d => d.accept());
+      return { c, pg };
+    };
+    // the sharer: both lists, two units on the board
+    const { c: c1, pg: s1 } = await mk('share-from');
+    await s1.goto(`${BASE}/calc/`); await s1.waitForSelector('textarea[data-side="A"]');
+    await s1.fill('textarea[data-side="A"]', SW_LIST); await s1.tap('button[data-action="parse"][data-side="A"]');
+    await s1.fill('textarea[data-side="B"]', ORK_LIST); await s1.tap('button[data-action="parse"][data-side="B"]');
+    await s1.tap('button[data-action="view"][data-value="board"]');
+    await s1.waitForSelector('#board-svg');
+    await s1.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
+    await s1.locator('#board-tray button[data-action="board-place"][data-side="B"]').first().tap();
+    const mine = await s1.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    await s1.tap('#share-board');
+    await s1.waitForSelector('#share-link-url');
+    const url = await s1.inputValue('#share-link-url');
+    const box = (await s1.textContent('#share-link-box')).replace(/\s+/g, ' ');
+    check('🔗 Board → Share link: a link with the lists and plan inside it (no server)', url.startsWith(`${BASE}/calc/#s=`) && url.length < 12000 && /board plan/.test(box), `${url.length} chars | ${box.slice(0, 120)}`);
+    await s1.locator('#share-link-box').scrollIntoViewIfNeeded();
+    await s1.screenshot({ path: join(SHOTS, 'calc_115_share_link.png') });
+    // the attack set-up can be shared too (Saved sheet)
+    await s1.tap('button[data-action="view"][data-value="attack"]');
+    await s1.waitForSelector('select[data-input="target"]');
+    const tv = await s1.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await s1.selectOption('select[data-input="target"]', tv);
+    await s1.tap('button[data-action="open-add"]');
+    await s1.tap('.pick:has-text("Grey Hunters")');
+    await s1.tap('button[data-action="open-saved"]');
+    const hasAtk = await s1.locator('#share-attack').count();
+    let atkUrl = '';
+    if (hasAtk) { await s1.tap('#share-attack'); await s1.waitForSelector('#share-link-url'); atkUrl = await s1.inputValue('#share-link-url'); }
+    check('Attack → 💾 Saved → share this set-up as a link', hasAtk === 1 && atkUrl.includes('#s='), `${hasAtk} ${atkUrl.length}`);
+    await c1.close();
+
+    // the viewer has their own list loaded; opening the link must not change it
+    const { c: c2, pg: v } = await mk('share-to');
+    await v.goto(`${BASE}/calc/`); await v.waitForSelector('textarea[data-side="A"]');
+    await v.fill('textarea[data-side="A"]', ORK_LIST); await v.tap('button[data-action="parse"][data-side="A"]');
+    const before = await v.evaluate(() => ({ main: localStorage.getItem('w40k_calc_v1'), board: localStorage.getItem('w40k_calc_board_v1') }));
+    await v.goto(url);
+    await v.waitForSelector('#shared-banner #shared-keep');
+    await v.waitForSelector('#board-svg');
+    const seen = await v.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    const banner = (await v.textContent('#shared-banner')).replace(/\s+/g, ' ');
+    check('opening the link: the Board with the same units in the same places, under a read-only banner', JSON.stringify(seen) === JSON.stringify(mine) && /Shared: .*Space Wolves.*vs.*Orks.*board plan/.test(banner) && /Read-only/.test(banner), `${JSON.stringify(seen)} vs ${JSON.stringify(mine)} | ${banner.slice(0, 140)}`);
+    await v.screenshot({ path: join(SHOTS, 'calc_116_shared_view.png') });
+    // try something in the view (place another unit): nothing is saved
+    await v.locator('#board-tray button[data-action="board-place"]').first().tap();
+    const during = await v.evaluate(() => ({ main: localStorage.getItem('w40k_calc_v1'), board: localStorage.getItem('w40k_calc_board_v1') }));
+    check('while viewing, nothing is written to this device (own lists and plans untouched)', during.main === before.main && during.board === before.board);
+    await v.tap('#shared-close');
+    await v.waitForSelector('textarea[data-side="A"]');
+    const after = await v.evaluate(() => ({ hash: location.hash, A: window.__calc.state.armies.A?.faction ?? null, B: window.__calc.state.armies.B?.faction ?? null, banner: !!document.getElementById('shared-banner') }));
+    check('Close: back to your own lists (Orks in A, nothing in B), the link gone', after.hash === '' && /Ork/.test(after.A ?? '') && after.B === null && !after.banner, JSON.stringify(after));
+    // open again and keep a copy: saved, and still there after a reload
+    await v.goto(url);
+    await v.waitForSelector('#shared-keep');
+    await v.tap('#shared-keep');
+    await v.waitForFunction(() => !document.getElementById('shared-banner'));
+    await v.goto(`${BASE}/calc/`);
+    await v.tap('button[data-action="view"][data-value="board"]').catch(() => {});
+    await v.waitForSelector('#board-svg');
+    const kept = await v.evaluate(() => window.__calc.board().units.map(u => `${u.tk}@${u.x},${u.y}`).sort());
+    check('Keep a copy: the lists and the plan are saved on this device', JSON.stringify(kept) === JSON.stringify(mine), JSON.stringify(kept));
+    // a cut-short link says so
+    await v.goto(url.slice(0, url.indexOf('#s=') + 40));
+    await v.waitForSelector('#shared-error');
+    check('a link cut short when copied says so (and changes nothing)', /incomplete or damaged/.test(await v.textContent('#shared-error')));
+    // the attack link opens on the Attack tab with the same attacker and target
+    await v.goto(atkUrl);
+    await v.waitForSelector('#shared-keep');
+    await v.waitForSelector('[data-attacker]');
+    const atk = await v.evaluate(() => ({ view: window.__calc.state.view, n: document.querySelectorAll('[data-attacker]').length, txt: document.querySelector('[data-attacker]')?.textContent ?? '', tgt: document.querySelector('select[data-input="target"]')?.selectedOptions[0]?.textContent ?? '' }));
+    check('an attack link opens on Attack with the same attacker and target', atk.view === 'attack' && atk.n === 1 && /Grey Hunters/.test(atk.txt) && /Warboss \+ Boyz/.test(atk.tgt), JSON.stringify({ ...atk, txt: atk.txt.slice(0, 40) }));
+    await c2.close();
+  }
+
+  // --- 1.120: Scout moves planned on the Deploy step — a dashed ghost you drag, checked against 24.32
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`scout: ${e}`));
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`scout: ${m.text()}`); });
+    await sp.goto(`${BASE}/calc/`); await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="board"]');
+    await sp.waitForSelector('#board-svg');
+    await sp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    await sp.waitForSelector('#board-scout');
+    const head = (await sp.textContent('#board-scout')).replace(/\s+/g, ' ');
+    await sp.tap('#board-scout-chip');
+    await sp.waitForSelector('[data-scout]');
+    const s1 = await sp.evaluate(() => ({ ok: document.querySelector('[data-scout]').dataset.ok, label: document.querySelector('[data-scout] text').textContent, panel: document.getElementById('board-scout').textContent.replace(/\s+/g, ' ') }));
+    check('🏃 Scout Squad: “Plan a Scout move” draws a dashed ghost up to its Scouts distance toward the middle, legal', /Scouts \d+"/.test(head) && s1.ok === '1' && /^Scout \d\.\d"\/\d+"$/.test(s1.label) && /✓/.test(s1.panel), `${head.slice(0, 60)} | ${JSON.stringify(s1)}`);
+    // drag the ghost a long way: too far, flagged
+    await sp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); document.getElementById('board-host').scrollIntoView({ block: 'center' }); });
+    const gb = await sp.locator('[data-scout] rect.scout-grab').boundingBox();
+    const box = await sp.locator('#board-svg').boundingBox();
+    const cx = gb.x + gb.width / 2, cy = gb.y + gb.height / 2, inch = box.width / 44;
+    await sp.mouse.move(cx, cy); await sp.mouse.down();
+    for (let i = 1; i <= 8; i++) await sp.mouse.move(cx, cy + i * 1.2 * inch);
+    await sp.mouse.up();
+    await sp.waitForFunction(() => document.querySelector('[data-scout]')?.dataset.ok === '0');
+    const warn = (await sp.textContent('#board-warnings').catch(() => '')).replace(/\s+/g, ' ');
+    check('dragged further than its Scout move: the ghost turns red and the step check says by how much', /Scout move: moves \d+\.\d": more than its \d+" Scout move/.test(warn), warn.slice(0, 200));
+    await sp.screenshot({ path: join(SHOTS, 'calc_117_scout_move.png') });
+    const scoutPos = await sp.evaluate(() => { const k = Object.keys(window.__calc.board().stepTokens).find(t => window.__calc.board().stepTokens[t].scout); return { k, ...window.__calc.board().stepTokens[k].scout }; });
+    await sp.tap('button[data-action="board-step-add"]');
+    const t1 = await sp.evaluate((k) => window.__calc.board().stepTokens[k], scoutPos.k);
+    check('＋ Next turn: Turn 1 starts where the Scout move ends', Math.abs(t1.x - scoutPos.x) < 0.01 && Math.abs(t1.y - scoutPos.y) < 0.01 && !t1.scout, JSON.stringify({ t1, scoutPos }));
+    const ghostT1 = await sp.locator('[data-scout]').count();
+    check('no Scout ghosts on Turn 1 (pre-game only)', ghostT1 === 0, String(ghostT1));
+    await sctx.close();
+  }
+
+  // --- 1.121: list gap-finder — the whole list against eight fixed reference targets
+  {
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`gaps: ${e}`));
+    gp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`gaps: ${m.text()}`); });
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.tap('#gaps-A');
+    await gp.waitForSelector('#gaps-host');
+    await gp.waitForFunction(() => /matchups · 1,000 rolls each/.test(document.getElementById('gaps-progress')?.textContent ?? ''), null, { timeout: 180000 });
+    const rows = await gp.$$eval('.gap-row', rs => rs.map(r => ({ id: r.dataset.gap, level: r.dataset.level, txt: r.textContent.replace(/\s+/g, ' ').trim() })));
+    const num = (r) => Number(r.txt.match(/A turn removes ([\d.]+) of these/)?.[1]);
+    const horde = rows.find(r => r.id === 'horde'), knight = rows.find(r => r.id === 'knight');
+    check('🔍 What is this list missing: eight reference targets, each with what a turn removes and the best units', rows.length === 8 && rows.every(r => /A turn removes [\d.]+ of these: shooting [\d.]+ · fight [\d.]+/.test(r.txt)) && /Best: /.test(horde.txt), JSON.stringify(rows.map(r => `${r.id}:${r.level}:${num(r)}`)));
+    check('a horde of light infantry comes off far more easily than a Knight (sanity of the numbers)', num(horde) > 1.5 * num(knight) && num(knight) > 0, `${num(horde)} vs ${num(knight)}`);
+    check('the weakest matchup is flagged', rows.filter(r => / · weakest/.test(r.txt)).length >= 1, rows.map(r => r.txt.slice(0, 30)).join(' | '));
+    await gp.screenshot({ path: join(SHOTS, 'calc_118_list_gaps.png') });
+    await gctx.close();
+  }
+
+  // --- 1.122: printable game-day sheet (Intel → 🖨): their units, tricks, stratagems, my army by phase; no rule text
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('pageerror', e => consoleErrors.push(`print: ${e}`));
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`print: ${m.text()}`); });
+    await pp.goto(`${BASE}/calc/`); await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('#open-print');
+    await pp.waitForSelector('#print-preview .ps');
+    const pv = await pp.evaluate(() => {
+      const el = document.getElementById('print-preview');
+      return { nB: window.__calc.state.armies.B.units.length, txt: el.textContent.replace(/\s+/g, ' '), units: el.querySelectorAll('.ps-t tbody tr').length, boxes: el.querySelectorAll('.ps-box').length, h2: [...el.querySelectorAll('h2')].map(h => h.textContent) };
+    });
+    check('🖨 Intel → Game-day sheet: their units (one row each), plan-around notes, their stratagems by turn, your army by phase', pv.units === pv.nB && pv.h2.includes('Their units') && pv.h2.includes('Their stratagems in your turn') && pv.h2.includes('Your army, phase by phase') && /Warboss \+ Boyz/.test(pv.txt) && /M6" T5 Sv5\+ W1 OC2/.test(pv.txt), JSON.stringify({ units: pv.units, h2: pv.h2, sample: pv.txt.slice(0, 200) }));
+    // no rule text: the stratagem "When:" / "Effect:" lines of the Intel tab are not on the sheet
+    const strats = await pp.evaluate(() => window.__calc.state.armies.B && document.querySelector('#print-preview').textContent);
+    check('names, costs and phases only: no “When:” / “Effect:” rule text on the sheet; once-per-battle rules get a ☐', !/When:|Effect:/.test(strats) && pv.boxes >= 1, `boxes ${pv.boxes}`);
+    await pp.screenshot({ path: join(SHOTS, 'calc_119_print_sheet.png') });
+    // the printed page: only the sheet (print media)
+    await pp.evaluate(() => { window.print = () => { window.__printed = true; }; });
+    await pp.tap('#print-go');
+    await pp.emulateMedia({ media: 'print' });
+    const printed = await pp.evaluate(() => ({ called: !!window.__printed, root: getComputedStyle(document.getElementById('print-root')).display, app: getComputedStyle(document.getElementById('app') ?? document.querySelector('main')).display, rows: document.querySelectorAll('#print-root .ps-t tbody tr').length }));
+    check('Print: only the sheet is printed (the app is hidden in print)', printed.called && printed.root === 'block' && printed.rows === pv.nB, JSON.stringify(printed));
+    const pdf = await pp.pdf({ format: 'A4' }).catch(() => null);
+    check('it prints as a PDF', !!pdf && pdf.length > 5000, String(pdf?.length));
+    if (pdf) { const { writeFileSync } = await import('fs'); writeFileSync(join(SHOTS, 'calc_119_print_sheet.pdf'), pdf); }
+    await pp.emulateMedia({ media: 'screen' });
+    await pctx.close();
+  }
+
+  // --- 1.123: what a unit can see (shaded squares) and hull sizes you measured
+  {
+    const vctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const vp = await vctx.newPage();
+    vp.on('pageerror', e => consoleErrors.push(`see: ${e}`));
+    vp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`see: ${m.text()}`); });
+    await vp.goto(`${BASE}/calc/`); await vp.waitForSelector('textarea[data-side="A"]');
+    await vp.fill('textarea[data-side="A"]', SW_LIST); await vp.tap('button[data-action="parse"][data-side="A"]');
+    await vp.fill('textarea[data-side="B"]', ORK_LIST); await vp.tap('button[data-action="parse"][data-side="B"]');
+    await vp.tap('button[data-action="view"][data-value="board"]');
+    await vp.waitForSelector('#board-svg');
+    await vp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    await vp.tap('button[data-action="board-ring"][data-k="see"]');
+    await vp.waitForSelector('#see-layer');
+    const note = await vp.textContent('#board-see-note').catch(() => '');
+    const seen = await vp.evaluate(() => ({ n: Number(document.getElementById('see-layer').dataset.seen), rects: document.querySelectorAll('#see-layer rect').length }));
+    check('👁 What it can see: the squares where a model would be visible to the unit are shaded (terrain hides the rest)', seen.n > 200 && seen.n < 2640 && seen.rects > 10 && /not a table ruling/.test(note), JSON.stringify(seen));
+    await vp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); document.getElementById('board-host').scrollIntoView({ block: 'start' }); });
+    await vp.screenshot({ path: join(SHOTS, 'calc_120_what_it_sees.png') });
+    // hull: the Battlewagon has no hull size in the data; enter the one you measured
+    await vp.locator('#board-tray button[data-action="board-place"][data-side="B"]', { hasText: 'Battlewagon' }).tap();
+    await vp.waitForSelector('#board-hull');
+    const before = (await vp.textContent('#board-hull')).replace(/\s+/g, ' ');
+    const inp = vp.locator('#board-hull input[data-dim="l"]');
+    await inp.fill('9'); await inp.dispatchEvent('change');
+    await vp.waitForFunction(() => /your measurement/.test(document.getElementById('board-hull')?.textContent ?? ''));
+    const fp = await vp.evaluate(() => { const u = window.__calc.board().units.find(t => t.tk.startsWith('B:') && t.models[0]?.fp?.shape === 'rect'); return u?.models[0]?.fp ?? null; });
+    check('Hull: “rough size” until you enter your model’s length × width; the board then measures from it', /rough size/.test(before) && fp?.measured && Math.abs(fp.hw - 4.5) < 0.01, JSON.stringify({ before: before.slice(0, 80), fp }));
+    await vp.reload(); await vp.waitForSelector('#board-svg');
+    const kept = await vp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_hulls_v1') ?? '{}'));
+    check('the hull size is kept on this device', Object.values(kept).some(h => h.l === 9), JSON.stringify(kept));
+    await vctx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

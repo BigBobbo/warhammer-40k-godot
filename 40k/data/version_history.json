@@ -2,6 +2,96 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.123.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what a unit can see, and set your vehicles' hull sizes",
+      "changes": [
+        "Board → select a unit → 👁 What it can see: shades every square where a model would be visible to it, with the same sight lines as the rest of the app",
+        "Vehicles have no hull dimensions in the rules data: enter your model's hull length × width once and ranges, gaps and sight lines are measured from it (kept on your device, for every list)"
+      ]
+    },
+    {
+      "version": "1.122.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: print a game-day sheet",
+      "changes": [
+        "Intel → 🖨 Game-day sheet: one or two A4 pages to take to the table — their units (profile, guns, protection), what to plan around, their stratagems split by whose turn, and your army phase by phase",
+        "Names, costs, phases and the app's own numbers only — no rule text; once-per-battle rules get a box to tick",
+        "Print it or save it as a PDF from the print dialog; only the sheet is printed"
+      ]
+    },
+    {
+      "version": "1.121.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: see what your list is missing",
+      "changes": [
+        "Armies → 🔍 What is this list missing?: your whole list against eight fixed targets (hordes, elite and heavy infantry, transport, monster, battle tank, Knight)",
+        "For each: how many a turn removes with shooting and with your best three units in combat, which units do it best, and Gap / Thin / Covered",
+        "Targets your shooting barely touches are marked in amber: a melee-only answer"
+      ]
+    },
+    {
+      "version": "1.120.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: plan Scout moves before the first turn",
+      "changes": [
+        "Board → Deploy: select a unit with Scouts (or a Dedicated Transport whose passengers all have it) → 🏃 Plan a Scout move: a dashed ghost shows where the move ends, and you drag it",
+        "It shows how far each move goes and turns red when it starts outside your deployment zone, goes further than the unit's Scouts distance, or ends within 8\" of enemy units",
+        "＋ Next turn starts Turn 1 from the Scout positions; the unit's deployed position stays in the Deploy step"
+      ]
+    },
+    {
+      "version": "1.119.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: share a plan or an attack as a link",
+      "changes": [
+        "Board → 🔗 Share link, and Attack → 💾 Saved → Share this set-up: a link with both lists and your plan or attack inside it (about 2 KB; nothing is stored on a server)",
+        "Opening a link shows it read-only under a banner: you can look around and try things, but nothing is saved and your own lists and plans are untouched",
+        "Keep a copy saves the shared lists and plan on your device; Close goes back to your own; a link cut short when copied says so"
+      ]
+    },
+    {
+      "version": "1.118.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: practise the deployment drop by drop",
+      "changes": [
+        "Board → 🎯 Drop drill: pick who is the Defender, then set up one unit at a time, alternating, in a plan of its own (your real deployment is untouched)",
+        "It shows whose drop it is, how many units each side has left, who finishes first and how many units the other side then places knowing where everything is",
+        "TITANIC units skip their player's next drop; ⤓ puts a unit in reserves (not set up); Undo takes back the last drop"
+      ]
+    },
+    {
+      "version": "1.117.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: exposure heat map, and your own statistics from saved games",
+      "changes": [
+        "Board: ⚠ Danger next turn → 🔥 Heat map shades every square by how much of that army can reach it next turn (each unit that can shoot it after moving, plus each unit's chance to charge it); tap a square to see who",
+        "Saved games: 📊 My statistics — wins, losses, draws and average score, by opponent, by your army, by mission, by layout and going first or second (finished games only, kept on this device)"
+      ]
+    },
+    {
+      "version": "1.116.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: layouts checked and stamped, table set-up measurements, saved lists against today's points, how an attack usually goes",
+      "changes": [
+        "Board: the layouts' source is stated — Event Companion v1.3 (October 2026), whose layouts are unchanged since v1.2; 12 of the 45 were compared with the official PDF",
+        "Board: 📏 Table set-up measurements label every terrain area and objective in inches from the nearest edges, to set up the real table",
+        "Wazbom Blastajet on its new 120x92mm oval base (Event Companion v1.3)",
+        "List library: each saved list says which units cost something else with today's points, its total now, and whether it is over the limit; the army card says the total too",
+        "Attack details: at least how many models / how much damage 9 times in 10, half the time and 1 time in 10"
+      ]
+    },
+    {
+      "version": "1.115.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: show the score to your opponent, random card draws they can see, stratagems usable now with a CP log",
+      "changes": [
+        "Play: 📺 Show puts the score full screen for your opponent (both totals, CP, cards in hand, the score sheet by round, this round's stratagems) and turns it to face them — tournament packs only count a score both players can see",
+        "Play: 🎲 Draw at random draws a secondary card from your deck and shows it full screen, for both players to see",
+        "Play: pick the phase; Stratagems now lists what each player can use in that phase and turn; Use spends the CP, logs it, and blocks the same stratagem twice in a phase; Undo takes it back"
+      ]
+    },
+    {
       "version": "1.114.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: transports, tighter formations, letters on bases, stratagems in full",

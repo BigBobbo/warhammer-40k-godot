@@ -281,6 +281,23 @@ export function canArrive(x, y, r, zones, { deepStrike = false, enemyZone = null
 function polyDist(px, py, poly) { return inPoly(px, py, poly) ? 0 : edgeDist(px, py, poly); }
 
 /**
+ * A planned Scout move (24.31 / 24.32: in the Resolve Pre-battle Abilities step, a unit wholly within its
+ * deployment zone moves up to X" as described in Moving (03) and must end more than 8" horizontally from all
+ * enemy units). Straight-line model by model: terrain and the path are not checked.
+ * u: { X, from: unit at its deployment position, to: the same unit after the move } ({ x, y, models });
+ * geo: { myDZ, enemies: [unit] } -> { moved (inches, the furthest any model moves), msgs: [string] }
+ */
+export function scoutCheck(u, geo) {
+  const a = abs(u.from), b = abs(u.to), msgs = [];
+  const moved = a.reduce((m, p, i) => Math.max(m, Math.hypot((b[i]?.x ?? p.x) - p.x, (b[i]?.y ?? p.y) - p.y)), 0);
+  if (geo.myDZ && !a.every(m => baseWhollyWithin(m.x, m.y, m.r, geo.myDZ))) msgs.push('must start wholly within its deployment zone to make a Scout move (24.32)');
+  if (moved > u.X + 0.05) msgs.push(`moves ${moved.toFixed(1)}": more than its ${u.X}" Scout move (24.32)`);
+  const near = (geo.enemies ?? []).some(e => abs(e).some(em => b.some(m => Math.hypot(m.x - em.x, m.y - em.y) - m.r - em.r <= 8)));
+  if (near) msgs.push('must end more than 8" horizontally from all enemy units (24.32)');
+  return { moved, msgs };
+}
+
+/**
  * Plan sanity, by the 11th edition rules:
  *  - deployment (the first step): a unit is wholly within its deployment zone, unless every model has
  *    Infiltrators (24.20: anywhere more than 8" from the enemy deployment zone and enemy units) or it
