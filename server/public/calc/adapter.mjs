@@ -5,10 +5,11 @@
 // Reuses the Army Builder's importer and patched 40kdc dataset (store.js /
 // importers.js), so every list format the builder accepts works here too.
 
-import { conv, factionName, dc, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
+import { conv, factionName, dc, ds, unitData, unitBasePoints, countsOf } from '../js/builder/store.js';
 import { CODEX_OVERLAY_FACTIONS } from '../js/lib/data-patches.mjs';
 import { ERRATA } from './errata-data.mjs';
-import { importText } from '../js/builder/importers.js';
+import { importText, importGameObject } from '../js/builder/importers.js';
+import { gameArmyText } from './gamelists.mjs';
 import { normName, looseName } from '../js/lib/dckit.mjs';
 import { mergeMods } from './engine.mjs';
 import { solveCounts, quickStat } from './choose.mjs';
@@ -186,6 +187,50 @@ export function pointsCheck(army) {
 // ---------------------------------------------------------------------------
 // Import
 
+/**
+ * A list from the game's army store (a game army file) as list text for importArmy. Two ways, the better one kept:
+ * the Army Builder's converter (game file -> roster -> WTC text: exact when it knows every datasheet, it keeps the
+ * loadout per model), and the file written out line by line (gamelists.gameArmyText: for the units the builder's
+ * converter cannot place, e.g. the Space Wolves datasheets). Better = more units recognised, then more units whose
+ * points match the rules data, then fewer import notes. -> { text, how, units, recognised, pointsOk, checked }
+ */
+export function gameArmyToText(json, name = '') {
+  const tries = [];
+  try {
+    const { roster } = importGameObject(json, { name });
+    // the converter prices each unit again (a second copy at the first copy's price): keep the file's price
+    const metas = Object.values(json?.units ?? {}).map(u => u?.meta).filter(m => m?.name);
+    if (metas.length === roster.units.length) {
+      roster.units.forEach((ru, k) => {
+        const p = Number(metas[k].points);
+        if (Number.isFinite(p) && p > 0 && looseName(metas[k].name) === looseName(ru.ref?.raw_name ?? metas[k].name)) ru.points = p - (ru.enhancement_points ?? 0);
+      });
+    }
+    const t = dc.exportRoster(roster, 'newrecruit-wtc-full', ds);
+    tries.push({ how: 'builder', text: typeof t === 'string' ? t : String(t?.text ?? t) });
+  } catch (e) { console.log('[calc] game list: the builder\'s converter failed:', e.message); }
+  try { tries.push({ how: 'lines', text: gameArmyText(json, name) }); } catch (e) { console.log('[calc] game list: line by line failed:', e.message); }
+  let best = null;
+  for (const t of tries) {
+    let army;
+    try { army = importArmy(t.text); } catch { continue; }
+    const pc = pointsCheck(army);
+    const r = { ...t, units: army.roster.units.length, recognised: army.roster.units.filter(u => u.ref?.id).length, pointsOk: pc.checked - pc.mismatches.length, checked: pc.checked, notes: army.warnings.length };
+    const better = (a, b) => (a.recognised - b.recognised) || (a.pointsOk - b.pointsOk) || (b.notes - a.notes);
+    if (!best || better(r, best) > 0) best = r;
+  }
+  if (!best) throw new Error('This army could not be read.');
+  console.log(`[calc] game list "${name}": ${best.how}, ${best.recognised}/${best.units} units recognised, points ${best.pointsOk}/${best.checked}`);
+  return best;
+}
+
+/** An army read in the calculator as a game army file (the Army Builder's converter, as its "Save to cloud"). */
+export function armyToGame(army, today = new Date()) {
+  const createdDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const { army: game, warnings } = conv.rosterToGame(army.roster, { createdDate });
+  return { game, warnings: warnings ?? [] };
+}
+
 export function importArmy(text) {
   const { roster, report } = importText(text);
   const attachments = defaultAttachments(roster);
@@ -282,6 +327,77 @@ export function enhancementGrants(ru) {
     else if (/^[A-Z][A-Za-z’' -]{2,30}$/.test(b) && !/\b(has|have|can|when|if|strike|operative|stealth|scouts|infiltrators)\b/i.test(b)) out.keywords.push(b.toUpperCase());
   }
   return out;
+}
+
+/**
+ * Attachments to suggest when a list does not say who leads which unit: every character that is not attached yet
+ * goes to a unit on its Leader list with that slot (Leader / Support) free. The characters with the fewest
+ * possible units go first; a Leader prefers a unit with no character yet, a Support one that already has a
+ * Leader (the GW pairing: Logan Grimnar + Ancient in Terminator Armour with the Terminators); then the unit
+ * with the most points. Keeps the attachments already made. -> { [characterIndex]: bodyguardIndex }
+ */
+export function suggestAttachments(army) {
+  const parts = rosterParts(army.roster);
+  const att = { ...(army.attachments ?? {}) };
+  const roleOf = new Map(parts.map(p => [p.index, attachRole(p)]));
+  const bodyguards = parts.filter(p => !roleOf.get(p.index) && !isCharacter(p.dcUnit));
+  const chars = parts.filter(p => roleOf.get(p.index) && att[p.index] == null)
+    .map(p => ({ p, role: roleOf.get(p.index), ids: eligibleBodyguardIds(p) }))
+    .map(c => ({ ...c, n: bodyguards.filter(b => c.ids.has(b.dcUnit.id)).length }))
+    .filter(c => c.n > 0)
+    // leaders before supports (a support goes where a leader is), then the least choice first
+    .sort((a, b) => (a.role === 'support') - (b.role === 'support') || a.n - b.n || a.p.index - b.p.index);
+  const on = (bi) => Object.entries(att).filter(([, x]) => x === bi).map(([ci]) => roleOf.get(Number(ci)));
+  const pts = (p) => listedPoints(p.ru) ?? 0;
+  for (const c of chars) {
+    const free = bodyguards.filter(b => c.ids.has(b.dcUnit.id) && !on(b.index).includes(c.role));
+    if (!free.length) continue;
+    const score = (b) => {
+      const here = on(b.index);
+      return [c.role === 'leader' ? (here.length ? 0 : 1) : (here.includes('leader') ? 1 : 0), pts(b)];
+    };
+    free.sort((a, b) => { const x = score(a), y = score(b); return (y[0] - x[0]) || (y[1] - x[1]) || (a.index - b.index); });
+    att[c.p.index] = free[0].index;
+  }
+  return att;
+}
+
+// ---- transports: who can embark, and how many spaces they take (rules data: transport_capacity)
+const kwSet = (dcUnit) => new Set([...(dcUnit.keywords ?? []), ...(dcUnit.faction_keywords ?? [])].map(k => String(k).toUpperCase()));
+/** Does a unit with these keywords have every keyword in the phrase? ("Adeptus Astartes Infantry": ADEPTUS ASTARTES + INFANTRY) */
+function hasAllKeywords(kws, phrase) {
+  let rest = ` ${String(phrase).toUpperCase().replace(/\s+/g, ' ').trim()} `;
+  for (const k of [...kws].sort((a, b) => b.length - a.length)) while (rest.includes(` ${k} `)) rest = rest.replace(` ${k} `, ' ');
+  return rest.trim() === '';
+}
+/**
+ * The transport in a combat unit, or null: { name, capacity, phrase (who may embark, from the datasheet text; null =
+ * not given: Infantry of the same army is assumed), exclude: [keyword phrases], multipliers: [{ keyword, spaces }] }.
+ */
+export function transportOf(cu) {
+  const m = cu?.members?.find(x => x.dcUnit.transport_capacity?.capacity);
+  if (!m) return null;
+  const tc = m.dcUnit.transport_capacity, text = tc.rules_text ?? '';
+  const phrase = /transport capacity of \d+ (.+?) models?\b/i.exec(text)?.[1] ?? null;
+  const cannot = /cannot transport ([^.]+?) models?\b/i.exec(text)?.[1]?.split(/\s*\/\s*|\s*,\s*|\s+or\s+/) ?? [];
+  return { name: m.dcUnit.name, capacity: tc.capacity, phrase, exclude: [...new Set([...(tc.exclusion_keywords ?? []), ...cannot].filter(Boolean))],
+    multipliers: tc.multipliers ?? [], faction: m.dcUnit.faction_id, text };
+}
+/** Can combat unit `cu` embark in transport `tr` (transportOf)? -> { ok, spaces, why } */
+export function passengerCheck(tr, cu) {
+  if (!tr || !cu) return { ok: false, spaces: 0, why: 'not a transport' };
+  let spaces = 0;
+  for (const m of cu.members) {
+    const kws = kwSet(m.dcUnit);
+    if (kws.has('VEHICLE') || kws.has('MONSTER')) return { ok: false, spaces: 0, why: `${m.dcUnit.name} is a ${kws.has('VEHICLE') ? 'Vehicle' : 'Monster'}` };
+    const ex = tr.exclude.find(e => hasAllKeywords(kws, e));
+    if (ex) return { ok: false, spaces: 0, why: `${tr.name} cannot transport ${ex} models` };
+    if (tr.phrase ? !hasAllKeywords(kws, tr.phrase) : !(kws.has('INFANTRY') && m.dcUnit.faction_id === tr.faction))
+      return { ok: false, spaces: 0, why: tr.phrase ? `only ${tr.phrase} models` : 'only Infantry of this army (the rules data names no other)' };
+    const mult = Math.max(1, ...tr.multipliers.filter(x => hasAllKeywords(kws, x.keyword)).map(x => x.spaces));
+    spaces += (m.ru.model_count ?? 1) * mult;
+  }
+  return { ok: true, spaces, why: null };
 }
 
 /** Roster -> combat units. A bodyguard and the characters attached to it are one unit. */

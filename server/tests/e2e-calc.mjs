@@ -1147,6 +1147,9 @@ try {
   // --- event: opponents' lists, layout letter per round, one tap to start a round, the matchup brief, my deployment reused
   {
     await page.tap('button[data-action="view"][data-value="armies"]');
+    // the list as it comes (1.113 remembers attachments per list: the Captain on Bike set on the Grey Hunters above
+    // would come back, and the board plans made with it would count as this list's planned layouts)
+    await page.evaluate(() => localStorage.removeItem('w40k_calc_attach_v1'));
     await page.fill('textarea[data-side="A"]', SW_LIST);
     await page.tap('button[data-action="parse"][data-side="A"]');
     await page.locator('#event-card > summary').tap();
@@ -2861,6 +2864,252 @@ Aggressor Squad (95 points)
     await qp.evaluate(() => window.scrollBy(0, -260));
     await qp.screenshot({ path: join(SHOTS, 'calc_96_points_enhancement.png') });
     await qctx.close();
+  }
+
+  // --- lists in the game (1.111): load a list from the game's army store; send army A / B there
+  {
+    const gctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`game lists: ${e}`));
+    gp.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) consoleErrors.push(`game lists: ${m.text()}`); });
+    gp.on('dialog', d => d.accept());
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    const gtxt = async (sel) => (await gp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // someone else's list already in the game
+    const other = await gp.evaluate(async () => (await fetch('/api/armies/Taken', { method: 'PUT', headers: { 'X-Player-ID': 'someone-else-0001', 'Content-Type': 'application/json' }, body: JSON.stringify({ army_data: { faction: { name: 'Orks', points: 500 }, units: { U_A: { meta: { name: 'Warboss', points: 70, wargear: [], enhancements: [] }, models: [{}] } } } }) })).status);
+    check('(set-up) another player’s list “Taken” is in the game', other === 200);
+    await gp.tap('button[data-action="open-library"][data-side="A"]');
+    await gp.tap('#game-lists-btn');
+    await gp.waitForSelector('[data-game-list="Taken"]');
+    check('📚 → Show the game’s lists: the lists in the game, to load into A or B', (await gp.locator('#game-lists .pick').count()) === 1 && (await gp.locator('[data-game-list="Taken"] button[data-action="store-load"]').count()) === 2);
+    // send army A under a name someone else uses: refused
+    await gp.fill('input[data-input="store-send-name"]', 'Taken');
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg');
+    check('a name someone else uses in the game is refused (the game finds lists by name)', /already in the game .* Pick another name/.test(await gtxt('#game-send-msg')), await gtxt('#game-send-msg'));
+    // send it as "Gaelcon Wolves"
+    await gp.fill('input[data-input="store-send-name"]', 'Gaelcon Wolves');
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg.ok');
+    const stored = await gp.evaluate(async () => (await (await fetch('/api/armies/Gaelcon_Wolves')).json()).army_data);
+    check('⇪ Send: army A is in the game as “Gaelcon_Wolves”, in the game’s format (12 units, its faction and detachments)', /Sent: the game lists army A as “Gaelcon_Wolves” \(12 units\)/.test(await gtxt('#game-send-msg')) && Object.keys(stored.units).length === 12 && stored.faction.name === 'Space Wolves' && (stored.detachments ?? stored.faction.detachments).length === 3 && (await gp.locator('[data-game-list="Gaelcon_Wolves"]').count()) === 1, JSON.stringify(stored.faction));
+    await gp.locator('#game-send').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_97_game_lists.png') });
+    // sending the same name again from this phone replaces it (after a confirm)
+    await gp.tap('button[data-action="store-send"]');
+    await gp.waitForSelector('#game-send-msg.ok');
+    check('the same phone can replace a list it sent', (await gp.locator('[data-game-list="Gaelcon_Wolves"]').count()) === 1);
+    // load it from the game into B
+    await gp.locator('[data-game-list="Gaelcon_Wolves"] button[data-action="store-load"][data-side="B"]').tap();
+    await gp.waitForSelector('#points-B');
+    const b = await gp.evaluate(() => ({ faction: window.__calc.state.armies.B?.faction, n: window.__calc.state.armies.B?.units.length, tas: window.__calc.state.armies.B?.roster.units.find(u => u.ref?.raw_name === 'Terminator Assault Squad') }));
+    check('→ B: the game’s list is army B — Space Wolves, every datasheet priced as the rules data says, enhancements kept', b.faction === 'Space Wolves' && /✓ Points: all 12 datasheets cost what the rules data says/.test(await gtxt('#points-B')) && b.tas?.enhancement?.raw_name === 'Furious Assault' && b.tas?.model_count === 10, JSON.stringify({ f: b.faction, n: b.n, pts: await gtxt('#points-B') }));
+    await gp.locator('#points-B').scrollIntoViewIfNeeded();
+    await gp.screenshot({ path: join(SHOTS, 'calc_98_game_list_loaded.png') });
+    // no connection to the server: says so
+    await gp.route('**/api/armies', r => r.abort());
+    await gp.evaluate(() => { window.__calc.state.gameLists = null; });
+    await gp.tap('button[data-action="open-library"][data-side="A"]');
+    await gp.tap('#game-lists-btn');
+    await gp.waitForSelector('#game-error');
+    check('offline: the library says the game’s lists need a connection', /need a connection/.test(await gtxt('#game-error')));
+    await gctx.close();
+  }
+
+  // --- 1.112: event Start says what is missing / what it set up; the page behind a sheet stays put; cards drawn as cards
+  {
+    const xctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const xp = await xctx.newPage();
+    xp.on('pageerror', e => consoleErrors.push(`1.112: ${e}`));
+    xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.112: ${m.text()}`); });
+    xp.on('dialog', d => d.accept());
+    await xp.goto(`${BASE}/calc/`); await xp.waitForSelector('textarea[data-side="A"]');
+    const xt = async (sel) => (await xp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // the event card: Start with nothing loaded says what to do (it used to be greyed out)
+    await xp.locator('summary', { hasText: 'Event' }).first().click();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForSelector('#event-msg');
+    check('Event: Start ▶ with no list loaded says to load your list as army A', /load your own list as army A/.test(await xt('#event-msg')), await xt('#event-msg'));
+    // an opponent in the library, my list as A
+    await xp.fill('textarea[data-side="B"]', ORK_LIST); await xp.tap('button[data-action="parse"][data-side="B"]');
+    await xp.tap('button[data-action="open-library"][data-side="B"]');
+    await xp.fill('input[data-input="lib-name"]', 'R1 Orks'); await xp.tap('button[data-action="lib-save"]');
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    await xp.fill('textarea[data-side="A"]', SW_LIST); await xp.tap('button[data-action="parse"][data-side="A"]');
+    if (!(await xp.locator('.event-round').count())) await xp.locator('summary', { hasText: 'Event' }).first().click();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForFunction(() => /pick its opponent/.test(document.querySelector('#event-msg')?.textContent ?? ''));
+    check('Event: Start ▶ with no opponent picked says to pick it', true);
+    await xp.selectOption('select[data-input="event-opp"][data-r="0"]', { label: 'R1 Orks' });
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-layout"][data-value="3"]').tap();
+    await xp.locator('.event-round[data-round="1"] button[data-action="event-start"]').tap();
+    await xp.waitForSelector('#round-started');
+    const lay = await xp.evaluate(() => window.__calc.board().layout);
+    check('Event: Start ▶ opens Intel at the top, saying what it set up (round, opponent, layout, missions); the Board has that layout', /Round 1 started against R1 Orks \(army B\) on Layout C/.test(await xt('#round-started')) && /_3$/.test(lay) && (await xp.evaluate(() => window.__calc.state.view)) === 'intel' && (await xp.evaluate(() => window.scrollY)) === 0 && (await xp.locator('#round-started').boundingBox()).y < 400, `${await xt('#round-started')} | ${lay} | scrollY ${await xp.evaluate(() => window.scrollY)}`);
+    await xp.screenshot({ path: join(SHOTS, 'calc_99_round_started.png') });
+    await xp.locator('#round-started button[data-value="board"]').tap();
+    await xp.waitForSelector('#board-svg');
+    check('the banner’s Board → opens the board on that layout', (await xp.evaluate(() => window.__calc.board().layout)) === lay);
+    // the matchup grid: a scroll inside it does not move the page behind
+    await xp.tap('button[data-action="view"][data-value="attack"]');
+    await xp.tap('button[data-action="open-grid"]');
+    await xp.waitForFunction(() => window.__calc.state.grid?.done, null, { timeout: 60000 });
+    // a long page behind the open sheet (the Attack view with nothing picked fits one screen): a spacer, scrolled to 300
+    await xp.evaluate(() => { const d = document.createElement('div'); d.id = 'test-spacer'; d.style.height = '3000px'; document.body.appendChild(d); window.scrollTo(0, 300); });
+    const before = await xp.evaluate(() => window.scrollY);
+    const locked = await xp.evaluate(() => getComputedStyle(document.documentElement).overflow + '/' + getComputedStyle(document.querySelector('.grid-wrap')).overscrollBehaviorY);
+    const box = await xp.locator('#grid-host').boundingBox();
+    for (let k = 0; k < 6; k++) await xp.mouse.wheel(0, 900, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    await xp.waitForTimeout(300);
+    const after = await xp.evaluate(() => window.scrollY);
+    check('matchup grid: the page behind stays put while the grid scrolls (the scroll stops at the grid’s edge)', before === 300 && after === before && locked.endsWith('/contain'), JSON.stringify({ before, after, locked }));
+    await xp.tap('.sheet button[data-action="close-sheet"]');
+    check('closing the sheet unlocks the page', (await xp.evaluate(() => document.documentElement.classList.contains('sheet-open'))) === false);
+    // the secondary cards as cards
+    await xp.tap('button[data-action="view"][data-value="mission"]');
+    await xp.tap('button[data-action="mission-tab"][data-value="cards"]');
+    await xp.waitForSelector('#mission-cards .card-row');
+    await xp.locator('.card-row[data-card="engage-on-all-fronts"] button[data-action="mission-card"]').tap();
+    await xp.waitForSelector('.card-detail [data-cardface="engage-on-all-fronts"]');
+    const face = await xt('.card-detail [data-cardface="engage-on-all-fronts"]');
+    check('tap a card: it is drawn as a card — name, Tactical / Fixed, when it scores, a VP badge per line, the Fixed version', /Engage on All Fronts/i.test(face) && /Tactical\s*Fixed/.test(face) && /End of your turn/.test(face) && (await xp.locator('.card-detail .cf-vp').count()) === 4 && /Fixed mission/.test(face), face);
+    await xp.locator('.card-detail .cf').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_100_card_face.png') });
+    await xp.tap('button[data-action="mission-cards-look"][data-value="faces"]');
+    await xp.waitForSelector('#card-faces .cf');
+    check('🂠 Cards: every secondary card drawn as a card, with the app’s numbers under it', (await xp.locator('#card-faces .cf').count()) === 18 && (await xp.locator('#card-faces .cf-foot').count()) === 18, String(await xp.locator('#card-faces .cf').count()));
+    await xp.locator('#card-faces').scrollIntoViewIfNeeded();
+    await xp.screenshot({ path: join(SHOTS, 'calc_101_card_gallery.png') });
+    await xp.tap('button[data-action="mission-cards-look"][data-value="list"]');
+    // the hand on Play
+    await xp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await xp.selectOption('select[data-input="mission-draw"][data-side="A"]', 'behind-enemy-lines');
+    await xp.locator('.hand-row[data-card="behind-enemy-lines"] button[data-action="mission-hand-info"]').tap();
+    await xp.waitForSelector('.hand-row [data-cardface="behind-enemy-lines"]');
+    check('a card in hand opens as a card, “When drawn” included', /When drawn/.test(await xt('.hand-row [data-cardface="behind-enemy-lines"]')));
+    await xctx.close();
+  }
+
+  // --- attachments during army set-up (1.113): ask when the list says none, suggest, remember per list
+  {
+    const actx = await browser.newContext({ ...devices['Pixel 7'] });
+    const ap = await actx.newPage();
+    ap.on('pageerror', e => consoleErrors.push(`attach: ${e}`));
+    ap.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attach: ${m.text()}`); });
+    ap.on('dialog', d => d.accept());
+    const CUST = readFileSync(join(here, 'fixtures', 'nr-custodes-1995.txt'), 'utf8');
+    const at = async (sel) => (await ap.textContent(sel)).replace(/\s+/g, ' ').trim();
+    await ap.goto(`${BASE}/calc/`); await ap.waitForSelector('textarea[data-side="A"]');
+    await ap.fill('textarea[data-side="A"]', CUST); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForSelector('#attach-ask-A');
+    check('a list that does not say who leads which unit: the Attached characters fold is open and asks', (await ap.locator('#attach-A[open]').count()) === 1 && /⚠ Attached characters · 0 of 3 attached/.test(await at('#attach-A summary')) && /does not say which characters lead which units/.test(await at('#attach-ask-A')));
+    await ap.locator('#attach-A').scrollIntoViewIfNeeded();
+    await ap.screenshot({ path: join(SHOTS, 'calc_102_attach_ask.png') });
+    await ap.tap('#attach-suggest-A');
+    await ap.waitForFunction(() => /3 of 3 attached/.test(document.querySelector('#attach-A summary')?.textContent ?? ''));
+    const units = await ap.evaluate(() => window.__calc.state.armies.A.units.map(u => u.name));
+    check('✨ Suggest: every character joins a unit it may lead (9 datasheets -> 6 units)', units.length === 6 && units.some(n => /Trajann Valoris \+ Allarus Custodians/.test(n)) && units.filter(n => /Shield-Captain \+ Sentinel Guard Sodality/.test(n)).length === 2, JSON.stringify(units));
+    // change one by hand: Trajann to the 2-model Allarus unit
+    const sel = ap.locator('select[data-input="attach"]').filter({ has: ap.locator('option[selected]', { hasText: 'Allarus' }) }).first();
+    const opts = await sel.locator('option').evaluateAll(os => os.map(o => [o.value, o.textContent]));
+    const small = opts.find(([, t]) => /Allarus Custodians \(2\)/.test(t));
+    await sel.selectOption(small[0]);
+    await ap.waitForFunction(() => window.__calc.state.armies.A.units.some(u => /Trajann Valoris \+ Allarus Custodians/.test(u.name) && u.models === 3));
+    check('a choice changed by hand', true);
+    await ap.locator('#attach-A').scrollIntoViewIfNeeded();
+    await ap.screenshot({ path: join(SHOTS, 'calc_103_attach_set.png') });
+    check('it says the choice is remembered for this list', /Remembered for this list/.test(await at('#attach-remembered-A')));
+    // the same list again: clear, then from the library, and as a fresh paste
+    await ap.tap('button[data-action="open-library"][data-side="A"]');
+    await ap.fill('input[data-input="lib-name"]', 'My Custodes'); await ap.tap('button[data-action="lib-save"]');
+    await ap.tap('.sheet button[data-action="close-sheet"]');
+    await ap.tap('button[data-action="clear"][data-side="A"]');
+    await ap.tap('button[data-action="open-library"][data-side="B"]');
+    await ap.locator('.sheet .pick', { hasText: 'My Custodes' }).locator('button[data-action="lib-load"][data-side="B"]').tap();
+    await ap.waitForFunction(() => window.__calc.state.armies.B?.units.length === 6);
+    const b = await ap.evaluate(() => window.__calc.state.armies.B.units.map(u => `${u.name}:${u.models}`));
+    check('the same list loaded again (from the library, as army B) keeps the attachments set for it', b.includes('Trajann Valoris + Allarus Custodians:3') && b.filter(x => /Shield-Captain \+ Sentinel Guard Sodality/.test(x)).length === 2, JSON.stringify(b));
+    await ap.reload(); await ap.waitForSelector('#app-version-mini');
+    await ap.fill('textarea[data-side="A"]', CUST + '\n'); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForFunction(() => window.__calc.state.armies.A?.units.length === 6);
+    check('…and pasted again after a reload', true);
+    // a list that says its attachments: no question asked, the list's own kept
+    await ap.fill('textarea[data-side="A"]', SW_LIST); await ap.tap('button[data-action="parse"][data-side="A"]');
+    await ap.waitForSelector('#attach-A');
+    check('a GW app list that names its attachments: no question, 4 of 4 attached from the list', (await ap.locator('#attach-ask-A').count()) === 0 && /4 of 4 attached/.test(await at('#attach-A summary')));
+    await actx.close();
+  }
+
+  // --- 1.114: gap between bases, a letter on every base, transports, stratagems in full
+  {
+    const kctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const kp = await kctx.newPage();
+    kp.on('pageerror', e => consoleErrors.push(`1.114: ${e}`));
+    kp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.114: ${m.text()}`); });
+    kp.on('dialog', d => d.accept());
+    await kp.goto(`${BASE}/calc/`); await kp.waitForSelector('textarea[data-side="A"]');
+    await kp.fill('textarea[data-side="A"]', SW_LIST); await kp.tap('button[data-action="parse"][data-side="A"]');
+    await kp.fill('textarea[data-side="B"]', ORK_LIST); await kp.tap('button[data-action="parse"][data-side="B"]');
+    const kt = async (sel) => (await kp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // Intel: every stratagem they can use in my turn, in full
+    await kp.tap('button[data-action="view"][data-value="intel"]');
+    await kp.waitForSelector('#brief');
+    const watch = await kp.evaluate(() => { const f = [...document.querySelectorAll('details')].find(d => /They can do this in your turn/.test(d.querySelector('summary')?.textContent ?? '')); if (f) f.open = true; return f ? { head: f.querySelector('summary').textContent.trim(), items: [...f.querySelectorAll('[data-watch]')].map(e => e.textContent.replace(/\s+/g, ' ').trim()) } : null; });
+    check('"They can do this in your turn": every one, the When and the Effect in full (no “…”)', watch && watch.items.length >= 5 && watch.items.every(t => !/…$/.test(t) && /When:.*Effect:/.test(t)) && Math.max(...watch.items.map(t => t.length)) > 260, JSON.stringify(watch?.items.map(t => t.length)));
+    // Board
+    await kp.tap('button[data-action="view"][data-value="board"]');
+    await kp.waitForSelector('#board-svg');
+    const place = async (side, name) => { await kp.locator(`button[data-action="board-place"][data-side="${side}"]`, { hasText: name }).first().tap(); };
+    const toks = () => kp.evaluate(() => window.__calc.board().units);
+    const setPos = (tk, x, y) => kp.evaluate(([t, px, py]) => { const s = window.__calc.board().stepTokens; s[t] = { ...(s[t] ?? {}), x: px, y: py }; document.querySelector('button[data-action="board-step"].on')?.click(); }, [tk, x, y]);
+    await place('B', 'Battlewagon'); await place('B', 'Meganobz'); await place('B', 'Warboss + Boyz');
+    let u = await toks();
+    const W = u.find(t => /B:/.test(t.tk) && t.models.length === 1 && t.keywords.includes('TRANSPORT'))?.tk ?? u.find(t => t.tk.startsWith('B:') && t.models.length === 1).tk;
+    const MN = u.find(t => t.models.length === 3).tk, BOYZ = u.find(t => t.models.length === 21).tk;
+    await setPos(W, 22, 14); await setPos(MN, 30, 14); await setPos(BOYZ, 14, 20);
+    // a letter on every base: Meganobz M, Boyz B, the attached Warboss W
+    const letters = await kp.evaluate(([mn, bz]) => ({ mn: [...document.querySelectorAll(`[data-tok="${mn}"] .tok-letters text`)].map(t => t.textContent), bz: [...document.querySelectorAll(`[data-tok="${bz}"] .tok-letters text`)].map(t => t.textContent) }), [MN, BOYZ]);
+    check('a letter on every base: the first letter of its datasheet (Meganobz M ×3; Boyz B ×20 and the attached Warboss W)', letters.mn.join('') === 'MMM' && letters.bz.filter(x => x === 'B').length === 20 && letters.bz.filter(x => x === 'W').length === 1, JSON.stringify(letters));
+    // gap between bases: the Boyz, touching
+    const bzSel = async () => { await kp.evaluate((t) => { window.__calc.state.board.sel = t; window.__calc.state.board.sel2 = null; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, BOYZ); await kp.waitForSelector('#board-spacing'); };
+    await bzSel();
+    const nearest = (ms) => Math.min(...ms.map((a, i) => Math.min(...ms.filter((_, j) => j !== i).map(b => Math.hypot(a.dx - b.dx, a.dy - b.dy) - a.fp.r - b.fp.r))));
+    const g0 = nearest((await toks()).find(t => t.tk === BOYZ).models);
+    await kp.locator('#board-spacing button[data-value="0"]').tap();
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.gap === 0, BOYZ);
+    const g1 = nearest((await toks()).find(t => t.tk === BOYZ).models);
+    await kp.locator('#board-spacing').scrollIntoViewIfNeeded();
+    check('Gap between bases → Touching: the Boyz close up (nearest bases from about 1" apart to touching)', g0 > 0.4 && Math.abs(g1) < 0.02, JSON.stringify({ g0, g1 }));
+    await kp.locator('#board-host').scrollIntoViewIfNeeded();
+    await kp.screenshot({ path: join(SHOTS, 'calc_104_board_letters_gap.png') });
+    // transport: select the Battlewagon, embark the Meganobz
+    await kp.evaluate((t) => { window.__calc.state.board.sel = t; window.__calc.state.board.sel2 = null; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, W);
+    await kp.waitForSelector('#board-transport');
+    check('a transport shows its passengers: 0 of 22 spaces, Orks Infantry, Mega Armour take 2', /0 of 22 spaces used/.test(await kt('#board-transport')) && /Carries Orks Infantry models/.test(await kt('#board-transport')) && /Mega Armour take 2/.test(await kt('#board-transport')));
+    await kp.selectOption('select[data-input="board-embark"]', MN);
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.in, MN);
+    const after = await kp.evaluate(([mn, w]) => ({ onBoard: window.__calc.board().tokens.some(t => t.tk === mn), label: document.querySelector(`[data-tok="${w}"]`)?.textContent ?? '', panel: document.getElementById('board-transport')?.textContent.replace(/\s+/g, ' ') }), [MN, W]);
+    check('embark: the Meganobz leave the board, the Battlewagon shows 🚚+1 and 6 of 22 spaces (Mega Armour ×2)', !after.onBoard && /🚚\+1/.test(after.label) && /6 of 22 spaces used/.test(after.panel) && /Meganobz/.test(after.panel), JSON.stringify(after));
+    // a unit not placed yet can deploy inside
+    const fgOpt = await kp.locator('select[data-input="board-embark"] option', { hasText: 'Flash Gitz' }).getAttribute('value');
+    await kp.selectOption('select[data-input="board-embark"]', fgOpt);
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.in, fgOpt);
+    check('a unit not on the board can start inside (Flash Gitz): it leaves the units to place', (await kp.locator('button[data-action="board-place"]', { hasText: 'Flash Gitz' }).count()) === 0 && /11 of 22 spaces used/.test(await kt('#board-transport')));
+    await kp.locator('#board-transport').scrollIntoViewIfNeeded();
+    await kp.screenshot({ path: join(SHOTS, 'calc_105_transport.png') });
+    // next turn: still inside, moves with the transport
+    await kp.locator('button[data-action="board-step-add"]').tap();
+    await setPos(W, 22, 24);
+    check('next turn: still embarked', await kp.evaluate((t) => !!window.__calc.board().stepTokens[t]?.in, MN));
+    await kp.evaluate((t) => { window.__calc.state.board.sel = t; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, W);
+    await kp.waitForSelector(`[data-passenger="${MN}"] button[data-action="board-disembark"]`);
+    await kp.locator(`[data-passenger="${MN}"] button[data-action="board-disembark"]`).tap();
+    await kp.waitForFunction((t) => window.__calc.board().tokens.some(x => x.tk === t), MN);
+    const gap = await kp.evaluate(([mn, w]) => { const u = window.__calc.board().units; const a = u.find(t => t.tk === mn), b = u.find(t => t.tk === w); const r = (m) => m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.ry ?? 0, m.fp.hw ?? 0, m.fp.hh ?? 0); let best = 99; for (const x of a.models) for (const y of b.models) best = Math.min(best, Math.hypot(a.x + x.dx - b.x - y.dx, a.y + x.dy - b.y - y.dy) - r(x) - r(y)); return best; }, [MN, W]);
+    const warn = await kp.textContent('#board-warnings').catch(() => '');
+    check('disembark: set up within 3" of the transport, not flagged as a reserve arrival (noted as disembarking)', gap >= 0 && gap <= 3 && /disembarks from Battlewagon/.test(warn ?? '') && !/arrives/.test(warn ?? ''), JSON.stringify({ gap, warn }));
+    await kctx.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

@@ -410,3 +410,67 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
 - Paths are named by every choice (`plantree.choiceLabel`), also in Mission → Plan.
 - Left open: the map folds (▾) but its open/closed state and the compare pick last for the
   session only. Not merged, not deployed.
+
+## Lists from / to the game (user: "access the lists that are already on the game or upload", 24 Nov 2026)
+
+- BUILT in v1.111.0, browser-tested, and the game loads a sent list (MCP bridge:
+  ArmyListManager.load_army_list on the calculator's file: units, models, points right).
+- Library 📚 → "Lists in the game": GET /api/armies (public, the game's and the Army Builder's
+  shared store); → A / → B: `adapter.gameArmyToText` turns the game file into list text, the
+  better of two ways (the builder's converter + WTC full text, or `gamelists.gameArmyText` line
+  by line: the builder's converter cannot place Space Wolves datasheets). The file's prices are
+  kept (the converter reprices; old lists then hide that they are out of date).
+  On the 16 live lists: 14 fully recognised, 2 March Ork uploads have Burna Boyz / Lootas
+  (not 11e datasheets in the data).
+- Send: `adapter.armyToGame` (conv.rosterToGame, as the Army Builder's "Save to cloud"),
+  PUT /api/armies/:name with the shared player id (builder api.js). A name already in the store
+  and not sent from this device is refused (GET by name is ambiguous across players).
+- Left open: attached characters are not in the game's file format (the game attaches at
+  deployment), so loaded lists come in unattached.
+
+## Fixes and card faces (user, 24 Nov 2026) — v1.112.0, browser-tested
+
+- "Layout selection, press Start, nothing happens": the Event card's Start ▶ (the game's own
+  menu was checked too: picking layout 3 and Start Game loads it). Two causes: Start ▶ was
+  greyed out with no reason until an opponent and army A were set; and after Start the new
+  tab (Intel) kept the Armies scroll position, so the brief was off screen. Now: Start says
+  what is missing, scrolls to the top, and shows a "Round N started" note (opponent, layout,
+  missions, Board → / Mission →).
+- Army Builder converter (`gameformat.gameToRoster`): priced every copy as the first
+  (second Shield-Captain 205, not 225); it now counts copies like rosterToGame / repriceAll.
+  The builder screen itself was already right (repriceAll on load).
+- Matchup grid / sheets: scroll chained to the page behind; `overscroll-behavior: contain`
+  on .sheet / .grid-wrap (overflow:hidden on the page made it jump to the top, not used).
+  Control run with the fix off: the page moved 300 -> 2714; with it: stays at 300.
+- Secondary cards drawn as cards (`cardface.mjs`): Mission → Cards detail, 🂠 Cards gallery,
+  the hand on Play. Text is the app's summary (no printed card text in the app or 40kdc).
+- Pre-existing, not touched: `npm test` 2 overlay-parity failures and e2e-builder's
+  Enhancement-select timeout fail the same before these changes.
+
+## Attachments during army set-up (user: "lists don't add characters to units", 24 Nov 2026) — v1.113.0
+
+- `adapter.suggestAttachments`: unattached characters to a unit on their Leader list with the slot
+  free; least choice first, Leaders to units without a character, Supports where a Leader is, then
+  the unit with the most points; keeps what is attached. On the two GW app lists that state their
+  attachments it suggests exactly those (Space Wolves 4/4, Orks 1/1).
+- Armies tab: a list that states none opens the "Attached characters" fold with a note and
+  ✨ Suggest. Hand-set attachments are remembered per list text (`w40k_calc_attach_v1`, in
+  backups): the same list loaded again (paste, library, game store, event round) gets them back.
+- e2e: the event section clears that memory first (the attachments set earlier in the run would
+  otherwise come back, with the board plans made with them). Seen once: "opening Play does not run
+  the forecast again" failed (a light run, 1,000 trials); the rerun passed 444/444 — timing.
+
+## Board and Intel requests (user, 24 Nov 2026) — v1.114.0, browser-tested
+
+- Gap between bases (`pos.gap`, Auto / 0 / ¼ / ½ / 1 / 2"): `formation()` with that gap; Auto keeps
+  the widest coherent gap up to 1". Coherency warning as before.
+- A letter on every base (`baseLetter`: first letter of the member's datasheet name).
+- Transports: `adapter.transportOf / passengerCheck` from `transport_capacity` (capacity; "N <keywords>
+  models" when the text gives it, else Infantry of the transport's faction — 60 of 82 transports have no
+  text; exclusions; multipliers). A step token `{ in: transportTk }` = embarked: not placed, not in the
+  tray, not in reserves, not in the forecast (boardPlans `embarked` per side; the "units placed" note
+  counts them); planWarnings notes a disembark instead of a reserve arrival. Disembark: beside the
+  transport (within 3"). Removing a transport returns its passengers to the tray.
+  Not modelled: the 11e embark / disembark move restrictions, Firing Deck, destroyed transports.
+- Intel brief "They can do this in your turn": all of them, When and Effect in full (the effect was cut
+  at 190 characters, the list at 8).

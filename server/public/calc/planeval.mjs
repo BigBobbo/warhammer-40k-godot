@@ -346,6 +346,10 @@ export function planWarnings(steps, geo) {
           const d = Math.hypot(u.x - p.x, u.y - p.y), mv = u.move ?? 6;
           if (d > mv + 12 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}" (max ${mv + 12}": move + charge)` });
           else if (d > mv + 6 + 0.5) out.push({ step: steps[i].name, side: X, unit: u.name, msg: `moves ${d.toFixed(0)}": needs a charge (move ${mv}" + advance is ${mv + 6}")`, info: true });
+        } else if ((steps[i - 1].embarked?.[X] ?? []).some(e => e.key === u.key)) {
+          // it was inside a transport: it disembarks (set up wholly within 3" of it), it does not arrive from reserves
+          const e = steps[i - 1].embarked[X].find(x => x.key === u.key);
+          out.push({ step: steps[i].name, side: X, unit: u.name, msg: `disembarks from ${e.transport} (set up wholly within 3" of it)`, info: true });
         } else if (steps[i - 1][X]?.length) arriving.push({ u, now: arrival(u, i), early: arrival(u, i + 1) });
       }
       // one unit a turn can count the battle round as one higher: the unit it clears the most warnings for

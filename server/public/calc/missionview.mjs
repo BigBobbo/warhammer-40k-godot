@@ -10,6 +10,7 @@ import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast
 import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
 import { boardContext, boardPlans, boardTrees } from './boardview.mjs';
 import { evaluate as evalTree } from './plantree.mjs';
+import { cardFace } from './cardface.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
@@ -518,7 +519,8 @@ function runForecast() {
   if (lite) { runModes = null; worker.postMessage({ id: reqId, forecast: { base: P, variants: [] } }); return; }
   // a board plan only knows the units placed on it: say so when part of my army is missing
   const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
-  const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
+  // a unit inside a transport counts as placed (it is on the battlefield, embarked)
+  const placed = (p) => new Set(p.steps.flatMap(st => [...st[m.me].map(u => u.name), ...(st.embarked?.[m.me] ?? []).map(e => e.name)])).size;
   const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
     ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, note: placed(p) < nMine ? `${placed(p)} of ${nMine} units placed` : '', P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
   planNotes = Object.fromEntries(compare.map(c => [c.key, c.note ?? '']));
@@ -674,7 +676,7 @@ function handHtml(X) {
           : `<span class="muted">${pct(s.scoreRate)} to score by the end · ${fmt(s.perDraw, 1)} VP${c.vps.length > 1 && g.round < MODEL.holdUntil ? ` · before round ${MODEL.holdUntil}, hold a part score for the full ${c.max}` : ''}</span>`;
     const open = m.handOpen === `${X}:${id}`;
     return `<div class="hand-row" data-card="${id}"><span class="grow"><button class="linkish" data-action="mission-hand-info" data-side="${X}" data-id="${id}" aria-expanded="${open}">${esc(c.name)}</button>
-        ${open ? `<div class="tiny" data-text="${id}">${esc(c.text)}${c.drawn ? ` <span class="muted">When drawn: ${esc(c.drawn)}</span>` : ''}</div>` : ''}
+        ${open ? `<div data-text="${id}" style="margin:6px 0">${cardFace(c, { esc })}</div>` : ''}
         ${m.table ? '' : `<div class="tiny" data-advice="${id}">${tip}</div>`}</span>
       ${c.vps.map(v => `<button class="mini score" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="scored" data-vp="${v}" aria-label="${esc(c.name)} scored ${v} VP">+${v}</button>`).join('')}
       <button class="mini" data-action="mission-hand" data-side="${X}" data-id="${id}" data-do="discard" aria-label="Discard ${esc(c.name)}">✕</button></div>`;
@@ -1099,8 +1101,7 @@ function cardsHtml() {
     // (the tag follows the name and wraps under it on a narrow phone: no column of its own)
     return `<tr class="card-row" data-card="${c.id}"><td><button class="linkish" data-action="mission-card" data-id="${c.id}">${esc(c.name)}</button>${c.fixed ? ' <span class="tiny muted">F</span>' : ''} ${tag}</td>
       <td>${dead ? '–' : fixedMode ? (perDraw == null ? '…' : fmt(perDraw, 1)) : estPickHtml(c, side, est[c.id], perDraw)}</td><td class="muted">${fixedMode && c.fixed ? c.fixedMax : c.max}</td><td>${dead || quick == null ? '–' : pct(quick)}</td></tr>
-      ${open ? `<tr class="card-detail"><td colspan="4"><div class="small">${esc(c.text)}</div>${c.drawn ? `<div class="tiny muted">When drawn: ${esc(c.drawn)}</div>` : ''}
-        ${c.fixedText ? `<div class="tiny muted">Fixed: ${esc(c.fixedText)}</div>` : ''}
+      ${open ? `<tr class="card-detail"><td colspan="4">${cardFace(c, { esc })}
         ${dead ? `<div class="tiny" style="margin-top:4px">No targets in the ${side === m.me ? 'enemy' : 'your'} army: discard it (and draw again if the card allows).</div>`
           : `<div class="tiny muted" style="margin-top:4px">${est[c.id] != null ? 'Using your estimate.'
               : c.kind === 'kill' ? 'App estimate: from units destroyed in the forecast and which enemy units are valid targets.'
@@ -1108,7 +1109,14 @@ function cardsHtml() {
               : onBoard ? 'App estimate: from the objectives your units hold on the board plan.' : 'App estimate: from your objective plan; when the plan does not give it, you play for the card at the real-game rate.'}</div>${realLine}
             ${fixedMode ? '<div class="tiny muted">Taken as Fixed: your estimate applies to Tactical play only.</div>' : estimateHtml(c, side, est[c.id], perDraw)}`}</td></tr>` : ''}`;
   };
-  return `${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}
+  if (m.cardsLook === 'faces') {
+    // every card drawn as a card, best first, with the app's numbers under each
+    const face = (r) => cardFace(r.c, { esc, foot: `${r.dead ? '<span class="pill bad">Dead</span> no targets in this army' : `VP if drawn <b>${r.perDraw == null ? '…' : fmt(r.perDraw, 1)}</b> · quick <b>${r.quick == null ? '–' : pct(r.quick)}</b>`}` });
+    return `<div class="row" style="gap:6px;flex-wrap:wrap">${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}${ctx.seg('mission-cards-look', 'faces', [['list', '☰ List'], ['faces', '🂠 Cards']], 'compact')}</div>
+      <div class="cf-grid" id="card-faces" style="margin-top:8px">${rows.map(face).join('')}</div>
+      <div class="tiny muted">The cards in the app's words (a summary, not the printed text). Best first for ${side}.</div>`;
+  }
+  return `<div class="row" style="gap:6px;flex-wrap:wrap">${ctx.seg('mission-sheet-side', side, [[m.me, 'My cards'], [other(m.me), 'Their cards']], 'compact')}${ctx.seg('mission-cards-look', 'list', [['list', '☰ List'], ['faces', '🂠 Cards']], 'compact')}</div>
     <table class="dist cards" style="margin-top:6px"><thead><tr><th>Card</th><th>VP if drawn</th><th>Max</th><th>Quick</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>
     <div class="tiny muted">VP if drawn: average VP the card earns for ${side} when it comes up (the app's estimate, or yours). Max: the most it can pay when it scores. Quick: how often it scores by the end of the next turn. F = can be taken as Fixed. Tap a VP if drawn number to set your own (0 up to Max) — e.g. Assassination 3 of 5 if you are only fairly sure you can kill a character; pick “app” to go back. Tap a card name for its rules.</div>
 `;
@@ -1263,6 +1271,7 @@ export function missionAction(action, el) {
       break;
     }
     case 'mission-sheet-side': m.sheetSide = el.dataset.value; m.cardOpen = null; persist(); refresh(); return null;
+    case 'mission-cards-look': m.cardsLook = el.dataset.value; persist(); refresh(); return null;
     case 'mission-card': {
       const k = `${m.sheetSide ?? m.me}:${el.dataset.id}`;
       m.cardOpen = m.cardOpen === k ? null : k;

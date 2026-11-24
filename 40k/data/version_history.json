@@ -2,6 +2,52 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.114.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: transports, tighter formations, letters on bases, stratagems in full",
+      "changes": [
+        "Board: tap a transport to embark units (capacity and who may ride from the rules data, e.g. Mega Armour takes 2 spaces); embarked units leave the board, move with the transport and stay inside in later turns; Disembark sets them up within 3\"",
+        "Units can start the game inside a transport; embarked units control no objectives in the forecast and are not counted as missing or in reserves",
+        "Board: Gap between bases — Auto, Touching, ¼\", ½\", 1\" or 2\" — to make a unit's formation tighter or looser",
+        "Board: every base shows the first letter of its datasheet (Prosecutor Squad: P; an attached character shows its own letter)",
+        "Intel: \"They can do this in your turn\" shows every stratagem with its When and Effect in full (they were cut off)"
+      ]
+    },
+    {
+      "version": "1.113.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: attach characters during army set-up — suggested, and remembered per list",
+      "changes": [
+        "A list that does not say which characters lead which units (New Recruit / WTC text, lists from the game) now asks: the Attached characters fold opens with a note",
+        "✨ Suggest attaches every character to a unit it may lead in one tap (Leaders to units without a character, Supports with a Leader, bigger units first); change any of them after",
+        "Attachments you set are remembered for that list: loading it again — pasted, from the library, from the game or at an event round — keeps them",
+        "Attachment choices are part of backups and transfer codes"
+      ]
+    },
+    {
+      "version": "1.112.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: secondary cards drawn as cards; Event Start fixed; grid scrolling fixed",
+      "changes": [
+        "Secondary cards are drawn as cards: name, Tactical / Fixed, When drawn, when it scores, each scoring line with its VP, and the Fixed version — tap a card on Mission → Cards or in your hand on Play, or switch Cards to 🂠 to see them all",
+        "Event: Start ▶ now opens Intel at the top with a note of what it set up (opponent, layout, missions) and buttons to the Board and Mission; it used to keep the scroll position, so it looked as if nothing happened",
+        "Event: Start ▶ is never greyed out without a reason: it says to load your list or pick the opponent",
+        "Scrolling the matchup grid (or any sheet) no longer scrolls the page behind it",
+        "Army Builder / game lists: a second copy of a datasheet loaded from the game is priced as a second copy (e.g. Shield-Captain 225, not 205)"
+      ]
+    },
+    {
+      "version": "1.111.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: load lists from the game, and send lists to it",
+      "changes": [
+        "List library (📚) → Lists in the game: the army lists saved in the game and its Army Builder; load one into army A or B with one tap",
+        "Send army A or B to the game: it appears in the game's army list, ready to play (anyone who uses the game can see the lists there)",
+        "A name someone else already uses in the game is refused; a list you sent from this phone can be replaced",
+        "Loaded lists keep the prices they were saved with, so the points check still tells you which units have changed since"
+      ]
+    },
+    {
       "version": "1.110.1",
       "date": "2026-11-23",
       "summary": "Combat Calc: points check fixed for lists that price enhancements separately",

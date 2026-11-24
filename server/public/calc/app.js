@@ -6,8 +6,10 @@ import {
   defenderProfile, defenderSummary, buildDefender, DATASET_VERSION, armyData, fmtDataDate, dataNewest, ERRATA_RESULT,
   setAttachments, withAttachment, attachCandidates, joinCandidates, rosterUnitLabel,
   attackerRules, attackerRuleOn, buildAttacker, choiceProblem, describeConditions, unitIntel, armyIntel, coreFlags, shockFacts,
-  phaseSheetInput,
+  phaseSheetInput, gameArmyToText, armyToGame, suggestAttachments,
 } from './adapter.mjs';
+import { storeName } from './gamelists.mjs';
+import { listArmies as gameListArmies, getArmy as gameGetArmy, putArmy as gamePutArmy } from '../js/builder/api.js';
 import { phaseSheet, ticksOf, usageLabel } from './phasesheet.mjs';
 import { rulesStatus, unitUpdates, abilityUpdate, UPDATE, longDate } from './rulesnote.mjs';
 import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
@@ -244,11 +246,34 @@ function parseArmy(side) {
     state.armies[side] = importArmy(text);
     (state.loaded ??= {})[side] = text;   // the list this army was read from (the box can be edited before the next Load)
     if (state.attach[side]) setAttachments(state.armies[side], state.attach[side]);
+    else {
+      // attachments chosen for this list before (the list itself may not say them)
+      const rem = attachMemory()[listKey(text)];
+      if (rem && Object.keys(rem).length) {
+        setAttachments(state.armies[side], rem);
+        state.attach[side] = state.armies[side].attachments;
+        state.armies[side].attachRemembered = true;
+        console.log(`[calc] army ${side}: attachments remembered for this list (${Object.keys(rem).length})`);
+      }
+    }
     console.log(`[calc] army ${side}: ${state.armies[side].faction}, ${state.armies[side].units.length} units`);
   } catch (e) {
     state.errors[side] = e.message ?? String(e);
     console.warn(`[calc] army ${side} parse failed`, e);
   }
+}
+
+// Attachments set by hand, remembered per list (the same list loaded again — pasted, from the library, from the
+// game, at an event round — gets them back): { [hash of the list text]: { [characterIndex]: bodyguardIndex } }.
+const ATTACH_KEY = 'w40k_calc_attach_v1';
+const listKey = (text) => hashStr(String(text ?? '').replace(/\s+/g, ' ').trim());
+function attachMemory() { try { return JSON.parse(localStorage.getItem(ATTACH_KEY) ?? '{}') ?? {}; } catch { return {}; } }
+function rememberAttach(text, att) {
+  const m = attachMemory(), k = listKey(text);
+  if (att) m[k] = att; else delete m[k];
+  const keys = Object.keys(m);
+  if (keys.length > 200) for (const old of keys.slice(0, keys.length - 200)) delete m[old];
+  try { localStorage.setItem(ATTACH_KEY, JSON.stringify(m)); } catch { /* best effort */ }
 }
 
 // Attach / detach a character (roster index) to a bodyguard (roster index, null = detach)
@@ -269,6 +294,7 @@ function applyAttachments(side, att, { edited = true } = {}) {
   const before = { ...(army.attachments ?? {}) };
   setAttachments(army, att);
   state.attach[side] = edited ? army.attachments : null;
+  rememberAttach(state.loaded?.[side] ?? state.texts[side], edited ? army.attachments : null);
   const remap = new Map();
   for (const [c, b] of Object.entries(army.attachments)) if (before[c] !== b && b != null) remap.set(`u${c}`, `u${b}`);
   const valid = new Set(army.units.map(u => u.key));
@@ -609,7 +635,13 @@ function intelView() {
     `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.turn)}${st.role === 'defend' ? ' · defensive' : st.role === 'attack' ? ' · offensive' : ''}</span>
       <div class="muted">${st.missing ? 'No 11e text in the dataset.' : `<b>When:</b> ${esc(st.when)}<br><b>Effect:</b> ${esc(st.effect)}`}</div></div>`).join('')}`).join('');
   const phaseMode = state.intelMode === 'phase';
-  return `<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
+  const rs = state.roundStart;
+  const started = rs ? `<div class="okbox" id="round-started" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px"><div class="grow small">
+      <b>Round ${rs.round} started</b> against <b>${esc(rs.opp)}</b> (army B) on <b>Layout ${esc(rs.layout)}</b>${rs.deployment && rs.deployment !== '?' ? ` · ${esc(rs.deployment)}` : ''}.
+      ${rs.mine ? `You play <b>${esc(rs.mine)}</b>, they play <b>${esc(rs.theirs ?? '?')}</b>. ` : ''}The Board is set to this layout and the Play tracker starts a new game.
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn" data-action="view" data-value="board">Board →</button><button class="btn" data-action="view" data-value="mission">Mission →</button></div></div>
+      <button class="icon-btn" data-action="round-started-ok" aria-label="Dismiss">✕</button></div>` : '';
+  return `${started}<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
     ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
@@ -666,7 +698,15 @@ function attachOverview(side, army) {
   const chars = army.roster.units.map((ru, i) => i).filter(i => joinCandidates({ ...army, attachments: {} }, i).length);
   if (!chars.length) return '';
   const edited = state.attach[side] != null;
-  return `<details class="more" ${edited ? 'open' : ''}><summary>Attached characters · ${Object.keys(army.attachments ?? {}).length} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+  const n = Object.keys(army.attachments ?? {}).length;
+  const listSays = Object.keys(army.defaultAttachments ?? {}).length > 0;
+  // a list that does not say who leads which unit: open, with the question asked
+  const ask = !n && !listSays;
+  const canSuggest = Object.keys(suggestAttachments(army)).length > n;
+  return `<details class="more" id="attach-${side}" ${edited || ask ? 'open' : ''}><summary>${ask ? '⚠ ' : ''}Attached characters · ${n} of ${chars.length} attached${edited ? ' (edited)' : ''}</summary>
+    ${ask ? `<div class="warnbox" id="attach-ask-${side}" style="margin-top:6px">This list does not say which characters lead which units. Pick them below, or let the app suggest (you can change any of them).</div>` : ''}
+    ${canSuggest ? `<button class="btn ${ask ? 'primary' : 'ghost'}" style="margin-top:6px" data-action="attach-suggest" data-side="${side}" id="attach-suggest-${side}">✨ Suggest${n ? ' for the others' : ''}</button>` : ''}
+    ${edited ? `<div class="tiny muted" style="margin-top:4px" id="attach-remembered-${side}">Remembered for this list: loading it again (pasted, from the library, the game or an event round) keeps these.</div>` : ''}
     ${chars.map(ci => {
       const cur = army.attachments?.[ci];
       const opts = joinCandidates({ ...army, attachments: { ...army.attachments, [ci]: undefined } }, ci);
@@ -676,7 +716,7 @@ function attachOverview(side, army) {
           ${opts.map(o => `<option value="${o.index}" ${o.index === cur ? 'selected' : ''}>${esc(o.name)}${o.eligible ? '' : ' (not on Leader list)'}</option>`).join('')}
         </select></div>`;
     }).join('')}
-    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">Reset to the list's attachments</button>` : ''}
+    ${edited ? `<button class="btn ghost" data-action="reset-attach" data-side="${side}">${listSays ? 'Reset to the list’s attachments' : 'Clear them (the list says none)'}</button>` : ''}
   </details>`;
 }
 
@@ -1154,6 +1194,8 @@ function renderResultViews() {
 function renderSheet() {
   const host = document.getElementById('sheet');
   if (!host) return;
+  // the page behind a sheet stays put: a scroll in the sheet (the matchup grid) does not move it
+  document.documentElement.classList.toggle('sheet-open', !!state.sheet);
   if (!state.sheet) { host.innerHTML = ''; return; }
   const content = state.sheet === 'add' ? addSheet()
     : state.sheet === 'charge' ? chargeSheet()
@@ -1311,7 +1353,95 @@ function librarySheet() {
         <div class="grow"><div class="title">${esc(l.name)}</div><div class="muted tiny">${esc(l.faction ?? '')} · ${new Date(l.savedAt).toLocaleDateString()}</div></div>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="A">→ A</button>
         <button class="btn" data-action="lib-load" data-i="${i}" data-side="B">→ B</button>
-        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>`;
+        <button class="icon-btn" data-action="lib-delete" data-i="${i}" aria-label="Delete ${esc(l.name)}">🗑</button></div>`).join('') : '<p class="hint">No saved lists yet.</p>'}</div>
+    ${gameSection(side, army)}`;
+}
+
+// ---- Lists in the game: the game's shared army store on this server (the Army Builder's "Save to cloud" and the
+// game write there). Load one into A or B; send army A or B there so the game can play it. gamelists.mjs.
+const SENT_KEY = 'w40k_calc_sent_v1';   // names this device has sent to the game (it may replace those)
+const sentNames = () => { try { return JSON.parse(localStorage.getItem(SENT_KEY) ?? '[]') ?? []; } catch { return []; } };
+function gameSection(side, army) {
+  const g = state.gameLists ?? {};
+  const rows = (g.items ?? []).map((a, i) => `<div class="pick" style="cursor:default" data-game-list="${esc(a.army_name)}">
+      <div class="grow"><div class="title">${esc(a.army_name)}</div><div class="muted tiny">saved ${new Date(a.updated_at).toLocaleDateString()}</div></div>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="A">→ A</button>
+      <button class="btn" data-action="store-load" data-i="${i}" data-side="B">→ B</button></div>`).join('');
+  const list = g.busy ? '<p class="hint" id="game-busy">Loading the game’s lists…</p>'
+    : g.error ? `<div class="warnbox" id="game-error">${esc(g.error)}</div>`
+      : g.items ? (rows || '<p class="hint">No lists in the game yet.</p>') : '';
+  const sendName = g.sendName ?? storeName(army ? (army.name && army.name !== 'Army' ? army.name : army.faction) : '');
+  const send = army ? `<div class="section" id="game-send">
+      <div class="lab tiny muted">Send army ${side} to the game</div>
+      <div class="row" style="gap:6px"><input class="sel grow" data-input="store-send-name" value="${esc(sendName)}" aria-label="Name in the game" maxlength="60">
+        <button class="btn primary" data-action="store-send" data-side="${side}">⇪ Send</button></div>
+      <div class="tiny muted" style="margin-top:4px">The game lists it under its armies. Anyone who uses the game can see and load the lists there. Attached characters are chosen in the game.</div>
+      ${g.sendMsg ? `<div class="${g.sendOk ? 'ok' : 'warnbox'} small" id="game-send-msg" style="margin-top:6px">${esc(g.sendMsg)}</div>` : ''}</div>` : '';
+  return `<h3 style="margin-top:16px">Lists in the game</h3>
+    <p class="hint">The army lists saved in the game (and from its Army Builder) on this server.</p>
+    ${g.items || g.busy ? '' : '<button class="btn" data-action="store-lists" id="game-lists-btn">🎮 Show the game’s lists</button>'}
+    <div class="section" id="game-lists">${list}</div>${send}`;
+}
+async function fetchGameLists() {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const items = await gameListArmies();
+    state.gameLists = { ...state.gameLists, busy: false, items: items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0)) };
+    console.log(`[calc] game lists: ${items.length}`);
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not reach the game’s lists (${e.message}). They need a connection to this server.` };
+    console.log('[calc] game lists failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
+}
+async function loadGameList(side, name) {
+  state.gameLists = { ...(state.gameLists ?? {}), busy: true, error: null };
+  renderSheet();
+  try {
+    const res = await gameGetArmy(name);
+    const data = typeof res.army_data === 'string' ? JSON.parse(res.army_data) : res.army_data;
+    const best = gameArmyToText(data, name);
+    state.gameLists = { ...state.gameLists, busy: false };
+    loadListInto(side, best.text);
+    state.sheet = null;
+    console.log(`[calc] game list "${name}" loaded into ${side} (${best.how}, ${best.recognised}/${best.units} units, points ${best.pointsOk}/${best.checked})`);
+    changed();
+  } catch (e) {
+    state.gameLists = { ...state.gameLists, busy: false, error: `Could not load “${name}”: ${e.message}` };
+    console.log('[calc] game list load failed:', e.message);
+    renderSheet();
+  }
+}
+async function sendToGame(side) {
+  const army = state.armies[side];
+  if (!army) return;
+  const name = storeName(app.querySelector('input[data-input="store-send-name"]')?.value);
+  const g = state.gameLists = { ...(state.gameLists ?? {}), sendName: name, sendMsg: null };
+  try {
+    const items = await gameListArmies();
+    g.items = items.slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    const mine = sentNames();
+    if (items.some(a => a.army_name === name) && !mine.includes(name)) {
+      g.sendOk = false;
+      g.sendMsg = `A list called “${name}” is already in the game (saved by someone else, or from the Army Builder). Pick another name.`;
+      return renderSheet();
+    }
+    if (mine.includes(name) && items.some(a => a.army_name === name) && !confirm(`Replace “${name}” in the game with army ${side}?`)) return;
+    const { game, warnings } = armyToGame(army);
+    if (!game) throw new Error('this army has no faction');
+    await gamePutArmy(name, game);
+    try { localStorage.setItem(SENT_KEY, JSON.stringify([...new Set([name, ...mine])].slice(0, 200))); } catch { /* best effort */ }
+    g.items = (await gameListArmies()).slice().sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    g.sendOk = true;
+    g.sendMsg = `Sent: the game lists army ${side} as “${name}” (${Object.keys(game.units).length} units)${warnings.length ? `. ${warnings.length} note(s): ${warnings.slice(0, 3).join('; ')}` : ''}.`;
+    console.log(`[calc] army ${side} sent to the game as "${name}" (${Object.keys(game.units).length} units, ${warnings.length} notes)`);
+  } catch (e) {
+    g.sendOk = false;
+    g.sendMsg = `Not sent: ${e.message}.`;
+    console.log('[calc] send to the game failed:', e.message);
+  }
+  if (state.sheet === 'library') renderSheet();
 }
 
 // Load a list into army `side`, dropping setups that referred to the old list's units.
@@ -1841,7 +1971,13 @@ app.addEventListener('click', (ev) => {
     return;
   }
   if (a.startsWith('event-')) {
-    if (eventAction(a, el) === 'render') changed();
+    const view0 = state.view;
+    if (eventAction(a, el) === 'render') {
+      changed();
+      // Start ▶ opens another tab: show it from the top (the event card is at the bottom of Armies, and the new
+      // tab kept that scroll position — the round looked as if it had not started)
+      if (state.view !== view0) window.scrollTo(0, 0);
+    }
     return;
   }
   switch (a) {
@@ -1883,6 +2019,15 @@ app.addEventListener('click', (ev) => {
       state.armies[el.dataset.side] = null;
       for (const k of Object.keys(state.setups)) if (k.startsWith(el.dataset.side + ':') || k.startsWith(other(el.dataset.side) + ':')) state.setups[k] = { targetKey: null, attackers: [], ruleOverrides: {}, defManual: {} };
       return changed();
+    case 'attach-suggest': {
+      const side = el.dataset.side;
+      const army = state.armies[side];
+      if (!army) return;
+      const sug = suggestAttachments(army);
+      console.log(`[calc] army ${side}: suggested attachments ${JSON.stringify(sug)}`);
+      applyAttachments(side, sug);
+      return changed();
+    }
     case 'reset-attach': {
       const side = el.dataset.side;
       const army = state.armies[side];
@@ -1978,6 +2123,7 @@ app.addEventListener('click', (ev) => {
     case 'open-library':
       state.sheet = 'library';
       state.sheetArg = { side: el.dataset.side };
+      if (state.gameLists) state.gameLists = { ...state.gameLists, sendMsg: null, sendName: null, error: null };
       return renderSheet();
     case 'lib-save': {
       const side = el.dataset.side;
@@ -1999,6 +2145,20 @@ app.addEventListener('click', (ev) => {
       console.log(`[calc] library list "${l.name}" loaded into ${el.dataset.side}`);
       return changed();
     }
+    case 'round-started-ok':
+      state.roundStart = null;
+      return render();
+    case 'store-lists':
+      fetchGameLists();
+      return;
+    case 'store-load': {
+      const a = state.gameLists?.items?.[Number(el.dataset.i)];
+      if (a) loadGameList(el.dataset.side, a.army_name);
+      return;
+    }
+    case 'store-send':
+      sendToGame(el.dataset.side);
+      return;
     case 'lib-delete':
       state.library.splice(Number(el.dataset.i), 1);
       persistLibrary();
