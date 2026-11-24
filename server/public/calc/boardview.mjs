@@ -12,7 +12,7 @@ import {
 } from './board.mjs';
 import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
-import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
+import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
@@ -531,6 +531,61 @@ function drillHtml(di) {
   </div>`;
 }
 
+// ---- Scout moves (24.31 / 24.32), planned on the Deploy step: pos.scout = { x, y } is where the unit ends its
+// Scout move (drawn as a dashed ghost you can drag); the unit itself stays at its deployment position. Turn 1
+// starts from the Scout position. A DEDICATED TRANSPORT whose passengers all have Scouts can make one too.
+function scoutDist(side, key, toks = stepTokens()) {
+  const u = unitInfo(side, key);
+  if (!u) return 0;
+  if (u.flags?.scouts) return u.flags.scouts;
+  if (!(u.cu.keywords ?? []).some(k => /^DEDICATED TRANSPORT$/i.test(k))) return 0;
+  const inside = [...embarkedIn(toks)].filter(([, x]) => x === `${side}:${key}`).map(([tk]) => unitInfo(...tk.split(':'))?.flags?.scouts ?? 0);
+  return inside.length && inside.every(n => n > 0) ? Math.min(...inside) : 0;
+}
+function myZone(side) {
+  const l = currentLayout();
+  return (l && DEPLOYMENTS[l.deployment]?.zones.find(z => z.player === zoneOf(side))?.poly) ?? null;
+}
+/** Every planned Scout move in the Deploy step: [{ tk, side, name, X, moved, msgs }]. Enemies are checked where they
+ * end up after their own Scout moves (players alternate them). */
+function scoutMoves() {
+  if (curIndex() !== 0) return [];
+  const toks = placed(), raw = stepTokens(), out = [];
+  const after = (t) => (raw[t.tk]?.scout ? { ...t, x: raw[t.tk].scout.x, y: raw[t.tk].scout.y } : t);
+  for (const t of toks) {
+    const sc = raw[t.tk]?.scout;
+    if (!sc) continue;
+    const X = scoutDist(t.side, t.key);
+    const chk = scoutCheck({ X, from: t, to: { ...t, x: sc.x, y: sc.y } }, { myDZ: myZone(t.side), enemies: toks.filter(o => o.side !== t.side).map(after) });
+    if (!X) chk.msgs.unshift('has no Scouts ability (24.31)');
+    out.push({ tk: t.tk, side: t.side, name: t.u.cu.name, X, ...chk });
+  }
+  return out;
+}
+function scoutSvg() {
+  const mv = scoutMoves();
+  if (!mv.length) return '';
+  const raw = stepTokens(), out = ['<g id="board-scouts">'];
+  for (const s of mv) {
+    const pos = raw[s.tk], u = unitInfo(...s.tk.split(':')), sc = pos.scout, bad = s.msgs.length > 0;
+    const col = bad ? '#c0392b' : C[s.side];
+    out.push(`<line x1="${f2(pos.x)}" y1="${f2(pos.y)}" x2="${f2(sc.x)}" y2="${f2(sc.y)}" stroke="${col}" stroke-width="0.22" stroke-dasharray="0.7 0.4" pointer-events="none"/>`);
+    const ms = tokenModels(u, pos), ext = ms.reduce((a, m) => { const h = halfBase(m.fp); return { x0: Math.min(a.x0, m.dx - h.hx), x1: Math.max(a.x1, m.dx + h.hx), y0: Math.min(a.y0, m.dy - h.hy), y1: Math.max(a.y1, m.dy + h.hy) }; }, { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+    out.push(`<g data-scout="${s.tk}" data-ok="${bad ? 0 : 1}" transform="translate(${f2(sc.x)},${f2(sc.y)})" opacity="0.9" style="cursor:grab">`
+      // grab area over the whole formation (as for a unit)
+      + `<rect class="scout-grab" x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" fill="${C[s.side]}" fill-opacity="0.04"/>`
+      + tokenModels(u, pos).map(m => shapeSvg(m.fp, m.dx, m.dy, C[s.side], col, 0.2, m.rot)).join('').replaceAll('stroke-width="0.2"', 'stroke-width="0.2" stroke-dasharray="0.4 0.25" fill-opacity="0.18"')
+      + `<text x="0" y="${f2(-1.9)}" font-size="0.9" text-anchor="middle" fill="${col}" stroke="#ffffff" stroke-width="0.3" paint-order="stroke" font-family="system-ui,sans-serif" font-weight="700" pointer-events="none">Scout ${s.moved.toFixed(1)}"/${s.X}"${bad ? ' ✗' : ''}</text></g>`);
+  }
+  out.push('</g>');
+  return out.join('');
+}
+/** Turn 1 starts where the Scout move ends: move this unit there in the next step too, if it had not been moved. */
+function scoutToTurn1(tk, from, to) {
+  const t1 = curSteps()[1]?.tokens?.[tk];
+  if (t1 && from && Math.hypot(t1.x - from.x, t1.y - from.y) < 0.05) Object.assign(t1, { x: to.x, y: to.y });
+}
+
 function zoneCentroid(side) {
   const l = currentLayout();
   const dep = l && DEPLOYMENTS[l.deployment];
@@ -690,6 +745,7 @@ export function boardSvg({ forExport = false } = {}) {
     }
   }
   if (!forExport) parts.push(ghostSvg());
+  parts.push(scoutSvg());
   for (const t of toks) {
     const isSel = t.tk === b.sel || t.tk === b.sel2;
     const fill = C[t.side];
@@ -1056,6 +1112,18 @@ function dockHtml() {
 }
 
 /** The selected transport's passengers: who is inside (spaces used / capacity), embark, disembark. */
+function scoutPanel(s1) {
+  if (curIndex() !== 0) return '';
+  const X = scoutDist(s1.side, s1.key), pos = stepTokens()[s1.tk];
+  if (!X && !pos?.scout) return '';
+  const s = scoutMoves().find(m => m.tk === s1.tk);
+  return `<div class="card" id="board-scout" style="margin-top:6px;padding:8px">
+    <div class="row" style="gap:6px;align-items:center"><span class="grow small"><b>🏃 Scouts ${X}"</b>${s ? ` · moves <b>${s.moved.toFixed(1)}"</b> ${s.msgs.length ? '<span class="bad">✗</span>' : '✓'}` : ''}</span>
+      ${ctx.chip('board-scout', !!pos?.scout, pos?.scout ? 'Planned' : 'Plan a Scout move', 'id="board-scout-chip"')}</div>
+    ${s?.msgs.length ? `<ul class="keep warn tiny" style="margin:4px 0 0">${s.msgs.map(m => `<li>${ctx.esc(m)}</li>`).join('')}</ul>` : ''}
+    <div class="tiny muted" style="margin-top:4px">${pos?.scout ? 'Drag the dashed ghost to where the move ends; the unit stays where it deployed. Turn 1 starts from the ghost.' : 'Before the first turn, from wholly within your deployment zone: up to ' + X + '", ending more than 8" from enemy units.'} Players alternate Scout moves, starting with whoever takes the first turn. Straight-line check: terrain is not.</div>
+  </div>`;
+}
 function transportPanel(s1) {
   const tr = transportOf(s1.u.cu);
   if (!tr) return '';
@@ -1132,6 +1200,7 @@ function selectionPanel() {
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}
     ${transportPanel(s1)}
+    ${scoutPanel(s1)}
     ${s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : ''}
     ${(() => {
       // 03.03: within 2" of one other model and within 9" of every other model of the unit
@@ -1179,6 +1248,7 @@ function stepWarningsHtml() {
   const steps = boardPlans()[Math.min(root.v, root.variants.length - 1)]?.steps ?? [];
   const name = curSteps()[curIndex()]?.name;
   const ws = planWarnings(steps, geo).filter(w => w.step === name);
+  for (const s of scoutMoves()) for (const m of s.msgs) ws.push({ side: s.side, unit: s.name, msg: `Scout move: ${m}` });
   if (!ws.length) return '';
   return `<div class="card" id="board-warnings" style="margin-top:8px"><div class="lab tiny muted">Check this step (11th edition rules)</div>
     <ul class="keep warn">${ws.slice(0, 6).map(w => `<li${w.info ? ' class="info"' : ''} data-unit="${ctx.esc(w.unit)}"><b style="color:var(--side-${w.side.toLowerCase()}-ink)">${ctx.esc(shortName(w.unit))}</b> ${ctx.esc(w.msg)}</li>`).join('')}</ul>
@@ -1302,7 +1372,11 @@ function wireBoard() {
       gesture = { kind: 'pinch', d0: Math.hypot(a.x - c.x, a.y - c.y), view0: { ...(b.view ?? fullView()) }, mid: toBoard(svg, (a.x + c.x) / 2, (a.y + c.y) / 2) };
       return;
     }
-    const tokEl = ev.target.closest?.('[data-tok]');
+    const tokEl = ev.target.closest?.('[data-tok]'), scEl = ev.target.closest?.('[data-scout]');
+    if (b.mode !== 'ruler' && scEl) {
+      const tk = scEl.dataset.scout, sc = stepTokens()[tk]?.scout;
+      if (sc) { gesture = { kind: 'drag', tk, el: scEl, obj: sc, from: { ...sc }, dx: p.x - sc.x, dy: p.y - sc.y, start: p, moved: false, t0: Date.now() }; return; }
+    }
     if (b.mode === 'ruler') {
       gesture = { kind: 'ruler', start: p, t0: Date.now() };
       b.ruler = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
@@ -1332,7 +1406,7 @@ function wireBoard() {
     if (gesture.kind === 'drag') {
       if (Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) > 0.2) gesture.moved = true;
       const x = Math.max(0, Math.min(BOARD.w, p.x - gesture.dx)), y = Math.max(0, Math.min(BOARD.h, p.y - gesture.dy));
-      Object.assign(stepTokens()[gesture.tk], { x, y }); // keep facing and formation
+      Object.assign(gesture.obj ?? stepTokens()[gesture.tk], { x, y }); // keep facing and formation
       gesture.el.setAttribute('transform', `translate(${f2(x)},${f2(y)})`);
     } else if (gesture.kind === 'pan') {
       const v0 = gesture.view0;
@@ -1355,7 +1429,9 @@ function wireBoard() {
     if (g.kind === 'pinch') { if (pointers.size === 0) gesture = null; return; }
     gesture = null;
     if (g.kind === 'drag') {
-      if (!g.moved) selectToken(g.tk);
+      if (!g.moved && !g.obj) selectToken(g.tk);
+      if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
+      if (g.obj && !g.moved) { b.sel = g.tk; b.sel2 = null; }
       persistBoard();
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
@@ -1533,6 +1609,20 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-scout': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos || curIndex() !== 0) return null;
+      if (pos.scout) { scoutToTurn1(b.sel, pos.scout, pos); delete pos.scout; }
+      else {
+        // start the ghost up to X" toward the middle of the board (the player drags it from there)
+        const X = scoutDist(...b.sel.split(':')) || 6, dx = BOARD.w / 2 - pos.x, dy = BOARD.h / 2 - pos.y, d = Math.hypot(dx, dy) || 1, k = Math.min(X, d) / d;
+        pos.scout = { x: +(pos.x + dx * k * 0.98).toFixed(2), y: +(pos.y + dy * k * 0.98).toFixed(2) };
+        scoutToTurn1(b.sel, pos, pos.scout);
+      }
+      console.log(`[board] scout move ${b.sel}: ${pos.scout ? 'planned' : 'removed'}`);
+      persistBoard();
+      return 'render';
+    }
     case 'board-plan-copy': {
       // a copy of the current plan to try something else (e.g. aggressive vs defensive)
       const root = planRoot(), cur = plan();
@@ -1583,7 +1673,9 @@ export function boardAction(action, el) {
       const p = plan();
       if (!p) return null;
       const steps = curSteps();
-      p.steps.push({ name: `Turn ${steps.length}`, tokens: JSON.parse(JSON.stringify(steps[curIndex()]?.tokens ?? steps[steps.length - 1]?.tokens ?? {})) });
+      const nt = JSON.parse(JSON.stringify(steps[curIndex()]?.tokens ?? steps[steps.length - 1]?.tokens ?? {}));
+      for (const pos of Object.values(nt)) if (pos?.scout) { pos.x = pos.scout.x; pos.y = pos.scout.y; delete pos.scout; } // Turn 1 starts after the Scout moves
+      p.steps.push({ name: `Turn ${steps.length}`, tokens: nt });
       p.cur = curSteps().length - 1;
       persistBoard();
       return 'render';

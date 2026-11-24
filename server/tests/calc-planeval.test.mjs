@@ -316,3 +316,18 @@ test('a rule that counts the battle round as one higher: one arriving unit a ste
   const fine = msgs(E.planWarnings(steps([], [edge]), early));
   assert.deepEqual(fine, [], 'arriving on an edge in round 2 is allowed anyway: no note');
 });
+
+test('Scout move (24.31/24.32): from wholly within the zone, up to X", ending more than 8" from enemy units', async () => {
+  const { scoutCheck } = await import(new URL('../public/calc/planeval.mjs', import.meta.url).href);
+  const zone = [[0, 0], [44, 0], [44, 12], [0, 12]];
+  const one = (x, y) => ({ x, y, models: [{ dx: 0, dy: 0, fp: { r: 0.5 } }] });
+  const ok = scoutCheck({ X: 6, from: one(10, 8), to: one(10, 14) }, { myDZ: zone, enemies: [one(10, 30)] });
+  assert.equal(ok.moved.toFixed(1), '6.0');
+  assert.deepEqual(ok.msgs, []);
+  const far = scoutCheck({ X: 6, from: one(10, 8), to: one(10, 15) }, { myDZ: zone, enemies: [] });
+  assert.match(far.msgs.join(), /moves 7\.0": more than its 6" Scout move/);
+  const out = scoutCheck({ X: 6, from: one(10, 13), to: one(10, 16) }, { myDZ: zone, enemies: [] });
+  assert.match(out.msgs.join(), /must start wholly within its deployment zone/);
+  const close = scoutCheck({ X: 6, from: one(10, 8), to: one(10, 14) }, { myDZ: zone, enemies: [one(10, 22.5)] });
+  assert.match(close.msgs.join(), /more than 8" horizontally from all enemy units/);
+});

@@ -3435,6 +3435,45 @@ Aggressor Squad (95 points)
     await c2.close();
   }
 
+  // --- 1.120: Scout moves planned on the Deploy step — a dashed ghost you drag, checked against 24.32
+  {
+    const sctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`scout: ${e}`));
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`scout: ${m.text()}`); });
+    await sp.goto(`${BASE}/calc/`); await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.tap('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.tap('button[data-action="parse"][data-side="B"]');
+    await sp.tap('button[data-action="view"][data-value="board"]');
+    await sp.waitForSelector('#board-svg');
+    await sp.locator('#board-tray button[data-action="board-place"][data-side="A"]', { hasText: 'Scout Squad (1)' }).tap();
+    await sp.waitForSelector('#board-scout');
+    const head = (await sp.textContent('#board-scout')).replace(/\s+/g, ' ');
+    await sp.tap('#board-scout-chip');
+    await sp.waitForSelector('[data-scout]');
+    const s1 = await sp.evaluate(() => ({ ok: document.querySelector('[data-scout]').dataset.ok, label: document.querySelector('[data-scout] text').textContent, panel: document.getElementById('board-scout').textContent.replace(/\s+/g, ' ') }));
+    check('🏃 Scout Squad: “Plan a Scout move” draws a dashed ghost up to its Scouts distance toward the middle, legal', /Scouts \d+"/.test(head) && s1.ok === '1' && /^Scout \d\.\d"\/\d+"$/.test(s1.label) && /✓/.test(s1.panel), `${head.slice(0, 60)} | ${JSON.stringify(s1)}`);
+    // drag the ghost a long way: too far, flagged
+    await sp.evaluate(() => { document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); document.getElementById('board-host').scrollIntoView({ block: 'center' }); });
+    const gb = await sp.locator('[data-scout] rect.scout-grab').boundingBox();
+    const box = await sp.locator('#board-svg').boundingBox();
+    const cx = gb.x + gb.width / 2, cy = gb.y + gb.height / 2, inch = box.width / 44;
+    await sp.mouse.move(cx, cy); await sp.mouse.down();
+    for (let i = 1; i <= 8; i++) await sp.mouse.move(cx, cy + i * 1.2 * inch);
+    await sp.mouse.up();
+    await sp.waitForFunction(() => document.querySelector('[data-scout]')?.dataset.ok === '0');
+    const warn = (await sp.textContent('#board-warnings').catch(() => '')).replace(/\s+/g, ' ');
+    check('dragged further than its Scout move: the ghost turns red and the step check says by how much', /Scout move: moves \d+\.\d": more than its \d+" Scout move/.test(warn), warn.slice(0, 200));
+    await sp.screenshot({ path: join(SHOTS, 'calc_117_scout_move.png') });
+    const scoutPos = await sp.evaluate(() => { const k = Object.keys(window.__calc.board().stepTokens).find(t => window.__calc.board().stepTokens[t].scout); return { k, ...window.__calc.board().stepTokens[k].scout }; });
+    await sp.tap('button[data-action="board-step-add"]');
+    const t1 = await sp.evaluate((k) => window.__calc.board().stepTokens[k], scoutPos.k);
+    check('＋ Next turn: Turn 1 starts where the Scout move ends', Math.abs(t1.x - scoutPos.x) < 0.01 && Math.abs(t1.y - scoutPos.y) < 0.01 && !t1.scout, JSON.stringify({ t1, scoutPos }));
+    const ghostT1 = await sp.locator('[data-scout]').count();
+    check('no Scout ghosts on Turn 1 (pre-game only)', ghostT1 === 0, String(ghostT1));
+    await sctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

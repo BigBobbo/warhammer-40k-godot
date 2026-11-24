@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.120.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: plan Scout moves before the first turn",
+      "changes": [
+        "Board → Deploy: select a unit with Scouts (or a Dedicated Transport whose passengers all have it) → 🏃 Plan a Scout move: a dashed ghost shows where the move ends, and you drag it",
+        "It shows how far each move goes and turns red when it starts outside your deployment zone, goes further than the unit's Scouts distance, or ends within 8\" of enemy units",
+        "＋ Next turn starts Turn 1 from the Scout positions; the unit's deployed position stays in the Deploy step"
+      ]
+    },
+    {
       "version": "1.119.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: share a plan or an attack as a link",
