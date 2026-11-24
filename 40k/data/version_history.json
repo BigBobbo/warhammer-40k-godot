@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.111.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: a set-up checklist, and the mission no longer changes under a running game",
+      "changes": [
+        "Mission → Plan and Play: a Set-up checklist in the order to do it (armies, Force Dispositions, primaries, layout, deployment, secondaries, first turn), with a button to where each is changed",
+        "Board: while a game is on the tracker, dispositions, layout and zones are locked (🔒). Change anyway unlocks them if the set-up was wrong",
+        "Board: a disposition that is not the one the list names is flagged, with Use the list's to put it back",
+        "Event preparation table: planning another matchup no longer leaves army B on the wrong disposition — it is flagged on the Board, a new B list drops it, and it is refused during a game"
+      ]
+    },
+    {
       "version": "1.110.1",
       "date": "2026-11-23",
       "summary": "Combat Calc: points check fixed for lists that price enhancements separately",

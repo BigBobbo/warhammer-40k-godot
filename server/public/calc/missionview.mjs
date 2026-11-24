@@ -8,9 +8,9 @@
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf, armyData, fmtDataDate, earlyArrival } from './adapter.mjs';
-import { boardContext, boardPlans, boardTrees } from './boardview.mjs';
+import { boardContext, boardPlans, boardTrees, boardSetupInfo } from './boardview.mjs';
 import { evaluate as evalTree } from './plantree.mjs';
-import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS } from './board.mjs';
+import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS, dispositionName } from './board.mjs';
 import { unitFacts as positionFacts, planWarnings, killPressure, threatOptions, ENGAGE } from './planeval.mjs';
 import * as PT from './playtools.mjs';
 
@@ -586,6 +586,49 @@ function miniHtml() {
     ${clockSpan || `<span class="muted">${inProgress() ? `from round ${m.game.round}` : 'whole game'}${m.busy ? ' · updating…' : ''}</span>`}</button>`;
 }
 
+// ---- Set-up checklist: everything that decides the game, in the order it is set, and where to change it.
+// Armies -> dispositions (from the lists) -> primaries -> layout + zones -> deployment -> secondaries -> first turn.
+function setupRows() {
+  const st = ctx.state, m = ms(), bc = boardContext(), si = boardSetupInfo();
+  const go = (view, label) => `<button class="btn ghost setup-go" data-action="view" data-value="${view}">${label}</button>`;
+  const toCards = '<button class="btn ghost setup-go" data-action="mission-tab" data-value="cards">Cards</button>';
+  const disp = (X) => `${X} ${dispositionName(X === 'A' ? bc.dispA : bc.dispB)}${si.overridden[X] ? ` (list: ${dispositionName(si.listDisp[X])})` : ''}`;
+  const ev = st.event, round = ev?.round ? ev.rounds?.[ev.round - 1] : null;
+  const evLayout = round?.layout ?? null;
+  const v = bc.layout?.variant ?? null;
+  const placedN = si.placed.A + si.placed.B, totalN = si.total.A + si.total.B;
+  const fixedShort = ['A', 'B'].filter(X => m.modes[X].mode === 'fixed' && m.modes[X].fixed.length < 2);
+  const modeText = (X) => `${X} ${m.modes[X].mode === 'fixed' ? `Fixed${m.modes[X].fixed.length ? ` (${m.modes[X].fixed.map(id => SECONDARY_BY_ID[id]?.name ?? id).join(', ')})` : ''}` : 'Tactical'}`;
+  return [
+    { id: 'armies', step: 'Armies', status: 'ok', text: `A ${st.armies.A.faction} · B ${st.armies.B.faction}`, go: go('armies', 'Armies') },
+    { id: 'disp', step: 'Force Dispositions', status: si.overridden.A || si.overridden.B ? 'warn' : 'ok',
+      text: `${disp('A')} · ${disp('B')}${si.overridden.A || si.overridden.B ? ' — changed on the Board, not what the list says' : ' — from the lists'}`, go: go('board', 'Board') },
+    { id: 'primary', step: 'Primary missions', status: bc.missions.A && bc.missions.B ? 'ok' : 'warn',
+      html: `<span id="mission-names"><b style="color:var(--side-a-ink)">A</b> plays <b>${ctx.esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b-ink)">B</b> plays <b>${ctx.esc(bc.missions.B ?? '?')}</b></span>` },
+    { id: 'layout', step: 'Layout', status: !bc.layout ? 'warn' : evLayout && evLayout !== v ? 'warn' : 'ok',
+      text: `${bc.layout ? `Layout ${layoutLetter(v)} · ${bc.deployment?.name ?? ''}` : 'none for these dispositions'}${si.swapped ? ' · zones swapped' : ''}${evLayout && evLayout !== v ? ` — round ${ev.round} of the event is Layout ${layoutLetter(evLayout)}` : evLayout ? ` — round ${ev.round} of the event` : ''}`, go: go('board', 'Board') },
+    { id: 'deploy', step: 'Deployment', status: totalN && placedN >= totalN ? 'ok' : 'todo',
+      text: `${placedN} of ${totalN} units placed (A ${si.placed.A}/${si.total.A} · B ${si.placed.B}/${si.total.B})`, go: go('board', 'Board') },
+    { id: 'cards', step: 'Secondaries', status: fixedShort.length ? 'todo' : 'ok',
+      text: `${modeText('A')} · ${modeText('B')}${fixedShort.length ? ` — ${fixedShort.join(' and ')}: pick 2 Fixed cards` : ''}`, go: toCards },
+    { id: 'first', step: 'First turn', status: m.first ? 'ok' : 'todo',
+      text: m.first ? `${m.first} goes first · I am ${m.me}` : `roll-off after deployment · I am ${m.me}` },
+  ];
+}
+function setupHtml(where) {
+  const rows = setupRows(), si = boardSetupInfo(), live = inProgress();
+  const todo = rows.filter(r => r.status === 'todo').length, warn = rows.filter(r => r.status === 'warn').length;
+  const icon = { ok: '✓', todo: '•', warn: '⚠' };
+  const head = warn || todo ? `${warn ? `${warn} to check` : ''}${warn && todo ? ' · ' : ''}${todo ? `${todo} to do` : ''}` : 'ready';
+  return `<details class="more setup" data-details="mission-setup-${where}" ${isOpen(`mission-setup-${where}`, !live && where === 'plan') ? 'open' : ''} id="setup-${where}">
+    <summary>Set-up: ${head}${live ? (si.locked ? ' · 🔒 locked during the game' : ' · unlocked') : ''}</summary>
+    <ol class="setup-list" id="setup-list-${where}">${rows.map(r => `<li class="setup-row ${r.status}" data-step="${r.id}"><span class="setup-ic" aria-label="${r.status}">${icon[r.status]}</span>
+      <span class="grow"><b>${r.step}</b> <span class="small">${r.html ?? ctx.esc(r.text)}</span></span>${r.go ?? ''}</li>`).join('')}</ol>
+    <div class="tiny muted">${live ? (si.locked ? 'Dispositions, layout and zones are locked while this game is on the tracker. New game (Play) unlocks them; so does Change anyway on the Board.' : 'Unlocked: changes on the Board change this game\'s missions and map.')
+      : 'Set in this order. A new disposition or layout is a new map with its own board plans; the forecast counts only units on the board.'}</div>
+  </details>`;
+}
+
 // ---- Plan: set-up, forecast, objective plan, what-ifs
 function planView() {
   const st = ctx.state, m = ms(), esc = ctx.esc;
@@ -596,8 +639,7 @@ function planView() {
       ${m.modes[X].mode === 'fixed' ? `<div class="chips" style="margin-top:6px">${FIXED_IDS.map(id => ctx.chip('mission-fixed', m.modes[X].fixed.includes(id), SECONDARY_BY_ID[id].name, `data-side="${X}" data-id="${id}"`)).join('')}</div>` : ''}</div>`;
   return `<div class="mlay plan"><div class="col">
     <section class="section a-setup o1"><div class="card">
-      <div class="small" id="mission-names"><b style="color:var(--side-a-ink)">A</b> plays <b>${esc(bc.missions.A ?? '?')}</b> · <b style="color:var(--side-b-ink)">B</b> plays <b>${esc(bc.missions.B ?? '?')}</b>
-        <div class="tiny muted">${esc(bc.deployment?.name ?? '')} · Layout ${bc.layout ? layoutLetter(bc.layout.variant) : '?'} — change it on the Board tab.</div></div>
+      ${setupHtml('plan')}
       <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
         <div><div class="lab tiny muted">I am</div>${ctx.seg('mission-me', me, [['A', `A · ${st.armies.A.faction}`], ['B', `B · ${st.armies.B.faction}`]], 'compact')}</div>
         <div><div class="lab tiny muted">First turn</div>${ctx.seg('mission-first', m.first ?? 'roll', [['A', 'A'], ['B', 'B'], ['roll', 'Roll-off']], 'compact')}</div>
@@ -714,6 +756,7 @@ function playView() {
     <section class="section a-score o5">${sheetHtml()}</section>
     ${m.table ? '' : `<section class="section a-fc o6"><h2>From here</h2><div id="mission-forecast">${heroHtml()}</div></section>`}
     <section class="section a-opts o7"><div class="card" id="play-options">
+      ${!m.table && setupRows().some(r => r.status === 'warn') ? `<div style="margin-bottom:8px">${setupHtml('play')}</div>` : ''}
       <div class="chips">${ctx.chip('mission-table', !!m.table, 'Table mode: tracker only')}${ctx.chip('mission-awake', m.awake !== false, 'Screen stays on')}</div>
       <div class="tiny muted" id="table-note" style="margin-top:6px">${m.table ? 'Table mode is on: the forecast, the card advice, the calculator and the board planner are closed.' : 'Table mode closes the forecast, the card advice, the calculator and the board planner, and leaves the tracker.'} Some events do not allow apps that help with decisions during a game: check your event pack.</div>
       <button class="btn ghost" style="margin-top:10px" data-action="mission-reset" id="play-reset">New game (clear the tracker)</button>

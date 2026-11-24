@@ -58,6 +58,27 @@ function dispOf(side) {
   return b.settings[`disp${side}`] ?? ctx.state.armies[side]?.roster?.force_disposition ?? 'take-and-hold';
 }
 
+/** The Force Disposition the list itself names (null: the list does not say). */
+function listDisp(side) {
+  return ctx.state.armies[side]?.roster?.force_disposition ?? null;
+}
+/** A disposition picked on the Board that differs from the one the list names. */
+function dispOverridden(side) {
+  const v = boardState().settings[`disp${side}`], l = listDisp(side);
+  return v != null && l != null && v !== l;
+}
+/**
+ * The mission set-up (dispositions, layout, zones) is locked while a game is on the
+ * tracker: changing it mid-game swaps both primaries, the deployment map and the
+ * board plans under the game. "Change anyway" unlocks it until that game ends.
+ */
+function setupLocked() {
+  const b = boardState();
+  const live = !!ctx.gameInProgress?.();
+  if (!live) b.unlock = false;
+  return live && !b.unlock;
+}
+
 function currentLayout() {
   const b = boardState();
   const list = layoutsFor(dispOf('A'), dispOf('B'));
@@ -734,6 +755,7 @@ export function boardView() {
   const ms = missionsFor(dispOf('A'), dispOf('B'));
   const dep = l ? DEPLOYMENTS[l.deployment] : null;
   const p = plan();
+  const locked = setupLocked();
   const dispSel = (side) => `<select class="sel" data-input="board-disp" data-side="${side}" aria-label="Force Disposition of army ${side}">
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
@@ -772,15 +794,21 @@ export function boardView() {
     <section class="section" id="board-panel">${selectionPanel()}</section>
     <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
-    <section class="section"><div class="card">
+    <section class="section"><div class="card" id="board-setup">
+      ${locked ? `<div class="lockbox" id="board-setup-lock"><span class="grow">🔒 Mission set-up locked: a game is on the tracker (round ${ctx.gameRound?.() ?? '?'}). Changing it now changes both primaries and the map under that game.</span>
+        <button class="btn ghost" data-action="board-setup-unlock" id="board-setup-unlock">Change anyway</button></div>` : ''}
+      <fieldset class="plain" ${locked ? 'disabled' : ''}>
       <div class="row" style="gap:8px">
         <div class="grow"><div class="lab tiny muted">A · ${esc(st.armies.A.faction)}</div>${dispSel('A')}</div>
         <div class="grow"><div class="lab tiny muted">B · ${esc(st.armies.B.faction)}</div>${dispSel('B')}</div>
       </div>
+      ${['A', 'B'].filter(dispOverridden).map(X => `<div class="warnbox" id="board-disp-override-${X}" style="display:flex;gap:8px;align-items:center"><span class="grow"><b>${X}</b> is set to <b>${esc(dispositionName(dispOf(X)))}</b> here, but ${X}'s list says <b>${esc(dispositionName(listDisp(X)))}</b>. The missions and layouts follow the one set here.</span>
+        <button class="btn" data-action="board-disp-list" data-side="${X}">Use the list's</button></div>`).join('')}
       <div class="modrow" style="margin-top:8px"><div class="lab">Layout (official GW 11e)</div>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'Layout A'], [2, 'Layout B'], [3, 'Layout C']], 'compact')}</div>
       <div class="small" style="margin-top:8px" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b><br><span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
+      </fieldset>
       <div class="row" style="margin-top:8px;gap:6px">
-        <button class="btn ghost grow" data-action="board-swap-zones">⇅ Swap zones</button>
+        <button class="btn ghost grow" data-action="board-swap-zones" ${locked ? 'disabled' : ''}>⇅ Swap zones</button>
         <button class="btn ghost grow" data-action="board-share">⇪ Share image</button>
       </div>
     </div></section>
@@ -1192,12 +1220,26 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-setup-unlock':
+      if (!window.confirm('A game is on the tracker. Change the mission set-up anyway? The primaries, the deployment map and the board plans follow the new set-up; the scores on the tracker stay.')) return null;
+      b.unlock = true;
+      console.log('[board] mission set-up unlocked during a game');
+      return 'render';
+    case 'board-disp-list':
+      if (setupLocked()) return 'render';
+      console.log(`[board] ${el.dataset.side}: disposition back to the list's (${listDisp(el.dataset.side)})`);
+      delete b.settings[`disp${el.dataset.side}`];
+      b.sel = b.sel2 = null;
+      persistBoard();
+      return 'render';
     case 'board-variant':
+      if (setupLocked()) { console.log('[board] layout change ignored: set-up locked during a game'); return 'render'; }
       b.settings.variant = Number(el.dataset.value);
       b.sel = b.sel2 = null;
       persistBoard();
       return 'render';
     case 'board-swap-zones':
+      if (setupLocked()) return 'render';
       b.settings.swapZones = !b.settings.swapZones;
       persistBoard();
       return 'render';
@@ -1519,6 +1561,7 @@ export function boardChange(el) {
     return true;
   }
   if (el.dataset.input === 'board-disp') {
+    if (setupLocked()) { console.log('[board] disposition change ignored: set-up locked during a game'); return 'render'; }
     b.settings[`disp${el.dataset.side}`] = el.value;
     b.sel = b.sel2 = null;
     persistBoard();
@@ -1633,6 +1676,28 @@ export function boardSetup({ variant = null, listDispositions = false } = {}) {
   if (listDispositions) { delete b.settings.dispA; delete b.settings.dispB; }
   b.sel = b.sel2 = null;
   persistBoard();
+}
+/** A different list was loaded into `side`: its disposition comes from the new list again. */
+export function boardListChanged(side) {
+  const b = boardState();
+  if (b.settings[`disp${side}`] == null) return;
+  console.log(`[board] ${side}: new list, the disposition picked on the Board (${b.settings[`disp${side}`]}) is dropped`);
+  delete b.settings[`disp${side}`];
+  persistBoard();
+}
+/** For the Mission tab's set-up checklist. */
+export function boardSetupInfo() {
+  const st = ctx.state, b = boardState();
+  const deploy = curSteps()[0]?.tokens ?? {};
+  const keys = new Set(Object.keys(deploy));
+  const count = (X) => (st.armies[X]?.units ?? []).filter(u => keys.has(`${X}:${u.key}`)).length;
+  return {
+    listDisp: { A: listDisp('A'), B: listDisp('B') },
+    overridden: { A: dispOverridden('A'), B: dispOverridden('B') },
+    swapped: !!b.settings.swapZones, locked: setupLocked(),
+    placed: { A: count('A'), B: count('B') },
+    total: { A: st.armies.A?.units.length ?? 0, B: st.armies.B?.units.length ?? 0 },
+  };
 }
 /** Layout ids on which a plan holds units of my list (signature `sig` on side X). */
 export function plannedLayouts(X, sig) {

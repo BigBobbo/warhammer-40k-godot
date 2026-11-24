@@ -14,7 +14,7 @@ import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, _boardDebug } from './boardview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardListChanged, _boardDebug } from './boardview.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
@@ -1317,6 +1317,7 @@ function librarySheet() {
 // Load a list into army `side`, dropping setups that referred to the old list's units.
 function loadListInto(side, text) {
   if (state.armies[side] && text !== loadedText(side)) leaveSavedGame('a list was changed');
+  if (text !== loadedText(side)) boardListChanged(side);
   state.texts[side] = text;
   state.attach[side] = null;
   parseArmy(side);
@@ -1872,6 +1873,7 @@ app.addEventListener('click', (ev) => {
       const side = el.dataset.side;
       const ta = app.querySelector(`textarea[data-side="${side}"]`);
       if (state.armies[side] && (ta?.value ?? '') !== loadedText(side)) leaveSavedGame('a list was changed');
+      if ((ta?.value ?? '') !== loadedText(side)) boardListChanged(side);
       state.texts[side] = ta?.value ?? '';
       state.attach[side] = null; // a (re)loaded list starts from its own attachments
       parseArmy(side);
@@ -2327,6 +2329,8 @@ restoreLibrary();
 restoreGames();
 initBoard({
   state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost, branchWins, forecastBranches,
+  // the mission set-up is locked while a game is on the tracker
+  gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round,
   // one army's list (for "use my deployment against another opponent")
   sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap

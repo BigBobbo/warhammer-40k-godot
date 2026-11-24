@@ -2863,6 +2863,82 @@ Aggressor Squad (95 points)
     await qctx.close();
   }
 
+  // --- set-up path (1.111.0): checklist on Mission, the Board's set-up locked during a game, disposition overrides shown
+  {
+    const uctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const up = await uctx.newPage();
+    up.on('pageerror', e => consoleErrors.push(`setup: ${e}`));
+    up.on('console', m => { if (m.type() === 'error') consoleErrors.push(`setup: ${m.text()}`); });
+    up.on('dialog', d => d.accept());
+    const utxt = async (q) => (await up.textContent(q)).replace(/\s+/g, ' ').trim();
+    const settings = () => up.evaluate(() => ({ ...window.__calc.state.board.settings, layout: window.__calc.board().layout }));
+    await up.goto(`${BASE}/calc/`); await up.waitForSelector('textarea[data-side="A"]');
+    await up.fill('textarea[data-side="A"]', SW_LIST); await up.tap('button[data-action="parse"][data-side="A"]');
+    await up.fill('textarea[data-side="B"]', ORK_LIST); await up.tap('button[data-action="parse"][data-side="B"]');
+    // the checklist on Mission > Plan, open before the game
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.waitForSelector('#setup-plan');
+    const rows = await up.$$eval('#setup-list-plan .setup-row', els => els.map(e => `${e.dataset.step}:${e.classList.contains('ok') ? 'ok' : e.classList.contains('warn') ? 'warn' : 'todo'}`));
+    check('Mission > Plan: a set-up checklist in order (armies, dispositions, primaries, layout, deployment, secondaries, first turn), open',
+      rows.join(',') === 'armies:ok,disp:ok,primary:ok,layout:ok,deploy:todo,cards:ok,first:todo' && await up.$eval('#setup-plan', d => d.open), rows.join(','));
+    check('the checklist says what is left and names both primaries', /^Set-up: 2 to do/.test(await utxt('#setup-plan > summary')) && /A plays .+ · B plays/.test(await utxt('#mission-names')) && /0 of \d+ units placed/.test(await utxt('#setup-list-plan [data-step="deploy"]')));
+    await up.screenshot({ path: join(SHOTS, 'calc_97_setup_checklist.png') });
+    // its Board button goes to the Board; a disposition changed there is flagged on both tabs
+    await up.tap('#setup-list-plan [data-step="disp"] button[data-value="board"]');
+    await up.waitForSelector('#board-setup');
+    await up.selectOption('select[data-input="board-disp"][data-side="B"]', 'purge-the-foe');
+    await up.waitForSelector('#board-disp-override-B');
+    check('Board: a disposition that is not the list\'s is flagged, with the list\'s offered back', /B is set to Purge the Foe here, but B's list says Take and Hold/.test(await utxt('#board-disp-override-B')));
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('button[data-action="mission-tab"][data-value="play"]');
+    check('Play shows the checklist too while something needs checking', /1 to check/.test(await utxt('#setup-play > summary')));
+    await up.tap('button[data-action="mission-tab"][data-value="plan"]');
+    check('…and the checklist marks dispositions to check', /⚠/.test(await utxt('#setup-list-plan [data-step="disp"]')) && /list: Take and Hold/.test(await utxt('#setup-list-plan [data-step="disp"]')) && /1 to check/.test(await utxt('#setup-plan > summary')));
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.tap('#board-disp-override-B button[data-action="board-disp-list"]');
+    check('"Use the list\'s" puts B back on its list\'s disposition', (await up.locator('#board-disp-override-B').count()) === 0 && (await settings()).dispB === undefined);
+    // the event preparation table overrides B's disposition: flagged, and a new B list drops it
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.locator('#event-card > summary').tap();
+    await up.fill('#event-paste', ORK_LIST); await up.tap('button[data-action="event-add"]');
+    await up.locator('#event-coverage button.cov[data-disp="reconnaissance"][data-v="2"]').tap();
+    await up.waitForSelector('#board-disp-override-B');
+    check('a tap on the preparation table: Board with B on that disposition, and it says so', (await settings()).dispB === 'reconnaissance' && /B is set to Reconnaissance here/.test(await utxt('#board-disp-override-B')));
+    await up.screenshot({ path: join(SHOTS, 'calc_98_setup_override.png') });
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));
+    await up.tap('button[data-action="parse"][data-side="B"]');
+    check('a different list loaded as B takes its own disposition again (the override is dropped)', (await settings()).dispB === undefined);
+    // a game on the tracker: the set-up is locked on the Board
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('button[data-action="mission-tab"][data-value="play"]');
+    await up.waitForSelector('#play-bar');
+    await up.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    check('Play: no checklist when nothing needs checking (the tracker stays short)', (await up.locator('#setup-play').count()) === 0);
+    await up.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await up.waitForSelector('#setup-plan');
+    check('Plan: the checklist says the set-up is locked during the game', /🔒 locked during the game/.test(await utxt('#setup-plan > summary')) && /locked while this game is on the tracker/.test(await utxt('#setup-plan')));
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.waitForSelector('#board-setup-lock');
+    const before = await settings();
+    const disabled = await up.evaluate(() => ({ sel: document.querySelector('select[data-input="board-disp"][data-side="A"]').matches(':disabled'), lay: document.querySelector('button[data-action="board-variant"][data-value="3"]').matches(':disabled'), swap: document.querySelector('button[data-action="board-swap-zones"]').disabled }));
+    await up.locator('button[data-action="board-variant"][data-value="3"]').tap({ force: true });
+    check('Board during a game: dispositions, layout and zones are locked and a tap on a layout changes nothing',
+      disabled.sel && disabled.lay && disabled.swap && (await settings()).layout === before.layout && /a game is on the tracker \(round 1\)/.test(await utxt('#board-setup-lock')), JSON.stringify(disabled));
+    await up.locator('#board-setup').scrollIntoViewIfNeeded();
+    await up.screenshot({ path: join(SHOTS, 'calc_99_setup_locked.png') });
+    // the preparation table cannot change the game's mission either
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.locator('#event-coverage button.cov[data-disp="disruption"][data-v="1"]').tap();
+    check('preparation table during a game: nothing changes, it says why', (await up.evaluate(() => window.__calc.state.view)) === 'armies' && (await settings()).dispB === undefined && /A game is on the tracker/.test(await utxt('#event-card')));
+    // "Change anyway" unlocks it (after a confirm)
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.tap('#board-setup-unlock');
+    await up.tap('button[data-action="board-variant"][data-value="3"]');
+    check('"Change anyway": the layout can be changed during the game', (await up.locator('#board-setup-lock').count()) === 0 && /_3$/.test((await settings()).layout), (await settings()).layout);
+    await uctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
