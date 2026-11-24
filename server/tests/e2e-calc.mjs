@@ -3495,6 +3495,40 @@ Aggressor Squad (95 points)
     await gctx.close();
   }
 
+  // --- 1.122: printable game-day sheet (Intel → 🖨): their units, tricks, stratagems, my army by phase; no rule text
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('pageerror', e => consoleErrors.push(`print: ${e}`));
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`print: ${m.text()}`); });
+    await pp.goto(`${BASE}/calc/`); await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    await pp.tap('button[data-action="view"][data-value="intel"]');
+    await pp.tap('#open-print');
+    await pp.waitForSelector('#print-preview .ps');
+    const pv = await pp.evaluate(() => {
+      const el = document.getElementById('print-preview');
+      return { nB: window.__calc.state.armies.B.units.length, txt: el.textContent.replace(/\s+/g, ' '), units: el.querySelectorAll('.ps-t tbody tr').length, boxes: el.querySelectorAll('.ps-box').length, h2: [...el.querySelectorAll('h2')].map(h => h.textContent) };
+    });
+    check('🖨 Intel → Game-day sheet: their units (one row each), plan-around notes, their stratagems by turn, your army by phase', pv.units === pv.nB && pv.h2.includes('Their units') && pv.h2.includes('Their stratagems in your turn') && pv.h2.includes('Your army, phase by phase') && /Warboss \+ Boyz/.test(pv.txt) && /M6" T5 Sv5\+ W1 OC2/.test(pv.txt), JSON.stringify({ units: pv.units, h2: pv.h2, sample: pv.txt.slice(0, 200) }));
+    // no rule text: the stratagem "When:" / "Effect:" lines of the Intel tab are not on the sheet
+    const strats = await pp.evaluate(() => window.__calc.state.armies.B && document.querySelector('#print-preview').textContent);
+    check('names, costs and phases only: no “When:” / “Effect:” rule text on the sheet; once-per-battle rules get a ☐', !/When:|Effect:/.test(strats) && pv.boxes >= 1, `boxes ${pv.boxes}`);
+    await pp.screenshot({ path: join(SHOTS, 'calc_119_print_sheet.png') });
+    // the printed page: only the sheet (print media)
+    await pp.evaluate(() => { window.print = () => { window.__printed = true; }; });
+    await pp.tap('#print-go');
+    await pp.emulateMedia({ media: 'print' });
+    const printed = await pp.evaluate(() => ({ called: !!window.__printed, root: getComputedStyle(document.getElementById('print-root')).display, app: getComputedStyle(document.getElementById('app') ?? document.querySelector('main')).display, rows: document.querySelectorAll('#print-root .ps-t tbody tr').length }));
+    check('Print: only the sheet is printed (the app is hidden in print)', printed.called && printed.root === 'block' && printed.rows === pv.nB, JSON.stringify(printed));
+    const pdf = await pp.pdf({ format: 'A4' }).catch(() => null);
+    check('it prints as a PDF', !!pdf && pdf.length > 5000, String(pdf?.length));
+    if (pdf) { const { writeFileSync } = await import('fs'); writeFileSync(join(SHOTS, 'calc_119_print_sheet.pdf'), pdf); }
+    await pp.emulateMedia({ media: 'screen' });
+    await pctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

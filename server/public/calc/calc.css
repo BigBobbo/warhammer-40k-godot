@@ -579,3 +579,25 @@ details.more.card { padding: 10px 12px; }
 .drill-u { display: inline-flex; align-items: center; gap: 2px; flex: none; max-width: 85%; }
 .unit-strip .drill-u .chip { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .drill-u .icon-btn { flex: none; width: 40px; height: 40px; }
+
+/* printable game-day sheet (printsheet.mjs): a preview in the sheet; only #print-root is printed */
+#print-root { display: none; }
+.ps { font-size: 12px; line-height: 1.35; color: #111; }
+.ps h1 { font-size: 18px; margin: 0 0 2px; }
+.ps h2 { font-size: 14px; margin: 12px 0 4px; border-bottom: 1px solid #999; }
+.ps h3 { font-size: 12px; margin: 6px 0 2px; }
+.ps ul { margin: 0; padding-left: 16px; }
+.ps-m { color: #555; font-size: 11px; }
+.ps-t { width: 100%; border-collapse: collapse; }
+.ps-t th, .ps-t td { border: 1px solid #bbb; padding: 3px 4px; vertical-align: top; text-align: left; }
+.ps-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.ps-box { font-size: 13px; }
+.ps-foot { margin-top: 10px; }
+.ps-preview { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; }
+@media print {
+  @page { margin: 12mm; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; }
+  .ps h2 { break-after: avoid; }
+  .ps-t tr, .ps-ph { break-inside: avoid; }
+}

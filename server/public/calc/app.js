@@ -21,6 +21,10 @@ import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, n
 import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, _boardDebug } from './boardview.mjs';
 import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
 import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
+import { printSheetHtml } from './printsheet.mjs';
+import { armyTricks } from './adapter.mjs';
+import { boardContext } from './boardview.mjs';
+import { roundLabel } from './eventview.mjs';
 import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
@@ -733,6 +737,29 @@ function phaseSheetHtml(side) {
     <section class="section">${strip}${sheet.phases.filter(p => shown === 'all' || p.id === shown).map(card).join('')}</section>`;
 }
 
+// ---- Printable game-day sheet (printsheet.mjs): you = the Play tracker's side (A by default)
+function printData() {
+  const me = state.mission?.me ?? 'A', opp = other(me);
+  const mine = state.armies[me], theirs = state.armies[opp];
+  const bc = boardContext(), label = roundLabel();
+  const sheet = sheetOf(mine), used = new Set();
+  return {
+    esc, title: label ? `${label}: ${theirs.faction}` : `Game day: ${mine.faction} vs ${theirs.faction}`,
+    me: { label: listLabel(me) }, them: { label: listLabel(opp) },
+    setting: [bc.layout ? `Layout ${['A', 'B', 'C'][bc.layout.variant - 1] ?? '?'}` : '', bc.deployment?.name ?? '', bc.missions?.[me] ? `you play ${bc.missions[me]}` : '', bc.missions?.[opp] ? `they play ${bc.missions[opp]}` : ''].filter(Boolean).join(' · '),
+    theirUnits: theirs.units.map(cu => unitIntel(cu, theirs)),
+    tricks: armyTricks(theirs),
+    theirStrats: armyIntel(theirs).stratagems.map(s => ({ name: s.name, cp: s.cp, phase: s.phase, turn: s.turn })),
+    // each rule once: in the first phase it is used in
+    myPhases: sheet.phases.map(ph => ({ name: ph.name, entries: ph.entries.filter(e => !used.has(e.key) && used.add(e.key)).map(e => ({ name: e.name, kind: e.kind, cp: e.cp, once: e.usage?.per === 'battle', units: sheetUnits(e) })) })),
+  };
+}
+function printSheet() {
+  return `<div class="row no-print"><h3 class="grow">Game-day sheet</h3><button class="btn primary" data-action="print-go" id="print-go">🖨 Print / save as PDF</button><button class="icon-btn" data-action="close-sheet" aria-label="Close">✕</button></div>
+    <div class="tiny muted no-print" style="margin-bottom:8px">For the table on paper. Names, costs, phases and the app's own numbers only — no rule text. Your side: army ${state.mission?.me ?? 'A'} (Mission → Play).</div>
+    <div class="ps-preview" id="print-preview">${printSheetHtml(printData())}</div>`;
+}
+
 function intelView() {
   const side = intelSide();
   const army = state.armies[side];
@@ -754,7 +781,7 @@ function intelView() {
       <div class="row" style="gap:6px;margin-top:6px"><button class="btn" data-action="view" data-value="board">Board →</button><button class="btn" data-action="view" data-value="mission">Mission →</button></div></div>
       <button class="icon-btn" data-action="round-started-ok" aria-label="Dismiss">✕</button></div>` : '';
   return `${started}<section class="section" id="intel-mode">${seg('intel-mode', state.intelMode, [['units', 'Datasheets'], ['phase', 'By phase']])}</section>
-    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div></section>` : ''}
+    ${tableMode() ? '<p class="hint" id="intel-table-note">Table mode: datasheets, abilities and stratagems only.</p>' : state.armies.A && state.armies.B && !phaseMode ? `<section class="section"><div id="brief-host">${briefHtml()}</div><button class="btn ghost block" style="margin-top:6px" data-action="open-print" id="open-print">🖨 Game-day sheet (print / PDF)</button></section>` : ''}
     <section class="section">
       ${state.armies.A && state.armies.B ? seg('intel-side', side, [['A', `A · ${state.armies.A.faction}`], ['B', `B · ${state.armies.B.faction}`]]) : ''}
     </section>
@@ -1318,6 +1345,7 @@ function renderSheet() {
     : state.sheet === 'threats' ? threatsSheet()
     : state.sheet === 'saved' ? savedSheet()
     : state.sheet === 'gaps' ? gapsSheet()
+    : state.sheet === 'print' ? printSheet()
     : state.sheet === 'attach' ? attachSheet()
       : state.sheet === 'join' ? joinSheet() : resultsSheet();
   host.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
@@ -2462,6 +2490,18 @@ app.addEventListener('click', (ev) => {
       history.replaceState(null, '', location.pathname + location.search);
       location.reload();
       return;
+    case 'open-print':
+      state.sheet = 'print';
+      return renderSheet();
+    case 'print-go': {
+      // print only the sheet: a copy of it in #print-root (calc.css @media print hides everything else)
+      let root = document.getElementById('print-root');
+      if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
+      root.innerHTML = printSheetHtml(printData());
+      console.log('[calc] print: game-day sheet');
+      window.print();
+      return;
+    }
     case 'open-gaps':
       state.sheet = 'gaps';
       runGaps(el.dataset.side === 'B' ? 'B' : 'A');
