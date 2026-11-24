@@ -3112,6 +3112,67 @@ Aggressor Squad (95 points)
     await kctx.close();
   }
 
+  // --- 1.115: the score shown to the opponent, a random draw they can see, stratagems usable now + the log
+  {
+    const pctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp = await pctx.newPage();
+    pp.on('pageerror', e => consoleErrors.push(`1.115: ${e}`));
+    pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.115: ${m.text()}`); });
+    pp.on('dialog', d => d.accept());
+    await pp.goto(`${BASE}/calc/`); await pp.waitForSelector('textarea[data-side="A"]');
+    await pp.fill('textarea[data-side="A"]', SW_LIST); await pp.tap('button[data-action="parse"][data-side="A"]');
+    await pp.fill('textarea[data-side="B"]', ORK_LIST); await pp.tap('button[data-action="parse"][data-side="B"]');
+    const pt = async (sel) => (await pp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    await pp.tap('button[data-action="view"][data-value="mission"]');
+    await pp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await pp.waitForSelector('#play-bar');
+    await pp.tap('button[data-action="mission-first"][data-value="A"]').catch(() => {});
+    // a random draw, full screen
+    await pp.tap('#draw-random-A');
+    await pp.waitForSelector('#show-draw .cf');
+    const drawn = await pp.evaluate(() => window.__calc.mission().game?.A?.hand ?? []);
+    const shown = await pp.getAttribute('#show-draw [data-cardface]', 'data-cardface');
+    check('🎲 Draw at random: a card from the deck goes into A’s hand and is shown full screen as a card', drawn.length === 1 && drawn[0] === shown && /A · Space Wolves drew at random/.test(await pt('#show-draw .show-head')) && /From the 18 cards left/.test(await pt('#show-draw')), JSON.stringify({ drawn, shown }));
+    await pp.screenshot({ path: join(SHOTS, 'calc_106_draw_random.png') });
+    await pp.tap('#show-draw-again');
+    await pp.waitForFunction(() => window.__calc.mission().game.A.hand.length === 2);
+    check('“Draw another”: the second card of the turn, then no more offered', (await pp.locator('#show-draw-again').count()) === 0);
+    await pp.tap('#show-draw button[data-action="mission-show-close"]');
+    // score something, then show it to the opponent
+    await pp.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    await pp.tap('#play-show');
+    await pp.waitForSelector('#show-score');
+    check('📺 Show: both scores, CP and the cards in hand, the score sheet by round, nothing about odds', /5/.test(await pt('#show-total-A')) && /In hand:/.test(await pt('[data-show-side="A"]')) && /CP/.test(await pt('[data-show-side="B"]')) && /Battle round 1/.test(await pt('#show-score .show-head')) && !/%/.test(await pt('#show-score')), await pt('#show-score'));
+    await pp.tap('#show-flip');
+    check('↻ turns the screen to face the opponent', await pp.evaluate(() => !!document.querySelector('#show-score .show-inner.flip')));
+    await pp.screenshot({ path: join(SHOTS, 'calc_107_show_opponent.png') });
+    await pp.tap('#show-score button[data-action="mission-show-flip"]');
+    await pp.tap('#show-close');
+    // stratagems usable now: A's Shooting phase
+    await pp.locator('#play-strats > summary').tap();
+    await pp.tap('button[data-action="mission-phase"][data-value="shooting"]');
+    await pp.waitForSelector('#play-strats[open] .strat-now');
+    const sum = await pt('#play-strats > summary');
+    const rowsA = await pp.$$eval('#play-strats .strat-now[data-side="A"]', els => els.map(e => e.getAttribute('data-strat')));
+    const rowsB = await pp.$$eval('#play-strats .strat-now[data-side="B"]', els => els.map(e => e.getAttribute('data-strat')));
+    check('Stratagems now: only the ones usable in this phase, for the player whose turn it is and for the opponent', /Shooting: A \d+, B \d+ usable/.test(sum) && rowsA.length > 0 && rowsB.length > 0, JSON.stringify({ sum, rowsA, rowsB }));
+    const cpB = await pp.evaluate(() => window.__calc.mission().game.B.cp);
+    const name = rowsB[0];
+    await pp.locator(`#play-strats .strat-now[data-side="B"][data-strat="${name}"] button[data-action="mission-strat"]`).tap();
+    await pp.waitForFunction((n) => window.__calc.mission().game.strats?.some(s => s.name === n), name);
+    const after = await pp.evaluate(() => ({ cp: window.__calc.mission().game.B.cp, log: window.__calc.mission().game.strats }));
+    const btn = pp.locator(`#play-strats .strat-now[data-side="B"][data-strat="${name}"] button[data-action="mission-strat"]`);
+    check('Use: B spends the CP, it is logged (round, turn, phase), and it shows ✓ Used for the rest of the phase', after.cp < cpB && after.log.length === 1 && after.log[0].phase === 'shooting' && after.log[0].turn === 'A' && /✓ Used/.test(await btn.textContent()) && await btn.isDisabled(), JSON.stringify(after));
+    await pp.locator('#play-strats details[data-details="mission-strat-log"] > summary').tap();
+    check('the stratagem log lists it', new RegExp(`B ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(await pt('#strat-log')));
+    await pp.locator('#play-strats').scrollIntoViewIfNeeded();
+    await pp.screenshot({ path: join(SHOTS, 'calc_108_strats_now.png') });
+    await pp.tap('#play-undo');
+    await pp.waitForFunction(() => (window.__calc.mission().game.strats ?? []).length === 0);
+    check('Undo takes it back (the CP too)', (await pp.evaluate(() => window.__calc.mission().game.B.cp)) === cpB);
+    await pctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

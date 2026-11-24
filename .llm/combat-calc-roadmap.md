@@ -474,3 +474,11 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
   Not modelled: the 11e embark / disembark move restrictions, Firing Deck, destroyed transports.
 - Intel brief "They can do this in your turn": all of them, When and Effect in full (the effect was cut
   at 190 characters, the list at 8).
+
+## Features from the app comparison (reports/40k app feature comparison.md, 24 Nov 2026)
+
+User: work through the ranked list, no clock (item 4 skipped).
+- 1.115.0 (items 1, 2): 📺 Show (score full screen for the opponent, turned 180°, no odds);
+  🎲 Random draw shown full screen; Stratagems now (phase picker in the fold, usable in this phase and
+  turn for both players, Use spends CP + logs, once per phase; Undo). playtools stratUsable /
+  useStrat / stratUsedThisPhase. Table mode already hid card odds, advice and the board.

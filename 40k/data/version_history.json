@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.115.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: show the score to your opponent, random card draws they can see, stratagems usable now with a CP log",
+      "changes": [
+        "Play: 📺 Show puts the score full screen for your opponent (both totals, CP, cards in hand, the score sheet by round, this round's stratagems) and turns it to face them — tournament packs only count a score both players can see",
+        "Play: 🎲 Draw at random draws a secondary card from your deck and shows it full screen, for both players to see",
+        "Play: pick the phase; Stratagems now lists what each player can use in that phase and turn; Use spends the CP, logs it, and blocks the same stratagem twice in a phase; Undo takes it back"
+      ]
+    },
+    {
       "version": "1.114.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: transports, tighter formations, letters on bases, stratagems in full",
