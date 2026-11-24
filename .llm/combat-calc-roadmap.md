@@ -459,3 +459,18 @@ the rules appendix (02.02.01 Modifiers, fetched the same day).
 - e2e: the event section clears that memory first (the attachments set earlier in the run would
   otherwise come back, with the board plans made with them). Seen once: "opening Play does not run
   the forecast again" failed (a light run, 1,000 trials); the rerun passed 444/444 — timing.
+
+## Board and Intel requests (user, 24 Nov 2026) — v1.114.0, browser-tested
+
+- Gap between bases (`pos.gap`, Auto / 0 / ¼ / ½ / 1 / 2"): `formation()` with that gap; Auto keeps
+  the widest coherent gap up to 1". Coherency warning as before.
+- A letter on every base (`baseLetter`: first letter of the member's datasheet name).
+- Transports: `adapter.transportOf / passengerCheck` from `transport_capacity` (capacity; "N <keywords>
+  models" when the text gives it, else Infantry of the transport's faction — 60 of 82 transports have no
+  text; exclusions; multipliers). A step token `{ in: transportTk }` = embarked: not placed, not in the
+  tray, not in reserves, not in the forecast (boardPlans `embarked` per side; the "units placed" note
+  counts them); planWarnings notes a disembark instead of a reserve arrival. Disembark: beside the
+  transport (within 3"). Removing a transport returns its passengers to the tray.
+  Not modelled: the 11e embark / disembark move restrictions, Firing Deck, destroyed transports.
+- Intel brief "They can do this in your turn": all of them, When and Effect in full (the effect was cut
+  at 190 characters, the list at 8).

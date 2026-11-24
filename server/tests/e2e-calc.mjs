@@ -3041,6 +3041,77 @@ Aggressor Squad (95 points)
     await actx.close();
   }
 
+  // --- 1.114: gap between bases, a letter on every base, transports, stratagems in full
+  {
+    const kctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const kp = await kctx.newPage();
+    kp.on('pageerror', e => consoleErrors.push(`1.114: ${e}`));
+    kp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`1.114: ${m.text()}`); });
+    kp.on('dialog', d => d.accept());
+    await kp.goto(`${BASE}/calc/`); await kp.waitForSelector('textarea[data-side="A"]');
+    await kp.fill('textarea[data-side="A"]', SW_LIST); await kp.tap('button[data-action="parse"][data-side="A"]');
+    await kp.fill('textarea[data-side="B"]', ORK_LIST); await kp.tap('button[data-action="parse"][data-side="B"]');
+    const kt = async (sel) => (await kp.textContent(sel)).replace(/\s+/g, ' ').trim();
+    // Intel: every stratagem they can use in my turn, in full
+    await kp.tap('button[data-action="view"][data-value="intel"]');
+    await kp.waitForSelector('#brief');
+    const watch = await kp.evaluate(() => { const f = [...document.querySelectorAll('details')].find(d => /They can do this in your turn/.test(d.querySelector('summary')?.textContent ?? '')); if (f) f.open = true; return f ? { head: f.querySelector('summary').textContent.trim(), items: [...f.querySelectorAll('[data-watch]')].map(e => e.textContent.replace(/\s+/g, ' ').trim()) } : null; });
+    check('"They can do this in your turn": every one, the When and the Effect in full (no “…”)', watch && watch.items.length >= 5 && watch.items.every(t => !/…$/.test(t) && /When:.*Effect:/.test(t)) && Math.max(...watch.items.map(t => t.length)) > 260, JSON.stringify(watch?.items.map(t => t.length)));
+    // Board
+    await kp.tap('button[data-action="view"][data-value="board"]');
+    await kp.waitForSelector('#board-svg');
+    const place = async (side, name) => { await kp.locator(`button[data-action="board-place"][data-side="${side}"]`, { hasText: name }).first().tap(); };
+    const toks = () => kp.evaluate(() => window.__calc.board().units);
+    const setPos = (tk, x, y) => kp.evaluate(([t, px, py]) => { const s = window.__calc.board().stepTokens; s[t] = { ...(s[t] ?? {}), x: px, y: py }; document.querySelector('button[data-action="board-step"].on')?.click(); }, [tk, x, y]);
+    await place('B', 'Battlewagon'); await place('B', 'Meganobz'); await place('B', 'Warboss + Boyz');
+    let u = await toks();
+    const W = u.find(t => /B:/.test(t.tk) && t.models.length === 1 && t.keywords.includes('TRANSPORT'))?.tk ?? u.find(t => t.tk.startsWith('B:') && t.models.length === 1).tk;
+    const MN = u.find(t => t.models.length === 3).tk, BOYZ = u.find(t => t.models.length === 21).tk;
+    await setPos(W, 22, 14); await setPos(MN, 30, 14); await setPos(BOYZ, 14, 20);
+    // a letter on every base: Meganobz M, Boyz B, the attached Warboss W
+    const letters = await kp.evaluate(([mn, bz]) => ({ mn: [...document.querySelectorAll(`[data-tok="${mn}"] .tok-letters text`)].map(t => t.textContent), bz: [...document.querySelectorAll(`[data-tok="${bz}"] .tok-letters text`)].map(t => t.textContent) }), [MN, BOYZ]);
+    check('a letter on every base: the first letter of its datasheet (Meganobz M ×3; Boyz B ×20 and the attached Warboss W)', letters.mn.join('') === 'MMM' && letters.bz.filter(x => x === 'B').length === 20 && letters.bz.filter(x => x === 'W').length === 1, JSON.stringify(letters));
+    // gap between bases: the Boyz, touching
+    const bzSel = async () => { await kp.evaluate((t) => { window.__calc.state.board.sel = t; window.__calc.state.board.sel2 = null; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, BOYZ); await kp.waitForSelector('#board-spacing'); };
+    await bzSel();
+    const nearest = (ms) => Math.min(...ms.map((a, i) => Math.min(...ms.filter((_, j) => j !== i).map(b => Math.hypot(a.dx - b.dx, a.dy - b.dy) - a.fp.r - b.fp.r))));
+    const g0 = nearest((await toks()).find(t => t.tk === BOYZ).models);
+    await kp.locator('#board-spacing button[data-value="0"]').tap();
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.gap === 0, BOYZ);
+    const g1 = nearest((await toks()).find(t => t.tk === BOYZ).models);
+    await kp.locator('#board-spacing').scrollIntoViewIfNeeded();
+    check('Gap between bases → Touching: the Boyz close up (nearest bases from about 1" apart to touching)', g0 > 0.4 && Math.abs(g1) < 0.02, JSON.stringify({ g0, g1 }));
+    await kp.locator('#board-host').scrollIntoViewIfNeeded();
+    await kp.screenshot({ path: join(SHOTS, 'calc_104_board_letters_gap.png') });
+    // transport: select the Battlewagon, embark the Meganobz
+    await kp.evaluate((t) => { window.__calc.state.board.sel = t; window.__calc.state.board.sel2 = null; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, W);
+    await kp.waitForSelector('#board-transport');
+    check('a transport shows its passengers: 0 of 22 spaces, Orks Infantry, Mega Armour take 2', /0 of 22 spaces used/.test(await kt('#board-transport')) && /Carries Orks Infantry models/.test(await kt('#board-transport')) && /Mega Armour take 2/.test(await kt('#board-transport')));
+    await kp.selectOption('select[data-input="board-embark"]', MN);
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.in, MN);
+    const after = await kp.evaluate(([mn, w]) => ({ onBoard: window.__calc.board().tokens.some(t => t.tk === mn), label: document.querySelector(`[data-tok="${w}"]`)?.textContent ?? '', panel: document.getElementById('board-transport')?.textContent.replace(/\s+/g, ' ') }), [MN, W]);
+    check('embark: the Meganobz leave the board, the Battlewagon shows 🚚+1 and 6 of 22 spaces (Mega Armour ×2)', !after.onBoard && /🚚\+1/.test(after.label) && /6 of 22 spaces used/.test(after.panel) && /Meganobz/.test(after.panel), JSON.stringify(after));
+    // a unit not placed yet can deploy inside
+    const fgOpt = await kp.locator('select[data-input="board-embark"] option', { hasText: 'Flash Gitz' }).getAttribute('value');
+    await kp.selectOption('select[data-input="board-embark"]', fgOpt);
+    await kp.waitForFunction((t) => window.__calc.board().stepTokens[t]?.in, fgOpt);
+    check('a unit not on the board can start inside (Flash Gitz): it leaves the units to place', (await kp.locator('button[data-action="board-place"]', { hasText: 'Flash Gitz' }).count()) === 0 && /11 of 22 spaces used/.test(await kt('#board-transport')));
+    await kp.locator('#board-transport').scrollIntoViewIfNeeded();
+    await kp.screenshot({ path: join(SHOTS, 'calc_105_transport.png') });
+    // next turn: still inside, moves with the transport
+    await kp.locator('button[data-action="board-step-add"]').tap();
+    await setPos(W, 22, 24);
+    check('next turn: still embarked', await kp.evaluate((t) => !!window.__calc.board().stepTokens[t]?.in, MN));
+    await kp.evaluate((t) => { window.__calc.state.board.sel = t; document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click(); }, W);
+    await kp.waitForSelector(`[data-passenger="${MN}"] button[data-action="board-disembark"]`);
+    await kp.locator(`[data-passenger="${MN}"] button[data-action="board-disembark"]`).tap();
+    await kp.waitForFunction((t) => window.__calc.board().tokens.some(x => x.tk === t), MN);
+    const gap = await kp.evaluate(([mn, w]) => { const u = window.__calc.board().units; const a = u.find(t => t.tk === mn), b = u.find(t => t.tk === w); const r = (m) => m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.ry ?? 0, m.fp.hw ?? 0, m.fp.hh ?? 0); let best = 99; for (const x of a.models) for (const y of b.models) best = Math.min(best, Math.hypot(a.x + x.dx - b.x - y.dx, a.y + x.dy - b.y - y.dy) - r(x) - r(y)); return best; }, [MN, W]);
+    const warn = await kp.textContent('#board-warnings').catch(() => '');
+    check('disembark: set up within 3" of the transport, not flagged as a reserve arrival (noted as disembarking)', gap >= 0 && gap <= 3 && /disembarks from Battlewagon/.test(warn ?? '') && !/arrives/.test(warn ?? ''), JSON.stringify({ gap, warn }));
+    await kctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

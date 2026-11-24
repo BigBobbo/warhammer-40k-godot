@@ -10,7 +10,7 @@ import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
-import { boardUnit, earlyArrival } from './adapter.mjs';
+import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _photoDebug } from './photoview.mjs';
@@ -166,7 +166,7 @@ function treeTarget(el) {
 /** Where a unit stands in a step (for the charge distance of a chance split). */
 function tokenAt(tokens, tk) {
   const pos = tokens?.[tk];
-  if (!pos) return null;
+  if (!pos || pos.in) return null; // not on the board (or embarked)
   const [side, key] = tk.split(':');
   const u = unitInfo(side, key);
   return u ? { x: pos.x, y: pos.y, models: tokenModels(u, pos) } : null;
@@ -356,26 +356,29 @@ function compareTokens() {
   if (k < 0 || k === root.v || rootOf(root.variants, k) !== rootOf(root.variants, root.v)) return null;
   const st = resolveSteps(root.variants, k);
   const at = Math.min(curIndex(), st.length - 1);
-  return { k, name: choiceLabel(root.variants, k), label: root.variants[k].branch?.label ?? root.variants[k].name, step: st[at]?.name ?? '', tokens: st[at]?.tokens ?? {} };
+  const all = st[at]?.tokens ?? {};
+  return { k, name: choiceLabel(root.variants, k), label: root.variants[k].branch?.label ?? root.variants[k].name, step: st[at]?.name ?? '', tokens: positioned(all), embarked: embarkedIn(all) };
 }
 const GHOST_MIN = 0.25; // inches: a unit nearer than this to where it is in the other path is "in the same place"
+/** Tokens with a position (embarked units left out). */
+const positioned = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([, p]) => !p?.in));
 function compareInfo() {
   const c = compareTokens();
   if (!c) return '';
-  const esc = ctx.esc, mine = stepTokens(), lines = [];
+  const esc = ctx.esc, mine = positioned(stepTokens()), myEmb = embarkedIn(stepTokens()), lines = [];
   const name = (tk) => { const [s, k] = tk.split(':'); return unitInfo(s, k)?.cu.name ?? tk; };
   for (const tk of new Set([...Object.keys(mine), ...Object.keys(c.tokens)])) {
     const a = mine[tk], g = c.tokens[tk];
     if (a && g) { const dd = Math.hypot(a.x - g.x, a.y - g.y); if (dd > GHOST_MIN) lines.push(`${esc(name(tk))} ${dd.toFixed(1)}" away`); }
-    else if (a) lines.push(`${esc(name(tk))} is not on the board there`);
-    else lines.push(`${esc(name(tk))} is only on the board there`);
+    else if (a) lines.push(c.embarked.has(tk) ? `${esc(name(tk))} is in a transport there` : `${esc(name(tk))} is not on the board there`);
+    else lines.push(myEmb.has(tk) ? `${esc(name(tk))} is in a transport here` : `${esc(name(tk))} is only on the board there`);
   }
   return `Dashed bases: <b>${esc(c.name)}</b> at ${esc(c.step)}. ${lines.length ? lines.join(' · ') : 'Every unit is in the same place.'}`;
 }
 function ghostSvg() {
   const c = compareTokens();
   if (!c) return '';
-  const mine = stepTokens(), out = ['<g id="board-ghosts" pointer-events="none">'];
+  const mine = positioned(stepTokens()), out = ['<g id="board-ghosts" pointer-events="none">'];
   for (const [tk, g] of Object.entries(c.tokens)) {
     const [side, key] = tk.split(':');
     const u = unitInfo(side, key);
@@ -387,7 +390,7 @@ function ghostSvg() {
   }
   // a unit that is gone in the other path: a dashed cross over it
   for (const tk of Object.keys(mine)) {
-    if (c.tokens[tk]) continue;
+    if (c.tokens[tk] || c.embarked.has(tk)) continue;
     const a = mine[tk];
     out.push(`<g data-ghost-gone="${tk}" stroke="#c0392b" stroke-width="0.25" stroke-dasharray="0.5 0.3"><line x1="${f2(a.x - 1.6)}" y1="${f2(a.y - 1.6)}" x2="${f2(a.x + 1.6)}" y2="${f2(a.y + 1.6)}"/><line x1="${f2(a.x + 1.6)}" y1="${f2(a.y - 1.6)}" x2="${f2(a.x - 1.6)}" y2="${f2(a.y + 1.6)}"/></g>`);
   }
@@ -398,7 +401,7 @@ function ghostSvg() {
 // Going first / going second: the first turn is a roll-off AFTER both armies are deployed (Event Companion,
 // "Determine first turn: roll off, the winner takes the first turn"), so the two versions of a plan share
 // their deployment and differ from Turn 1 on. variant.when: 'first' | 'second' (from my side of the table).
-const deployKey = (vv) => JSON.stringify(Object.entries(vv.steps?.[0]?.tokens ?? {}).map(([tk, t]) => [tk, Math.round(t.x * 10), Math.round(t.y * 10), Math.round(t.rot ?? 0), t.per ?? 0]).sort());
+const deployKey = (vv) => JSON.stringify(Object.entries(vv.steps?.[0]?.tokens ?? {}).map(([tk, t]) => [tk, Math.round(t.x * 10), Math.round(t.y * 10), Math.round(t.rot ?? 0), t.per ?? 0, t.in ?? null, t.gap ?? null]).sort());
 function splitNote() {
   const root = planRoot();
   const f = root?.variants.find(v => v.when === 'first'), s = root?.variants.find(v => v.when === 'second');
@@ -446,18 +449,42 @@ function unitInfo(side, key) {
 // a placed unit's models: its formation width (models per row) and facing
 function tokenModels(u, pos) {
   // in coherency by default (03.03); a row width the player chose is kept, only the spacing closes up
-  const per = pos.per ?? 5, fk = `${per}${pos.per != null ? 'k' : ''}`;
-  if (!u.formations.has(fk)) u.formations.set(fk, coherentFormation(u.members, { perRow: per, keepRows: pos.per != null }));
+  // pos.gap: the space between bases the player chose (inches; none = the widest coherent up to 1")
+  const per = pos.per ?? 5, gap = Number.isFinite(pos.gap) ? pos.gap : null;
+  const fk = `${per}${pos.per != null ? 'k' : ''}${gap != null ? `g${gap}` : ''}`;
+  if (!u.formations.has(fk)) {
+    u.formations.set(fk, gap != null ? formation(u.members, { gap, perRow: Math.min(per, u.members.reduce((n, m) => n + m.count, 0)) })
+      : coherentFormation(u.members, { perRow: per, keepRows: pos.per != null }));
+  }
   const base = u.formations.get(fk);
   return pos.rot ? rotateFormation(base, pos.rot) : base;
+}
+
+// ---- transports: an embarked unit is { in: transportTk } in the step's tokens (no position: it moves with the
+// transport and is not on the battlefield — it controls no objective, it cannot be seen). Its transport must be on
+// the board in that step, else the unit counts as not placed.
+/** Embarked units of these tokens: Map passengerTk -> transportTk (only while the transport is on the board). */
+function embarkedIn(tokens) {
+  const out = new Map();
+  for (const [tk, pos] of Object.entries(tokens ?? {})) if (pos?.in && tokens[pos.in] && !tokens[pos.in].in) out.set(tk, pos.in);
+  return out;
+}
+/** The passengers of transport `ttk` in this step, with the spaces each takes. */
+function passengersOf(ttk, tokens = stepTokens()) {
+  const t = unitInfo(...ttk.split(':')), tr = t && transportOf(t.cu);
+  return [...embarkedIn(tokens)].filter(([, x]) => x === ttk).map(([tk]) => {
+    const u = unitInfo(...tk.split(':'));
+    return { tk, name: u?.cu.name ?? tk, spaces: tr && u ? passengerCheck(tr, u.cu).spaces : 0 };
+  });
 }
 
 function placed() {
   const out = [];
   for (const [tk, pos] of Object.entries(stepTokens())) {
+    if (pos?.in) continue; // embarked
     const [side, key] = tk.split(':');
     const u = unitInfo(side, key);
-    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, models: tokenModels(u, pos), u });
+    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, gap: Number.isFinite(pos.gap) ? pos.gap : null, models: tokenModels(u, pos), u });
   }
   return out;
 }
@@ -502,6 +529,11 @@ function freeSpot(side, key) {
 // SVG
 
 const f2 = (n) => Math.round(n * 100) / 100;
+
+/** The letter on a base: the first letter of the first word of the datasheet name ("Prosecutor Squad" -> P). */
+export const baseLetter = (name) => (/[A-Za-z0-9]/.exec(String(name ?? '')) ?? ['?'])[0].toUpperCase();
+/** Half width / height of a base footprint (round r, oval rx/ry, hull hw/hh). */
+const halfBase = (fp) => ({ hx: fp.r ?? fp.rx ?? fp.hw ?? 0.5, hy: fp.r ?? fp.ry ?? fp.hh ?? 0.5 });
 
 function shapeSvg(fp, x, y, fill, stroke, sw, rot = 0) {
   if (rot && fp.shape !== 'round') {
@@ -591,7 +623,12 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<g class="tok" data-tok="${t.tk}" transform="translate(${f2(t.x)},${f2(t.y)})" style="cursor:grab">`
       + `<rect x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" rx="0.6" fill="${fill}" fill-opacity="${isSel ? 0.12 : 0.04}" stroke="none"/>`
       + `<g fill-opacity="${tokAlpha}">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')}</g>`
-      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
+      // the first letter of each model's datasheet name on its base (Prosecutor Squad: P; an attached Trajann: T)
+      + `<g class="tok-letters" pointer-events="none" font-family="system-ui,sans-serif" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#ffffff">${t.models.map(m => {
+        const h = halfBase(m.fp), fs = Math.max(0.35, Math.min(1.6, Math.min(h.hx, h.hy) * 1.25));
+        return `<text x="${f2(m.dx)}" y="${f2(m.dy)}" font-size="${f2(fs)}">${ctx.esc(baseLetter(m.label))}</text>`;
+      }).join('')}</g>`
+      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}${(() => { const n = passengersOf(t.tk).length; return n ? ` 🚚+${n}` : ''; })()}</text></g>`);
   }
   // who controls each objective in this step: OC of each army's units in range
   // (on the hosting terrain area, or within 3" + the marker); the Mission tab's
@@ -664,7 +701,7 @@ function arriveInfo(b) {
   if (!X || !p || !l) return null;
   const toks = placed();
   const round = Math.max(2, curIndex());      // step N = battle round N; at Deploy and Turn 1 it shows the first arrivals (round 2)
-  const onBoard = new Set(toks.map(t => t.tk));
+  const onBoard = new Set([...toks.map(t => t.tk), ...embarkedIn(stepTokens()).keys()]);
   const army = ctx.state.armies[X];
   const off = army.units.filter(u => !onBoard.has(`${X}:${u.key}`));
   const ds = (list) => list.filter(u => unitInfo(X, u.key)?.flags?.deepStrike);
@@ -737,10 +774,10 @@ export function boardView() {
   const dispSel = (side) => `<select class="sel" data-input="board-disp" data-side="${side}" aria-label="Force Disposition of army ${side}">
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
-  const onBoard = new Set(toks.map(t => t.tk));
+  const onBoard = new Set([...toks.map(t => t.tk), ...embarkedIn(stepTokens()).keys()]);
   const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`))
     .map(u => `<button class="chip" data-action="board-place" data-side="${side}" data-key="${esc(u.key)}" style="border-color:${C[side]}">＋ ${esc(u.name)}</button>`).join('');
-  const left = st.armies.A.units.length + st.armies.B.units.length - toks.length;
+  const left = st.armies.A.units.length + st.armies.B.units.length - onBoard.size;
   // The map comes first (one column on a phone; the left pane on a tablet): the plan
   // steps and the units still to place sit right above it, everything else below / beside.
   const wideNow = ctx.wide?.() ?? false;
@@ -884,6 +921,26 @@ function dockHtml() {
     <div class="dock-chips">${pair}${rings}</div></div>`;
 }
 
+/** The selected transport's passengers: who is inside (spaces used / capacity), embark, disembark. */
+function transportPanel(s1) {
+  const tr = transportOf(s1.u.cu);
+  if (!tr) return '';
+  const esc = ctx.esc, toks = stepTokens(), inside = passengersOf(s1.tk, toks);
+  const used = inside.reduce((n, p) => n + p.spaces, 0);
+  const emb = embarkedIn(toks);
+  const cands = ctx.state.armies[s1.side].units.map(cu => ({ cu, tk: `${s1.side}:${cu.key}` }))
+    .filter(c => c.tk !== s1.tk && !emb.has(c.tk))
+    .map(c => ({ ...c, chk: passengerCheck(tr, c.cu) }));
+  const ok = cands.filter(c => c.chk.ok);
+  const opt = (c) => { const fits = used + c.chk.spaces <= tr.capacity; return `<option value="${esc(c.tk)}" ${fits ? '' : 'disabled'}>${esc(c.cu.name)} — ${c.chk.spaces} space${c.chk.spaces === 1 ? '' : 's'}${fits ? '' : ' (no room)'}${toks[c.tk] ? '' : ' · not placed yet'}</option>`; };
+  return `<div class="card" id="board-transport" style="margin-top:8px"><div class="row" style="align-items:center"><span class="grow"><b>🚚 Transport</b> · ${used} of ${tr.capacity} spaces used</span></div>
+    <div class="tiny muted">${tr.phrase ? `Carries ${esc(tr.phrase)} models` : 'Carries Infantry of this army (the rules data names no other)'}${tr.exclude.length ? `; not ${esc(tr.exclude.join(' / '))}` : ''}${tr.multipliers.length ? `; ${esc(tr.multipliers.map(m => `${m.keyword} take ${m.spaces}`).join(', '))}` : ''}.</div>
+    ${inside.map(p => `<div class="row" style="gap:6px;align-items:center;margin-top:6px" data-passenger="${esc(p.tk)}"><span class="grow">${esc(p.name)} <span class="tiny muted">${p.spaces} spaces</span></span>
+      <button class="btn" data-action="board-disembark" data-tk="${esc(p.tk)}">Disembark</button></div>`).join('')}
+    ${ok.length ? `<select class="sel" style="margin-top:6px" data-input="board-embark" aria-label="Embark a unit"><option value="">＋ Embark a unit…</option>${ok.map(opt).join('')}</select>` : '<div class="tiny muted" style="margin-top:6px">No other unit of this army can embark.</div>'}
+    <div class="tiny muted" style="margin-top:4px">Embarked units are off the battlefield: they move with the transport, control no objective and cannot be targeted. They stay inside in later turns until they disembark (set up wholly within 3" of the transport).</div></div>`;
+}
+
 function selectionPanel() {
   const b = boardState();
   const esc = ctx.esc;
@@ -940,6 +997,8 @@ function selectionPanel() {
       opts.push([n, 'Line']);
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}
+    ${transportPanel(s1)}
+    ${s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : ''}
     ${(() => {
       // 03.03: within 2" of one other model and within 9" of every other model of the unit
       const c = coherency(s1.models);
@@ -1222,6 +1281,29 @@ export function boardAction(action, el) {
       refreshBoard();
       return null;
     }
+    case 'board-disembark': {
+      // set up wholly within 3" of the transport: just beside it (toward the board's centre), facing as before
+      const toks = stepTokens(), tk = el.dataset.tk, pos = toks[tk], t = toks[pos?.in];
+      if (!pos || !t) return null;
+      const tu = unitInfo(...pos.in.split(':')), pu = unitInfo(...tk.split(':'));
+      const ext = (ms) => ms.reduce((a, m) => Math.max(a, Math.abs(m.dy) + (m.fp.r ?? Math.max(m.fp.ry ?? 0, m.fp.hh ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0))), 0);
+      const dir = t.y < BOARD.h / 2 ? 1 : -1;
+      const p0 = { ...pos }; delete p0.in;
+      const d = (tu ? ext(tokenModels(tu, t)) : 2) + (pu ? ext(tokenModels(pu, { ...p0, x: 0, y: 0 })) : 1) + 1;
+      toks[tk] = { ...p0, x: t.x, y: Math.min(BOARD.h - 1, Math.max(1, t.y + dir * d)) };
+      b.sel = tk; b.sel2 = null;
+      console.log(`[board] ${tk} disembarks from ${pos.in}`);
+      persistBoard();
+      return 'render';
+    }
+    case 'board-spacing': {
+      const pos = b.sel && stepTokens()[b.sel];
+      if (!pos) return null;
+      if (el.dataset.value === 'auto') delete pos.gap; else pos.gap = Number(el.dataset.value);
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
     case 'board-formation': {
       const pos = b.sel && stepTokens()[b.sel];
       if (!pos) return null;
@@ -1231,7 +1313,7 @@ export function boardAction(action, el) {
       return null;
     }
     case 'board-remove':
-      if (b.sel) delete stepTokens()[b.sel];
+      if (b.sel) { const toks = stepTokens(); for (const [tk, x] of embarkedIn(toks)) if (x === b.sel) delete toks[tk]; delete toks[b.sel]; }
       b.sel = b.sel2 = null;
       persistBoard();
       return 'render';
@@ -1475,6 +1557,15 @@ export function boardAction(action, el) {
 
 export function boardChange(el) {
   const b = boardState();
+  if (el.dataset.input === 'board-embark') {
+    const tk = el.value, ttk = b.sel;
+    if (!tk || !ttk) return null;
+    const toks = stepTokens(), old = toks[tk] ?? {};
+    toks[tk] = { in: ttk, ...(old.per != null ? { per: old.per } : {}), ...(old.rot != null ? { rot: old.rot } : {}), ...(Number.isFinite(old.gap) ? { gap: old.gap } : {}) };
+    console.log(`[board] ${tk} embarks in ${ttk}`);
+    persistBoard();
+    return 'render'; // the units still to place (above the map) change too
+  }
   if (el.dataset.input === 'board-cmp') { b.cmp = el.value || null; persistBoard(); refreshBoard(); return null; }
   if (el.dataset.input === 'board-photo') {
     const file = el.files?.[0];
@@ -1587,8 +1678,11 @@ export function boardPlans() {
   return root.variants.map((vv, vi) => ({
     index: vi, name: choiceLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
     steps: resolveSteps(root.variants, vi).map(st => {
-      const out = { name: st.name, A: [], B: [] };
+      const out = { name: st.name, A: [], B: [], embarked: { A: [], B: [] } };
+      const inside = embarkedIn(st.tokens);
+      for (const [tk, x] of inside) { const [s, k] = tk.split(':'), u = unitInfo(s, k), tu = unitInfo(...x.split(':')); if (u) out.embarked[s].push({ key: tk, name: u.cu.name, in: x, transport: tu?.cu.name ?? x }); }
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
+        if (pos?.in) continue; // embarked: not on the battlefield
         const [side, key] = tk.split(':');
         const u = unitInfo(side, key);
         if (!u) continue;

@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.114.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: transports, tighter formations, letters on bases, stratagems in full",
+      "changes": [
+        "Board: tap a transport to embark units (capacity and who may ride from the rules data, e.g. Mega Armour takes 2 spaces); embarked units leave the board, move with the transport and stay inside in later turns; Disembark sets them up within 3\"",
+        "Units can start the game inside a transport; embarked units control no objectives in the forecast and are not counted as missing or in reserves",
+        "Board: Gap between bases — Auto, Touching, ¼\", ½\", 1\" or 2\" — to make a unit's formation tighter or looser",
+        "Board: every base shows the first letter of its datasheet (Prosecutor Squad: P; an attached character shows its own letter)",
+        "Intel: \"They can do this in your turn\" shows every stratagem with its When and Effect in full (they were cut off)"
+      ]
+    },
+    {
       "version": "1.113.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: attach characters during army set-up — suggested, and remembered per list",

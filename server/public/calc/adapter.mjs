@@ -362,6 +362,44 @@ export function suggestAttachments(army) {
   return att;
 }
 
+// ---- transports: who can embark, and how many spaces they take (rules data: transport_capacity)
+const kwSet = (dcUnit) => new Set([...(dcUnit.keywords ?? []), ...(dcUnit.faction_keywords ?? [])].map(k => String(k).toUpperCase()));
+/** Does a unit with these keywords have every keyword in the phrase? ("Adeptus Astartes Infantry": ADEPTUS ASTARTES + INFANTRY) */
+function hasAllKeywords(kws, phrase) {
+  let rest = ` ${String(phrase).toUpperCase().replace(/\s+/g, ' ').trim()} `;
+  for (const k of [...kws].sort((a, b) => b.length - a.length)) while (rest.includes(` ${k} `)) rest = rest.replace(` ${k} `, ' ');
+  return rest.trim() === '';
+}
+/**
+ * The transport in a combat unit, or null: { name, capacity, phrase (who may embark, from the datasheet text; null =
+ * not given: Infantry of the same army is assumed), exclude: [keyword phrases], multipliers: [{ keyword, spaces }] }.
+ */
+export function transportOf(cu) {
+  const m = cu?.members?.find(x => x.dcUnit.transport_capacity?.capacity);
+  if (!m) return null;
+  const tc = m.dcUnit.transport_capacity, text = tc.rules_text ?? '';
+  const phrase = /transport capacity of \d+ (.+?) models?\b/i.exec(text)?.[1] ?? null;
+  const cannot = /cannot transport ([^.]+?) models?\b/i.exec(text)?.[1]?.split(/\s*\/\s*|\s*,\s*|\s+or\s+/) ?? [];
+  return { name: m.dcUnit.name, capacity: tc.capacity, phrase, exclude: [...new Set([...(tc.exclusion_keywords ?? []), ...cannot].filter(Boolean))],
+    multipliers: tc.multipliers ?? [], faction: m.dcUnit.faction_id, text };
+}
+/** Can combat unit `cu` embark in transport `tr` (transportOf)? -> { ok, spaces, why } */
+export function passengerCheck(tr, cu) {
+  if (!tr || !cu) return { ok: false, spaces: 0, why: 'not a transport' };
+  let spaces = 0;
+  for (const m of cu.members) {
+    const kws = kwSet(m.dcUnit);
+    if (kws.has('VEHICLE') || kws.has('MONSTER')) return { ok: false, spaces: 0, why: `${m.dcUnit.name} is a ${kws.has('VEHICLE') ? 'Vehicle' : 'Monster'}` };
+    const ex = tr.exclude.find(e => hasAllKeywords(kws, e));
+    if (ex) return { ok: false, spaces: 0, why: `${tr.name} cannot transport ${ex} models` };
+    if (tr.phrase ? !hasAllKeywords(kws, tr.phrase) : !(kws.has('INFANTRY') && m.dcUnit.faction_id === tr.faction))
+      return { ok: false, spaces: 0, why: tr.phrase ? `only ${tr.phrase} models` : 'only Infantry of this army (the rules data names no other)' };
+    const mult = Math.max(1, ...tr.multipliers.filter(x => hasAllKeywords(kws, x.keyword)).map(x => x.spaces));
+    spaces += (m.ru.model_count ?? 1) * mult;
+  }
+  return { ok: true, spaces, why: null };
+}
+
 /** Roster -> combat units. A bodyguard and the characters attached to it are one unit. */
 export function combatUnits(roster, attachments = defaultAttachments(roster)) {
   const parts = rosterParts(roster);

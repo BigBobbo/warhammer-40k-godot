@@ -519,7 +519,8 @@ function runForecast() {
   if (lite) { runModes = null; worker.postMessage({ id: reqId, forecast: { base: P, variants: [] } }); return; }
   // a board plan only knows the units placed on it: say so when part of my army is missing
   const nMine = ctx.state.armies[m.me]?.units.length ?? 0;
-  const placed = (p) => new Set(p.steps.flatMap(st => st[m.me].map(u => u.name))).size;
+  // a unit inside a transport counts as placed (it is on the battlefield, embarked)
+  const placed = (p) => new Set(p.steps.flatMap(st => [...st[m.me].map(u => u.name), ...(st.embarked?.[m.me] ?? []).map(e => e.name)])).size;
   const compare = [{ key: 'grid', label: 'Objective grid', P: forecastParams({ boardPlan: null, trials: 1500 }) },
     ...boardPlans().map(p => ({ key: `plan${p.index}`, label: `Board: ${p.name}`, note: placed(p) < nMine ? `${placed(p)} of ${nMine} units placed` : '', P: forecastParams({ boardPlan: p.index, trials: 1500 }) }))];
   planNotes = Object.fromEntries(compare.map(c => [c.key, c.note ?? '']));
