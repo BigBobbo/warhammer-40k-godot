@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.118.0",
+      "date": "2026-11-24",
+      "summary": "Combat Calc: practise the deployment drop by drop",
+      "changes": [
+        "Board → 🎯 Drop drill: pick who is the Defender, then set up one unit at a time, alternating, in a plan of its own (your real deployment is untouched)",
+        "It shows whose drop it is, how many units each side has left, who finishes first and how many units the other side then places knowing where everything is",
+        "TITANIC units skip their player's next drop; ⤓ puts a unit in reserves (not set up); Undo takes back the last drop"
+      ]
+    },
+    {
       "version": "1.117.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: exposure heat map, and your own statistics from saved games",

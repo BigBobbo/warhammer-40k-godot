@@ -574,3 +574,8 @@ details.more.card { padding: 10px 12px; }
 .strat-now summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .strat-now .mini { min-height: 36px; min-width: 44px; }
 #play-strats { margin-top: 0; }
+/* drop-order drill: each unit with its reserves button on one line; long names wrap inside the chip */
+.drill-tray { margin-top: 6px; }
+.drill-u { display: inline-flex; align-items: center; gap: 2px; flex: none; max-width: 85%; }
+.unit-strip .drill-u .chip { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.drill-u .icon-btn { flex: none; width: 40px; height: 40px; }

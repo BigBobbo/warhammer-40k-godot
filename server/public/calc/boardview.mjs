@@ -17,6 +17,7 @@ import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, _
 import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch as branchPlan, optionsAt, chain, evaluate, treeRows } from './plantree.mjs';
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
+import { dropState } from './droporder.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -490,6 +491,46 @@ function placed() {
   return out;
 }
 
+// ---- drop-order drill (droporder.mjs): a plan of its own whose Deploy step is set up one unit at a time,
+// alternating from the Defender. plan().drill = { first, log: [{ X, tk }], res: [tk] } (res = strategic reserves).
+const isTitanic = (side, key) => (unitInfo(side, key)?.cu.keywords ?? []).some(k => /^TITANIC$/i.test(k));
+function drillInfo() {
+  const p = plan();
+  if (!p?.drill || curIndex() !== 0) return null;
+  const toks = stepTokens(), emb = embarkedIn(toks), res = new Set(p.drill.res ?? []);
+  const totals = { A: 0, B: 0 };
+  for (const side of ['A', 'B']) for (const u of ctx.state.armies[side]?.units ?? []) {
+    const tk = `${side}:${u.key}`;
+    if (!res.has(tk) && !emb.has(tk)) totals[side]++;
+  }
+  const log = (p.drill.log ?? []).filter(e => toks[e.tk] && !emb.has(e.tk) && !res.has(e.tk));
+  const s = dropState(p.drill.first, totals, log, (tk) => isTitanic(...tk.split(':')));
+  return { d: p.drill, s, log, res, emb, toks };
+}
+function drillHtml(di) {
+  const esc = ctx.esc, st = ctx.state, { s, log, res } = di, X = s.next;
+  const Y = (P) => (P === 'A' ? 'B' : 'A');
+  const unitBtns = X ? st.armies[X].units.filter(u => !di.toks[`${X}:${u.key}`] && !res.has(`${X}:${u.key}`)).map(u => {
+    const tk = `${X}:${u.key}`, ti = isTitanic(X, u.key);
+    return `<span class="drill-u"><button class="chip" data-action="board-place" data-side="${X}" data-key="${esc(u.key)}" style="border-color:${C[X]}">＋ ${esc(u.name)}${ti ? ' <span class="tiny">(TITANIC: skip your next drop)</span>' : ''}</button><button class="icon-btn" data-action="board-drill-res" data-tk="${esc(tk)}" aria-label="Put ${esc(u.name)} in reserves" title="Strategic reserves: not set up">⤓</button></span>`;
+  }).join('') : '';
+  const resList = [...res].map(tk => { const [sd, k] = tk.split(':'); const u = unitInfo(sd, k); return u ? `<button class="chip" data-action="board-drill-res" data-tk="${esc(tk)}" style="border-color:${C[sd]}">↩ ${esc(u.cu.name)}</button>` : ''; }).join('');
+  const nameOf = (tk) => { const [sd, k] = tk.split(':'); return unitInfo(sd, k)?.cu.name ?? tk; };
+  const ahead = s.finishesFirst ? `${s.finishesFirst} finishes first${s.lastRun ? `; then ${s.lastRun.side} sets up its last ${s.lastRun.n} knowing where all of ${Y(s.lastRun.side)} is` : ''}.` : '';
+  return `<div class="card drill" id="board-drill" style="margin-top:6px;border-color:${X ? C[X] : 'var(--line)'}">
+    <div class="row" style="gap:6px;align-items:center"><span class="grow" id="board-drill-turn">${X
+      ? `🎯 Drop ${log.length + 1}: <b style="color:${C[X]}">${X}</b> (${esc(st.armies[X].faction)}) sets up a unit`
+      : '✓ Every unit is set up'}</span>
+      ${log.length ? '<button class="chip" data-action="board-drill-undo" id="board-drill-undo">↶ Undo</button>' : ''}
+      <button class="chip" data-action="board-drill-end" id="board-drill-end" title="Stop the drill; the set-up stays as a plan">End drill</button></div>
+    <div class="tiny muted" id="board-drill-left" style="margin-top:2px">Units still to set up: A ${s.left.A} · B ${s.left.B}. ${esc(ahead)}</div>
+    ${X ? `<div class="unit-strip drill-tray ${ctx.wide?.() ? 'wrap' : ''}" id="board-drill-tray">${unitBtns}</div>` : ''}
+    ${resList ? `<div class="row tiny" style="margin-top:6px;gap:4px;flex-wrap:wrap;align-items:center" id="board-drill-res"><span class="muted">In reserves (not set up):</span>${resList}</div>` : ''}
+    ${log.length ? `<details class="tiny" style="margin-top:6px" id="board-drill-log"><summary>Order so far (${log.length})</summary><ol style="margin:4px 0 0 18px;padding:0">${log.map(e => `<li><b style="color:${C[e.X]}">${e.X}</b> ${esc(nameOf(e.tk))}</li>`).join('')}</ol></details>` : ''}
+    <details class="tiny muted" style="margin-top:4px"><summary>How the drops work</summary>Players set up one unit at a time, starting with the Defender; a TITANIC unit makes its player skip their next turn to set up; once one player is done the other sets up the rest. Units in reserves (⤓) and units embarked in a transport are not set up on their own.</details>
+  </div>`;
+}
+
 function zoneCentroid(side) {
   const l = currentLayout();
   const dep = l && DEPLOYMENTS[l.deployment];
@@ -868,7 +909,8 @@ export function boardView() {
         <span class="grow"></span>
         ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler']], 'compact')}
       </div>`;
-  const trayHtml = left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
+  const di = drillInfo();
+  const trayHtml = di ? drillHtml(di) : left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
         <span class="tiny muted" style="flex:none">Place ${left}:</span>${tray('A')}${tray('B')}</div>` : '';
   return `<div id="board-dock" class="board-dock">${dockHtml()}</div><div class="blay"><div class="col map">
     <section class="section b-steps">
@@ -907,9 +949,12 @@ export function boardView() {
         <span class="lab tiny muted">Plan</span>
         ${planRoot() ? planRoot().variants.map((vv, i) => (vv.parent != null ? '' : `<button class="chip ${i === rootOf(planRoot().variants, planRoot().v) ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`)).join('') : ''}
         <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
+        ${plan()?.drill ? '' : ctx.chip('board-drill-ask', !!b.drillAsk, '🎯 Drop drill', 'id="board-drill-ask" title="Practise the deployment: set up one unit at a time, alternating"')}
         ${planRoot() && !planRoot().variants.some(vv => vv.when) ? '<button class="chip" data-action="board-plan-split" id="board-plan-split">⇄ Going first / second</button>' : ''}
         ${planRoot()?.variants.length > 1 ? '<button class="icon-btn" data-action="board-plan-rename" aria-label="Rename this plan">✎</button><button class="icon-btn" data-action="board-plan-delete" aria-label="Delete this plan">✕</button>' : ''}
       </div>
+      ${b.drillAsk && !plan()?.drill ? `<div class="card" id="board-drill-start" style="margin-top:6px"><div class="small">Who is the <b>Defender</b>? They set up first. The drill is a new plan with an empty Deploy step: your real deployment stays as it is.</div>
+        <div class="row" style="gap:6px;margin-top:6px">${['A', 'B'].map(X => `<button class="btn grow" data-action="board-drill-start" data-first="${X}" style="border-color:${C[X]}">${X} · ${esc(st.armies[X].faction)}</button>`).join('')}</div></div>` : ''}
       ${splitNote()}
       <div id="board-tree-host">${treeHtml()}</div>
       <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
@@ -1359,9 +1404,12 @@ export function boardAction(action, el) {
     case 'board-place': {
       const side = el.dataset.side, key = el.dataset.key;
       const tk = `${side}:${key}`;
+      const di = drillInfo();
+      if (di && di.s.next !== side) { console.log(`[board] drill: not ${side}'s turn to set up (next: ${di.s.next})`); return null; }
       const spot = freeSpot(side, key);
       stepTokens()[tk] = spot;
       b.sel = tk; b.sel2 = null;
+      if (di) { di.d.log = [...di.log, { X: side, tk }]; console.log(`[board] drill: drop ${di.d.log.length} ${tk}${isTitanic(side, key) ? ' (TITANIC)' : ''}`); }
       persistBoard();
       return 'render';
     }
@@ -1435,6 +1483,51 @@ export function boardAction(action, el) {
       const root = planRoot();
       root.v = Number(el.dataset.i);
       b.sel = b.sel2 = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-drill-ask':
+      b.drillAsk = !b.drillAsk;
+      return 'render';
+    case 'board-drill-start': {
+      const root = planRoot();
+      if (!root) return null;
+      const used = new Set(root.variants.map(x => x.name));
+      let name = 'Drop drill';
+      for (let n = 2; used.has(name); n++) name = `Drop drill ${n}`;
+      root.variants.push({ name, steps: [{ name: curSteps()[0]?.name ?? 'Deploy', tokens: {} }], cur: 0, drill: { first: el.dataset.first === 'B' ? 'B' : 'A', log: [], res: [] } });
+      ensureIds(root.variants);
+      root.v = root.variants.length - 1;
+      b.drillAsk = false; b.sel = b.sel2 = null;
+      persistBoard();
+      console.log(`[board] drop drill started: ${el.dataset.first} is the Defender`);
+      return 'render';
+    }
+    case 'board-drill-res': {
+      const p = plan(), tk = el.dataset.tk;
+      if (!p?.drill || !tk) return null;
+      const res = new Set(p.drill.res ?? []);
+      if (res.has(tk)) res.delete(tk); else { res.add(tk); delete stepTokens()[tk]; }
+      p.drill.res = [...res];
+      persistBoard();
+      return 'render';
+    }
+    case 'board-drill-undo': {
+      const p = plan(), di = drillInfo();
+      if (!p?.drill || !di?.log.length) return null;
+      const last = di.log[di.log.length - 1];
+      delete stepTokens()[last.tk];
+      for (const [ptk, x] of di.emb) if (x === last.tk) delete stepTokens()[ptk]; // its passengers too
+      p.drill.log = di.log.slice(0, -1);
+      if (b.sel === last.tk) b.sel = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-drill-end': {
+      const p = plan();
+      if (!p?.drill) return null;
+      console.log(`[board] drop drill ended after ${p.drill.log?.length ?? 0} drops`);
+      delete p.drill;
       persistBoard();
       return 'render';
     }

@@ -3290,6 +3290,67 @@ Aggressor Squad (95 points)
     await sctx.close();
   }
 
+  // --- 1.118: deployment drop-order drill — one unit at a time from the Defender, in a plan of its own
+  {
+    const dctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const dp = await dctx.newPage();
+    dp.on('pageerror', e => consoleErrors.push(`drill: ${e}`));
+    dp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`drill: ${m.text()}`); });
+    await dp.goto(`${BASE}/calc/`); await dp.waitForSelector('textarea[data-side="A"]');
+    await dp.fill('textarea[data-side="A"]', SW_LIST); await dp.tap('button[data-action="parse"][data-side="A"]');
+    await dp.fill('textarea[data-side="B"]', ORK_LIST); await dp.tap('button[data-action="parse"][data-side="B"]');
+    await dp.tap('button[data-action="view"][data-value="board"]');
+    await dp.waitForSelector('#board-svg');
+    // the real deployment: one Space Wolves unit already placed
+    await dp.locator('#board-tray button[data-action="board-place"][data-side="A"]').first().tap();
+    const realTk = await dp.evaluate(() => window.__calc.board().units[0]?.tk);
+    const n = await dp.evaluate(() => ({ A: window.__calc.state.armies.A.units.length, B: window.__calc.state.armies.B.units.length }));
+    await dp.tap('#board-drill-ask');
+    await dp.waitForSelector('#board-drill-start');
+    await dp.tap('#board-drill-start button[data-first="B"]');
+    await dp.waitForSelector('#board-drill');
+    const t1 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const sides1 = await dp.$$eval('#board-drill-tray button[data-action="board-place"]', bs => [...new Set(bs.map(b => b.dataset.side))]);
+    const empty = await dp.evaluate(() => window.__calc.board().units.length);
+    check('🎯 Drop drill: the Defender (B) sets up first; only B’s units are offered; the drill board starts empty', /Drop 1: B/.test(t1) && sides1.join() === 'B' && empty === 0, `${t1} | ${sides1} | on board ${empty}`);
+    const left0 = (await dp.textContent('#board-drill-left')).replace(/\s+/g, ' ');
+    check('units left per side, and who finishes first', left0.includes(`A ${n.A} · B ${n.B}`) && /finishes first/.test(left0), left0);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    const t2 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const sides2 = await dp.$$eval('#board-drill-tray button[data-action="board-place"]', bs => [...new Set(bs.map(b => b.dataset.side))]);
+    check('after B’s drop it is A’s turn (A’s units only)', /Drop 2: A/.test(t2) && sides2.join() === 'A', `${t2} | ${sides2}`);
+    // A puts a unit in reserves: it is not set up, so A has one fewer drop; still A's turn
+    await dp.locator('#board-drill-tray button[data-action="board-drill-res"]').first().tap();
+    const left1 = (await dp.textContent('#board-drill-left')).replace(/\s+/g, ' ');
+    const t3 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    check('⤓ reserves: that unit is not set up (A has one fewer to set up); still A’s drop', left1.includes(`A ${n.A - 1} · B ${n.B - 1}`) && /Drop 2: A/.test(t3) && await dp.locator('#board-drill-res button').count() === 1, `${left1} | ${t3}`);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    const t4 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const log = await dp.$$eval('#board-drill-log li', ls => ls.map(l => l.textContent.trim()[0]));
+    check('the order so far: B, A, B — and A to set up next', /Drop 4: A/.test(t4) && log.join('') === 'BAB', `${t4} | ${log.join('')}`);
+    await dp.tap('#board-drill-undo');
+    const t5 = (await dp.textContent('#board-drill-turn')).replace(/\s+/g, ' ');
+    const on5 = await dp.evaluate(() => window.__calc.board().units.length);
+    check('↶ Undo takes the last unit back off the board and gives that player the drop again', /Drop 3: B/.test(t5) && on5 === 2, `${t5} | on board ${on5}`);
+    // reload: the drill is kept with the plan
+    await dp.reload(); await dp.waitForSelector('#board-svg');
+    const t6 = await dp.textContent('#board-drill-turn').catch(() => '');
+    check('the drill survives a reload', /Drop 3: B/.test(t6 ?? ''), t6);
+    await dp.locator('#board-drill-tray button[data-action="board-place"]').first().tap();
+    await dp.evaluate(() => document.querySelector('button[data-action="board-zoom"][data-z="0"]')?.click());
+    await dp.screenshot({ path: join(SHOTS, 'calc_114_drop_drill.png') });
+    // the real deployment is untouched
+    await dp.locator('#board-variants button[data-action="board-plan-pick"]').first().tap();
+    const main = await dp.evaluate(() => window.__calc.board().units.map(u => u.tk));
+    check('your real deployment (the first plan) is untouched by the drill', main.length === 1 && main[0] === realTk, JSON.stringify(main));
+    await dp.locator('#board-variants button[data-action="board-plan-pick"]', { hasText: 'Drop drill' }).tap();
+    await dp.tap('#board-drill-end');
+    const ended = await dp.evaluate(() => ({ drill: !!document.getElementById('board-drill'), units: window.__calc.board().units.length }));
+    check('End drill: the set-up stays as a plan of its own', !ended.drill && ended.units === 3, JSON.stringify(ended));
+    await dctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
