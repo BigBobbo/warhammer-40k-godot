@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.133.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: move models one by one on the Board",
+      "changes": [
+        "Double-tap a unit on the Board (or ☝ Move models one by one in its panel) to move its models one at a time; drag a base to move just that model",
+        "While you drag, a label shows how far that model has moved this turn against its Move (e.g. 3.0\" / 7\"), and ⚠ when the unit would not be in coherency",
+        "Done, a double-tap or a tap on empty board goes back to moving the unit as a block; a block move keeps the models' spacing, and turning the unit turns them with it",
+        "↺ Formation puts the models back in rows; ↶ Undo takes back each model move",
+        "Objective control, line of sight, the move rings and Shoot → all use where each model really is"
+      ]
+    },
+    {
       "version": "1.132.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: losses take the plain models first, special weapons and characters last",

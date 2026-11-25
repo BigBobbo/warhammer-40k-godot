@@ -4300,6 +4300,93 @@ Aggressor Squad (95 points)
     await kctx.close();
   }
 
+  // --- move models one by one (1.133.0): double-tap a unit, drag a base; Done; the block keeps their spacing
+  {
+    const mctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const mp3 = await mctx3.newPage();
+    mp3.on('pageerror', e => consoleErrors.push(`models: ${e}`));
+    mp3.on('console', m => { if (m.type() === 'error') consoleErrors.push(`models: ${m.text()}`); });
+    mp3.on('dialog', d => d.accept());
+    const scr = (x, y) => mp3.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const unit = (tk) => mp3.evaluate((k) => { const u = window.__calc.board().units.find(t => t.tk === k); return u ? { x: u.x, y: u.y, ms: u.models.map(m => [u.x + m.dx, u.y + m.dy]) } : null; }, tk);
+    const dragFrom = async (a, dx, dy, holdCheck) => {
+      const p0 = await scr(a[0], a[1]), p1 = await scr(a[0] + dx, a[1] + dy);
+      await mp3.mouse.move(p0.x, p0.y); await mp3.mouse.down();
+      for (let i = 1; i <= 6; i++) await mp3.mouse.move(p0.x + (p1.x - p0.x) * i / 6, p0.y + (p1.y - p0.y) * i / 6);
+      const seen = holdCheck ? await holdCheck() : null;
+      await mp3.mouse.up();
+      return seen;
+    };
+    await mp3.goto(`${BASE}/calc/`); await mp3.waitForSelector('textarea[data-side="A"]');
+    await mp3.fill('textarea[data-side="A"]', SW_LIST); await mp3.tap('button[data-action="parse"][data-side="A"]');
+    await mp3.fill('textarea[data-side="B"]', ORK_LIST); await mp3.tap('button[data-action="parse"][data-side="B"]');
+    await mp3.tap('button[data-action="view"][data-value="board"]');
+    await mp3.waitForSelector('#board-tri');
+    await mp3.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    const tk = await mp3.evaluate(() => window.__calc.board().sel);
+    await mp3.tap('button[data-action="board-step-add"]');
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    const u0 = await unit(tk);
+    // double-tap the unit: models mode
+    const c0 = await scr(u0.ms[0][0], u0.ms[0][1]);
+    await mp3.mouse.click(c0.x, c0.y); await mp3.mouse.click(c0.x, c0.y);
+    await mp3.waitForSelector('#board-models-bar');
+    check('double-tap a unit: models mode — a bar says so, each base is a handle, other units dimmed', (await mp3.locator(`#board-svg [data-tok="${tk}"][data-models] [data-model]`).count()) === u0.ms.length && /drag a base/.test(await mp3.textContent('#board-models-bar')));
+    // drag model 0 three inches right: the label shows how far it moved against Move 7"
+    // zoomed in on the unit, to see the bases
+    for (let z = 0; z < 2; z++) await mp3.locator('button[data-action="board-zoom"][data-z="0.7"]').tap();
+    const seen = await dragFrom((await unit(tk)).ms[0], 3, 0, async () => {
+      await mp3.evaluate(() => window.scrollTo(0, 0));
+      await mp3.screenshot({ path: join(SHOTS, 'calc_134_models_one_by_one.png') });   // mid-drag: the label is on
+      return mp3.evaluate(() => { const l = document.getElementById('model-drag-label'); return l ? { moved: Number(l.dataset.moved), coh: l.dataset.coherent, text: l.textContent } : null; });
+    });
+    const u1 = await unit(tk);
+    const others = u1.ms.slice(1).every((m, i) => Math.hypot(m[0] - u0.ms[i + 1][0], m[1] - u0.ms[i + 1][1]) < 0.01);
+    check('drag one base: only that model moves; while dragging it says 3.0" / 7" from where it ended last turn',
+      Math.abs(u1.ms[0][0] - u0.ms[0][0] - 3) < 0.15 && Math.abs(u1.ms[0][1] - u0.ms[0][1]) < 0.15 && others && seen && Math.abs(seen.moved - 3) < 0.2 && /\/ 7"/.test(seen.text), JSON.stringify({ seen, a: u0.ms[0], b: u1.ms[0] }));
+    await mp3.locator('button[data-action="board-zoom"][data-z="0"]').tap();
+    await mp3.tap('#board-undo');
+    check('↶ puts that model back', Math.hypot((await unit(tk)).ms[0][0] - u0.ms[0][0], (await unit(tk)).ms[0][1] - u0.ms[0][1]) < 0.01);
+    // too far from the others: not in coherency, said while dragging and after
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    const far = await dragFrom(u0.ms[0], 0, 8, () => mp3.evaluate(() => document.getElementById('model-drag-label')?.dataset.coherent));
+    check('a model dragged 8" from the rest: ⚠ coherency while dragging and in the unit\'s panel', far === '0' && (await mp3.locator('#board-coherency').count()) === 1);
+    await mp3.tap('#board-undo');
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    await dragFrom(u0.ms[0], 2, 0);
+    const u2 = await unit(tk);
+    // Done: the block again; a block move keeps the models' spacing
+    await mp3.tap('#board-models-done');
+    check('Done: back to moving the unit as a block', (await mp3.locator('#board-models-bar').count()) === 0 && (await mp3.locator(`#board-svg [data-tok="${tk}"][data-models]`).count()) === 0);
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    await dragFrom(u2.ms[3], 0, 5);
+    const u3 = await unit(tk);
+    const kept = u3.ms.every((m, i) => Math.abs(m[0] - u2.ms[i][0]) < 0.05 && Math.abs(m[1] - u2.ms[i][1] - 5) < 0.6);
+    check('moving the whole unit keeps the spacing of the models moved one by one', kept && Math.abs((u3.ms[0][0] - u3.ms[1][0]) - (u2.ms[0][0] - u2.ms[1][0])) < 0.01, JSON.stringify({ u2: u2.ms.slice(0, 2), u3: u3.ms.slice(0, 2) }));
+    // turning the unit turns them too; ↺ Formation puts them back in rows
+    const d0 = Math.hypot(u3.ms[0][0] - u3.x, u3.ms[0][1] - u3.y);
+    if ((await mp3.evaluate(() => window.__calc.board().sel)) !== tk) await mp3.locator(`button[data-action="board-pick"][data-tk="${tk}"]`).tap();
+    await mp3.tap('#board-pos-toggle');
+    await mp3.locator('#board-pos-box button[data-action="board-rotate"][data-deg="45"]').tap();
+    const u4 = await unit(tk);
+    check('turning the unit 45° turns the moved model with it (same distance from the centre)', Math.abs(Math.hypot(u4.ms[0][0] - u4.x, u4.ms[0][1] - u4.y) - d0) < 0.05 && Math.hypot(u4.ms[0][0] - u3.ms[0][0], u4.ms[0][1] - u3.ms[0][1]) > 0.5);
+    await mp3.locator('button[data-action="board-models-reset"]').first().tap();
+    check('↺ Formation: the models back in rows', !(await mp3.evaluate((k) => !!window.__calc.board().plan.steps[1].tokens[k].mo, tk)));
+    await mctx3.close();
+    // phone: the ☝ button in the unit's panel does the same
+    const pctx5 = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp5 = await pctx5.newPage();
+    pp5.on('pageerror', e => consoleErrors.push(`models phone: ${e}`));
+    await pp5.goto(`${BASE}/calc/`); await pp5.waitForSelector('textarea[data-side="A"]');
+    await pp5.fill('textarea[data-side="A"]', SW_LIST); await pp5.tap('button[data-action="parse"][data-side="A"]');
+    await pp5.fill('textarea[data-side="B"]', ORK_LIST); await pp5.tap('button[data-action="parse"][data-side="B"]');
+    await pp5.tap('button[data-action="view"][data-value="board"]');
+    await pp5.locator('#board-tray button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    await pp5.locator('#board-models-btn').tap();
+    check('phone: "☝ Move models one by one" in the unit\'s panel turns models mode on', (await pp5.locator('#board-models-bar').count()) === 1 && (await pp5.locator('#board-svg [data-models] [data-model]').count()) === 10);
+    await pctx5.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
