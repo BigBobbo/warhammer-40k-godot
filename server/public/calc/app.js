@@ -2789,7 +2789,9 @@ restoreGames();
 initBoard({
   state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost, branchWins, forecastBranches,
   // the mission set-up is locked while a game is on the tracker
-  gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round,
+  gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round, gameScore: () => missionScore(),
+  // the board's tablet / phone layout follows its own breakpoint (a portrait tablet is under 900 px wide)
+  rerender: () => { if (state.view === 'board') render(); },
   // one army's list (for "use my deployment against another opponent")
   shareLinkHtml, sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
