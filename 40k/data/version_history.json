@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.130.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: take models off a unit as the game goes on — fewer models, fewer attacks",
+      "changes": [
+        "Models left: one record per unit for the game, set from the Attack tab (attacker or target) or from the unit on the Board",
+        "An attacker with models gone makes fewer attacks: its weapons drop in proportion to the models left in each group (half the squad, half its weapons); the card says \"6 of 10 models left\"",
+        "A target with models gone (and a damaged model) is the same unit whichever side attacks: swap sides and its losses are still there",
+        "\"This unit / the target is below half strength\" switches on by itself from the models left",
+        "The Board draws only the models left; a unit with none left comes off the board and its list row says destroyed ↺",
+        "Each change can be taken back with Undo on Mission → Play; New game or a different list clears it; saved games keep it"
+      ]
+    },
+    {
       "version": "1.129.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: the Board's shooting danger now follows line of sight",

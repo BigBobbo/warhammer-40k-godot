@@ -595,14 +595,22 @@ function unitInfo(side, key) {
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
   const hulls = hullSizes(), mine = cu.members.map(m => hulls[m.dcUnit.name]).filter(Boolean);
-  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}`;
+  // models left (the game on the tracker): the board shows the models that are left
+  const gl = ctx.groupsLeft?.(side, cu) ?? [];
+  const aliveOf = new Map();
+  for (const g of gl) aliveOf.set(g.member, (aliveOf.get(g.member) ?? 0) + g.left);
+  const lostSig = gl.some(g => g.left < g.count) ? gl.map(g => g.left).join(',') : '';
+  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}|${lostSig}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu, army);
+    const total = bu.members.reduce((a, m) => a + m.count, 0);
+    if (lostSig) bu.members = bu.members.map((m, i) => ({ ...m, count: aliveOf.get(cu.members[i].index) ?? m.count })).filter(m => m.count > 0);
+    const left = bu.members.reduce((a, m) => a + m.count, 0);
     // a hull size you measured replaces the rough one (length across the token, width down it)
     for (const m of bu.members) { const h = hulls[m.label]; if (h && m.fp.approx && m.fp.shape === 'rect') m.fp = { shape: 'rect', hw: h.l / 2, hh: h.w / 2, measured: true }; }
     // Objective Control: each model's OC (datasheet), summed over the unit
-    const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
-    unitCache.set(ck, { cu, ...bu, oc, models: coherentFormation(bu.members), formations: new Map() });
+    const oc = bu.members.reduce((a, m) => a + (m.oc || 0) * m.count, 0);
+    unitCache.set(ck, { cu, ...bu, oc, left, total, dead: left === 0, models: left ? coherentFormation(bu.members) : [], formations: new Map() });
   }
   return unitCache.get(ck);
 }
@@ -645,7 +653,7 @@ function placed() {
     if (pos?.in) continue; // embarked
     const [side, key] = tk.split(':');
     const u = unitInfo(side, key);
-    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, gap: Number.isFinite(pos.gap) ? pos.gap : null, models: tokenModels(u, pos), u });
+    if (u && !u.dead) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, gap: Number.isFinite(pos.gap) ? pos.gap : null, models: tokenModels(u, pos), u });
   }
   return out;
 }
@@ -1290,9 +1298,10 @@ export function boardView() {
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
   const onBoard = new Set([...toks.map(t => t.tk), ...embarkedIn(stepTokens()).keys()]);
-  const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`))
+  const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`) && !unitInfo(side, u.key)?.dead)
     .map(u => `<button class="chip" data-action="board-place" data-side="${side}" data-key="${esc(u.key)}" style="border-color:${C[side]}">＋ ${esc(u.name)}</button>`).join('');
-  const left = st.armies.A.units.length + st.armies.B.units.length - onBoard.size;
+  const dead = ['A', 'B'].reduce((n, X) => n + st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`) && unitInfo(X, u.key)?.dead).length, 0);
+  const left = st.armies.A.units.length + st.armies.B.units.length - onBoard.size - dead;
   // The map comes first (one column on a phone; the left pane on a tablet): the plan
   // steps and the units still to place sit right above it, everything else below / beside.
   const wideNow = ctx.wide?.() ?? false;
@@ -1437,9 +1446,12 @@ function armyColInner(X) {
   const rows = a.units.map(u => {
     const tk = `${X}:${u.key}`, t = byTk.get(tk);
     const dot = `<span class="tri-dot" aria-hidden="true"></span>`;
+    const ui = unitInfo(X, u.key);
+    if (ui?.dead) return `<div class="tri-unit off dead" data-dead="${esc(tk)}">${dot}<span class="nm">${esc(u.name)}</span><button class="linkish tiny" data-action="loss-reset" data-side="${X}" data-unit="${esc(u.key)}" title="Destroyed (no models left): tap to bring it back at full strength">destroyed ↺</button></div>`;
+    const lost = ui && ui.left < ui.total ? `${ui.left}/${ui.total} · ` : '';
     if (t) {
       const isSel = tk === b.sel, isTgt = tk === b.sel2;
-      const row = `<button class="tri-unit ${isSel ? 'sel' : ''} ${isTgt ? 'tgt' : ''}" data-action="board-pick" data-tk="${esc(tk)}" aria-pressed="${isSel || isTgt}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${isTgt ? 'target' : 'on board'}</span></button>`;
+      const row = `<button class="tri-unit ${isSel ? 'sel' : ''} ${isTgt ? 'tgt' : ''}" data-action="board-pick" data-tk="${esc(tk)}" aria-pressed="${isSel || isTgt}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${lost}${isTgt ? 'target' : 'on board'}</span></button>`;
       return isSel ? `<div class="tri-selbox">${row}<div id="board-panel">${triUnitPanel(t, toks)}</div></div>` : row;
     }
     if (emb.has(tk)) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">embarked</span></div>`;
@@ -1473,6 +1485,7 @@ function triUnitPanel(s1, toks) {
       <button class="chip ${b.posOpen ? 'on' : ''}" data-action="board-pos-toggle" id="board-pos-toggle" aria-expanded="${!!b.posOpen}">Position · facing · formation ${b.posOpen ? '▴' : '▾'}</button>
       <span class="grow"></span><button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     ${b.posOpen ? `<div id="board-pos-box">${posHtml(s1)}${spacingHtml(s1)}</div>` : ''}
+    ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
     ${hullPanel(s1)}
@@ -1655,7 +1668,7 @@ function ringsHtml(s1) {
     ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`)),
   ].join('');
 }
-const statsLine = (s1) => `${s1.u.cu.models} models · M${s1.u.move}"${s1.u.ranges.length ? ` · ranges ${s1.u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}`;
+const statsLine = (s1) => `${s1.u.left < s1.u.total ? `<b>${s1.u.left}</b> of ${s1.u.total} models left` : `${s1.u.cu.models} models`} · M${s1.u.move}"${s1.u.ranges.length ? ` · ranges ${s1.u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}`;
 /** Facing, nudge arrows, formation and the gap between bases. */
 function posHtml(s1) {
   return `<div class="row" style="gap:6px;margin-top:8px;align-items:center">
@@ -1678,6 +1691,14 @@ function posHtml(s1) {
       opts.push([n, 'Line']);
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}`;
+}
+/** Models left for the game on the tracker: shared with the Attack tab (attacker and target). */
+function lossHtml(s1) {
+  const steppers = ctx.lossSteppers?.(s1.side, s1.u.cu) ?? '';
+  if (!steppers) return '';
+  const lost = s1.u.left < s1.u.total;
+  return `<details class="more board-losses" id="board-losses" ${lost || boardState().lossOpen ? 'open' : ''} style="margin-top:6px"><summary>Models left${lost ? ` · ${s1.u.left}/${s1.u.total}` : ''}</summary>${steppers}
+    <div class="tiny muted">For this game: the same models are gone on the Attack tab, whether this unit attacks or is the target. A unit with none left is taken off the board.</div></details>`;
 }
 const spacingHtml = (s1) => (s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : '');
 function coherencyHtml(s1) {
@@ -1715,6 +1736,7 @@ function selectionPanel() {
       <div class="muted tiny">${statsLine(s1)}</div></div>
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     ${posHtml(s1)}
+    ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
     ${hullPanel(s1)}

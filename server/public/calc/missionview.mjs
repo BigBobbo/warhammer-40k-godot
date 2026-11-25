@@ -249,6 +249,37 @@ export function pairWipe(atkTk, defTk) {
   const c = m.pairs.table[atkTk]?.[defTk];
   return c ? { shoot: c.shoot ?? 0, fight: c.fight ?? 0 } : { shoot: 0, fight: 0 };
 }
+/**
+ * Models left for the game on the tracker (see app.js lossesOf). change: { side, unit, unitName, group, groupName,
+ * field: 'count' | 'woundsLeftFirst', delta, count, W } | { side, unit, unitName, reset } | { side, clearSide }.
+ * Each change can be taken back with the tracker's Undo.
+ */
+export function missionLoss(c) {
+  const m = ms(), g = m.game;
+  const L = (g.losses ??= { A: {}, B: {} });
+  L[c.side] ??= {};
+  if (c.clearSide) { if (Object.keys(L[c.side]).length) { console.log(`[mission] models left: ${c.side}'s list changed, its record is cleared`); L[c.side] = {}; persist(); } return; }
+  if (c.reset) {
+    remember(`${c.unitName}: back to full strength`);
+    delete L[c.side][c.unit];
+    console.log(`[mission] models left: ${c.side} ${c.unitName} back to full strength`);
+    persist();
+    return;
+  }
+  const u = (L[c.side][c.unit] ??= {});
+  const o = (u[c.group] ??= {});
+  const before = c.field === 'count' ? (o.count ?? c.count) : (o.woundsLeftFirst ?? c.W);
+  const after = c.field === 'count' ? Math.max(0, Math.min(c.count, before + c.delta)) : Math.max(1, Math.min(c.W, before + c.delta));
+  if (after === before) return;
+  remember(c.field === 'count' ? `${c.unitName}: ${after} ${c.groupName} left` : `${c.unitName}: ${c.groupName} on ${after}W`);
+  if (c.field === 'count') o.count = after; else o.woundsLeftFirst = after;
+  if (o.count === c.count) delete o.count;
+  if (o.woundsLeftFirst === c.W) delete o.woundsLeftFirst;
+  if (!Object.keys(o).length) delete u[c.group];
+  if (!Object.keys(u).length) delete L[c.side][c.unit];
+  console.log(`[mission] models left: ${c.side} ${c.unitName} ${c.groupName} ${c.field} ${before} -> ${after}`);
+  persist();
+}
 export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
 /** The mission state (for a saved game) and the saved game it came from. */
 export const missionState = () => ms();
