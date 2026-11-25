@@ -3,7 +3,7 @@
 // network first (so a new version is picked up as soon as there is signal)
 // and fall back to the cache when offline or after a short timeout.
 // The cache name carries the app version (version.mjs).
-const CACHE = 'w40k-calc-1.133.0';
+const CACHE = 'w40k-calc-1.134.0';
 const NETWORK_TIMEOUT_MS = 3500;
 const SHELL = [
   './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './choose.mjs', './phasesheet.mjs', './rulesnote.mjs', './games.mjs', './plantree.mjs', './gamelists.mjs', './cardface.mjs', './gamestats.mjs', './droporder.mjs', './sharelink.mjs', './gapfinder.mjs', './printsheet.mjs', './measure.mjs', './ar-test.html', './arview.mjs', './armath.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs', './version.mjs', './backup.mjs', './eventview.mjs', './briefview.mjs', './lists.mjs', './playtools.mjs', './errata-data.mjs',

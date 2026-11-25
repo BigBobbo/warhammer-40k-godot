@@ -4308,7 +4308,7 @@ Aggressor Squad (95 points)
     mp3.on('console', m => { if (m.type() === 'error') consoleErrors.push(`models: ${m.text()}`); });
     mp3.on('dialog', d => d.accept());
     const scr = (x, y) => mp3.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
-    const unit = (tk) => mp3.evaluate((k) => { const u = window.__calc.board().units.find(t => t.tk === k); return u ? { x: u.x, y: u.y, ms: u.models.map(m => [u.x + m.dx, u.y + m.dy]) } : null; }, tk);
+    const unit = (tk) => mp3.evaluate((k) => { const u = window.__calc.board().units.find(t => t.tk === k); return u ? { x: u.x, y: u.y, ms: u.models.map(m => [u.x + m.dx, u.y + m.dy]), rs: u.models.map(m => m.fp.r ?? 0) } : null; }, tk);
     const dragFrom = async (a, dx, dy, holdCheck) => {
       const p0 = await scr(a[0], a[1]), p1 = await scr(a[0] + dx, a[1] + dy);
       await mp3.mouse.move(p0.x, p0.y); await mp3.mouse.down();
@@ -4335,7 +4335,10 @@ Aggressor Squad (95 points)
     // drag model 0 three inches right: the label shows how far it moved against Move 7"
     // zoomed in on the unit, to see the bases
     for (let z = 0; z < 2; z++) await mp3.locator('button[data-action="board-zoom"][data-z="0.7"]').tap();
-    const seen = await dragFrom((await unit(tk)).ms[0], 3, 0, async () => {
+    // out away from the rest of the squad (nothing in the way)
+    const cen = u0.ms.reduce((a, m) => [a[0] + m[0] / u0.ms.length, a[1] + m[1] / u0.ms.length], [0, 0]);
+    const out = [u0.ms[0][0] - cen[0], u0.ms[0][1] - cen[1]], ol = Math.hypot(...out) || 1, ox = 3 * out[0] / ol, oy = 3 * out[1] / ol;
+    const seen = await dragFrom((await unit(tk)).ms[0], ox, oy, async () => {
       await mp3.evaluate(() => window.scrollTo(0, 0));
       await mp3.screenshot({ path: join(SHOTS, 'calc_134_models_one_by_one.png') });   // mid-drag: the label is on
       return mp3.evaluate(() => { const l = document.getElementById('model-drag-label'); return l ? { moved: Number(l.dataset.moved), coh: l.dataset.coherent, text: l.textContent } : null; });
@@ -4343,9 +4346,32 @@ Aggressor Squad (95 points)
     const u1 = await unit(tk);
     const others = u1.ms.slice(1).every((m, i) => Math.hypot(m[0] - u0.ms[i + 1][0], m[1] - u0.ms[i + 1][1]) < 0.01);
     check('drag one base: only that model moves; while dragging it says 3.0" / 7" from where it ended last turn',
-      Math.abs(u1.ms[0][0] - u0.ms[0][0] - 3) < 0.15 && Math.abs(u1.ms[0][1] - u0.ms[0][1]) < 0.15 && others && seen && Math.abs(seen.moved - 3) < 0.2 && /\/ 7"/.test(seen.text), JSON.stringify({ seen, a: u0.ms[0], b: u1.ms[0] }));
+      Math.abs(u1.ms[0][0] - u0.ms[0][0] - ox) < 0.2 && Math.abs(u1.ms[0][1] - u0.ms[0][1] - oy) < 0.2 && others && seen && Math.abs(seen.moved - 3) < 0.2 && /\/ 7"/.test(seen.text), JSON.stringify({ seen, a: u0.ms[0], b: u1.ms[0] }));
     await mp3.locator('button[data-action="board-zoom"][data-z="0"]').tap();
     await mp3.tap('#board-undo');
+    // dropped right on top of the next model: it stops at that base's edge instead (bases never overlap)
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    await dragFrom(u0.ms[0], u0.ms[1][0] - u0.ms[0][0], u0.ms[1][1] - u0.ms[0][1]);
+    const uo = await unit(tk), R = 32 / 25.4 / 2;
+    const minGap = Math.min(...uo.ms.slice(1).map(m => Math.hypot(m[0] - uo.ms[0][0], m[1] - uo.ms[0][1]))) - 2 * R;
+    check('a base dropped onto another one stops at its edge: no overlap, touching', minGap > -0.03 && minGap < 0.35 && Math.hypot(uo.ms[0][0] - u0.ms[0][0], uo.ms[0][1] - u0.ms[0][1]) > 0.3, `closest gap ${minGap.toFixed(3)}"`);
+    await mp3.tap('#board-undo');
+    // …and onto another unit's base
+    await mp3.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Scout Squad (1)' }).tap();
+    const sk = await mp3.evaluate(() => window.__calc.board().sel);
+    await mp3.locator(`button[data-action="board-pick"][data-tk="${tk}"]`).tap();
+    if ((await mp3.locator('#board-models-bar').count()) === 0) await mp3.locator('#board-models-btn').tap();
+    const sc = await unit(sk), g0 = (await unit(tk)).ms[0];
+    await mp3.locator('#board-host').scrollIntoViewIfNeeded();
+    await dragFrom(g0, sc.ms[0][0] - g0[0], sc.ms[0][1] - g0[1]);
+    const g1 = (await unit(tk)).ms[0];
+    const gR = (await unit(tk)).rs[0];
+    const gapS = Math.min(...sc.ms.map((m, j) => Math.hypot(m[0] - g1[0], m[1] - g1[1]) - sc.rs[j] - gR));
+    check('a base dropped onto another unit\'s base stops at its edge too', gapS > -0.03 && gapS < 0.6, `gap ${gapS.toFixed(3)}" (moved ${Math.hypot(g1[0] - g0[0], g1[1] - g0[1]).toFixed(1)}")`);
+    await mp3.tap('#board-undo');
+    await mp3.tap('#board-undo');   // the Scouts off again
+    await mp3.locator(`button[data-action="board-pick"][data-tk="${tk}"]`).tap().catch(() => {});
+    if ((await mp3.locator('#board-models-bar').count()) === 0) await mp3.locator('#board-models-btn').tap();
     check('↶ puts that model back', Math.hypot((await unit(tk)).ms[0][0] - u0.ms[0][0], (await unit(tk)).ms[0][1] - u0.ms[0][1]) < 0.01);
     // too far from the others: not in coherency, said while dragging and after
     await mp3.locator('#board-host').scrollIntoViewIfNeeded();
