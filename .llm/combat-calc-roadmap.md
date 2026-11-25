@@ -524,3 +524,12 @@ User: work through the ranked list, no clock (item 4 skipped).
   distance and drift test with copyable results. Tested only in a browser without AR and against a
   stand-in WebXR device (page logic); NOT tested on real ARCore hardware: waiting on the user's tablet
   results before any live AR overlay is built.
+- AR test on the user's tablet (24 Nov, photo of the results): 12" read 11.70 / 12.25, 24" read 25.00; average
+  0.51", worst 1.00" (~3%); no drift test. Not accurate enough to measure with; the user asked for the full AR
+  suite anyway, to try in practice and roll back if it is no use.
+- 1.129.0 (renumbered: main took 1.127.0 and 1.128.0): 🥽 AR on the Board (arview.mjs + armath.mjs). Three tapped corners (1, 2, 3 of the Board's corner
+  diagram) pin the board (fitted to the corners by default: takes out AR's scale error; reports the corners as AR
+  read them vs 44" x 60" and how square corner 2 is). Anchored corners re-pin as ARCore corrects. Layers: zones,
+  objectives (+ control range), terrain, plan units of any step. Tools: Where (board inches under the reticle),
+  Measure (base to base, base sizes), Rings (3-24"). Tested with a stand-in WebXR device (top-down orthographic
+  camera, no ARCore): readouts, measuring, rings, layers and the drawing checked; NOT tested on the tablet.
