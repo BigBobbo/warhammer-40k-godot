@@ -40,6 +40,15 @@ const triMode = () => !!(ctx?.wide?.() || TABLET_Q?.matches);
 export function initBoard(c) {
   ctx = c;
   TABLET_Q?.addEventListener?.('change', () => { console.log(`[board] layout: ${triMode() ? 'three columns' : 'phone'}`); ctx.rerender?.(); });
+  // Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, on the Board (a tablet with a keyboard)
+  if (typeof window !== 'undefined') window.addEventListener('keydown', (ev) => {
+    if (ctx.state.view !== 'board' || !(ev.ctrlKey || ev.metaKey) || ev.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+    const k = ev.key.toLowerCase();
+    const redo = (k === 'z' && ev.shiftKey) || k === 'y';
+    if (k !== 'z' && k !== 'y') return;
+    ev.preventDefault();
+    if (redo ? redoBoard() : undoBoard()) ctx.rerender?.();
+  });
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
   ctx.registerHost?.('board-treemap-host', treeMapHtml);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
@@ -57,7 +66,125 @@ function boardState() {
 
 function persistBoard() {
   const b = boardState();
+  recordHistory();
   try { localStorage.setItem(LS_KEY, JSON.stringify({ settings: b.settings, plans: b.plans })); } catch { /* best effort */ }
+}
+
+// ---------------------------------------------------------------------------
+// Undo / redo. Every change to a plan is saved through persistBoard(); there the plan is compared with the
+// copy kept at the last save, and if it changed, that copy goes on the undo list. So every kind of change
+// (a drag, a nudge, a rotation, a formation, placing or removing a unit, a transport, a Scout move, a new
+// turn, a branch) can be undone without each action knowing about it. What is on screen (the turn and plan
+// shown, selections, rings, overlays) is not a change. Per plan (layout + lists), in memory, up to 30 steps.
+
+const UNDO_MAX = 30;
+const VIEW_KEYS = new Set(['cur', 'v', 'meta']);
+const planJson = (root) => JSON.stringify(root ?? null, (k, val) => (VIEW_KEYS.has(k) ? undefined : val));
+function history() {
+  const b = boardState(), key = planKey();
+  if (!b.hist || b.hist.key !== key) {
+    const root = key ? b.plans[key] ?? null : null;
+    b.hist = { key, undo: [], redo: [], last: planJson(root), full: JSON.stringify(root ?? null), note: null };
+  }
+  return b.hist;
+}
+function recordHistory() {
+  const b = boardState();
+  if (!planKey()) return;
+  const h = history(), root = b.plans[h.key] ?? null;
+  const now = planJson(root);
+  if (now === h.last) return;
+  // the plan's first save (an empty Deploy step being set up) is a start, not a change
+  if (h.last === 'null') { h.last = now; h.full = JSON.stringify(root); return; }
+  const before = JSON.parse(h.full);
+  const what = planChange(before, root);
+  h.undo.push({ full: h.full, ...what });
+  if (h.undo.length > UNDO_MAX) h.undo.shift();
+  h.redo = [];
+  h.note = null;
+  h.last = now;
+  h.full = JSON.stringify(root);
+  console.log(`[board] undo +1: ${what.label} (${h.undo.length} to undo)`);
+  refreshUndo();
+}
+/** What changed between two copies of a plan: a label for the button, and the turn (and unit) to show on undo. */
+function planChange(a, z) {
+  const name = (tk) => { const [sd, k] = tk.split(':'); return unitInfo(sd, k)?.cu.name ?? tk; };
+  const va = a?.variants ?? [], vz = z?.variants ?? [];
+  if (va.length !== vz.length) return { label: vz.length > va.length ? 'new branch / plan' : 'removed a plan', vi: Math.min(z?.v ?? 0, Math.max(0, vz.length - 1)), si: null, tk: null };
+  // the turn on screen first (that is where you were working), then the others in order
+  const order = [];
+  const cv = z?.v ?? 0, cs = vz[cv]?.cur ?? 0;
+  order.push([cv, cs]);
+  vz.forEach((vv, vi) => (vv.steps ?? []).forEach((_, si) => { if (!(vi === cv && si === cs)) order.push([vi, si]); }));
+  for (const [vi, si] of order) {
+    const sa = va[vi]?.steps ?? [], sz = vz[vi]?.steps ?? [];
+    if (sa.length !== sz.length) return { label: sz.length > sa.length ? `added ${sz[sz.length - 1]?.name ?? 'a turn'}` : 'removed a turn', vi, si: Math.min(si, sz.length - 1), tk: null };
+    const ta = sa[si]?.tokens ?? {}, tz = sz[si]?.tokens ?? {};
+    const tks = [...new Set([...Object.keys(ta), ...Object.keys(tz)])].filter(tk => JSON.stringify(ta[tk] ?? null) !== JSON.stringify(tz[tk] ?? null));
+    if (!tks.length) continue;
+    const tk = tks.find(k => k === boardState().sel) ?? tks[0];
+    const p = ta[tk], q = tz[tk];
+    let label;
+    if (!p) label = `placed ${name(tk)}`;
+    else if (!q) label = `removed ${name(tk)}`;
+    else if ((p.in ?? null) !== (q.in ?? null)) label = `${name(tk)} ${q.in ? 'embarked' : 'disembarked'}`;
+    else if (JSON.stringify(p.scout ?? null) !== JSON.stringify(q.scout ?? null)) label = `${name(tk)}'s Scout move`;
+    else if (p.x !== q.x || p.y !== q.y) label = `moved ${name(tk)} ${Math.hypot(q.x - p.x, q.y - p.y).toFixed(1)}"`;
+    else if ((p.rot ?? 0) !== (q.rot ?? 0)) label = `turned ${name(tk)}`;
+    else label = `${name(tk)}'s formation`;
+    if (tks.length > 1 && !(p && q && q.in)) label += ` (+${tks.length - 1} more)`;
+    return { label, vi, si, tk };
+  }
+  return { label: 'plan change', vi: z?.v ?? 0, si: null, tk: null };
+}
+/** Put a copy of the plan back (undo / redo) and show the turn where it changed, with that unit selected. */
+function restorePlan(full, at) {
+  const b = boardState(), h = history();
+  const root = JSON.parse(full);
+  if (root) {
+    if (at?.vi != null && root.variants?.[at.vi]) {
+      root.v = at.vi;
+      if (at.si != null) root.variants[at.vi].cur = Math.max(0, Math.min(at.si, (root.variants[at.vi].steps?.length ?? 1) - 1));
+    }
+    b.plans[h.key] = root;
+  } else delete b.plans[h.key];
+  h.last = planJson(root);
+  h.full = JSON.stringify(root);
+  const toks = root?.variants?.[root.v ?? 0]?.steps?.[root.variants?.[root.v ?? 0]?.cur ?? 0]?.tokens ?? {};
+  b.sel = at?.tk && toks[at.tk] ? at.tk : null; b.sel2 = null;
+  persistBoard();
+}
+function undoBoard() {
+  const h = history(), e = h.undo.pop();
+  if (!e) return false;
+  h.redo.push({ full: h.full, label: e.label, vi: e.vi, si: e.si, tk: e.tk });
+  restorePlan(e.full, e);
+  h.note = `↶ Undid: ${e.label}`;
+  console.log(`[board] undo: ${e.label} (${h.undo.length} left, ${h.redo.length} to redo)`);
+  return true;
+}
+function redoBoard() {
+  const h = history(), e = h.redo.pop();
+  if (!e) return false;
+  h.undo.push({ full: h.full, label: e.label, vi: e.vi, si: e.si, tk: e.tk });
+  restorePlan(e.full, e);
+  h.note = `↷ Redid: ${e.label}`;
+  console.log(`[board] redo: ${e.label} (${h.redo.length} left)`);
+  return true;
+}
+function undoButtons() {
+  const h = history(), u = h.undo[h.undo.length - 1], r = h.redo[h.redo.length - 1], esc = ctx.esc;
+  return `<button class="icon-btn" data-action="board-undo" id="board-undo" ${u ? '' : 'disabled'} aria-label="${u ? `Undo: ${esc(u.label)}` : 'Nothing to undo'}" title="${u ? `Undo: ${esc(u.label)}` : 'Nothing to undo'}">↶</button>`
+    + `<button class="icon-btn" data-action="board-redo" id="board-redo" ${r ? '' : 'disabled'} aria-label="${r ? `Redo: ${esc(r.label)}` : 'Nothing to redo'}" title="${r ? `Redo: ${esc(r.label)}` : 'Nothing to redo'}">↷</button>`
+;
+}
+const undoNote = () => { const h = history(); return h.note ? `<span class="tiny muted" id="board-undo-note">${ctx.esc(h.note)}</span>` : ''; };
+function refreshUndo() {
+  const host = document.getElementById('board-undo-host');
+  if (host) host.innerHTML = undoButtons();
+  const nh = document.getElementById('board-undo-note-host');
+  if (nh) nh.innerHTML = undoNote();
 }
 
 // ---------------------------------------------------------------------------
@@ -1082,7 +1209,8 @@ function stepsRowHtml() {
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
         <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
         <span class="grow"></span>
-        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}
+        <span class="row board-tools"><span class="row undo-host" id="board-undo-host">${undoButtons()}</span>${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}</span>
+        <span class="undo-note-row" id="board-undo-note-host">${undoNote()}</span>
       </div>`;
 }
 
@@ -1619,6 +1747,7 @@ function threatHtml(s1, toks) {
 export function refreshBoard() {
   const host = document.getElementById('board-host');
   if (host) host.innerHTML = boardSvg();
+  refreshUndo();
   const tri = document.getElementById('board-tri');
   if (tri) {
     // three columns: each army's column holds its units, the selected unit and the matchup card
@@ -1826,6 +1955,10 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-undo':
+      return undoBoard() ? 'render' : null;
+    case 'board-redo':
+      return redoBoard() ? 'render' : null;
     case 'board-pick':
       // three columns: a tap on a unit in an army's list = a tap on it on the map
       selectToken(el.dataset.tk);
@@ -2433,6 +2566,7 @@ export function persistBoardNow() { persistBoard(); }
 /** Put a saved game's board back: its layout and dispositions, and its plans (other plans stay). */
 export function boardRestore(snap) {
   const b = boardState();
+  b.hist = null;      // a saved game put back is not an undoable change
   b.settings = { ...(b.settings.photoMap ? { photoMap: b.settings.photoMap } : {}), ...(snap?.settings ?? {}) };
   Object.assign(b.plans, JSON.parse(JSON.stringify(snap?.plans ?? {})));
   b.sel = b.sel2 = null; b.view = null; b.danger = null; b.arrive = null;

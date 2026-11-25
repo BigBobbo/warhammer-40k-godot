@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.128.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: undo and redo on the Board",
+      "changes": [
+        "Board: ↶ Undo and ↷ Redo next to Move / Ruler, on phone and tablet",
+        "Every change to a plan can be undone: moving, nudging or turning a unit, its formation, placing or removing it, embarking, Scout moves, new turns and branches (up to 30 steps)",
+        "Undo shows the turn where the change was made, with that unit selected; the buttons say what they will undo or redo",
+        "Ctrl+Z / Ctrl+Shift+Z on a tablet with a keyboard",
+        "Moving between turns, selecting units and showing rings are not changes; a new layout, new lists or a loaded game start a fresh history"
+      ]
+    },
+    {
       "version": "1.127.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: the Board on a tablet — my army on the left, the map in the middle, theirs on the right",
