@@ -3,11 +3,11 @@
 // board at true scale so tokens can be dragged onto the real models.
 // Photos stay on the device (IndexedDB), one per plan step.
 
-import { homography, orderCorners, cornersUsable, warpToBoard, boardCorners } from './photo.mjs';
+import { homography, orderCorners, cornersUsable, warpToBoard, boardCorners, localScale } from './photo.mjs';
 
 const DB = 'w40k_calc_photos';
 const STORE = 'photos';
-const MAX_SRC = 1600;       // longest edge kept from the camera photo (px)
+const MAX_SRC = 2400;       // longest edge kept from the camera photo (px): enough to measure base to base on it
 const PPI = 16;             // warped photo resolution (px per board inch)
 const MAT = [230, 225, 211]; // board mat colour where the photo does not reach
 
@@ -108,6 +108,14 @@ export async function removePhoto(key) {
   await idbDel(key);
 }
 
+/** How finely the photo shows the table at board point (x, y): { s: photo px per inch there, sCorner: the lowest of
+ * the four corners }, or null without a photo. */
+export function photoScaleAt(key, board, x, y) {
+  const c = cache.get(key);
+  if (!c?.H) return null;
+  return { s: localScale(c.H, x, y), sCorner: Math.min(...boardCorners(board).map(([cx, cy]) => localScale(c.H, Math.min(cx, board.w - 0.5), Math.min(cy, board.h - 0.5)))) };
+}
+
 // ---------------------------------------------------------------------------
 // Warp
 
@@ -131,7 +139,7 @@ async function build(key, rec, board) {
   const blob = await new Promise(res => oc.toBlob(res, 'image/jpeg', 0.88));
   const old = cache.get(key);
   if (old?.url) URL.revokeObjectURL(old.url);
-  cache.set(key, { url: URL.createObjectURL(blob), dataUrl: oc.toDataURL('image/jpeg', 0.85), rec, w: out.width, h: out.height });
+  cache.set(key, { url: URL.createObjectURL(blob), dataUrl: oc.toDataURL('image/jpeg', 0.85), rec, w: out.width, h: out.height, H });
   console.log(`[calc] photo warped onto the board: ${out.width}x${out.height} in ${Math.round(performance.now() - t0)} ms (turn ${rec.turn ?? 0})`);
 }
 

@@ -517,3 +517,10 @@ User: work through the ranked list, no clock (item 4 skipped).
   model on each 1" square, ~7x faster) and hull sizes you measure (`w40k_calc_hulls_v1`, per datasheet
   name; replaces the rough rectangle). Not done: traced hull polygons — the rules data has no hull
   dimensions (24 datasheets are `"hull", draft`), so there is nothing to trace from.
+- 1.125.0 (AR question, step 1; renumbered from 1.124.0, which main gave to the set-up checklist): 📐 Bases mode — base-to-base on the flattened table photo (measure.mjs
+  baseToBase / measureError; photo.localScale px per inch; photos kept at 2400 px). Synthetic angled photo:
+  17.0" ± 0.3" for a true 17.02". Done and tested.
+- 1.126.0 (AR question, step 2): /calc/ar-test.html — WebXR immersive-ar (hit-test, anchors, dom-overlay)
+  distance and drift test with copyable results. Tested only in a browser without AR and against a
+  stand-in WebXR device (page logic); NOT tested on real ARCore hardware: waiting on the user's tablet
+  results before any live AR overlay is built.

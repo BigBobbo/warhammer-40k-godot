@@ -107,6 +107,15 @@ export function warpToBoard(src, H, board, ppi) {
   return { data: out, width: W, height: Ht };
 }
 
+/**
+ * Photo pixels per board inch at board point (x, y): how finely the photo shows the table there (the far side of
+ * a photo taken at an angle gets fewer). H: board -> photo. -> the smaller of the two directions.
+ */
+export function localScale(H, x, y) {
+  const [px, py] = applyH(H, x, y), [ax, ay] = applyH(H, x + 1, y), [bx, by] = applyH(H, x, y + 1);
+  return Math.min(Math.hypot(ax - px, ay - py), Math.hypot(bx - px, by - py));
+}
+
 /** Board corners in map order (inches). */
 export function boardCorners(board) {
   return [[0, 0], [board.w, 0], [board.w, board.h], [0, board.h]];
