@@ -627,7 +627,10 @@ function tokenModels(u, pos) {
       : coherentFormation(u.members, { perRow: per, keepRows: pos.per != null }));
   }
   const base = u.formations.get(fk);
-  return pos.rot ? rotateFormation(base, pos.rot) : base;
+  const out = pos.rot ? rotateFormation(base, pos.rot) : base;
+  // models moved one by one (pos.mo: { index: [dx, dy] } from the unit's centre, facing included): the rest stay
+  // in formation. Moving the whole unit keeps their spacing.
+  return pos.mo ? out.map((m, i) => (pos.mo[i] ? { ...m, dx: pos.mo[i][0], dy: pos.mo[i][1] } : m)) : out;
 }
 
 // ---- transports: an embarked unit is { in: transportTk } in the step's tokens (no position: it moves with the
@@ -993,7 +996,21 @@ export function boardSvg({ forExport = false } = {}) {
       const r = m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0), ry = m.fp.r ?? Math.max(m.fp.ry ?? 0, m.fp.hh ?? 0);
       return { x0: Math.min(a.x0, m.dx - r), x1: Math.max(a.x1, m.dx + r), y0: Math.min(a.y0, m.dy - ry), y1: Math.max(a.y1, m.dy + ry) };
     }, { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
-    parts.push(`<g class="tok" data-tok="${t.tk}" transform="translate(${f2(t.x)},${f2(t.y)})" style="cursor:grab">`
+    if (!forExport && b.modelsOf === t.tk) {
+      // models mode: each base is its own handle (no grab area: a drag between bases pans the map)
+      parts.push(`<g class="tok models-mode" data-tok="${t.tk}" data-models="1" transform="translate(${f2(t.x)},${f2(t.y)})">`
+        + t.models.map((m, i) => {
+          const h = halfBase(m.fp), fs = Math.max(0.35, Math.min(1.6, Math.min(h.hx, h.hy) * 1.25));
+          return `<g data-model="${i}" transform="translate(${f2(m.dx)},${f2(m.dy)})" style="cursor:move">`
+            + `<circle r="${f2(Math.max(h.hx, h.hy) + 0.45)}" fill="${fill}" fill-opacity="0.001" stroke="${C.sel}" stroke-width="0.12" stroke-dasharray="0.35 0.25"/>`
+            + shapeSvg(m.fp, 0, 0, fill, C.sel, 0.22, m.rot)
+            + `<text font-size="${f2(fs)}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-weight="700" font-family="system-ui,sans-serif" pointer-events="none">${ctx.esc(baseLetter(m.label))}</text></g>`;
+        }).join('')
+        + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}" pointer-events="none">${ctx.esc(shortName(t.u.cu.name))}</text></g>`);
+      continue;
+    }
+    const dim = !forExport && b.modelsOf && toks.some(x => x.tk === b.modelsOf) ? ' opacity="0.35"' : '';
+    parts.push(`<g class="tok" data-tok="${t.tk}" transform="translate(${f2(t.x)},${f2(t.y)})" style="cursor:grab"${dim}>`
       + `<rect x="${f2(ext.x0 - 0.4)}" y="${f2(ext.y0 - 0.4)}" width="${f2(ext.x1 - ext.x0 + 0.8)}" height="${f2(ext.y1 - ext.y0 + 0.8)}" rx="0.6" fill="${fill}" fill-opacity="${isSel ? 0.12 : 0.04}" stroke="none"/>`
       + `<g fill-opacity="${tokAlpha}">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, fill, isSel ? C.sel : '#ffffff', isSel ? 0.22 : 0.08, m.rot)).join('')}</g>`
       // the first letter of each model's datasheet name on its base (Prosecutor Squad: P; an attached Trajann: T)
@@ -1029,7 +1046,7 @@ export function boardSvg({ forExport = false } = {}) {
     parts.push(`<line x1="${f2(p[0])}" y1="${f2(p[1])}" x2="${f2(q[0])}" y2="${f2(q[1])}" stroke="${C.ruler}" stroke-width="0.12"/>`
       + label((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, `${g.toFixed(1)}"`));
   }
-  if (!forExport) parts.push(`<g id="ruler-layer">${rulerSvg(b.ruler)}</g>`);
+  if (!forExport) parts.push(`<g id="ruler-layer">${rulerSvg(b.ruler)}</g>`, '<g id="model-drag-layer" pointer-events="none"></g>');
   if (!forExport && b.mode === 'meas') parts.push(`<g id="meas-layer">${measSvg(b.meas)}</g>`);
   const size = forExport ? 'width="880" height="1200"' : '';
   return `<svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="${f2(vb.x)} ${f2(vb.y)} ${f2(vb.w)} ${f2(vb.h)}" ${size} preserveAspectRatio="xMidYMid meet" style="touch-action:none;display:block;width:100%;height:auto;background:${forExport ? '#ffffff' : 'transparent'}">${parts.join('')}</svg>`;
@@ -1334,6 +1351,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
+      <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
         <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
@@ -1400,6 +1418,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
+      <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
         <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
@@ -1498,6 +1517,7 @@ function triUnitPanel(s1, toks) {
     <div class="lab tiny muted" style="margin-top:6px">Show around it</div><div class="chips tri-rings">${ringsHtml(s1)}</div>
     ${seeNote()}
     ${coherencyHtml(s1)}
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${modelsBtn(s1)}${stepTokens()[s1.tk]?.mo && b.modelsOf !== s1.tk ? '<button class="chip" data-action="board-models-reset">↺ Formation</button>' : ''}</div>
     <div class="row" style="gap:6px;margin-top:6px">
       <button class="chip ${b.posOpen ? 'on' : ''}" data-action="board-pos-toggle" id="board-pos-toggle" aria-expanded="${!!b.posOpen}">Position · facing · formation ${b.posOpen ? '▴' : '▾'}</button>
       <span class="grow"></span><button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
@@ -1753,6 +1773,7 @@ function selectionPanel() {
     <div class="row"><div class="grow"><div class="title" style="color:var(--side-${s1.side.toLowerCase()}-ink)">${esc(s1.u.cu.name)}</div>
       <div class="muted tiny">${statsLine(s1)}</div></div>
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
+    <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">${modelsBtn(s1)}${stepTokens()[s1.tk]?.mo ? '<button class="chip" data-action="board-models-reset">↺ Formation</button>' : ''}</div>
     ${posHtml(s1)}
     ${lossHtml(s1)}
     ${transportPanel(s1)}
@@ -1847,6 +1868,8 @@ export function refreshBoard() {
   const host = document.getElementById('board-host');
   if (host) host.innerHTML = boardSvg();
   refreshUndo();
+  const mb = document.getElementById('board-models-host');
+  if (mb) mb.innerHTML = modelsBar();
   const tri = document.getElementById('board-tri');
   if (tri) {
     // three columns: each army's column holds its units, the selected unit and the matchup card
@@ -1957,6 +1980,12 @@ function wireBoard() {
     if (b.mode === 'ruler') {
       gesture = { kind: 'ruler', start: p, t0: Date.now() };
       b.ruler = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    } else if (tokEl?.dataset.models && ev.target.closest?.('[data-model]')) {
+      // models mode: this base only
+      const tk = tokEl.dataset.tok, i = Number(ev.target.closest('[data-model]').dataset.model);
+      const pos = stepTokens()[tk], t = placed().find(x => x.tk === tk), m = t?.models[i];
+      if (!pos || !m) return;
+      gesture = { kind: 'model', tk, i, el: ev.target.closest('[data-model]'), pos, t, from: turnStart(t), dx: p.x - (pos.x + m.dx), dy: p.y - (pos.y + m.dy), start: p, moved: false };
     } else if (tokEl) {
       const tk = tokEl.dataset.tok;
       const pos = stepTokens()[tk];
@@ -1985,6 +2014,15 @@ function wireBoard() {
       const x = Math.max(0, Math.min(BOARD.w, p.x - gesture.dx)), y = Math.max(0, Math.min(BOARD.h, p.y - gesture.dy));
       Object.assign(gesture.obj ?? stepTokens()[gesture.tk], { x, y }); // keep facing and formation
       gesture.el.setAttribute('transform', `translate(${f2(x)},${f2(y)})`);
+    } else if (gesture.kind === 'model') {
+      const g = gesture, pos = g.pos;
+      if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > 0.15) g.moved = true;
+      if (!g.moved) return;
+      const ax = Math.max(0, Math.min(BOARD.w, p.x - g.dx)), ay = Math.max(0, Math.min(BOARD.h, p.y - g.dy));
+      (pos.mo ??= {})[g.i] = [Math.round((ax - pos.x) * 100) / 100, Math.round((ay - pos.y) * 100) / 100];
+      g.el.setAttribute('transform', `translate(${f2(pos.mo[g.i][0])},${f2(pos.mo[g.i][1])})`);
+      const layer = svg.querySelector('#model-drag-layer');
+      if (layer) layer.innerHTML = modelDragLabel(g);
     } else if (gesture.kind === 'pan') {
       const v0 = gesture.view0;
       const scale = v0.w / gesture.rect.width;
@@ -2020,14 +2058,34 @@ function wireBoard() {
       const dock = document.getElementById('board-dock'); if (dock) dock.innerHTML = dockHtml();
       return;
     }
+    if (g.kind === 'model') {
+      if (!g.moved) {
+        // a double-tap on a base: leave models mode
+        if (doubleTap(g.tk)) { b.modelsOf = null; console.log(`[board] models mode off: ${g.tk}`); refreshBoard(); }
+        return;
+      }
+      const t = placed().find(x => x.tk === g.tk), c = t ? coherency(t.models) : { ok: true };
+      console.log(`[board] model ${g.i} of ${g.tk} -> ${g.pos.mo[g.i].join(', ')}${c.ok ? '' : ' (not in coherency)'}`);
+      persistBoard();
+      refreshBoard();
+      return;
+    }
     if (g.kind === 'drag') {
-      if (!g.moved && !g.obj) selectToken(g.tk);
+      // a double-tap on a unit: move its models one by one (again: back to moving it as a block)
+      if (!g.moved && !g.obj && doubleTap(g.tk)) {
+        b.sel = g.tk; b.sel2 = null;
+        b.modelsOf = b.modelsOf === g.tk ? null : g.tk;
+        console.log(`[board] models mode ${b.modelsOf ? 'on' : 'off'}: ${g.tk} (double-tap)`);
+        refreshBoard();
+        return;
+      }
+      if (!g.moved && !g.obj) { selectToken(g.tk); if (b.modelsOf && b.modelsOf !== b.sel) b.modelsOf = null; }
       if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
       if (g.obj && !g.moved) { b.sel = g.tk; b.sel2 = null; }
       persistBoard();
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
-      b.sel = null; b.sel2 = null;
+      b.sel = null; b.sel2 = null; b.modelsOf = null;
       if (b.danger && b.dangerKinds?.heat) { const p = toBoard(svg, ev.clientX, ev.clientY); b.heatAt = { x: Math.max(0, Math.min(BOARD.w, p.x)), y: Math.max(0, Math.min(BOARD.h, p.y)) }; }
       refreshBoard();
     }
@@ -2036,6 +2094,43 @@ function wireBoard() {
   svg.addEventListener('pointercancel', end);
   svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomBoard(ev.deltaY > 0 ? 1.15 : 0.87); }, { passive: false });
 }
+
+// Two taps on the same unit (or base) within 400 ms
+let lastTap = null;
+function doubleTap(tk) {
+  const now = Date.now();
+  const dbl = !!lastTap && lastTap.tk === tk && now - lastTap.t < 400;
+  lastTap = dbl ? null : { tk, t: now };
+  return dbl;
+}
+/** While a model is dragged: how far it has moved this turn against the unit's Move, and coherency (03.03). */
+function modelDragLabel(g) {
+  const t = g.t, pos = g.pos, models = tokenModels(t.u, pos), m = models[g.i];
+  if (!m) return '';
+  const x = pos.x + m.dx, y = pos.y + m.dy;
+  const s0 = g.from?.models?.[g.i];
+  const moved = s0 ? Math.hypot(x - (g.from.x + s0.dx), y - (g.from.y + s0.dy)) : null;
+  const c = coherency(models);
+  const over = moved != null && moved > t.u.move + 0.01;
+  const txt = `${moved != null ? `${moved.toFixed(1)}" / ${t.u.move}"` : 'deploying'}${c.ok ? '' : ' ⚠ coherency'}`;
+  const w = 0.6 * txt.length + 0.8, h = 1.5, ly = y - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)) - 2;
+  const col = over || !c.ok ? '#c0392b' : '#111';
+  return `<g id="model-drag-label" data-moved="${moved != null ? moved.toFixed(2) : ''}" data-coherent="${c.ok ? 1 : 0}">`
+    + (s0 ? `<line x1="${f2(g.from.x + s0.dx)}" y1="${f2(g.from.y + s0.dy)}" x2="${f2(x)}" y2="${f2(y)}" stroke="${col}" stroke-width="0.12" stroke-dasharray="0.4 0.3"/>` : '')
+    + `<rect x="${f2(x - w / 2)}" y="${f2(ly - h / 2)}" width="${f2(w)}" height="${h}" rx="0.35" fill="#fff" stroke="${col}" stroke-width="0.1"/>`
+    + `<text x="${f2(x)}" y="${f2(ly + 0.38)}" font-size="1" text-anchor="middle" font-weight="700" font-family="system-ui,sans-serif" fill="${col}">${ctx.esc(txt)}</text></g>`;
+}
+/** Above the map in models mode: what is going on, back to formation, done. */
+function modelsBar() {
+  const b = boardState();
+  const t = b.modelsOf && placed().find(x => x.tk === b.modelsOf);
+  if (!t) return '';
+  const pos = stepTokens()[t.tk];
+  return `<div class="warnbox models-bar" id="board-models-bar" style="display:flex;gap:8px;align-items:center;margin:0 0 8px"><span class="grow">☝ <b>${ctx.esc(t.u.cu.name)}</b>: drag a base to move that model. Double-tap or Done to move the unit as a block again.</span>
+    ${pos?.mo ? '<button class="btn ghost" data-action="board-models-reset" id="board-models-reset">↺ Formation</button>' : ''}
+    <button class="btn primary" data-action="board-models-done" id="board-models-done">Done</button></div>`;
+}
+const modelsBtn = (s1) => (s1.models.length > 1 ? `<button class="chip ${boardState().modelsOf === s1.tk ? 'on' : ''}" data-action="board-models" id="board-models-btn" aria-pressed="${boardState().modelsOf === s1.tk}">☝ Move models one by one</button>` : '');
 
 // Tap rules: a unit of the same army becomes the selection; an enemy unit is
 // paired with it (gap + attack); tapping the selected unit again clears it.
@@ -2058,6 +2153,27 @@ export function boardAction(action, el) {
       return undoBoard() ? 'render' : null;
     case 'board-redo':
       return redoBoard() ? 'render' : null;
+    case 'board-models': {
+      const tk = b.sel;
+      if (!tk) return null;
+      b.modelsOf = b.modelsOf === tk ? null : tk;
+      console.log(`[board] models mode ${b.modelsOf ? 'on' : 'off'}: ${tk}`);
+      refreshBoard();
+      return null;
+    }
+    case 'board-models-done':
+      b.modelsOf = null;
+      refreshBoard();
+      return null;
+    case 'board-models-reset': {
+      const pos = stepTokens()[b.modelsOf ?? b.sel];
+      if (!pos?.mo) return null;
+      delete pos.mo;
+      console.log(`[board] ${b.modelsOf ?? b.sel}: models back in formation`);
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
     case 'board-pick':
       // three columns: a tap on a unit in an army's list = a tap on it on the map
       selectToken(el.dataset.tk);
@@ -2152,6 +2268,11 @@ export function boardAction(action, el) {
       const pos = b.sel && stepTokens()[b.sel];
       if (!pos) return null;
       pos.rot = (((pos.rot ?? 0) + Number(el.dataset.deg)) % 360 + 360) % 360;
+      if (pos.mo) {
+        // models moved one by one turn with the unit, around its centre
+        const a = Number(el.dataset.deg) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+        for (const k of Object.keys(pos.mo)) { const [x, y] = pos.mo[k]; pos.mo[k] = [Math.round((x * c - y * sn) * 100) / 100, Math.round((x * sn + y * c) * 100) / 100]; }
+      }
       persistBoard();
       refreshBoard();
       return null;
@@ -2174,6 +2295,8 @@ export function boardAction(action, el) {
     case 'board-spacing': {
       const pos = b.sel && stepTokens()[b.sel];
       if (!pos) return null;
+      if (pos.mo && !window.confirm('Put the models moved one by one back in formation?')) return null;
+      delete pos.mo;
       if (el.dataset.value === 'auto') delete pos.gap; else pos.gap = Number(el.dataset.value);
       persistBoard();
       refreshBoard();
@@ -2182,6 +2305,8 @@ export function boardAction(action, el) {
     case 'board-formation': {
       const pos = b.sel && stepTokens()[b.sel];
       if (!pos) return null;
+      if (pos.mo && !window.confirm('Put the models moved one by one back in formation?')) return null;
+      delete pos.mo;
       pos.per = Number(el.dataset.value);
       persistBoard();
       refreshBoard();
