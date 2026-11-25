@@ -616,3 +616,47 @@ fieldset.plain:disabled { opacity: .55; }
   .ps h2 { break-after: avoid; }
   .ps-t tr, .ps-ph { break-inside: avoid; }
 }
+
+/* Board on a tablet: my army | the map | the opponent's army (boardview.triView).
+   Portrait tablet: the map on top, the two armies side by side below. */
+.tri { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "c c" "l r" "t t"; gap: 10px 12px; align-items: start; }
+.tri > .tri-c { grid-area: c; min-width: 0; }
+.tri > .tri-t { grid-area: t; min-width: 0; }
+.tri > .tri-l { grid-area: l; }
+.tri > .tri-r { grid-area: r; }
+.tri .board-wrap #board-svg { max-height: 56dvh; width: auto; max-width: 100%; display: block; margin: 0 auto; }
+.tri .b-steps { margin-bottom: 8px; }
+.tri-army { min-width: 0; background: var(--surface-1); border: 1px solid var(--line); border-top: 4px solid var(--side-ink); border-radius: var(--radius); padding: 10px 10px 12px; }
+.tri-letter { color: var(--side-ink); font-size: 18px; }
+.tri-army .warnbox { margin-top: 6px; }
+.tri-detail { margin-top: 6px; }
+.tri-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.tri-unit { display: flex; width: 100%; gap: 6px; align-items: center; text-align: left; min-height: 40px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: inherit; font: inherit; font-size: 13.5px; cursor: pointer; }
+div.tri-unit { cursor: default; }
+.tri-unit .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tri-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--side-ink); }
+.tri-unit.off .tri-dot { opacity: .35; }
+.tri-unit .tri-add { color: var(--side-ink); font-weight: 600; white-space: nowrap; }
+.tri-unit.tgt { border: 2px dashed var(--side-ink); background: var(--surface-1); }
+.tri-selbox { border: 2px solid var(--side-ink); border-radius: 8px; background: var(--surface-1); }
+.tri-selbox .tri-unit { border: 0; background: transparent; font-weight: 600; }
+.tri-selbox #board-panel { padding: 0 8px 8px; }
+.tri-rings .chip { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.tri-setup { padding: 6px 10px; margin-bottom: 8px; }
+.tri-army #board-pair .btn { padding: 0 8px; white-space: nowrap; font-size: 14px; }
+.tri-army #board-pair .btn.block { white-space: normal; }
+.tri-setup .lockbox { margin-bottom: 6px; }
+@media (min-width: 900px) {
+  .tri { grid-template-columns: clamp(220px, 22vw, 290px) minmax(0, 1fr) clamp(220px, 22vw, 290px); grid-template-areas: "l c r" "l t r"; grid-template-rows: auto 1fr; gap: 0 14px; }
+  .tri > .tri-l, .tri > .tri-r { position: sticky; top: 60px; max-height: calc(100dvh - 72px); overflow: auto; overscroll-behavior: contain; }
+  .tri .board-wrap #board-svg { max-height: calc(100dvh - 190px); }
+  .tri.deploy .board-wrap #board-svg { max-height: calc(100dvh - 250px); }
+}
+
+/* Board: ↶ undo / ↷ redo next to Move / Ruler */
+.board-tools { gap: 6px; align-items: center; flex-wrap: nowrap; }
+.undo-host { gap: 4px; align-items: center; flex-wrap: nowrap; }
+.undo-host .icon-btn { width: 40px; min-width: 40px; }
+.undo-host .icon-btn:disabled { opacity: .35; cursor: default; }
+.undo-note-row { flex-basis: 100%; text-align: right; }
+.undo-note-row:empty { display: none; }

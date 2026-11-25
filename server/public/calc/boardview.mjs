@@ -31,8 +31,24 @@ const C = {
 let ctx = null;          // { state, esc, seg, chip, render, persist, openAttack, signature, other }
 const LS_KEY = 'w40k_calc_board_v1';
 
+// Tablets (and anything wide) get three columns: my army | the map | the opponent's army.
+// A portrait tablet stacks them: the map on top, the two armies side by side below (CSS).
+// Phones keep the one-column board with the dock.
+const TABLET_Q = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 600px) and (min-height: 600px)') : null;
+const triMode = () => !!(ctx?.wide?.() || TABLET_Q?.matches);
+
 export function initBoard(c) {
   ctx = c;
+  TABLET_Q?.addEventListener?.('change', () => { console.log(`[board] layout: ${triMode() ? 'three columns' : 'phone'}`); ctx.rerender?.(); });
+  // Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, on the Board (a tablet with a keyboard)
+  if (typeof window !== 'undefined') window.addEventListener('keydown', (ev) => {
+    if (ctx.state.view !== 'board' || !(ev.ctrlKey || ev.metaKey) || ev.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+    const k = ev.key.toLowerCase();
+    const redo = (k === 'z' && ev.shiftKey) || k === 'y';
+    if (k !== 'z' && k !== 'y') return;
+    ev.preventDefault();
+    if (redo ? redoBoard() : undoBoard()) ctx.rerender?.();
+  });
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
   ctx.registerHost?.('board-treemap-host', treeMapHtml);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
@@ -50,7 +66,125 @@ function boardState() {
 
 function persistBoard() {
   const b = boardState();
+  recordHistory();
   try { localStorage.setItem(LS_KEY, JSON.stringify({ settings: b.settings, plans: b.plans })); } catch { /* best effort */ }
+}
+
+// ---------------------------------------------------------------------------
+// Undo / redo. Every change to a plan is saved through persistBoard(); there the plan is compared with the
+// copy kept at the last save, and if it changed, that copy goes on the undo list. So every kind of change
+// (a drag, a nudge, a rotation, a formation, placing or removing a unit, a transport, a Scout move, a new
+// turn, a branch) can be undone without each action knowing about it. What is on screen (the turn and plan
+// shown, selections, rings, overlays) is not a change. Per plan (layout + lists), in memory, up to 30 steps.
+
+const UNDO_MAX = 30;
+const VIEW_KEYS = new Set(['cur', 'v', 'meta']);
+const planJson = (root) => JSON.stringify(root ?? null, (k, val) => (VIEW_KEYS.has(k) ? undefined : val));
+function history() {
+  const b = boardState(), key = planKey();
+  if (!b.hist || b.hist.key !== key) {
+    const root = key ? b.plans[key] ?? null : null;
+    b.hist = { key, undo: [], redo: [], last: planJson(root), full: JSON.stringify(root ?? null), note: null };
+  }
+  return b.hist;
+}
+function recordHistory() {
+  const b = boardState();
+  if (!planKey()) return;
+  const h = history(), root = b.plans[h.key] ?? null;
+  const now = planJson(root);
+  if (now === h.last) return;
+  // the plan's first save (an empty Deploy step being set up) is a start, not a change
+  if (h.last === 'null') { h.last = now; h.full = JSON.stringify(root); return; }
+  const before = JSON.parse(h.full);
+  const what = planChange(before, root);
+  h.undo.push({ full: h.full, ...what });
+  if (h.undo.length > UNDO_MAX) h.undo.shift();
+  h.redo = [];
+  h.note = null;
+  h.last = now;
+  h.full = JSON.stringify(root);
+  console.log(`[board] undo +1: ${what.label} (${h.undo.length} to undo)`);
+  refreshUndo();
+}
+/** What changed between two copies of a plan: a label for the button, and the turn (and unit) to show on undo. */
+function planChange(a, z) {
+  const name = (tk) => { const [sd, k] = tk.split(':'); return unitInfo(sd, k)?.cu.name ?? tk; };
+  const va = a?.variants ?? [], vz = z?.variants ?? [];
+  if (va.length !== vz.length) return { label: vz.length > va.length ? 'new branch / plan' : 'removed a plan', vi: Math.min(z?.v ?? 0, Math.max(0, vz.length - 1)), si: null, tk: null };
+  // the turn on screen first (that is where you were working), then the others in order
+  const order = [];
+  const cv = z?.v ?? 0, cs = vz[cv]?.cur ?? 0;
+  order.push([cv, cs]);
+  vz.forEach((vv, vi) => (vv.steps ?? []).forEach((_, si) => { if (!(vi === cv && si === cs)) order.push([vi, si]); }));
+  for (const [vi, si] of order) {
+    const sa = va[vi]?.steps ?? [], sz = vz[vi]?.steps ?? [];
+    if (sa.length !== sz.length) return { label: sz.length > sa.length ? `added ${sz[sz.length - 1]?.name ?? 'a turn'}` : 'removed a turn', vi, si: Math.min(si, sz.length - 1), tk: null };
+    const ta = sa[si]?.tokens ?? {}, tz = sz[si]?.tokens ?? {};
+    const tks = [...new Set([...Object.keys(ta), ...Object.keys(tz)])].filter(tk => JSON.stringify(ta[tk] ?? null) !== JSON.stringify(tz[tk] ?? null));
+    if (!tks.length) continue;
+    const tk = tks.find(k => k === boardState().sel) ?? tks[0];
+    const p = ta[tk], q = tz[tk];
+    let label;
+    if (!p) label = `placed ${name(tk)}`;
+    else if (!q) label = `removed ${name(tk)}`;
+    else if ((p.in ?? null) !== (q.in ?? null)) label = `${name(tk)} ${q.in ? 'embarked' : 'disembarked'}`;
+    else if (JSON.stringify(p.scout ?? null) !== JSON.stringify(q.scout ?? null)) label = `${name(tk)}'s Scout move`;
+    else if (p.x !== q.x || p.y !== q.y) label = `moved ${name(tk)} ${Math.hypot(q.x - p.x, q.y - p.y).toFixed(1)}"`;
+    else if ((p.rot ?? 0) !== (q.rot ?? 0)) label = `turned ${name(tk)}`;
+    else label = `${name(tk)}'s formation`;
+    if (tks.length > 1 && !(p && q && q.in)) label += ` (+${tks.length - 1} more)`;
+    return { label, vi, si, tk };
+  }
+  return { label: 'plan change', vi: z?.v ?? 0, si: null, tk: null };
+}
+/** Put a copy of the plan back (undo / redo) and show the turn where it changed, with that unit selected. */
+function restorePlan(full, at) {
+  const b = boardState(), h = history();
+  const root = JSON.parse(full);
+  if (root) {
+    if (at?.vi != null && root.variants?.[at.vi]) {
+      root.v = at.vi;
+      if (at.si != null) root.variants[at.vi].cur = Math.max(0, Math.min(at.si, (root.variants[at.vi].steps?.length ?? 1) - 1));
+    }
+    b.plans[h.key] = root;
+  } else delete b.plans[h.key];
+  h.last = planJson(root);
+  h.full = JSON.stringify(root);
+  const toks = root?.variants?.[root.v ?? 0]?.steps?.[root.variants?.[root.v ?? 0]?.cur ?? 0]?.tokens ?? {};
+  b.sel = at?.tk && toks[at.tk] ? at.tk : null; b.sel2 = null;
+  persistBoard();
+}
+function undoBoard() {
+  const h = history(), e = h.undo.pop();
+  if (!e) return false;
+  h.redo.push({ full: h.full, label: e.label, vi: e.vi, si: e.si, tk: e.tk });
+  restorePlan(e.full, e);
+  h.note = `↶ Undid: ${e.label}`;
+  console.log(`[board] undo: ${e.label} (${h.undo.length} left, ${h.redo.length} to redo)`);
+  return true;
+}
+function redoBoard() {
+  const h = history(), e = h.redo.pop();
+  if (!e) return false;
+  h.undo.push({ full: h.full, label: e.label, vi: e.vi, si: e.si, tk: e.tk });
+  restorePlan(e.full, e);
+  h.note = `↷ Redid: ${e.label}`;
+  console.log(`[board] redo: ${e.label} (${h.redo.length} left)`);
+  return true;
+}
+function undoButtons() {
+  const h = history(), u = h.undo[h.undo.length - 1], r = h.redo[h.redo.length - 1], esc = ctx.esc;
+  return `<button class="icon-btn" data-action="board-undo" id="board-undo" ${u ? '' : 'disabled'} aria-label="${u ? `Undo: ${esc(u.label)}` : 'Nothing to undo'}" title="${u ? `Undo: ${esc(u.label)}` : 'Nothing to undo'}">↶</button>`
+    + `<button class="icon-btn" data-action="board-redo" id="board-redo" ${r ? '' : 'disabled'} aria-label="${r ? `Redo: ${esc(r.label)}` : 'Nothing to redo'}" title="${r ? `Redo: ${esc(r.label)}` : 'Nothing to redo'}">↷</button>`
+;
+}
+const undoNote = () => { const h = history(); return h.note ? `<span class="tiny muted" id="board-undo-note">${ctx.esc(h.note)}</span>` : ''; };
+function refreshUndo() {
+  const host = document.getElementById('board-undo-host');
+  if (host) host.innerHTML = undoButtons();
+  const nh = document.getElementById('board-undo-note-host');
+  if (nh) nh.innerHTML = undoNote();
 }
 
 // ---------------------------------------------------------------------------
@@ -999,7 +1133,13 @@ function arriveBar() {
   const short = (u) => shortName(u.name);
   return `<span class="lab tiny muted">⇣ Reserves can arrive</span>
     ${ctx.seg('board-arrive', b.arrive ?? 'off', [['off', 'Off'], ['A', 'A'], ['B', 'B']], 'compact')}
-    ${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${curIndex() < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
+    ${arriveDetailHtml(b)}`;
+}
+/** With the reserves overlay on: where that army's reserves can arrive this step. */
+function arriveDetailHtml(b) {
+  const a = arriveInfo(b);
+  const short = (u) => shortName(u.name);
+  return `${a ? `<span class="tiny muted" style="flex-basis:100%" id="board-arrive-note">Battle round ${a.round}${curIndex() < 2 ? ' (the first round reserves can arrive)' : ''}${a.zones.late ? ' — a unit still in reserves at the end of round 3 is destroyed' : ''}. Hatched: wholly within 6" of an edge, for any unit in reserves${a.zones.zoneClosed ? `; not in ${a.Y}'s deployment zone before round 3` : ''} (20.04).${a.dsAny ? ` Tinted: anywhere for a Deep Strike unit (24.09).` : ` ${a.X} has no Deep Strike unit.`} Clear: within 8" of ${a.Y}'s models. Every base must fit; a unit needs room for all its models.
       ${a.early ? `<br><span id="board-arrive-early"><b>${ctx.esc(a.early.name)}</b> (${ctx.esc(a.early.owner)}): one unit a turn arrives as if the battle round were one higher, so it can come in battle round 1${a.zones.zoneClosed ? `, and into ${a.Y}'s deployment zone now` : ''}.</span>` : ''}
       <br>${a.off.length ? `Not on the board in this step: <b>${a.off.map(u => `${ctx.esc(short(u))}${a.dsOff.includes(u) ? ' (Deep Strike)' : ''}`).join(', ')}</b>.` : `All of ${a.X}'s units are on the board in this step.`}</span>` : ''}`;
 }
@@ -1076,11 +1216,26 @@ function closestCentres(a, b) {
 // ---------------------------------------------------------------------------
 // HTML around the SVG
 
+/** Plan steps (Deploy, Turn 1, ...), ＋ Next turn, ⑂ Branch here and Move / Ruler. */
+function stepsRowHtml() {
+  const b = boardState(), p = plan(), esc = ctx.esc;
+  return `<div class="row" style="gap:6px;flex-wrap:wrap">
+        ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
+        <button class="chip" data-action="board-step-add">＋ Next turn</button>
+        <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
+        <button class="chip" data-action="board-ar" id="board-ar" title="Live AR: this layout and plan over the camera view of your table">🥽 AR</button>
+        <span class="grow"></span>
+        <span class="row board-tools"><span class="row undo-host" id="board-undo-host">${undoButtons()}</span>${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}</span>
+        <span class="undo-note-row" id="board-undo-note-host">${undoNote()}</span>
+      </div>`;
+}
+
 export function boardView() {
   const st = ctx.state;
   const b = boardState();
   const esc = ctx.esc;
   if (!st.armies.A || !st.armies.B) return `<p class="hint">Load both armies to plan on the board.</p>`;
+  if (triMode()) return triView();
   const l = currentLayout();
   const ms = missionsFor(dispOf('A'), dispOf('B'));
   const dep = l ? DEPLOYMENTS[l.deployment] : null;
@@ -1101,14 +1256,7 @@ export function boardView() {
   const reuse = reusablePlan();
   // plan steps, Move / Ruler and the units still to place: above the map on a phone
   // (one swipeable line), at the top of the side pane on a tablet (the map gets the height)
-  const stepsRow = `<div class="row" style="gap:6px;flex-wrap:wrap">
-        ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
-        <button class="chip" data-action="board-step-add">＋ Next turn</button>
-        <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
-        <button class="chip" data-action="board-ar" id="board-ar" title="Live AR: this layout and plan over the camera view of your table">🥽 AR</button>
-        <span class="grow"></span>
-        ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}
-      </div>`;
+  const stepsRow = stepsRowHtml();
   const di = drillInfo();
   const trayHtml = di ? drillHtml(di) : left ? `<div class="unit-strip ${wideNow ? 'wrap' : ''}" id="board-tray" aria-label="Units not on the board: tap one to place it">
         <span class="tiny muted" style="flex:none">Place ${left}:</span>${tray('A')}${tray('B')}</div>` : '';
@@ -1158,7 +1306,140 @@ export function boardView() {
     <section class="section">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center" id="board-danger-bar">${dangerBar()}</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-arrive-bar">${arriveBar()}</div>
-      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
+      ${planToolsHtml()}
+    </section>
+  </div></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Tablet: three columns — my army | steps, map and plan tools | the opponent's army
+
+const otherSide = (X) => (X === 'A' ? 'B' : 'A');
+const sideInk = (X) => `var(--side-${X.toLowerCase()}-ink)`;
+
+function triView() {
+  const st = ctx.state, b = boardState(), esc = ctx.esc;
+  const me = st.armies[ctx.me?.()] ? ctx.me() : 'A', opp = otherSide(me);
+  const onDeploy = curIndex() === 0;
+  const reuse = reusablePlan();
+  const di = drillInfo();
+  return `<div class="tri ${onDeploy ? 'deploy' : ''}" id="board-tri" data-me="${me}">
+    <aside class="tri-l tri-army" id="board-army-${me}" data-side="${me}" style="--side-ink:${sideInk(me)}"><div id="board-army-${me}-in">${armyColInner(me)}</div></aside>
+    <div class="tri-c">
+      <section class="section b-steps">${stepsRowHtml()}<div id="board-treemap-host">${treeMapHtml()}</div></section>
+      ${onDeploy ? triSetupRow() : ''}
+      <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
+      ${di ? drillHtml(di) : ''}
+      ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
+      <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
+      <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
+        <button class="icon-btn" data-action="board-zoom" data-z="0.7" aria-label="Zoom in">＋</button>
+        <button class="icon-btn" data-action="board-zoom" data-z="1.4" aria-label="Zoom out">－</button>
+        <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
+    </div>
+    <div class="tri-t">
+      <div id="board-warnings-host">${stepWarningsHtml()}</div>
+      <section class="section">${triBelowMap(onDeploy)}${planToolsHtml()}</section>
+    </div>
+    <aside class="tri-r tri-army" id="board-army-${opp}" data-side="${opp}" style="--side-ink:${sideInk(opp)}"><div id="board-army-${opp}-in">${armyColInner(opp)}</div></aside>
+  </div>`;
+}
+
+/** Deploy step, above the map: the layout letter, the deployment, swap zones (locked during a game). */
+function triSetupRow() {
+  const l = currentLayout(), dep = l ? DEPLOYMENTS[l.deployment] : null, locked = setupLocked();
+  return `<div class="card tri-setup" id="board-setup">
+    ${locked ? `<div class="lockbox" id="board-setup-lock"><span class="grow">🔒 Mission set-up locked: a game is on the tracker (round ${ctx.gameRound?.() ?? '?'}). Changing it now changes both primaries and the map under that game.</span>
+      <button class="btn ghost" data-action="board-setup-unlock" id="board-setup-unlock">Change anyway</button></div>` : ''}
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <fieldset class="plain row" style="gap:8px;align-items:center" ${locked ? 'disabled' : ''}><span class="lab tiny muted">Layout</span>${ctx.seg('board-variant', l?.variant ?? 1, [[1, 'A'], [2, 'B'], [3, 'C']], 'compact')}</fieldset>
+      <span class="small grow">${ctx.esc(dep?.name ?? '')}</span>
+      <button class="btn ghost" data-action="board-swap-zones" ${locked ? 'disabled' : ''}>⇅ Swap zones</button>
+    </div></div>`;
+}
+
+/** Below the map: on Deploy the rest of the set-up (missions, measurements, sources); always Share. */
+function triBelowMap(onDeploy) {
+  const b = boardState(), esc = ctx.esc, l = currentLayout(), dep = l ? DEPLOYMENTS[l.deployment] : null;
+  const ms = missionsFor(dispOf('A'), dispOf('B'));
+  const share = `<button class="btn ghost" data-action="board-share">⇪ Share image</button>
+      <button class="btn ghost" data-action="share-link" data-from="board" id="share-board">🔗 Share link</button>`;
+  if (!onDeploy) return `<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap" id="board-setup-turn">
+      <span class="tiny muted grow">Dispositions, layout and zones are set on the Deploy step.</span>${share}</div>${ctx.shareLinkHtml?.('board') ?? ''}`;
+  return `<div class="small" id="board-mission"><b>A</b> plays <b>${esc(ms.A ?? '?')}</b> · <b>B</b> plays <b>${esc(ms.B ?? '?')}</b> · <span class="muted">${esc(dep?.name ?? '')} · A deploys in the <span style="color:var(--side-a-ink)">blue</span> zone</span></div>
+    <div class="row" style="gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">${ctx.chip('board-measure', !!b.measure, '📏 Table set-up measurements', 'id="board-measure-chip"')}<span class="grow"></span>${share}</div>
+    ${ctx.shareLinkHtml?.('board') ?? ''}
+    <details class="tiny muted" style="margin-top:6px"><summary>Where the layouts come from</summary><div id="board-layout-source">Layouts: ${esc(LAYOUTS_SOURCE.version)} (${esc(LAYOUTS_SOURCE.date)}; ${esc(LAYOUTS_SOURCE.note)}). Checked ${esc(longDate(LAYOUTS_SOURCE.checked))}: ${esc(LAYOUTS_SOURCE.sample)}.</div></details>`;
+}
+
+/** One army's column: who they are, their mission, their overlays, the matchup card when one of theirs is the target, their units. */
+function armyColInner(X) {
+  const st = ctx.state, b = boardState(), esc = ctx.esc;
+  const a = st.armies[X];
+  if (!a) return '';
+  const onDeploy = curIndex() === 0, locked = setupLocked();
+  const toks = placed();
+  const emb = embarkedIn(stepTokens());
+  const byTk = new Map(toks.map(t => [t.tk, t]));
+  const ms = missionsFor(dispOf('A'), dispOf('B'));
+  const pts = a.units.reduce((n, u) => n + (u.points || 0), 0);
+  const me = (ctx.me?.() ?? 'A') === X;
+  const score = ctx.gameScore?.(), g = st.mission?.game;
+  const live = score?.started && g;
+  const di = drillInfo();
+  const s1 = byTk.get(b.sel) ?? null, s2 = byTk.get(b.sel2) ?? null;
+  const onBoardN = a.units.filter(u => byTk.has(`${X}:${u.key}`) || emb.has(`${X}:${u.key}`)).length;
+  const dispSel = `<select class="sel" data-input="board-disp" data-side="${X}" aria-label="Force Disposition of army ${X}">
+      ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(X) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
+  const rows = a.units.map(u => {
+    const tk = `${X}:${u.key}`, t = byTk.get(tk);
+    const dot = `<span class="tri-dot" aria-hidden="true"></span>`;
+    if (t) {
+      const isSel = tk === b.sel, isTgt = tk === b.sel2;
+      const row = `<button class="tri-unit ${isSel ? 'sel' : ''} ${isTgt ? 'tgt' : ''}" data-action="board-pick" data-tk="${esc(tk)}" aria-pressed="${isSel || isTgt}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${isTgt ? 'target' : 'on board'}</span></button>`;
+      return isSel ? `<div class="tri-selbox">${row}<div id="board-panel">${triUnitPanel(t, toks)}</div></div>` : row;
+    }
+    if (emb.has(tk)) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">embarked</span></div>`;
+    // in a drop drill the drill card in the middle sets units up, one at a time
+    if (di) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${di.res.has(tk) ? 'reserves' : 'to set up'}</span></div>`;
+    return `<button class="tri-unit off" data-action="board-place" data-side="${X}" data-key="${esc(u.key)}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny tri-add">${onDeploy ? '＋ Place' : 'reserves ＋'}</span></button>`;
+  }).join('');
+  return `<div class="row" style="align-items:baseline;gap:6px"><b class="tri-letter">${X}</b><b class="grow ellipsis">${esc(a.faction)}${me ? ' <span class="tiny muted">(me)</span>' : ''}</b><span class="tiny muted">${pts} pts</span></div>
+    ${onDeploy ? `<fieldset class="plain" style="margin-top:6px" ${locked ? 'disabled' : ''}>${dispSel}</fieldset>${dispOverridden(X) ? `<div class="warnbox" id="board-disp-override-${X}"><b>${X}</b> is set to <b>${esc(dispositionName(dispOf(X)))}</b> here, but ${X}'s list says <b>${esc(dispositionName(listDisp(X)))}</b>. The missions and layouts follow the one set here.
+      <button class="btn" style="margin-top:6px" data-action="board-disp-list" data-side="${X}">Use the list's</button></div>` : ''}` : ''}
+    <div class="tiny" style="margin-top:4px">Plays <b>${esc(ms[X] ?? '?')}</b>${live ? ` · <span id="board-score-${X}">VP ${score[X]} · CP ${g[X]?.cp ?? 0}</span>` : ''}</div>
+    <div class="chips" style="margin-top:6px">
+      <button class="chip ${b.danger === X ? 'on' : ''}" data-action="board-danger" data-value="${b.danger === X ? 'off' : X}" id="board-danger-${X}" aria-pressed="${b.danger === X}" aria-label="Danger next turn from ${X}" title="Where ${X} can shoot and charge next turn">⚠ Danger</button>
+      <button class="chip ${b.arrive === X ? 'on' : ''}" data-action="board-arrive" data-value="${b.arrive === X ? 'off' : X}" id="board-arrive-${X}" aria-pressed="${b.arrive === X}" aria-label="Where ${X}'s reserves can arrive" title="Where ${X}'s reserves can arrive">⇣ Reserves</button>
+    </div>
+    ${b.danger === X ? `<div class="row tri-detail" style="gap:6px;flex-wrap:wrap;align-items:center">${dangerDetailHtml(b)}</div>` : ''}
+    ${b.arrive === X ? `<div class="row tri-detail" style="gap:6px;flex-wrap:wrap;align-items:center">${arriveDetailHtml(b)}</div>` : ''}
+    ${s1 && s2 && s2.side === X ? pairHtml(s1, s2) : ''}
+    <div class="lab tiny muted" style="margin-top:8px">Units · ${onBoardN}/${a.units.length} on the board</div>
+    <div class="tri-list">${rows}</div>`;
+}
+
+/** The selected unit, under its row: what to show around it first; position, facing and formation folded. */
+function triUnitPanel(s1, toks) {
+  const b = boardState();
+  return `<div class="tiny muted">${statsLine(s1)}</div>
+    <div class="lab tiny muted" style="margin-top:6px">Show around it</div><div class="chips tri-rings">${ringsHtml(s1)}</div>
+    ${seeNote()}
+    ${coherencyHtml(s1)}
+    <div class="row" style="gap:6px;margin-top:6px">
+      <button class="chip ${b.posOpen ? 'on' : ''}" data-action="board-pos-toggle" id="board-pos-toggle" aria-expanded="${!!b.posOpen}">Position · facing · formation ${b.posOpen ? '▴' : '▾'}</button>
+      <span class="grow"></span><button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
+    ${b.posOpen ? `<div id="board-pos-box">${posHtml(s1)}${spacingHtml(s1)}</div>` : ''}
+    ${transportPanel(s1)}
+    ${scoutPanel(s1)}
+    ${hullPanel(s1)}
+    ${threatHtml(s1, toks)}`;
+}
+
+/** Plans (Main, copies, going first / second), the drop drill, branches and the table photo. */
+function planToolsHtml() {
+  const st = ctx.state, b = boardState(), esc = ctx.esc;
+  return `      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center" id="board-variants">
         <span class="lab tiny muted">Plan</span>
         ${planRoot() ? planRoot().variants.map((vv, i) => (vv.parent != null ? '' : `<button class="chip ${i === rootOf(planRoot().variants, planRoot().v) ? 'on' : ''}" data-action="board-plan-pick" data-i="${i}">${esc(vv.name)}</button>`)).join('') : ''}
         <button class="chip" data-action="board-plan-copy">＋ Copy plan</button>
@@ -1170,9 +1451,7 @@ export function boardView() {
         <div class="row" style="gap:6px;margin-top:6px">${['A', 'B'].map(X => `<button class="btn grow" data-action="board-drill-start" data-first="${X}" style="border-color:${C[X]}">${X} · ${esc(st.armies[X].faction)}</button>`).join('')}</div></div>` : ''}
       ${splitNote()}
       <div id="board-tree-host">${treeHtml()}</div>
-      <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>
-    </section>
-  </div></div>`;
+      <div id="board-photo-bar" style="margin-top:6px">${photoBar()}</div>`;
 }
 
 function heatInfoHtml(b) {
@@ -1188,7 +1467,12 @@ function dangerBar() {
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
   return `<span class="lab tiny muted">⚠ Danger next turn</span>
     ${ctx.seg('board-danger', b.danger ?? 'off', [['off', 'Off'], ['A', 'From A'], ['B', 'From B']], 'compact')}
-    ${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
+    ${dangerDetailHtml(b)}`;
+}
+/** With a danger overlay on: heat map / shooting / charges and what the shading means. */
+function dangerDetailHtml(b) {
+  const kinds = b.dangerKinds ?? { shoot: true, charge: true };
+  return `${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
     <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
 }
 
@@ -1241,6 +1525,7 @@ async function photoTask(fn, label) {
 // Phone: the selected unit's main actions stay at the bottom of the screen, so the
 // map does not scroll away (the full panel is below the map; on a tablet it is beside it).
 function dockHtml() {
+  if (triMode()) return '';
   const b = boardState();
   if (b.mode === 'meas') { const i = measInfo(b.meas); return i ? `<div class="row" style="gap:8px;align-items:baseline" id="board-meas-dock"><span class="title grow">📐 ${fmtBase(i.edge)}${i.err != null ? ` <span class="small muted">± ${i.err.toFixed(1)}"</span>` : ''}</span><span class="tiny muted">centre ${i.centre.toFixed(1)}"</span><button class="chip" data-action="board-meas-clear">Clear</button></div>` : ''; }
   const esc = ctx.esc;
@@ -1313,18 +1598,11 @@ function transportPanel(s1) {
     <div class="tiny muted" style="margin-top:4px">Embarked units are off the battlefield: they move with the transport, control no objective and cannot be targeted. They stay inside in later turns until they disembark (set up wholly within 3" of the transport).</div></div>`;
 }
 
-function selectionPanel() {
-  const b = boardState();
-  if (b.mode === 'meas') return measPanel();
-  const esc = ctx.esc;
-  const toks = placed();
-  const s1 = toks.find(t => t.tk === b.sel);
-  if (!s1) return `<p class="hint">Tap a unit on the board to see its ranges; tap a second unit to measure the gap between them and calculate the attack.</p>`;
-  const s2 = toks.find(t => t.tk === b.sel2);
-  const u = s1.u;
+function ringsHtml(s1) {
+  const b = boardState(), u = s1.u;
   const ringChip = (k, lab) => ctx.chip('board-ring', !!b.rings[k], lab, `data-k="${k}"`);
   const det = detectionOf(s1);
-  const rings = [
+  return [
     det.range ? ringChip('detect', det.lone && det.lone <= det.range ? `Seen only within ${det.range}" (Lone Operative)` : `Seen only within ${det.range}" while Hidden`) : '',
     ringChip('see', '👁 What it can see'),
     ringChip('move', `Move ${u.move}"${u.moveBonus ? ` (+${u.moveBonus}" ${u.moveBonusFrom ?? 'detachment'})` : ''}`),
@@ -1333,25 +1611,11 @@ function selectionPanel() {
     ringChip('engage', 'Engagement 2"'),
     ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`)),
   ].join('');
-  let pair = '';
-  if (s2) {
-    const gap = unitGap(s1, s2);
-    const enemy = s1.side !== s2.side;
-    const sight = enemy ? pairSight(s1, s2) : null;
-    pair = `<div class="card" style="margin-top:8px"><div class="title">${esc(s1.u.cu.name)} → ${esc(s2.u.cu.name)}</div>
-      <div class="small" id="board-gap">Gap: <b>${gap.toFixed(1)}"</b> (closest bases)${gap <= ENGAGEMENT_RANGE ? ' · engaged' : ''}</div>
-      ${sight ? sightHtml(sight, s1, s2) : ''}
-      ${enemy ? `<div class="row" style="gap:6px;margin-top:8px">
-        ${u.ranges.length ? `<button class="btn primary grow" data-action="board-attack" data-phase="shooting">🎯 Shoot →</button>` : ''}
-        ${u.melee ? `<button class="btn primary grow" data-action="board-attack" data-phase="fight">⚔ Fight →</button>` : ''}
-      </div>${u.melee ? `<button class="btn ghost block" style="margin-top:6px" data-action="board-attack" data-phase="chain">⚡ ${u.ranges.length ? 'Shoot, charge and fight' : 'Charge and fight'} this turn →</button>` : ''}<div class="tiny muted" style="margin-top:4px">Opens the calculator with this gap as the distance${u.halfRangeWeapons.length ? ' (half range set from it)' : ''}${sight ? ', cover and the models that can see' : ''}.</div>` : ''}
-    </div>`;
-  }
-  return `<div class="card">
-    <div class="row"><div class="grow"><div class="title" style="color:var(--side-${s1.side.toLowerCase()}-ink)">${esc(s1.u.cu.name)}</div>
-      <div class="muted tiny">${s1.u.cu.models} models · M${u.move}"${u.ranges.length ? ` · ranges ${u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}</div></div>
-      <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
-    <div class="row" style="gap:6px;margin-top:8px;align-items:center">
+}
+const statsLine = (s1) => `${s1.u.cu.models} models · M${s1.u.move}"${s1.u.ranges.length ? ` · ranges ${s1.u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}`;
+/** Facing, nudge arrows, formation and the gap between bases. */
+function posHtml(s1) {
+  return `<div class="row" style="gap:6px;margin-top:8px;align-items:center">
       <span class="lab tiny muted grow">Facing ${Math.round(((s1.rot % 360) + 360) % 360)}°</span>
       <button class="icon-btn" data-action="board-rotate" data-deg="-45" aria-label="Rotate 45° left">↺</button>
       <button class="icon-btn" data-action="board-rotate" data-deg="-15" aria-label="Rotate 15° left">⟲</button>
@@ -1370,19 +1634,52 @@ function selectionPanel() {
       const opts = [2, 3, 5, 10].filter(k => k < n).map(k => [k, String(k)]);
       opts.push([n, 'Line']);
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
-    })() : ''}
+    })() : ''}`;
+}
+const spacingHtml = (s1) => (s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : '');
+function coherencyHtml(s1) {
+  // 03.03: within 2" of one other model and within 9" of every other model of the unit
+  const c = coherency(s1.models);
+  return c.ok ? '' : `<div class="tiny" id="board-coherency" style="color:var(--warn-ink);margin-top:4px">⚠ Not in coherency: ${c.widest > COHERENCY.all ? `two models are ${c.widest.toFixed(1)}" apart (every model must be within ${COHERENCY.all}" of every other)` : `${c.alone} model${c.alone > 1 ? 's are' : ' is'} more than ${COHERENCY.near}" from any other`} (03.03). Use fewer models per row.</div>`;
+}
+const seeNote = () => (boardState().rings.see ? '<div class="tiny muted" id="board-see-note" style="margin-top:4px">👁 Shaded: where a model on a 32 mm base would be visible to this unit (any part of it, 13.x sight lines through light and dense terrain). Geometric only — no rule that changes visibility, and not a table ruling.</div>' : '');
+/** The matchup card: gap, line of sight, cover, and Shoot → / Fight → into the calculator. */
+function pairHtml(s1, s2) {
+  const esc = ctx.esc, u = s1.u;
+  const gap = unitGap(s1, s2);
+  const enemy = s1.side !== s2.side;
+  const sight = enemy ? pairSight(s1, s2) : null;
+  return `<div class="card" id="board-pair" style="margin-top:8px"><div class="title">${esc(s1.u.cu.name)} → ${esc(s2.u.cu.name)}</div>
+      <div class="small" id="board-gap">Gap: <b>${gap.toFixed(1)}"</b> (closest bases)${gap <= ENGAGEMENT_RANGE ? ' · engaged' : ''}</div>
+      ${sight ? sightHtml(sight, s1, s2) : ''}
+      ${enemy ? `<div class="row" style="gap:6px;margin-top:8px">
+        ${u.ranges.length ? `<button class="btn primary grow" data-action="board-attack" data-phase="shooting">🎯 Shoot →</button>` : ''}
+        ${u.melee ? `<button class="btn primary grow" data-action="board-attack" data-phase="fight">⚔ Fight →</button>` : ''}
+      </div>${u.melee ? `<button class="btn ghost block" style="margin-top:6px" data-action="board-attack" data-phase="chain">⚡ ${u.ranges.length ? 'Shoot, charge and fight' : 'Charge and fight'} this turn →</button>` : ''}<div class="tiny muted" style="margin-top:4px">Opens the calculator with this gap as the distance${u.halfRangeWeapons.length ? ' (half range set from it)' : ''}${sight ? ', cover and the models that can see' : ''}.</div>` : ''}
+    </div>`;
+}
+
+function selectionPanel() {
+  const b = boardState();
+  if (b.mode === 'meas') return measPanel();
+  const esc = ctx.esc;
+  const toks = placed();
+  const s1 = toks.find(t => t.tk === b.sel);
+  if (!s1) return `<p class="hint">Tap a unit on the board to see its ranges; tap a second unit to measure the gap between them and calculate the attack.</p>`;
+  const s2 = toks.find(t => t.tk === b.sel2);
+  return `<div class="card">
+    <div class="row"><div class="grow"><div class="title" style="color:var(--side-${s1.side.toLowerCase()}-ink)">${esc(s1.u.cu.name)}</div>
+      <div class="muted tiny">${statsLine(s1)}</div></div>
+      <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
+    ${posHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
     ${hullPanel(s1)}
-    ${s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : ''}
-    ${(() => {
-      // 03.03: within 2" of one other model and within 9" of every other model of the unit
-      const c = coherency(s1.models);
-      return c.ok ? '' : `<div class="tiny" id="board-coherency" style="color:var(--warn-ink);margin-top:4px">⚠ Not in coherency: ${c.widest > COHERENCY.all ? `two models are ${c.widest.toFixed(1)}" apart (every model must be within ${COHERENCY.all}" of every other)` : `${c.alone} model${c.alone > 1 ? 's are' : ' is'} more than ${COHERENCY.near}" from any other`} (03.03). Use fewer models per row.</div>`;
-    })()}
-    <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${rings}</div>
-    ${b.rings.see ? '<div class="tiny muted" id="board-see-note" style="margin-top:4px">👁 Shaded: where a model on a 32 mm base would be visible to this unit (any part of it, 13.x sight lines through light and dense terrain). Geometric only — no rule that changes visibility, and not a table ruling.</div>' : ''}
-    ${pair}
+    ${spacingHtml(s1)}
+    ${coherencyHtml(s1)}
+    <div class="lab tiny muted" style="margin-top:8px">Show around this unit</div><div class="chips">${ringsHtml(s1)}</div>
+    ${seeNote()}
+    ${s2 ? pairHtml(s1, s2) : ''}
     ${threatHtml(s1, toks)}
   </div>`;
 }
@@ -1466,8 +1763,18 @@ function threatHtml(s1, toks) {
 export function refreshBoard() {
   const host = document.getElementById('board-host');
   if (host) host.innerHTML = boardSvg();
-  const panel = document.getElementById('board-panel');
-  if (panel) panel.innerHTML = selectionPanel();
+  refreshUndo();
+  const tri = document.getElementById('board-tri');
+  if (tri) {
+    // three columns: each army's column holds its units, the selected unit and the matchup card
+    for (const X of ['A', 'B']) { const el = document.getElementById(`board-army-${X}-in`); if (el) el.innerHTML = armyColInner(X); }
+    const mh = document.getElementById('board-meas-host');
+    if (mh) { const b = boardState(); mh.innerHTML = b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''; }
+    revealSelected();
+  } else {
+    const panel = document.getElementById('board-panel');
+    if (panel) panel.innerHTML = selectionPanel();
+  }
   const warn = document.getElementById('board-warnings-host');
   if (warn) warn.innerHTML = stepWarningsHtml();
   const dock = document.getElementById('board-dock');
@@ -1623,7 +1930,10 @@ function wireBoard() {
     if (g.kind === 'meas') {
       const i = measInfo(b.meas);
       if (i) console.log(`[board] base to base: ${i.edge.toFixed(2)}" (centre ${i.centre.toFixed(2)}")${i.err != null ? ` ±${i.err.toFixed(2)} on the photo, ${Math.round(i.ppi)} px/inch` : ''}`);
-      const panel = document.getElementById('board-panel'); if (panel) panel.innerHTML = selectionPanel();
+      // three columns: the measuring panel is above the map; on a phone it is the selection panel
+      const mh = document.getElementById('board-meas-host');
+      if (mh) mh.innerHTML = `<div style="margin-bottom:8px">${measPanel()}</div>`;
+      else { const panel = document.getElementById('board-panel'); if (panel) panel.innerHTML = selectionPanel(); }
       const dock = document.getElementById('board-dock'); if (dock) dock.innerHTML = dockHtml();
       return;
     }
@@ -1661,6 +1971,20 @@ export function boardAction(action, el) {
   const b = boardState();
   const st = ctx.state;
   switch (action) {
+    case 'board-undo':
+      return undoBoard() ? 'render' : null;
+    case 'board-redo':
+      return redoBoard() ? 'render' : null;
+    case 'board-pick':
+      // three columns: a tap on a unit in an army's list = a tap on it on the map
+      selectToken(el.dataset.tk);
+      console.log(`[board] picked ${el.dataset.tk} from the list (sel ${b.sel ?? '-'}, target ${b.sel2 ?? '-'})`);
+      refreshBoard();
+      return null;
+    case 'board-pos-toggle':
+      b.posOpen = !b.posOpen;
+      refreshBoard();
+      return null;
     case 'board-open-setup': {
       // from the Mission tab's set-up checklist: the Board, on the Deploy step (where the set-up is)
       const p = plan();
@@ -2164,6 +2488,16 @@ export function boardChange(el) {
 
 export function afterRender() {
   wireBoard();
+  revealSelected();
+}
+/** Three columns: keep the selected unit (and the matchup card) in view inside its army's column. */
+function revealSelected() {
+  for (const q of ['#board-tri .tri-selbox', '#board-tri #board-pair']) {
+    const el = document.querySelector(q), col = el?.closest('.tri-army');
+    if (!el || !col || col.scrollHeight <= col.clientHeight + 1) continue;
+    const r = el.getBoundingClientRect(), c = col.getBoundingClientRect();
+    if (r.top < c.top || r.top > c.bottom - 60) col.scrollTop += r.top - c.top - 8;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2264,6 +2598,7 @@ export function persistBoardNow() { persistBoard(); }
 /** Put a saved game's board back: its layout and dispositions, and its plans (other plans stay). */
 export function boardRestore(snap) {
   const b = boardState();
+  b.hist = null;      // a saved game put back is not an undoable change
   b.settings = { ...(b.settings.photoMap ? { photoMap: b.settings.photoMap } : {}), ...(snap?.settings ?? {}) };
   Object.assign(b.plans, JSON.parse(JSON.stringify(snap?.plans ?? {})));
   b.sel = b.sel2 = null; b.view = null; b.danger = null; b.arrive = null;
