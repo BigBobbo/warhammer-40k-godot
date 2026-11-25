@@ -590,19 +590,28 @@ function stepTokens() {
 // Units on the board
 
 const unitCache = new Map();
-function unitInfo(side, key) {
+/** A unit on the board as of a plan step (models left by that step's battle round: Deploy 0, Turn N = N). */
+function unitInfo(side, key, round = curIndex()) {
   const army = ctx.state.armies[side];
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
   const hulls = hullSizes(), mine = cu.members.map(m => hulls[m.dcUnit.name]).filter(Boolean);
-  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}`;
+  // models left (the game on the tracker): the board shows the models that are left
+  const gl = ctx.groupsLeft?.(side, cu, round) ?? [];
+  const aliveOf = new Map();
+  for (const g of gl) aliveOf.set(g.member, (aliveOf.get(g.member) ?? 0) + g.left);
+  const lostSig = gl.some(g => g.left < g.count) ? gl.map(g => g.left).join(',') : '';
+  const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}|${lostSig}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu, army);
+    const total = bu.members.reduce((a, m) => a + m.count, 0);
+    if (lostSig) bu.members = bu.members.map((m, i) => ({ ...m, count: aliveOf.get(cu.members[i].index) ?? m.count })).filter(m => m.count > 0);
+    const left = bu.members.reduce((a, m) => a + m.count, 0);
     // a hull size you measured replaces the rough one (length across the token, width down it)
     for (const m of bu.members) { const h = hulls[m.label]; if (h && m.fp.approx && m.fp.shape === 'rect') m.fp = { shape: 'rect', hw: h.l / 2, hh: h.w / 2, measured: true }; }
     // Objective Control: each model's OC (datasheet), summed over the unit
-    const oc = cu.members.reduce((a, m) => a + (parseInt(m.dcUnit.profiles?.[0]?.OC, 10) || 0) * (m.ru.model_count ?? 1), 0);
-    unitCache.set(ck, { cu, ...bu, oc, models: coherentFormation(bu.members), formations: new Map() });
+    const oc = bu.members.reduce((a, m) => a + (m.oc || 0) * m.count, 0);
+    unitCache.set(ck, { cu, ...bu, oc, left, total, dead: left === 0, models: left ? coherentFormation(bu.members) : [], formations: new Map() });
   }
   return unitCache.get(ck);
 }
@@ -645,7 +654,7 @@ function placed() {
     if (pos?.in) continue; // embarked
     const [side, key] = tk.split(':');
     const u = unitInfo(side, key);
-    if (u) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, gap: Number.isFinite(pos.gap) ? pos.gap : null, models: tokenModels(u, pos), u });
+    if (u && !u.dead) out.push({ tk, side, key, x: pos.x, y: pos.y, rot: pos.rot ?? 0, per: pos.per ?? 5, gap: Number.isFinite(pos.gap) ? pos.gap : null, models: tokenModels(u, pos), u });
   }
   return out;
 }
@@ -1074,28 +1083,87 @@ function dangerSvg(b) {
     const at = b.heatAt;
     return heatSvg(side) + (at ? `<circle id="heat-at" cx="${f2(at.x)}" cy="${f2(at.y)}" r="0.6" fill="none" stroke="#111" stroke-width="0.2" pointer-events="none"/>` : '');
   }
-  const layers = { shoot: [], likely: [], possible: [] };
+  const layers = { likely: [], possible: [] };
   for (const t of placed().filter(x => x.side === side)) {
-    const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
     const likely = t.u.melee ? chargeReach(t.u.move, 0.8) : null, possible = t.u.melee ? chargeReach(t.u.move, 0.4) : null;
     for (const m of t.models) {
       const r = Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0);
       const cx = f2(t.x + m.dx), cy = f2(t.y + m.dy);
-      if (kinds.shoot && maxR) layers.shoot.push(`<circle cx="${cx}" cy="${cy}" r="${f2(t.u.move + maxR + r)}"/>`);
       if (kinds.charge && possible) layers.possible.push(`<circle cx="${cx}" cy="${cy}" r="${f2(possible + r)}"/>`);
       if (kinds.charge && likely) layers.likely.push(`<circle cx="${cx}" cy="${cy}" r="${f2(likely + r)}"/>`);
     }
   }
   const col = C[side];
-  // shooting reach is hatched (it often covers most of the board), charges are solid
+  const shoot = kinds.shoot ? shootCells(side) : null;
+  // shooting: hatched squares (what they can see and reach); charges: solid. All of it on the board only.
   return `<defs><filter id="dz-blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="0.5"/></filter>`
-    + `<pattern id="dz-hatch" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.25" height="1.4" fill="${col}"/></pattern></defs>`
-    + `<g id="danger-layer" data-from="${side}" pointer-events="none">`
-    + (layers.shoot.length ? `<g data-dz="shoot" fill="url(#dz-hatch)" opacity="0.3">${layers.shoot.join('')}</g>` : '')
+    + `<clipPath id="dz-board"><rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}"/></clipPath>`
+    + `<pattern id="dz-hatch" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.3" height="1.4" fill="${col}"/></pattern></defs>`
+    + `<g id="danger-layer" data-from="${side}" pointer-events="none" clip-path="url(#dz-board)">`
+    + (shoot ? `<g data-dz="shoot" data-cells="${shoot.n}" data-total="${shoot.total}" fill="url(#dz-hatch)" opacity="0.55">${cellRects(shoot)}</g>` : '')
     + `<g filter="url(#dz-blur)">`
     + (layers.possible.length ? `<g data-dz="charge-possible" fill="#c0392b" opacity="0.12">${layers.possible.join('')}</g>` : '')
     + (layers.likely.length ? `<g data-dz="charge-likely" fill="#c0392b" opacity="0.2">${layers.likely.join('')}</g>` : '')
     + '</g></g>';
+}
+
+// Where an army can shoot next turn, square by square (1"): a square is hatched when a unit of that army can SEE
+// it from where it stands now (13.x sight lines through the layout's terrain, a 32 mm base as the target) and it
+// is within that unit's move + longest range. Sight is taken from up to 6 of the unit's models (its outermost
+// ones), and cached per unit position, so dragging your own units does not recompute it.
+const dzCache = new Map();
+function repModels(models) {
+  if (models.length <= 6) return models;
+  const by = (f) => models.reduce((a, m) => (f(m) < f(a) ? m : a));
+  const pick = new Set([by(m => m.dx), by(m => -m.dx), by(m => m.dy), by(m => -m.dy), models[0], models[Math.floor(models.length / 2)]]);
+  return [...pick];
+}
+function shootCells(side) {
+  const l = currentLayout();
+  if (!l) return null;
+  const t0 = performance.now();
+  let fresh = 0;
+  const acc = { cols: 44, rows: 60, step: 1, cells: new Uint8Array(44 * 60) };
+  for (const t of placed().filter(x => x.side === side && x.u.ranges.length)) {
+    const reach = t.u.move + Math.max(...t.u.ranges);
+    const key = `${l.id}|${t.tk}|${t.x.toFixed(2)}|${t.y.toFixed(2)}|${t.rot}|${t.models.length}|${reach}|${t.models.map(m => `${m.dx.toFixed(1)},${m.dy.toFixed(1)}`).join(';')}`;
+    let v = dzCache.get(key);
+    if (!v) {
+      fresh++;
+      const rep = repModels(t.models);
+      const seen = visibleCells({ x: t.x, y: t.y, models: rep }, l.pieces);
+      const cells = new Uint8Array(seen.cells.length);
+      for (let i = 0; i < seen.cols; i++) for (let j = 0; j < seen.rows; j++) {
+        const k = i * seen.rows + j;
+        if (!seen.cells[k]) continue;
+        const x = (i + 0.5) * seen.step, y = (j + 0.5) * seen.step;
+        // within move + range of any model (base edge to the middle of the square)
+        if (t.models.some(m => Math.hypot(t.x + m.dx - x, t.y + m.dy - y) - Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0) <= reach)) cells[k] = 1;
+      }
+      v = cells;
+      dzCache.set(key, v);
+      if (dzCache.size > 200) dzCache.delete(dzCache.keys().next().value);
+    }
+    for (let k = 0; k < v.length; k++) if (v[k]) acc.cells[k] = 1;
+  }
+  const n = acc.cells.reduce((s, c) => s + c, 0);
+  if (fresh) console.log(`[board] shooting danger from ${side}: ${n} of ${acc.cells.length} squares (${fresh} unit(s) worked out, ${Math.round(performance.now() - t0)} ms)`);
+  return { ...acc, n, total: acc.cells.length };
+}
+/** One rectangle per run of marked squares down a column. */
+function cellRects(v) {
+  const out = [];
+  for (let i = 0; i < v.cols; i++) {
+    let j = 0;
+    while (j < v.rows) {
+      if (!v.cells[i * v.rows + j]) { j++; continue; }
+      let k = j;
+      while (k < v.rows && v.cells[i * v.rows + k]) k++;
+      out.push(`<rect x="${i * v.step}" y="${j * v.step}" width="${v.step}" height="${(k - j) * v.step}"/>`);
+      j = k;
+    }
+  }
+  return out.join('');
 }
 
 // Where an army's reserves can be set up in this step (planeval.arrivalZones): hatched = within 6" of an edge
@@ -1247,9 +1315,10 @@ export function boardView() {
       ${DISPOSITIONS.map(d => `<option value="${d.id}" ${d.id === dispOf(side) ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>`;
   const toks = placed();
   const onBoard = new Set([...toks.map(t => t.tk), ...embarkedIn(stepTokens()).keys()]);
-  const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`))
+  const tray = (side) => st.armies[side].units.filter(u => !onBoard.has(`${side}:${u.key}`) && !unitInfo(side, u.key)?.dead)
     .map(u => `<button class="chip" data-action="board-place" data-side="${side}" data-key="${esc(u.key)}" style="border-color:${C[side]}">＋ ${esc(u.name)}</button>`).join('');
-  const left = st.armies.A.units.length + st.armies.B.units.length - onBoard.size;
+  const dead = ['A', 'B'].reduce((n, X) => n + st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`) && unitInfo(X, u.key)?.dead).length, 0);
+  const left = st.armies.A.units.length + st.armies.B.units.length - onBoard.size - dead;
   // The map comes first (one column on a phone; the left pane on a tablet): the plan
   // steps and the units still to place sit right above it, everything else below / beside.
   const wideNow = ctx.wide?.() ?? false;
@@ -1394,9 +1463,12 @@ function armyColInner(X) {
   const rows = a.units.map(u => {
     const tk = `${X}:${u.key}`, t = byTk.get(tk);
     const dot = `<span class="tri-dot" aria-hidden="true"></span>`;
+    const ui = unitInfo(X, u.key);
+    if (ui?.dead) return `<div class="tri-unit off dead" data-dead="${esc(tk)}">${dot}<span class="nm">${esc(u.name)}</span><button class="linkish tiny" data-action="loss-reset" data-side="${X}" data-unit="${esc(u.key)}" title="Destroyed (no models left): tap to bring it back at full strength">destroyed ↺</button></div>`;
+    const lost = ui && ui.left < ui.total ? `${ui.left}/${ui.total} · ` : '';
     if (t) {
       const isSel = tk === b.sel, isTgt = tk === b.sel2;
-      const row = `<button class="tri-unit ${isSel ? 'sel' : ''} ${isTgt ? 'tgt' : ''}" data-action="board-pick" data-tk="${esc(tk)}" aria-pressed="${isSel || isTgt}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${isTgt ? 'target' : 'on board'}</span></button>`;
+      const row = `<button class="tri-unit ${isSel ? 'sel' : ''} ${isTgt ? 'tgt' : ''}" data-action="board-pick" data-tk="${esc(tk)}" aria-pressed="${isSel || isTgt}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${lost}${isTgt ? 'target' : 'on board'}</span></button>`;
       return isSel ? `<div class="tri-selbox">${row}<div id="board-panel">${triUnitPanel(t, toks)}</div></div>` : row;
     }
     if (emb.has(tk)) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">embarked</span></div>`;
@@ -1430,6 +1502,7 @@ function triUnitPanel(s1, toks) {
       <button class="chip ${b.posOpen ? 'on' : ''}" data-action="board-pos-toggle" id="board-pos-toggle" aria-expanded="${!!b.posOpen}">Position · facing · formation ${b.posOpen ? '▴' : '▾'}</button>
       <span class="grow"></span><button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     ${b.posOpen ? `<div id="board-pos-box">${posHtml(s1)}${spacingHtml(s1)}</div>` : ''}
+    ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
     ${hullPanel(s1)}
@@ -1473,7 +1546,7 @@ function dangerBar() {
 function dangerDetailHtml(b) {
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
   return `${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
-    <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
+    <span class="tiny muted" style="flex-basis:100%" id="board-danger-note">Hatched: squares a unit of ${ctx.esc(b.danger)} can see from where it stands and reach with its longest gun after a normal move (move + range); clear squares are out of sight or out of reach. A move can open new sight lines. Red: where it can charge (dark ≥ 80%, light ≥ 40%; ignores terrain).</span>` : ''}`;
 }
 
 function photoBar() {
@@ -1612,7 +1685,7 @@ function ringsHtml(s1) {
     ...u.ranges.map(r => ringChip(`r${r}`, `Range ${r}"`)),
   ].join('');
 }
-const statsLine = (s1) => `${s1.u.cu.models} models · M${s1.u.move}"${s1.u.ranges.length ? ` · ranges ${s1.u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}`;
+const statsLine = (s1) => `${s1.u.left < s1.u.total ? `<b>${s1.u.left}</b> of ${s1.u.total} models left` : `${s1.u.cu.models} models`} · M${s1.u.move}"${s1.u.ranges.length ? ` · ranges ${s1.u.ranges.map(r => `${r}"`).join(', ')}` : ''}${s1.models.some(m => m.fp.approx) ? ' · footprint approximate' : ''}`;
 /** Facing, nudge arrows, formation and the gap between bases. */
 function posHtml(s1) {
   return `<div class="row" style="gap:6px;margin-top:8px;align-items:center">
@@ -1635,6 +1708,15 @@ function posHtml(s1) {
       opts.push([n, 'Line']);
       return `<div class="modrow" style="margin-top:6px"><div class="lab tiny muted">Formation (models per row)</div>${ctx.seg('board-formation', Math.min(s1.per, n), opts, 'compact')}</div>`;
     })() : ''}`;
+}
+/** Models left for the game on the tracker: shared with the Attack tab (attacker and target). */
+function lossHtml(s1) {
+  const round = curIndex();
+  const steppers = ctx.lossSteppers?.(s1.side, s1.u.cu, { round }) ?? '';
+  if (!steppers) return '';
+  const lost = s1.u.left < s1.u.total;
+  return `<details class="more board-losses" id="board-losses" ${lost || boardState().lossOpen ? 'open' : ''} style="margin-top:6px"><summary>Models left${lost ? ` · ${s1.u.left}/${s1.u.total}` : ''}</summary>${steppers}
+    <div class="tiny muted">${round ? `Lost in Turn ${round} (battle round ${round})` : 'Set at deployment'}: gone from this turn on, not in earlier turns. The same models are gone on the Attack tab for that round, whether this unit attacks or is the target. A unit with none left is taken off the board.</div></details>`;
 }
 const spacingHtml = (s1) => (s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : '');
 function coherencyHtml(s1) {
@@ -1672,6 +1754,7 @@ function selectionPanel() {
       <div class="muted tiny">${statsLine(s1)}</div></div>
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     ${posHtml(s1)}
+    ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
     ${hullPanel(s1)}
@@ -2352,7 +2435,7 @@ export function boardAction(action, el) {
       const phase = chain ? 'shooting' : el.dataset.phase;
       const sight = phase === 'shooting' ? pairSight(s1, s2) : null;
       ctx.openAttack({
-        chain, side: s1.side, phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half,
+        chain, side: s1.side, phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half, round: curIndex(),
         ...(sight ? { cover: sight.cover, inRange: sight.seeingBody < sight.body ? sight.seeingBody : null } : {}),
       });
       return 'render';
@@ -2555,15 +2638,15 @@ export function boardPlans() {
   if (!root) return [];
   return root.variants.map((vv, vi) => ({
     index: vi, name: choiceLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
-    steps: resolveSteps(root.variants, vi).map(st => {
+    steps: resolveSteps(root.variants, vi).map((st, si) => {
       const out = { name: st.name, A: [], B: [], embarked: { A: [], B: [] } };
       const inside = embarkedIn(st.tokens);
       for (const [tk, x] of inside) { const [s, k] = tk.split(':'), u = unitInfo(s, k), tu = unitInfo(...x.split(':')); if (u) out.embarked[s].push({ key: tk, name: u.cu.name, in: x, transport: tu?.cu.name ?? x }); }
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
         if (pos?.in) continue; // embarked: not on the battlefield
         const [side, key] = tk.split(':');
-        const u = unitInfo(side, key);
-        if (!u) continue;
+        const u = unitInfo(side, key, si);
+        if (!u || u.dead) continue;   // no models left by this turn's round: destroyed
         out[side].push({ key: tk, name: u.cu.name, x: pos.x, y: pos.y, models: tokenModels(u, pos), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: u.cu.points ?? 0,
           keywords: u.cu.keywords ?? [], lone: u.flags?.loneOperative || 0, flags: u.flags ?? {} });
       }

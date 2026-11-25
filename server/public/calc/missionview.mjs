@@ -249,6 +249,58 @@ export function pairWipe(atkTk, defTk) {
   const c = m.pairs.table[atkTk]?.[defTk];
   return c ? { shoot: c.shoot ?? 0, fight: c.fight ?? 0 } : { shoot: 0, fight: 0 };
 }
+/**
+ * Models lost in the game on the tracker, by battle round (see app.js lossesOf): each change is kept with the
+ * round it happened in, so a Board turn shows the models left by its round. change: { side, unit, unitName, group,
+ * groupName, field: 'count' | 'woundsLeftFirst', delta (±1), count, W, round } | { side, unit, unitName, reset }
+ * | { side, clearSide }. Each change can be taken back with the tracker's Undo.
+ */
+export function missionLoss(c) {
+  const m = ms(), g = m.game;
+  const L = (g.lossLog ??= { A: {}, B: {} });
+  L[c.side] ??= {};
+  if (c.clearSide) { if (Object.keys(L[c.side]).length) { console.log(`[mission] models left: ${c.side}'s list changed, its record is cleared`); L[c.side] = {}; persist(); } return; }
+  if (c.reset) {
+    remember(`${c.unitName}: back to full strength`);
+    delete L[c.side][c.unit];
+    console.log(`[mission] models left: ${c.side} ${c.unitName} back to full strength (every round)`);
+    persist();
+    return;
+  }
+  const R = Math.max(0, Math.round(c.round ?? g.round ?? 1));
+  const U = (L[c.side][c.unit] ??= {}), G = (U[c.group] ??= {});
+  const upTo = (r) => Object.entries(G).filter(([k]) => Number(k) <= r);
+  if (c.field === 'count') {
+    const left = Math.max(0, c.count - upTo(R).reduce((a, [, e]) => a + (e.lost ?? 0), 0));
+    if (c.delta < 0) {
+      if (left <= 0) return;
+      remember(`${c.unitName}: one ${c.groupName} lost (round ${R})`);
+      const e = (G[R] ??= {}); e.lost = (e.lost ?? 0) + 1;
+    } else {
+      if (left >= c.count) return;
+      // a model back: the most recent loss at or before this round is taken back
+      const back = upTo(R).filter(([, e]) => (e.lost ?? 0) > 0).sort((a, b) => Number(b[0]) - Number(a[0]))[0];
+      if (!back) return;
+      remember(`${c.unitName}: one ${c.groupName} back`);
+      back[1].lost -= 1;
+      if (!back[1].lost) delete back[1].lost;
+    }
+    console.log(`[mission] models left: ${c.side} ${c.unitName} ${c.groupName} ${left} -> ${left + (c.delta < 0 ? -1 : 1)} at round ${R}`);
+  } else {
+    const wlAt = (r) => { const e = upTo(r).filter(([, x]) => x.wl != null).sort((a, b) => Number(b[0]) - Number(a[0]))[0]; return e ? e[1].wl : c.W; };
+    const before = wlAt(R), after = Math.max(1, Math.min(c.W, before + c.delta));
+    if (after === before) return;
+    remember(`${c.unitName}: ${c.groupName} on ${after}W (round ${R})`);
+    const e = (G[R] ??= {}); e.wl = after;
+    const inherited = (() => { const p = Object.entries(G).filter(([k, x]) => Number(k) < R && x.wl != null).sort((a, b) => Number(b[0]) - Number(a[0]))[0]; return p ? p[1].wl : c.W; })();
+    if (after === inherited) delete e.wl;
+    console.log(`[mission] models left: ${c.side} ${c.unitName} ${c.groupName} wounds ${before} -> ${after} at round ${R}`);
+  }
+  for (const [k, e] of Object.entries(G)) if (!Object.keys(e).length) delete G[k];
+  if (!Object.keys(G).length) delete U[c.group];
+  if (!Object.keys(U).length) delete L[c.side][c.unit];
+  persist();
+}
 export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
 /** The mission state (for a saved game) and the saved game it came from. */
 export const missionState = () => ms();

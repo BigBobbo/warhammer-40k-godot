@@ -224,9 +224,9 @@ try {
 
   // --- casualties & damage on the target
   await page.locator('details[data-details="casualties"] > summary').tap();
-  await page.tap('button[data-action="dmg"][data-field="count"][data-delta="-1"]');
-  await page.tap('button[data-action="dmg"][data-field="woundsLeftFirst"][data-delta="-1"]');
-  await page.tap('button[data-action="dmg"][data-field="woundsLeftFirst"][data-delta="-1"]');
+  await page.tap('#target-losses button[data-action="loss"][data-field="count"][data-delta="-1"]');
+  await page.tap('#target-losses button[data-action="loss"][data-field="woundsLeftFirst"][data-delta="-1"]');
+  await page.tap('#target-losses button[data-action="loss"][data-field="woundsLeftFirst"][data-delta="-1"]');
   await settle(page);
   const scD = await page.evaluate(() => window.__calc.scenario());
   const megaG = scD.defender.groups[0];
@@ -727,6 +727,14 @@ try {
   // danger zones from the Orks + who threatens the Grey Hunters
   await page.tap('button[data-action="board-danger"][data-value="B"]');
   check('danger zones drawn from army B (shooting + charge bands)', (await page.locator('#board-svg #danger-layer[data-from="B"] [data-dz]').count()) >= 2);
+  // 1.130.0: shooting danger follows sight lines and stays on the board
+  const dz = await page.evaluate(() => {
+    const layer = document.querySelector('#board-svg #danger-layer'), g = layer?.querySelector('[data-dz="shoot"]');
+    const rects = [...(g?.querySelectorAll('rect') ?? [])].map(r => [+r.getAttribute('x'), +r.getAttribute('y'), +r.getAttribute('width'), +r.getAttribute('height')]);
+    return { clip: layer?.getAttribute('clip-path'), n: +(g?.dataset.cells ?? 0), total: +(g?.dataset.total ?? 0), inside: rects.every(([x, y, w, h]) => x >= 0 && y >= 0 && x + w <= 44 + 1e-6 && y + h <= 60 + 1e-6), rects: rects.length };
+  });
+  check('shooting danger: squares the Orks can see and reach, on the board only (terrain leaves gaps)', dz.clip === 'url(#dz-board)' && dz.inside && dz.n > 0 && dz.n < dz.total && dz.rects > 0, JSON.stringify(dz));
+  check('…and the note says it follows line of sight', /can see from where it stands/.test(await page.textContent('#board-danger-note')));
   check('Grey Hunters list the Ork units that threaten them next turn', /charge \d+%|🎯/.test(await page.textContent('#board-threats')), await page.textContent('#board-threats'));
   await page.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: join(SHOTS, 'calc_25_board_danger.png') });
@@ -4115,6 +4123,136 @@ Aggressor Squad (95 points)
     await pp4.evaluate(() => window.scrollTo(0, 0));
     await pp4.screenshot({ path: join(SHOTS, 'calc_130_board_undo_phone.png') });
     await pctx4.close();
+  }
+
+  // --- models left (1.131.0): one record per unit, by battle round — attacker (fewer weapons), target, Board turns
+  {
+    const lctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const lp = await lctx.newPage();
+    lp.on('pageerror', e => consoleErrors.push(`losses: ${e}`));
+    lp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`losses: ${m.text()}`); });
+    const ltxt = async (q) => (await lp.textContent(q)).replace(/\s+/g, ' ').trim();
+    const losses = () => lp.evaluate(() => ({ A: {}, B: Object.fromEntries(window.__calc.state.armies.B.units.map(u => [u.key, window.__calc.losses('B', u.key)])) }));
+    const fresh = async () => { await lp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 }); return lp.evaluate(() => window.__calc.state.result.meanKills); };
+    // the stepper row of a unit's biggest model group: tap − n times
+    const biggest = async (scope) => lp.evaluate((sc) => { const rows = [...document.querySelectorAll(`${sc} [data-loss-group]`)]; const best = rows.map(r => ({ k: r.dataset.lossGroup, n: Number(r.querySelector('.val').textContent.split('/')[1]) })).sort((a, b) => b.n - a.n)[0]; return best; }, scope);
+    const minus = async (scope, key, n) => { for (let i = 0; i < n; i++) await lp.locator(`${scope} [data-loss-group="${key}"] button[data-field="count"][data-delta="-1"]`).tap(); };
+    await lp.goto(`${BASE}/calc/`); await lp.waitForSelector('textarea[data-side="A"]');
+    await lp.fill('textarea[data-side="A"]', SW_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
+    await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
+    await lp.tap('button[data-action="view"][data-value="attack"]');
+    await lp.waitForSelector('select[data-input="target"]');
+    const tv = await lp.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await lp.selectOption('select[data-input="target"]', tv);
+    await lp.tap('button[data-action="open-add"]');
+    await lp.tap('.pick:has-text("Grey Hunters")');
+    const k0 = await fresh();
+    const uid = await lp.getAttribute('[data-attacker]', 'data-attacker');
+    const w0 = await lp.$$eval('[data-attacker] .weapon[data-row] .val', els => els.reduce((a, e) => a + Number(e.textContent.split('/')[0]), 0));
+    // the attacker loses half its models
+    await lp.locator(`#atk-losses-${uid} > summary`).tap();
+    const gh = await biggest(`#atk-losses-${uid}`);
+    await minus(`#atk-losses-${uid}`, gh.k, Math.floor(gh.n / 2));
+    const k1 = await fresh();
+    const w1 = await lp.$$eval('[data-attacker] .weapon[data-row] .val', els => els.reduce((a, e) => a + Number(e.textContent.split('/')[0]), 0));
+    const head = await ltxt('[data-attacker] .attacker-head');
+    check('Attack tab: half the Grey Hunters gone → the card says so, its weapons and its kills drop by about half',
+      /of \d+ models left/.test(head) && w1 < w0 * 0.75 && k1 < k0 * 0.75, JSON.stringify({ k0, k1, w0, w1, head }));
+    await lp.locator(`#atk-losses-${uid}`).scrollIntoViewIfNeeded();
+    await lp.screenshot({ path: join(SHOTS, 'calc_131_attack_models_left.png') });
+    // the target loses models too (the same record)
+    const t0 = await fresh();
+    if (!(await lp.$eval('#target-losses', d => d.open))) await lp.locator('#target-losses > summary').tap();
+    const boyz = await biggest('#target-losses');
+    await minus('#target-losses', boyz.k, 10);
+    const t1 = await fresh();
+    const L1 = await losses();
+    check('the target: 10 Boyz gone → kept in the game\'s record, the stat line and the odds follow',
+      L1.B?.[tv]?.[boyz.k]?.count === boyz.n - 10 && /Models left & damage · \d+\/\d+/.test(await ltxt('#target-losses > summary')) && t1 !== t0, JSON.stringify({ L1, t0, t1 }));
+    // swap: the Orks attack the Grey Hunters — the same Grey Hunters are gone
+    await lp.tap('button[data-action="swap"]');
+    const sel2 = await lp.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Grey Hunters/.test(o.textContent))?.value);
+    await lp.selectOption('select[data-input="target"]', sel2);
+    await lp.waitForSelector('#target-losses');
+    check('swap sides: as the target, the Grey Hunters are still at half strength (one record per unit)', (await ltxt(`#target-losses [data-loss-group="${gh.k}"] .val`)) === `${gh.n - Math.floor(gh.n / 2)}/${gh.n}`, await ltxt('#target-losses'));
+    await lp.tap('button[data-action="swap"]');
+    // the tracker's Undo takes a model back
+    await lp.tap('button[data-action="view"][data-value="mission"]');
+    await lp.tap('button[data-action="mission-tab"][data-value="play"]');
+    await lp.tap('#play-undo');
+    const L2 = await losses();
+    check('Mission → Play: ↶ Undo gives the last model back', L2.B?.[tv]?.[boyz.k]?.count === boyz.n - 9, JSON.stringify(L2));
+    await lctx.close();
+    // Board (tablet): the unit shows the models left; none left = off the board, "destroyed ↺" in its list
+    const bctx2 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const bp2 = await bctx2.newPage();
+    bp2.on('pageerror', e => consoleErrors.push(`losses board: ${e}`));
+    await bp2.goto(`${BASE}/calc/`); await bp2.waitForSelector('textarea[data-side="A"]');
+    await bp2.fill('textarea[data-side="A"]', SW_LIST); await bp2.tap('button[data-action="parse"][data-side="A"]');
+    await bp2.fill('textarea[data-side="B"]', ORK_LIST); await bp2.tap('button[data-action="parse"][data-side="B"]');
+    await bp2.tap('button[data-action="view"][data-value="board"]');
+    await bp2.waitForSelector('#board-tri');
+    await bp2.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    const ghTk = await bp2.evaluate(() => window.__calc.board().sel);
+    const nOn = () => bp2.evaluate((k) => window.__calc.board().units.find(u => u.tk === k)?.models.length ?? 0, ghTk);
+    const n10 = await nOn();
+    await bp2.tap('button[data-action="board-step-add"]');
+    await bp2.tap('button[data-action="board-step-add"]');
+    const pick = async () => { if ((await bp2.evaluate(() => window.__calc.board().sel)) !== ghTk) await bp2.locator(`button[data-action="board-pick"][data-tk="${ghTk}"]`).tap(); };
+    const step = async (i) => { await bp2.tap(`button[data-action="board-step"][data-i="${i}"]`); return nOn(); };
+    // Turn 2: half of them are lost
+    await pick();
+    await bp2.locator('#board-losses > summary').tap();
+    const bg = await bp2.evaluate(() => { const rows = [...document.querySelectorAll('#board-losses [data-loss-group]')]; return rows.map(r => ({ k: r.dataset.lossGroup, n: Number(r.querySelector('.val').textContent.split('/')[1]) })).sort((a, b) => b.n - a.n)[0]; });
+    for (let i = 0; i < 5; i++) await bp2.locator(`#board-losses [data-loss-group="${bg.k}"] button[data-field="count"][data-delta="-1"]`).tap();
+    check('Board, Turn 2: 5 Grey Hunters lost → 5 bases, the panel and its row say so',
+      (await nOn()) === n10 - 5 && /5 of 10 models left/.test(await bp2.textContent('#board-panel')) && /5\/10/.test(await bp2.textContent(`button[data-action="board-pick"][data-tk="${ghTk}"]`)) && /Lost in Turn 2/.test(await bp2.textContent('#board-losses')), `${n10} -> ${await nOn()}`);
+    await bp2.evaluate(() => window.scrollTo(0, 0));
+    await bp2.screenshot({ path: join(SHOTS, 'calc_132_board_models_left.png') });
+    const byTurn = { deploy: await step(0), t1: await step(1), t2: await step(2) };
+    await bp2.tap('button[data-action="board-step-add"]');
+    byTurn.t3 = await nOn();
+    check('turn by turn: Deploy and Turn 1 still show all 10; Turn 2 and the turns after show the 5 left', byTurn.deploy === 10 && byTurn.t1 === 10 && byTurn.t2 === 5 && byTurn.t3 === 5, JSON.stringify(byTurn));
+    // a loss in Turn 1 is carried into the later turns
+    await step(1); await pick();
+    if (!(await bp2.$eval('#board-losses', d => d.open))) await bp2.locator('#board-losses > summary').tap();
+    await bp2.locator(`#board-losses [data-loss-group="${bg.k}"] button[data-field="count"][data-delta="-1"]`).tap();
+    const carry = { t1: await nOn(), deploy: await step(0), t2: await step(2), t3: await step(3) };
+    check('one more lost in Turn 1: 9 in Turn 1, 4 in Turns 2 and 3, still 10 at deployment', carry.t1 === 9 && carry.t2 === 4 && carry.t3 === 4 && carry.deploy === 10, JSON.stringify(carry));
+    // the calculator from a Board turn uses that turn's models
+    await step(1);
+    const s1 = await bp2.evaluate(() => window.__calc.board().tokens);
+    await bp2.locator('#board-army-B button[data-action="board-place"]', { hasText: 'Warboss + Boyz' }).tap();
+    await bp2.tap('button[data-action="board-step"][data-i="1"]');
+    await pick();
+    const wbTk = await bp2.evaluate(() => window.__calc.board().tokens.find(t => t.tk.startsWith('B:')).tk);
+    await bp2.locator(`button[data-action="board-pick"][data-tk="${wbTk}"]`).tap();
+    await bp2.locator('#board-pair button[data-action="board-attack"][data-phase="shooting"]').tap();
+    await bp2.waitForSelector('#atk-round');
+    check('Shoot → from Turn 1: the Attack tab uses Turn 1\'s models (9 of 10 Grey Hunters) and says so', /as of Turn 1/.test(await bp2.textContent('#atk-round')) && /9 of 10 models left/.test(await bp2.textContent('[data-attacker] .attacker-head')), await bp2.textContent('[data-attacker] .attacker-head'));
+    await bp2.tap('button[data-action="atk-round-now"]');
+    check('"Use now": back to the tracker\'s battle round (round 1: 9 left — the Turn 2 losses are not there yet)', (await bp2.locator('#atk-round').count()) === 0 && /9 of 10 models left/.test(await bp2.textContent('[data-attacker] .attacker-head')));
+    await bp2.tap('button[data-action="view"][data-value="board"]');
+    await bp2.waitForSelector('#board-tri');
+    await step(3); await pick();
+    if (!(await bp2.$eval('#board-losses', d => d.open))) await bp2.locator('#board-losses > summary').tap();
+    // the rest, every model group: none left (the last tap takes the unit off the board, panel and all)
+    for (;;) {
+      const nxt = await bp2.evaluate(() => [...document.querySelectorAll('#board-losses [data-loss-group]')].map(r => ({ k: r.dataset.lossGroup, left: Number(r.querySelector('.val').textContent.split('/')[0]) })).find(g => g.left > 0) ?? null);
+      if (!nxt) break;
+      await bp2.locator(`#board-losses [data-loss-group="${nxt.k}"] button[data-field="count"][data-delta="-1"]`).tap();
+    }
+    const gone = await bp2.evaluate((k) => ({ on: window.__calc.board().units.some(u => u.tk === k), dead: !!document.querySelector(`[data-dead="${k}"]`) }), ghTk);
+    check('none left in Turn 3: off the board and its row says destroyed; Turn 2 still has it', !gone.on && gone.dead && (await step(2)) === 4, JSON.stringify(gone));
+    await step(3);
+    await bp2.locator(`[data-dead="${ghTk}"] button[data-action="loss-reset"]`).tap();
+    check('"destroyed ↺" brings it back at full strength (every turn)', (await nOn()) === 10 && (await step(2)) === 10);
+    // a different list for A clears A's record
+    await bp2.tap('button[data-action="view"][data-value="armies"]');
+    await bp2.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));
+    await bp2.tap('button[data-action="parse"][data-side="B"]');
+    check('loading a different list for B clears B\'s models-left record', Object.keys(await bp2.evaluate(() => window.__calc.state.mission.game.lossLog?.B ?? {})).length === 0);
+    await bctx2.close();
   }
 
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));

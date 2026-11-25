@@ -143,6 +143,7 @@ export function ensureGame(g, { fresh = false } = {}) {
   g.turnsDone ??= 0;            // turns closed with "Turn done"
   g.drawn ??= 0;
   g.once ??= { A: {}, B: {} };  // once-per-battle rules ticked as used (Intel > By phase): { tickId: true }
+  g.lossLog ??= { A: {}, B: {} }; // models lost, by battle round: { unitKey: { groupKey: { [round]: { lost, wl } } } }
   g.phase ??= 'command';        // the phase of the turn in progress (the stratagems usable now)
   g.strats ??= [];              // stratagems used: { round, turn (whose turn), phase, side, name, cp }
   return g;

@@ -25,7 +25,7 @@ import { printSheetHtml } from './printsheet.mjs';
 import { armyTricks } from './adapter.mjs';
 import { boardContext } from './boardview.mjs';
 import { roundLabel } from './eventview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, missionLoss, pairWipe, registerHost, branchWins, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
@@ -341,6 +341,63 @@ const other = (s) => (s === 'A' ? 'B' : 'A');
 const atkArmy = () => state.armies[state.side];
 const defArmy = () => state.armies[other(state.side)];
 
+// ---- Models left. One record per unit for the game on the tracker (Mission > Play: saved with it, cleared by New
+// game): { [side]: { [unitKey]: { [groupKey]: { count, woundsLeftFirst } } } }. The same record is used wherever the
+// unit is: the target on the Attack tab (casualties, a damaged model), an attacker (fewer models, fewer weapons),
+// the matchup grids and the Board (fewer bases). Group keys are defenderProfile's `${member}:${i}`.
+const PROFILE_CACHE = new WeakMap();
+function profileFor(cu, army) { let p = PROFILE_CACHE.get(cu); if (!p) { p = defenderProfile(cu, army); PROFILE_CACHE.set(cu, p); } return p; }
+const armySide = (army) => (army && state.armies.A === army ? 'A' : army && state.armies.B === army ? 'B' : null);
+// Each loss is kept with the battle round it happened in (g.lossLog[side][unit][group][round] = { lost, wl }):
+// a Board turn shows the models left by its round (Deploy: round 0, Turn N: round N); the Attack tab uses the
+// tracker's battle round, or the Board turn it was opened from (state.atkRound).
+const lossRound = () => state.atkRound ?? state.mission?.game?.round ?? 1;
+function lossesOf(side, unitKey, R = lossRound()) {
+  const U = side && unitKey ? state.mission?.game?.lossLog?.[side]?.[unitKey] : null;
+  if (!U) return {};
+  const cu = state.armies[side]?.units.find(u => u.key === unitKey);
+  if (!cu) return {};
+  const out = {};
+  for (const g of profileFor(cu, state.armies[side]).groups) {
+    const G = U[g.key];
+    if (!G) continue;
+    let lost = 0, wl = null, wr = -1;
+    for (const [r, e] of Object.entries(G)) {
+      const rn = Number(r);
+      if (rn > R) continue;
+      lost += e.lost ?? 0;
+      if (e.wl != null && rn > wr) { wr = rn; wl = e.wl; }
+    }
+    const o = {}, left = Math.max(0, g.count - lost);
+    if (left < g.count) o.count = left;
+    if (wl != null && wl < g.W && left > 0) o.woundsLeftFirst = wl;
+    if (Object.keys(o).length) out[g.key] = o;
+  }
+  return out;
+}
+/** Each model group of a unit with how many are left: [{ key, name, count, left, W, wl, character, member }] */
+function groupsLeft(side, cu, round = lossRound()) {
+  const army = state.armies[side];
+  if (!cu || !army) return [];
+  const ovr = lossesOf(side, cu.key, round);
+  return profileFor(cu, army).groups.map(g => ({ key: g.key, name: g.name, count: g.count, W: g.W, character: g.character, member: g.member, left: ovr[g.key]?.count ?? g.count, wl: ovr[g.key]?.woundsLeftFirst ?? g.W }));
+}
+/** "Models left" steppers for one unit (Attack tab attacker / target, Board panel). wounds: also the damaged model's wounds. */
+function lossSteppers(side, cu, { wounds = false, round = lossRound() } = {}) {
+  const rd = `data-round="${round}"`;
+  return groupsLeft(side, cu, round).map(g => `<div class="weapon" data-loss-group="${esc(g.key)}"><div class="grow"><div class="wname">${esc(g.name)}${g.character ? ' <span class="muted tiny">(character)</span>' : ''}</div>
+      <div class="wstats">W${g.W} · models left</div></div>
+      <div class="stepper"><button data-action="loss" data-side="${side}" data-unit="${esc(cu.key)}" data-group="${esc(g.key)}" data-field="count" data-delta="-1" ${rd} aria-label="One ${esc(g.name)} fewer">−</button>
+      <div class="val">${g.left}/${g.count}</div>
+      <button data-action="loss" data-side="${side}" data-unit="${esc(cu.key)}" data-group="${esc(g.key)}" data-field="count" data-delta="1" ${rd} aria-label="One ${esc(g.name)} more">+</button></div></div>
+      ${wounds && g.W > 1 && g.left > 0 ? `<div class="weapon" style="border-top:0;padding-top:0"><div class="grow"><div class="wstats">Wounds left on one damaged ${esc(g.name)}</div></div>
+      <div class="stepper"><button data-action="loss" data-side="${side}" data-unit="${esc(cu.key)}" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="-1" ${rd} aria-label="Damage ${esc(g.name)}">−</button>
+      <div class="val">${g.wl}/${g.W}</div>
+      <button data-action="loss" data-side="${side}" data-unit="${esc(cu.key)}" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="1" ${rd} aria-label="Heal ${esc(g.name)}">+</button></div></div>` : ''}`).join('');
+}
+const asOf = () => (state.atkRound != null ? `As of ${state.atkRound ? `Turn ${state.atkRound}` : 'deployment'} (the Board turn you came from).` : `As of battle round ${lossRound()} (Mission → Play).`);
+const lossCount = (side, cu, round = lossRound()) => { const gs = groupsLeft(side, cu, round); return { left: gs.reduce((a, g) => a + g.left, 0), total: gs.reduce((a, g) => a + g.count, 0), damaged: gs.some(g => g.wl < g.W) }; };
+
 function setup() {
   const key = `${state.side}:${state.phase}`;
   if (!state.setups[key]) state.setups[key] = { targetKey: null, attackers: [], ruleOverrides: {}, defManual: {} };
@@ -455,7 +512,7 @@ function enabledRules(profile, s) {
 // The engine defender of the target as it is set up on the Attack tab (rules on, casualties, manual modifiers).
 function currentDefender(tinfo, phase = state.phase) {
   const s = setup();
-  return buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), phase, s.defManual, s.defOverrides[s.targetKey] ?? {});
+  return buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), phase, s.defManual, lossesOf(other(state.side), s.targetKey));
 }
 
 // Weapon choice (choose.mjs): the engine scores every legal option against this target. Remembered per
@@ -504,23 +561,42 @@ function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase, opt = {}) 
   const manualOf = (r) => { const v = entry.counts?.[r.id]; return v == null || (stale && fam.get(r.id) != null) ? null : v; };
   // a family with one count set by hand is set by hand as a whole (its other rows: 0)
   const byHand = new Set(base.filter(r => fam.get(r.id) != null && manualOf(r) != null).map(r => fam.get(r.id)));
+  // models left (the game on the tracker): each weapon is carried by fewer models, in proportion to the models
+  // of its group that are left (a group of 10 with 5 left: half its bolters, half its plasma guns)
+  const gl = new Map(groupsLeft(armySide(army), cu).map(g => [g.key.replace(':', '.'), g]));
+  const bodyAlive = [...gl.values()].filter(g => body.members.has(g.member)).reduce((a, g) => a + g.left, 0);
+  const fracOf = (r) => {
+    const n = (r.parts ?? []).reduce((a, p) => a + p.n, 0);
+    if (!n || !gl.size) return 1;
+    return (r.parts ?? []).reduce((a, p) => { const g = gl.get(p.g); return a + p.n * (g ? g.left / Math.max(1, g.count) : 1); }, 0) / n;
+  };
   const rows = base.map(r => {
     const f = fam.get(r.id) ?? null;
     const manual = manualOf(r);
     const chosen = f != null && byHand.has(f) ? 0 : (auto?.counts[r.id] ?? r.count);
     const full = r.blocked ? 0 : Math.min(r.max, manual ?? chosen);
+    const frac = fracOf(r);
+    // a count set by hand is capped by the models left; one the app chose shrinks with them
+    const mine = frac >= 1 ? full : manual != null ? Math.min(full, Math.round(r.max * frac)) : Math.round(full * frac);
     // models in range: scale the bodyguard models' weapons; attached characters stay in
-    const count = inRange != null && body.members.has(Number(String(r.id).split(':')[0])) ? Math.round(full * inRange / Math.max(1, body.total)) : full;
-    return { ...r, count, full, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
+    const count = inRange != null && body.members.has(Number(String(r.id).split(':')[0])) ? Math.round(mine * Math.min(inRange, bodyAlive) / Math.max(1, bodyAlive)) : mine;
+    return { ...r, count, full, left: frac < 1 ? Math.round(r.max * frac) : null, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
   });
-  return { cu, rows, inRange, bodyTotal: body.total, problem, stale };
+  return { cu, rows, inRange, bodyTotal: body.total, bodyAlive, problem, stale };
 }
 
+// Models lost leave this attacking unit below half strength?
+function selfBelowHalfAuto(army, cu) {
+  const side = armySide(army);
+  if (!side || !cu) return false;
+  const lc = lossCount(side, cu);
+  return lc.left * 2 < lc.total;
+}
 // Casualties set on the target leave it below half strength?
 function targetBelowHalfAuto(tinfo) {
   if (!tinfo?.profile) return false;
   const s = setup();
-  const ovr = s.targetKey === tinfo.cu?.key ? (s.defOverrides?.[s.targetKey] ?? {}) : {};
+  const ovr = s.targetKey === tinfo.cu?.key ? lossesOf(other(state.side), s.targetKey) : {};
   const start = tinfo.profile.groups.reduce((a, g) => a + g.count, 0);
   const left = tinfo.profile.groups.reduce((a, g) => a + (ovr[g.key]?.count ?? g.count), 0);
   return left * 2 < start;
@@ -542,7 +618,7 @@ function rulesFor(e, cu, tinfo, army = atkArmy(), phase = state.phase) {
     targetKeywords: tinfo?.profile.keywords ?? [], attackerKeywords: cu.keywords,
     // situation chips (shown only when one of this unit's rules depends on them)
     onObjective: !!m.onObjective, doctrine: m.doctrine ?? '', targetShocked: !!m.targetShocked,
-    targetBelowHalf: !!m.targetBelowHalf || targetBelowHalfAuto(tinfo), selfBelowHalf: !!m.selfBelowHalf,
+    targetBelowHalf: !!m.targetBelowHalf || targetBelowHalfAuto(tinfo), selfBelowHalf: !!m.selfBelowHalf || selfBelowHalfAuto(army, cu),
     ingress: !!m.ingress, distance: m.distance ?? null,
   };
   const inPhase = rules.filter(r => r.phases.includes(phase));
@@ -562,7 +638,7 @@ function scenario() {
     attackers.push(buildAttacker(cu, rows, e.mods, rules, on, state.phase));
   }
   if (!attackers.some(a => a.weapons.length)) return null;
-  const defender = buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), state.phase, s.defManual, s.defOverrides[s.targetKey] ?? {});
+  const defender = buildDefender(tinfo.profile, enabledRules(tinfo.profile, s), state.phase, s.defManual, lossesOf(other(state.side), s.targetKey));
   return { phase: state.phase, attackers, defender, seed: 1234567 };
 }
 
@@ -1021,6 +1097,7 @@ function attackView() {
   const atk = atkArmy(), def = defArmy();
   const tinfo = targetInfo();
   return `<div class="lay2 attack"><div class="col">
+    ${state.atkRound != null ? `<div class="warnbox" id="atk-round" style="display:flex;gap:8px;align-items:center"><span class="grow">Models left as of <b>${state.atkRound ? `Turn ${state.atkRound}` : 'deployment'}</b> on the Board.</span><button class="btn ghost" data-action="atk-round-now">Use now (round ${state.mission?.game?.round ?? 1})</button></div>` : ''}
     <section class="section">
       ${seg('phase', state.phase, [['shooting', 'Shooting'], ['fight', 'Fight']])}
       <div class="card matchup" style="margin-top:10px">
@@ -1061,7 +1138,7 @@ function targetCard(tinfo, s) {
   if (tinfo) {
     const { profile } = tinfo;
     // stat line reflects the rules/modifiers switched on (e.g. a Storm Shield 4++)
-    const ovr = s.defOverrides[s.targetKey] ?? {};
+    const ovr = lossesOf(other(state.side), s.targetKey);
     const built = buildDefender(profile, enabledRules(profile, s), state.phase, s.defManual, ovr);
     const summary = defenderSummary({ ...profile, groups: built.groups.map(g => ({ ...g, InSv: g.InSv || (built.mods.invuln ?? 0) })) });
     const st = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${l}</span></div>`;
@@ -1072,23 +1149,12 @@ function targetCard(tinfo, s) {
     body += `<div class="stats">${st(summary.T, 'T')}${st(`${summary.Sv}+`, 'Sv')}${st(inv, 'InSv')}${st(summary.W, 'W')}${st(summary.models, 'Models')}${fnp < 7 ? st(`${fnp}+`, 'FNP') : ''}</div>`;
     const groups = built.groups.filter(g => g.character);
     if (groups.length) body += `<div class="tiny muted" style="margin-top:6px">Characters: ${groups.map(g => `${esc(g.name)} (T${g.T} W${g.W} ${g.Sv}+${g.InSv ? `/${g.InSv}++` : ''}${g.fnp ? `, FNP ${g.fnp}+` : ''})`).join(', ')} — allocated last unless Precision.</div>`;
-    const nDamaged = Object.values(ovr).filter(o => o && (o.count != null || o.woundsLeftFirst != null)).length;
-    body += `<details class="more" data-details="casualties" ${state.openCasualties ? 'open' : ''}><summary>Casualties & damage${nDamaged ? ' · set' : ''}</summary>
-      ${profile.groups.map(g => {
-        const o = ovr[g.key] ?? {};
-        const left = o.count ?? g.count;
-        const wl = o.woundsLeftFirst ?? g.W;
-        return `<div class="weapon"><div class="grow"><div class="wname">${esc(g.name)}${g.character ? ' <span class="muted tiny">(character)</span>' : ''}</div>
-          <div class="wstats">W${g.W} · models left</div></div>
-          <div class="stepper"><button data-action="dmg" data-group="${esc(g.key)}" data-field="count" data-delta="-1" aria-label="One fewer ${esc(g.name)}">−</button>
-          <div class="val">${left}/${g.count}</div>
-          <button data-action="dmg" data-group="${esc(g.key)}" data-field="count" data-delta="1" aria-label="One more ${esc(g.name)}">+</button></div></div>
-          ${g.W > 1 && left > 0 ? `<div class="weapon" style="border-top:0;padding-top:0"><div class="grow"><div class="wstats">Wounds left on one damaged ${esc(g.name)}</div></div>
-          <div class="stepper"><button data-action="dmg" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="-1" aria-label="Damage ${esc(g.name)}">−</button>
-          <div class="val">${wl}/${g.W}</div>
-          <button data-action="dmg" data-group="${esc(g.key)}" data-field="woundsLeftFirst" data-delta="1" aria-label="Heal ${esc(g.name)}">+</button></div></div>` : ''}`;
-      }).join('')}
-      ${nDamaged ? `<button class="btn ghost" data-action="dmg-reset">Reset to full strength</button>` : ''}
+    const lc = lossCount(other(state.side), tinfo.cu);
+    const nDamaged = lc.left < lc.total || lc.damaged;
+    body += `<details class="more" data-details="casualties" id="target-losses" ${state.openCasualties || nDamaged ? 'open' : ''}><summary>Models left & damage${nDamaged ? ` · ${lc.left}/${lc.total}` : ''}</summary>
+      ${lossSteppers(other(state.side), tinfo.cu, { wounds: true })}
+      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game (Mission → Play): the same models are gone when this unit attacks, and on the Board turns from that round on.</div>
+      ${nDamaged ? `<button class="btn ghost" data-action="loss-reset" data-side="${other(state.side)}" data-unit="${esc(tinfo.cu.key)}">Back to full strength</button>` : ''}
     </details>`;
     body += attachRow(other(state.side), tinfo.cu);
     const rules = profile.rules;
@@ -1184,11 +1250,16 @@ function attackerCard(e, i, tinfo) {
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="1" aria-label="More">+</button>
       </div></div>`;
   }).join('') : `<div class="muted small">No ${shooting ? 'ranged' : 'melee'} weapons.</div>`;
-  const { inRange, bodyTotal } = rowsFor(e, tinfo);
-  const rangeRow = bodyTotal > 1 ? `<div class="weapon" style="border-top:1px solid var(--line);margin-top:4px">
+  const { inRange, bodyTotal, bodyAlive } = rowsFor(e, tinfo);
+  const lc = lossCount(state.side, cu);
+  const lossRow = `<details class="more" data-details="atk-losses" id="atk-losses-${e.uid}" ${lc.left < lc.total ? 'open' : ''}><summary>Models left${lc.left < lc.total ? ` · ${lc.left}/${lc.total}` : ''}</summary>
+      ${lossSteppers(state.side, cu)}
+      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game (Mission → Play): fewer models carry fewer weapons, in proportion (half the squad: half its weapons). The same models are gone when this unit is the target, and on the Board turns from that round on.</div>
+      ${lc.left < lc.total ? `<button class="btn ghost" data-action="loss-reset" data-side="${state.side}" data-unit="${esc(cu.key)}">Back to full strength</button>` : ''}</details>`;
+  const rangeRow = bodyTotal > 1 && bodyAlive > 0 ? `<div class="weapon" style="border-top:1px solid var(--line);margin-top:4px">
       <div class="grow"><div class="wname">Models in range</div><div class="wstats">${state.phase === 'fight' ? 'Bodyguard models that can fight' : 'Bodyguard models with line of sight / range'}; attached characters stay in</div></div>
       <div class="stepper"><button data-action="inrange" ${`data-uid="${e.uid}"`} data-delta="-1" aria-label="Fewer models in range">−</button>
-      <div class="val">${inRange ?? bodyTotal}/${bodyTotal}</div>
+      <div class="val">${Math.min(inRange ?? bodyAlive, bodyAlive)}/${bodyAlive}</div>
       <button data-action="inrange" ${`data-uid="${e.uid}"`} data-delta="1" aria-label="More models in range">+</button></div></div>` : '';
   // situation chips: only the ones this unit's rules actually depend on
   const needs = { onObjective: false, targetShocked: false, targetBelowHalf: false, selfBelowHalf: false, ingress: false, within: false, doctrines: new Set() };
@@ -1208,7 +1279,7 @@ function attackerCard(e, i, tinfo) {
     ...[...needs.doctrines].map(d => chip('doctrine', m.doctrine === d, `${d[0].toUpperCase()}${d.slice(1)} doctrine active`, `data-uid="${e.uid}" data-value="${esc(d)}"`)),
     needs.targetBelowHalf && chip('amod-toggle', !!m.targetBelowHalf || autoHalf, `Target below half strength${autoHalf ? ' (casualties)' : ''}`, `data-uid="${e.uid}" data-key="targetBelowHalf"`),
     needs.targetShocked && chip('amod-toggle', !!m.targetShocked, 'Target battle-shocked', `data-uid="${e.uid}" data-key="targetShocked"`),
-    needs.selfBelowHalf && chip('amod-toggle', !!m.selfBelowHalf, 'This unit below half strength', `data-uid="${e.uid}" data-key="selfBelowHalf"`),
+    needs.selfBelowHalf && (() => { const auto = selfBelowHalfAuto(atkArmy(), cu); return chip('amod-toggle', !!m.selfBelowHalf || auto, `This unit below half strength${auto ? ' (models left)' : ''}`, `data-uid="${e.uid}" data-key="selfBelowHalf"`); })(),
     needs.ingress && chip('amod-toggle', !!m.ingress, 'Arrived from reserves this turn', `data-uid="${e.uid}" data-key="ingress"`),
   ].filter(Boolean).join('');
   const distRow = needs.within ? `<div class="weapon" style="border-top:0;padding-top:4px"><div class="grow"><div class="wname">Distance to target</div><div class="wstats">for "within X\"" abilities</div></div>
@@ -1254,7 +1325,7 @@ function attackerCard(e, i, tinfo) {
       `<div class="ability"><b>${esc(st.name)}</b> <span class="muted tiny">${st.cp}CP · ${esc(st.detachment)}</span><div class="muted">${st.missing ? 'No 11e text in the dataset.' : esc(`${st.when} — ${st.effect}`)}</div></div>`).join('')}</details>` : ''}` : '';
   return `<div class="card" data-attacker="${e.uid}">
     <div class="attacker-head"><div class="num">${i + 1}</div>
-      <div class="grow"><div class="title ellipsis">${esc(cu.name)}</div><div class="muted tiny">${cu.models} models</div></div>
+      <div class="grow"><div class="title ellipsis">${esc(cu.name)}</div><div class="muted tiny">${(() => { const lc = lossCount(state.side, cu); return lc.left < lc.total ? `<b>${lc.left}</b> of ${lc.total} models left` : `${cu.models} models`; })()}</div></div>
       ${i > 0 ? `<button class="icon-btn" data-action="move-up" ${sc} aria-label="Resolve earlier">↑</button>` : ''}
       <button class="icon-btn" data-action="remove" ${sc} aria-label="Remove">✕</button></div>
     ${attachRow(state.side, cu)}
@@ -1263,6 +1334,7 @@ function attackerCard(e, i, tinfo) {
     <div style="margin-top:6px">${weapons}</div>
     ${choiceFoot(e, rows, problem)}
     ${rangeRow}
+    ${lossRow}
     <div class="chips" style="margin-top:8px">${sit}</div>
     ${situation || distRow ? `<div class="modrow" style="margin-top:8px"><div class="lab">Situation (switches matching abilities on)</div><div class="chips">${situation}</div>${distRow}</div>` : ''}
     ${rulesBlock}
@@ -1358,7 +1430,7 @@ function renderSheet() {
 // Default matchup (always-on rules only) between any two armies, in any phase.
 function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
   const profile = defenderProfile(defCu, defArmyObj);
-  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, {});
+  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, lossesOf(armySide(defArmyObj), defCu.key));
   return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
 }
 /** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
@@ -1676,7 +1748,7 @@ async function sendToGame(side) {
 // Load a list into army `side`, dropping setups that referred to the old list's units.
 function loadListInto(side, text) {
   if (state.armies[side] && text !== loadedText(side)) leaveSavedGame('a list was changed');
-  if (text !== loadedText(side)) boardListChanged(side);
+  if (text !== loadedText(side)) { boardListChanged(side); missionLoss({ side, clearSide: true }); }
   state.texts[side] = text;
   state.attach[side] = null;
   parseArmy(side);
@@ -2256,7 +2328,7 @@ app.addEventListener('click', (ev) => {
       const side = el.dataset.side;
       const ta = app.querySelector(`textarea[data-side="${side}"]`);
       if (state.armies[side] && (ta?.value ?? '') !== loadedText(side)) leaveSavedGame('a list was changed');
-      if ((ta?.value ?? '') !== loadedText(side)) boardListChanged(side);
+      if ((ta?.value ?? '') !== loadedText(side)) { boardListChanged(side); missionLoss({ side, clearSide: true }); }
       state.texts[side] = ta?.value ?? '';
       state.attach[side] = null; // a (re)loaded list starts from its own attachments
       parseArmy(side);
@@ -2316,23 +2388,24 @@ app.addEventListener('click', (ev) => {
     case 'detach':
       applyAttach(el.dataset.side, Number(el.dataset.char), null);
       return changed();
-    case 'dmg': {
-      const tinfo = targetInfo();
-      const g = tinfo?.profile.groups.find(x => x.key === el.dataset.group);
+    case 'loss': {
+      // models left / a damaged model, for the game on the tracker (Mission > Play)
+      const side = el.dataset.side, cu = state.armies[side]?.units.find(u => u.key === el.dataset.unit);
+      const g = groupsLeft(side, cu).find(x => x.key === el.dataset.group);
       if (!g) return;
-      s.defOverrides[s.targetKey] ??= {};
-      const o = (s.defOverrides[s.targetKey][g.key] ??= {});
-      const d = Number(el.dataset.delta);
-      if (el.dataset.field === 'count') o.count = Math.max(0, Math.min(g.count, (o.count ?? g.count) + d));
-      else o.woundsLeftFirst = Math.max(1, Math.min(g.W, (o.woundsLeftFirst ?? g.W) + d));
-      if (o.count === g.count) delete o.count;
-      if (o.woundsLeftFirst === g.W) delete o.woundsLeftFirst;
-      state.openCasualties = true;
+      const round = el.dataset.round != null ? Number(el.dataset.round) : lossRound();
+      missionLoss({ side, unit: cu.key, unitName: cu.name, group: g.key, groupName: g.name, field: el.dataset.field, delta: Number(el.dataset.delta), count: g.count, W: g.W, round });
+      if (el.closest('#target-losses')) state.openCasualties = true;
       return changed();
     }
-    case 'dmg-reset':
-      delete s.defOverrides[s.targetKey];
+    case 'atk-round-now':
+      state.atkRound = null;
       return changed();
+    case 'loss-reset': {
+      const side = el.dataset.side, cu = state.armies[side]?.units.find(u => u.key === el.dataset.unit);
+      if (cu) missionLoss({ side, unit: cu.key, unitName: cu.name, reset: true });
+      return changed();
+    }
     case 'inrange': {
       const e = findEntry(el.dataset.uid);
       if (!e) return;
@@ -2790,13 +2863,16 @@ initBoard({
   state, esc, seg, chip, signature: listsSignature, wide, pairWipe, registerHost, branchWins, forecastBranches,
   // the mission set-up is locked while a game is on the tracker
   gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round, gameScore: () => missionScore(),
+  // models left (the game on the tracker): the board draws the models that are left and edits the same record
+  groupsLeft: (side, cu, round) => groupsLeft(side, cu, round), lossSteppers: (side, cu, opt) => lossSteppers(side, cu, opt),
   // the board's tablet / phone layout follows its own breakpoint (a portrait tablet is under 900 px wide)
   rerender: () => { if (state.view === 'board') render(); },
   // one army's list (for "use my deployment against another opponent")
   shareLinkHtml, sideSig, listName: (X) => listLabel(X), me: () => state.mission?.me ?? 'A',
   // "Shoot / Fight ->" from the board: that unit attacks that target, with the measured gap
   // cover / inRange (shooting): from the board's 11e line of sight — inRange = models that can see and reach
-  openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain }) {
+  openAttack({ side, phase, attacker, target, distance, halfRange, cover, inRange, chain, round }) {
+    state.atkRound = round ?? null;   // models left as of the Board turn it came from
     state.side = side;
     state.phase = phase;
     const st = setup();
@@ -2816,6 +2892,27 @@ initBoard({
   },
 });
 initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave });
+// casualties set on the Attack tab before models left were kept per attack set-up: carry them into the game's
+// record once, from the start of the battle (round 0); the old setting stays where it was, unused
+for (const [k, st] of Object.entries(state.setups ?? {})) {
+  const defSide = other(k.split(':')[0]), g = state.mission?.game;
+  if (!g || !st?.defOverrides || !state.armies[defSide]) continue;
+  const log = (g.lossLog ??= { A: {}, B: {} });
+  for (const [tk, ovr] of Object.entries(st.defOverrides)) {
+    const cu = state.armies[defSide].units.find(u => u.key === tk);
+    if (!cu || !ovr || !Object.keys(ovr).length || log[defSide]?.[tk]) continue;
+    const U = ((log[defSide] ??= {})[tk] = {});
+    for (const gr of profileFor(cu, state.armies[defSide]).groups) {
+      const o = ovr[gr.key];
+      if (!o) continue;
+      const e = {};
+      if (o.count != null && o.count < gr.count) e.lost = gr.count - o.count;
+      if (o.woundsLeftFirst != null && o.woundsLeftFirst < gr.W) e.wl = o.woundsLeftFirst;
+      if (Object.keys(e).length) U[gr.key] = { 0: e };
+    }
+    console.log(`[calc] casualties on ${defSide} ${tk} carried into the game's models left (from round 0)`);
+  }
+}
 initEvent({ state, esc, seg, loadList: loadListInto, persistLibrary, sideSig, newGame: missionNewGame, gameInProgress: missionInProgress, gameScore: missionScore });
 initBrief({ state, esc, wide });
 // a share link (#s=...): view it read-only, over this device's own state (nothing is saved while viewing)
@@ -2854,4 +2951,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 // test / debugging hook
-window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug, event: _eventDebug };
+window.__calc = { state, scenario, runCalc, defaultScenario, atkArmy, defArmy, board: _boardDebug, mission: _missionDebug, event: _eventDebug, losses: (side, key, round) => lossesOf(side, key, round) };
