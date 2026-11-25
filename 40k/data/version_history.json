@@ -2,6 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.126.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: a test page for live AR measuring",
+      "changes": [
+        "Board → 📐 Bases → Live AR measuring test: checks whether your tablet can measure the table in augmented reality (Chrome on Android with ARCore), offline",
+        "Tap two points on a tape measure to see how accurate it is, and run a drift test; copy or download the results to share"
+      ]
+    },
+    {
+      "version": "1.125.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: measure base to base on a photo of the table",
+      "changes": [
+        "Board → 📐 Bases: tap two bases on your table photo (or the map), drag the circles onto them and pick the base sizes — it shows the distance between the closest edges, as 40k measures",
+        "On a photo it also shows how sure the number is (± inches), from how sharp the photo is there; Point measures to a spot instead of a base",
+        "Table photos are kept at a higher resolution, so measurements on them are finer; works offline"
+      ]
+    },
+    {
       "version": "1.124.0",
       "date": "2026-11-24",
       "summary": "Combat Calc: a set-up checklist, and the mission no longer changes under a running game",

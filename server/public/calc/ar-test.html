@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Combat Calc — AR measuring test</title>
+<style>
+  :root { color-scheme: light dark; --ink: #111; --bg: #f4f2ec; --card: #fff; --line: #d8d3c6; --acc: #2a78d6; --bad: #c0392b; --ok: #2f855a; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eee; --bg: #181816; --card: #24231f; --line: #3b3a34; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 8px; }
+  h2 { font-size: 17px; margin: 18px 0 6px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .muted { opacity: .7; font-size: 14px; }
+  .ok { color: var(--ok); font-weight: 700; } .bad { color: var(--bad); font-weight: 700; }
+  button { font: inherit; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); min-height: 48px; }
+  button.primary { background: var(--acc); color: #fff; border-color: var(--acc); }
+  button:disabled { opacity: .45; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+  input { font: inherit; padding: 10px; width: 90px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  /* AR overlay (dom-overlay) */
+  #ov { position: fixed; inset: 0; display: none; pointer-events: none; color: #fff; font: 16px/1.3 system-ui, sans-serif; }
+  #ov.on { display: block; }
+  body.ar main { display: none; }
+  body.ar { background: transparent; }
+  #ov .top, #ov .bot { position: absolute; left: 0; right: 0; padding: 12px; background: rgba(0,0,0,.55); pointer-events: auto; }
+  #ov .top { top: 0; } #ov .bot { bottom: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #ov .big { font-size: 34px; font-weight: 800; }
+  #ov button { background: rgba(255,255,255,.15); color: #fff; border-color: rgba(255,255,255,.5); }
+  #ov button.primary { background: var(--acc); }
+  #ov input { background: rgba(0,0,0,.4); color: #fff; border-color: rgba(255,255,255,.5); }
+</style>
+</head>
+<body>
+<main>
+  <h1>AR measuring test</h1>
+  <p class="muted">Checks whether this tablet can measure the table in augmented reality, and how accurately — before anything bigger is built into Combat Calc. Works offline once this page has been opened once. Nothing is sent anywhere: copy or download the results and share them.</p>
+
+  <div class="card" id="support"><b>Checking this device…</b></div>
+
+  <div class="card">
+    <h2 style="margin-top:0">How to test</h2>
+    <ol>
+      <li>Lay a tape measure flat on the table (or use the table edge: 44" / 60").</li>
+      <li>Tap <b>Start AR</b>, point the camera at the table and move it slowly until the ring sits on the table.</li>
+      <li><b>Accuracy:</b> type the true distance, tap the ring onto the tape's 0, then onto that mark, then <b>Record</b>. Do 12", 24" and 44" a few times each, from different places around the table.</li>
+      <li><b>Drift:</b> tap <b>Drift test</b>, mark a spot (e.g. an objective's centre), walk round the table for ~30 s, come back and mark the same spot again.</li>
+      <li>End AR, then <b>Copy results</b> and paste them to Claude.</li>
+    </ol>
+    <div class="row"><button class="primary" id="start" disabled>Start AR</button></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Results</h2>
+    <div id="summary" class="muted">No measurements yet.</div>
+    <table id="rows"><thead><tr><th>#</th><th>Kind</th><th>True</th><th>Measured</th><th>Error</th><th>Anchored</th></tr></thead><tbody></tbody></table>
+    <div class="row" style="margin-top:8px"><button id="copy">Copy results</button><button id="dl">Download</button><button id="clear">Clear</button></div>
+  </div>
+</main>
+
+<div id="ov">
+  <div class="top">
+    <div class="big" id="ov-dist">Find the table…</div>
+    <div id="ov-msg">Move the tablet slowly over the table until the ring appears.</div>
+  </div>
+  <div class="bot">
+    <div class="row">
+      <span>True distance</span><input id="ov-true" type="number" inputmode="decimal" value="24" step="0.5"><span>in</span>
+      <button class="primary" id="ov-record" disabled>Record</button>
+      <button id="ov-reset">New pair</button>
+      <button id="ov-drift">Drift test</button>
+      <button id="ov-end">End AR</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="gl" style="display:none"></canvas>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------------------------------------------------
+// Results (kept on the device)
+const KEY = 'w40k_calc_artest_v1';
+const IN = 39.3700787; // inches per metre
+const log = (...a) => console.log('[ar-test]', ...a);
+let results = [];
+try { results = JSON.parse(localStorage.getItem(KEY) ?? '[]') ?? []; } catch { results = []; }
+const device = { ua: navigator.userAgent, secure: isSecureContext, xr: !!navigator.xr, online: navigator.onLine, screen: `${screen.width}x${screen.height}@${devicePixelRatio}` };
+function save() { try { localStorage.setItem(KEY, JSON.stringify(results)); } catch {} }
+function report() { return JSON.stringify({ page: 'combat-calc-ar-test', v: 1, at: new Date().toISOString(), device, results }, null, 1); }
+function drawResults() {
+  const tb = document.querySelector('#rows tbody');
+  tb.innerHTML = results.map((r, i) => `<tr><td>${i + 1}</td><td>${r.kind}</td><td>${r.trueIn != null ? r.trueIn + '"' : '–'}</td><td>${r.measIn.toFixed(2)}"</td><td>${r.errIn != null ? (r.errIn >= 0 ? '+' : '') + r.errIn.toFixed(2) + '"' : '–'}</td><td>${r.anchored ? 'yes' : 'no'}</td></tr>`).join('');
+  const acc = results.filter(r => r.kind === 'distance' && r.errIn != null), dr = results.filter(r => r.kind === 'drift');
+  const s = [];
+  if (acc.length) {
+    const abs = acc.map(r => Math.abs(r.errIn)), mean = abs.reduce((a, b) => a + b, 0) / abs.length;
+    const pct = acc.map(r => Math.abs(r.errIn) / r.trueIn * 100);
+    s.push(`<b>Distance:</b> ${acc.length} measured · average error <b>${mean.toFixed(2)}"</b> · worst <b>${Math.max(...abs).toFixed(2)}"</b> · average ${(pct.reduce((a, b) => a + b, 0) / pct.length).toFixed(1)}% of the distance`);
+  }
+  if (dr.length) s.push(`<b>Drift:</b> ${dr.length} test(s) · average ${(dr.reduce((a, r) => a + r.measIn, 0) / dr.length).toFixed(2)}" · worst ${Math.max(...dr.map(r => r.measIn)).toFixed(2)}"`);
+  document.getElementById('summary').innerHTML = s.length ? s.join('<br>') : 'No measurements yet.';
+}
+drawResults();
+document.getElementById('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(report()); document.getElementById('copy').textContent = '✓ Copied'; }
+  catch { prompt('Copy the results:', report()); }
+};
+document.getElementById('dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([report()], { type: 'application/json' }));
+  a.download = `ar-test-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+  a.click();
+};
+document.getElementById('clear').onclick = () => { if (confirm('Clear all results?')) { results = []; save(); drawResults(); } };
+
+// ---------------------------------------------------------------------------------------------------------
+// What this device can do
+async function checkSupport() {
+  const el = document.getElementById('support');
+  const rows = [];
+  const yes = (t) => `<span class="ok">✓</span> ${t}`, no = (t) => `<span class="bad">✗</span> ${t}`;
+  rows.push(isSecureContext ? yes('Secure page (needed for the camera)') : no('Not a secure (https) page: AR is blocked'));
+  if (!navigator.xr) {
+    rows.push(no('No WebXR in this browser. Use Chrome on Android, up to date.'));
+    device.ar = false;
+  } else {
+    let ar = false;
+    try { ar = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) { log('isSessionSupported failed', e); }
+    device.ar = ar;
+    rows.push(ar ? yes('AR sessions supported (WebXR immersive-ar)') : no('This device / browser does not offer AR. Chrome needs a tablet on Google\'s ARCore list with "Google Play Services for AR" installed.'));
+  }
+  rows.push(`<span class="muted">${navigator.onLine ? 'Online' : 'Offline'} · ${device.screen}</span>`);
+  rows.push(`<span class="muted" style="word-break:break-all">${device.ua}</span>`);
+  el.innerHTML = `<b>This device</b><br>${rows.join('<br>')}`;
+  document.getElementById('start').disabled = !device.ar;
+  log('support', JSON.stringify(device));
+}
+checkSupport();
+
+// ---------------------------------------------------------------------------------------------------------
+// WebGL: points and lines in world space (no libraries)
+let gl, prog, buf, uMat, uCol, uSize;
+function initGL(canvas) {
+  gl = canvas.getContext('webgl', { xrCompatible: true, alpha: true, antialias: true });
+  const vs = 'attribute vec3 p; uniform mat4 m; uniform float s; void main(){ gl_Position = m * vec4(p, 1.0); gl_PointSize = s; }';
+  const fs = 'precision mediump float; uniform vec4 c; void main(){ vec2 d = gl_PointCoord - 0.5; if (dot(d, d) > 0.25) discard; gl_FragColor = c; }';
+  const fsLine = 'precision mediump float; uniform vec4 c; void main(){ gl_FragColor = c; }';
+  const mk = (type, src) => { const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); return sh; };
+  const link = (f) => { const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, f)); gl.linkProgram(p); return p; };
+  prog = { pts: link(fs), lines: link(fsLine) };
+  buf = gl.createBuffer();
+}
+function mul(a, b) { // 4x4 column-major
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; }
+  return o;
+}
+function draw(p, mode, verts, color, size, m) {
+  gl.useProgram(p);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW);
+  const loc = gl.getAttribLocation(p, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+  gl.uniformMatrix4fv(gl.getUniformLocation(p, 'm'), false, m);
+  gl.uniform4fv(gl.getUniformLocation(p, 'c'), color);
+  gl.uniform1f(gl.getUniformLocation(p, 's'), size);
+  gl.drawArrays(mode, 0, verts.length / 3);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The AR session
+let session = null, refSpace = null, hitSource = null, lastHit = null;
+let marks = [];         // [{ anchor?, pos: [x,y,z] }] — the current pair (or the drift pair)
+let driftMode = false;
+const $ = (id) => document.getElementById(id);
+const ov = $('ov');
+for (const b of ov.querySelectorAll('button, input')) b.addEventListener('beforexrselect', (e) => e.preventDefault());
+
+function posOf(m, frame) {
+  if (m.anchor && frame) { const p = frame.getPose(m.anchor.anchorSpace, refSpace); if (p) { const t = p.transform.position; m.pos = [t.x, t.y, t.z]; } }
+  return m.pos;
+}
+const distIn = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) * IN;
+const flatIn = (a, b) => Math.hypot(b[0] - a[0], b[2] - a[2]) * IN;
+
+function overlay(frame) {
+  const d = $('ov-dist'), msg = $('ov-msg');
+  if (marks.length === 2) {
+    const a = posOf(marks[0], frame), b = posOf(marks[1], frame);
+    d.textContent = `${distIn(a, b).toFixed(2)}"  (${(distIn(a, b) * 2.54).toFixed(1)} cm)`;
+    msg.textContent = driftMode ? 'Drift: the distance between the two marks of the same spot. Recorded.' : `Height difference ${(Math.abs(b[1] - a[1]) * IN).toFixed(2)}". Type the true distance and tap Record, or New pair.`;
+  } else if (marks.length === 1) {
+    const a = posOf(marks[0], frame);
+    d.textContent = lastHit ? `${distIn(a, lastHit).toFixed(2)}"` : '…';
+    msg.textContent = driftMode ? 'Now walk round the table for about 30 seconds, come back and tap the SAME spot.' : 'Tap the second point.';
+  } else {
+    d.textContent = lastHit ? (driftMode ? 'Drift test' : 'Ready') : 'Find the table…';
+    msg.textContent = lastHit ? (driftMode ? 'Tap a spot you can find again exactly (an objective centre, a tape mark).' : 'Tap the first point (e.g. the tape\'s 0).') : 'Move the tablet slowly over the table until the ring appears.';
+  }
+  $('ov-record').disabled = !(marks.length === 2 && !driftMode);
+}
+
+async function onSelect() {
+  if (!lastHit || marks.length >= 2) return;
+  const m = { pos: lastHit.slice(), anchor: null };
+  if (lastHit.result?.createAnchor) { try { m.anchor = await lastHit.result.createAnchor(); } catch (e) { log('anchor failed', e); } }
+  marks.push(m);
+  log('mark', marks.length, m.pos.map(v => v.toFixed(4)).join(','), m.anchor ? 'anchored' : 'no anchor');
+  if (driftMode && marks.length === 2) {
+    const a = marks[0].pos, b = marks[1].pos;
+    results.push({ kind: 'drift', trueIn: 0, measIn: distIn(a, b), errIn: null, anchored: !!marks[0].anchor, flatIn: flatIn(a, b), at: Date.now() });
+    save(); drawResults();
+  }
+}
+
+$('ov-record').onclick = () => {
+  if (marks.length !== 2) return;
+  const t = Number($('ov-true').value);
+  const a = marks[0].pos, b = marks[1].pos, d = distIn(a, b);
+  results.push({ kind: 'distance', trueIn: t || null, measIn: d, errIn: t ? d - t : null, flatIn: flatIn(a, b), anchored: !!(marks[0].anchor && marks[1].anchor), at: Date.now() });
+  save(); drawResults();
+  log('record', t, d.toFixed(3));
+  marks = [];
+};
+$('ov-reset').onclick = () => { marks = []; driftMode = false; $('ov-drift').textContent = 'Drift test'; };
+$('ov-drift').onclick = () => { marks = []; driftMode = !driftMode; $('ov-drift').textContent = driftMode ? 'Distance test' : 'Drift test'; };
+$('ov-end').onclick = () => session?.end();
+
+$('start').onclick = async () => {
+  try {
+    session = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', 'anchors', 'local-floor'],
+      domOverlay: { root: ov },
+    });
+  } catch (e) {
+    alert(`AR could not start: ${e.message ?? e}`);
+    log('requestSession failed', e);
+    return;
+  }
+  device.features = [...(session.enabledFeatures ?? [])];
+  log('session started, features', device.features.join(','));
+  ov.classList.add('on');
+  document.body.classList.add('ar');
+  try {
+    initGL($('gl'));
+    // the context was made with xrCompatible: true; this is a second chance, not required
+    try { await gl.makeXRCompatible?.(); } catch (e) { log('makeXRCompatible failed (carrying on)', e?.name ?? e); }
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+    refSpace = await session.requestReferenceSpace('local');
+    const viewer = await session.requestReferenceSpace('viewer');
+    hitSource = await session.requestHitTestSource({ space: viewer });
+  } catch (e) {
+    log('AR set-up failed', e);
+    alert(`AR started but could not be set up: ${e?.message ?? e}`);
+    device.setupError = String(e?.message ?? e);
+    session.end();
+    return;
+  }
+  session.addEventListener('select', onSelect);
+  session.addEventListener('end', () => { ov.classList.remove('on'); document.body.classList.remove('ar'); session = null; hitSource = null; marks = []; lastHit = null; log('session ended'); });
+  session.requestAnimationFrame(frameLoop);
+};
+
+function frameLoop(t, frame) {
+  if (!session) return;
+  session.requestAnimationFrame(frameLoop);
+  const pose = frame.getViewerPose(refSpace);
+  const hits = hitSource ? frame.getHitTestResults(hitSource) : [];
+  if (hits.length) {
+    const p = hits[0].getPose(refSpace).transform.position;
+    lastHit = [p.x, p.y, p.z]; lastHit.result = hits[0];
+  } else lastHit = null;
+  const layer = session.renderState.baseLayer;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (pose) {
+    for (const view of pose.views) {
+      const vp = layer.getViewport(view);
+      gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      const m = mul(view.projectionMatrix, view.transform.inverse.matrix);
+      const pts = marks.map(mk => posOf(mk, frame));
+      if (lastHit) draw(prog.pts, gl.POINTS, lastHit.slice(0, 3), [1, 0.85, 0, 1], 40, m);
+      if (pts.length) draw(prog.pts, gl.POINTS, pts.flat(), [0.16, 0.47, 0.84, 1], 26, m);
+      if (pts.length === 2) draw(prog.lines, gl.LINES, pts.flat(), [1, 1, 1, 1], 1, m);
+      else if (pts.length === 1 && lastHit) draw(prog.lines, gl.LINES, [...pts[0], ...lastHit.slice(0, 3)], [1, 1, 1, 0.8], 1, m);
+    }
+  }
+  overlay(frame);
+}
+</script>
+</body>
+</html>
