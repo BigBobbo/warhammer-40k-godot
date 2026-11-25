@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.134.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: a model moved one by one can't overlap another base",
+      "changes": [
+        "Dragging a model in models mode: its base stops at the edge of any base it meets — of its own unit or any other — and slides along it",
+        "Round, oval and vehicle bases alike; wedged between bases, it stays at the last free spot"
+      ]
+    },
+    {
       "version": "1.133.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: move models one by one on the Board",

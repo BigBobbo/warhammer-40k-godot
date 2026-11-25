@@ -8,7 +8,7 @@
 
 import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
-  footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
+  footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, edgeRadius, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
@@ -1985,7 +1985,10 @@ function wireBoard() {
       const tk = tokEl.dataset.tok, i = Number(ev.target.closest('[data-model]').dataset.model);
       const pos = stepTokens()[tk], t = placed().find(x => x.tk === tk), m = t?.models[i];
       if (!pos || !m) return;
-      gesture = { kind: 'model', tk, i, el: ev.target.closest('[data-model]'), pos, t, from: turnStart(t), dx: p.x - (pos.x + m.dx), dy: p.y - (pos.y + m.dy), start: p, moved: false };
+      // every other base on the board (its own unit's and the other units'): the dragged base may not overlap them
+      const others = [];
+      for (const u of placed()) u.models.forEach((o, j) => { if (!(u.tk === tk && j === i)) others.push({ x: u.x + o.dx, y: u.y + o.dy, fp: o.fp, rot: o.rot ?? 0 }); });
+      gesture = { kind: 'model', tk, i, el: ev.target.closest('[data-model]'), pos, t, m, others, last: [pos.x + m.dx, pos.y + m.dy], from: turnStart(t), dx: p.x - (pos.x + m.dx), dy: p.y - (pos.y + m.dy), start: p, moved: false };
     } else if (tokEl) {
       const tk = tokEl.dataset.tok;
       const pos = stepTokens()[tk];
@@ -2018,7 +2021,9 @@ function wireBoard() {
       const g = gesture, pos = g.pos;
       if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > 0.15) g.moved = true;
       if (!g.moved) return;
-      const ax = Math.max(0, Math.min(BOARD.w, p.x - g.dx)), ay = Math.max(0, Math.min(BOARD.h, p.y - g.dy));
+      const free = clearOfBases(g, Math.max(0, Math.min(BOARD.w, p.x - g.dx)), Math.max(0, Math.min(BOARD.h, p.y - g.dy)));
+      const [ax, ay] = free ?? g.last;     // wedged in: it stays at its last free spot
+      g.last = [ax, ay];
       (pos.mo ??= {})[g.i] = [Math.round((ax - pos.x) * 100) / 100, Math.round((ay - pos.y) * 100) / 100];
       g.el.setAttribute('transform', `translate(${f2(pos.mo[g.i][0])},${f2(pos.mo[g.i][1])})`);
       const layer = svg.querySelector('#model-drag-layer');
@@ -2102,6 +2107,33 @@ function doubleTap(tk) {
   const dbl = !!lastTap && lastTap.tk === tk && now - lastTap.t < 400;
   lastTap = dbl ? null : { tk, t: now };
   return dbl;
+}
+/**
+ * Where the dragged base can go near (x, y) without overlapping another base: pushed out of each base it would
+ * overlap, along the line between their centres (it slides along the edge), a few passes; null when it cannot get
+ * clear (wedged between bases). Base edges from edgeRadius: round, oval and rectangular bases alike.
+ */
+function clearOfBases(g, x, y) {
+  const fp = g.m.fp, rot = g.m.rot ?? 0, EPS = 0.01;
+  for (let pass = 0; pass < 8; pass++) {
+    let moved = false;
+    for (const o of g.others) {
+      let ux = x - o.x, uy = y - o.y, d = Math.hypot(ux, uy);
+      if (d > 12) continue;
+      if (d < 1e-6) { ux = x - g.last[0]; uy = y - g.last[1]; d = Math.hypot(ux, uy); if (d < 1e-6) { ux = 1; uy = 0; d = 1; } ux /= d; uy /= d; d = 0; } else { ux /= d; uy /= d; }
+      const need = edgeRadius(fp, -ux, -uy, rot) + edgeRadius(o.fp, ux, uy, o.rot) + EPS;
+      if (d < need) { x = o.x + ux * need; y = o.y + uy * need; moved = true; }
+    }
+    if (!moved) break;
+  }
+  x = Math.max(0, Math.min(BOARD.w, x)); y = Math.max(0, Math.min(BOARD.h, y));
+  for (const o of g.others) {
+    const d = Math.hypot(x - o.x, y - o.y);
+    if (d < 1e-6) return null;
+    const ux = (x - o.x) / d, uy = (y - o.y) / d;
+    if (d < edgeRadius(fp, -ux, -uy, rot) + edgeRadius(o.fp, ux, uy, o.rot) - 0.005) return null;
+  }
+  return [x, y];
 }
 /** While a model is dragged: how far it has moved this turn against the unit's Move, and coherency (03.03). */
 function modelDragLabel(g) {
