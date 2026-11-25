@@ -4255,6 +4255,51 @@ Aggressor Squad (95 points)
     await bctx2.close();
   }
 
+  // --- models left: the whole unit loses its plain models first; sergeants, special weapons and characters last (1.132.0)
+  {
+    const kctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const kp = await kctx.newPage();
+    kp.on('pageerror', e => consoleErrors.push(`keep: ${e}`));
+    kp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`keep: ${m.text()}`); });
+    const groupsOf = (scope) => kp.evaluate((sc) => Object.fromEntries([...document.querySelectorAll(`${sc} [data-loss-group]`)].map(r => [r.querySelector('.wname').textContent.replace(/\s+/g, ' ').trim(), r.querySelector('.val').textContent.trim()])), scope);
+    const weapons = () => kp.$$eval('[data-attacker] .weapon[data-row]', els => Object.fromEntries(els.map(e => [e.querySelector('.wname').textContent.trim(), e.querySelector('.val').textContent.trim()])));
+    await kp.goto(`${BASE}/calc/`); await kp.waitForSelector('textarea[data-side="A"]');
+    await kp.fill('textarea[data-side="A"]', SW_LIST); await kp.tap('button[data-action="parse"][data-side="A"]');
+    await kp.fill('textarea[data-side="B"]', ORK_LIST); await kp.tap('button[data-action="parse"][data-side="B"]');
+    await kp.tap('button[data-action="view"][data-value="attack"]');
+    await kp.waitForSelector('select[data-input="target"]');
+    const tv = await kp.$eval('select[data-input="target"]', (sel) => [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
+    await kp.selectOption('select[data-input="target"]', tv);
+    await kp.tap('button[data-action="open-add"]');
+    await kp.tap('.pick:has-text("Grey Hunters")');
+    await kp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; });
+    const uid = await kp.getAttribute('[data-attacker]', 'data-attacker');
+    await kp.locator(`#atk-losses-${uid} > summary`).tap();
+    for (let i = 0; i < 9; i++) await kp.locator(`#atk-losses-${uid} button[data-action="loss-unit"][data-delta="-1"]`).tap();
+    const g9 = await groupsOf(`#atk-losses-${uid}`), w9 = await weapons();
+    check('Grey Hunters, whole unit −9: the 9 Grey Hunters go, the Pack Leader stays — and with him the plasma pistol',
+      g9['Grey Hunter'] === '0/9' && g9['Grey Hunter Pack Leader'] === '1/1' && /\/1$/.test(Object.entries(w9).find(([k]) => /Plasma Pistol/.test(k))?.[1] ?? '') && /\d+\/1$/.test(w9['Bolt Carbine'] ?? ''), JSON.stringify({ g9, w9 }));
+    await kp.locator(`#atk-losses-${uid}`).scrollIntoViewIfNeeded();
+    await kp.screenshot({ path: join(SHOTS, 'calc_133_plain_models_first.png') });
+    await kp.locator(`#atk-losses-${uid} button[data-action="loss-unit"][data-delta="1"]`).tap();
+    check('+ gives a model back to the group that lost the last one (a Grey Hunter)', (await groupsOf(`#atk-losses-${uid}`))['Grey Hunter'] === '1/9');
+    // Terminators with Logan Grimnar and an Ancient attached: hammers first, the claws Terminator and the sergeant after, characters last
+    await kp.tap('button[data-action="phase"][data-value="fight"]');
+    await kp.tap('button[data-action="open-add"]');
+    await kp.tap('.pick:has-text("Logan Grimnar")');
+    await kp.waitForFunction(() => document.querySelectorAll('[data-attacker]').length >= 1);
+    const tuid = await kp.evaluate(() => [...document.querySelectorAll('[data-attacker]')].find(c => /Logan/.test(c.textContent))?.dataset.attacker);
+    await kp.locator(`#atk-losses-${tuid} > summary`).tap();
+    const names = Object.keys(await groupsOf(`#atk-losses-${tuid}`));
+    check('two groups both called "Terminator" are told apart by their weapons', names.some(n => /^Terminator \(.*Hammer/i.test(n)) && names.some(n => /^Terminator \(.*claw/i.test(n)), names.join(' | '));
+    for (let i = 0; i < 10; i++) await kp.locator(`#atk-losses-${tuid} button[data-action="loss-unit"][data-delta="-1"]`).tap();
+    const t10 = await groupsOf(`#atk-losses-${tuid}`);
+    const by = (re) => Object.entries(t10).find(([k]) => re.test(k))?.[1];
+    check('whole unit −10: the 8 hammer Terminators, then the sergeant and the claws Terminator; Logan and the Ancient still there',
+      by(/Hammer/i) === '0/8' && by(/Sergeant/) === '0/1' && by(/claw/i) === '0/1' && by(/Logan/) === '1/1' && by(/Ancient/) === '1/1', JSON.stringify(t10));
+    await kctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
