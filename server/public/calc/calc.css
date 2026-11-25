@@ -652,3 +652,11 @@ div.tri-unit { cursor: default; }
   .tri .board-wrap #board-svg { max-height: calc(100dvh - 190px); }
   .tri.deploy .board-wrap #board-svg { max-height: calc(100dvh - 250px); }
 }
+
+/* Board: ↶ undo / ↷ redo next to Move / Ruler */
+.board-tools { gap: 6px; align-items: center; flex-wrap: nowrap; }
+.undo-host { gap: 4px; align-items: center; flex-wrap: nowrap; }
+.undo-host .icon-btn { width: 40px; min-width: 40px; }
+.undo-host .icon-btn:disabled { opacity: .35; cursor: default; }
+.undo-note-row { flex-basis: 100%; text-align: right; }
+.undo-note-row:empty { display: none; }

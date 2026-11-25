@@ -3934,6 +3934,91 @@ Aggressor Squad (95 points)
     await sctx.close();
   }
 
+  // --- Board undo / redo (1.128.0): ↶ ↷ next to Move / Ruler; every plan change, across turns; Ctrl+Z
+  {
+    const uctx2 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const up2 = await uctx2.newPage();
+    up2.on('pageerror', e => consoleErrors.push(`undo: ${e}`));
+    up2.on('console', m => { if (m.type() === 'error') consoleErrors.push(`undo: ${m.text()}`); });
+    const scr = (x, y) => up2.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const tok = (tk) => up2.evaluate((k) => window.__calc.board().tokens.find(t => t.tk === k) ?? null, tk);
+    const lab = async (id) => ({ dis: await up2.isDisabled(id), t: await up2.getAttribute(id, 'title') });
+    const drag = async (from, dy) => {
+      await up2.locator('#board-host').scrollIntoViewIfNeeded();
+      const p0 = await scr(from.x, from.y), p1 = await scr(from.x, from.y + dy);
+      await up2.mouse.move(p0.x, p0.y); await up2.mouse.down();
+      for (let i = 1; i <= 6; i++) await up2.mouse.move(p0.x, p0.y + (p1.y - p0.y) * i / 6);
+      await up2.mouse.up();
+    };
+    await up2.goto(`${BASE}/calc/`); await up2.waitForSelector('textarea[data-side="A"]');
+    await up2.fill('textarea[data-side="A"]', SW_LIST); await up2.tap('button[data-action="parse"][data-side="A"]');
+    await up2.fill('textarea[data-side="B"]', ORK_LIST); await up2.tap('button[data-action="parse"][data-side="B"]');
+    await up2.tap('button[data-action="view"][data-value="board"]');
+    await up2.waitForSelector('#board-undo');
+    const row = await up2.evaluate(() => { const u = document.getElementById('board-undo').getBoundingClientRect(), m = document.querySelector('button[data-action="board-mode"][data-value="move"]').getBoundingClientRect(); return { du: Math.abs(u.top - m.top), left: u.right <= m.left + 1 }; });
+    check('Board: ↶ and ↷ sit in the turn row, next to Move / Ruler; nothing to undo yet', row.du < 12 && row.left && (await lab('#board-undo')).dis && (await lab('#board-redo')).dis, JSON.stringify(row));
+    await up2.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    const tk = await up2.evaluate(() => window.__calc.board().tokens[0].tk);
+    check('placing a unit can be undone ("Undo: placed Grey Hunters")', /Undo: placed Grey Hunters/.test((await lab('#board-undo')).t));
+    const p0 = await tok(tk);
+    await drag(p0, 6);
+    const p1 = await tok(tk);
+    check('a drag can be undone, and the button says how far', Math.abs(p1.y - p0.y - 6) < 0.6 && /Undo: moved Grey Hunters \d+\.\d"/.test((await lab('#board-undo')).t), JSON.stringify({ p0, p1, t: (await lab('#board-undo')).t }));
+    if ((await up2.evaluate(() => window.__calc.board().sel)) !== tk) await up2.locator(`button[data-action="board-pick"][data-tk="${tk}"]`).tap();
+    await up2.tap('#board-pos-toggle');
+    await up2.locator('#board-pos-box button[data-action="board-rotate"][data-deg="45"]').tap();
+    check('turning it is a change too', (await tok(tk)).rot === 45 && /Undo: turned Grey Hunters/.test((await lab('#board-undo')).t));
+    await up2.tap('#board-undo');
+    check('↶ undoes the turn; ↷ offers it back; the row says what was undone', (await tok(tk)).rot === 0 && /Redo: turned Grey Hunters/.test((await lab('#board-redo')).t) && /Undid: turned Grey Hunters/.test(await up2.textContent('#board-undo-note')));
+    await up2.tap('#board-undo');
+    const p2 = await tok(tk);
+    check('↶ again puts it back where it was before the drag', Math.abs(p2.x - p0.x) < 0.01 && Math.abs(p2.y - p0.y) < 0.01, JSON.stringify({ p0, p2 }));
+    await up2.tap('#board-redo');
+    const p3 = await tok(tk);
+    check('↷ moves it again', Math.abs(p3.y - p1.y) < 0.01 && /Redo: turned Grey Hunters/.test((await lab('#board-redo')).t));
+    await up2.locator('#board-host').scrollIntoViewIfNeeded();
+    await up2.evaluate(() => window.scrollTo(0, 0));
+    await up2.screenshot({ path: join(SHOTS, 'calc_129_board_undo.png') });
+    // a new change after an undo: nothing left to redo
+    await up2.locator('#board-army-A button[data-action="board-place"]', { hasText: 'Scout Squad (1)' }).tap();
+    check('a new change after an undo clears redo', (await lab('#board-redo')).dis && /Undo: placed Scout Squad \(1\)/.test((await lab('#board-undo')).t));
+    // a change in Turn 1, undone from the Deploy step: the board goes to Turn 1 and puts the unit back there
+    await up2.tap('button[data-action="board-step-add"]');
+    const t1a = await tok(tk);
+    await drag(t1a, 5);
+    const t1b = await tok(tk);
+    await up2.tap('button[data-action="board-step"][data-i="0"]');
+    check('moving between turns is not a change', /Undo: moved Grey Hunters/.test((await lab('#board-undo')).t));
+    await up2.tap('#board-undo');
+    const back = await up2.evaluate((k) => ({ cur: window.__calc.board().cur, sel: window.__calc.board().sel, t: window.__calc.board().tokens.find(t => t.tk === k) }), tk);
+    check('undoing a Turn 1 move from the Deploy step shows Turn 1, with the unit back and selected', back.cur === 1 && back.sel === tk && Math.abs(back.t.y - t1a.y) < 0.01 && Math.abs(t1b.y - t1a.y - 5) < 0.6, JSON.stringify({ back, t1a, t1b }));
+    // keyboard
+    await up2.keyboard.press('Control+Shift+Z');
+    check('Ctrl+Shift+Z redoes', Math.abs((await tok(tk)).y - t1b.y) < 0.01);
+    await up2.keyboard.press('Control+Z');
+    check('Ctrl+Z undoes', Math.abs((await tok(tk)).y - t1a.y) < 0.01);
+    await uctx2.close();
+    // phone: the same buttons in the turn row above the map
+    const pctx4 = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp4 = await pctx4.newPage();
+    pp4.on('pageerror', e => consoleErrors.push(`undo phone: ${e}`));
+    await pp4.goto(`${BASE}/calc/`); await pp4.waitForSelector('textarea[data-side="A"]');
+    await pp4.fill('textarea[data-side="A"]', SW_LIST); await pp4.tap('button[data-action="parse"][data-side="A"]');
+    await pp4.fill('textarea[data-side="B"]', ORK_LIST); await pp4.tap('button[data-action="parse"][data-side="B"]');
+    await pp4.tap('button[data-action="view"][data-value="board"]');
+    await pp4.waitForSelector('#board-undo');
+    await pp4.locator('#board-tray button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    const n1 = await pp4.evaluate(() => window.__calc.board().tokens.length);
+    await pp4.tap('#board-undo');
+    const n0 = await pp4.evaluate(() => window.__calc.board().tokens.length);
+    check('phone: ↶ in the turn row takes back placing a unit', n1 === 1 && n0 === 0 && !(await pp4.isDisabled('#board-redo')), `${n1} -> ${n0}`);
+    const prow = await pp4.evaluate(() => { const u = document.getElementById('board-redo').getBoundingClientRect(), m = document.querySelector('button[data-action="board-mode"][data-value="move"]').getBoundingClientRect(), last = document.querySelector('button[data-action="board-mode"][data-value="meas"]').getBoundingClientRect(); return { du: Math.abs(u.top - m.top), left: u.right <= m.left + 1, fits: last.right <= innerWidth }; });
+    check('phone: ↶ ↷ next to Move / Ruler, all on screen', prow.du < 12 && prow.left && prow.fits, JSON.stringify(prow));
+    await pp4.evaluate(() => window.scrollTo(0, 0));
+    await pp4.screenshot({ path: join(SHOTS, 'calc_130_board_undo_phone.png') });
+    await pctx4.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
