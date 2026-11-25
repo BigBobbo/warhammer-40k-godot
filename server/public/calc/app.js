@@ -380,12 +380,29 @@ function groupsLeft(side, cu, round = lossRound()) {
   const army = state.armies[side];
   if (!cu || !army) return [];
   const ovr = lossesOf(side, cu.key, round);
-  return profileFor(cu, army).groups.map(g => ({ key: g.key, name: g.name, count: g.count, W: g.W, character: g.character, member: g.member, left: ovr[g.key]?.count ?? g.count, wl: ovr[g.key]?.woundsLeftFirst ?? g.W }));
+  const groups = profileFor(cu, army).groups;
+  const twice = (n) => groups.filter(x => x.name === n).length > 1;
+  return groups.map(g => ({ key: g.key, name: twice(g.name) && g.wargearNames?.length ? `${g.name} (${g.wargearNames.slice(0, 2).join(', ')})` : g.name, count: g.count, W: g.W, character: g.character, member: g.member, left: ovr[g.key]?.count ?? g.count, wl: ovr[g.key]?.woundsLeftFirst ?? g.W }));
+}
+/**
+ * The order models are taken off a unit with the whole-unit stepper: plain models first (the biggest group of
+ * bodyguard models), then the smaller groups (sergeants, special and heavy weapons), attached characters last.
+ * A model given back goes to the last group in that order that has lost one.
+ */
+function lossOrder(gs) {
+  return [...gs].sort((a, b) => (a.character - b.character) || (b.count - a.count) || String(a.key).localeCompare(String(b.key)));
 }
 /** "Models left" steppers for one unit (Attack tab attacker / target, Board panel). wounds: also the damaged model's wounds. */
 function lossSteppers(side, cu, { wounds = false, round = lossRound() } = {}) {
   const rd = `data-round="${round}"`;
-  return groupsLeft(side, cu, round).map(g => `<div class="weapon" data-loss-group="${esc(g.key)}"><div class="grow"><div class="wname">${esc(g.name)}${g.character ? ' <span class="muted tiny">(character)</span>' : ''}</div>
+  const gs = groupsLeft(side, cu, round);
+  const left = gs.reduce((a, g) => a + g.left, 0), total = gs.reduce((a, g) => a + g.count, 0);
+  const whole = gs.length > 1 ? `<div class="weapon loss-unit" data-loss-unit="${esc(cu.key)}"><div class="grow"><div class="wname">Whole unit</div>
+      <div class="wstats">Plain models go first, then sergeants and special weapons; characters last</div></div>
+      <div class="stepper"><button data-action="loss-unit" data-side="${side}" data-unit="${esc(cu.key)}" data-delta="-1" ${rd} aria-label="One model fewer (plain models first)">−</button>
+      <div class="val">${left}/${total}</div>
+      <button data-action="loss-unit" data-side="${side}" data-unit="${esc(cu.key)}" data-delta="1" ${rd} aria-label="One model back">+</button></div></div>` : '';
+  return whole + gs.map(g => `<div class="weapon" data-loss-group="${esc(g.key)}"><div class="grow"><div class="wname">${esc(g.name)}${g.character ? ' <span class="muted tiny">(character)</span>' : ''}</div>
       <div class="wstats">W${g.W} · models left</div></div>
       <div class="stepper"><button data-action="loss" data-side="${side}" data-unit="${esc(cu.key)}" data-group="${esc(g.key)}" data-field="count" data-delta="-1" ${rd} aria-label="One ${esc(g.name)} fewer">−</button>
       <div class="val">${g.left}/${g.count}</div>
@@ -561,26 +578,36 @@ function rowsFor(entry, tinfo, army = atkArmy(), phase = state.phase, opt = {}) 
   const manualOf = (r) => { const v = entry.counts?.[r.id]; return v == null || (stale && fam.get(r.id) != null) ? null : v; };
   // a family with one count set by hand is set by hand as a whole (its other rows: 0)
   const byHand = new Set(base.filter(r => fam.get(r.id) != null && manualOf(r) != null).map(r => fam.get(r.id)));
-  // models left (the game on the tracker): each weapon is carried by fewer models, in proportion to the models
-  // of its group that are left (a group of 10 with 5 left: half its bolters, half its plasma guns)
+  // models left (the game on the tracker): the weapons of the models that are left. In a group whose models carry
+  // different weapons, the plain models go first and the special weapons last: weapons every model has drop with
+  // each loss, the most common loadout (e.g. 7 bolt carbines) loses the next models, and the rarer weapons (e.g.
+  // 2 plasma guns) only go once those are gone.
   const gl = new Map(groupsLeft(armySide(army), cu).map(g => [g.key.replace(':', '.'), g]));
   const bodyAlive = [...gl.values()].filter(g => body.members.has(g.member)).reduce((a, g) => a + g.left, 0);
-  const fracOf = (r) => {
-    const n = (r.parts ?? []).reduce((a, p) => a + p.n, 0);
-    if (!n || !gl.size) return 1;
-    return (r.parts ?? []).reduce((a, p) => { const g = gl.get(p.g); return a + p.n * (g ? g.left / Math.max(1, g.count) : 1); }, 0) / n;
+  const plainOf = new Map();          // group -> the most common weapon count short of every model
+  for (const r of base) for (const p of r.parts ?? []) { const g = gl.get(p.g); if (g && p.n < g.count) plainOf.set(p.g, Math.max(plainOf.get(p.g) ?? 0, p.n)); }
+  const partLeft = (p) => {
+    const g = gl.get(p.g);
+    if (!g || g.left >= g.count) return p.n;
+    const c = g.count, lost = c - g.left, P = plainOf.get(p.g) ?? 0;
+    if (p.n >= c) return g.left;                              // every model has it
+    const lostPlain = Math.min(lost, P), S = c - P, rest = lost - lostPlain;
+    if (p.n === P) return P - lostPlain;                      // the plain models' weapon goes first
+    return S > 0 ? Math.max(0, Math.round(p.n * Math.max(0, S - rest) / S)) : 0;   // special weapons last
   };
+  const leftOf = (r) => (r.parts ?? []).reduce((a, p) => a + partLeft(p), 0);
   const rows = base.map(r => {
     const f = fam.get(r.id) ?? null;
     const manual = manualOf(r);
     const chosen = f != null && byHand.has(f) ? 0 : (auto?.counts[r.id] ?? r.count);
     const full = r.blocked ? 0 : Math.min(r.max, manual ?? chosen);
-    const frac = fracOf(r);
-    // a count set by hand is capped by the models left; one the app chose shrinks with them
-    const mine = frac >= 1 ? full : manual != null ? Math.min(full, Math.round(r.max * frac)) : Math.round(full * frac);
+    const lm = r.parts?.length ? leftOf(r) : r.max;
+    // a count set by hand, or a fixed weapon, is capped by the models left that carry it; a choice the app made
+    // (one of several profiles or weapons) shrinks with them
+    const mine = lm >= r.max ? full : manual != null || f == null ? Math.min(full, lm) : Math.round(full * lm / Math.max(1, r.max));
     // models in range: scale the bodyguard models' weapons; attached characters stay in
     const count = inRange != null && body.members.has(Number(String(r.id).split(':')[0])) ? Math.round(mine * Math.min(inRange, bodyAlive) / Math.max(1, bodyAlive)) : mine;
-    return { ...r, count, full, left: frac < 1 ? Math.round(r.max * frac) : null, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
+    return { ...r, count, full, left: lm < r.max ? lm : null, manual: manual != null || (f != null && byHand.has(f)), fam: f, note: auto?.notes.get(r.id) ?? null };
   });
   return { cu, rows, inRange, bodyTotal: body.total, bodyAlive, problem, stale };
 }
@@ -1153,7 +1180,7 @@ function targetCard(tinfo, s) {
     const nDamaged = lc.left < lc.total || lc.damaged;
     body += `<details class="more" data-details="casualties" id="target-losses" ${state.openCasualties || nDamaged ? 'open' : ''}><summary>Models left & damage${nDamaged ? ` · ${lc.left}/${lc.total}` : ''}</summary>
       ${lossSteppers(other(state.side), tinfo.cu, { wounds: true })}
-      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game (Mission → Play): the same models are gone when this unit attacks, and on the Board turns from that round on.</div>
+      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game: the same models are gone when this unit attacks, and on the Board turns from that round on.</div>
       ${nDamaged ? `<button class="btn ghost" data-action="loss-reset" data-side="${other(state.side)}" data-unit="${esc(tinfo.cu.key)}">Back to full strength</button>` : ''}
     </details>`;
     body += attachRow(other(state.side), tinfo.cu);
@@ -1246,7 +1273,7 @@ function attackerCard(e, i, tinfo) {
         <div>${tags}${unsupported}${r.blocked ? `<span class="tag warn">${esc(r.blocked)}</span>` : ''}${choiceTag(r)}</div>${choiceWhy(r)}</div>
       <div class="stepper">
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="-1" aria-label="Fewer">−</button>
-        <div class="val">${r.count}/${r.max}</div>
+        <div class="val">${r.count}/${r.left ?? r.max}</div>
         <button data-action="count" data-uid="${e.uid}" data-row="${esc(r.id)}" data-delta="1" aria-label="More">+</button>
       </div></div>`;
   }).join('') : `<div class="muted small">No ${shooting ? 'ranged' : 'melee'} weapons.</div>`;
@@ -1254,7 +1281,7 @@ function attackerCard(e, i, tinfo) {
   const lc = lossCount(state.side, cu);
   const lossRow = `<details class="more" data-details="atk-losses" id="atk-losses-${e.uid}" ${lc.left < lc.total ? 'open' : ''}><summary>Models left${lc.left < lc.total ? ` · ${lc.left}/${lc.total}` : ''}</summary>
       ${lossSteppers(state.side, cu)}
-      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game (Mission → Play): fewer models carry fewer weapons, in proportion (half the squad: half its weapons). The same models are gone when this unit is the target, and on the Board turns from that round on.</div>
+      <div class="tiny muted" style="margin-top:4px">${asOf()} Kept for this game: the weapons of the models left. Plain models go first, special weapons last. The same models are gone when this unit is the target, and on the Board turns from that round on.</div>
       ${lc.left < lc.total ? `<button class="btn ghost" data-action="loss-reset" data-side="${state.side}" data-unit="${esc(cu.key)}">Back to full strength</button>` : ''}</details>`;
   const rangeRow = bodyTotal > 1 && bodyAlive > 0 ? `<div class="weapon" style="border-top:1px solid var(--line);margin-top:4px">
       <div class="grow"><div class="wname">Models in range</div><div class="wstats">${state.phase === 'fight' ? 'Bodyguard models that can fight' : 'Bodyguard models with line of sight / range'}; attached characters stay in</div></div>
@@ -2395,6 +2422,17 @@ app.addEventListener('click', (ev) => {
       if (!g) return;
       const round = el.dataset.round != null ? Number(el.dataset.round) : lossRound();
       missionLoss({ side, unit: cu.key, unitName: cu.name, group: g.key, groupName: g.name, field: el.dataset.field, delta: Number(el.dataset.delta), count: g.count, W: g.W, round });
+      if (el.closest('#target-losses')) state.openCasualties = true;
+      return changed();
+    }
+    case 'loss-unit': {
+      // the whole unit: the next model to go is a plain one; one given back goes to the last group that lost one
+      const side = el.dataset.side, cu = state.armies[side]?.units.find(u => u.key === el.dataset.unit);
+      const round = el.dataset.round != null ? Number(el.dataset.round) : lossRound();
+      const order = lossOrder(groupsLeft(side, cu, round)), d = Number(el.dataset.delta);
+      const g = d < 0 ? order.find(x => x.left > 0) : [...order].reverse().find(x => x.left < x.count);
+      if (!g) return;
+      missionLoss({ side, unit: cu.key, unitName: cu.name, group: g.key, groupName: g.name, field: 'count', delta: d, count: g.count, W: g.W, round });
       if (el.closest('#target-losses')) state.openCasualties = true;
       return changed();
     }

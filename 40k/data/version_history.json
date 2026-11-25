@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.132.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: losses take the plain models first, special weapons and characters last",
+      "changes": [
+        "Models left: a Whole unit − / + takes the plain models off first (the biggest group), then sergeants and special-weapon models, attached characters last; + gives back the last one taken",
+        "Grey Hunters losing 9 keep their Pack Leader, so his plasma pistol and power fist are still there",
+        "In a group whose models carry different weapons, the common loadout goes first and the special weapons last (no longer in proportion)",
+        "Two groups with the same name are told apart by their weapons (e.g. Terminator (thunder hammer) and Terminator (twin lightning claw))",
+        "Weapon counts on the Attack tab show how many of the models left carry each weapon"
+      ]
+    },
+    {
       "version": "1.131.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: take models off a unit as the game goes on — turn by turn, fewer models, fewer attacks",
