@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.134.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: a Live table that follows your game, and what your opponent can do in their next turn",
+      "changes": [
+        "Board: 🔴 Live table is the real table as it stands now. It starts from the plan on screen and follows the round and turn of the game on Mission → Play",
+        "Move the units to where they are and tap ✓ Positions are current; after each Turn done it reminds you when the positions were last confirmed",
+        "Every Turn done keeps the table as it stood at the end of that turn, and a new battle round gets its own step",
+        "⚡ Battle-shocked on a unit of the live table: it brings no Objective Control until its player's next turn",
+        "Their next turn: which of your units they can shoot or charge and how likely each is destroyed, both the likely case and if they focus it",
+        "Their next turn: each objective with who controls it, and which of their units can take or tie it with a normal move or an Advance",
+        "Their next turn: each card in their hand on the tracker, whether they can score it by moving alone, only by destroying something, or not this turn",
+        "It says what it does not count: units in reserve or in a transport, terrain in the way of a move, and stratagems"
+      ]
+    },
+    {
       "version": "1.133.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: move models one by one on the Board",

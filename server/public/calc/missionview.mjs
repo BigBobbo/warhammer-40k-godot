@@ -8,7 +8,7 @@
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf, armyData, fmtDataDate, earlyArrival, armyIntel } from './adapter.mjs';
-import { boardContext, boardPlans, boardTrees, boardSetupInfo } from './boardview.mjs';
+import { boardContext, boardPlans, boardTrees, boardSetupInfo, boardTurnDone, boardNewGame } from './boardview.mjs';
 import { evaluate as evalTree } from './plantree.mjs';
 import { cardFace } from './cardface.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS, dispositionName } from './board.mjs';
@@ -301,7 +301,18 @@ export function missionLoss(c) {
   if (!Object.keys(U).length) delete L[c.side][c.unit];
   persist();
 }
-export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); boardNewGame(); }
+/** The game on the tracker as the Board's live table needs it: the round, whose turn, the phase, each player's hand. */
+export function missionNow() {
+  const g = ms().game;
+  return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] } };
+}
+/** The unit-vs-unit odds of the two lists (null while they are being worked out; asking starts the work). */
+export function pairTable() {
+  const st = ctx.state;
+  if (!st.armies.A || !st.armies.B) return null;
+  return ensurePairs() ? ms().pairs.table : null;
+}
 /** The mission state (for a saved game) and the saved game it came from. */
 export const missionState = () => ms();
 export function missionSetSavedId(id) { ms().savedId = id; persist(); }
@@ -1570,7 +1581,10 @@ export function missionAction(action, el) {
       remember('turn done');
       // the player whose turn ends before any other turn of round 1 took the first turn
       if (m.first == null && g.round === 1 && !g.turnsDone) m.first = turnOf();
+      const before = { round: g.round, turn: turnOf() };
       const res = PT.endTurn(g, m.first, RULES.rounds);
+      // the Board's live table keeps the position of the turn that ended and follows the new one
+      boardTurnDone(before, { round: g.round, turn: turnOf() });
       for (const P of ['A', 'B']) { g[P].cpAsk = false; g[P].swapPending = false; }
       if (m.clock.mode === 'chess' && m.clock.running) { if (res.ended) PT.chessPause(m.clock, Date.now()); else PT.chessRun(m.clock, g.next, Date.now()); }
       console.log(`[mission] turn done -> round ${g.round}, ${g.next}'s turn${res.ended ? ' (battle over)' : ''}; CP A ${g.A.cp} B ${g.B.cp}`);
@@ -1586,7 +1600,7 @@ export function missionAction(action, el) {
       break;
     }
     // a new game: the tracker is cleared (Undo brings it back) and the first turn is rolled for again
-    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; break;
+    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; boardNewGame(); break;
     default: return null;
   }
   persist();
