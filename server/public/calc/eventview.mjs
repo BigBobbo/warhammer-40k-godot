@@ -223,9 +223,13 @@ export function eventAction(action, el) {
     case 'event-cover': {
       // plan a deployment for "my disposition vs that disposition" on that layout (needs any army B on the board)
       if (!st.armies.B) { note('Load any list as army B first (an opponent from the list above): the Board needs two armies.'); break; }
+      // it changes B's disposition and the layout: not under a game on the tracker
+      if (ctx.gameInProgress()) { note('A game is on the tracker: planning another matchup would change its mission. Finish it or start a new game on Mission → Play first.'); console.log('[event] coverage cell ignored: a game is in progress'); break; }
       const b = st.board;
+      // B's disposition is overridden for this practice matchup: the Board says so and offers B's own back
       b.settings.dispB = el.dataset.disp;
       boardSetup({ variant: Number(el.dataset.v) });
+      console.log(`[event] coverage: planning vs ${el.dataset.disp}, layout ${layoutLetter(Number(el.dataset.v))} (B's disposition overridden on the Board)`);
       st.view = 'board';
       break;
     }

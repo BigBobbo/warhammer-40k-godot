@@ -2866,6 +2866,151 @@ Aggressor Squad (95 points)
     await qctx.close();
   }
 
+  // --- set-up path (1.124.0): checklist on Mission, the Board's set-up locked during a game, disposition overrides shown
+  {
+    const uctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const up = await uctx.newPage();
+    up.on('pageerror', e => consoleErrors.push(`setup: ${e}`));
+    up.on('console', m => { if (m.type() === 'error') consoleErrors.push(`setup: ${m.text()}`); });
+    up.on('dialog', d => d.accept());
+    const utxt = async (q) => (await up.textContent(q)).replace(/\s+/g, ' ').trim();
+    const settings = () => up.evaluate(() => ({ ...window.__calc.state.board.settings, layout: window.__calc.board().layout }));
+    await up.goto(`${BASE}/calc/`); await up.waitForSelector('textarea[data-side="A"]');
+    await up.fill('textarea[data-side="A"]', SW_LIST); await up.tap('button[data-action="parse"][data-side="A"]');
+    await up.fill('textarea[data-side="B"]', ORK_LIST); await up.tap('button[data-action="parse"][data-side="B"]');
+    // the checklist on Mission > Plan, open before the game
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.waitForSelector('#setup-plan');
+    const rows = await up.$$eval('#setup-list-plan .setup-row', els => els.map(e => `${e.dataset.step}:${e.classList.contains('ok') ? 'ok' : e.classList.contains('warn') ? 'warn' : 'todo'}`));
+    check('Mission > Plan: a set-up checklist in order (armies, dispositions, primaries, layout, deployment, secondaries, first turn), open',
+      rows.join(',') === 'armies:ok,disp:ok,primary:ok,layout:ok,deploy:todo,cards:ok,first:todo' && await up.$eval('#setup-plan', d => d.open), rows.join(','));
+    check('the checklist says what is left and names both primaries', /^Set-up: 2 to do/.test(await utxt('#setup-plan > summary')) && /A plays .+ · B plays/.test(await utxt('#mission-names')) && /0 of \d+ units placed/.test(await utxt('#setup-list-plan [data-step="deploy"]')));
+    await up.screenshot({ path: join(SHOTS, 'calc_121_setup_checklist.png') });
+    // its Board button goes to the Board; a disposition changed there is flagged on both tabs
+    await up.tap('#setup-list-plan [data-step="disp"] button[data-value="board"]');
+    await up.waitForSelector('#board-setup');
+    await up.selectOption('select[data-input="board-disp"][data-side="B"]', 'purge-the-foe');
+    await up.waitForSelector('#board-disp-override-B');
+    check('Board: a disposition that is not the list\'s is flagged, with the list\'s offered back', /B is set to Purge the Foe here, but B's list says Take and Hold/.test(await utxt('#board-disp-override-B')));
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('button[data-action="mission-tab"][data-value="play"]');
+    check('Play shows the checklist too while something needs checking', /1 to check/.test(await utxt('#setup-play > summary')));
+    await up.tap('button[data-action="mission-tab"][data-value="plan"]');
+    check('…and the checklist marks dispositions to check', /⚠/.test(await utxt('#setup-list-plan [data-step="disp"]')) && /list: Take and Hold/.test(await utxt('#setup-list-plan [data-step="disp"]')) && /1 to check/.test(await utxt('#setup-plan > summary')));
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.tap('#board-disp-override-B button[data-action="board-disp-list"]');
+    check('"Use the list\'s" puts B back on its list\'s disposition', (await up.locator('#board-disp-override-B').count()) === 0 && (await settings()).dispB === undefined);
+    // after deployment (Turn 1 on), the set-up card is gone: only Share image and a pointer to the Deploy step
+    await up.tap('button[data-action="board-step-add"]');
+    await up.waitForSelector('#board-setup-turn');
+    check('Board, Turn 1: no dispositions / layout / zones card, Share image stays', (await up.locator('#board-setup').count()) === 0 && (await up.locator('select[data-input="board-disp"]').count()) === 0
+      && (await up.locator('#board-setup-turn button[data-action="board-share"]').count()) === 1 && (await up.evaluate(() => window.__calc.board().cur)) === 1);
+    await up.locator('#board-setup-turn').scrollIntoViewIfNeeded();
+    await up.screenshot({ path: join(SHOTS, 'calc_124_board_turn_no_setup.png') });
+    await up.tap('button[data-action="board-step"][data-i="0"]');
+    check('…and back on the Deploy step it is there again', (await up.locator('#board-setup select[data-input="board-disp"]').count()) === 2);
+    await up.tap('button[data-action="board-step"][data-i="1"]');
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('#setup-list-plan [data-step="layout"] button[data-value="board"]');
+    await up.waitForSelector('#board-setup');
+    check('the checklist\'s Board button opens the Deploy step (where the set-up is)', (await up.evaluate(() => window.__calc.board().cur)) === 0);
+    // the event preparation table overrides B's disposition: flagged, and a new B list drops it
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.locator('#event-card > summary').tap();
+    await up.fill('#event-paste', ORK_LIST); await up.tap('button[data-action="event-add"]');
+    await up.locator('#event-coverage button.cov[data-disp="reconnaissance"][data-v="2"]').tap();
+    await up.waitForSelector('#board-disp-override-B');
+    check('a tap on the preparation table: Board with B on that disposition, and it says so', (await settings()).dispB === 'reconnaissance' && /B is set to Reconnaissance here/.test(await utxt('#board-disp-override-B')));
+    await up.screenshot({ path: join(SHOTS, 'calc_122_setup_override.png') });
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));
+    await up.tap('button[data-action="parse"][data-side="B"]');
+    check('a different list loaded as B takes its own disposition again (the override is dropped)', (await settings()).dispB === undefined);
+    // a game on the tracker: the set-up is locked on the Board
+    await up.tap('button[data-action="view"][data-value="mission"]');
+    await up.tap('button[data-action="mission-tab"][data-value="play"]');
+    await up.waitForSelector('#play-bar');
+    await up.tap('button[data-action="mission-score-step"][data-side="A"][data-k="primary"][data-delta="5"]');
+    check('Play: no checklist when nothing needs checking (the tracker stays short)', (await up.locator('#setup-play').count()) === 0);
+    await up.tap('button[data-action="mission-tab"][data-value="plan"]');
+    await up.waitForSelector('#setup-plan');
+    check('Plan: the checklist says the set-up is locked during the game', /🔒 locked during the game/.test(await utxt('#setup-plan > summary')) && /locked while this game is on the tracker/.test(await utxt('#setup-plan')));
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.waitForSelector('#board-setup-lock');
+    const before = await settings();
+    const disabled = await up.evaluate(() => ({ sel: document.querySelector('select[data-input="board-disp"][data-side="A"]').matches(':disabled'), lay: document.querySelector('button[data-action="board-variant"][data-value="3"]').matches(':disabled'), swap: document.querySelector('button[data-action="board-swap-zones"]').disabled }));
+    await up.locator('button[data-action="board-variant"][data-value="3"]').tap({ force: true });
+    check('Board during a game: dispositions, layout and zones are locked and a tap on a layout changes nothing',
+      disabled.sel && disabled.lay && disabled.swap && (await settings()).layout === before.layout && /a game is on the tracker \(round 1\)/.test(await utxt('#board-setup-lock')), JSON.stringify(disabled));
+    await up.locator('#board-setup').scrollIntoViewIfNeeded();
+    await up.screenshot({ path: join(SHOTS, 'calc_123_setup_locked.png') });
+    // the preparation table cannot change the game's mission either
+    await up.tap('button[data-action="view"][data-value="armies"]');
+    await up.locator('#event-coverage button.cov[data-disp="disruption"][data-v="1"]').tap();
+    check('preparation table during a game: nothing changes, it says why', (await up.evaluate(() => window.__calc.state.view)) === 'armies' && (await settings()).dispB === undefined && /A game is on the tracker/.test(await utxt('#event-card')));
+    // "Change anyway" unlocks it (after a confirm)
+    await up.tap('button[data-action="view"][data-value="board"]');
+    await up.tap('#board-setup-unlock');
+    await up.tap('button[data-action="board-variant"][data-value="3"]');
+    check('"Change anyway": the layout can be changed during the game', (await up.locator('#board-setup-lock').count()) === 0 && /_3$/.test((await settings()).layout), (await settings()).layout);
+    await uctx.close();
+  }
+
+  // --- movement rings stay where the unit started the turn (1.111.0): drag it, the Move ring does not follow
+  {
+    const rctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const rp = await rctx.newPage();
+    rp.on('pageerror', e => consoleErrors.push(`rings: ${e}`));
+    rp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`rings: ${m.text()}`); });
+    const rScreen = (x, y) => rp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const rTok = (tk) => rp.evaluate((k) => window.__calc.board().tokens.find(t => t.tk === k), tk);
+    // the centre of the first circle of a ring (the first model's), in board inches
+    const ringAt = (k) => rp.evaluate((kk) => { const c = document.querySelector(`#board-svg [data-ring="${kk}"] circle`); const g = c?.parentNode; return c ? { x: +c.getAttribute('cx'), y: +c.getAttribute('cy'), from: g.dataset.from } : null; }, k);
+    const drag = async (from, dy) => {
+      const p0 = await rScreen(from.x, from.y), p1 = await rScreen(from.x, from.y + dy);
+      await rp.mouse.move(p0.x, p0.y); await rp.mouse.down();
+      for (let i = 1; i <= 6; i++) await rp.mouse.move(p0.x, p0.y + (p1.y - p0.y) * i / 6);
+      await rp.mouse.up();
+    };
+    await rp.goto(`${BASE}/calc/`); await rp.waitForSelector('textarea[data-side="A"]');
+    await rp.fill('textarea[data-side="A"]', SW_LIST); await rp.tap('button[data-action="parse"][data-side="A"]');
+    await rp.fill('textarea[data-side="B"]', ORK_LIST); await rp.tap('button[data-action="parse"][data-side="B"]');
+    await rp.tap('button[data-action="view"][data-value="board"]');
+    await rp.waitForSelector('#board-svg');
+    await rp.locator('button[data-action="board-place"][data-side="A"]', { hasText: 'Grey Hunters' }).tap();
+    const gh = (await rp.evaluate(() => window.__calc.board().tokens))[0];
+    // Turn 1: select it, show its Move ring
+    await rp.tap('button[data-action="board-step-add"]');
+    await rp.locator('#board-host').scrollIntoViewIfNeeded();
+    // (placing a unit selects it; a tap on a selected unit clears the selection)
+    if ((await rp.evaluate(() => window.__calc.board().sel)) !== gh.tk) { const s0 = await rScreen(gh.x, gh.y); await rp.mouse.click(s0.x, s0.y); }
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="move"]').tap();
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="r24"]').tap();
+    const m0 = await ringAt('move');
+    // drag it 5" forward, and again 3" (two drops in the same turn)
+    await drag(gh, 5);
+    const g1 = await rTok(gh.tk);
+    await drag(g1, 3);
+    const g2 = await rTok(gh.tk), m2 = await ringAt('move'), r2 = await ringAt('r24');
+    check('dragging the unit in Turn 1 moves it (~8" in two drags)', Math.abs(g2.y - gh.y - 8) < 0.6, `${gh.y} -> ${g2.y}`);
+    check('the Move ring stays where the unit ended the Deploy step (it does not follow the drop)', m0 && m2 && m2.from === 'start' && Math.abs(m2.x - m0.x) < 0.01 && Math.abs(m2.y - m0.y) < 0.01, JSON.stringify({ m0, m2 }));
+    check('a weapon range ring follows the unit (shooting is after the move)', r2 && r2.from === 'here' && Math.abs(r2.y - m2.y - (g2.y - gh.y)) < 0.05, JSON.stringify({ r2, m2 }));
+    check('the start of the turn is outlined (dashed) once the unit has moved', (await rp.locator(`#board-svg [data-start="${gh.tk}"]`).count()) === 1);
+    await rp.locator('#board-panel button[data-action="board-ring"][data-k="r24"]').tap();
+    await rp.locator('#board-host').scrollIntoViewIfNeeded();
+    await rp.screenshot({ path: join(SHOTS, 'calc_125_move_ring_pinned.png') });
+    // Turn 2: the Move ring starts from where it ended Turn 1
+    await rp.tap('button[data-action="board-step-add"]');
+    const m3 = await ringAt('move');
+    check('Turn 2: the Move ring is measured from where the unit ended Turn 1', m3 && Math.abs(m3.y - m0.y - (g2.y - gh.y)) < 0.05 && (await rp.locator(`#board-svg [data-start="${gh.tk}"]`).count()) === 0, JSON.stringify({ m0, m3 }));
+    // Deploy: no previous turn, the ring is around the unit
+    await rp.tap('button[data-action="board-step"][data-i="0"]');
+    { const s1 = await rScreen(gh.x, gh.y); await rp.mouse.click(s1.x, s1.y); } // a new step clears the selection
+    const md = await ringAt('move');
+    check('Deploy step: the Move ring is around the unit where it stands', md && md.from === 'here' && Math.abs(md.y - m0.y) < 0.01, JSON.stringify(md));
+    await rctx.close();
+  }
+
   // --- lists in the game (1.111): load a list from the game's army store; send army A / B there
   {
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
@@ -3563,7 +3708,7 @@ Aggressor Squad (95 points)
     await vctx.close();
   }
 
-  // --- 1.124: 📐 base-to-base measuring on a table photo. A synthetic tablet photo of the table taken from one end
+  // --- 1.125: 📐 base-to-base measuring on a table photo. A synthetic tablet photo of the table taken from one end
   // (perspective, 2400 px wide) with a 32 mm base at (12, 20) and a 40 mm base at (24, 34): truth 17.02" edge to edge.
   {
     const { writeFileSync } = await import('fs');
@@ -3637,7 +3782,7 @@ Aggressor Squad (95 points)
     await mctx.close();
   }
 
-  // --- 1.125: AR measuring test page (/calc/ar-test.html). Real AR needs a device with ARCore: here (1) a browser
+  // --- 1.126: AR measuring test page (/calc/ar-test.html). Real AR needs a device with ARCore: here (1) a browser
   // without AR must say so, and (2) with a STAND-IN WebXR device (scripted hit-test points; no camera, no ARCore)
   // the page's own logic must measure, record and drift-test correctly. (2) is not a test of real AR accuracy.
   {
