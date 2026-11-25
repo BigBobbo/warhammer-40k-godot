@@ -87,7 +87,7 @@ export function turnThreats(mine, theirs, pair, { pieces = null } = {}) {
         now = s.attackersSeeing > 0 && s.targetSeen > 0 && !s.hidden;
       }
       const part = { mu, v, p: scaled ? undefined : p };
-      row.by.push({ key: a.key, name: a.name, shoot: th.shoot ? { range: th.shoot.range, now } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p });
+      row.by.push({ key: a.key, name: a.name, shoot: th.shoot ? { range: th.shoot.range, now } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part });
       row.parts.push(part);
       const value = p * Math.max(1, t.points ?? 1);
       if (value > (best.get(a.key)?.value ?? 0)) best.set(a.key, { row, value, part });
@@ -177,22 +177,22 @@ export function objectiveSwing(mine, theirs, objs, pieces, { me = 'A', risk = {}
  * (the easiest objectives first; normal moves, no Advance). -> { n, ids }
  */
 export function controllable(swing, ids) {
-  const used = new Set(), got = [];
+  const used = new Set(), got = [], picks = {};
   const rows = swing.filter(o => ids.includes(o.id)).map(o => ({ o, short: o.mine - o.theirs })).sort((a, b) => a.short - b.short);
   for (const { o } of rows) {
     let oc = o.theirs;
     // their units in range stay (their full OC closes up), then the nearest movers
-    const picks = [];
-    for (const t of o.there) if (!used.has(t.key)) picks.push(t.key);
+    const pick = [];
+    for (const t of o.there) if (!used.has(t.key)) pick.push(t.key);
     oc = o.there.filter(t => !used.has(t.key)).reduce((a, t) => a + Math.max(t.oc, t.full ?? 0), 0);
     for (const m of o.movers) {
       if (oc > o.mine) break;
       if (m.via !== 'move' || used.has(m.key)) continue;
-      oc += m.oc; picks.push(m.key);
+      oc += m.oc; pick.push(m.key);
     }
-    if (oc > o.mine) { got.push(o.id); for (const k of picks) used.add(k); }
+    if (oc > o.mine) { got.push(o.id); picks[o.id] = pick; for (const k of pick) used.add(k); }
   }
-  return { n: got.length, ids: got };
+  return { n: got.length, ids: got, picks };
 }
 
 // ---------------------------------------------------------------------------
@@ -393,4 +393,133 @@ export function nextTurn(c) {
   const swing = objectiveSwing(c.mine, c.theirs, c.objs ?? [], c.geo?.pieces ?? [], { me: c.me, risk });
   const cards = cardOutlook({ hand: c.hand ?? [], round: c.round ?? 1, me: c.me, mine: c.mine, theirs: c.theirs, threats, swing, geo: c.geo });
   return { threats, swing, cards, vpAtStake: cards.filter(x => x.verdict === 'yes').reduce((a, x) => a + x.vp, 0) };
+}
+
+// ---------------------------------------------------------------------------
+// "My turn": the same measurements from my side, turned into one suggestion per unit
+
+/** Points a victory point is counted as when a kill is weighed against a card (2,000 points to about 50 VP of a game). */
+export const VP_POINTS = 40;
+
+const SWAP = { they: 'you', their: 'your', theirs: 'yours', them: 'you', you: 'they', your: 'their', yours: 'theirs' };
+/** A sentence written about "them" (cardOutlook) said about me instead. */
+export function myVoice(text) {
+  return String(text ?? '').replace(/\b(they|theirs|their|them|yours|your|you)\b/gi, (w) => {
+    const r = SWAP[w.toLowerCase()];
+    return w[0] === w[0].toUpperCase() ? r[0].toUpperCase() + r.slice(1) : r;
+  });
+}
+
+/**
+ * Who should attack what: one target per unit of mine, chosen pair by pair for the most added value (the
+ * target's points x the chance it is destroyed, plus what its death is worth: bonus[targetKey] in points).
+ * hits: turnThreats(theirs, mine) - for each of THEIR units, which of mine reach it and the wounds they remove.
+ * -> [{ key, name, points, p (P destroyed by the units sent), by: [{ key, name, shoot, charge }], value }], best first
+ */
+export function killPlan(hits, bonus = {}) {
+  const worth = (t) => Math.max(1, t.points ?? 1) + (bonus[t.key] ?? 0);
+  const sent = new Map(hits.map(t => [t.key, []]));
+  const free = new Set(hits.flatMap(t => t.by.map(b => b.key)));
+  const pOf = (t, list) => killChance(list.map(b => b.part), t.wounds);
+  for (;;) {
+    let top = null;
+    for (const t of hits) {
+      const cur = sent.get(t.key), p0 = pOf(t, cur);
+      if (p0 >= 0.995) continue;
+      for (const b of t.by) {
+        if (!free.has(b.key)) continue;
+        const gain = (pOf(t, [...cur, b]) - p0) * worth(t);
+        if (gain > (top?.gain ?? 1e-6)) top = { t, b, gain };
+      }
+    }
+    if (!top) break;
+    sent.get(top.t.key).push(top.b);
+    free.delete(top.b.key);
+  }
+  // a unit that adds nothing anywhere still shoots: at the target it hurts most
+  for (const k of free) {
+    let top = null;
+    for (const t of hits) { const b = t.by.find(x => x.key === k); if (b && b.mu > (top?.b.mu ?? 0)) top = { t, b }; }
+    if (top) sent.get(top.t.key).push(top.b);
+  }
+  return hits.filter(t => sent.get(t.key).length).map(t => {
+    const by = sent.get(t.key), p = pOf(t, by);
+    return { key: t.key, name: t.name, points: t.points, p, by: by.map(b => ({ key: b.key, name: b.name, shoot: b.shoot, charge: b.charge, engaged: b.engaged })), value: p * worth(t) };
+  }).sort((a, b) => b.value - a.value);
+}
+
+/**
+ * My turn, from the table as it stands: what each of my units is best used for.
+ * in: as nextTurn, with hand = MY cards and risk = { [myUnitKey]: P(destroyed in their next turn where it stands) }.
+ * -> { units: [{ key, name, risk, job: { kind: 'take' | 'hold' | 'card' | 'none', obj, label, card, note },
+ *               attack: { key, name, p, how: 'shoot' | 'charge' | 'shoot + charge', with: n } | null }],
+ *      kills (killPlan), swing (objectives from my side: 'lose' / 'take' = I can take it),
+ *      cards (mine; when: 'mine' = end of my turn, 'theirs' = end of their turn, as the table stands), vp }
+ * A unit's move job and its attack are worked out apart, both from where it stands now (a normal move, then
+ * range / a charge): after a move to an objective its target may be out of reach - the card says so.
+ */
+export function myTurn(c) {
+  const me = c.me, opp = me === 'A' ? 'B' : 'A';
+  const pieces = c.geo?.pieces ?? [];
+  const hits = turnThreats(c.theirs, c.mine, c.pair, { pieces });
+  const hitRisk = Object.fromEntries(hits.map(t => [t.key, t.likely]));
+  // the objectives seen from their side: "mine" there = their OC, movers = my units
+  const swing = objectiveSwing(c.theirs, c.mine, c.objs ?? [], pieces, { me: opp, risk: hitRisk });
+  const cards = cardOutlook({ hand: c.hand ?? [], round: c.round ?? 1, me: opp, mine: c.theirs, theirs: c.mine, threats: hits, swing, geo: c.geo })
+    .map(x => ({ ...x, why: myVoice(x.why), offTurn: x.when === 'mine', when: x.when === 'mine' ? 'theirs' : 'mine' }));
+  const has = (id) => (c.hand ?? []).includes(id);
+  // what a kill is worth beyond the unit's points: it holds an objective; a card of mine pays for it
+  const bonus = {};
+  for (const t of c.theirs) {
+    let b = 0;
+    if (swing.some(o => o.holders.some(h => h.key === t.key && h.oc > 0))) b += 0.5 * (t.points ?? 0) + (has('overwhelming-force') ? 3 * VP_POINTS : 0);
+    if (has('assassination') && (t.chars ?? 0) > 0) b += 5 * VP_POINTS;
+    if (has('bring-it-down') && (t.w10 ?? 0) > 0) b += 5 * VP_POINTS;
+    if (has('a-grievous-blow') && t.ss13) b += 5 * VP_POINTS;
+    if (has('no-prisoners')) b += 2 * VP_POINTS;
+    if (b) bonus[t.key] = b;
+  }
+  const kills = killPlan(hits, bonus);
+  // the cards paid per unit destroyed: by the targets of this plan (not by "each unit at its own best target")
+  for (const x of cards) {
+    if (x.id !== 'no-prisoners' && x.id !== 'overwhelming-force') continue;
+    const onObj = (k) => swing.some(o => o.holders.some(h => h.key === k));
+    const el = kills.filter(k => k.p >= 0.005 && (x.id === 'no-prisoners' || onObj(k.key)));
+    const each = x.id === 'no-prisoners' ? 2 : 3;
+    if (!el.length) { Object.assign(x, { verdict: 'no', vp: 0, p: null, why: x.id === 'no-prisoners' ? 'nothing of theirs is in reach to destroy' : 'no unit of theirs on an objective is in reach to destroy' }); continue; }
+    const exp = el.reduce((a, k) => a + k.p, 0);
+    Object.assign(x, { verdict: 'kill', vp: Math.min(5, each * Math.max(1, Math.round(exp))), p: 1 - el.reduce((a, k) => a * (1 - k.p), 1),
+      why: `${each} VP per unit${x.id === 'no-prisoners' ? '' : ' that started the turn on an objective'}: ${names(el.map(k => `${k.name} ${pct(k.p)}`), 3)}` });
+  }
+  // objectives: keep what I hold, then take what I can, a unit to one objective (the easiest first)
+  const jobs = new Map();
+  for (const o of swing) if (o.verdict === 'theirs') for (const t of o.there) if (t.oc > 0 && !jobs.has(t.key)) jobs.set(t.key, { kind: 'hold', obj: o.id, label: o.label, note: `${o.theirs} OC against ${o.mine}` });
+  // (an objective they hold before an empty one: taking it also takes it from them)
+  for (const verdict of ['lose', 'take']) {
+    const open = swing.filter(o => o.verdict === verdict);
+    const freeSwing = open.map(o => ({ ...o, there: o.there.filter(t => !jobs.has(t.key)), movers: o.movers.filter(m => !jobs.has(m.key)) }));
+    const got = controllable(freeSwing, open.map(o => o.id));
+    for (const o of open) for (const k of got.picks[o.id] ?? []) if (!jobs.has(k)) jobs.set(k, { kind: 'take', obj: o.id, label: o.label, note: o.mine > 0 ? `they have ${o.mine} OC there` : 'nobody holds it' });
+  }
+  // then the cards I can score by where a unit stands (the units still free)
+  const Y = me;
+  const place = (id, test, note) => {
+    const card = cards.find(x => x.id === id && x.verdict === 'yes');
+    if (!card) return;
+    for (const u of c.mine) {
+      if (jobs.has(u.key)) continue;
+      const f = reachFacts(u, Y, c.geo);
+      if (test(f)) { jobs.set(u.key, { kind: 'card', card: card.name, label: card.name, note }); if (id !== 'behind-enemy-lines') break; }
+    }
+  };
+  place('behind-enemy-lines', f => f.canEnemyDZ, 'wholly within their deployment zone');
+  place('centre-ground', f => f.centre3, 'within 3" of the centre');
+  place('plunder', f => f.terrainOutside, 'an action in a terrain area outside your territory (it does not shoot)');
+  place('outflank', f => f.flankEdges.size > 0, 'within 6" of a battlefield edge outside your territory');
+  const atk = new Map();
+  for (const k of kills) for (const b of k.by) atk.set(b.key, { key: k.key, name: k.name, p: k.p, with: k.by.length, how: [b.shoot ? 'shoot' : '', b.engaged ? 'fight' : b.charge ? 'charge' : ''].filter(Boolean).join(' + ') });
+  const units = c.mine.map(u => ({ key: u.key, name: u.name, risk: c.risk?.[u.key] ?? 0, job: jobs.get(u.key) ?? { kind: 'none' }, attack: atk.get(u.key) ?? null }));
+  const rank = { take: 0, card: 1, hold: 2, none: 3 };
+  units.sort((a, b) => rank[a.job.kind] - rank[b.job.kind] || (b.attack?.p ?? 0) - (a.attack?.p ?? 0) || b.risk - a.risk);
+  return { units, kills, swing, cards, vp: cards.filter(x => x.verdict === 'yes').reduce((a, x) => a + x.vp, 0) };
 }

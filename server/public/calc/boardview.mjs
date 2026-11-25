@@ -19,7 +19,7 @@ import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch a
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
-import { nextTurn } from './nextturn.mjs';
+import { nextTurn, myTurn } from './nextturn.mjs';
 import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -417,8 +417,8 @@ function nextTurnData(compute = true) {
   const g = gameNow(), dep = DEPLOYMENTS[l.deployment];
   const toks = placed(), inside = embarkedIn(stepTokens());
   const pair = ctx.pairTable?.() ?? null;
-  const hand = g.hand?.[opp] ?? [];
-  const key = JSON.stringify([l.id, me, g.round, hand, !!pair, zoneOf('A'), lv.shock, toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
+  const hand = g.hand?.[opp] ?? [], myHand = g.hand?.[me] ?? [];
+  const key = JSON.stringify([l.id, me, g.round, hand, myHand, !!pair, zoneOf('A'), lv.shock, toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
   if (nextMemo.key === key) return { ...nextMemo.v, g, fresh: liveFresh(lv, g) };
   // (the work is put off until after the frame a unit was dropped in: see nextTurnHtml)
   if (!compute) return { pending: true, prev: nextMemo.v ? { ...nextMemo.v, g, fresh: liveFresh(lv, g) } : null };
@@ -432,18 +432,74 @@ function nextTurnData(compute = true) {
   const seen = {};
   for (const o of objs) if (objs.filter(x => x.label === o.label).length > 1) o.label = `${o.label} ${(seen[o.label.replace(/ \d+$/, '')] = (seen[o.label.replace(/ \d+$/, '')] ?? 0) + 1)}`;
   const t0 = performance.now?.() ?? 0;
-  const res = pair ? nextTurn({ me, mine: toks.filter(t => t.side === me).map(unitOf), theirs: toks.filter(t => t.side === opp).map(unitOf), pair, geo, objs, hand, round: g.round }) : null;
+  const base = { me, mine: toks.filter(t => t.side === me).map(unitOf), theirs: toks.filter(t => t.side === opp).map(unitOf), pair, geo, objs, round: g.round };
+  const res = pair ? nextTurn({ ...base, hand }) : null;
+  // my turn: the same measurements from my side; a unit's risk is what their next turn does to it where it stands
+  const my = res ? myTurn({ ...base, hand: myHand, risk: Object.fromEntries(res.threats.map(t => [t.key, t.likely])) }) : null;
   const onBoard = new Set(toks.map(t => t.tk));
   const off = st.armies[opp].units.filter(u => !onBoard.has(`${opp}:${u.key}`) && !unitInfo(opp, u.key)?.dead);
-  const v = { me, opp, g, res, hand, fresh: liveFresh(lv, g),
+  const v = { me, opp, g, res, my, hand, myHand, fresh: liveFresh(lv, g),
     embarked: off.filter(u => inside.has(`${opp}:${u.key}`)).map(u => u.name), reserves: off.filter(u => !inside.has(`${opp}:${u.key}`)).map(u => u.name),
     mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
+  if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
   nextMemo = { key, v };
   return v;
 }
+/** Card rows for "Their next turn" and "My turn": what it pays, by moving / by a kill / not this turn, and why. */
+function cardRows(cards, offTurnNote, good = false) {
+  const esc = ctx.esc, pct = (p) => `${Math.round(p * 100)}%`;
+  const ICON = { yes: '✅', now: '⏳', kill: '🎯', ask: '❓', no: '—' };
+  return cards.map(c => `<div class="next-card" data-card="${esc(c.id)}" data-verdict="${c.verdict}"><div class="row" style="gap:6px;align-items:baseline"><span>${ICON[c.verdict]}</span><b>${esc(c.name)}</b><span class="grow"></span>
+        <span class="verd ${c.verdict === 'yes' || c.verdict === 'now' ? (good ? 'ok' : 'bad') : c.verdict === 'kill' ? 'warn' : ''}">${c.verdict === 'no' ? 'not this turn' : `${c.vp} VP${c.verdict === 'kill' && c.p != null ? ` · ${pct(c.p)}` : c.verdict === 'ask' ? ' ?' : ''}`}</span></div>
+        <div class="tiny muted">${(good ? c.offTurn : c.when === 'mine') ? `<b>${esc(offTurnNote)}</b> ` : ''}${esc(c.why)}</div></div>`).join('');
+}
+/** "My turn": one suggestion per unit of mine (take / hold an objective, a card, its target), the targets worth destroying, my cards. */
+function myTurnHtml(d) {
+  const m = d.my;
+  if (!m) return '';
+  const esc = ctx.esc, b = boardState(), st = ctx.state;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const ink = (X) => `var(--side-${X.toLowerCase()}-ink)`;
+  const myNow = d.g.turn === d.me || !d.g.started;
+  const open = b.myOpen !== false;
+  const head = `<div class="row" style="gap:6px;align-items:center"><div class="title grow" id="board-my-title">🧭 ${myNow ? 'Your turn' : 'Your next turn'} · <span style="color:${ink(d.me)}">${esc(st.armies[d.me].faction)}</span></div>
+      <button class="icon-btn" data-action="board-my-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} your turn">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-my" data-open="0">${head}</div>`;
+  const pick = (tk, html) => `<button class="link" data-action="board-pick" data-tk="${esc(tk)}">${html}</button>`;
+  const JOB = { take: ['bad', '→ Take'], hold: ['ok', '■ Hold'], card: ['warn', '★'], none: ['', ''] };
+  const all = !!b.myAll, busy = m.units.filter(u => u.job.kind !== 'none' || u.attack || u.risk >= 0.25), shown = all ? m.units : busy.slice(0, 6);
+  const unitsHtml = shown.map(u => {
+    const [cls, verb] = JOB[u.job.kind];
+    const job = u.job.kind === 'none' ? '' : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
+    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''})</span>` : '<span class="muted">nothing in reach to attack</span>';
+    return `<div class="next-unit" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
+      <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
+      <div class="tiny">${atk}${u.job.note ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${u.risk >= 0.25 ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
+  }).join('');
+  const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
+      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div></div>`).join('');
+  const cardsHtml = !d.myHand.length ? `<div class="small muted" id="board-my-nocards">No cards in your hand on the tracker (Mission → Play).</div>` : cardRows(m.cards, 'At the end of their turn, as the table stands:', true);
+  return `<div class="card" id="board-my" data-state="ready" data-vp="${m.vp}">${head}
+    <div class="lab tiny muted" style="margin-top:8px">Each unit</div><div id="board-my-units">${unitsHtml || '<div class="small muted">Nothing in reach of an objective or a target this turn.</div>'}</div>
+    ${m.units.length > shown.length || all ? `<button class="chip" data-action="board-my-all" id="board-my-all" style="margin-top:4px">${all ? 'Fewer' : `All ${m.units.length} units`}</button>` : ''}
+    ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
+    <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move: objectives first (one they hold before an empty one, a unit to one objective), then the target where it adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. Stratagems, reserves and terrain in the way of a move are not counted.</div>
+  </div>`;
+}
 let nextTimer = null;
 function nextTurnHtml() {
+  const lv = livePlan();
+  if (!lv) return '';
+  const theirs = theirTurnHtml();
+  const d = nextMemo.v;
+  const mine = d?.my && /data-state="(ready|updating)"/.test(theirs) ? myTurnHtml({ ...d, g: gameNow() }) : '';
+  // the card of the turn that is on comes first
+  const g = gameNow(), me = d?.me ?? 'A';
+  return g.started && g.turn !== me ? theirs + mine : mine + theirs;
+}
+function theirTurnHtml() {
   let d = nextTurnData(false);
   if (!d) return '';
   let updating = false;
@@ -498,11 +554,8 @@ function nextTurnHtml() {
       ${hold.length && o.verdict !== 'theirs' ? `<div class="tiny muted">Held by ${hold.slice(0, 3).map(h => `${esc(shortName(h.name))}${h.risk >= 0.05 ? ` <span style="color:var(--warn-ink)">(${pct(h.risk)} destroyed)</span>` : ''}`).join(' · ')}</div>` : ''}</div>`;
   }).join('');
   // --- their cards
-  const ICON = { yes: '✅', now: '⏳', kill: '🎯', ask: '❓', no: '—' };
   const cardsHtml = !d.hand.length ? `<div class="small muted" id="board-next-nocards">No cards in ${esc(d.opp)}'s hand on the tracker (Mission → Play: draw their cards there to see which they can score).</div>`
-    : r.cards.map(c => `<div class="next-card" data-card="${esc(c.id)}" data-verdict="${c.verdict}"><div class="row" style="gap:6px;align-items:baseline"><span>${ICON[c.verdict]}</span><b>${esc(c.name)}</b><span class="grow"></span>
-        <span class="verd ${c.verdict === 'yes' || c.verdict === 'now' ? 'bad' : c.verdict === 'kill' ? 'warn' : ''}">${c.verdict === 'no' ? 'not this turn' : `${c.vp} VP${c.verdict === 'kill' && c.p != null ? ` · ${pct(c.p)}` : c.verdict === 'ask' ? ' ?' : ''}`}</span></div>
-        <div class="tiny muted">${c.when === 'mine' ? '<b>At the end of your turn, as the table stands:</b> ' : ''}${esc(c.why)}</div></div>`).join('');
+    : cardRows(r.cards, 'At the end of your turn, as the table stands:');
   const notes = [
     d.reserves.length ? `Not on the table and not counted: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''} (reserves arrive more than 8" away: a 9" charge, and their guns).` : '',
     d.embarked.length ? `Embarked and not counted: ${esc(d.embarked.slice(0, 4).map(shortName).join(', '))} (they get out within 3" of their transport).` : '',
@@ -2723,6 +2776,8 @@ export function boardAction(action, el) {
     }
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
     case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
+    case 'board-my-toggle': b.myOpen = b.myOpen === false; refreshBoard(); return null;
+    case 'board-my-all': b.myAll = !b.myAll; refreshBoard(); return null;
     case 'board-step-add': {
       const p = plan();
       if (!p) return null;
@@ -3137,7 +3192,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
-    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my } : null; })(),
     stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };

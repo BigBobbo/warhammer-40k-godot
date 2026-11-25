@@ -149,3 +149,51 @@ test('cards scored at the end of MY turn are read as the table stands', () => {
   const r1 = N.nextTurn({ me: 'A', mine: [], theirs, pair: {}, geo: GEO, objs: OBJS, round: 1, hand: ['defend-stronghold'] });
   assert.equal(r1.cards[0].verdict, 'no');
 });
+
+// ---- "My turn" (1.135.0)
+
+test('my voice: a sentence about them, said about me', () => {
+  assert.equal(N.myVoice('they can control your home objective'), 'you can control their home objective');
+  assert.equal(N.myVoice('They must destroy 2 of yours there'), 'You must destroy 2 of theirs there');
+  assert.equal(N.myVoice('nothing of theirs can destroy your CHARACTER units'), 'nothing of yours can destroy their CHARACTER units');
+});
+
+test('kill plan: units are sent where they add the most; a kill that is already sure gets no more', () => {
+  const theirs = [unit('B:dear', 18, 30, 5, { points: 300 }), unit('B:cheap', 26, 30, 5, { points: 60 })];
+  const mine = [unit('A:g1', 18, 14, 5, { melee: false }), unit('A:g2', 22, 14, 5, { melee: false }), unit('A:g3', 26, 14, 5, { melee: false })];
+  const sure = cell({ shoot: 1, sMu: 10, sSd: 0.1 }), half = cell({ shoot: 0.5, sMu: 6, sSd: 3 });
+  const pair = { 'A:g1': { 'B:dear': sure, 'B:cheap': half }, 'A:g2': { 'B:dear': sure, 'B:cheap': half }, 'A:g3': { 'B:dear': half, 'B:cheap': half } };
+  const k = N.killPlan(N.turnThreats(theirs, mine, pair));
+  const dear = k.find(x => x.key === 'B:dear'), cheap = k.find(x => x.key === 'B:cheap');
+  assert.equal(k[0].key, 'B:dear');
+  assert.equal(dear.by.length, 1, 'one unit destroys it for sure: the others go elsewhere');
+  assert.equal(cheap.by.length, 2);
+  assert.ok(cheap.p > 0.5);
+});
+
+test('kill plan: a card of mine makes its target worth more', () => {
+  const theirs = [unit('B:mob', 18, 30, 5, { points: 120 }), unit('B:boss', 26, 30, 1, { points: 80, chars: 1 })];
+  const mine = [unit('A:g', 22, 14, 5, { melee: false })];
+  const c = cell({ shoot: 0.5, sMu: 6, sSd: 3 });
+  const pair = { 'A:g': { 'B:mob': c, 'B:boss': c } };
+  const base = { me: 'A', mine, theirs, pair, geo: GEO, objs: OBJS, round: 2 };
+  assert.equal(N.myTurn({ ...base, hand: [] }).kills[0].key, 'B:mob');
+  assert.equal(N.myTurn({ ...base, hand: ['assassination'] }).kills[0].key, 'B:boss');
+});
+
+test('my turn: a unit holds what it stands on, a free unit takes what is in reach, each has a target', () => {
+  const mine = [unit('A:home', 22, 6, 5), unit('A:mid', 22, 22, 5), unit('A:far', 4, 4, 1)];
+  const theirs = [unit('B:two', 22, 32, 2, { points: 90 })];          // on the centre with 2 models (OC 4)
+  const pair = { 'A:mid': { 'B:two': cell({ shoot: 0.7, sMu: 9, sSd: 2, fight: 0.5, fMu: 7, fSd: 2 }) }, 'A:home': { 'B:two': cell({ shoot: 0.2, sMu: 4, sSd: 2 }) } };
+  const r = N.myTurn({ me: 'A', mine, theirs, pair, geo: GEO, objs: OBJS, round: 2, hand: ['secure-no-mans-land', 'no-prisoners'], risk: { 'A:mid': 0.4 } });
+  const u = (k) => r.units.find(x => x.key === k);
+  assert.equal(u('A:home').job.kind, 'hold'); assert.equal(u('A:home').job.label, 'A home');
+  assert.equal(u('A:mid').job.kind, 'take'); assert.equal(u('A:mid').job.label, 'Centre');
+  assert.equal(u('A:mid').attack.key, 'B:two'); assert.ok(/shoot/.test(u('A:mid').attack.how));
+  assert.equal(u('A:mid').risk, 0.4);
+  assert.equal(u('A:far').job.kind, 'none'); assert.equal(u('A:far').attack, null);
+  assert.equal(r.units[0].key, 'A:mid', 'units with something to take come first');
+  assert.equal(r.swing.find(o => o.id === 'c').verdict, 'lose', 'seen from their side: they lose the centre');
+  const np = r.cards.find(x => x.id === 'no-prisoners');
+  assert.equal(np.verdict, 'kill'); assert.ok(!/\bthey\b/i.test(r.cards.find(x => x.id === 'secure-no-mans-land').why));
+});

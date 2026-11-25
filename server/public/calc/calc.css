@@ -665,8 +665,9 @@ div.tri-unit { cursor: default; }
 .live-bar { padding: 8px 10px; border-left: 3px solid var(--warn); }
 .live-bar.fresh { border-left-color: #2e9e5b; }
 .live-bar .btn { min-height: 36px; padding: 0 12px; }
-#board-next { margin-bottom: 8px; }
-#board-next .link { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+#board-next, #board-my { margin-bottom: 8px; }
+.verd.go { color: var(--accent); }
+#board-next .link, #board-my .link { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .next-unit, .next-obj, .next-card { padding: 5px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .next-unit:first-child, .next-obj:first-child, .next-card:first-child { border-top: 0; }
 .next-pct { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }

@@ -4454,6 +4454,33 @@ Aggressor Squad (95 points)
     await lp.tap('#board-live-confirm');
     await lp.evaluate(() => window.scrollTo(0, 0));
     await lp.screenshot({ path: join(SHOTS, 'calc_135_live_table_next_turn.png'), fullPage: true });
+    // "Your turn" (1.135.0): a suggestion per unit of mine, the targets, my cards
+    {
+      const my0 = (await next()).my;
+      const order0 = await lp.$$eval('#board-next-host > .card', els => els.map(e => e.id));
+      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.join() === 'board-next,board-my' && /Your next turn/.test(await lp.textContent('#board-my-title')));
+      const ghU = my0.units.find(u => u.key === gh), ghK = my0.kills.find(k => k.key === ghU.attack?.key);
+      check('Your turn: the Grey Hunters on the centre hold it, they have a target (an Ork unit, with the odds it is destroyed), and the row flags that they are likely destroyed',
+        ghU.job.kind === 'hold' && ghU.job.label === 'Centre' && [boyz, gitz, mega].includes(ghU.attack?.key) && ghU.attack.p > 0.3 && ghU.risk > 0.5 && ghK && ghK.by.some(b => b.key === gh) && Math.abs(ghK.p - ghU.attack.p) < 1e-9
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"]`, 'data-target')) === ghU.attack.key
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"]`, 'data-job')) === 'hold' && /Hold Centre/.test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)) && /destroyed in their turn/.test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify({ ghU, ghK }));
+      // my cards on the tracker
+      await lp.tap('button[data-action="view"][data-value="mission"]');
+      for (const c of ['assassination', 'no-prisoners', 'behind-enemy-lines']) await lp.selectOption('select[data-input="mission-draw"][data-side="A"]', c);
+      await lp.tap('button[data-action="view"][data-value="board"]');
+      await lp.waitForSelector('#board-my[data-state="ready"]');
+      await ready();
+      const my1 = (await next()).my;
+      const mc = (id) => my1.cards.find(c => c.id === id);
+      check('Your cards from the tracker: Assassination and No Prisoners only by a kill (with odds), Behind Enemy Lines not this turn; said about "you", not "they"',
+        mc('assassination').verdict === 'kill' && mc('assassination').p > 0 && mc('no-prisoners').verdict === 'kill' && mc('behind-enemy-lines').verdict === 'no' && /none of your units/.test(mc('behind-enemy-lines').why)
+        && /Warboss/.test(mc('assassination').why) && /if you destroy/.test(mc('assassination').why) && (await lp.locator('#board-my-cards .next-card').count()) === 3 && (await lp.locator('#board-my-kills [data-kill]').first().getAttribute('data-kill')) === my1.kills[0].key, JSON.stringify(my1.cards));
+      await lp.locator('#board-my').scrollIntoViewIfNeeded();
+      await lp.screenshot({ path: join(SHOTS, 'calc_137_your_turn.png'), fullPage: true });
+      await lp.tap('button[data-action="board-my-toggle"]');
+      check('▴ folds the Your turn card', (await lp.locator('#board-my-units').count()) === 0 && (await lp.getAttribute('#board-my', 'data-open')) === '0');
+      await lp.tap('button[data-action="board-my-toggle"]');
+    }
     // ⚡ battle-shocked: no OC
     await lp.locator(`button[data-action="board-pick"][data-tk="${gh}"]`).first().tap();
     await lp.tap('#board-shock');
@@ -4475,7 +4502,7 @@ Aggressor Squad (95 points)
     await lp.reload(); await lp.waitForSelector('#board-live-bar');
     check('the live table is kept over a reload', (await live()).snaps.length === 2 && (await live()).steps.length === 3);
     await lp.tap('#board-live');
-    check('🔴 Live table again: back to the plan (no live bar, no card); the plan itself is unchanged', (await lp.locator('#board-live-bar').count()) === 0 && (await lp.locator('#board-next').count()) === 0 && (await lp.evaluate(() => window.__calc.board().plan.name)) === 'Main' && (await lp.evaluate(() => window.__calc.board().plan.steps.length)) === 1);
+    check('🔴 Live table again: back to the plan (no live bar, no card); the plan itself is unchanged', (await lp.locator('#board-live-bar').count()) === 0 && (await lp.locator('#board-next').count()) === 0 && (await lp.locator('#board-my').count()) === 0 && (await lp.evaluate(() => window.__calc.board().plan.name)) === 'Main' && (await lp.evaluate(() => window.__calc.board().plan.steps.length)) === 1);
     // a new game on the tracker: the live table that was played on stays as an ordinary plan; 🔴 starts afresh
     await lp.tap('button[data-action="view"][data-value="mission"]');
     await lp.tap('#play-reset');
@@ -4495,7 +4522,7 @@ Aggressor Squad (95 points)
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Flash Gitz' }).tap();
     await pp6.tap('#board-live');
     await pp6.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    check('phone: 🔴 Live table shows the bar above the map and the card below the unit panel', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
+    check('phone: 🔴 Live table shows the bar above the map and the two cards below the unit panel (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
     await pp6.locator('#board-next').scrollIntoViewIfNeeded();
     await pp6.screenshot({ path: join(SHOTS, 'calc_136_next_turn_phone.png') });
     await pctx6.close();
