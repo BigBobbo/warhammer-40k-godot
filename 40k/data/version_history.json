@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.129.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: the Board's shooting danger now follows line of sight",
+      "changes": [
+        "⚠ Danger → Shooting: hatched squares are where that army can see from where it stands and reach with its longest gun after a normal move. Clear squares behind terrain are where to hide",
+        "It used to hatch everything within move + range, which on most tables is the whole board",
+        "Danger shading no longer spills off the edges of the board"
+      ]
+    },
+    {
       "version": "1.128.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: undo and redo on the Board",

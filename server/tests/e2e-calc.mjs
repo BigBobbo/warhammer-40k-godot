@@ -727,6 +727,14 @@ try {
   // danger zones from the Orks + who threatens the Grey Hunters
   await page.tap('button[data-action="board-danger"][data-value="B"]');
   check('danger zones drawn from army B (shooting + charge bands)', (await page.locator('#board-svg #danger-layer[data-from="B"] [data-dz]').count()) >= 2);
+  // 1.129.0: shooting danger follows sight lines and stays on the board
+  const dz = await page.evaluate(() => {
+    const layer = document.querySelector('#board-svg #danger-layer'), g = layer?.querySelector('[data-dz="shoot"]');
+    const rects = [...(g?.querySelectorAll('rect') ?? [])].map(r => [+r.getAttribute('x'), +r.getAttribute('y'), +r.getAttribute('width'), +r.getAttribute('height')]);
+    return { clip: layer?.getAttribute('clip-path'), n: +(g?.dataset.cells ?? 0), total: +(g?.dataset.total ?? 0), inside: rects.every(([x, y, w, h]) => x >= 0 && y >= 0 && x + w <= 44 + 1e-6 && y + h <= 60 + 1e-6), rects: rects.length };
+  });
+  check('shooting danger: squares the Orks can see and reach, on the board only (terrain leaves gaps)', dz.clip === 'url(#dz-board)' && dz.inside && dz.n > 0 && dz.n < dz.total && dz.rects > 0, JSON.stringify(dz));
+  check('…and the note says it follows line of sight', /can see from where it stands/.test(await page.textContent('#board-danger-note')));
   check('Grey Hunters list the Ork units that threaten them next turn', /charge \d+%|🎯/.test(await page.textContent('#board-threats')), await page.textContent('#board-threats'));
   await page.evaluate(() => document.getElementById('board-host').scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: join(SHOTS, 'calc_25_board_danger.png') });

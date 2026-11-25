@@ -1059,28 +1059,87 @@ function dangerSvg(b) {
     const at = b.heatAt;
     return heatSvg(side) + (at ? `<circle id="heat-at" cx="${f2(at.x)}" cy="${f2(at.y)}" r="0.6" fill="none" stroke="#111" stroke-width="0.2" pointer-events="none"/>` : '');
   }
-  const layers = { shoot: [], likely: [], possible: [] };
+  const layers = { likely: [], possible: [] };
   for (const t of placed().filter(x => x.side === side)) {
-    const maxR = t.u.ranges.length ? Math.max(...t.u.ranges) : 0;
     const likely = t.u.melee ? chargeReach(t.u.move, 0.8) : null, possible = t.u.melee ? chargeReach(t.u.move, 0.4) : null;
     for (const m of t.models) {
       const r = Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0);
       const cx = f2(t.x + m.dx), cy = f2(t.y + m.dy);
-      if (kinds.shoot && maxR) layers.shoot.push(`<circle cx="${cx}" cy="${cy}" r="${f2(t.u.move + maxR + r)}"/>`);
       if (kinds.charge && possible) layers.possible.push(`<circle cx="${cx}" cy="${cy}" r="${f2(possible + r)}"/>`);
       if (kinds.charge && likely) layers.likely.push(`<circle cx="${cx}" cy="${cy}" r="${f2(likely + r)}"/>`);
     }
   }
   const col = C[side];
-  // shooting reach is hatched (it often covers most of the board), charges are solid
+  const shoot = kinds.shoot ? shootCells(side) : null;
+  // shooting: hatched squares (what they can see and reach); charges: solid. All of it on the board only.
   return `<defs><filter id="dz-blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="0.5"/></filter>`
-    + `<pattern id="dz-hatch" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.25" height="1.4" fill="${col}"/></pattern></defs>`
-    + `<g id="danger-layer" data-from="${side}" pointer-events="none">`
-    + (layers.shoot.length ? `<g data-dz="shoot" fill="url(#dz-hatch)" opacity="0.3">${layers.shoot.join('')}</g>` : '')
+    + `<clipPath id="dz-board"><rect x="0" y="0" width="${BOARD.w}" height="${BOARD.h}"/></clipPath>`
+    + `<pattern id="dz-hatch" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.3" height="1.4" fill="${col}"/></pattern></defs>`
+    + `<g id="danger-layer" data-from="${side}" pointer-events="none" clip-path="url(#dz-board)">`
+    + (shoot ? `<g data-dz="shoot" data-cells="${shoot.n}" data-total="${shoot.total}" fill="url(#dz-hatch)" opacity="0.55">${cellRects(shoot)}</g>` : '')
     + `<g filter="url(#dz-blur)">`
     + (layers.possible.length ? `<g data-dz="charge-possible" fill="#c0392b" opacity="0.12">${layers.possible.join('')}</g>` : '')
     + (layers.likely.length ? `<g data-dz="charge-likely" fill="#c0392b" opacity="0.2">${layers.likely.join('')}</g>` : '')
     + '</g></g>';
+}
+
+// Where an army can shoot next turn, square by square (1"): a square is hatched when a unit of that army can SEE
+// it from where it stands now (13.x sight lines through the layout's terrain, a 32 mm base as the target) and it
+// is within that unit's move + longest range. Sight is taken from up to 6 of the unit's models (its outermost
+// ones), and cached per unit position, so dragging your own units does not recompute it.
+const dzCache = new Map();
+function repModels(models) {
+  if (models.length <= 6) return models;
+  const by = (f) => models.reduce((a, m) => (f(m) < f(a) ? m : a));
+  const pick = new Set([by(m => m.dx), by(m => -m.dx), by(m => m.dy), by(m => -m.dy), models[0], models[Math.floor(models.length / 2)]]);
+  return [...pick];
+}
+function shootCells(side) {
+  const l = currentLayout();
+  if (!l) return null;
+  const t0 = performance.now();
+  let fresh = 0;
+  const acc = { cols: 44, rows: 60, step: 1, cells: new Uint8Array(44 * 60) };
+  for (const t of placed().filter(x => x.side === side && x.u.ranges.length)) {
+    const reach = t.u.move + Math.max(...t.u.ranges);
+    const key = `${l.id}|${t.tk}|${t.x.toFixed(2)}|${t.y.toFixed(2)}|${t.rot}|${t.models.length}|${reach}|${t.models.map(m => `${m.dx.toFixed(1)},${m.dy.toFixed(1)}`).join(';')}`;
+    let v = dzCache.get(key);
+    if (!v) {
+      fresh++;
+      const rep = repModels(t.models);
+      const seen = visibleCells({ x: t.x, y: t.y, models: rep }, l.pieces);
+      const cells = new Uint8Array(seen.cells.length);
+      for (let i = 0; i < seen.cols; i++) for (let j = 0; j < seen.rows; j++) {
+        const k = i * seen.rows + j;
+        if (!seen.cells[k]) continue;
+        const x = (i + 0.5) * seen.step, y = (j + 0.5) * seen.step;
+        // within move + range of any model (base edge to the middle of the square)
+        if (t.models.some(m => Math.hypot(t.x + m.dx - x, t.y + m.dy - y) - Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0) <= reach)) cells[k] = 1;
+      }
+      v = cells;
+      dzCache.set(key, v);
+      if (dzCache.size > 200) dzCache.delete(dzCache.keys().next().value);
+    }
+    for (let k = 0; k < v.length; k++) if (v[k]) acc.cells[k] = 1;
+  }
+  const n = acc.cells.reduce((s, c) => s + c, 0);
+  if (fresh) console.log(`[board] shooting danger from ${side}: ${n} of ${acc.cells.length} squares (${fresh} unit(s) worked out, ${Math.round(performance.now() - t0)} ms)`);
+  return { ...acc, n, total: acc.cells.length };
+}
+/** One rectangle per run of marked squares down a column. */
+function cellRects(v) {
+  const out = [];
+  for (let i = 0; i < v.cols; i++) {
+    let j = 0;
+    while (j < v.rows) {
+      if (!v.cells[i * v.rows + j]) { j++; continue; }
+      let k = j;
+      while (k < v.rows && v.cells[i * v.rows + k]) k++;
+      out.push(`<rect x="${i * v.step}" y="${j * v.step}" width="${v.step}" height="${(k - j) * v.step}"/>`);
+      j = k;
+    }
+  }
+  return out.join('');
 }
 
 // Where an army's reserves can be set up in this step (planeval.arrivalZones): hatched = within 6" of an edge
@@ -1457,7 +1516,7 @@ function dangerBar() {
 function dangerDetailHtml(b) {
   const kinds = b.dangerKinds ?? { shoot: true, charge: true };
   return `${b.danger ? `${ctx.chip('board-danger-kind', !!kinds.heat, '🔥 Heat map', 'data-k="heat" id="board-heat-chip"')}${kinds.heat ? heatInfoHtml(b) : ''}${kinds.heat ? '' : `${ctx.chip('board-danger-kind', !!kinds.shoot, 'Shooting', 'data-k="shoot"')}${ctx.chip('board-danger-kind', !!kinds.charge, 'Charges', 'data-k="charge"')}`}
-    <span class="tiny muted" style="flex-basis:100%">Hatched: where that army can shoot after moving (move + range). Red: where it can charge (dark ≥ 80%, light ≥ 40%). Ignores terrain and line of sight; edges are ±1".</span>` : ''}`;
+    <span class="tiny muted" style="flex-basis:100%" id="board-danger-note">Hatched: squares a unit of ${ctx.esc(b.danger)} can see from where it stands and reach with its longest gun after a normal move (move + range); clear squares are out of sight or out of reach. A move can open new sight lines. Red: where it can charge (dark ≥ 80%, light ≥ 40%; ignores terrain).</span>` : ''}`;
 }
 
 function photoBar() {
