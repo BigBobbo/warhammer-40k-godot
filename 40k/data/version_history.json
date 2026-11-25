@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.127.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: live AR on the table",
+      "changes": [
+        "Board → 🥽 AR (Chrome on an Android tablet with ARCore, works offline): tap three table corners and the layout is pinned to your real table — deployment zones, objectives with their control range, terrain footprints and your plan's units for any step",
+        "Tools in AR: ⌖ Where (inches from the edges under the ring), 📐 Measure base to base, ◎ range rings 3\"–24\" from any spot",
+        "The board is fitted to your corners (which takes out most of AR's scale error); it says how far your corners are from 44\" × 60\". AR is about ±1\": for planning, not for settling a measurement"
+      ]
+    },
+    {
       "version": "1.126.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: a test page for live AR measuring",

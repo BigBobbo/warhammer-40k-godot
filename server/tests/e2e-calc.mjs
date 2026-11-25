@@ -3846,6 +3846,104 @@ Aggressor Squad (95 points)
     await sctx.close();
   }
 
+  // --- 1.127: live AR on the Board (🥽 AR). Without AR: a clear message. With a STAND-IN WebXR device (scripted
+  // hit-test points, a camera looking straight down; no ARCore, no camera image): corners pin the board, the
+  // readouts are in board inches, measuring and rings work, and the overlay is drawn where the table is.
+  {
+    // 1. no AR on this browser
+    const nctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const np = await nctx.newPage();
+    np.on('pageerror', e => consoleErrors.push(`arlive: ${e}`));
+    await np.goto(`${BASE}/calc/`); await np.waitForSelector('textarea[data-side="A"]');
+    await np.fill('textarea[data-side="A"]', SW_LIST); await np.tap('button[data-action="parse"][data-side="A"]');
+    await np.fill('textarea[data-side="B"]', ORK_LIST); await np.tap('button[data-action="parse"][data-side="B"]');
+    await np.tap('button[data-action="view"][data-value="board"]');
+    await np.waitForSelector('#board-ar');
+    const msg = await new Promise((res) => { np.once('dialog', async d => { res(d.message()); await d.dismiss(); }); np.tap('#board-ar'); });
+    check('🥽 AR on a browser without AR: says what it needs and points to 📐 Bases', /cannot run AR/.test(msg) && /ARCore/.test(msg) && /Bases/.test(msg), msg);
+    await nctx.close();
+
+    // 2. stand-in AR device
+    const M = 0.0254;
+    const sctx = await browser.newContext({ viewport: { width: 600, height: 820 }, deviceScaleFactor: 1, hasTouch: true });
+    await sctx.addInitScript(() => {
+      // camera straight down over a table lying on y = 0 (x across, z down the 60" edge), orthographic
+      const x0 = -0.05, x1 = 1.17, z0 = -0.05, z1 = 1.57, xr = x1 - x0, zr = z1 - z0;
+      const P = new Float32Array([2 / xr, 0, 0, 0, 0, 0, 0, 0, 0, -2 / zr, 0, 0, -(x0 + x1) / xr, (z0 + z1) / zr, 0, 1]);
+      const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+      window.__hit = [0.5, 0, 0.5];
+      class FakeSession extends EventTarget {
+        constructor() { super(); this.enabledFeatures = ['hit-test', 'local', 'dom-overlay']; this.renderState = {}; this.ended = false; }
+        updateRenderState(s) { Object.assign(this.renderState, s); }
+        async requestReferenceSpace() { return {}; }
+        async requestHitTestSource() { return {}; }
+        requestAnimationFrame(cb) { if (!this.ended) setTimeout(() => cb(performance.now(), frame), 30); return 1; }
+        async end() { this.ended = true; this.dispatchEvent(new Event('end')); }
+      }
+      const frame = {
+        getViewerPose: () => ({ views: [{ projectionMatrix: P, transform: { inverse: { matrix: I } } }] }),
+        getHitTestResults: () => (window.__hit ? [{ getPose: () => ({ transform: { position: { x: window.__hit[0], y: window.__hit[1], z: window.__hit[2] } } }) }] : []),
+        getPose: () => null,
+      };
+      window.XRWebGLLayer = class { constructor() { this.framebuffer = null; } getViewport() { return { x: 0, y: 0, width: 600, height: 820 }; } };
+      Object.defineProperty(navigator, 'xr', { value: { isSessionSupported: async (m) => m === 'immersive-ar', requestSession: async () => (window.__session = new FakeSession()) }, configurable: true });
+      window.__tap = () => window.__session.dispatchEvent(new Event('select'));
+    });
+    const sp = await sctx.newPage();
+    sp.on('pageerror', e => consoleErrors.push(`arlive-stub: ${e}`));
+    sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`arlive-stub: ${m.text()}`); });
+    await sp.goto(`${BASE}/calc/`); await sp.waitForSelector('textarea[data-side="A"]');
+    await sp.fill('textarea[data-side="A"]', SW_LIST); await sp.click('button[data-action="parse"][data-side="A"]');
+    await sp.fill('textarea[data-side="B"]', ORK_LIST); await sp.click('button[data-action="parse"][data-side="B"]');
+    await sp.click('button[data-action="view"][data-value="board"]');
+    await sp.waitForSelector('#board-svg');
+    for (const n of ['Grey Hunters', 'Thunderwolf Cavalry (1)']) await sp.locator('button[data-action="board-place"][data-side="A"]', { hasText: n }).first().click();
+    await sp.locator('button[data-action="board-place"][data-side="B"]').first().click();
+    await sp.click('#board-ar');
+    await sp.waitForFunction(() => document.body.classList.contains('ar-on') && window.__ar);
+    // show the GL canvas under the overlay (the stand-in has no camera image)
+    await sp.addStyleTag({ content: 'body.ar-on > #ar-canvas { display: block !important; position: fixed; inset: 0; z-index: 9998; background: #3a4a2a; }' });
+    await sp.evaluate(() => { const c = document.getElementById('ar-canvas'); c.width = 600; c.height = 820; });
+    const diag = await sp.evaluate(() => !!document.querySelector('#ar-diag svg'));
+    // tap the three corners (table 3% long in AR, as ARCore might read it)
+    const k = 1.03;
+    for (const [x, y] of [[0, 0], [44, 0], [44, 60]]) {
+      await sp.evaluate(([a, b]) => { window.__hit = [a, 0, b]; }, [x * M * k, y * M * k]);
+      await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap()); await sp.waitForTimeout(60);
+    }
+    await sp.waitForFunction(() => !!window.__ar.reg);
+    const q = await sp.textContent('#ar-q');
+    check('corners: the little map shows which corner to tap; 3 taps pin the board; it reports the corners as AR read them (45.3" × 61.8")', diag && /Corners 45\.3" × 61\.8"/.test(q) && /more than 2% out/.test(q), q);
+    // Where: the reticle over board (10, 20)
+    await sp.evaluate(([a, b]) => { window.__hit = [a, 0, b]; }, [10 * M * k, 20 * M * k]);
+    await sp.waitForFunction(() => /10\.0" · 20\.0"/.test(document.getElementById('ar-big').textContent));
+    check('⌖ Where: the reticle reads in board inches (10.0" · 20.0"), the 3% AR stretch fitted out', true);
+    // Measure: 32 mm bases 10" apart centre to centre -> 8.7" base to base
+    await sp.click('#ar-t-measure');
+    await sp.click('#ar-mm-32');
+    await sp.evaluate(() => window.__tap()); await sp.waitForTimeout(60);
+    await sp.evaluate(([a, b]) => { window.__hit = [a, 0, b]; }, [20 * M * k, 20 * M * k]);
+    await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap());
+    await sp.waitForFunction(() => /^8\.7"$/.test(document.getElementById('ar-big').textContent.trim()));
+    check('📐 Measure: two 32 mm bases 10" apart read 8.7" base to base', true);
+    // Rings around a spot
+    await sp.click('#ar-t-rings');
+    await sp.evaluate(([a, b]) => { window.__hit = [a, 0, b]; }, [30 * M * k, 40 * M * k]);
+    await sp.waitForTimeout(80); await sp.evaluate(() => window.__tap()); await sp.waitForTimeout(150);
+    const st = await sp.evaluate(() => ({ ring: window.__ar.ring, tool: window.__ar.meshes.tool.length, plan: window.__ar.meshes.plan.length, zones: window.__ar.meshes.zones.length, obj: window.__ar.meshes.objectives.length, steps: window.__ar.data.steps.length }));
+    check('◎ Rings at the tapped spot (30, 40): 6 rings drawn; zones, objectives and the plan\'s units are on the table', Math.abs(st.ring[0] - 30) < 0.01 && Math.abs(st.ring[1] - 40) < 0.01 && st.tool === 7 && st.plan > 10 && st.zones >= 4 && st.obj >= 8, JSON.stringify(st));
+    // the overlay is drawn where the table is: sample the canvas at the centre of A's zone corner and outside the table
+    await sp.waitForTimeout(150);
+    await sp.screenshot({ path: join(SHOTS, 'calc_123_ar_live_stub.png') });
+    // layers switch off; End AR returns to the board
+    await sp.click('#ar-l-zones');
+    const zonesOff = await sp.evaluate(() => window.__ar.layers.zones === false);
+    await sp.click('#ar-end');
+    await sp.waitForFunction(() => !document.body.classList.contains('ar-on') && !document.getElementById('ar-ov'));
+    check('layers toggle; End AR puts the Board back', zonesOff && await sp.isVisible('#board-svg'));
+    await sctx.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

@@ -649,6 +649,21 @@ const HULL_KEY = 'w40k_calc_hulls_v1';
 let hullMemo = null;
 function hullSizes() { if (!hullMemo) { try { hullMemo = JSON.parse(localStorage.getItem(HULL_KEY) ?? '{}') ?? {}; } catch { hullMemo = {}; } } return hullMemo; }
 
+// ---- Live AR (arview.mjs): what is drawn on the table
+function arData() {
+  const l = currentLayout(), dep = l && DEPLOYMENTS[l.deployment], root = planRoot();
+  const plans = boardPlans(), pv = plans[Math.min(root?.v ?? 0, plans.length - 1)];
+  const unitsOf = (st) => ['A', 'B'].flatMap(side => (st?.[side] ?? []).map(u => ({ side, name: u.name, color: C[side], models: u.models.map(m => ({ x: u.x + m.dx, y: u.y + m.dy, fp: m.fp, rot: m.rot ?? 0 })) })));
+  return {
+    w: BOARD.w, h: BOARD.h, layout: l?.id ?? null,
+    zones: (dep?.zones ?? []).map(z => ({ poly: z.poly, color: C[zoneOf('A') === z.player ? 'A' : 'B'] })),
+    objectives: (l?.objectives ?? []).map(o => ({ x: o.x, y: o.y })), objRange: OBJECTIVE_RANGE,
+    pieces: (l?.pieces ?? []).filter(p => p.poly?.length >= 3).map(p => ({ poly: p.poly, cls: p.cls, cat: p.cat })),
+    steps: (pv?.steps ?? []).map(st => ({ name: st.name, units: unitsOf(st) })),
+    cur: curIndex(), diagram: cornerDiagram,
+  };
+}
+
 function zoneCentroid(side) {
   const l = currentLayout();
   const dep = l && DEPLOYMENTS[l.deployment];
@@ -1090,6 +1105,7 @@ export function boardView() {
         ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
         <button class="chip" data-action="board-step-add">＋ Next turn</button>
         <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
+        <button class="chip" data-action="board-ar" id="board-ar" title="Live AR: this layout and plan over the camera view of your table">🥽 AR</button>
         <span class="grow"></span>
         ${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}
       </div>`;
@@ -1695,6 +1711,22 @@ export function boardAction(action, el) {
       if (!m?.[k]) return null;
       m[k].mm = Number(el.dataset.value) || 0;
       refreshBoard();
+      return null;
+    }
+    case 'board-ar': {
+      import('./arview.mjs').then(async (A) => {
+        if (!(await A.arSupported())) {
+          console.log('[board] AR not supported here');
+          globalThis.alert?.('This device or browser cannot run AR. It needs Chrome on an Android tablet or phone with ARCore ("Google Play Services for AR"). 📐 Bases on a table photo works everywhere.');
+          return;
+        }
+        const d = arData();
+        console.log(`[board] AR: layout ${d.layout}, ${d.steps.length} plan steps, ${d.steps[d.cur]?.units.length ?? 0} units in "${d.steps[d.cur]?.name ?? '?'}"`);
+        await A.startAR(d);
+      }).catch((e) => {
+        console.warn('[board] AR failed', e);
+        globalThis.alert?.(`AR could not start: ${e?.message ?? e}`);
+      });
       return null;
     }
     case 'board-place': {
