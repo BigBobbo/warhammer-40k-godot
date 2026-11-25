@@ -590,13 +590,14 @@ function stepTokens() {
 // Units on the board
 
 const unitCache = new Map();
-function unitInfo(side, key) {
+/** A unit on the board as of a plan step (models left by that step's battle round: Deploy 0, Turn N = N). */
+function unitInfo(side, key, round = curIndex()) {
   const army = ctx.state.armies[side];
   const cu = army?.units.find(u => u.key === key);
   if (!cu) return null;
   const hulls = hullSizes(), mine = cu.members.map(m => hulls[m.dcUnit.name]).filter(Boolean);
   // models left (the game on the tracker): the board shows the models that are left
-  const gl = ctx.groupsLeft?.(side, cu) ?? [];
+  const gl = ctx.groupsLeft?.(side, cu, round) ?? [];
   const aliveOf = new Map();
   for (const g of gl) aliveOf.set(g.member, (aliveOf.get(g.member) ?? 0) + g.left);
   const lostSig = gl.some(g => g.left < g.count) ? gl.map(g => g.left).join(',') : '';
@@ -1710,11 +1711,12 @@ function posHtml(s1) {
 }
 /** Models left for the game on the tracker: shared with the Attack tab (attacker and target). */
 function lossHtml(s1) {
-  const steppers = ctx.lossSteppers?.(s1.side, s1.u.cu) ?? '';
+  const round = curIndex();
+  const steppers = ctx.lossSteppers?.(s1.side, s1.u.cu, { round }) ?? '';
   if (!steppers) return '';
   const lost = s1.u.left < s1.u.total;
   return `<details class="more board-losses" id="board-losses" ${lost || boardState().lossOpen ? 'open' : ''} style="margin-top:6px"><summary>Models left${lost ? ` · ${s1.u.left}/${s1.u.total}` : ''}</summary>${steppers}
-    <div class="tiny muted">For this game: the same models are gone on the Attack tab, whether this unit attacks or is the target. A unit with none left is taken off the board.</div></details>`;
+    <div class="tiny muted">${round ? `Lost in Turn ${round} (battle round ${round})` : 'Set at deployment'}: gone from this turn on, not in earlier turns. The same models are gone on the Attack tab for that round, whether this unit attacks or is the target. A unit with none left is taken off the board.</div></details>`;
 }
 const spacingHtml = (s1) => (s1.models.length > 1 ? `<div class="modrow" style="margin-top:6px" id="board-spacing"><div class="lab tiny muted">Gap between bases</div>${ctx.seg('board-spacing', s1.gap ?? 'auto', [['auto', 'Auto'], [0, 'Touching'], [0.25, '¼"'], [0.5, '½"'], [1, '1"'], [2, '2"']], 'compact')}</div>` : '');
 function coherencyHtml(s1) {
@@ -2433,7 +2435,7 @@ export function boardAction(action, el) {
       const phase = chain ? 'shooting' : el.dataset.phase;
       const sight = phase === 'shooting' ? pairSight(s1, s2) : null;
       ctx.openAttack({
-        chain, side: s1.side, phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half,
+        chain, side: s1.side, phase, attacker: s1.key, target: s2.key, distance: Math.round(gap), halfRange: half, round: curIndex(),
         ...(sight ? { cover: sight.cover, inRange: sight.seeingBody < sight.body ? sight.seeingBody : null } : {}),
       });
       return 'render';
@@ -2636,15 +2638,15 @@ export function boardPlans() {
   if (!root) return [];
   return root.variants.map((vv, vi) => ({
     index: vi, name: choiceLabel(root.variants, vi), when: vv.when ?? null, id: vv.id, parent: vv.parent ?? null,
-    steps: resolveSteps(root.variants, vi).map(st => {
+    steps: resolveSteps(root.variants, vi).map((st, si) => {
       const out = { name: st.name, A: [], B: [], embarked: { A: [], B: [] } };
       const inside = embarkedIn(st.tokens);
       for (const [tk, x] of inside) { const [s, k] = tk.split(':'), u = unitInfo(s, k), tu = unitInfo(...x.split(':')); if (u) out.embarked[s].push({ key: tk, name: u.cu.name, in: x, transport: tu?.cu.name ?? x }); }
       for (const [tk, pos] of Object.entries(st.tokens ?? {})) {
         if (pos?.in) continue; // embarked: not on the battlefield
         const [side, key] = tk.split(':');
-        const u = unitInfo(side, key);
-        if (!u) continue;
+        const u = unitInfo(side, key, si);
+        if (!u || u.dead) continue;   // no models left by this turn's round: destroyed
         out[side].push({ key: tk, name: u.cu.name, x: pos.x, y: pos.y, models: tokenModels(u, pos), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: u.cu.points ?? 0,
           keywords: u.cu.keywords ?? [], lone: u.flags?.loneOperative || 0, flags: u.flags ?? {} });
       }

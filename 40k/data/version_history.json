@@ -4,13 +4,15 @@
     {
       "version": "1.131.0",
       "date": "2026-11-25",
-      "summary": "Combat Calc: take models off a unit as the game goes on — fewer models, fewer attacks",
+      "summary": "Combat Calc: take models off a unit as the game goes on — turn by turn, fewer models, fewer attacks",
       "changes": [
         "Models left: one record per unit for the game, set from the Attack tab (attacker or target) or from the unit on the Board",
+        "Turn by turn: each loss is kept with the battle round it happened in. A Board turn shows the models left by then; earlier turns still show them, later turns don't",
         "An attacker with models gone makes fewer attacks: its weapons drop in proportion to the models left in each group (half the squad, half its weapons); the card says \"6 of 10 models left\"",
         "A target with models gone (and a damaged model) is the same unit whichever side attacks: swap sides and its losses are still there",
+        "The Attack tab uses the tracker's battle round; opened from a Board turn (Shoot →) it uses that turn, and says so (\"Use now\" goes back)",
         "\"This unit / the target is below half strength\" switches on by itself from the models left",
-        "The Board draws only the models left; a unit with none left comes off the board and its list row says destroyed ↺",
+        "The Board draws only the models left; a unit with none left by that turn comes off the board and its list row says destroyed ↺",
         "Each change can be taken back with Undo on Mission → Play; New game or a different list clears it; saved games keep it"
       ]
     },

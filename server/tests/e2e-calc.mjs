@@ -4125,14 +4125,14 @@ Aggressor Squad (95 points)
     await pctx4.close();
   }
 
-  // --- models left (1.131.0): one record per unit for the game — attacker (fewer weapons), target, Board
+  // --- models left (1.131.0): one record per unit, by battle round — attacker (fewer weapons), target, Board turns
   {
     const lctx = await browser.newContext({ ...devices['Pixel 7'] });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`losses: ${e}`));
     lp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`losses: ${m.text()}`); });
     const ltxt = async (q) => (await lp.textContent(q)).replace(/\s+/g, ' ').trim();
-    const losses = () => lp.evaluate(() => JSON.parse(JSON.stringify(window.__calc.state.mission.game.losses ?? {})));
+    const losses = () => lp.evaluate(() => ({ A: {}, B: Object.fromEntries(window.__calc.state.armies.B.units.map(u => [u.key, window.__calc.losses('B', u.key)])) }));
     const fresh = async () => { await lp.waitForFunction(() => { const s = window.__calc?.state; return s && !s.busy && s.result; }, null, { timeout: 30000 }); return lp.evaluate(() => window.__calc.state.result.meanKills); };
     // the stepper row of a unit's biggest model group: tap − n times
     const biggest = async (scope) => lp.evaluate((sc) => { const rows = [...document.querySelectorAll(`${sc} [data-loss-group]`)]; const best = rows.map(r => ({ k: r.dataset.lossGroup, n: Number(r.querySelector('.val').textContent.split('/')[1]) })).sort((a, b) => b.n - a.n)[0]; return best; }, scope);
@@ -4196,14 +4196,46 @@ Aggressor Squad (95 points)
     const ghTk = await bp2.evaluate(() => window.__calc.board().sel);
     const nOn = () => bp2.evaluate((k) => window.__calc.board().units.find(u => u.tk === k)?.models.length ?? 0, ghTk);
     const n10 = await nOn();
-    // the Board's own "Models left" (under the selected unit): take half of them off
+    await bp2.tap('button[data-action="board-step-add"]');
+    await bp2.tap('button[data-action="board-step-add"]');
+    const pick = async () => { if ((await bp2.evaluate(() => window.__calc.board().sel)) !== ghTk) await bp2.locator(`button[data-action="board-pick"][data-tk="${ghTk}"]`).tap(); };
+    const step = async (i) => { await bp2.tap(`button[data-action="board-step"][data-i="${i}"]`); return nOn(); };
+    // Turn 2: half of them are lost
+    await pick();
     await bp2.locator('#board-losses > summary').tap();
     const bg = await bp2.evaluate(() => { const rows = [...document.querySelectorAll('#board-losses [data-loss-group]')]; return rows.map(r => ({ k: r.dataset.lossGroup, n: Number(r.querySelector('.val').textContent.split('/')[1]) })).sort((a, b) => b.n - a.n)[0]; });
     for (let i = 0; i < 5; i++) await bp2.locator(`#board-losses [data-loss-group="${bg.k}"] button[data-field="count"][data-delta="-1"]`).tap();
-    check('Board: 5 Grey Hunters taken off in the unit\'s panel → 5 bases on the board, the panel and its row say so',
-      (await nOn()) === n10 - 5 && /5 of 10 models left/.test(await bp2.textContent('#board-panel')) && /5\/10/.test(await bp2.textContent(`button[data-action="board-pick"][data-tk="${ghTk}"]`)), `${n10} -> ${await nOn()}`);
+    check('Board, Turn 2: 5 Grey Hunters lost → 5 bases, the panel and its row say so',
+      (await nOn()) === n10 - 5 && /5 of 10 models left/.test(await bp2.textContent('#board-panel')) && /5\/10/.test(await bp2.textContent(`button[data-action="board-pick"][data-tk="${ghTk}"]`)) && /Lost in Turn 2/.test(await bp2.textContent('#board-losses')), `${n10} -> ${await nOn()}`);
     await bp2.evaluate(() => window.scrollTo(0, 0));
     await bp2.screenshot({ path: join(SHOTS, 'calc_132_board_models_left.png') });
+    const byTurn = { deploy: await step(0), t1: await step(1), t2: await step(2) };
+    await bp2.tap('button[data-action="board-step-add"]');
+    byTurn.t3 = await nOn();
+    check('turn by turn: Deploy and Turn 1 still show all 10; Turn 2 and the turns after show the 5 left', byTurn.deploy === 10 && byTurn.t1 === 10 && byTurn.t2 === 5 && byTurn.t3 === 5, JSON.stringify(byTurn));
+    // a loss in Turn 1 is carried into the later turns
+    await step(1); await pick();
+    if (!(await bp2.$eval('#board-losses', d => d.open))) await bp2.locator('#board-losses > summary').tap();
+    await bp2.locator(`#board-losses [data-loss-group="${bg.k}"] button[data-field="count"][data-delta="-1"]`).tap();
+    const carry = { t1: await nOn(), deploy: await step(0), t2: await step(2), t3: await step(3) };
+    check('one more lost in Turn 1: 9 in Turn 1, 4 in Turns 2 and 3, still 10 at deployment', carry.t1 === 9 && carry.t2 === 4 && carry.t3 === 4 && carry.deploy === 10, JSON.stringify(carry));
+    // the calculator from a Board turn uses that turn's models
+    await step(1);
+    const s1 = await bp2.evaluate(() => window.__calc.board().tokens);
+    await bp2.locator('#board-army-B button[data-action="board-place"]', { hasText: 'Warboss + Boyz' }).tap();
+    await bp2.tap('button[data-action="board-step"][data-i="1"]');
+    await pick();
+    const wbTk = await bp2.evaluate(() => window.__calc.board().tokens.find(t => t.tk.startsWith('B:')).tk);
+    await bp2.locator(`button[data-action="board-pick"][data-tk="${wbTk}"]`).tap();
+    await bp2.locator('#board-pair button[data-action="board-attack"][data-phase="shooting"]').tap();
+    await bp2.waitForSelector('#atk-round');
+    check('Shoot → from Turn 1: the Attack tab uses Turn 1\'s models (9 of 10 Grey Hunters) and says so', /as of Turn 1/.test(await bp2.textContent('#atk-round')) && /9 of 10 models left/.test(await bp2.textContent('[data-attacker] .attacker-head')), await bp2.textContent('[data-attacker] .attacker-head'));
+    await bp2.tap('button[data-action="atk-round-now"]');
+    check('"Use now": back to the tracker\'s battle round (round 1: 9 left — the Turn 2 losses are not there yet)', (await bp2.locator('#atk-round').count()) === 0 && /9 of 10 models left/.test(await bp2.textContent('[data-attacker] .attacker-head')));
+    await bp2.tap('button[data-action="view"][data-value="board"]');
+    await bp2.waitForSelector('#board-tri');
+    await step(3); await pick();
+    if (!(await bp2.$eval('#board-losses', d => d.open))) await bp2.locator('#board-losses > summary').tap();
     // the rest, every model group: none left (the last tap takes the unit off the board, panel and all)
     for (;;) {
       const nxt = await bp2.evaluate(() => [...document.querySelectorAll('#board-losses [data-loss-group]')].map(r => ({ k: r.dataset.lossGroup, left: Number(r.querySelector('.val').textContent.split('/')[0]) })).find(g => g.left > 0) ?? null);
@@ -4211,14 +4243,15 @@ Aggressor Squad (95 points)
       await bp2.locator(`#board-losses [data-loss-group="${nxt.k}"] button[data-field="count"][data-delta="-1"]`).tap();
     }
     const gone = await bp2.evaluate((k) => ({ on: window.__calc.board().units.some(u => u.tk === k), dead: !!document.querySelector(`[data-dead="${k}"]`) }), ghTk);
-    check('none left: the unit is off the board and its row says destroyed', !gone.on && gone.dead, JSON.stringify(gone));
+    check('none left in Turn 3: off the board and its row says destroyed; Turn 2 still has it', !gone.on && gone.dead && (await step(2)) === 4, JSON.stringify(gone));
+    await step(3);
     await bp2.locator(`[data-dead="${ghTk}"] button[data-action="loss-reset"]`).tap();
-    check('"destroyed ↺" brings it back at full strength', (await bp2.evaluate((k) => window.__calc.board().units.find(u => u.tk === k)?.models.length ?? 0, ghTk)) === 10);
+    check('"destroyed ↺" brings it back at full strength (every turn)', (await nOn()) === 10 && (await step(2)) === 10);
     // a different list for A clears A's record
     await bp2.tap('button[data-action="view"][data-value="armies"]');
     await bp2.fill('textarea[data-side="B"]', readFileSync(join(here, 'fixtures', 'gw-custodes-nbhyphen.txt'), 'utf8'));
     await bp2.tap('button[data-action="parse"][data-side="B"]');
-    check('loading a different list for B clears B\'s models-left record', Object.keys(await bp2.evaluate(() => window.__calc.state.mission.game.losses?.B ?? {})).length === 0);
+    check('loading a different list for B clears B\'s models-left record', Object.keys(await bp2.evaluate(() => window.__calc.state.mission.game.lossLog?.B ?? {})).length === 0);
     await bctx2.close();
   }
 
