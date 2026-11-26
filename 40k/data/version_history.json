@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.137.0",
+      "version": "1.138.0",
       "date": "2026-11-26",
       "summary": "Combat Calc: the Your turn forecast no longer assumes the table stays frozen for the rest of the game",
       "changes": [
@@ -13,7 +13,7 @@
       ]
     },
     {
-      "version": "1.136.0",
+      "version": "1.137.0",
       "date": "2026-11-26",
       "summary": "Combat Calc: Your turn now ranks your moves with the mission forecast",
       "changes": [
@@ -26,7 +26,7 @@
       ]
     },
     {
-      "version": "1.135.0",
+      "version": "1.136.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: Your turn on the live table, a suggestion for each of your units",
       "changes": [
@@ -40,7 +40,7 @@
       ]
     },
     {
-      "version": "1.134.0",
+      "version": "1.135.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: a Live table that follows your game, and what your opponent can do in their next turn",
       "changes": [
@@ -52,6 +52,15 @@
         "Their next turn: each objective with who controls it, and which of their units can take or tie it with a normal move or an Advance",
         "Their next turn: each card in their hand on the tracker, whether they can score it by moving alone, only by destroying something, or not this turn",
         "It says what it does not count: units in reserve or in a transport, terrain in the way of a move, and stratagems"
+      ]
+    },
+    {
+      "version": "1.134.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: a model moved one by one can't overlap another base",
+      "changes": [
+        "Dragging a model in models mode: its base stops at the edge of any base it meets — of its own unit or any other — and slides along it",
+        "Round, oval and vehicle bases alike; wedged between bases, it stays at the last free spot"
       ]
     },
     {

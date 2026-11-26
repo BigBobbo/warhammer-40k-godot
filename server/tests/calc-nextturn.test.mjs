@@ -150,7 +150,7 @@ test('cards scored at the end of MY turn are read as the table stands', () => {
   assert.equal(r1.cards[0].verdict, 'no');
 });
 
-// ---- "My turn" (1.135.0)
+// ---- "My turn" (1.136.0)
 
 test('my voice: a sentence about them, said about me', () => {
   assert.equal(N.myVoice('they can control your home objective'), 'you can control their home objective');
@@ -198,7 +198,7 @@ test('my turn: a unit holds what it stands on, a free unit takes what is in reac
   assert.equal(np.verdict, 'kill'); assert.ok(!/\bthey\b/i.test(r.cards.find(x => x.id === 'secure-no-mans-land').why));
 });
 
-// ---- moves weighed with the forecast (1.136.0)
+// ---- moves weighed with the forecast (1.137.0)
 
 test('move candidates: onto each objective a normal move reaches; back towards home only for a unit at risk', () => {
   const mine = [unit('A:mid', 22, 22, 5), unit('A:far', 4, 4, 1)];
