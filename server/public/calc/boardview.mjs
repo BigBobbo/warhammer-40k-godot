@@ -480,6 +480,76 @@ function nextTurnData(compute = true) {
   if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null);
   return v;
 }
+// ---- a suggestion tapped on a card, shown on the map: the unit ringed, its suggested move as a dashed arrow to
+// dashed bases, its target (or who attacks it) as solid arrows. b.hint = { kind: 'my-unit' | 'my-kill' | 'their-unit', tk };
+// what is drawn is read from the cards' own data each time, so it follows the table.
+const HINT = { ring: '#f2c200', move: '#1d6fd1', hit: '#c0392b' };
+/** -> { units: [tk] (ringed), move: { tk, x, y, dist, label, hosted, vp } | null, hits: [{ from, to, pct, how }], text } | null */
+function hintData() {
+  const b = boardState(), h = b.hint, d = nextMemo.v;
+  if (!h || !d?.res || !livePlan()) return null;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const full = (tk) => { const [s, k] = tk.split(':'); return ctx.state.armies[s]?.units.find(u => u.key === k)?.name ?? tk; };
+  if (h.kind === 'my-unit') {
+    const u = d.my?.units.find(x => x.key === h.tk);
+    if (!u) return null;
+    const k = moveMemo.key === nextMemo.key ? moveMemo.kept?.moves.find(x => x.unit === h.tk) : null;
+    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind === 'back', vp: k.addVp } : null;
+    const hits = u.attack ? [{ from: h.tk, to: u.attack.key, pct: pct(u.attack.p), how: u.attack.how }] : [];
+    const bits = [move ? (move.back ? `pull back ${fmtIn(move.dist)} towards your home` : `move ${fmtIn(move.dist)} ${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
+      u.attack ? `${u.attack.how} ${full(u.attack.key)} (${pct(u.attack.p)} destroyed)` : ''].filter(Boolean);
+    return { units: [h.tk], move, hits, text: `${full(h.tk)}: ${bits.join('; then ') || 'nothing suggested'}` };
+  }
+  if (h.kind === 'my-kill') {
+    const k = d.my?.kills.find(x => x.key === h.tk);
+    if (!k) return null;
+    return { units: [h.tk], move: null, hits: k.by.map(x => ({ from: x.key, to: h.tk, pct: '', how: '' })), text: `${full(h.tk)}: ${pct(k.p)} destroyed by ${k.by.map(x => full(x.key)).join(', ')}` };
+  }
+  const t = d.res.threats.find(x => x.key === h.tk);
+  if (!t) return null;
+  const by = t.by.slice(0, 5);
+  return { units: [h.tk], move: null, hits: by.map(x => ({ from: x.key, to: h.tk, pct: '', how: '', theirs: true })), text: `${full(h.tk)}: ${pct(t.likely)} likely destroyed, ${pct(t.focus)} if focused, by ${by.map(x => full(x.key)).join(', ')}` };
+}
+function hintSvg() {
+  const hd = hintData();
+  if (!hd) return '';
+  const toks = new Map(placed().map(t => [t.tk, t]));
+  const reach = (t) => Math.max(...t.models.map(m => Math.hypot(m.dx, m.dy) + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0)));
+  const arrow = (x1, y1, x2, y2, col, dash, label, id) => {
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 0.3) return '';
+    const ux = (x2 - x1) / len, uy = (y2 - y1) / len, hx = x2 - ux * 1.5, hy = y2 - uy * 1.5;
+    const head = `${f2(x2)},${f2(y2)} ${f2(hx - uy * 0.75)},${f2(hy + ux * 0.75)} ${f2(hx + uy * 0.75)},${f2(hy - ux * 0.75)}`;
+    const lab = label ? `<text x="${f2((x1 + x2) / 2)}" y="${f2((y1 + y2) / 2 - 0.5)}" font-size="1.25" font-weight="700" text-anchor="middle" fill="${col}" paint-order="stroke" stroke="${C.mat}" stroke-width="0.4" font-family="system-ui,sans-serif">${ctx.esc(label)}</text>` : '';
+    return `<g data-hint="${id}"><line x1="${f2(x1)}" y1="${f2(y1)}" x2="${f2(hx)}" y2="${f2(hy)}" stroke="${C.mat}" stroke-width="0.9" stroke-linecap="round"/><line x1="${f2(x1)}" y1="${f2(y1)}" x2="${f2(hx)}" y2="${f2(hy)}" stroke="${col}" stroke-width="0.45" stroke-linecap="round" ${dash ? 'stroke-dasharray="1 0.7"' : ''}/><polygon points="${head}" fill="${col}" stroke="${C.mat}" stroke-width="0.15"/>${lab}</g>`;
+  };
+  const out = [];
+  for (const tk of hd.units) { const t = toks.get(tk); if (t) out.push(`<circle data-hint="ring" data-tk="${ctx.esc(tk)}" cx="${f2(t.x)}" cy="${f2(t.y)}" r="${f2(reach(t) + 0.8)}" fill="none" stroke="${HINT.ring}" stroke-width="0.45"/><circle cx="${f2(t.x)}" cy="${f2(t.y)}" r="${f2(reach(t) + 0.8)}" fill="none" stroke="#111" stroke-width="0.12" stroke-dasharray="0.6 0.5"/>`); }
+  if (hd.move) {
+    const t = toks.get(hd.move.tk);
+    if (t) {
+      out.push(`<g data-hint="ghost" transform="translate(${f2(hd.move.x)},${f2(hd.move.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', HINT.move, 0.16, m.rot)).join('')}</g>`);
+      out.push(arrow(t.x, t.y, hd.move.x, hd.move.y, HINT.move, true, fmtIn(hd.move.dist), 'move'));
+    }
+  }
+  for (const h of hd.hits) {
+    const a0 = toks.get(h.from), z = toks.get(h.to);
+    if (!a0 || !z) continue;
+    // after its suggested move, the attack starts where the move ends
+    const a = hd.move && hd.move.tk === h.from ? { x: hd.move.x, y: hd.move.y } : a0;
+    const len = Math.hypot(z.x - a.x, z.y - a.y) || 1, back = Math.min(len * 0.4, reach(z) * 0.6);
+    out.push(arrow(a.x, a.y, z.x - (z.x - a.x) / len * back, z.y - (z.y - a.y) / len * back, HINT.hit, false, h.pct, 'hit'));
+  }
+  return `<g id="hint-layer" data-kind="${boardState().hint.kind}" data-tk="${ctx.esc(boardState().hint.tk)}" pointer-events="none">${out.join('')}</g>`;
+}
+/** Above the map while a suggestion is shown on it: what the arrows mean, in full names, and a way to clear it. */
+function hintBarHtml() {
+  const hd = hintData();
+  if (!hd) return '';
+  return `<div class="card hint-bar" id="board-hint-bar"><div class="row" style="gap:8px;align-items:center"><span class="grow small"><b>On the map:</b> ${ctx.esc(hd.text)}.${hd.move ? ` <span class="muted">Dashed blue: the move${hd.move.hosted && !hd.move.back ? ' (a base in the terrain area the objective is in counts as in range)' : ''}.</span>` : ''}${hd.hits.length ? ' <span class="muted">Red: the attack.</span>' : ''}</span>
+    <button class="icon-btn" data-action="board-hint-clear" id="board-hint-clear" aria-label="Clear the suggestion from the map">✕</button></div></div>`;
+}
+
 /** Card rows for "Their next turn" and "My turn": what it pays, by moving / by a kill / not this turn, and why. */
 function cardRows(cards, offTurnNote, good = false) {
   const esc = ctx.esc, pct = (p) => `${Math.round(p * 100)}%`;
@@ -500,7 +570,7 @@ function myTurnHtml(d) {
   const head = `<div class="row" style="gap:6px;align-items:center"><div class="title grow" id="board-my-title">🧭 ${myNow ? 'Your turn' : 'Your next turn'} · <span style="color:${ink(d.me)}">${esc(st.armies[d.me].faction)}</span></div>
       <button class="icon-btn" data-action="board-my-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} your turn">${open ? '▴' : '▾'}</button></div>`;
   if (!open) return `<div class="card" id="board-my" data-open="0">${head}</div>`;
-  const pick = (tk, html) => `<button class="link" data-action="board-pick" data-tk="${esc(tk)}">${html}</button>`;
+  const pick = (tk, html) => html;
   const JOB = { take: ['bad', '→ Take'], hold: ['ok', '■ Hold'], card: ['warn', '★'], none: ['', ''] };
   // moves weighed with the forecast (for the table this card was worked out for)
   const mv = moveMemo.key === nextMemo.key ? moveMemo : { state: 'idle' };
@@ -517,22 +587,22 @@ function myTurnHtml(d) {
     const [cls, verb] = JOB[u.job.kind];
     const k = keptOf.get(u.key), alone = aloneOf.get(u.key);
     // the forecast's move for this unit; else the measured job (a "take" the forecast does not back is said so)
-    const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? '↩ Pull back' : `→ Move onto ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
+    const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? `↩ Pull back ${fmtIn(k.dist)}` : `→ Move ${fmtIn(k.dist)} ${k.hosted ? 'into' : 'to'} ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
       : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
         : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
-    const fNote = k ? '' : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
+    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
       : mv.state === 'done' && u.job.kind === 'take' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
     const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`})</span>` : '<span class="muted">nothing in reach to attack</span>';
-    return `<div class="next-unit" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
+    return `<div class="next-unit tap${boardState().hint?.kind === 'my-unit' && boardState().hint.tk === u.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-unit" data-tk="${esc(u.key)}" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
       <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
       <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
   }).join('');
-  const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
+  const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj tap${boardState().hint?.kind === 'my-kill' && boardState().hint.tk === k.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-kill" data-tk="${esc(k.key)}" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
       <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div></div>`).join('');
   const cardsHtml = !d.myHand.length ? `<div class="small muted" id="board-my-nocards">No cards in your hand on the tracker (Mission → Play).</div>` : cardRows(m.cards, 'At the end of their turn, as the table stands:', true);
   return `<div class="card" id="board-my" data-state="ready" data-vp="${m.vp}" data-moves="${mv.state}">${head}
     ${movesLine}
-    <div class="lab tiny muted" style="margin-top:8px">Each unit</div><div id="board-my-units">${unitsHtml || '<div class="small muted">Nothing in reach of an objective or a target this turn.</div>'}</div>
+    <div class="lab tiny muted" style="margin-top:8px">Each unit <span id="board-my-tap">· tap a row to see it on the map</span></div><div id="board-my-units">${unitsHtml || '<div class="small muted">Nothing in reach of an objective or a target this turn.</div>'}</div>
     ${m.units.length > shown.length || all ? `<button class="chip" data-action="board-my-all" id="board-my-all" style="margin-top:4px">${all ? 'Fewer' : `All ${m.units.length} units`}</button>` : ''}
     ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
@@ -578,13 +648,13 @@ function theirTurnHtml() {
   if (!d.mineOn || !d.theirsOn) return `<div class="card" id="board-next" data-state="empty">${head}<p class="hint" style="margin:6px 0 0">Place both armies on the live table to see what they can do next turn.</p></div>`;
   if (!d.res) return `<div class="card" id="board-next" data-state="wait">${head}<p class="muted small" id="board-next-wait" style="margin:6px 0 0">Working out the unit-vs-unit odds of these two lists…</p></div>`;
   const r = d.res;
-  const pick = (tk, html) => `<button class="link" data-action="board-pick" data-tk="${esc(tk)}">${html}</button>`;
+  const pick = (tk, html) => html;
   // --- my units at risk
   const risky = r.threats.filter(t => t.by.length);
   const all = !!b.nextAll, shown = all ? risky : risky.slice(0, 5);
   const bar = (p) => `<span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, p) * 100)}%"></i></span>`;
   const byTxt = (x) => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔ in combat' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`;
-  const unitsHtml = risky.length ? `${shown.map(t => `<div class="next-unit" data-unit="${esc(t.key)}" data-likely="${t.likely.toFixed(3)}" data-focus="${t.focus.toFixed(3)}">
+  const unitsHtml = risky.length ? `${shown.map(t => `<div class="next-unit tap${boardState().hint?.kind === 'their-unit' && boardState().hint.tk === t.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="their-unit" data-tk="${esc(t.key)}" data-unit="${esc(t.key)}" data-likely="${t.likely.toFixed(3)}" data-focus="${t.focus.toFixed(3)}">
         <div class="row" style="gap:6px;align-items:center">${pick(t.key, `<b style="color:${ink(d.me)}">${esc(shortName(t.name))}</b>`)}<span class="grow"></span>${bar(t.likely)}<b class="next-pct">${pct(t.likely)}</b><span class="tiny muted">likely · ${pct(t.focus)} if focused</span></div>
         <div class="tiny muted">${t.by.slice(0, 4).map(byTxt).join(' · ')}${t.by.length > 4 ? ` · +${t.by.length - 4}` : ''}</div></div>`).join('')}
       ${risky.length > 5 ? `<button class="chip" data-action="board-next-all" id="board-next-all" style="margin-top:4px">${all ? 'Fewer' : `All ${risky.length} units in reach`}</button>` : ''}`
@@ -1346,6 +1416,7 @@ export function boardSvg({ forExport = false } = {}) {
       }).join('')}</g>`
       + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${plan()?.live && plan().shock?.[t.tk] ? '⚡ ' : ''}${ctx.esc(shortName(t.u.cu.name))}${(() => { const n = passengersOf(t.tk).length; return n ? ` 🚚+${n}` : ''; })()}</text></g>`);
   }
+  if (!forExport) parts.push(hintSvg());
   // who controls each objective in this step: OC of each army's units in range
   // (on the hosting terrain area, or within 3" + the marker); the Mission tab's
   // board-plan forecast uses the same measurement
@@ -1610,8 +1681,9 @@ function label(x, y, text, id = '') {
 }
 
 function shortName(n) {
-  const s = n.replace(/ \(\d\)$/, (m) => m); // keep "(1)" suffixes
-  return s.length > 22 ? `${s.slice(0, 21)}…` : s;
+  // a cut name keeps its "(2)": two units of one datasheet must not read the same on the map and in the cards
+  const m = / \(\d+\)$/.exec(n), tail = m ? m[0] : '', s = tail ? n.slice(0, -tail.length) : n;
+  return n.length > 22 ? `${s.slice(0, 21 - tail.length)}…${tail}` : n;
 }
 
 function closestCentres(a, b) {
@@ -1678,7 +1750,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}</div>
+      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -1747,7 +1819,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host">${liveBarHtml()}</div>
+      <div id="board-live-host">${liveBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
@@ -2212,7 +2284,7 @@ export function refreshBoard() {
   const mb = document.getElementById('board-models-host');
   if (mb) mb.innerHTML = modelsBar();
   const lb = document.getElementById('board-live-host');
-  if (lb) lb.innerHTML = liveBarHtml();
+  if (lb) lb.innerHTML = liveBarHtml() + hintBarHtml();
   const nx = document.getElementById('board-next-host');
   if (nx) nx.innerHTML = nextTurnHtml();
   const tri = document.getElementById('board-tri');
@@ -2857,6 +2929,19 @@ export function boardAction(action, el) {
       refreshBoard();
       return null;
     }
+    case 'board-hint': {
+      // a row of the cards: that unit selected and ringed on the map, its move and its attack drawn
+      const same = b.hint && b.hint.kind === el.dataset.kind && b.hint.tk === el.dataset.tk;
+      b.hint = same ? null : { kind: el.dataset.kind, tk: el.dataset.tk };
+      b.sel = same ? b.sel : el.dataset.tk; b.sel2 = null; b.modelsOf = null;
+      console.log(`[board] suggestion on the map: ${b.hint ? `${b.hint.kind} ${b.hint.tk} — ${hintData()?.text ?? 'nothing to draw'}` : 'cleared'}`);
+      refreshBoard();
+      // the map into view (on a phone the cards are below it)
+      const host = document.getElementById('board-host'), r = host?.getBoundingClientRect();
+      if (b.hint && r && (r.bottom < 120 || r.top > (window.innerHeight || 0) - 120)) host.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      return null;
+    }
+    case 'board-hint-clear': b.hint = null; refreshBoard(); return null;
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
     case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
     case 'board-my-toggle': b.myOpen = b.myOpen === false; refreshBoard(); return null;
@@ -3275,7 +3360,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
-    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };
