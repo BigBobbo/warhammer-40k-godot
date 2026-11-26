@@ -564,8 +564,11 @@ export function worthOf(result, X) {
   const Y = X === 'A' ? 'B' : 'A';
   return { win: result?.[`pWin${X}`] ?? 0, vp: (result?.[X]?.mean ?? 0) - (result?.[Y]?.mean ?? 0) };
 }
-/** A move counts as better than standing still from this many VP of margin (about 3x the noise of the difference at 1,500 games). */
-export const MOVE_MIN_VP = 2;
+/**
+ * A move counts as better than standing still from this many VP of margin: about 3x the noise of the difference
+ * between two forecasts of 1,500 games (measured 0.95 VP on a live table counted for the round in progress).
+ */
+export const MOVE_MIN_VP = 3;
 /**
  * The best move of each unit, from the forecasts of each candidate alone.
  * results: { [candidateKey]: forecast result }. -> [{ ...candidate, dVp, dWin }], the biggest gain first;

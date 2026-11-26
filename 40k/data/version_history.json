@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.137.0",
+      "date": "2026-11-26",
+      "summary": "Combat Calc: the Your turn forecast no longer assumes the table stays frozen for the rest of the game",
+      "changes": [
+        "Board, Live table, Your turn: the positions on the table now count for the battle round in progress only; later rounds are forecast as on the Mission tab",
+        "Before, every unit was assumed to stay where it stood until the end of the game, which gave win chances far from even for even armies (87% where the Mission tab says 48%)",
+        "The VP on a suggested move is now about what the move is worth this round and in the next Command phase, not for the whole game",
+        "A move is suggested from 3 VP of margin over standing still (it was 2): about three times the noise of the forecast"
+      ]
+    },
+    {
       "version": "1.136.0",
       "date": "2026-11-26",
       "summary": "Combat Calc: Your turn now ranks your moves with the mission forecast",

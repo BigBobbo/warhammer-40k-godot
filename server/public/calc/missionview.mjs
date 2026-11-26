@@ -317,9 +317,11 @@ export const MOVE_TRIALS = 1500;
 let moveWorker = null, moveReq = 0;
 export function moveForecasts(base, variants) {
   return new Promise((resolve) => {
-    const P0 = forecastParams({ boardSteps: base, trials: MOVE_TRIALS });
+    // the table as it stands counts for the battle round in progress; the rounds after it are forecast as usual
+    const until = ms().game.round;
+    const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS });
     if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
-    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, trials: MOVE_TRIALS }) }));
+    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: until, trials: MOVE_TRIALS }) }));
     const id = ++moveReq;
     moveWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
     const t0 = Date.now();
@@ -395,7 +397,7 @@ function killRateOf(X) {
 }
 
 /** The forecast's board model for plan `vi`: units per step with measured facts, and what each unit threatens. */
-function boardModel(vi, given = null) {
+function boardModel(vi, given = null, until = Infinity) {
   const m = ms(), g = geo();
   // (given: a plan in boardPlans() shape that is not on the Board - a move being weighed, moveForecasts)
   const plan = given ?? boardPlans()[vi];
@@ -408,6 +410,9 @@ function boardModel(vi, given = null) {
   for (let r = 0; r <= RULES.rounds; r++) {
     const st = stepFor(r);
     rounds[r] = {};
+    // (until: the positions are known up to this battle round only - the live table. Later rounds are left to
+    // the objective plan and the kill rates, as in a forecast without a board plan: nobody stands still for a game)
+    if (r > until) { rounds[r] = { A: null, B: null }; continue; }
     for (const X of ['A', 'B']) rounds[r][X] = used(st, X) ? st[X].map(u => ({ name: u.name, f: positionFacts(u, X, g) })) : null;
     if (r === 0 || !m.pairs?.table) continue;
     threats[r] = {};
@@ -464,7 +469,7 @@ export function forecastParams(over = {}) {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
     plan: over.plan ?? plan(), first,
-    boardPlan: over.boardSteps ? boardModel(null, over.boardSteps) : vi == null ? null : boardModel(vi), fracs,
+    boardPlan: over.boardSteps ? boardModel(null, over.boardSteps, over.boardUntil ?? Infinity) : vi == null ? null : boardModel(vi), fracs,
     startRound: g.over ? RULES.rounds + 1 : live ? g.round : 1, startTurn: live && first && !g.over ? (next === first ? 0 : 1) : 0,
     // cards the player whose turn it is has already drawn this turn (the forecast draws the rest)
     startDrawn: live ? Math.min(RULES.drawPerTurn, g.drawn ?? 0) : 0,

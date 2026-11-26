@@ -220,6 +220,7 @@ test('best moves: the best candidate of each unit, only when it beats standing s
   const base = res(50, 45, 0.6);
   const m = N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7), 'u1>e1': res(53, 45, 0.65), 'u2>c': res(51, 45, 0.61), 'u3>back': res(49, 40, 0.68) }, 'A');
   assert.deepEqual(m.map(x => x.key), ['u1>c', 'u3>back'], 'u2 gains 1 VP: within the noise');
+  assert.equal(N.MOVE_MIN_VP, 3, 'about 3x the measured noise of a difference (0.95 VP)');
   assert.ok(Math.abs(m[0].dVp - 7) < 1e-9 && Math.abs(m[0].dWin - 0.1) < 1e-9);
   assert.ok(Math.abs(N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7) }, 'B').length) === 0, 'for B the same move is worse');
 });
