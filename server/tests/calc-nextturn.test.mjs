@@ -197,3 +197,37 @@ test('my turn: a unit holds what it stands on, a free unit takes what is in reac
   const np = r.cards.find(x => x.id === 'no-prisoners');
   assert.equal(np.verdict, 'kill'); assert.ok(!/\bthey\b/i.test(r.cards.find(x => x.id === 'secure-no-mans-land').why));
 });
+
+// ---- moves weighed with the forecast (1.136.0)
+
+test('move candidates: onto each objective a normal move reaches; back towards home only for a unit at risk', () => {
+  const mine = [unit('A:mid', 22, 22, 5), unit('A:far', 4, 4, 1)];
+  const swing = N.objectiveSwing([], mine, OBJS, [], { me: 'B' });
+  const home = OBJS[0];
+  const c = N.moveCandidates(mine, swing, [], { risk: { 'A:mid': 0.6 }, home });
+  const k = c.map(x => x.key);
+  assert.ok(k.includes('A:mid>c') && k.includes('A:mid>e1') && k.includes('A:mid>back'), k.join());
+  assert.ok(!k.some(x => x.startsWith('A:far')), 'nothing in reach of the far unit, and it is not at risk');
+  const toC = c.find(x => x.key === 'A:mid>c');
+  assert.ok(toC.dist <= 6 + 1e-9 && N.objectiveGap({ ...mine[0], x: toC.x, y: toC.y }, OBJS[1], []) === 0, 'after the move a model is in range');
+  assert.ok(c.find(x => x.key === 'A:mid>back').y < 22, 'back = towards my home objective');
+  assert.equal(c[c.length - 1].kind, 'back', 'moves onto objectives are tried first');
+});
+
+test('best moves: the best candidate of each unit, only when it beats standing still by the noise margin', () => {
+  const res = (a, b, w) => ({ A: { mean: a }, B: { mean: b }, pWinA: w, pWinB: 1 - w });
+  const cands = [{ key: 'u1>c', unit: 'u1' }, { key: 'u1>e1', unit: 'u1' }, { key: 'u2>c', unit: 'u2' }, { key: 'u3>back', unit: 'u3' }];
+  const base = res(50, 45, 0.6);
+  const m = N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7), 'u1>e1': res(53, 45, 0.65), 'u2>c': res(51, 45, 0.61), 'u3>back': res(49, 40, 0.68) }, 'A');
+  assert.deepEqual(m.map(x => x.key), ['u1>c', 'u3>back'], 'u2 gains 1 VP: within the noise');
+  assert.ok(Math.abs(m[0].dVp - 7) < 1e-9 && Math.abs(m[0].dWin - 0.1) < 1e-9);
+  assert.ok(Math.abs(N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7) }, 'B').length) === 0, 'for B the same move is worse');
+});
+
+test('moves made together: one that adds nothing on top of the others is dropped', () => {
+  const res = (a, b, w) => ({ A: { mean: a }, B: { mean: b }, pWinA: w, pWinB: 1 - w });
+  const moves = [{ key: 'u1>c' }, { key: 'u2>c' }, { key: 'u3>e1' }];
+  const k = N.keepMoves(moves, res(50, 45, 0.6), [res(56, 44, 0.7), res(56.5, 44, 0.71), res(60, 43, 0.8)], 'A');
+  assert.deepEqual(k.moves.map(x => x.key), ['u1>c', 'u3>e1'], 'the second unit onto the same objective adds 0.5 VP');
+  assert.ok(Math.abs(k.vp - 17) < 1e-9 && k.win === 0.8);
+});

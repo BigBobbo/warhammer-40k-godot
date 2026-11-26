@@ -307,6 +307,33 @@ export function missionNow() {
   const g = ms().game;
   return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] } };
 }
+/**
+ * Weigh moves with the forecast (the Board's "Your turn"): the rest of the game from the tracker's state, once
+ * for the table as it stands (base) and once for each variant - the same plan with one or more units moved.
+ * base / variants[].plan: a plan in boardPlans() shape. Run in a worker of its own; a newer call drops the older.
+ * -> Promise<{ base: result, variants: { [key]: result } } | null (dropped, or no forecast possible)>
+ */
+export const MOVE_TRIALS = 1500;
+let moveWorker = null, moveReq = 0;
+export function moveForecasts(base, variants) {
+  return new Promise((resolve) => {
+    const P0 = forecastParams({ boardSteps: base, trials: MOVE_TRIALS });
+    if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
+    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, trials: MOVE_TRIALS }) }));
+    const id = ++moveReq;
+    moveWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    const t0 = Date.now();
+    const onMsg = (ev) => {
+      if (ev.data.id !== id) { if (ev.data.id > id) { moveWorker.removeEventListener('message', onMsg); resolve(null); } return; }
+      moveWorker.removeEventListener('message', onMsg);
+      if (ev.data.error) { console.log(`[mission] move forecasts failed: ${ev.data.error}`); resolve(null); return; }
+      console.log(`[mission] move forecasts: ${vs.length} variants x ${MOVE_TRIALS} games in ${Date.now() - t0} ms`);
+      resolve({ base: ev.data.base, variants: Object.fromEntries(ev.data.variants.map(v => [v.key, v.result])) });
+    };
+    moveWorker.addEventListener('message', onMsg);
+    moveWorker.postMessage({ id, forecast: { base: P0, variants: vs } });
+  });
+}
 /** The unit-vs-unit odds of the two lists (null while they are being worked out; asking starts the work). */
 export function pairTable() {
   const st = ctx.state;
@@ -368,9 +395,10 @@ function killRateOf(X) {
 }
 
 /** The forecast's board model for plan `vi`: units per step with measured facts, and what each unit threatens. */
-function boardModel(vi) {
+function boardModel(vi, given = null) {
   const m = ms(), g = geo();
-  const plan = boardPlans()[vi];
+  // (given: a plan in boardPlans() shape that is not on the Board - a move being weighed, moveForecasts)
+  const plan = given ?? boardPlans()[vi];
   if (!g || !plan) return null;
   const steps = plan.steps;
   const rounds = {}, threats = {};
@@ -436,7 +464,7 @@ export function forecastParams(over = {}) {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
     plan: over.plan ?? plan(), first,
-    boardPlan: vi == null ? null : boardModel(vi), fracs,
+    boardPlan: over.boardSteps ? boardModel(null, over.boardSteps) : vi == null ? null : boardModel(vi), fracs,
     startRound: g.over ? RULES.rounds + 1 : live ? g.round : 1, startTurn: live && first && !g.over ? (next === first ? 0 : 1) : 0,
     // cards the player whose turn it is has already drawn this turn (the forecast draws the rest)
     startDrawn: live ? Math.min(RULES.drawPerTurn, g.drawn ?? 0) : 0,

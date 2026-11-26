@@ -168,7 +168,7 @@ export function objectiveSwing(mine, theirs, objs, pieces, { me = 'A', risk = {}
       : max > myOc ? (holder === 'me' ? 'lose' : 'take')
         : holder === 'me' ? (max === myOc && max > now ? 'contest' : maxAdvance >= myOc && maxAdvance > max ? 'advance' : 'safe')
           : maxAdvance > myOc ? 'advance' : 'open';
-    return { id: o.id, label: o.label ?? o.id, cls: o.cls, side: o.side ?? null, mine: myOc, theirs: now, holder, holders, there, movers, max, maxAdvance, verdict, mySide: me };
+    return { id: o.id, label: o.label ?? o.id, cls: o.cls, side: o.side ?? null, x: o.x, y: o.y, host: o.host ?? [], mine: myOc, theirs: now, holder, holders, there, movers, max, maxAdvance, verdict, mySide: me };
   });
 }
 
@@ -522,4 +522,75 @@ export function myTurn(c) {
   const rank = { take: 0, card: 1, hold: 2, none: 3 };
   units.sort((a, b) => rank[a.job.kind] - rank[b.job.kind] || (b.attack?.p ?? 0) - (a.attack?.p ?? 0) || b.risk - a.risk);
   return { units, kills, swing, cards, vp: cards.filter(x => x.verdict === 'yes').reduce((a, x) => a + x.vp, 0) };
+}
+
+// ---------------------------------------------------------------------------
+// Moves to weigh with the mission forecast (the view runs the forecast; this picks what to try and reads it)
+
+/**
+ * The moves worth trying for each of my units: onto each objective a normal move reaches (a straight line,
+ * just far enough for a model to be in range), and - for a unit likely to be destroyed where it stands - a
+ * normal move back towards my home objective.
+ * swing: myTurn().swing (its movers are my units). -> [{ key: `${unitKey}>${what}`, unit, name, kind: 'obj' | 'back',
+ *   obj (id), label, x, y (the unit's centre after the move), dist }], at most `max` (nearest objectives first)
+ */
+export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, max = 24 } = {}) {
+  const out = [];
+  for (const u of mine) {
+    const M = u.move ?? 6;
+    for (const o of swing) {
+      const mv = o.movers.find(m => m.key === u.key && m.via === 'move');
+      if (!mv) continue;
+      const d = objectiveGap(u, o, pieces);
+      // towards the objective, from the model nearest to it
+      let near = null;
+      for (const m of u.models) { const dd = Math.hypot(u.x + m.dx - o.x, u.y + m.dy - o.y); if (!near || dd < near.dd) near = { dd, m }; }
+      const len = Math.hypot(o.x - (u.x + near.m.dx), o.y - (u.y + near.m.dy)) || 1;
+      const step = Math.min(M, d + 0.75);
+      const x = u.x + (o.x - (u.x + near.m.dx)) / len * step, y = u.y + (o.y - (u.y + near.m.dy)) / len * step;
+      if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;     // the straight line does not get it in range
+      out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step });
+    }
+    if (home && (risk[u.key] ?? 0) >= 0.25) {
+      const len = Math.hypot(home.x - u.x, home.y - u.y);
+      if (len > 3) { const step = Math.min(M, len - 1); out.push({ key: `${u.key}>back`, unit: u.key, name: u.name, kind: 'back', obj: null, label: 'back towards your home', x: u.x + (home.x - u.x) / len * step, y: u.y + (home.y - u.y) / len * step, dist: step }); }
+    }
+  }
+  return out.sort((a, b) => (a.kind === 'back') - (b.kind === 'back') || a.dist - b.dist).slice(0, max);
+}
+
+/** What a forecast result is worth to player X: { win (P), vp (X's mean VP minus the other player's) }. */
+export function worthOf(result, X) {
+  const Y = X === 'A' ? 'B' : 'A';
+  return { win: result?.[`pWin${X}`] ?? 0, vp: (result?.[X]?.mean ?? 0) - (result?.[Y]?.mean ?? 0) };
+}
+/** A move counts as better than standing still from this many VP of margin (about 3x the noise of the difference at 1,500 games). */
+export const MOVE_MIN_VP = 2;
+/**
+ * The best move of each unit, from the forecasts of each candidate alone.
+ * results: { [candidateKey]: forecast result }. -> [{ ...candidate, dVp, dWin }], the biggest gain first;
+ * only moves that gain at least MOVE_MIN_VP.
+ */
+export function bestMoves(cands, base, results, X) {
+  const b = worthOf(base, X), top = new Map();
+  for (const c of cands) {
+    if (!results[c.key]) continue;
+    const w = worthOf(results[c.key], X), row = { ...c, dVp: w.vp - b.vp, dWin: w.win - b.win };
+    if (row.dVp >= MOVE_MIN_VP && row.dVp > (top.get(c.unit)?.dVp ?? -Infinity)) top.set(c.unit, row);
+  }
+  return [...top.values()].sort((x, y) => y.dVp - x.dVp);
+}
+/**
+ * Which of those moves to make together: results[i] is the forecast with moves[0..i] all made; a move stays
+ * only if adding it gains at least MOVE_MIN_VP over the moves kept before it. -> { moves: kept, vp, win } (the last kept forecast)
+ */
+export function keepMoves(moves, base, stacked, X) {
+  let cur = worthOf(base, X);
+  const kept = [];
+  for (const [i, m] of moves.entries()) {
+    if (!stacked[i]) continue;
+    const w = worthOf(stacked[i], X);
+    if (w.vp - cur.vp >= MOVE_MIN_VP || i === 0) { kept.push({ ...m, addVp: w.vp - cur.vp }); cur = w; }
+  }
+  return { moves: kept, ...cur };
 }

@@ -4475,6 +4475,29 @@ Aggressor Squad (95 points)
       check('Your cards from the tracker: Assassination and No Prisoners only by a kill (with odds), Behind Enemy Lines not this turn; said about "you", not "they"',
         mc('assassination').verdict === 'kill' && mc('assassination').p > 0 && mc('no-prisoners').verdict === 'kill' && mc('behind-enemy-lines').verdict === 'no' && /none of your units/.test(mc('behind-enemy-lines').why)
         && /Warboss/.test(mc('assassination').why) && /if you destroy/.test(mc('assassination').why) && (await lp.locator('#board-my-cards .next-card').count()) === 3 && (await lp.locator('#board-my-kills [data-kill]').first().getAttribute('data-kill')) === my1.kills[0].key, JSON.stringify(my1.cards));
+      // moves weighed with the mission forecast (1.136.0): the Grey Hunters step back off the centre, then the card is asked again
+      {
+        const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done', null, { timeout: 60000 });
+        await moveTo(gh, 22, 20);
+        await weighed();
+        await lp.waitForSelector('#board-my[data-moves="done"] #board-my-moves[data-state="done"]');
+        const mvs = (await next()).moves;
+        const ghMove = mvs.kept.moves.find(x => x.unit === gh);
+        check('forecast: a move of the Grey Hunters onto an objective in reach beats standing still by 2+ VP and is the suggestion on their row',
+          mvs.n >= 1 && ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 2 && mvs.kept.vp > mvs.base.vp + 2 && mvs.kept.win > mvs.base.win
+          && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move onto ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
+        check('one line sums the moves up: win % with them against win % as it stands', (await lp.getAttribute('#board-my-moves', 'data-kept')) === String(mvs.kept.moves.length) && /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')));
+        await lp.locator('#board-my').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_138_moves_by_forecast.png'), fullPage: true });
+        // the move made on the table: it is not suggested again, and the table as it stands is now worth about what the move promised
+        await moveTo(gh, ghMove.x, ghMove.y);
+        await weighed();
+        const after = (await next()).moves;
+        check('the move made on the table: not suggested again; the forecast as it stands has gained what the move promised (within 3 VP)',
+          !after.kept.moves.some(x => x.unit === gh && x.obj === ghMove.obj) && Math.abs((after.base.vp - mvs.base.vp) - ghMove.dVp) < 3, JSON.stringify({ before: mvs.base, promised: ghMove.dVp, after: after.base, kept: after.kept.moves.map(x => [x.name, x.label]) }));
+        await moveTo(gh, 22, 28);     // back on the centre for the checks below
+        await weighed();
+      }
       await lp.locator('#board-my').scrollIntoViewIfNeeded();
       await lp.screenshot({ path: join(SHOTS, 'calc_137_your_turn.png'), fullPage: true });
       await lp.tap('button[data-action="board-my-toggle"]');

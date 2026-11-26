@@ -25,7 +25,7 @@ import { printSheetHtml } from './printsheet.mjs';
 import { armyTricks } from './adapter.mjs';
 import { boardContext } from './boardview.mjs';
 import { roundLabel } from './eventview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, missionLoss, pairWipe, registerHost, branchWins, missionNow, pairTable, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
+import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, missionLoss, pairWipe, registerHost, branchWins, missionNow, pairTable, moveForecasts, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
@@ -2902,7 +2902,7 @@ initBoard({
   // the mission set-up is locked while a game is on the tracker
   gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round, gameScore: () => missionScore(),
   // the Board's live table follows the tracker (round, turn, phase, hands) and reads the unit-vs-unit odds
-  gameNow: () => missionNow(), pairTable: () => pairTable(),
+  gameNow: () => missionNow(), pairTable: () => pairTable(), moveForecasts: (base, variants) => moveForecasts(base, variants),
   // models left (the game on the tracker): the board draws the models that are left and edits the same record
   groupsLeft: (side, cu, round) => groupsLeft(side, cu, round), lossSteppers: (side, cu, opt) => lossSteppers(side, cu, opt),
   // the board's tablet / phone layout follows its own breakpoint (a portrait tablet is under 900 px wide)

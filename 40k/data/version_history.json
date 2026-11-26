@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.136.0",
+      "date": "2026-11-26",
+      "summary": "Combat Calc: Your turn now ranks your moves with the mission forecast",
+      "changes": [
+        "Board, Live table, Your turn: each move onto an objective in reach is played out to the end of the game by the mission forecast, 1,500 games each",
+        "A move is suggested only when it beats standing still by 2 VP of margin or more, e.g. → Move onto Centre · +16 VP",
+        "The suggested moves are then checked together: a move that adds little on top of the others is dropped, and the card says so",
+        "One line sums it up: with these moves you win 94% of games instead of 87%",
+        "A unit likely to be destroyed where it stands also gets a pull back towards your home tried",
+        "The forecast assumes the unit then stays where it moved; targets are still chosen by the kill odds, not by the forecast"
+      ]
+    },
+    {
       "version": "1.135.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: Your turn on the live table, a suggestion for each of your units",
