@@ -2,6 +2,59 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.138.0",
+      "date": "2026-11-26",
+      "summary": "Combat Calc: the Your turn forecast no longer assumes the table stays frozen for the rest of the game",
+      "changes": [
+        "Board, Live table, Your turn: the positions on the table now count for the battle round in progress only; later rounds are forecast as on the Mission tab",
+        "Before, every unit was assumed to stay where it stood until the end of the game, which gave win chances far from even for even armies (87% where the Mission tab says 48%)",
+        "The VP on a suggested move is now about what the move is worth this round and in the next Command phase, not for the whole game",
+        "A move is suggested from 3 VP of margin over standing still (it was 2): about three times the noise of the forecast"
+      ]
+    },
+    {
+      "version": "1.137.0",
+      "date": "2026-11-26",
+      "summary": "Combat Calc: Your turn now ranks your moves with the mission forecast",
+      "changes": [
+        "Board, Live table, Your turn: each move onto an objective in reach is played out to the end of the game by the mission forecast, 1,500 games each",
+        "A move is suggested only when it beats standing still by 2 VP of margin or more, e.g. → Move onto Centre · +16 VP",
+        "The suggested moves are then checked together: a move that adds little on top of the others is dropped, and the card says so",
+        "One line sums it up: with these moves you win 94% of games instead of 87%",
+        "A unit likely to be destroyed where it stands also gets a pull back towards your home tried",
+        "The forecast assumes the unit then stays where it moved; targets are still chosen by the kill odds, not by the forecast"
+      ]
+    },
+    {
+      "version": "1.136.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: Your turn on the live table, a suggestion for each of your units",
+      "changes": [
+        "Board, Live table: a Your turn card next to Their next turn; the card of the turn that is on comes first",
+        "Each unit: hold the objective it is on, take one in reach (one they hold before an empty one), or stand where a card of yours scores",
+        "Each unit: the target where it adds most to a kill, with the chance that target is destroyed by the units sent at it",
+        "Targets, best first: by points, worth more when the unit is on an objective or a card in your hand pays for it",
+        "A unit likely to be destroyed in their turn where it stands is flagged on its row",
+        "Your cards from the tracker: scored by moving alone, only by a kill (with the odds of this plan), or not this turn",
+        "It is a suggestion per unit, not a move-by-move plan: stratagems, reserves and terrain in the way of a move are not counted"
+      ]
+    },
+    {
+      "version": "1.135.0",
+      "date": "2026-11-25",
+      "summary": "Combat Calc: a Live table that follows your game, and what your opponent can do in their next turn",
+      "changes": [
+        "Board: 🔴 Live table is the real table as it stands now. It starts from the plan on screen and follows the round and turn of the game on Mission → Play",
+        "Move the units to where they are and tap ✓ Positions are current; after each Turn done it reminds you when the positions were last confirmed",
+        "Every Turn done keeps the table as it stood at the end of that turn, and a new battle round gets its own step",
+        "⚡ Battle-shocked on a unit of the live table: it brings no Objective Control until its player's next turn",
+        "Their next turn: which of your units they can shoot or charge and how likely each is destroyed, both the likely case and if they focus it",
+        "Their next turn: each objective with who controls it, and which of their units can take or tie it with a normal move or an Advance",
+        "Their next turn: each card in their hand on the tracker, whether they can score it by moving alone, only by destroying something, or not this turn",
+        "It says what it does not count: units in reserve or in a transport, terrain in the way of a move, and stratagems"
+      ]
+    },
+    {
       "version": "1.134.0",
       "date": "2026-11-25",
       "summary": "Combat Calc: a model moved one by one can't overlap another base",

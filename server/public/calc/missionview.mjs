@@ -8,7 +8,7 @@
 import { SECONDARIES, SECONDARY_BY_ID, FIXED_IDS, PRIMARIES, RULES, REAL_RATES, REAL_RATES_SOURCE } from './missions-11e.mjs';
 import { armyProfile, cardDead, POSITION_CARDS, RATING, MODEL } from './forecast.mjs';
 import { abilitiesOf, armyData, fmtDataDate, earlyArrival, armyIntel } from './adapter.mjs';
-import { boardContext, boardPlans, boardTrees, boardSetupInfo } from './boardview.mjs';
+import { boardContext, boardPlans, boardTrees, boardSetupInfo, boardTurnDone, boardNewGame } from './boardview.mjs';
 import { evaluate as evalTree } from './plantree.mjs';
 import { cardFace } from './cardface.mjs';
 import { layoutLetter, objectiveSides, LAYOUTS, DEPLOYMENTS, dispositionName } from './board.mjs';
@@ -301,7 +301,47 @@ export function missionLoss(c) {
   if (!Object.keys(U).length) delete L[c.side][c.unit];
   persist();
 }
-export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); }
+export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms(); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; m.tab = m.table ? 'play' : 'plan'; persist(); boardNewGame(); }
+/** The game on the tracker as the Board's live table needs it: the round, whose turn, the phase, each player's hand. */
+export function missionNow() {
+  const g = ms().game;
+  return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] } };
+}
+/**
+ * Weigh moves with the forecast (the Board's "Your turn"): the rest of the game from the tracker's state, once
+ * for the table as it stands (base) and once for each variant - the same plan with one or more units moved.
+ * base / variants[].plan: a plan in boardPlans() shape. Run in a worker of its own; a newer call drops the older.
+ * -> Promise<{ base: result, variants: { [key]: result } } | null (dropped, or no forecast possible)>
+ */
+export const MOVE_TRIALS = 1500;
+let moveWorker = null, moveReq = 0;
+export function moveForecasts(base, variants) {
+  return new Promise((resolve) => {
+    // the table as it stands counts for the battle round in progress; the rounds after it are forecast as usual
+    const until = ms().game.round;
+    const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS });
+    if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
+    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: until, trials: MOVE_TRIALS }) }));
+    const id = ++moveReq;
+    moveWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    const t0 = Date.now();
+    const onMsg = (ev) => {
+      if (ev.data.id !== id) { if (ev.data.id > id) { moveWorker.removeEventListener('message', onMsg); resolve(null); } return; }
+      moveWorker.removeEventListener('message', onMsg);
+      if (ev.data.error) { console.log(`[mission] move forecasts failed: ${ev.data.error}`); resolve(null); return; }
+      console.log(`[mission] move forecasts: ${vs.length} variants x ${MOVE_TRIALS} games in ${Date.now() - t0} ms`);
+      resolve({ base: ev.data.base, variants: Object.fromEntries(ev.data.variants.map(v => [v.key, v.result])) });
+    };
+    moveWorker.addEventListener('message', onMsg);
+    moveWorker.postMessage({ id, forecast: { base: P0, variants: vs } });
+  });
+}
+/** The unit-vs-unit odds of the two lists (null while they are being worked out; asking starts the work). */
+export function pairTable() {
+  const st = ctx.state;
+  if (!st.armies.A || !st.armies.B) return null;
+  return ensurePairs() ? ms().pairs.table : null;
+}
 /** The mission state (for a saved game) and the saved game it came from. */
 export const missionState = () => ms();
 export function missionSetSavedId(id) { ms().savedId = id; persist(); }
@@ -357,9 +397,10 @@ function killRateOf(X) {
 }
 
 /** The forecast's board model for plan `vi`: units per step with measured facts, and what each unit threatens. */
-function boardModel(vi) {
+function boardModel(vi, given = null, until = Infinity) {
   const m = ms(), g = geo();
-  const plan = boardPlans()[vi];
+  // (given: a plan in boardPlans() shape that is not on the Board - a move being weighed, moveForecasts)
+  const plan = given ?? boardPlans()[vi];
   if (!g || !plan) return null;
   const steps = plan.steps;
   const rounds = {}, threats = {};
@@ -369,6 +410,9 @@ function boardModel(vi) {
   for (let r = 0; r <= RULES.rounds; r++) {
     const st = stepFor(r);
     rounds[r] = {};
+    // (until: the positions are known up to this battle round only - the live table. Later rounds are left to
+    // the objective plan and the kill rates, as in a forecast without a board plan: nobody stands still for a game)
+    if (r > until) { rounds[r] = { A: null, B: null }; continue; }
     for (const X of ['A', 'B']) rounds[r][X] = used(st, X) ? st[X].map(u => ({ name: u.name, f: positionFacts(u, X, g) })) : null;
     if (r === 0 || !m.pairs?.table) continue;
     threats[r] = {};
@@ -425,7 +469,7 @@ export function forecastParams(over = {}) {
     players: { A: player('A'), B: player('B') },
     objectives: objectives().map(({ id, cls, side }) => ({ id, cls, side })),
     plan: over.plan ?? plan(), first,
-    boardPlan: vi == null ? null : boardModel(vi), fracs,
+    boardPlan: over.boardSteps ? boardModel(null, over.boardSteps, over.boardUntil ?? Infinity) : vi == null ? null : boardModel(vi), fracs,
     startRound: g.over ? RULES.rounds + 1 : live ? g.round : 1, startTurn: live && first && !g.over ? (next === first ? 0 : 1) : 0,
     // cards the player whose turn it is has already drawn this turn (the forecast draws the rest)
     startDrawn: live ? Math.min(RULES.drawPerTurn, g.drawn ?? 0) : 0,
@@ -1570,7 +1614,10 @@ export function missionAction(action, el) {
       remember('turn done');
       // the player whose turn ends before any other turn of round 1 took the first turn
       if (m.first == null && g.round === 1 && !g.turnsDone) m.first = turnOf();
+      const before = { round: g.round, turn: turnOf() };
       const res = PT.endTurn(g, m.first, RULES.rounds);
+      // the Board's live table keeps the position of the turn that ended and follows the new one
+      boardTurnDone(before, { round: g.round, turn: turnOf() });
       for (const P of ['A', 'B']) { g[P].cpAsk = false; g[P].swapPending = false; }
       if (m.clock.mode === 'chess' && m.clock.running) { if (res.ended) PT.chessPause(m.clock, Date.now()); else PT.chessRun(m.clock, g.next, Date.now()); }
       console.log(`[mission] turn done -> round ${g.round}, ${g.next}'s turn${res.ended ? ' (battle over)' : ''}; CP A ${g.A.cp} B ${g.B.cp}`);
@@ -1586,7 +1633,7 @@ export function missionAction(action, el) {
       break;
     }
     // a new game: the tracker is cleared (Undo brings it back) and the first turn is rolled for again
-    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; break;
+    case 'mission-reset': ctx.autoSave?.('a new game'); remember('new game'); m.game = newGame(); m.first = null; m.savedId = null; boardNewGame(); break;
     default: return null;
   }
   persist();

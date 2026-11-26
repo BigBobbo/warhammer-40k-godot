@@ -19,6 +19,8 @@ import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch a
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
+import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, MOVE_MIN_VP } from './nextturn.mjs';
+import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
 // dark mode and exports to an image unchanged
@@ -51,6 +53,7 @@ export function initBoard(c) {
   });
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
   ctx.registerHost?.('board-treemap-host', treeMapHtml);
+  ctx.registerHost?.('board-next-host', nextTurnHtml);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
@@ -260,7 +263,7 @@ function reusablePlan() {
   let best = null;
   for (const [k, r] of Object.entries(b.plans)) {
     if (r === root || !r?.variants || r.meta?.layout !== l.id || r.meta[key] !== mySig) continue;
-    const n = sideTokens(r, me);
+    const n = sideTokens({ variants: r.variants.filter(vv => !vv.live) }, me);
     if (n > 0 && (!best || n > best.n)) best = { k, root: r, n, vs: r.meta[me === 'A' ? 'bName' : 'aName'] || 'another opponent' };
   }
   return best;
@@ -274,7 +277,7 @@ function reusePlan() {
   const mineOnly = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => tk.startsWith(`${me}:`)).map(([tk, pos]) => [tk, { ...pos }]));
   const theirs = (tokens) => Object.fromEntries(Object.entries(tokens ?? {}).filter(([tk]) => !tk.startsWith(`${me}:`)));
   const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
-  root.variants = src.root.variants.map((sv, vi) => ({
+  root.variants = src.root.variants.filter(sv => !sv.live).map((sv, vi) => ({
     name: sv.name, cur: 0, id: sv.id, parent: sv.parent ?? null, from: sv.from ?? null, when: sv.when, splits: clone(sv.splits), branch: clone(sv.branch),
     // a shared turn of a branch stays shared (null)
     steps: sv.steps.map((st, si) => (st ? { name: st.name, tokens: { ...theirs(root.variants[vi]?.steps[si]?.tokens ?? root.variants[0]?.steps[Math.min(si, (root.variants[0]?.steps.length ?? 1) - 1)]?.tokens), ...mineOnly(st.tokens) } } : null)),
@@ -294,6 +297,329 @@ function curSteps() {
 }
 const curIndex = () => { const p = plan(); return p ? Math.min(p.cur ?? 0, Math.max(0, curSteps().length - 1)) : 0; };
 const VARIANT_NAMES = ['Aggressive', 'Defensive', 'Plan C', 'Plan D', 'Plan E'];
+
+// ---------------------------------------------------------------------------
+// Live table: where the models are on the real table now. A plan of its own (variant.live) that follows the game
+// on the tracker: one step per battle round as every plan ("Turn N" = battle round N, so models left, reserves and
+// the forecast read it like any plan), the last step being the table now. Each "Turn done" on the tracker keeps
+// the position as it was (snaps: one per player turn) and, in a new battle round, starts its step.
+//   stamp: { round, turn, phase } - when the player last said "the positions are current"
+//   shock: { tk: true }          - battle-shocked units (OC "-"); cleared when that player's next turn starts
+//   snaps: [{ round, turn, tokens, shock }] - the table at the end of each player turn (the newest 12)
+const cloneJson = (o) => JSON.parse(JSON.stringify(o ?? {}));
+const liveIndex = (root = planRoot()) => (root ? root.variants.findIndex(vv => vv.live) : -1);
+const livePlan = () => { const p = plan(); return p?.live ? p : null; };
+const gameNow = () => ctx.gameNow?.() ?? { round: 1, turn: 'A', phase: 'command', started: false, over: false, hand: { A: [], B: [] } };
+const afterScout = (tokens) => { for (const pos of Object.values(tokens)) if (pos?.scout) { pos.x = pos.scout.x; pos.y = pos.scout.y; delete pos.scout; } return tokens; };
+/** Is the live position confirmed for the turn the tracker is on? */
+function liveFresh(lv, g = gameNow()) { return !!lv?.stamp && lv.stamp.round === g.round && lv.stamp.turn === g.turn; }
+
+/** Show the live table; the first time it is made from the plan on screen (the table as that plan had it at the start of this battle round). */
+function openLive() {
+  const root = planRoot();
+  if (!root) return false;
+  let i = liveIndex(root);
+  if (i < 0) {
+    const g = gameNow(), R = Math.max(1, g.round), src = curSteps(), from = plan()?.name ?? 'Main';
+    const at = (k) => cloneJson(src[Math.min(k, src.length - 1)]?.tokens);
+    const steps = [{ name: 'Deploy', tokens: at(0) }];
+    // the rounds played: as planned; the round in progress starts where the round before it ended
+    for (let r = 1; r <= R; r++) steps.push({ name: `Turn ${r}`, tokens: afterScout(at(r < R ? r : R - 1)) });
+    root.variants.push({ name: 'Live table', live: true, steps, cur: R, liveFrom: from, back: root.v, stamp: null, shock: {}, snaps: [] });
+    ensureIds(root.variants);
+    i = root.variants.length - 1;
+    console.log(`[board] live table started from the plan "${from}": battle round ${R}, ${Object.keys(steps[R].tokens).length} units`);
+  } else if (root.v !== i) root.variants[i].back = rootOf(root.variants, root.v);
+  root.v = i;
+  const lv = root.variants[i];
+  lv.cur = Math.min(Math.max(1, gameNow().round), lv.steps.length - 1);
+  return true;
+}
+/**
+ * "Turn done" on the tracker (missionview): the table at the end of that player turn is kept, a new battle
+ * round gets its step, and the battle-shock of the player whose turn starts ends (their Command phase).
+ * prev / now: { round, turn } before and after.
+ */
+export function boardTurnDone(prev, now) {
+  const root = planRoot(), i = liveIndex(root);
+  if (i < 0) return;
+  const lv = root.variants[i];
+  const last = lv.steps[lv.steps.length - 1];
+  (lv.snaps ??= []).push({ round: prev.round, turn: prev.turn, tokens: cloneJson(last.tokens), shock: { ...(lv.shock ?? {}) } });
+  if (lv.snaps.length > 12) lv.snaps.splice(0, lv.snaps.length - 12);
+  while (lv.steps.length <= now.round) lv.steps.push({ name: `Turn ${lv.steps.length}`, tokens: cloneJson(lv.steps[lv.steps.length - 1].tokens) });
+  lv.cur = Math.min(now.round, lv.steps.length - 1);
+  for (const tk of Object.keys(lv.shock ?? {})) if (tk.startsWith(`${now.turn}:`)) delete lv.shock[tk];
+  console.log(`[board] live table: kept the table at the end of round ${prev.round}, ${prev.turn}'s turn (${Object.keys(last.tokens).length} units); now round ${now.round}, ${now.turn}'s turn`);
+  persistBoard();
+}
+/**
+ * A new game on the tracker: the live table belongs to the game before it. One that was used (confirmed, or a
+ * turn was played on it) stays as an ordinary plan, "Last game"; an untouched one goes. The next 🔴 starts afresh.
+ */
+export function boardNewGame() {
+  const root = planRoot(), i = liveIndex(root);
+  if (i < 0) return;
+  const lv = root.variants[i];
+  if (lv.stamp || lv.snaps?.length) {
+    const used = new Set(root.variants.map(x => x.name));
+    let name = 'Last game';
+    for (let n = 2; used.has(name); n++) name = `Last game ${n}`;
+    delete lv.live;
+    lv.name = name;
+    console.log(`[board] a new game on the tracker: the live table is kept as the plan "${name}"`);
+  } else {
+    removePaths(root, [i]);
+    console.log('[board] a new game on the tracker: the unused live table is removed');
+  }
+  persistBoard();
+}
+
+/** The bar above the map while the live table is on screen: the round and turn of the tracker, and how current the positions are. */
+function liveBarHtml() {
+  const lv = livePlan();
+  if (!lv) return '';
+  const esc = ctx.esc, g = gameNow(), st = ctx.state;
+  const phase = { command: 'Command', movement: 'Movement', shooting: 'Shooting', charge: 'Charge', fight: 'Fight' }[g.phase] ?? '';
+  const who = (X) => `${X} · ${esc(st.armies[X]?.faction ?? '')}`;
+  const nowIdx = Math.min(g.round, lv.steps.length - 1), onNow = curIndex() === nowIdx;
+  const fresh = liveFresh(lv, g);
+  const stampTxt = lv.stamp ? `round ${lv.stamp.round}, ${lv.stamp.turn}'s turn` : null;
+  const head = g.over ? 'the battle is over' : `Round <b>${g.round}</b> · <b style="color:var(--side-${g.turn.toLowerCase()}-ink)">${who(g.turn)}</b>'s turn${phase ? ` · ${phase}` : ''}`;
+  return `<div class="card live-bar ${fresh ? 'fresh' : 'stale'}" id="board-live-bar" data-fresh="${fresh ? 1 : 0}" data-round="${g.round}" data-turn="${g.turn}">
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="grow small"><b>🔴 Live table</b> · ${head}${g.started ? '' : ' <span class="muted">(no game on the tracker yet: Mission → Play)</span>'}</span>
+      ${onNow ? `<button class="btn ${fresh ? 'ghost' : 'primary'}" data-action="board-live-confirm" id="board-live-confirm">${fresh ? '✓ Positions current' : '✓ Positions are current'}</button>`
+    : `<button class="btn primary" data-action="board-step" data-i="${nowIdx}" id="board-live-now">Go to now</button>`}
+    </div>
+    <div class="tiny ${fresh || !onNow ? 'muted' : ''}" id="board-live-note" style="margin-top:4px${fresh || !onNow ? '' : ';color:var(--warn-ink)'}">${!onNow ? `You are looking at <b>${esc(curSteps()[curIndex()]?.name ?? '')}</b>: how the table stood then. The table now is <b>${esc(lv.steps[nowIdx]?.name ?? '')}</b>.`
+    : fresh ? `Confirmed for this turn${lv.stamp.phase && lv.stamp.phase !== g.phase ? ` (in the ${esc(lv.stamp.phase)} phase)` : ''}. Move a unit here whenever it moves on the table.`
+      : stampTxt ? `⚠ Last confirmed in ${stampTxt}. Move the units to where they are on the table now, then confirm.`
+        : `⚠ These positions come from your plan “${esc(lv.liveFrom ?? 'Main')}”. Move the units to where they are on the table now, then confirm.`}</div>
+  </div>`;
+}
+
+// ---- "Their next turn" (nextturn.mjs): from the live table, what the other player can do in their next turn
+const kindsOf = (cu) => {
+  let chars = 0, w10 = 0;
+  for (const m of cu.members ?? []) {
+    const n = m.ru?.model_count ?? 1, Wm = parseInt(m.dcUnit?.profiles?.[0]?.W, 10) || 1;
+    if ((m.dcUnit?.keywords ?? []).some(k => /^CHARACTER$/i.test(k))) chars += n;
+    if (Wm >= 10) w10 += n;
+  }
+  return { chars, w10, ss13: (cu.models ?? 0) >= 13 };
+};
+let nextMemo = { key: null, v: null };
+// ---- my moves weighed with the mission forecast: each candidate move alone, then the best of each unit together.
+// moveMemo: { key (of the table it was worked out for), state: 'pending' | 'done', n (candidates), base: { win, vp },
+//             best: [move] (each unit's best move alone), kept: { moves, win, vp } (the ones worth making together) }
+let moveMemo = { key: null, state: 'idle' };
+function weighMoves(key, v, mine, pieces, home) {
+  if (moveMemo.key === key || !ctx.moveForecasts) return;
+  const li = liveIndex(), plan = li >= 0 ? boardPlans()[li] : null;
+  const last = plan ? plan.steps.length - 1 : -1;
+  // only for the table now (the last step), not for an earlier turn looked at
+  if (!plan || curIndex() !== last) { moveMemo = { key, state: 'idle' }; return; }
+  const me = v.me;
+  const cands = moveCandidates(mine, v.my.swing, pieces, { risk: Object.fromEntries(v.res.threats.map(t => [t.key, t.likely])), home });
+  moveMemo = { key, state: cands.length ? 'pending' : 'done', n: cands.length, best: [], kept: { moves: [] } };
+  if (!cands.length) return;
+  const withMoves = (ms) => ({ ...plan, steps: plan.steps.map((st, si) => (si !== last ? st : { ...st, [me]: st[me].map(u => { const m = ms.find(x => x.unit === u.key); return m ? { ...u, x: m.x, y: m.y } : u; }) })) });
+  const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
+  const done = (r1, stacked, best) => {
+    if (moveMemo.key !== key) return;
+    const kept = keepMoves(best, r1.base, stacked, me);
+    moveMemo = { key, state: 'done', n: cands.length, base: worthOf(r1.base, me), best, kept };
+    console.log(`[board] my moves weighed with the forecast: ${cands.length} tried, ${best.length} beat standing still by ${MOVE_MIN_VP}+ VP, ${kept.moves.length} kept together (${kept.moves.map(m => `${m.name} -> ${m.label} +${m.addVp.toFixed(1)}`).join('; ') || 'none'}); win ${Math.round(moveMemo.base.win * 100)}% -> ${Math.round((kept.moves.length ? kept.win : moveMemo.base.win) * 100)}%`);
+    redraw();
+  };
+  // (started once the table has been still for a moment: every drop of a unit would start a run of its own)
+  const start = (fn) => (typeof setTimeout === 'function' ? setTimeout(fn, 500) : fn());
+  start(() => moveMemo.key === key && ctx.moveForecasts(plan, cands.map(c => ({ key: c.key, plan: withMoves([c]) }))).then((r1) => {
+    if (moveMemo.key !== key) return;
+    if (!r1) { moveMemo = { key, state: 'idle' }; redraw(); return; }
+    const best = bestMoves(cands, r1.base, r1.variants, me);
+    if (best.length < 2) { done(r1, best.map(b => r1.variants[b.key]), best); return; }
+    ctx.moveForecasts(plan, best.map((b, i) => ({ key: `s${i}`, plan: withMoves(best.slice(0, i + 1)) }))).then((r2) => { if (r2) done(r1, best.map((b, i) => r2.variants[`s${i}`]), best); });
+  }));
+}
+function nextTurnData(compute = true) {
+  const lv = livePlan(), l = currentLayout(), st = ctx.state;
+  if (!lv || !l) return null;
+  const me = st.armies[ctx.me?.()] ? ctx.me() : 'A', opp = otherSide(me);
+  const g = gameNow(), dep = DEPLOYMENTS[l.deployment];
+  const toks = placed(), inside = embarkedIn(stepTokens());
+  const pair = ctx.pairTable?.() ?? null;
+  const hand = g.hand?.[opp] ?? [], myHand = g.hand?.[me] ?? [];
+  const key = JSON.stringify([l.id, me, g.round, hand, myHand, !!pair, zoneOf('A'), lv.shock, toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
+  if (nextMemo.key === key) return { ...nextMemo.v, g, fresh: liveFresh(lv, g) };
+  // (the work is put off until after the frame a unit was dropped in: see nextTurnHtml)
+  if (!compute) return { pending: true, prev: nextMemo.v ? { ...nextMemo.v, g, fresh: liveFresh(lv, g) } : null };
+  const unitOf = (t) => ({ key: t.tk, name: t.u.cu.name, x: t.x, y: t.y, models: t.models, move: t.u.move, ranges: t.u.ranges, melee: t.u.melee, oc: t.u.oc, points: t.u.cu.points ?? 0,
+    keywords: t.u.cu.keywords ?? [], lone: t.u.flags?.loneOperative || 0, left: t.u.left, total: t.u.total, shocked: !!lv.shock?.[t.tk], ...kindsOf(t.u.cu) });
+  const pick = (list, X) => list?.find(z => z.player === zoneOf(X))?.poly ?? null;
+  const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives };
+  // the objectives by whose side they are on, named as on the Mission tab
+  const sides = new Map(objectiveSides(l, dep, zoneOf('A')).map(o => [o.id, o]));
+  const objs = l.objectives.map(o => { const sd = sides.get(o.id) ?? {}; return { ...o, cls: sd.cls, side: sd.side, label: sd.cls === 'home' ? (sd.side === me ? 'Your home' : 'Their home') : sd.cls === 'central' ? 'Centre' : sd.side === me ? 'Your side' : 'Their side' }; });
+  const seen = {};
+  for (const o of objs) if (objs.filter(x => x.label === o.label).length > 1) o.label = `${o.label} ${(seen[o.label.replace(/ \d+$/, '')] = (seen[o.label.replace(/ \d+$/, '')] ?? 0) + 1)}`;
+  const t0 = performance.now?.() ?? 0;
+  const base = { me, mine: toks.filter(t => t.side === me).map(unitOf), theirs: toks.filter(t => t.side === opp).map(unitOf), pair, geo, objs, round: g.round };
+  const res = pair ? nextTurn({ ...base, hand }) : null;
+  // my turn: the same measurements from my side; a unit's risk is what their next turn does to it where it stands
+  const my = res ? myTurn({ ...base, hand: myHand, risk: Object.fromEntries(res.threats.map(t => [t.key, t.likely])) }) : null;
+  const onBoard = new Set(toks.map(t => t.tk));
+  const off = st.armies[opp].units.filter(u => !onBoard.has(`${opp}:${u.key}`) && !unitInfo(opp, u.key)?.dead);
+  const v = { me, opp, g, res, my, hand, myHand, fresh: liveFresh(lv, g),
+    embarked: off.filter(u => inside.has(`${opp}:${u.key}`)).map(u => u.name), reserves: off.filter(u => !inside.has(`${opp}:${u.key}`)).map(u => u.name),
+    mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
+  if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
+  if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
+  nextMemo = { key, v };
+  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null);
+  return v;
+}
+/** Card rows for "Their next turn" and "My turn": what it pays, by moving / by a kill / not this turn, and why. */
+function cardRows(cards, offTurnNote, good = false) {
+  const esc = ctx.esc, pct = (p) => `${Math.round(p * 100)}%`;
+  const ICON = { yes: '✅', now: '⏳', kill: '🎯', ask: '❓', no: '—' };
+  return cards.map(c => `<div class="next-card" data-card="${esc(c.id)}" data-verdict="${c.verdict}"><div class="row" style="gap:6px;align-items:baseline"><span>${ICON[c.verdict]}</span><b>${esc(c.name)}</b><span class="grow"></span>
+        <span class="verd ${c.verdict === 'yes' || c.verdict === 'now' ? (good ? 'ok' : 'bad') : c.verdict === 'kill' ? 'warn' : ''}">${c.verdict === 'no' ? 'not this turn' : `${c.vp} VP${c.verdict === 'kill' && c.p != null ? ` · ${pct(c.p)}` : c.verdict === 'ask' ? ' ?' : ''}`}</span></div>
+        <div class="tiny muted">${(good ? c.offTurn : c.when === 'mine') ? `<b>${esc(offTurnNote)}</b> ` : ''}${esc(c.why)}</div></div>`).join('');
+}
+/** "My turn": one suggestion per unit of mine (take / hold an objective, a card, its target), the targets worth destroying, my cards. */
+function myTurnHtml(d) {
+  const m = d.my;
+  if (!m) return '';
+  const esc = ctx.esc, b = boardState(), st = ctx.state;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const ink = (X) => `var(--side-${X.toLowerCase()}-ink)`;
+  const myNow = d.g.turn === d.me || !d.g.started;
+  const open = b.myOpen !== false;
+  const head = `<div class="row" style="gap:6px;align-items:center"><div class="title grow" id="board-my-title">🧭 ${myNow ? 'Your turn' : 'Your next turn'} · <span style="color:${ink(d.me)}">${esc(st.armies[d.me].faction)}</span></div>
+      <button class="icon-btn" data-action="board-my-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} your turn">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-my" data-open="0">${head}</div>`;
+  const pick = (tk, html) => `<button class="link" data-action="board-pick" data-tk="${esc(tk)}">${html}</button>`;
+  const JOB = { take: ['bad', '→ Take'], hold: ['ok', '■ Hold'], card: ['warn', '★'], none: ['', ''] };
+  // moves weighed with the forecast (for the table this card was worked out for)
+  const mv = moveMemo.key === nextMemo.key ? moveMemo : { state: 'idle' };
+  const keptOf = new Map((mv.kept?.moves ?? []).map(x => [x.unit, x])), aloneOf = new Map((mv.best ?? []).map(x => [x.unit, x]));
+  const sgn = (n, d = 0) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
+  const movesLine = mv.state === 'pending' ? `<div class="small muted" id="board-my-moves" data-state="pending">⏳ Weighing ${mv.n} move${mv.n === 1 ? '' : 's'} with the forecast…</div>`
+    : mv.state !== 'done' ? ''
+      : mv.kept.moves.length ? `<div class="small" id="board-my-moves" data-state="done" data-kept="${mv.kept.moves.length}" data-win="${mv.kept.win.toFixed(3)}" data-base="${mv.base.win.toFixed(3)}">📈 Forecast: with ${mv.kept.moves.length === 1 ? 'this move' : `these ${mv.kept.moves.length} moves`} you win <b>${pct(mv.kept.win)}</b> of games instead of ${pct(mv.base.win)} (<b>${sgn(mv.kept.vp - mv.base.vp)} VP</b> of margin). The table as it stands counts for this battle round; later rounds are forecast as on the Mission tab.</div>`
+        : `<div class="small muted" id="board-my-moves" data-state="done" data-kept="0">📈 Forecast: none of the ${mv.n} move${mv.n === 1 ? '' : 's'} tried beats standing still by ${MOVE_MIN_VP} VP or more (you win ${pct(mv.base?.win ?? 0)} as it stands).</div>`;
+  // units the forecast moves come first
+  const ordered = [...m.units].sort((x, y) => (keptOf.get(y.key)?.addVp ?? -1) - (keptOf.get(x.key)?.addVp ?? -1));
+  const all = !!b.myAll, busy = ordered.filter(u => u.job.kind !== 'none' || u.attack || u.risk >= 0.25 || keptOf.has(u.key)), shown = all ? ordered : busy.slice(0, 6);
+  const unitsHtml = shown.map(u => {
+    const [cls, verb] = JOB[u.job.kind];
+    const k = keptOf.get(u.key), alone = aloneOf.get(u.key);
+    // the forecast's move for this unit; else the measured job (a "take" the forecast does not back is said so)
+    const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? '↩ Pull back' : `→ Move onto ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
+      : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
+        : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
+    const fNote = k ? '' : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
+      : mv.state === 'done' && u.job.kind === 'take' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
+    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`})</span>` : '<span class="muted">nothing in reach to attack</span>';
+    return `<div class="next-unit" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
+      <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
+      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
+  }).join('');
+  const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
+      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div></div>`).join('');
+  const cardsHtml = !d.myHand.length ? `<div class="small muted" id="board-my-nocards">No cards in your hand on the tracker (Mission → Play).</div>` : cardRows(m.cards, 'At the end of their turn, as the table stands:', true);
+  return `<div class="card" id="board-my" data-state="ready" data-vp="${m.vp}" data-moves="${mv.state}">${head}
+    ${movesLine}
+    <div class="lab tiny muted" style="margin-top:8px">Each unit</div><div id="board-my-units">${unitsHtml || '<div class="small muted">Nothing in reach of an objective or a target this turn.</div>'}</div>
+    ${m.units.length > shown.length || all ? `<button class="chip" data-action="board-my-all" id="board-my-all" style="margin-top:4px">${all ? 'Fewer' : `All ${m.units.length} units`}</button>` : ''}
+    ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
+    <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress, the rounds after it are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Targets: where the unit adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. Stratagems, reserves and terrain in the way of a move are not counted.</div>
+  </div>`;
+}
+let nextTimer = null;
+function nextTurnHtml() {
+  const lv = livePlan();
+  if (!lv) return '';
+  const theirs = theirTurnHtml();
+  const d = nextMemo.v;
+  const mine = d?.my && /data-state="(ready|updating)"/.test(theirs) ? myTurnHtml({ ...d, g: gameNow() }) : '';
+  // the card of the turn that is on comes first
+  const g = gameNow(), me = d?.me ?? 'A';
+  return g.started && g.turn !== me ? theirs + mine : mine + theirs;
+}
+function theirTurnHtml() {
+  let d = nextTurnData(false);
+  if (!d) return '';
+  let updating = false;
+  if (d.pending) {
+    // work it out after this frame (a drop stays snappy); until then the card shows what it had
+    if (!nextTimer && typeof setTimeout === 'function') nextTimer = setTimeout(() => {
+      nextTimer = null;
+      nextTurnData(true);
+      const host = document.getElementById('board-next-host');
+      if (host) host.innerHTML = nextTurnHtml();
+    }, 40);
+    updating = true;
+    d = d.prev ?? { pendingOnly: true };
+  }
+  const esc = ctx.esc, b = boardState(), st = ctx.state;
+  if (d.pendingOnly) return `<div class="card" id="board-next" data-state="wait"><div class="title">🔮 Their next turn</div><p class="muted small" style="margin:6px 0 0">Working it out…</p></div>`;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const ink = (X) => `var(--side-${X.toLowerCase()}-ink)`;
+  const theirTurn = d.g.turn === d.opp && d.g.started;
+  const title = `${theirTurn ? 'Their turn now' : 'Their next turn'} · <span style="color:${ink(d.opp)}">${esc(st.armies[d.opp].faction)}</span>`;
+  const open = b.nextOpen !== false;
+  const head = `<div class="row" style="gap:6px;align-items:center"><div class="title grow" id="board-next-title">🔮 ${title}</div>
+      <button class="icon-btn" data-action="board-next-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} their next turn">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-next" data-open="0">${head}</div>`;
+  if (!d.mineOn || !d.theirsOn) return `<div class="card" id="board-next" data-state="empty">${head}<p class="hint" style="margin:6px 0 0">Place both armies on the live table to see what they can do next turn.</p></div>`;
+  if (!d.res) return `<div class="card" id="board-next" data-state="wait">${head}<p class="muted small" id="board-next-wait" style="margin:6px 0 0">Working out the unit-vs-unit odds of these two lists…</p></div>`;
+  const r = d.res;
+  const pick = (tk, html) => `<button class="link" data-action="board-pick" data-tk="${esc(tk)}">${html}</button>`;
+  // --- my units at risk
+  const risky = r.threats.filter(t => t.by.length);
+  const all = !!b.nextAll, shown = all ? risky : risky.slice(0, 5);
+  const bar = (p) => `<span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, p) * 100)}%"></i></span>`;
+  const byTxt = (x) => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔ in combat' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`;
+  const unitsHtml = risky.length ? `${shown.map(t => `<div class="next-unit" data-unit="${esc(t.key)}" data-likely="${t.likely.toFixed(3)}" data-focus="${t.focus.toFixed(3)}">
+        <div class="row" style="gap:6px;align-items:center">${pick(t.key, `<b style="color:${ink(d.me)}">${esc(shortName(t.name))}</b>`)}<span class="grow"></span>${bar(t.likely)}<b class="next-pct">${pct(t.likely)}</b><span class="tiny muted">likely · ${pct(t.focus)} if focused</span></div>
+        <div class="tiny muted">${t.by.slice(0, 4).map(byTxt).join(' · ')}${t.by.length > 4 ? ` · +${t.by.length - 4}` : ''}</div></div>`).join('')}
+      ${risky.length > 5 ? `<button class="chip" data-action="board-next-all" id="board-next-all" style="margin-top:4px">${all ? 'Fewer' : `All ${risky.length} units in reach`}</button>` : ''}`
+    : '<div class="small muted">Nothing of theirs can shoot or charge a unit of yours next turn.</div>';
+  // --- objectives
+  const mv = (m) => `${esc(shortName(m.name))} (OC ${m.oc}${m.via === 'advance' ? `, Advance ${m.need}+` : ''})`;
+  const VERD = {
+    theirs: ['them', 'They control it'], lose: ['bad', 'They can take it'], contest: ['warn', 'They can tie it (nobody controls)'], advance: ['warn', 'Only with an Advance'],
+    safe: ['ok', 'Yours unless they kill the holders'], take: ['bad', 'Empty: they can take it'], open: ['', 'Out of their reach'],
+  };
+  const objHtml = r.swing.map(o => {
+    const [cls, text] = VERD[o.verdict] ?? ['', o.verdict];
+    const moveIn = o.movers.filter(m => m.via === 'move'), adv = o.movers.filter(m => m.via === 'advance');
+    const who = o.verdict === 'advance' ? adv : moveIn.length ? moveIn : adv;
+    const hold = o.holders.filter(h => h.oc > 0 || h.risk > 0);
+    return `<div class="next-obj" data-obj="${esc(o.id)}" data-verdict="${o.verdict}"><div class="row" style="gap:6px;align-items:baseline"><b>${esc(o.label)}</b><span class="tiny muted">you ${o.mine} · them ${o.theirs} OC</span><span class="grow"></span><span class="verd ${cls}">${text}</span></div>
+      ${who.length && o.verdict !== 'theirs' && o.verdict !== 'open' ? `<div class="tiny muted">${who.slice(0, 3).map(mv).join(' · ')}${who.length > 3 ? ` · +${who.length - 3}` : ''} → up to ${o.verdict === 'advance' ? o.maxAdvance : o.max} OC</div>` : ''}
+      ${hold.length && o.verdict !== 'theirs' ? `<div class="tiny muted">Held by ${hold.slice(0, 3).map(h => `${esc(shortName(h.name))}${h.risk >= 0.05 ? ` <span style="color:var(--warn-ink)">(${pct(h.risk)} destroyed)</span>` : ''}`).join(' · ')}</div>` : ''}</div>`;
+  }).join('');
+  // --- their cards
+  const cardsHtml = !d.hand.length ? `<div class="small muted" id="board-next-nocards">No cards in ${esc(d.opp)}'s hand on the tracker (Mission → Play: draw their cards there to see which they can score).</div>`
+    : cardRows(r.cards, 'At the end of your turn, as the table stands:');
+  const notes = [
+    d.reserves.length ? `Not on the table and not counted: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''} (reserves arrive more than 8" away: a 9" charge, and their guns).` : '',
+    d.embarked.length ? `Embarked and not counted: ${esc(d.embarked.slice(0, 4).map(shortName).join(', '))} (they get out within 3" of their transport).` : '',
+  ].filter(Boolean);
+  return `<div class="card" id="board-next" data-state="${updating ? 'updating' : 'ready'}" data-opp="${d.opp}" data-vp="${r.vpAtStake}"${updating ? ' style="opacity:.6"' : ''}>${head}
+    ${d.fresh ? '' : `<div class="tiny" id="board-next-stale" style="color:var(--warn-ink);margin-top:2px">⚠ From positions that are not confirmed for this turn.</div>`}
+    <div class="lab tiny muted" style="margin-top:8px">Your units they can destroy</div><div id="board-next-units">${unitsHtml}</div>
+    <div class="lab tiny muted" style="margin-top:10px">Objectives</div><div id="board-next-objs">${objHtml}</div>
+    <div class="lab tiny muted" style="margin-top:10px">Their cards${d.hand.length && r.vpAtStake ? ` · <b style="color:var(--warn-ink)">${r.vpAtStake} VP by moving alone</b>` : ''}</div><div id="board-next-cards">${cardsHtml}</div>
+    ${notes.length ? `<div class="tiny muted" id="board-next-off" style="margin-top:8px">${notes.join('<br>')}</div>` : ''}
+    <div class="tiny muted" style="margin-top:8px" id="board-next-how">Likely: each of their units attacks the target it is worth most against. If focused: everything in reach attacks that unit. 🎯 can shoot it now, 🎯→ after a normal move, ⚔ charge odds. Moves are straight lines (terrain in the way is not checked); stratagems are not counted.</div>
+  </div>`;
+}
 
 // ---- branches (plantree.mjs)
 /** Show path i, at the first turn after the split at `at` (or where it was). */
@@ -1018,7 +1344,7 @@ export function boardSvg({ forExport = false } = {}) {
         const h = halfBase(m.fp), fs = Math.max(0.35, Math.min(1.6, Math.min(h.hx, h.hy) * 1.25));
         return `<text x="${f2(m.dx)}" y="${f2(m.dy)}" font-size="${f2(fs)}">${ctx.esc(baseLetter(m.label))}</text>`;
       }).join('')}</g>`
-      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${ctx.esc(shortName(t.u.cu.name))}${(() => { const n = passengersOf(t.tk).length; return n ? ` 🚚+${n}` : ''; })()}</text></g>`);
+      + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${plan()?.live && plan().shock?.[t.tk] ? '⚡ ' : ''}${ctx.esc(shortName(t.u.cu.name))}${(() => { const n = passengersOf(t.tk).length; return n ? ` 🚚+${n}` : ''; })()}</text></g>`);
   }
   // who controls each objective in this step: OC of each army's units in range
   // (on the hosting terrain area, or within 3" + the marker); the Mission tab's
@@ -1027,7 +1353,7 @@ export function boardSvg({ forExport = false } = {}) {
   for (const o of l.objectives) {
     const oc = { A: 0, B: 0 };
     // 14.02: the OC of the MODELS within range (not the whole unit's when one model is there)
-    for (const t of toks) if (t.u.oc) oc[t.side] += ocInRange({ ...t, oc: t.u.oc }, o, l.pieces);
+    for (const t of toks) if (t.u.oc && !(plan()?.live && plan().shock?.[t.tk])) oc[t.side] += ocInRange({ ...t, oc: t.u.oc }, o, l.pieces);
     if (!oc.A && !oc.B) continue;
     const ctl = oc.A > oc.B ? 'A' : oc.B > oc.A ? 'B' : 'tie';
     const col = ctl === 'tie' ? '#777' : C[ctl];
@@ -1306,8 +1632,9 @@ function stepsRowHtml() {
   const b = boardState(), p = plan(), esc = ctx.esc;
   return `<div class="row" style="gap:6px;flex-wrap:wrap">
         ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
-        <button class="chip" data-action="board-step-add">＋ Next turn</button>
-        <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>
+        ${p?.live ? '' : `<button class="chip" data-action="board-step-add">＋ Next turn</button>
+        <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>`}
+        <button class="chip ${p?.live ? 'on' : ''}" data-action="board-live" id="board-live" aria-pressed="${!!p?.live}" title="The table as it is now, following the round and turn of the game on the tracker">🔴 Live table</button>
         <button class="chip" data-action="board-ar" id="board-ar" title="Live AR: this layout and plan over the camera view of your table">🥽 AR</button>
         <span class="grow"></span>
         <span class="row board-tools"><span class="row undo-host" id="board-undo-host">${undoButtons()}</span>${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}</span>
@@ -1351,6 +1678,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
+      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}</div>
       <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -1361,6 +1689,7 @@ export function boardView() {
     </div><div class="col side">
     ${wideNow ? `<section class="section">${stepsRow}<div id="board-treemap-host">${treeMapHtml()}</div></section>` : ''}
     <section class="section" id="board-panel">${selectionPanel()}</section>
+    <div id="board-next-host">${nextTurnHtml()}</div>
     <div id="board-warnings-host">${stepWarningsHtml()}</div>
     ${wideNow && trayHtml ? `<section class="section">${trayHtml}</section>` : ''}
     ${onDeploy ? '' : `<section class="section"><div class="row" style="gap:6px" id="board-setup-turn">
@@ -1418,6 +1747,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
+      <div id="board-live-host">${liveBarHtml()}</div>
       <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
@@ -1426,6 +1756,7 @@ function triView() {
         <button class="icon-btn" data-action="board-zoom" data-z="0" aria-label="Fit board">⤢</button></div>
     </div>
     <div class="tri-t">
+      <div id="board-next-host">${nextTurnHtml()}</div>
       <div id="board-warnings-host">${stepWarningsHtml()}</div>
       <section class="section">${triBelowMap(onDeploy)}${planToolsHtml()}</section>
     </div>
@@ -1522,6 +1853,7 @@ function triUnitPanel(s1, toks) {
       <button class="chip ${b.posOpen ? 'on' : ''}" data-action="board-pos-toggle" id="board-pos-toggle" aria-expanded="${!!b.posOpen}">Position · facing · formation ${b.posOpen ? '▴' : '▾'}</button>
       <span class="grow"></span><button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     ${b.posOpen ? `<div id="board-pos-box">${posHtml(s1)}${spacingHtml(s1)}</div>` : ''}
+    ${shockHtml(s1)}
     ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
@@ -1730,6 +2062,13 @@ function posHtml(s1) {
     })() : ''}`;
 }
 /** Models left for the game on the tracker: shared with the Attack tab (attacker and target). */
+/** Live table: is this unit battle-shocked? (OC "-" until its player's next Command phase) */
+function shockHtml(s1) {
+  const lv = livePlan();
+  if (!lv) return '';
+  const on = !!lv.shock?.[s1.tk];
+  return `<div class="row" style="gap:6px;margin-top:6px;align-items:center" id="board-shock-row">${ctx.chip('board-shock', on, '⚡ Battle-shocked', `id="board-shock" data-tk="${ctx.esc(s1.tk)}"`)}${on ? '<span class="tiny muted">OC “–” until its next Command phase</span>' : ''}</div>`;
+}
 function lossHtml(s1) {
   const round = curIndex();
   const steppers = ctx.lossSteppers?.(s1.side, s1.u.cu, { round }) ?? '';
@@ -1775,6 +2114,7 @@ function selectionPanel() {
       <button class="icon-btn" data-action="board-remove" aria-label="Remove from board">✕</button></div>
     <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">${modelsBtn(s1)}${stepTokens()[s1.tk]?.mo ? '<button class="chip" data-action="board-models-reset">↺ Formation</button>' : ''}</div>
     ${posHtml(s1)}
+    ${shockHtml(s1)}
     ${lossHtml(s1)}
     ${transportPanel(s1)}
     ${scoutPanel(s1)}
@@ -1816,6 +2156,7 @@ function sightHtml(v, s1, s2) {
 function stepWarningsHtml() {
   const root = planRoot(), p = plan(), l = currentLayout();
   if (!root || !p || !l) return '';
+  if (p.live) return '';   // the live table is what happened on the table, not a plan to check
   const dep = DEPLOYMENTS[l.deployment];
   const pick = (list, X) => list?.find(z => z.player === zoneOf(X))?.poly ?? null;
   const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives,
@@ -1870,6 +2211,10 @@ export function refreshBoard() {
   refreshUndo();
   const mb = document.getElementById('board-models-host');
   if (mb) mb.innerHTML = modelsBar();
+  const lb = document.getElementById('board-live-host');
+  if (lb) lb.innerHTML = liveBarHtml();
+  const nx = document.getElementById('board-next-host');
+  if (nx) nx.innerHTML = nextTurnHtml();
   const tri = document.getElementById('board-tri');
   if (tri) {
     // three columns: each army's column holds its units, the selected unit and the matchup card
@@ -2483,6 +2828,39 @@ export function boardAction(action, el) {
       persistBoard();
       return 'render';
     }
+    case 'board-live': {
+      // the live table on / off (off: back to the plan that was on screen)
+      const root = planRoot(), lv = livePlan();
+      if (!root) return null;
+      if (lv) root.v = Math.min(lv.back ?? 0, root.variants.length - 1);
+      else if (!openLive()) return null;
+      b.sel = b.sel2 = null; b.modelsOf = null;
+      persistBoard();
+      return 'render';
+    }
+    case 'board-live-confirm': {
+      const lv = livePlan(), g = gameNow();
+      if (!lv) return null;
+      lv.stamp = { round: g.round, turn: g.turn, phase: g.phase };
+      console.log(`[board] live table: positions confirmed for round ${g.round}, ${g.turn}'s turn (${g.phase})`);
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
+    case 'board-shock': {
+      const lv = livePlan(), tk = el.dataset.tk;
+      if (!lv || !tk) return null;
+      lv.shock ??= {};
+      if (lv.shock[tk]) delete lv.shock[tk]; else lv.shock[tk] = true;
+      console.log(`[board] live table: ${tk} ${lv.shock[tk] ? 'battle-shocked' : 'no longer battle-shocked'}`);
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
+    case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
+    case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
+    case 'board-my-toggle': b.myOpen = b.myOpen === false; refreshBoard(); return null;
+    case 'board-my-all': b.myAll = !b.myAll; refreshBoard(); return null;
     case 'board-step-add': {
       const p = plan();
       if (!p) return null;
@@ -2896,7 +3274,9 @@ export function boardContext() {
 
 // for tests
 export function _boardDebug() {
-  return { stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
+  return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
+    stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };
 }

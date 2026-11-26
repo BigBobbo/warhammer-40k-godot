@@ -4413,6 +4413,185 @@ Aggressor Squad (95 points)
     await pctx5.close();
   }
 
+  // --- the live table and "Their next turn" (1.135.0): the real table follows the tracker; what the opponent can do next
+  {
+    const lctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const lp = await lctx.newPage();
+    lp.on('pageerror', e => consoleErrors.push(`live: ${e}`));
+    lp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`live: ${m.text()}`); });
+    lp.on('dialog', d => d.accept());
+    const scr = (x, y) => lp.evaluate(([bx, by]) => { const svg = document.getElementById('board-svg'); const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by; const q = pt.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, [x, y]);
+    const unit = (tk) => lp.evaluate((k) => { const u = window.__calc.board().units.find(t => t.tk === k); return u ? { x: u.x, y: u.y, ms: u.models.map(m => [u.x + m.dx, u.y + m.dy]) } : null; }, tk);
+    const moveTo = async (tk, x, y) => {
+      await lp.locator('#board-host').scrollIntoViewIfNeeded();
+      const u = await unit(tk), a = u.ms[0];
+      const p0 = await scr(a[0], a[1]), p1 = await scr(a[0] + x - u.x, a[1] + y - u.y);
+      await lp.mouse.move(p0.x, p0.y); await lp.mouse.down();
+      for (let i = 1; i <= 8; i++) await lp.mouse.move(p0.x + (p1.x - p0.x) * i / 8, p0.y + (p1.y - p0.y) * i / 8);
+      await lp.mouse.up();
+    };
+    const live = () => lp.evaluate(() => window.__calc.board().live);
+    const next = () => lp.evaluate(() => window.__calc.board().next);
+    const ready = () => lp.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
+    const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done', null, { timeout: 60000 });
+    await lp.goto(`${BASE}/calc/`); await lp.waitForSelector('textarea[data-side="A"]');
+    await lp.fill('textarea[data-side="A"]', SW_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
+    await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
+    await lp.tap('button[data-action="view"][data-value="board"]');
+    await lp.waitForSelector('#board-tri');
+    for (const [X, name] of [['A', 'Logan Grimnar'], ['A', 'Grey Hunters'], ['B', 'Warboss + Boyz'], ['B', 'Meganobz'], ['B', 'Flash Gitz']]) await lp.locator(`#board-army-${X} button[data-action="board-place"]`, { hasText: name }).first().tap();
+    const tkOf = (X, re) => lp.evaluate(([s, src]) => { const u = window.__calc.state.armies[s].units.find(x => new RegExp(src).test(x.name)); return `${s}:${u.key}`; }, [X, re]);
+    const gh = await tkOf('A', 'Grey Hunters'), boyz = await tkOf('B', 'Boyz'), mega = await tkOf('B', 'Meganobz'), gitz = await tkOf('B', 'Flash Gitz');
+    check('a plan has no live bar and no "Their next turn" card', (await lp.locator('#board-live-bar').count()) === 0 && (await lp.locator('#board-next').count()) === 0);
+    // 🔴 Live table: a plan of its own made from the plan on screen, at the tracker's round
+    await lp.tap('#board-live');
+    await lp.waitForSelector('#board-live-bar');
+    const l0 = await live();
+    check('🔴 Live table: starts from the plan on screen, at battle round 1 (Deploy, Turn 1), not yet confirmed',
+      l0?.on && l0.steps.join() === 'Deploy,Turn 1' && l0.cur === 1 && l0.stamp == null && l0.from === 'Main' && /come from your plan/.test(await lp.textContent('#board-live-note')) && (await lp.getAttribute('#board-live-bar', 'data-fresh')) === '0', JSON.stringify(l0));
+    check('the live table has no "＋ Next turn" or "Branch": its steps follow the tracker', (await lp.locator('button[data-action="board-step-add"]').count()) === 0 && (await lp.locator('#board-branch').count()) === 0);
+    // the Grey Hunters on the centre, the Orks a move away
+    await moveTo(gh, 22, 28); await moveTo(boyz, 22, 39); await moveTo(gitz, 30, 40); await moveTo(mega, 14, 40);
+    await ready();
+    const n0 = await next();
+    const ghRow = n0.res.threats.find(t => t.key === gh), centre = n0.res.swing.find(o => o.label === 'Centre');
+    check('Their next turn: the unit on the centre is in reach of the Boyz (shooting and a charge) and likely destroyed',
+      n0.opp === 'B' && ghRow.likely > 0.5 && ghRow.focus >= ghRow.likely && ghRow.by.some(b => b.key === boyz && b.shoot && b.charge > 0.5) && n0.res.threats[0].key === gh, JSON.stringify(ghRow));
+    check('Their next turn: I hold the centre and they can take it with a normal move', centre.holder === 'me' && centre.verdict === 'lose' && centre.max > centre.mine && centre.holders.some(h => h.key === gh && h.risk > 0.5)
+      && (await lp.getAttribute('#board-next-objs [data-obj="' + centre.id + '"]', 'data-verdict')) === 'lose' && /They can take it/.test(await lp.textContent('#board-next-objs')), JSON.stringify(centre));
+    check('the card names what it does not count (the Battlewagon is not on the table) and has no cards yet', /Battlewagon/.test(await lp.textContent('#board-next-off')) && (await lp.locator('#board-next-nocards').count()) === 1 && (await lp.locator('#board-next-stale').count()) === 1);
+    // ✓ Positions are current
+    await lp.tap('#board-live-confirm');
+    check('✓ Positions are current: confirmed for this round and turn; the card drops its warning', (await lp.getAttribute('#board-live-bar', 'data-fresh')) === '1' && (await live()).stamp.round === 1 && (await live()).stamp.turn === 'A' && (await lp.locator('#board-next-stale').count()) === 0);
+    // the tracker: their cards, then Turn done
+    await lp.tap('button[data-action="view"][data-value="mission"]');
+    await lp.tap('button[data-action="mission-tab"][data-value="play"]');
+    for (const c of ['secure-no-mans-land', 'no-prisoners', 'assassination', 'engage-on-all-fronts']) await lp.selectOption('select[data-input="mission-draw"][data-side="B"]', c);
+    await lp.tap('#play-turn-done');
+    await lp.tap('button[data-action="view"][data-value="board"]');
+    await ready();
+    const l1 = await live();
+    check('Turn done on the tracker: the live table keeps the table of that turn and says the positions are from the turn before',
+      l1.snaps.length === 1 && l1.snaps[0].round === 1 && l1.snaps[0].turn === 'A' && l1.snaps[0].units === 5 && (await lp.getAttribute('#board-live-bar', 'data-turn')) === 'B' && (await lp.getAttribute('#board-live-bar', 'data-fresh')) === '0' && /Last confirmed in round 1, A's turn/.test(await lp.textContent('#board-live-note')), JSON.stringify(l1));
+    const n1 = await next();
+    const card = (id) => n1.res.cards.find(c => c.id === id);
+    check('their cards from the tracker: Secure No Man\'s Land by moving alone (5 VP), No Prisoners only by destroying, Engage on All Fronts not this turn',
+      /Their turn now/.test(await lp.textContent('#board-next-title')) && card('secure-no-mans-land').verdict === 'yes' && card('secure-no-mans-land').vp === 5 && card('no-prisoners').verdict === 'kill' && card('no-prisoners').p > 0.5
+      && card('engage-on-all-fronts').verdict === 'no' && n1.res.vpAtStake === 5 && (await lp.getAttribute('#board-next', 'data-vp')) === '5' && (await lp.getAttribute('#board-next-cards [data-card="secure-no-mans-land"]', 'data-verdict')) === 'yes', JSON.stringify(n1.res.cards));
+    await lp.tap('#board-live-confirm');
+    await lp.evaluate(() => window.scrollTo(0, 0));
+    await lp.screenshot({ path: join(SHOTS, 'calc_135_live_table_next_turn.png'), fullPage: true });
+    // "Your turn" (1.136.0): a suggestion per unit of mine, the targets, my cards
+    {
+      const my0 = (await next()).my;
+      const order0 = await lp.$$eval('#board-next-host > .card', els => els.map(e => e.id));
+      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.join() === 'board-next,board-my' && /Your next turn/.test(await lp.textContent('#board-my-title')));
+      const ghU = my0.units.find(u => u.key === gh), ghK = my0.kills.find(k => k.key === ghU.attack?.key);
+      check('Your turn: the Grey Hunters on the centre hold it, they have a target (an Ork unit, with the odds it is destroyed), and the row flags that they are likely destroyed',
+        ghU.job.kind === 'hold' && ghU.job.label === 'Centre' && [boyz, gitz, mega].includes(ghU.attack?.key) && ghU.attack.p > 0.3 && ghU.risk > 0.5 && ghK && ghK.by.some(b => b.key === gh) && Math.abs(ghK.p - ghU.attack.p) < 1e-9
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"]`, 'data-target')) === ghU.attack.key
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"]`, 'data-job')) === 'hold' && /Hold Centre/.test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)) && /destroyed in their turn/.test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify({ ghU, ghK }));
+      // my cards on the tracker
+      await lp.tap('button[data-action="view"][data-value="mission"]');
+      for (const c of ['assassination', 'no-prisoners', 'behind-enemy-lines']) await lp.selectOption('select[data-input="mission-draw"][data-side="A"]', c);
+      await lp.tap('button[data-action="view"][data-value="board"]');
+      await lp.waitForSelector('#board-my[data-state="ready"]');
+      await ready();
+      const my1 = (await next()).my;
+      const mc = (id) => my1.cards.find(c => c.id === id);
+      check('Your cards from the tracker: Assassination and No Prisoners only by a kill (with odds), Behind Enemy Lines not this turn; said about "you", not "they"',
+        mc('assassination').verdict === 'kill' && mc('assassination').p > 0 && mc('no-prisoners').verdict === 'kill' && mc('behind-enemy-lines').verdict === 'no' && /none of your units/.test(mc('behind-enemy-lines').why)
+        && /Warboss/.test(mc('assassination').why) && /if you destroy/.test(mc('assassination').why) && (await lp.locator('#board-my-cards .next-card').count()) === 3 && (await lp.locator('#board-my-kills [data-kill]').first().getAttribute('data-kill')) === my1.kills[0].key, JSON.stringify(my1.cards));
+      // moves weighed with the mission forecast (1.137.0; 1.138.0: the table counts for the round in progress only)
+      {
+        await moveTo(gh, 22, 20);
+        await weighed();
+        await lp.waitForSelector('#board-my[data-moves="done"] #board-my-moves[data-state="done"]');
+        const mvs = (await next()).moves;
+        check('forecast, battle round 1: every candidate move was weighed; only moves worth 3+ VP over standing still are suggested, and the line says how many',
+          mvs.n >= 1 && mvs.best.every(x => x.dVp >= 3) && mvs.kept.moves.every(x => mvs.best.some(y => y.key === x.key)) && (await lp.getAttribute('#board-my-moves', 'data-kept')) === String(mvs.kept.moves.length)
+          && (mvs.kept.moves.length ? /you win \d+% of games instead of \d+%/ : /none of the \d+ moves? tried beats standing still by 3 VP/).test(await lp.textContent('#board-my-moves')), JSON.stringify(mvs).slice(0, 600));
+        // the live table counts for the round in progress only: not the frozen-table forecast
+        const frozen = await lp.evaluate(async () => { const M = await import('/calc/missionview.mjs'), F = await import('/calc/forecast.mjs'), B = await import('/calc/boardview.mjs'); const plan = B.boardPlans().find(x => x.name === 'Live table');
+          const vp = (o) => { const r = F.forecast(M.forecastParams({ boardSteps: plan, trials: 1500, ...o })); return r.A.mean + r.B.mean; }; return { frozen: vp({}), round: vp({ boardUntil: M.missionState().game.round }) }; });
+        check('the forecast counts the table for this battle round only: far more VP are scored in the rest of the game than with every unit frozen where it stands; the card says so', frozen.round > frozen.frozen + 20 && /count for the battle round in progress/.test(await lp.textContent('#board-my-how')), JSON.stringify(frozen));
+        await moveTo(gh, 22, 28);     // back on the centre for the checks below
+        await weighed();
+      }
+      await lp.locator('#board-my').scrollIntoViewIfNeeded();
+      await lp.screenshot({ path: join(SHOTS, 'calc_137_your_turn.png'), fullPage: true });
+      await lp.tap('button[data-action="board-my-toggle"]');
+      check('▴ folds the Your turn card', (await lp.locator('#board-my-units').count()) === 0 && (await lp.getAttribute('#board-my', 'data-open')) === '0');
+      await lp.tap('button[data-action="board-my-toggle"]');
+    }
+    // ⚡ battle-shocked: no OC
+    await lp.locator(`button[data-action="board-pick"][data-tk="${gh}"]`).first().tap();
+    await lp.tap('#board-shock');
+    await ready();
+    const c2 = (await next()).res.swing.find(o => o.label === 'Centre');
+    check('⚡ Battle-shocked on the unit holding the centre: it brings no OC, they control it', c2.mine === 0 && c2.verdict === 'theirs' && (await live()).shock[gh] === true && /⚡/.test(await lp.textContent(`#board-svg [data-tok="${gh}"]`)), JSON.stringify(c2));
+    // the second turn of the round ends: battle round 2 gets its step; my battle-shock ends as my turn starts
+    await lp.tap('button[data-action="view"][data-value="mission"]');
+    await lp.tap('#play-turn-done');
+    await lp.tap('button[data-action="view"][data-value="board"]');
+    const l2 = await live();
+    check('the round ends: the live table gets a Turn 2 step and is on it; the battle-shock of the player whose turn starts is over',
+      l2.steps.join() === 'Deploy,Turn 1,Turn 2' && l2.cur === 2 && l2.snaps.length === 2 && l2.snaps[1].turn === 'B' && !l2.shock[gh] && (await lp.getAttribute('#board-live-bar', 'data-round')) === '2', JSON.stringify(l2));
+    // battle round 2, my turn: a move onto the centre now scores, and the forecast suggests it
+    {
+      await moveTo(gh, 22, 20);
+      await weighed();
+      await lp.waitForSelector('#board-my[data-moves="done"] #board-my-moves[data-state="done"]');
+      const mvs = (await next()).moves;
+      const ghMove = mvs.kept.moves.find(x => x.unit === gh);
+      check('forecast, battle round 2: moving the Grey Hunters onto an objective in reach beats standing still by 3+ VP and is the suggestion on their row',
+        ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 3 && mvs.kept.vp > mvs.base.vp + 3
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move onto ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
+      check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round/.test(await lp.textContent('#board-my-moves')));
+      await lp.locator('#board-my').scrollIntoViewIfNeeded();
+      await lp.screenshot({ path: join(SHOTS, 'calc_138_moves_by_forecast.png'), fullPage: true });
+      if (ghMove) {
+        await moveTo(gh, ghMove.x, ghMove.y);
+        await weighed();
+        const after = (await next()).moves;
+        check('the move made on the table: not suggested again; the forecast as it stands has gained what the move promised (within 3 VP)',
+          !after.kept.moves.some(x => x.unit === gh && x.obj === ghMove.obj) && Math.abs((after.base.vp - mvs.base.vp) - ghMove.dVp) < 3, JSON.stringify({ before: mvs.base, promised: ghMove.dVp, after: after.base }));
+      }
+    }
+    await lp.locator('button[data-action="board-step"][data-i="1"]').tap();
+    check('an earlier turn of the live table: "how the table stood then", with Go to now', /how the table stood then/.test(await lp.textContent('#board-live-note')) && (await lp.locator('#board-live-now').count()) === 1);
+    await lp.tap('#board-live-now');
+    check('Go to now: back on the step of the round in progress', (await lp.evaluate(() => window.__calc.board().cur)) === 2);
+    // it is saved; 🔴 again goes back to the plan it came from
+    await lp.reload(); await lp.waitForSelector('#board-live-bar');
+    check('the live table is kept over a reload', (await live()).snaps.length === 2 && (await live()).steps.length === 3);
+    await lp.tap('#board-live');
+    check('🔴 Live table again: back to the plan (no live bar, no card); the plan itself is unchanged', (await lp.locator('#board-live-bar').count()) === 0 && (await lp.locator('#board-next').count()) === 0 && (await lp.locator('#board-my').count()) === 0 && (await lp.evaluate(() => window.__calc.board().plan.name)) === 'Main' && (await lp.evaluate(() => window.__calc.board().plan.steps.length)) === 1);
+    // a new game on the tracker: the live table that was played on stays as an ordinary plan; 🔴 starts afresh
+    await lp.tap('button[data-action="view"][data-value="mission"]');
+    await lp.tap('#play-reset');
+    const after = await lp.evaluate(() => { const ps = window.__calc.state.board.plans; return Object.values(ps)[0].variants.map(v => [v.name, !!v.live, v.steps.length]); });
+    check('New game on the tracker: the live table of the game before stays as the plan "Last game" (3 steps), no live table left',
+      (await live()) === null && after.some(v => v[0] === 'Last game' && !v[1] && v[2] === 3) && after.some(v => v[0] === 'Main'), JSON.stringify(after));
+    await lctx.close();
+    // phone: the same bar and card in the one-column Board
+    const pctx6 = await browser.newContext({ ...devices['Pixel 7'] });
+    const pp6 = await pctx6.newPage();
+    pp6.on('pageerror', e => consoleErrors.push(`live phone: ${e}`));
+    await pp6.goto(`${BASE}/calc/`); await pp6.waitForSelector('textarea[data-side="A"]');
+    await pp6.fill('textarea[data-side="A"]', SW_LIST); await pp6.tap('button[data-action="parse"][data-side="A"]');
+    await pp6.fill('textarea[data-side="B"]', ORK_LIST); await pp6.tap('button[data-action="parse"][data-side="B"]');
+    await pp6.tap('button[data-action="view"][data-value="board"]');
+    await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
+    await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Flash Gitz' }).tap();
+    await pp6.tap('#board-live');
+    await pp6.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
+    check('phone: 🔴 Live table shows the bar above the map and the two cards below the unit panel (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
+    await pp6.locator('#board-next').scrollIntoViewIfNeeded();
+    await pp6.screenshot({ path: join(SHOTS, 'calc_136_next_turn_phone.png') });
+    await pctx6.close();
+  }
+
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

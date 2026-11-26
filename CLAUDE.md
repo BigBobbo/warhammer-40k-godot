@@ -163,6 +163,21 @@ A feature is **not** considered verified until a **windowed scenario** drives th
 - Pure-math / pure-state changes (RulesEngine internals, save/load round-trips, autoload state) MAY be verified headless-only; everything that has a UI affordance must be windowed.
 - Reference: `40k/tests/TESTING_METHODOLOGY.md` and `SESSION_PLAYBOOK.md`.
 
+### Web-app-only changes do not need the Godot checks
+
+A change that touches only the web app (files under `server/`, e.g. the Combat
+Calc at `/calc/`, plus its changelog entry in `40k/data/version_history.json`)
+is validated by the web app's own tests, not by the Godot gate above:
+
+- `cd server && npm run test:calc` (unit) and `npm run test:e2e:calc`
+  (Playwright against the running relay server, with a screenshot of the
+  feature's effect).
+- Do **not** wait for the Godot checks (windowed scenarios, MCP bridge
+  `verify_delivery`, Godot CI jobs) to pass before committing, opening or
+  updating a pull request for such a change.
+- If the change also touches anything under `40k/` other than
+  `version_history.json`, the Godot gate applies as usual.
+
 ## Anti-pattern: pin tests are NOT validation (2026-05-06 lesson)
 
 A "pin test" — a headless `_check("func X defined", "func X" in src)` —
