@@ -86,7 +86,12 @@ Answer for someone standing at the table with models in hand. Plain text only: n
 1. The plan for this turn in two or three sentences.
 2. Up to four actions, most important first, each one line: the unit, what it does, and the reason in a clause.
 3. Stratagems worth using this turn (at most two), or "none".
-4. The one thing most likely to go wrong, and what to do if it does.`;
+4. The one thing most likely to go wrong, and what to do if it does.
+After the plan, on new lines, write the single word ACTIONS and then one line per action so the app can draw your plan on the map. These lines do not count towards the word limit. Use these three forms only, with unit and objective names copied exactly from the data (the unit "name" fields and the objective "name" fields):
+MOVE | unit | objective
+ATTACK | unit | enemy unit
+HOLD | unit | objective
+At most eight lines. Leave out any action that does not fit one of the forms.`;
 
 /** The whole prompt for a chat with Claude: the instructions, both armies, the game now. */
 export function promptText(p) {
@@ -96,4 +101,53 @@ export function promptText(p) {
 /** An answer pasted back: tidied for display (chat markdown marks taken out, long pastes cut). */
 export function tidyAnswer(text, max = 6000) {
   return String(text ?? '').replace(/\r\n?/g, '\n').replace(/^[ \t]*#{1,6}[ \t]+/gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^[ \t]*[-*][ \t]+/gm, '- ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
+}
+
+// ---------------------------------------------------------------------------
+// The plan's ACTIONS lines: what Claude wants each unit to do, in a form the Board can draw
+
+const KINDS = { MOVE: 'move', ATTACK: 'attack', HOLD: 'hold' };
+/**
+ * A plan as Claude wrote it -> { text (the plan without its ACTIONS lines), actions: [{ kind: 'move' | 'attack' |
+ * 'hold', unit, target }] }. Tolerant of what a chat adds: bullets, numbering, bold, code fences, other case.
+ */
+export function parsePlan(raw) {
+  const actions = [], keep = [];
+  for (const line of String(raw ?? '').replace(/\r\n?/g, '\n').split('\n')) {
+    const bare = line.replace(/[`*_]/g, '').replace(/^[ \t]*(?:[-•]|\d+[.)])?[ \t]*/, '').trim();
+    const m = /^(MOVE|ATTACK|HOLD)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|?$/i.exec(bare);
+    if (m) { actions.push({ kind: KINDS[m[1].toUpperCase()], unit: m[2], target: m[3] }); continue; }
+    if (/^actions:?$/i.test(bare) || /^```/.test(line.trim())) continue;
+    keep.push(line);
+  }
+  return { text: keep.join('\n').replace(/\n{3,}/g, '\n\n').trim(), actions: actions.slice(0, 12) };
+}
+
+const norm = (s) => String(s ?? '').toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9()+' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+/** A name Claude wrote -> the one item it means: the same name, else the only one whose name starts with or contains it (a longer or different name is not guessed at). */
+export function matchName(name, items) {
+  const n = norm(name);
+  if (!n) return null;
+  const exact = items.filter(i => norm(i.name) === n);
+  if (exact.length === 1) return exact[0];
+  const starts = items.filter(i => norm(i.name).startsWith(n));
+  if (starts.length === 1) return starts[0];
+  const has = items.filter(i => norm(i.name).includes(n));
+  return has.length === 1 ? has[0] : null;
+}
+/**
+ * The actions against the table: mine / theirs: [{ key, name }], objectives: [{ id, name }].
+ * -> [{ kind, unit, target, unitKey, targetKey (a unit) | objId, ok, why? }]
+ */
+export function resolveActions(actions, { mine, theirs, objectives }) {
+  return actions.map((a) => {
+    const u = matchName(a.unit, mine);
+    if (!u) return { ...a, ok: false, why: `no unit of yours is called “${a.unit}”` };
+    if (a.kind === 'attack') {
+      const t = matchName(a.target, theirs);
+      return t ? { ...a, unit: u.name, target: t.name, unitKey: u.key, targetKey: t.key, ok: true } : { ...a, unitKey: u.key, ok: false, why: `no enemy unit is called “${a.target}”` };
+    }
+    const o = matchName(a.target.replace(/\bobjective\b/i, ''), objectives);
+    return o ? { ...a, unit: u.name, target: o.name, unitKey: u.key, objId: o.id, ok: true } : { ...a, unitKey: u.key, ok: false, why: `no objective is called “${a.target}”` };
+  });
 }

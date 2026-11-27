@@ -11,7 +11,7 @@ import {
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, edgeRadius, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
 import { boardUnit, earlyArrival, transportOf, passengerCheck, abilitiesOf, armyIntel } from './adapter.mjs';
-import { advisePayload, payloadSize, promptText, tidyAnswer } from './advise.mjs';
+import { advisePayload, payloadSize, promptText, tidyAnswer, parsePlan, resolveActions } from './advise.mjs';
 import { SECONDARIES } from './missions-11e.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
@@ -21,7 +21,7 @@ import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch a
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
-import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, riskAfterMove, MOVE_MIN_VP } from './nextturn.mjs';
+import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, riskAfterMove, objectiveGap, MOVE_MIN_VP } from './nextturn.mjs';
 import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -63,6 +63,8 @@ export function initBoard(c) {
     fetch('/api/calc-advise').then(r => (r.ok ? r.json() : null)).then((j) => { adviseInfo = j && j.enabled ? j : { enabled: false }; console.log(`[board] plans from Claude: ${adviseInfo.enabled ? `on (${adviseInfo.model}, ${adviseInfo.effort} effort, ${adviseInfo.perDay} a day)` : 'off on this server'}`); if (adviseInfo.enabled) ctx.rerender?.(); }).catch(() => { adviseInfo = { enabled: false }; });
   };
   askAdvise();
+  // the answer being pasted is kept while the Board redraws (a forecast finishing, a unit tapped)
+  if (typeof window !== 'undefined') window.addEventListener('input', (ev) => { if (ev.target?.id === 'board-advise-paste') boardState().pasteDraft = ev.target.value; });
   if (typeof window !== 'undefined') window.addEventListener('online', askAdvise);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
@@ -523,6 +525,15 @@ function hintData() {
   const by = t.by.slice(0, 5);
   return { units: [h.tk], move: null, hits: by.map(x => ({ from: x.key, to: h.tk, pct: '', how: '', theirs: true })), text: `${full(h.tk)}: ${pct(t.likely)} likely destroyed, ${pct(t.focus)} if focused, by ${by.map(x => full(x.key)).join(', ')}` };
 }
+/** An arrow on the map (board inches): a line with a head, an optional label at its middle. */
+function arrowSvg(x1, y1, x2, y2, col, dash, label) {
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  if (len < 0.3) return '';
+  const ux = (x2 - x1) / len, uy = (y2 - y1) / len, hx = x2 - ux * 1.5, hy = y2 - uy * 1.5;
+  const head = `${f2(x2)},${f2(y2)} ${f2(hx - uy * 0.75)},${f2(hy + ux * 0.75)} ${f2(hx + uy * 0.75)},${f2(hy - ux * 0.75)}`;
+  const lab = label ? `<text x="${f2((x1 + x2) / 2)}" y="${f2((y1 + y2) / 2 - 0.5)}" font-size="1.25" font-weight="700" text-anchor="middle" fill="${col}" paint-order="stroke" stroke="${C.mat}" stroke-width="0.4" font-family="system-ui,sans-serif">${ctx.esc(label)}</text>` : '';
+  return `<line x1="${f2(x1)}" y1="${f2(y1)}" x2="${f2(hx)}" y2="${f2(hy)}" stroke="${C.mat}" stroke-width="0.9" stroke-linecap="round"/><line x1="${f2(x1)}" y1="${f2(y1)}" x2="${f2(hx)}" y2="${f2(hy)}" stroke="${col}" stroke-width="0.45" stroke-linecap="round" ${dash ? 'stroke-dasharray="1 0.7"' : ''}/><polygon points="${head}" fill="${col}" stroke="${C.mat}" stroke-width="0.15"/>${lab}`;
+}
 function hintSvg() {
   const hd = hintData();
   if (!hd) return '';
@@ -617,6 +628,7 @@ async function askForPlan() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `The server answered ${r.status}`);
     b.advice = { key, state: 'done', text: String(j.text ?? ''), round: g.round, turn: g.turn, ms: Date.now() - t0, left: j.left, truncated: !!j.truncated };
+    b.planOnMap = true;
     console.log(`[board] plan received in ${b.advice.ms} ms (${b.advice.text.split(/\s+/).length} words, ${j.model})`);
   } catch (err) {
     b.advice = { key, state: 'error', error: err?.message || 'Could not get a plan', round: g.round, turn: g.turn };
@@ -645,16 +657,99 @@ async function copyPrompt() {
   refreshBoard();
   if (!b.promptCopy.ok) document.getElementById('board-advise-prompt')?.select();
 }
-function pasteAnswer() {
+function pasteAnswer(fromText = null) {
   const b = boardState(), lv = livePlan(), g = gameNow();
-  const text = tidyAnswer(document.getElementById('board-advise-paste')?.value ?? '');
-  if (!text || !lv) return;
-  b.advice = { key: nextMemo.key, state: 'done', text, round: g.round, turn: g.turn, pasted: true };
-  lv.advice = { text, round: g.round, turn: g.turn, pasted: true, sig: sigOf(nextMemo.key ?? '') };
-  b.pasteOpen = false; b.promptCopy = null;
-  console.log(`[board] plan pasted in: ${text.split(/\s+/).length} words, for round ${g.round}, ${g.turn}'s turn`);
-  persistBoard();
-  refreshBoard();
+  try {
+    const text = tidyAnswer(fromText ?? document.getElementById('board-advise-paste')?.value ?? b.pasteDraft ?? '');
+    if (!text) { b.pasteError = 'Paste Claude’s answer into the box first, then tap Show the plan.'; refreshBoard(); return; }
+    if (!lv) { b.pasteError = 'Open the Live table first: the plan is kept with it.'; refreshBoard(); return; }
+    b.advice = { key: nextMemo.key, state: 'done', text, round: g.round, turn: g.turn, pasted: true };
+    lv.advice = { text, round: g.round, turn: g.turn, pasted: true, sig: sigOf(nextMemo.key ?? '') };
+    b.pasteOpen = false; b.promptCopy = null; b.pasteDraft = ''; b.pasteError = null; b.planOnMap = true;
+    const pd = planData();
+    console.log(`[board] plan pasted in: ${text.split(/\s+/).length} words, ${pd?.actions.filter(x => x.ok).length ?? 0} of ${pd?.actions.length ?? 0} actions drawn on the map, for round ${g.round}, ${g.turn}'s turn`);
+    persistBoard();
+    refreshBoard();
+    planIntoView();
+  } catch (err) {
+    b.pasteError = `Could not show the plan: ${err?.message ?? err}`;
+    console.log(`[board] ${b.pasteError}`);
+    refreshBoard();
+  }
+}
+async function pasteFromClipboard() {
+  const b = boardState();
+  try { const t = await navigator.clipboard.readText(); b.pasteDraft = t; pasteAnswer(t); }
+  catch { b.pasteError = 'Your browser did not allow reading the clipboard: press and hold in the box and choose Paste.'; refreshBoard(); }
+}
+/** After a plan arrives: the plan text into view (it replaces the box that was just used). */
+function planIntoView() {
+  const el = document.getElementById('board-advise-text'), r = el?.getBoundingClientRect();
+  if (r && (r.top < 70 || r.bottom > (window.innerHeight || 0))) el.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+// ---- the plan drawn on the map: Claude's ACTIONS lines (advise.parsePlan) against the units on the table
+const PLAN = { move: '#1d6fd1', attack: '#c0392b', hold: '#2e9e5b' };
+let planMemo = { key: null, v: null };
+/** -> { text (the plan without its ACTIONS lines), actions: [resolved, with where a move ends], stale } | null */
+function planData() {
+  const a = currentAdvice(), d = nextMemo.v, l = currentLayout();
+  if (!a || a.state !== 'done' || !d?.my || !l) return null;
+  const toks = placed(), key = `${a.text.length}|${a.text.slice(0, 80)}|${nextMemo.key}`;
+  if (planMemo.key === key) return planMemo.v;
+  const parsed = parsePlan(a.text);
+  const names = (X) => ctx.state.armies[X].units.map(u => ({ key: `${X}:${u.key}`, name: u.name }));
+  const objs = d.my.swing.map(o => ({ id: o.id, name: o.label }));
+  const byTk = new Map(toks.map(t => [t.tk, t]));
+  const actions = resolveActions(parsed.actions, { mine: names(d.me), theirs: names(d.opp), objectives: objs }).map((x) => {
+    if (!x.ok) return x;
+    const t = byTk.get(x.unitKey);
+    if (!t) return { ...x, ok: false, why: `${x.unit} is not on the table` };
+    if (x.kind === 'attack') return byTk.get(x.targetKey) ? x : { ...x, ok: false, why: `${x.target} is not on the table` };
+    const o = d.my.swing.find(q => q.id === x.objId), unit = { key: t.tk, name: x.unit, x: t.x, y: t.y, models: t.models, move: 99 };
+    const gap = objectiveGap(unit, o, l.pieces);
+    if (gap <= 0) return { ...x, there: true };
+    // where the move ends: a straight line, just far enough for a model to be in range of the objective
+    const end = moveCandidates([unit], [{ ...o, movers: [{ key: t.tk, via: 'move' }] }], l.pieces)[0];
+    return end ? { ...x, x: end.x, y: end.y, dist: end.dist, far: end.dist > t.u.move + 0.01, M: t.u.move } : { ...x, ok: false, why: `no straight move puts ${x.unit} in range of ${x.target}` };
+  });
+  planMemo = { key, v: { text: parsed.text, actions, stale: a.key !== nextMemo.key } };
+  return planMemo.v;
+}
+function planSvg() {
+  const b = boardState(), pd = planData();
+  if (!pd || b.planOnMap === false || !pd.actions.some(x => x.ok)) return '';
+  const toks = new Map(placed().map(t => [t.tk, t]));
+  const reach = (t) => Math.max(...t.models.map(m => Math.hypot(m.dx, m.dy) + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0)));
+  const ends = new Map(pd.actions.filter(x => x.ok && x.kind === 'move' && !x.there).map(x => [x.unitKey, x]));
+  const out = [];
+  pd.actions.forEach((x, i) => {
+    const t = x.ok ? toks.get(x.unitKey) : null;
+    if (!t) return;
+    // the action's number (as in the list under the plan): on the ring, where the move ends, or along the attack
+    const badge = (bx, by) => `<g data-plan-n="${i + 1}"><circle cx="${f2(bx)}" cy="${f2(by)}" r="0.95" fill="${PLAN[x.kind]}" stroke="${C.mat}" stroke-width="0.15"/><text x="${f2(bx)}" y="${f2(by)}" font-size="1.2" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="system-ui,sans-serif">${i + 1}</text></g>`;
+    if (x.kind === 'hold' || x.there) {
+      const R = reach(t) + 0.7;
+      out.push(`<g data-plan="hold" data-tk="${ctx.esc(x.unitKey)}"><circle cx="${f2(t.x)}" cy="${f2(t.y)}" r="${f2(R)}" fill="none" stroke="${PLAN.hold}" stroke-width="0.4"/>${badge(t.x - R * 0.71, t.y - R * 0.71)}</g>`);
+    } else if (x.kind === 'move') {
+      out.push(`<g data-plan="move" data-tk="${ctx.esc(x.unitKey)}" data-dist="${x.dist.toFixed(2)}"><g transform="translate(${f2(x.x)},${f2(x.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', PLAN.move, 0.16, m.rot)).join('')}</g>${arrowSvg(t.x, t.y, x.x, x.y, PLAN.move, true, `${fmtIn(x.dist)}${x.far ? ' ⚠' : ''}`)}${badge(x.x + reach(t) + 0.6, x.y)}</g>`);
+    } else {
+      const z = toks.get(x.targetKey), from = ends.get(x.unitKey) ?? t;
+      if (!z) return;
+      const len = Math.hypot(z.x - from.x, z.y - from.y) || 1, back = Math.min(len * 0.4, reach(z) * 0.6);
+      const ex = z.x - (z.x - from.x) / len * back, ey = z.y - (z.y - from.y) / len * back;
+      out.push(`<g data-plan="attack" data-tk="${ctx.esc(x.unitKey)}" data-target="${ctx.esc(x.targetKey)}">${arrowSvg(from.x, from.y, ex, ey, PLAN.attack, false, '')}${badge(from.x + (ex - from.x) * 0.6, from.y + (ey - from.y) * 0.6)}</g>`);
+    }
+  });
+  return `<g id="plan-layer" data-actions="${pd.actions.filter(x => x.ok).length}" pointer-events="none">${out.join('')}</g>`;
+}
+/** Under the plan text: what is drawn on the map, in the plan's own order, and what could not be placed. */
+function planActionsHtml(pd) {
+  if (!pd?.actions.length) return `<div class="tiny muted" id="board-plan-none" style="margin-top:6px">This answer has no ACTIONS lines, so there is nothing to draw on the map. Copy a new prompt: it asks Claude for them.</div>`;
+  const esc = ctx.esc, on = boardState().planOnMap !== false, VERB = { move: 'moves to', attack: 'attacks', hold: 'holds' };
+  const ok = pd.actions.filter(x => x.ok).length;
+  return `<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap" id="board-plan-map-row">${ctx.chip('board-plan-map', on, `🗺 On the map (${ok})`, 'id="board-plan-map"')}<span class="tiny muted">Blue dashed: a move, to where it ends. Red: an attack. Green ring: stays on its objective. Numbers follow the list.</span></div>
+    <ol class="plan-actions" id="board-plan-actions">${pd.actions.map((x) => `<li data-ok="${x.ok ? 1 : 0}" data-kind="${x.kind}" style="color:${x.ok ? 'inherit' : 'var(--text-muted)'}"><span style="color:${x.ok ? PLAN[x.kind] : 'inherit'};font-weight:600">${esc(shortName(x.unit))}</span> ${VERB[x.kind]} <b>${esc(shortName(x.target))}</b>${x.ok ? (x.kind === 'move' ? (x.there ? ' <span class="muted">(already in range)</span>' : ` <span class="muted">(${fmtIn(x.dist)}${x.far ? `: more than its ${x.M}" Move, it needs an Advance` : ''})</span>`) : '') : ` <span class="muted">— not drawn: ${esc(x.why)}</span>`}</li>`).join('')}</ol>`;
 }
 /** The plan section of the Your turn card: copy the prompt and paste the answer (always), or ask through the server (where it is switched on). */
 function adviceHtml() {
@@ -670,12 +765,14 @@ function adviceHtml() {
       ${pc ? `<div class="small" id="board-advise-copied">${pc.ok ? `✓ Prompt copied (${pc.chars.toLocaleString('en')} characters).` : 'Your browser did not allow copying. Select all of this and copy it:'} Paste it into a new chat with Claude: <a href="https://claude.ai/new" target="_blank" rel="noopener">claude.ai</a> or the Claude app.</div>` : ''}
       ${pc && !pc.ok ? `<textarea id="board-advise-prompt" class="paste" readonly rows="4" aria-label="The prompt for Claude">${esc(pc.text)}</textarea>` : ''}
       <label class="lab tiny muted" for="board-advise-paste" style="display:block;margin-top:8px">Then paste Claude’s answer here</label>
-      <textarea id="board-advise-paste" class="paste" rows="5" placeholder="Paste the answer"></textarea>
-      <div class="row" style="gap:6px;margin-top:6px"><button class="btn primary" data-action="board-advise-paste" id="board-advise-show">Show the plan</button><button class="btn ghost" data-action="board-advise-paste-cancel">Cancel</button></div></div>` : '';
+      <textarea id="board-advise-paste" class="paste" rows="5" placeholder="Paste the answer">${esc(b.pasteDraft ?? '')}</textarea>
+      ${b.pasteError ? `<div class="small" id="board-advise-paste-error" style="color:var(--warn-ink);margin-top:4px">${esc(b.pasteError)}</div>` : ''}
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn primary" data-action="board-advise-paste" id="board-advise-show">Show the plan</button><button class="btn" data-action="board-advise-clip" id="board-advise-clip">Paste from clipboard and show</button><button class="btn ghost" data-action="board-advise-paste-cancel">Cancel</button></div></div>` : '';
   let body;
   if (b.adviseAsk && !adviseAgreed()) body = `<div class="warnbox" id="board-advise-consent"><div>${what}</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn primary" data-action="board-advise-agree" id="board-advise-agree">Send and ask</button><button class="btn ghost" data-action="board-advise-cancel">Not now</button></div></div>`;
   else if (a?.state === 'asking') body = `<div class="small muted" id="board-advise-wait">⏳ Claude is reading the table… about half a minute.</div>`;
-  else if (a?.state === 'done') body = `<div class="plan-text" id="board-advise-text" data-stale="${stale ? 1 : 0}" data-pasted="${a.pasted ? 1 : 0}">${esc(a.text)}</div>
+  else if (a?.state === 'done') body = `<div class="plan-text" id="board-advise-text" data-stale="${stale ? 1 : 0}" data-pasted="${a.pasted ? 1 : 0}">${esc(planData()?.text ?? a.text)}</div>
+      ${planActionsHtml(planData())}
       <div class="tiny ${stale ? '' : 'muted'}" id="board-advise-note" style="margin-top:4px${stale ? ';color:var(--warn-ink)' : ''}">${stale ? '⚠ The table has changed since this plan was written.' : `${a.pasted ? 'Pasted in' : 'Written'} for round ${a.round}, ${esc(a.turn)}’s turn.`}${a.truncated ? ' The answer was cut short.' : ''} A suggestion from an AI model reading the cards above: check it against the table.</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${copy(stale ? '📋 Copy a new prompt for this table' : '📋 Copy the prompt again', !api && stale)}${ask(stale ? 'Ask again for this table' : 'Ask again', stale)}<button class="btn ghost" data-action="board-advise-clear" id="board-advise-clear">Clear</button></div>${pasteBox}`;
   else if (a?.state === 'error') body = `<div class="small" id="board-advise-error" style="color:var(--warn-ink)">No plan: ${esc(a.error)}</div><div class="row" style="gap:6px;margin-top:6px">${ask('Try again')}${copy('📋 Copy the prompt instead', false)}</div>${pasteBox}`;
@@ -1544,6 +1641,7 @@ export function boardSvg({ forExport = false } = {}) {
       }).join('')}</g>`
       + `<text x="0" y="${f2(Math.min(...t.models.map(m => m.dy - (m.fp.r ?? Math.max(m.fp.rx ?? 0, m.fp.hw ?? 0)))) - 0.35 * fontK)}" font-size="${f2(0.95 * fontK)}" text-anchor="middle" fill="${C.text}" font-family="system-ui,sans-serif" font-weight="600" paint-order="stroke" stroke="${C.mat}" stroke-width="${f2(0.25 * fontK)}">${plan()?.live && plan().shock?.[t.tk] ? '⚡ ' : ''}${ctx.esc(shortName(t.u.cu.name))}${(() => { const n = passengersOf(t.tk).length; return n ? ` 🚚+${n}` : ''; })()}</text></g>`);
   }
+  if (!forExport) parts.push(planSvg());
   if (!forExport) parts.push(hintSvg());
   // who controls each objective in this step: OC of each army's units in range
   // (on the hosting terrain area, or within 3" + the marker); the Mission tab's
@@ -3084,7 +3182,9 @@ export function boardAction(action, el) {
     case 'board-advise-cancel': b.adviseAsk = false; refreshBoard(); return null;
     case 'board-advise-copy': copyPrompt(); return null;
     case 'board-advise-paste': pasteAnswer(); return null;
-    case 'board-advise-paste-cancel': b.pasteOpen = false; b.promptCopy = null; refreshBoard(); return null;
+    case 'board-advise-clip': pasteFromClipboard(); return null;
+    case 'board-plan-map': b.planOnMap = b.planOnMap === false; refreshBoard(); return null;
+    case 'board-advise-paste-cancel': b.pasteOpen = false; b.promptCopy = null; b.pasteError = null; refreshBoard(); return null;
     case 'board-advise-clear': { const lv = livePlan(); b.advice = null; if (lv?.advice) { delete lv.advice; persistBoard(); } refreshBoard(); return null; }
     case 'board-hint-clear': b.hint = null; refreshBoard(); return null;
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
@@ -3505,7 +3605,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
-    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, plan: planData(), pasteError: boardState().pasteError ?? null, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };

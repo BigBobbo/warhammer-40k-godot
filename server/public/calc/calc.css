@@ -692,3 +692,6 @@ div.tri-unit { cursor: default; }
 /* Board: the prompt to copy and the answer to paste */
 textarea.paste { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-1); color: inherit; resize: vertical; }
 #board-advise-pastebox a { color: var(--accent); }
+
+/* Board: the plan's actions, as drawn on the map */
+ol.plan-actions { margin: 6px 0 0; padding-left: 22px; font-size: 14px; line-height: 1.5; }

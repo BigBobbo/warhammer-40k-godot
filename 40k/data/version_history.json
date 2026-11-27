@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.143.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: Claude's plan is drawn on the map, and pasting it back can no longer fail without saying why",
+      "changes": [
+        "Board, Live table: a plan from Claude is now drawn on the map: a dashed blue arrow for each move, to where the unit would end; a red arrow for each attack; a green ring for a unit that stays on its objective",
+        "The numbers on the map follow a list under the plan, which says each action in a line and names anything that could not be drawn",
+        "🗺 On the map switches the drawing off and on",
+        "The copied prompt now asks Claude for these actions, so copy a new prompt to get them: a plan pasted from an older prompt shows as text only, and says so",
+        "Pasting the answer: Show the plan now says what is wrong when there is nothing to show, where before it did nothing",
+        "Paste from clipboard and show does it in one tap, and what you have pasted is kept if the Board redraws before you tap"
+      ]
+    },
+    {
       "version": "1.142.0",
       "date": "2026-11-27",
       "summary": "Combat Calc: copy a prompt for Claude and paste its plan back, with your own Claude plan and no API key",

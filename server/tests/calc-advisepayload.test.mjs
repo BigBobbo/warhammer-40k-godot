@@ -81,3 +81,27 @@ test('an answer pasted back: chat markdown taken out, paragraphs kept, a long pa
   assert.equal(P.tidyAnswer('  \n '), '');
   assert.equal(P.tidyAnswer('x'.repeat(9000)).length, 6000);
 });
+
+test('the plan\'s ACTIONS lines: read out of the answer, whatever a chat adds around them', () => {
+  const raw = 'Plan: take the centre.\n\n1. Hunters: move up.\n\n**ACTIONS**\n```\nMOVE | Hunters | Centre\n- ATTACK | hunters | Boyz\n3. hold | Guard | Your home objective |\n```\nMOVE | only two parts';
+  const p = P.parsePlan(raw);
+  assert.equal(p.text, 'Plan: take the centre.\n\n1. Hunters: move up.\n\nMOVE | only two parts', 'the plan keeps its own text; a line that is not an action stays');
+  assert.deepEqual(p.actions, [{ kind: 'move', unit: 'Hunters', target: 'Centre' }, { kind: 'attack', unit: 'hunters', target: 'Boyz' }, { kind: 'hold', unit: 'Guard', target: 'Your home objective' }]);
+  assert.deepEqual(P.parsePlan('Just a plan.').actions, []);
+});
+
+test('actions against the table: names matched to units and objectives, and said when they are not', () => {
+  const table = { mine: [{ key: 'A:u1', name: 'Grey Hunters' }, { key: 'A:u2', name: 'Thunderwolf Cavalry (1)' }, { key: 'A:u3', name: 'Thunderwolf Cavalry (2)' }], theirs: [{ key: 'B:u1', name: 'Warboss + Boyz' }], objectives: [{ id: 'c', name: 'Centre' }, { id: 'h', name: 'Your home' }] };
+  const r = P.resolveActions([{ kind: 'move', unit: 'grey hunters', target: 'Centre objective' }, { kind: 'attack', unit: 'Thunderwolf Cavalry (2)', target: 'Boyz' }, { kind: 'hold', unit: 'Thunderwolf Cavalry', target: 'Your home' }, { kind: 'attack', unit: 'Grey Hunters', target: 'Meganobz' }], table);
+  assert.deepEqual([r[0].ok, r[0].unitKey, r[0].objId], [true, 'A:u1', 'c']);
+  assert.deepEqual([r[1].ok, r[1].unitKey, r[1].targetKey], [true, 'A:u3', 'B:u1'], '"Boyz" is the only enemy unit with that in its name');
+  assert.equal(r[2].ok, false, 'two units of mine start with "Thunderwolf Cavalry": not guessed'); assert.match(r[2].why, /no unit of yours/);
+  assert.equal(r[3].ok, false); assert.match(r[3].why, /no enemy unit is called/);
+});
+
+test('the instructions ask for the ACTIONS lines; the server\'s stand-in answer has one', () => {
+  const A = require('../calc-advise.js');
+  assert.match(P.ADVISE_INSTRUCTIONS, /write the single word ACTIONS/); assert.match(P.ADVISE_INSTRUCTIONS, /MOVE \| unit \| objective/);
+  assert.equal(P.ADVISE_INSTRUCTIONS, A.SYSTEM);
+  assert.deepEqual(P.parsePlan(A.MOCK_TEXT).actions, [{ kind: 'hold', unit: 'Grey Hunters', target: 'Centre' }]);
+});
