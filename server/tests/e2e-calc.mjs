@@ -4591,6 +4591,40 @@ Aggressor Squad (95 points)
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
       }
+      // (1.145.0) play the game out: both players follow the cards every turn to round 5, scored by the forecast,
+      // shown NEXT TO the usual forecast line (which stays), and put on the board as a plan of its own
+      {
+        const usual = await lp.textContent('#board-my-moves');
+        check('Play the game out is offered on Your turn, as a second opinion', (await lp.locator('#board-playout-run').count()) === 1 && /second opinion next to the forecast/.test(await lp.textContent('#board-playout')));
+        await lp.locator('#board-playout-run').scrollIntoViewIfNeeded();
+        await lp.tap('#board-playout-run');
+        await lp.waitForFunction(() => window.__calc.board().next?.play?.state === 'done', null, { timeout: 120000 });
+        const pl = await lp.evaluate(() => { const m = window.__calc.board().next.play, g = window.__calc.mission(); return { win: m.out.win, base: m.base.win, vp: m.vp, from: m.from, rounds: m.steps.map(x => x.round), turns: m.log.map(l => `${l.round}${l.side}`), moved: m.log.reduce((a, l) => a + l.moves.filter(x => x.dist > 0).length, 0), kinds: [...new Set(m.log.flatMap(l => l.moves.map(x => x.kind)))], round: g.game?.round }; });
+        check('the game is played to the end of round 5, turn by turn, both players moving', pl.rounds.at(-1) === 5 && pl.rounds[0] === pl.from && pl.turns.length >= pl.rounds.length && ['A', 'B'].every(X => pl.turns.some(t => t.endsWith(X))) && pl.moved >= 2, JSON.stringify(pl));
+        const line = await lp.textContent('#board-playout');
+        check('the card gives its win chance and average score, and the usual forecast beside it', /Played out to the end of the game: you win \d+% of games, \d+ – \d+ VP on average/.test(line) && /forecast of the table as it stands says \d+%/.test(line) && pl.win >= 0 && pl.win <= 1, line.slice(0, 260));
+        check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
+        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /straight line/.test(await lp.textContent('#board-playout-how')));
+        await lp.tap('#board-playout-log-btn');
+        const logText = await lp.textContent('#board-playout-log');
+        check('Show who did what: a block per player turn with each unit\'s action', /Round \d · /.test(logText) && /(takes|holds|walks towards|charges|shoots) /.test(logText) && (await lp.locator('#board-playout-log > div').count()) === pl.turns.length, logText.slice(0, 200));
+        await lp.locator('#board-playout').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_145_play_out.png') });
+        await lp.tap('#board-playout-log-btn');
+        const liveTokens = await lp.evaluate(() => JSON.stringify(window.__calc.board().stepTokens));
+        await lp.tap('#board-playout-plan');
+        await lp.waitForFunction(() => !window.__calc.board().live?.on);
+        const pv = await lp.evaluate(() => ({ plans: [...document.querySelectorAll('[data-action="board-plan-pick"]')].map(e => [e.textContent.trim(), e.classList.contains('on')]), steps: [...document.querySelectorAll('[data-action="board-step"]')].map(e => e.textContent.trim()) }));
+        check('See it on the board: a plan "Played out" of its own, with a step per battle round to Turn 5', pv.plans.some(x => /Played out/.test(x[0]) && x[1]) && pv.steps.some(x => /Turn 5/.test(x)), JSON.stringify(pv));
+        await lp.evaluate(() => window.scrollTo(0, 0));
+        await lp.locator('[data-action="board-step"]', { hasText: 'Turn 5' }).tap();
+        await lp.screenshot({ path: join(SHOTS, 'calc_145_played_out_turn5.png') });
+        // the live table is untouched; the plan is removed again
+        await lp.tap('button[data-action="board-plan-delete"]');
+        await lp.tap('#board-live'); await lp.waitForSelector('#board-live-bar');
+        check('the live table is as it was', (await lp.evaluate(() => JSON.stringify(window.__calc.board().stepTokens))) === liveTokens && (await lp.locator('[data-action="board-plan-pick"]', { hasText: 'Played out' }).count()) === 0);
+        await weighed();
+      }
       // (1.142.0) by hand, with no API key: copy the prompt, paste it into Claude, paste the answer back
       {
         await lctx.grantPermissions(['clipboard-read', 'clipboard-write']);
