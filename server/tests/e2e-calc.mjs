@@ -4608,8 +4608,19 @@ Aggressor Squad (95 points)
         check('the plan is drawn on the map: a ring on the unit that holds, an arrow to its target, numbered as in the list; a line naming no objective is listed as not drawn',
           drawn.layer.length === 2 && drawn.layer[0][0] === 'hold' && drawn.layer[0][1] === gh && drawn.layer[1][0] === 'attack' && drawn.layer[1][2] === gitz && drawn.nums.join() === '1,2'
           && drawn.list.length === 3 && drawn.list[2][1] === '0' && /not drawn: no objective is called “The Moon”/.test(drawn.list[2][2]), JSON.stringify(drawn));
-        await lp.evaluate(() => window.scrollTo(0, 0));
+        // what to look at: the Board goes to the map, a line above it says the plan is drawn there
+        await lp.waitForTimeout(700);
+        const inView = (id) => lp.evaluate((id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return !!r && r.top >= 0 && r.top < innerHeight; }, id);
+        check('after Show the plan: the map is in view with a line above it saying Claude’s plan is drawn on it, 2 steps',
+          (await inView('board-plan-bar')) && (await inView('board-host')) && /Claude’s plan is drawn on the map: 2 steps/.test((await lp.textContent('#board-plan-bar')).replace(/\s+/g, ' ')) && /This is the plan you pasted\. Its steps are drawn on the map above/.test(await lp.textContent('#board-advise-here')));
         await lp.screenshot({ path: join(SHOTS, 'calc_143_plan_on_the_map.png') });
+        await lp.tap('#board-plan-read'); await lp.waitForTimeout(700);
+        check('Read the plan ↓ goes to the plan’s text', await inView('board-advise-here'));
+        await lp.locator('#board-plan-actions li').nth(1).tap(); await lp.waitForTimeout(700);
+        check('tap a step in the list: only that one stays in full on the map, the line above the map names it, the map is in view',
+          (await lp.getAttribute('#board-plan-bar', 'data-focus')) === '2' && /step 2 of 3, Grey Hunters attacks Flash Gitz/.test((await lp.textContent('#board-plan-bar')).replace(/\s+/g, ' ')) && (await lp.locator('#plan-layer [data-dim]').count()) === 1 && (await lp.locator('#board-plan-actions li.on').count()) === 1 && (await inView('board-plan-bar')));
+        await lp.tap('#board-plan-all');
+        check('Show all steps: every step in full again', (await lp.locator('#plan-layer [data-dim]').count()) === 0 && (await lp.getAttribute('#board-plan-bar', 'data-focus')) === '');
         await lp.tap('#board-plan-map');
         check('🗺 On the map off: the drawing goes, the plan and its list stay', (await lp.locator('#plan-layer').count()) === 0 && (await lp.locator('#board-plan-actions li').count()) === 3);
         await lp.tap('#board-plan-map');

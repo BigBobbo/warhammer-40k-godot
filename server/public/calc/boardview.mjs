@@ -628,13 +628,15 @@ async function askForPlan() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `The server answered ${r.status}`);
     b.advice = { key, state: 'done', text: String(j.text ?? ''), round: g.round, turn: g.turn, ms: Date.now() - t0, left: j.left, truncated: !!j.truncated };
-    b.planOnMap = true;
+    b.planOnMap = true; b.planFocus = null;
     console.log(`[board] plan received in ${b.advice.ms} ms (${b.advice.text.split(/\s+/).length} words, ${j.model})`);
   } catch (err) {
     b.advice = { key, state: 'error', error: err?.message || 'Could not get a plan', round: g.round, turn: g.turn };
     console.log(`[board] no plan: ${b.advice.error}`);
   }
-  redraw();
+  // the map too: the plan's steps are drawn on it
+  refreshBoard();
+  if (b.advice.state === 'done') planIntoView();
 }
 // ---- the same by hand, with no server and no API key: the prompt is copied, pasted into Claude (claude.ai or the
 // Claude app), and Claude's answer is pasted back here. The pasted plan is kept with the live table (lv.advice).
@@ -665,7 +667,7 @@ function pasteAnswer(fromText = null) {
     if (!lv) { b.pasteError = 'Open the Live table first: the plan is kept with it.'; refreshBoard(); return; }
     b.advice = { key: nextMemo.key, state: 'done', text, round: g.round, turn: g.turn, pasted: true };
     lv.advice = { text, round: g.round, turn: g.turn, pasted: true, sig: sigOf(nextMemo.key ?? '') };
-    b.pasteOpen = false; b.promptCopy = null; b.pasteDraft = ''; b.pasteError = null; b.planOnMap = true;
+    b.pasteOpen = false; b.promptCopy = null; b.pasteDraft = ''; b.pasteError = null; b.planOnMap = true; b.planFocus = null;
     const pd = planData();
     console.log(`[board] plan pasted in: ${text.split(/\s+/).length} words, ${pd?.actions.filter(x => x.ok).length ?? 0} of ${pd?.actions.length ?? 0} actions drawn on the map, for round ${g.round}, ${g.turn}'s turn`);
     persistBoard();
@@ -682,10 +684,30 @@ async function pasteFromClipboard() {
   try { const t = await navigator.clipboard.readText(); b.pasteDraft = t; pasteAnswer(t); }
   catch { b.pasteError = 'Your browser did not allow reading the clipboard: press and hold in the box and choose Paste.'; refreshBoard(); }
 }
-/** After a plan arrives: the plan text into view (it replaces the box that was just used). */
+/** Bring something into view if it is not (the map with the plan drawn on it; the plan's text). */
+function intoView(id, block = 'center') {
+  const el = document.getElementById(id), r = el?.getBoundingClientRect();
+  if (r && (r.top < 70 || r.bottom > (window.innerHeight || 0))) el.scrollIntoView({ block, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+/** After a plan arrives: the map when the plan is drawn on it (the bar above it says so), else the plan's text. */
 function planIntoView() {
-  const el = document.getElementById('board-advise-text'), r = el?.getBoundingClientRect();
-  if (r && (r.top < 70 || r.bottom > (window.innerHeight || 0))) el.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  const drawn = planData()?.actions.some(x => x.ok);
+  intoView(drawn ? 'board-plan-bar' : 'board-advise-text', drawn ? 'start' : 'center');
+}
+/** Above the map while a plan is drawn on it: that it is Claude's plan, the step picked, and where its text is. */
+function planBarHtml() {
+  const b = boardState(), pd = planData();
+  if (!pd || b.planOnMap === false) return '';
+  const ok = pd.actions.filter(x => x.ok);
+  if (!ok.length) return '';
+  const esc = ctx.esc, VERB = { move: 'moves to', attack: 'attacks', hold: 'holds' };
+  const f = b.planFocus != null ? pd.actions[b.planFocus] : null;
+  return `<div class="card hint-bar plan-bar" id="board-plan-bar" data-actions="${ok.length}" data-focus="${f ? b.planFocus + 1 : ''}"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="grow small"><b>🗺 Claude’s plan is drawn on the map</b>: ${f ? `step ${b.planFocus + 1} of ${pd.actions.length}, <b>${esc(f.unit)}</b> ${VERB[f.kind]} <b>${esc(f.target)}</b>.` : `${ok.length} step${ok.length === 1 ? '' : 's'}, numbered in the plan’s order.`}
+        <span class="muted">Blue dashed: a move. Red: an attack. Green ring: stays on its objective.${pd.stale ? ' <span style="color:var(--warn-ink)">The table has changed since the plan was written.</span>' : ''}</span></span>
+      ${f ? '<button class="btn ghost" data-action="board-plan-focus" data-i="-1" id="board-plan-all">Show all steps</button>' : ''}
+      <button class="btn" data-action="board-plan-read" id="board-plan-read">Read the plan ↓</button>
+      <button class="icon-btn" data-action="board-plan-map" aria-label="Take the plan off the map">✕</button></div></div>`;
 }
 
 // ---- the plan drawn on the map: Claude's ACTIONS lines (advise.parsePlan) against the units on the table
@@ -723,9 +745,15 @@ function planSvg() {
   const reach = (t) => Math.max(...t.models.map(m => Math.hypot(m.dx, m.dy) + Math.max(m.fp.r ?? 0, m.fp.rx ?? 0, m.fp.hw ?? 0)));
   const ends = new Map(pd.actions.filter(x => x.ok && x.kind === 'move' && !x.there).map(x => [x.unitKey, x]));
   const out = [];
+  const focus = b.planFocus != null && pd.actions[b.planFocus]?.ok ? b.planFocus : null;
   pd.actions.forEach((x, i) => {
     const t = x.ok ? toks.get(x.unitKey) : null;
     if (!t) return;
+    const at = out.length;
+    planOne(x, i, t);
+    if (focus != null && focus !== i && out.length > at) out[out.length - 1] = out[out.length - 1].replace('<g data-plan=', '<g opacity="0.18" data-dim="1" data-plan=');
+  });
+  function planOne(x, i, t) {
     // the action's number (as in the list under the plan): on the ring, where the move ends, or along the attack
     const badge = (bx, by) => `<g data-plan-n="${i + 1}"><circle cx="${f2(bx)}" cy="${f2(by)}" r="0.95" fill="${PLAN[x.kind]}" stroke="${C.mat}" stroke-width="0.15"/><text x="${f2(bx)}" y="${f2(by)}" font-size="1.2" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="system-ui,sans-serif">${i + 1}</text></g>`;
     if (x.kind === 'hold' || x.there) {
@@ -740,7 +768,7 @@ function planSvg() {
       const ex = z.x - (z.x - from.x) / len * back, ey = z.y - (z.y - from.y) / len * back;
       out.push(`<g data-plan="attack" data-tk="${ctx.esc(x.unitKey)}" data-target="${ctx.esc(x.targetKey)}">${arrowSvg(from.x, from.y, ex, ey, PLAN.attack, false, '')}${badge(from.x + (ex - from.x) * 0.6, from.y + (ey - from.y) * 0.6)}</g>`);
     }
-  });
+  }
   return `<g id="plan-layer" data-actions="${pd.actions.filter(x => x.ok).length}" pointer-events="none">${out.join('')}</g>`;
 }
 /** Under the plan text: what is drawn on the map, in the plan's own order, and what could not be placed. */
@@ -749,7 +777,8 @@ function planActionsHtml(pd) {
   const esc = ctx.esc, on = boardState().planOnMap !== false, VERB = { move: 'moves to', attack: 'attacks', hold: 'holds' };
   const ok = pd.actions.filter(x => x.ok).length;
   return `<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap" id="board-plan-map-row">${ctx.chip('board-plan-map', on, `🗺 On the map (${ok})`, 'id="board-plan-map"')}<span class="tiny muted">Blue dashed: a move, to where it ends. Red: an attack. Green ring: stays on its objective. Numbers follow the list.</span></div>
-    <ol class="plan-actions" id="board-plan-actions">${pd.actions.map((x) => `<li data-ok="${x.ok ? 1 : 0}" data-kind="${x.kind}" style="color:${x.ok ? 'inherit' : 'var(--text-muted)'}"><span style="color:${x.ok ? PLAN[x.kind] : 'inherit'};font-weight:600">${esc(shortName(x.unit))}</span> ${VERB[x.kind]} <b>${esc(shortName(x.target))}</b>${x.ok ? (x.kind === 'move' ? (x.there ? ' <span class="muted">(already in range)</span>' : ` <span class="muted">(${fmtIn(x.dist)}${x.far ? `: more than its ${x.M}" Move, it needs an Advance` : ''})</span>`) : '') : ` <span class="muted">— not drawn: ${esc(x.why)}</span>`}</li>`).join('')}</ol>`;
+    <div class="tiny muted" style="margin-top:4px" id="board-plan-tap">Tap a step to see only that one on the map.</div>
+    <ol class="plan-actions" id="board-plan-actions">${pd.actions.map((x, i) => `<li data-ok="${x.ok ? 1 : 0}" data-kind="${x.kind}" class="${x.ok ? 'tap' : ''} ${boardState().planFocus === i ? 'on' : ''}" ${x.ok ? `role="button" data-action="board-plan-focus" data-i="${i}"` : ''} style="color:${x.ok ? 'inherit' : 'var(--text-muted)'}"><span style="color:${x.ok ? PLAN[x.kind] : 'inherit'};font-weight:600">${esc(shortName(x.unit))}</span> ${VERB[x.kind]} <b>${esc(shortName(x.target))}</b>${x.ok ? (x.kind === 'move' ? (x.there ? ' <span class="muted">(already in range)</span>' : ` <span class="muted">(${fmtIn(x.dist)}${x.far ? `: more than its ${x.M}" Move, it needs an Advance` : ''})</span>`) : '') : ` <span class="muted">— not drawn: ${esc(x.why)}</span>`}</li>`).join('')}</ol>`;
 }
 /** The plan section of the Your turn card: copy the prompt and paste the answer (always), or ask through the server (where it is switched on). */
 function adviceHtml() {
@@ -771,7 +800,8 @@ function adviceHtml() {
   let body;
   if (b.adviseAsk && !adviseAgreed()) body = `<div class="warnbox" id="board-advise-consent"><div>${what}</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn primary" data-action="board-advise-agree" id="board-advise-agree">Send and ask</button><button class="btn ghost" data-action="board-advise-cancel">Not now</button></div></div>`;
   else if (a?.state === 'asking') body = `<div class="small muted" id="board-advise-wait">⏳ Claude is reading the table… about half a minute.</div>`;
-  else if (a?.state === 'done') body = `<div class="plan-text" id="board-advise-text" data-stale="${stale ? 1 : 0}" data-pasted="${a.pasted ? 1 : 0}">${esc(planData()?.text ?? a.text)}</div>
+  else if (a?.state === 'done') body = `<div class="small" id="board-advise-here" style="margin-bottom:6px"><b>✓ ${a.pasted ? 'This is the plan you pasted.' : 'This is Claude’s plan.'}</b> ${planData()?.actions.some(x => x.ok) ? 'Its steps are drawn on the map above, numbered; the full text is here.' : 'Read it here.'}</div>
+      <div class="plan-text" id="board-advise-text" data-stale="${stale ? 1 : 0}" data-pasted="${a.pasted ? 1 : 0}">${esc(planData()?.text ?? a.text)}</div>
       ${planActionsHtml(planData())}
       <div class="tiny ${stale ? '' : 'muted'}" id="board-advise-note" style="margin-top:4px${stale ? ';color:var(--warn-ink)' : ''}">${stale ? '⚠ The table has changed since this plan was written.' : `${a.pasted ? 'Pasted in' : 'Written'} for round ${a.round}, ${esc(a.turn)}’s turn.`}${a.truncated ? ' The answer was cut short.' : ''} A suggestion from an AI model reading the cards above: check it against the table.</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${copy(stale ? '📋 Copy a new prompt for this table' : '📋 Copy the prompt again', !api && stale)}${ask(stale ? 'Ask again for this table' : 'Ask again', stale)}<button class="btn ghost" data-action="board-advise-clear" id="board-advise-clear">Clear</button></div>${pasteBox}`;
@@ -1976,7 +2006,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -2045,7 +2075,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host">${liveBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
@@ -2510,7 +2540,7 @@ export function refreshBoard() {
   const mb = document.getElementById('board-models-host');
   if (mb) mb.innerHTML = modelsBar();
   const lb = document.getElementById('board-live-host');
-  if (lb) lb.innerHTML = liveBarHtml() + hintBarHtml();
+  if (lb) lb.innerHTML = liveBarHtml() + planBarHtml() + hintBarHtml();
   const nx = document.getElementById('board-next-host');
   if (nx) nx.innerHTML = nextTurnHtml();
   const tri = document.getElementById('board-tri');
@@ -3183,7 +3213,16 @@ export function boardAction(action, el) {
     case 'board-advise-copy': copyPrompt(); return null;
     case 'board-advise-paste': pasteAnswer(); return null;
     case 'board-advise-clip': pasteFromClipboard(); return null;
-    case 'board-plan-map': b.planOnMap = b.planOnMap === false; refreshBoard(); return null;
+    case 'board-plan-map': b.planOnMap = b.planOnMap === false; b.planFocus = null; refreshBoard(); return null;
+    case 'board-plan-focus': {
+      const i = Number(el.dataset.i);
+      b.planFocus = i < 0 || b.planFocus === i ? null : i;
+      b.planOnMap = true;
+      refreshBoard();
+      if (b.planFocus != null) intoView('board-plan-bar', 'start');
+      return null;
+    }
+    case 'board-plan-read': intoView('board-advise-here'); return null;
     case 'board-advise-paste-cancel': b.pasteOpen = false; b.promptCopy = null; b.pasteError = null; refreshBoard(); return null;
     case 'board-advise-clear': { const lv = livePlan(); b.advice = null; if (lv?.advice) { delete lv.advice; persistBoard(); } refreshBoard(); return null; }
     case 'board-hint-clear': b.hint = null; refreshBoard(); return null;

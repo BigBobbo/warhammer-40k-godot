@@ -695,3 +695,8 @@ textarea.paste { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 
 
 /* Board: the plan's actions, as drawn on the map */
 ol.plan-actions { margin: 6px 0 0; padding-left: 22px; font-size: 14px; line-height: 1.5; }
+ol.plan-actions li.tap { cursor: pointer; padding: 3px 6px; margin-left: -6px; border-radius: 6px; }
+ol.plan-actions li.tap.on { background: var(--surface-2); box-shadow: inset 3px 0 0 #f2c200; }
+.plan-bar { border-left-color: var(--accent); }
+.plan-bar .btn { min-height: 36px; padding: 0 12px; }
+.plan-bar, #board-advise-here { scroll-margin-top: 84px; }
