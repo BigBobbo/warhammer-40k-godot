@@ -4589,14 +4589,41 @@ Aggressor Squad (95 points)
         check('the prompt is on the clipboard: the instructions, both armies and the game now; nothing was sent to the server',
           clip === want && clip.startsWith('You advise a Warhammer 40,000 (11th edition) player') && /BOTH ARMIES \(the same all game\):\n\{/.test(clip) && /THE GAME NOW:\n\{/.test(clip) && /"faction":"Orks"/.test(clip) && posts.length === 0
           && /Prompt copied \([\d,]+ characters\)/.test(await lp.textContent('#board-advise-copied')) && (await lp.getAttribute('#board-advise-pastebox a', 'href')) === 'https://claude.ai/new', `${clip.length} chars`);
-        await lp.fill('#board-advise-paste', '## Plan\n**Hold** the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.');
+        // (1.143.0) Show the plan with nothing pasted says so; what is pasted stays over a redraw
+        await lp.tap('#board-advise-show');
+        check('Show the plan with an empty box: it says to paste the answer first', /Paste Claude’s answer into the box first/.test(await lp.textContent('#board-advise-paste-error')) && (await lp.locator('#board-advise-text').count()) === 0);
+        const PASTED = '## Plan\n**Hold** the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.\n\n**ACTIONS**\nHOLD | Grey Hunters | Centre\nATTACK | Grey Hunters | Flash Gitz\nMOVE | Grey Hunters | The Moon';
+        await lp.fill('#board-advise-paste', PASTED);
+        await lp.locator(`button[data-action="board-pick"][data-tk="${gh}"]`).first().tap();
+        check('the Board redraws (a unit tapped) while the answer is in the box: the pasted text is still there', (await lp.inputValue('#board-advise-paste')) === PASTED);
         await lp.locator('#board-advise-pastebox').scrollIntoViewIfNeeded();
         await lp.screenshot({ path: join(SHOTS, 'calc_142_copy_prompt_paste_answer.png') });
         await lp.tap('#board-advise-show');
         await lp.waitForSelector('#board-advise-text');
         check('paste the answer, Show the plan: shown without the chat markdown, marked as pasted in for this round and turn, kept with the live table',
-          (await lp.textContent('#board-advise-text')) === 'Plan\nHold the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.' && (await lp.getAttribute('#board-advise-text', 'data-pasted')) === '1'
+          (await lp.textContent('#board-advise-text')) === 'Plan\nHold the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.' && (await lp.getAttribute('#board-advise-text', 'data-pasted')) === '1' && (await lp.locator('#board-advise-paste-error').count()) === 0
           && /Pasted in for round 2, A’s turn/.test(await lp.textContent('#board-advise-note')) && (await lp.evaluate(() => window.__calc.board().next.advise.kept?.text ?? '')).startsWith('Plan\nHold') && posts.length === 0);
+        // (1.143.0) the plan's ACTIONS lines drawn on the map
+        const drawn = await lp.evaluate(() => ({ layer: [...document.querySelectorAll('#plan-layer [data-plan]')].map(e => [e.dataset.plan, e.dataset.tk, e.dataset.target ?? '']), nums: [...document.querySelectorAll('#plan-layer [data-plan-n]')].map(e => e.dataset.planN), list: [...document.querySelectorAll('#board-plan-actions li')].map(e => [e.dataset.kind, e.dataset.ok, e.textContent.replace(/\s+/g, ' ').trim()]) }));
+        check('the plan is drawn on the map: a ring on the unit that holds, an arrow to its target, numbered as in the list; a line naming no objective is listed as not drawn',
+          drawn.layer.length === 2 && drawn.layer[0][0] === 'hold' && drawn.layer[0][1] === gh && drawn.layer[1][0] === 'attack' && drawn.layer[1][2] === gitz && drawn.nums.join() === '1,2'
+          && drawn.list.length === 3 && drawn.list[2][1] === '0' && /not drawn: no objective is called “The Moon”/.test(drawn.list[2][2]), JSON.stringify(drawn));
+        // what to look at: the Board goes to the map, a line above it says the plan is drawn there
+        await lp.waitForTimeout(700);
+        const inView = (id) => lp.evaluate((id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return !!r && r.top >= 0 && r.top < innerHeight; }, id);
+        check('after Show the plan: the map is in view with a line above it saying Claude’s plan is drawn on it, 2 steps',
+          (await inView('board-plan-bar')) && (await inView('board-host')) && /Claude’s plan is drawn on the map: 2 steps/.test((await lp.textContent('#board-plan-bar')).replace(/\s+/g, ' ')) && /This is the plan you pasted\. Its steps are drawn on the map above/.test(await lp.textContent('#board-advise-here')));
+        await lp.screenshot({ path: join(SHOTS, 'calc_143_plan_on_the_map.png') });
+        await lp.tap('#board-plan-read'); await lp.waitForTimeout(700);
+        check('Read the plan ↓ goes to the plan’s text', await inView('board-advise-here'));
+        await lp.locator('#board-plan-actions li').nth(1).tap(); await lp.waitForTimeout(700);
+        check('tap a step in the list: only that one stays in full on the map, the line above the map names it, the map is in view',
+          (await lp.getAttribute('#board-plan-bar', 'data-focus')) === '2' && /step 2 of 3, Grey Hunters attacks Flash Gitz/.test((await lp.textContent('#board-plan-bar')).replace(/\s+/g, ' ')) && (await lp.locator('#plan-layer [data-dim]').count()) === 1 && (await lp.locator('#board-plan-actions li.on').count()) === 1 && (await inView('board-plan-bar')));
+        await lp.tap('#board-plan-all');
+        check('Show all steps: every step in full again', (await lp.locator('#plan-layer [data-dim]').count()) === 0 && (await lp.getAttribute('#board-plan-bar', 'data-focus')) === '');
+        await lp.tap('#board-plan-map');
+        check('🗺 On the map off: the drawing goes, the plan and its list stay', (await lp.locator('#plan-layer').count()) === 0 && (await lp.locator('#board-plan-actions li').count()) === 3);
+        await lp.tap('#board-plan-map');
         await lp.reload(); await lp.waitForSelector('#board-advise-text');
         check('the pasted plan is still there after a reload', /^Plan\nHold the centre/.test(await lp.textContent('#board-advise-text')) && (await lp.getAttribute('#board-advise-text', 'data-stale')) === '0');
         await weighed();

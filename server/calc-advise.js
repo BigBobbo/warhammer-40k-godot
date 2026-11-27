@@ -30,9 +30,14 @@ Answer for someone standing at the table with models in hand. Plain text only: n
 1. The plan for this turn in two or three sentences.
 2. Up to four actions, most important first, each one line: the unit, what it does, and the reason in a clause.
 3. Stratagems worth using this turn (at most two), or "none".
-4. The one thing most likely to go wrong, and what to do if it does.`;
+4. The one thing most likely to go wrong, and what to do if it does.
+After the plan, on new lines, write the single word ACTIONS and then one line per action so the app can draw your plan on the map. These lines do not count towards the word limit. Use these three forms only, with unit and objective names copied exactly from the data (the unit "name" fields and the objective "name" fields):
+MOVE | unit | objective
+ATTACK | unit | enemy unit
+HOLD | unit | objective
+At most eight lines. Leave out any action that does not fit one of the forms.`;
 
-const MOCK_TEXT = 'Plan: hold what you have and take the nearest open objective.\n\n1. Your nearest unit: move onto the open objective, because it scores this round.\n2. Your best shooting unit: shoot the target the app rates highest.\n\nStratagems: none.\n\nRisk: the charge fails. If it does, stay on the objective.';
+const MOCK_TEXT = 'Plan: hold what you have and take the nearest open objective.\n\n1. Your nearest unit: move onto the open objective, because it scores this round.\n2. Your best shooting unit: shoot the target the app rates highest.\n\nStratagems: none.\n\nRisk: the charge fails. If it does, stay on the objective.\n\nACTIONS\nHOLD | Grey Hunters | Centre';
 
 /** Is the feature switched on (a key is configured, or the test mock)? */
 function enabled() { return MOCK || !!process.env.ANTHROPIC_API_KEY; }
