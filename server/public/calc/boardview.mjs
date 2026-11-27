@@ -56,8 +56,14 @@ export function initBoard(c) {
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
   ctx.registerHost?.('board-treemap-host', treeMapHtml);
   ctx.registerHost?.('board-next-host', nextTurnHtml);
-  // "Ask for a plan": is it switched on for this server? (off without an API key on the server)
-  if (typeof fetch === 'function') fetch('/api/calc-advise').then(r => (r.ok ? r.json() : null)).then((j) => { adviseInfo = j && j.enabled ? j : { enabled: false }; console.log(`[board] plans from Claude: ${adviseInfo.enabled ? `on (${adviseInfo.model}, ${adviseInfo.effort} effort, ${adviseInfo.perDay} a day)` : 'off on this server'}`); if (adviseInfo.enabled) ctx.rerender?.(); }).catch(() => { adviseInfo = { enabled: false }; });
+  // "Ask for a plan": is it switched on for this server? (off without an API key on the server). Not asked while
+  // offline - a request that cannot leave the device is logged by the browser as an error - but once back online.
+  const askAdvise = () => {
+    if (adviseInfo?.enabled || typeof fetch !== 'function' || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+    fetch('/api/calc-advise').then(r => (r.ok ? r.json() : null)).then((j) => { adviseInfo = j && j.enabled ? j : { enabled: false }; console.log(`[board] plans from Claude: ${adviseInfo.enabled ? `on (${adviseInfo.model}, ${adviseInfo.effort} effort, ${adviseInfo.perDay} a day)` : 'off on this server'}`); if (adviseInfo.enabled) ctx.rerender?.(); }).catch(() => { adviseInfo = { enabled: false }; });
+  };
+  askAdvise();
+  if (typeof window !== 'undefined') window.addEventListener('online', askAdvise);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
@@ -600,6 +606,7 @@ async function askForPlan() {
   const b = boardState(), key = nextMemo.key, g = gameNow();
   const req = adviseRequest();
   if (!req) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) { b.advice = { key, state: 'error', error: 'you are offline, and a plan needs a connection', round: g.round, turn: g.turn }; refreshBoard(); return; }
   const size = payloadSize(req), t0 = Date.now();
   b.advice = { key, state: 'asking', round: g.round, turn: g.turn };
   console.log(`[board] asking for a plan: ${size.static} + ${size.dynamic} characters`);
