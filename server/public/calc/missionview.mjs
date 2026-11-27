@@ -305,7 +305,8 @@ export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms();
 /** The game on the tracker as the Board's live table needs it: the round, whose turn, the phase, each player's hand. */
 export function missionNow() {
   const g = ms().game;
-  return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] } };
+  return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] },
+    cp: { A: g.A.cp ?? 0, B: g.B.cp ?? 0 }, vp: { A: totalVp('A'), B: totalVp('B') } };
 }
 /**
  * Weigh moves with the forecast (the Board's "Your turn"): the rest of the game from the tracker's state, once

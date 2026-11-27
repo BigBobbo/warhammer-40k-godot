@@ -434,6 +434,8 @@ async function handleHTTPRequest(req, res) {
         return handleGames(req, res, param, parts[3]);
       case 'calc-transfer':
         return handleCalcTransfer(req, res, param);
+      case 'calc-advise':
+        return handleCalcAdvise(req, res);
       default:
         sendError(res, 404, 'Not found');
     }
@@ -477,6 +479,22 @@ function calcLimited(req, kind, max) {
   let e = calcHits.get(key);
   if (!e || now - e.t > 10 * 60 * 1000) { e = { n: 0, t: now }; calcHits.set(key, e); }
   return ++e.n > max;
+}
+
+// Combat Calc "Ask for a plan" (calc-advise.js): GET says whether it is switched on; POST { static, dynamic }
+// returns { text }. Limited per client address and per day; the request itself is never logged.
+const calcAdvise = require('./calc-advise');
+async function handleCalcAdvise(req, res) {
+  if (req.method === 'GET') return sendJSON(res, 200, calcAdvise.status());
+  if (req.method !== 'POST') return sendError(res, 405, 'Method not allowed');
+  if (!calcAdvise.enabled()) return sendError(res, 503, 'Plans are not switched on for this server');
+  if (calcLimited(req, 'advise', 6)) return sendError(res, 429, 'Too many plans in a few minutes: wait a little');
+  let body;
+  try { body = await parseBody(req); } catch (err) { return sendError(res, /too large/i.test(err.message) ? 413 : 400, /too large/i.test(err.message) ? 'The plan request is too large' : 'Invalid request'); }
+  const ip = req.headers['fly-client-ip'] || req.socket.remoteAddress || '?';
+  const r = await calcAdvise.advise(body, String(ip));
+  if (!r.ok) return sendError(res, r.status, r.error);
+  return sendJSON(res, 200, { text: r.text, model: r.model, ms: r.ms, left: r.left, truncated: !!r.truncated });
 }
 
 async function handleCalcTransfer(req, res, code) {

@@ -35,7 +35,8 @@ function check(label, cond, detail = '') {
 }
 
 const server = spawn(process.execPath, [join(here, '..', 'relay-server.js')], {
-  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db') },
+  // (CALC_ADVISE_MOCK: "Ask for a plan" answers with a fixed text, no API call)
+  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
@@ -4569,6 +4570,35 @@ Aggressor Squad (95 points)
         check('tap one of my units under Their next turn: an arrow from each enemy unit that can reach it', th.h.kind === 'their-unit' && th.hits >= 1, JSON.stringify(th));
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
+      }
+      // (1.140.0) Ask Claude for a plan: told what is sent and asked once, then the plan under the cards; marked when the table changes
+      {
+        const adv = () => lp.evaluate(() => { const a = window.__calc.board().next.advise; return { info: a.info, state: a.state, text: a.text, agreed: a.agreed, size: a.size }; });
+        const a0 = await adv();
+        check('Ask for a plan: on because the server says so; the request is built from the cards (armies apart from the game)', a0.info?.enabled === true && a0.state == null && a0.size.static > 2000 && a0.size.dynamic > 1000 && a0.size.static < 80000 && a0.size.dynamic < 40000 && (await lp.locator('#board-advise').count()) === 1, JSON.stringify(a0));
+        const sent = [];
+        lp.on('request', (r) => { if (r.url().endsWith('/api/calc-advise') && r.method() === 'POST') sent.push(r.postDataJSON()); });
+        await lp.tap('#board-advise');
+        check('the first tap sends nothing: it says what would be sent and asks', sent.length === 0 && (await lp.locator('#board-advise-consent').count()) === 1 && /Both army lists and the units on this table are sent to Anthropic/.test(await lp.textContent('#board-advise-consent')));
+        await lp.locator('button[data-action="board-advise-cancel"]').tap();
+        check('Not now: nothing sent, the button is back', sent.length === 0 && (await lp.locator('#board-advise-consent').count()) === 0 && (await lp.locator('#board-advise').count()) === 1);
+        await lp.tap('#board-advise'); await lp.tap('#board-advise-agree');
+        await lp.waitForSelector('#board-advise-text');
+        const a1 = await adv();
+        check('Send and ask: one request with both armies and the game; the plan is shown with the round and turn it was written for',
+          sent.length === 1 && sent[0].static?.me?.units?.length >= 2 && sent[0].static.them.faction === 'Orks' && sent[0].dynamic?.game?.round === 2 && Array.isArray(sent[0].dynamic.computed?.myUnitSuggestions)
+          && a1.state === 'done' && /^Plan: /.test(a1.text) && /Written for round 2, A’s turn/.test(await lp.textContent('#board-advise-note')) && (await lp.getAttribute('#board-advise-text', 'data-stale')) === '0', JSON.stringify({ n: sent.length, a1 }).slice(0, 400));
+        await lp.locator('#board-advise-text').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_141_plan_from_claude.png') });
+        await moveTo(gh, 22, 21);
+        await weighed();
+        await lp.waitForSelector('#board-advise-text[data-stale="1"]');
+        check('a unit moves: the plan stays but is marked as written for another table', /The table has changed since this plan was written/.test(await lp.textContent('#board-advise-note')));
+        await lp.tap('#board-advise');
+        await lp.waitForSelector('#board-advise-text[data-stale="0"]');
+        check('Ask again: asked at once this time (already agreed), a second request', sent.length === 2 && (await lp.locator('#board-advise-consent').count()) === 0);
+        await moveTo(gh, 22, 20);
+        await weighed();
       }
       await lp.locator('#board-my').scrollIntoViewIfNeeded();
       await lp.screenshot({ path: join(SHOTS, 'calc_138_moves_by_forecast.png'), fullPage: true });

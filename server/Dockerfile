@@ -8,7 +8,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --production
 RUN apk del python3 make g++
 
-COPY relay-server.js ./
+COPY relay-server.js calc-advise.js ./
 COPY public/ ./public/
 
 RUN mkdir -p /data

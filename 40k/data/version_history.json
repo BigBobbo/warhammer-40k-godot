@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.140.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: ask Claude for a plan on the Your turn card (only where the server has it switched on)",
+      "changes": [
+        "Board, Live table, Your turn: a new Ask Claude for a plan button, shown only when the server has been given an API key",
+        "An AI model reads what the cards worked out, plus the stratagem and ability text of both armies, and writes a short plan: what to do this turn, which stratagems are worth their CP, and what is most likely to go wrong",
+        "The model does no measuring or dice itself: it works from the cards' own numbers and is told to say when a number looks optimistic",
+        "The first time, you are told what is sent (both lists and the units on the table) and asked before anything leaves your device",
+        "The plan says which round and turn it was written for, and is marked when the table has changed since",
+        "A daily limit applies per player; the answer takes about half a minute"
+      ]
+    },
+    {
       "version": "1.139.0",
       "date": "2026-11-26",
       "summary": "Combat Calc: tap a suggestion to see it on the map, with the move and the attack drawn",
