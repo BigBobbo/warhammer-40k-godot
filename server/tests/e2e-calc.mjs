@@ -4603,6 +4603,10 @@ Aggressor Squad (95 points)
         check('the game is played to the end of round 5, turn by turn, both players moving', pl.rounds.at(-1) === 5 && pl.rounds[0] === pl.from && pl.turns.length >= pl.rounds.length && ['A', 'B'].every(X => pl.turns.some(t => t.endsWith(X))) && pl.moved >= 2, JSON.stringify(pl));
         const line = await lp.textContent('#board-playout');
         check('the card gives its win chance and average score, and the usual forecast beside it', /Played out to the end of the game: you win \d+% of games, \d+ – \d+ VP on average/.test(line) && /forecast of the table as it stands says \d+%/.test(line) && pl.win >= 0 && pl.win <= 1, line.slice(0, 260));
+        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
+        check('a row per battle round still to play: the score after it, how often I am ahead, units left; scores only grow and round 5 is the final score',
+          rws.length === pl.rounds.length && rws.every((x, i) => x.r === pl.rounds[i] && (i === 0 || (x.me >= rws[i - 1].me - 1e-6 && x.opp >= rws[i - 1].opp - 1e-6)) && x.ahead >= 0 && x.ahead <= 1)
+          && Math.abs(rws.at(-1).me - pl.vp.me) < 0.06 && Math.abs(rws.at(-1).opp - pl.vp.opp) < 0.06 && /Units left/.test(await lp.textContent('#board-playout-rounds')), JSON.stringify(rws));
         check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
         check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /straight line/.test(await lp.textContent('#board-playout-how')));
         await lp.tap('#board-playout-log-btn');

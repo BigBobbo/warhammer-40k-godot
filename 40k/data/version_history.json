@@ -9,6 +9,7 @@
         "Board, Your turn: a new Play the game out button. From the table as it stands, both players do what the turn cards suggest, turn after turn to the end of round 5, and the mission forecast scores that game",
         "It is shown next to the usual forecast, which is unchanged: you see both win chances, and a note when they disagree by a lot",
         "Show who did what lists every unit's action in each player turn",
+        "A table shows the predicted outcome after each battle round: the score, how often you are ahead, the units left, and the usual forecast beside it",
         "See it on the board puts the played-out game on the map as a plan of its own, a step per battle round; the live table is not touched",
         "The moves follow one simple rule (take or hold objectives, charge or shoot the best target, else walk to an objective nobody holds): no planning ahead, straight-line moves, no Advances"
       ]

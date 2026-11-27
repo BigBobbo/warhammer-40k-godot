@@ -484,6 +484,11 @@ function runPlayOut() {
     if (playMemo.key !== key || playMemo.state !== 'pending') return;
     const out = r?.variants?.playout;
     if (!out) { playMemo = { key, state: 'failed' }; console.log('[board] play-out: no forecast came back (another one was started, or the mission is not set up)'); redraw(); return; }
+    // the score after each battle round still to play: the final average less what is scored after that round
+    const after = (res, X, rd) => { let v = res[X]?.mean ?? 0; if (rd < 5) v -= res[X]?.primEnd ?? 0; for (let k = rd; k < 5; k++) v -= (res[X]?.prim?.[k] ?? 0) + (res[X]?.sec?.[k] ?? 0); return v; };
+    const perRound = (res) => po.steps.map(st => ({ round: st.round, me: after(res, me, st.round), opp: after(res, opp, st.round), ahead: res.lead?.[st.round - 1]?.[me] ?? null, behind: res.lead?.[st.round - 1]?.[opp] ?? null,
+      left: { me: res[me]?.unitsLeft?.[st.round - 1] ?? null, opp: res[opp]?.unitsLeft?.[st.round - 1] ?? null } }));
+    playMemo = { ...playMemo, rounds: perRound(out), baseRounds: perRound(r.base) };
     playMemo = { ...playMemo, state: 'done', base: worthOf(r.base, me), out: worthOf(out, me), vp: { me: out[me]?.mean ?? 0, opp: out[opp]?.mean ?? 0 }, baseVp: { me: r.base[me]?.mean ?? 0, opp: r.base[opp]?.mean ?? 0 } };
     console.log(`[board] play-out scored by the forecast: ${me} wins ${Math.round(playMemo.out.win * 100)}% (${playMemo.vp.me.toFixed(1)} - ${playMemo.vp.opp.toFixed(1)} VP); the usual forecast of the table as it stands: ${Math.round(playMemo.base.win * 100)}% (${playMemo.baseVp.me.toFixed(1)} - ${playMemo.baseVp.opp.toFixed(1)} VP)`);
     redraw();
@@ -528,7 +533,11 @@ function playOutHtml(d) {
     <span class="muted">The forecast of the table as it stands says ${pct(pm.base.win)} (${pm.baseVp.me.toFixed(0)} – ${pm.baseVp.opp.toFixed(0)} VP)${Math.abs(dv) >= 0.1 ? `: the two disagree by ${Math.round(Math.abs(dv) * 100)} points, so treat both as rough` : ''}.</span>
     <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" data-action="board-playout-plan" id="board-playout-plan">🗺 See it on the board, turn by turn</button>
       <button class="chip" data-action="board-playout-log" id="board-playout-log-btn" aria-expanded="${open}">${open ? 'Hide' : 'Show'} who did what</button>
-      <button class="chip" data-action="board-playout" id="board-playout-again">↻ Again</button></div>${logHtml}
+      <button class="chip" data-action="board-playout" id="board-playout-again">↻ Again</button></div>
+    <table class="tiny" id="board-playout-rounds" style="margin-top:8px;border-collapse:collapse;width:100%"><thead><tr class="muted" style="text-align:left"><th style="font-weight:400;padding:2px 8px 2px 0">After round</th><th style="font-weight:400;padding:2px 8px">Score, you – them</th><th style="font-weight:400;padding:2px 8px">You are ahead</th><th style="font-weight:400;padding:2px 8px">Units left</th><th style="font-weight:400;padding:2px 0 2px 8px">Usual forecast</th></tr></thead><tbody>
+      ${pm.rounds.map((x, i) => { const bs = pm.baseRounds[i]; return `<tr data-round="${x.round}" data-me="${x.me.toFixed(1)}" data-opp="${x.opp.toFixed(1)}" data-ahead="${(x.ahead ?? 0).toFixed(3)}" style="border-top:1px solid var(--line, #ddd)"><td style="padding:3px 8px 3px 0"><b>${x.round}</b></td><td style="padding:3px 8px"><b>${x.me.toFixed(0)} – ${x.opp.toFixed(0)}</b></td><td style="padding:3px 8px">${x.ahead == null ? '' : `${pct(x.ahead)} of games`}</td><td style="padding:3px 8px">${x.left.me == null ? '' : `${x.left.me.toFixed(1)} – ${x.left.opp.toFixed(1)}`}</td><td class="muted" style="padding:3px 0 3px 8px">${bs.me.toFixed(0)} – ${bs.opp.toFixed(0)}${bs.ahead == null ? '' : ` · ${pct(bs.ahead)}`}</td></tr>`; }).join('')}
+    </tbody></table>
+    <div class="tiny muted" style="margin-top:4px">Averages over the 1,500 games, at the end of each battle round (the forecast scores by round, not by player turn). Round 5 includes the end-of-battle points.</div>${logHtml}
     <div class="tiny muted" style="margin-top:6px" id="board-playout-how">Here ${what}; the mission forecast then scores that game 1,500 times (dice, cards, units destroyed). The moves follow one simple rule: nobody plans ahead, a move is a straight line, nobody Advances, units destroyed on the way do not change where the others walk, and cards count for this round only.</div></div>`;
 }
 function nextTurnData(compute = true) {
