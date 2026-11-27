@@ -532,7 +532,8 @@ export function myTurn(c) {
  * just far enough for a model to be in range), and - for a unit likely to be destroyed where it stands - a
  * normal move back towards my home objective.
  * swing: myTurn().swing (its movers are my units). -> [{ key: `${unitKey}>${what}`, unit, name, kind: 'obj' | 'back',
- *   obj (id), label, x, y (the unit's centre after the move), dist }], at most `max` (nearest objectives first)
+ *   obj (id), label, x, y (the unit's centre after the move), dist, hosted (the objective is in a terrain area:
+ *   a base in that area is in range) }], at most `max` (nearest objectives first)
  */
 export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, max = 24 } = {}) {
   const out = [];
@@ -549,7 +550,7 @@ export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, ma
       const step = Math.min(M, d + 0.75);
       const x = u.x + (o.x - (u.x + near.m.dx)) / len * step, y = u.y + (o.y - (u.y + near.m.dy)) / len * step;
       if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;     // the straight line does not get it in range
-      out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step });
+      out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step, hosted: (o.host ?? []).length > 0 });
     }
     if (home && (risk[u.key] ?? 0) >= 0.25) {
       const len = Math.hypot(home.x - u.x, home.y - u.y);

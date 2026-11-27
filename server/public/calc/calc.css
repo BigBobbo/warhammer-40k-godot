@@ -678,3 +678,9 @@ div.tri-unit { cursor: default; }
 .verd.warn { color: var(--warn-ink); }
 .verd.ok { color: #2e9e5b; }
 .verd.them { color: var(--text-muted); }
+
+/* Board: a suggestion row is a tap target; the one shown on the map is marked */
+.next-unit.tap, .next-obj.tap { cursor: pointer; padding-left: 6px; padding-right: 6px; margin: 0 -6px; border-radius: 6px; }
+.next-unit.tap:focus-visible, .next-obj.tap:focus-visible { outline: 2px solid var(--accent); }
+.next-unit.tap.on, .next-obj.tap.on { background: var(--surface-2); box-shadow: inset 3px 0 0 #f2c200; }
+.hint-bar { padding: 8px 10px; margin-top: 6px; border-left: 3px solid #f2c200; }

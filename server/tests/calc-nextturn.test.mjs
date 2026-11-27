@@ -232,3 +232,14 @@ test('moves made together: one that adds nothing on top of the others is dropped
   assert.deepEqual(k.moves.map(x => x.key), ['u1>c', 'u3>e1'], 'the second unit onto the same objective adds 0.5 VP');
   assert.ok(Math.abs(k.vp - 17) < 1e-9 && k.win === 0.8);
 });
+
+test('a move candidate says whether the objective is in a terrain area (a base in that area is in range)', () => {
+  const mine = [unit('A:mid', 22, 22, 5)];
+  const open = N.moveCandidates(mine, N.objectiveSwing([], mine, OBJS, [], { me: 'B' }), []);
+  assert.equal(open.find(x => x.obj === 'c').hosted, false);
+  const area = { id: 't1', cls: 'area', poly: [[17, 26], [27, 26], [27, 34], [17, 34]] };
+  const objs = OBJS.map(o => (o.id === 'c' ? { ...o, host: ['t1'] } : o));
+  const c = N.moveCandidates(mine, N.objectiveSwing([], mine, objs, [area], { me: 'B' }), [area]).find(x => x.obj === 'c');
+  assert.equal(c.hosted, true);
+  assert.ok(c.dist < 5, `the edge of the area is nearer than the marker: ${c.dist}`);
+});

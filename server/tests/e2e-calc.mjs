@@ -4546,8 +4546,30 @@ Aggressor Squad (95 points)
       const ghMove = mvs.kept.moves.find(x => x.unit === gh);
       check('forecast, battle round 2: moving the Grey Hunters onto an objective in reach beats standing still by 3+ VP and is the suggestion on their row',
         ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 3 && mvs.kept.vp > mvs.base.vp + 3
-        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move onto ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
+        && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move [\\d¼½¾]+" (into|to) ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
       check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round/.test(await lp.textContent('#board-my-moves')));
+      // (1.139.0) tap the suggestion: the unit ringed on the map, the move as a dashed arrow to dashed bases, the attack as an arrow
+      if (ghMove) {
+        await lp.locator(`#board-my-units [data-unit="${gh}"]`).tap();
+        const hint = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, text: window.__calc.board().next.hintText, sel: window.__calc.board().sel, layer: [...document.querySelectorAll('#hint-layer [data-hint]')].map(e => e.dataset.hint),
+          ghost: document.querySelector('#hint-layer [data-hint="ghost"]')?.getAttribute('transform'), ringTk: document.querySelector('#hint-layer [data-hint="ring"]')?.dataset.tk }));
+        const at = /translate\(([\d.-]+),([\d.-]+)\)/.exec(hint.ghost ?? '');
+        check('tap a suggestion: that unit is selected and ringed on the map, its move drawn as a dashed arrow to dashed bases where it would end, its attack as an arrow',
+          hint.h?.kind === 'my-unit' && hint.h.tk === gh && hint.sel === gh && hint.ringTk === gh && hint.layer.includes('ghost') && hint.layer.includes('move') && hint.layer.includes('hit')
+          && at && Math.abs(Number(at[1]) - ghMove.x) < 0.02 && Math.abs(Number(at[2]) - ghMove.y) < 0.02 && (await lp.locator(`#board-my-units [data-unit="${gh}"].on`).count()) === 1, JSON.stringify(hint));
+        check('a line above the map says it in full names, with the distance and what counts as in range', /Grey Hunters: move [\d¼½¾]+" into the terrain area of /.test(hint.text) && /counts as in range/.test(await lp.textContent('#board-hint-bar')), hint.text);
+        await lp.evaluate(() => window.scrollTo(0, 0));
+        await lp.screenshot({ path: join(SHOTS, 'calc_140_suggestion_on_map.png') });
+        // a target: everything sent at it points to it; one of my units under Their next turn: who can reach it
+        await lp.locator('#board-my-kills .next-obj').first().tap();
+        const kh = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, hits: document.querySelectorAll('#hint-layer [data-hint="hit"]').length, by: window.__calc.board().next.my.kills[0].by.length }));
+        check('tap a target: an arrow from each unit sent at it', kh.h.kind === 'my-kill' && kh.hits === kh.by && kh.hits >= 1, JSON.stringify(kh));
+        await lp.locator('#board-next-units .next-unit').first().tap();
+        const th = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, hits: document.querySelectorAll('#hint-layer [data-hint="hit"]').length }));
+        check('tap one of my units under Their next turn: an arrow from each enemy unit that can reach it', th.h.kind === 'their-unit' && th.hits >= 1, JSON.stringify(th));
+        await lp.tap('#board-hint-clear');
+        check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
+      }
       await lp.locator('#board-my').scrollIntoViewIfNeeded();
       await lp.screenshot({ path: join(SHOTS, 'calc_138_moves_by_forecast.png'), fullPage: true });
       if (ghMove) {

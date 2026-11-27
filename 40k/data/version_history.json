@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.139.0",
+      "date": "2026-11-26",
+      "summary": "Combat Calc: tap a suggestion to see it on the map, with the move and the attack drawn",
+      "changes": [
+        "Board, Live table: tap a row of Your turn or Their next turn and that unit is selected and ringed in yellow on the map",
+        "A suggested move is drawn as a dashed blue arrow to dashed bases where the unit would end, with the distance; the attack as a red arrow to its target with the odds",
+        "Tap a target and every unit sent at it points to it; tap one of your units under Their next turn and every enemy unit that can reach it points to it",
+        "A line above the map says what is shown, with the units' full names; ✕ or a second tap clears it",
+        "A move suggestion now says how far and what counts: e.g. Move 8½\" into Centre, a base in the terrain area the objective is in counts as in range",
+        "Two units of the same datasheet keep their (1) and (2) when a long name is cut short, on the map and in the cards"
+      ]
+    },
+    {
       "version": "1.138.0",
       "date": "2026-11-26",
       "summary": "Combat Calc: the Your turn forecast no longer assumes the table stays frozen for the rest of the game",
