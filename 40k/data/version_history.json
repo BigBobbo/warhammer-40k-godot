@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.142.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: copy a prompt for Claude and paste its plan back, with your own Claude plan and no API key",
+      "changes": [
+        "Board, Live table, Your turn: 📋 Copy prompt for Claude copies everything the cards worked out, plus both armies' stratagem and ability text, as one prompt",
+        "Paste it into a new chat with Claude (claude.ai or the Claude app, on your own plan), then paste Claude's answer into the box under the button and tap Show the plan",
+        "The pasted plan is kept with the live table: it is still there after closing the app, and it is marked when the table has changed since",
+        "Nothing is sent by the app itself: this works on any server and offline up to the moment you paste into Claude",
+        "Where a server has the direct route switched on, Ask Claude directly is still there next to it"
+      ]
+    },
+    {
       "version": "1.141.0",
       "date": "2026-11-27",
       "summary": "Combat Calc: a suggested move now says how exposed the unit is where the move ends",

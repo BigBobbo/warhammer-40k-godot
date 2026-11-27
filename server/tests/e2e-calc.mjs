@@ -4575,6 +4575,35 @@ Aggressor Squad (95 points)
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
       }
+      // (1.142.0) by hand, with no API key: copy the prompt, paste it into Claude, paste the answer back
+      {
+        await lctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+        const posts = [];
+        const onReq = (r) => { if (r.url().endsWith('/api/calc-advise') && r.method() === 'POST') posts.push(1); };
+        lp.on('request', onReq);
+        check('Plan from Claude: 📋 Copy prompt for Claude is there next to the direct route', (await lp.locator('#board-advise-copy').count()) === 1 && /Copy prompt for Claude/.test(await lp.textContent('#board-advise-copy')));
+        await lp.tap('#board-advise-copy');
+        await lp.waitForSelector('#board-advise-pastebox');
+        const clip = await lp.evaluate(() => navigator.clipboard.readText());
+        const want = await lp.evaluate(() => window.__calc.board().next.advise.prompt());
+        check('the prompt is on the clipboard: the instructions, both armies and the game now; nothing was sent to the server',
+          clip === want && clip.startsWith('You advise a Warhammer 40,000 (11th edition) player') && /BOTH ARMIES \(the same all game\):\n\{/.test(clip) && /THE GAME NOW:\n\{/.test(clip) && /"faction":"Orks"/.test(clip) && posts.length === 0
+          && /Prompt copied \([\d,]+ characters\)/.test(await lp.textContent('#board-advise-copied')) && (await lp.getAttribute('#board-advise-pastebox a', 'href')) === 'https://claude.ai/new', `${clip.length} chars`);
+        await lp.fill('#board-advise-paste', '## Plan\n**Hold** the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.');
+        await lp.locator('#board-advise-pastebox').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_142_copy_prompt_paste_answer.png') });
+        await lp.tap('#board-advise-show');
+        await lp.waitForSelector('#board-advise-text');
+        check('paste the answer, Show the plan: shown without the chat markdown, marked as pasted in for this round and turn, kept with the live table',
+          (await lp.textContent('#board-advise-text')) === 'Plan\nHold the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.' && (await lp.getAttribute('#board-advise-text', 'data-pasted')) === '1'
+          && /Pasted in for round 2, A’s turn/.test(await lp.textContent('#board-advise-note')) && (await lp.evaluate(() => window.__calc.board().next.advise.kept?.text ?? '')).startsWith('Plan\nHold') && posts.length === 0);
+        await lp.reload(); await lp.waitForSelector('#board-advise-text');
+        check('the pasted plan is still there after a reload', /^Plan\nHold the centre/.test(await lp.textContent('#board-advise-text')) && (await lp.getAttribute('#board-advise-text', 'data-stale')) === '0');
+        await weighed();
+        await lp.tap('#board-advise-clear');
+        check('Clear takes the plan away (from the live table too)', (await lp.locator('#board-advise-text').count()) === 0 && (await lp.evaluate(() => window.__calc.board().next.advise.kept)) === null && (await lp.locator('#board-advise-copy').count()) === 1);
+        lp.off('request', onReq);
+      }
       // (1.140.0) Ask Claude for a plan: told what is sent and asked once, then the plan under the cards; marked when the table changes
       {
         const adv = () => lp.evaluate(() => { const a = window.__calc.board().next.advise; return { info: a.info, state: a.state, text: a.text, agreed: a.agreed, size: a.size }; });

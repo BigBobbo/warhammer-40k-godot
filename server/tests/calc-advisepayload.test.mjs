@@ -64,3 +64,20 @@ test('the server takes it: it passes the server\'s own check and stays far under
   const size = P.payloadSize(p);
   assert.ok(size.static < 80000 && size.dynamic < 40000, JSON.stringify(size));
 });
+
+test('the prompt to paste into Claude by hand: the same instructions the server sends, then the armies, then the game', () => {
+  const A = require('../calc-advise.js');
+  assert.equal(P.ADVISE_INSTRUCTIONS, A.SYSTEM, 'one text for both routes');
+  const p = P.advisePayload(IN), t = P.promptText(p);
+  assert.ok(t.startsWith(A.SYSTEM));
+  const a = t.indexOf('BOTH ARMIES (the same all game):'), g = t.indexOf('THE GAME NOW:');
+  assert.ok(a > 0 && g > a);
+  assert.deepEqual(JSON.parse(t.slice(a + 'BOTH ARMIES (the same all game):'.length, g)), JSON.parse(JSON.stringify(p.static)));
+  assert.deepEqual(JSON.parse(t.slice(g + 'THE GAME NOW:'.length)), JSON.parse(JSON.stringify(p.dynamic)));
+});
+
+test('an answer pasted back: chat markdown taken out, paragraphs kept, a long paste cut', () => {
+  assert.equal(P.tidyAnswer('## Plan\r\n**Hold** the centre.\n\n\n\n* one\n- two\n\n1. Unit: move'), 'Plan\nHold the centre.\n\n- one\n- two\n\n1. Unit: move');
+  assert.equal(P.tidyAnswer('  \n '), '');
+  assert.equal(P.tidyAnswer('x'.repeat(9000)).length, 6000);
+});
