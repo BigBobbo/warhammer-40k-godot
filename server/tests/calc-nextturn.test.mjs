@@ -243,3 +243,12 @@ test('a move candidate says whether the objective is in a terrain area (a base i
   assert.equal(c.hosted, true);
   assert.ok(c.dist < 5, `the edge of the area is nearer than the marker: ${c.dist}`);
 });
+
+test('risk after a move: their next turn worked out again with the unit where the move ends', () => {
+  const mine = [unit('A:u', 22, 6, 5)], theirs = [unit('B:g', 22, 50, 5, { melee: false })];
+  const pair = { 'B:g': { 'A:u': cell({ shoot: 0.4, sMu: 7, sSd: 2 }) } };
+  assert.equal(N.turnThreats(mine, theirs, pair)[0].likely, 0, 'out of reach where it stands (44" away, move 6 + range 24)');
+  const r = N.riskAfterMove(mine, theirs, pair, { unit: 'A:u', x: 22, y: 24 });
+  assert.ok(Math.abs(r.likely - 0.4) < 1e-9 && Math.abs(r.focus - 0.4) < 1e-9, 'in reach where the move ends');
+  assert.equal(N.riskAfterMove(mine, theirs, pair, { unit: 'A:u', x: 22, y: 8 }).likely, 0);
+});

@@ -10,7 +10,9 @@ import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, edgeRadius, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
-import { boardUnit, earlyArrival, transportOf, passengerCheck } from './adapter.mjs';
+import { boardUnit, earlyArrival, transportOf, passengerCheck, abilitiesOf, armyIntel } from './adapter.mjs';
+import { advisePayload, payloadSize, promptText, tidyAnswer } from './advise.mjs';
+import { SECONDARIES } from './missions-11e.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, photoScaleAt, _photoDebug } from './photoview.mjs';
@@ -19,7 +21,7 @@ import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch a
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
-import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, MOVE_MIN_VP } from './nextturn.mjs';
+import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, riskAfterMove, MOVE_MIN_VP } from './nextturn.mjs';
 import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -54,6 +56,14 @@ export function initBoard(c) {
   // the branches panel is drawn again when the unit-vs-unit odds of a chance branch are worked out
   ctx.registerHost?.('board-treemap-host', treeMapHtml);
   ctx.registerHost?.('board-next-host', nextTurnHtml);
+  // "Ask for a plan": is it switched on for this server? (off without an API key on the server). Not asked while
+  // offline - a request that cannot leave the device is logged by the browser as an error - but once back online.
+  const askAdvise = () => {
+    if (adviseInfo?.enabled || typeof fetch !== 'function' || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+    fetch('/api/calc-advise').then(r => (r.ok ? r.json() : null)).then((j) => { adviseInfo = j && j.enabled ? j : { enabled: false }; console.log(`[board] plans from Claude: ${adviseInfo.enabled ? `on (${adviseInfo.model}, ${adviseInfo.effort} effort, ${adviseInfo.perDay} a day)` : 'off on this server'}`); if (adviseInfo.enabled) ctx.rerender?.(); }).catch(() => { adviseInfo = { enabled: false }; });
+  };
+  askAdvise();
+  if (typeof window !== 'undefined') window.addEventListener('online', askAdvise);
   ctx.registerHost?.('board-tree-host', () => (document.activeElement?.closest?.('#board-tree') ? document.getElementById('board-tree-host')?.innerHTML ?? '' : treeHtml()));
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
@@ -414,7 +424,7 @@ let nextMemo = { key: null, v: null };
 // moveMemo: { key (of the table it was worked out for), state: 'pending' | 'done', n (candidates), base: { win, vp },
 //             best: [move] (each unit's best move alone), kept: { moves, win, vp } (the ones worth making together) }
 let moveMemo = { key: null, state: 'idle' };
-function weighMoves(key, v, mine, pieces, home) {
+function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null) {
   if (moveMemo.key === key || !ctx.moveForecasts) return;
   const li = liveIndex(), plan = li >= 0 ? boardPlans()[li] : null;
   const last = plan ? plan.steps.length - 1 : -1;
@@ -428,6 +438,9 @@ function weighMoves(key, v, mine, pieces, home) {
   const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
   const done = (r1, stacked, best) => {
     if (moveMemo.key !== key) return;
+    // how exposed each unit is where the move ends, against where it stands
+    const here = Object.fromEntries(v.res.threats.map(t => [t.key, t.likely]));
+    for (const m of best) { const r = riskAfterMove(mine, theirs, pair, m, pieces); m.riskThere = r.likely; m.focusThere = r.focus; m.riskHere = here[m.unit] ?? 0; }
     const kept = keepMoves(best, r1.base, stacked, me);
     moveMemo = { key, state: 'done', n: cands.length, base: worthOf(r1.base, me), best, kept };
     console.log(`[board] my moves weighed with the forecast: ${cands.length} tried, ${best.length} beat standing still by ${MOVE_MIN_VP}+ VP, ${kept.moves.length} kept together (${kept.moves.map(m => `${m.name} -> ${m.label} +${m.addVp.toFixed(1)}`).join('; ') || 'none'}); win ${Math.round(moveMemo.base.win * 100)}% -> ${Math.round((kept.moves.length ? kept.win : moveMemo.base.win) * 100)}%`);
@@ -477,7 +490,7 @@ function nextTurnData(compute = true) {
   if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
   nextMemo = { key, v };
-  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null);
+  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair);
   return v;
 }
 // ---- a suggestion tapped on a card, shown on the map: the unit ringed, its suggested move as a dashed arrow to
@@ -558,6 +571,119 @@ function cardRows(cards, offTurnNote, good = false) {
         <span class="verd ${c.verdict === 'yes' || c.verdict === 'now' ? (good ? 'ok' : 'bad') : c.verdict === 'kill' ? 'warn' : ''}">${c.verdict === 'no' ? 'not this turn' : `${c.vp} VP${c.verdict === 'kill' && c.p != null ? ` · ${pct(c.p)}` : c.verdict === 'ask' ? ' ?' : ''}`}</span></div>
         <div class="tiny muted">${(good ? c.offTurn : c.when === 'mine') ? `<b>${esc(offTurnNote)}</b> ` : ''}${esc(c.why)}</div></div>`).join('');
 }
+// ---- "Ask for a plan" (advise.mjs, server/calc-advise.js): the cards' own data and both armies' rules text go to
+// Claude, which writes a short plan for the turn. Off unless the server has an API key. Asked for only on a tap,
+// after the player has agreed once to what is sent. b.advice = { key (the table it was asked for), state: 'asking' |
+// 'done' | 'error', text, error, round, turn, ms }
+let adviseInfo = null;
+const ADVISE_OK_KEY = 'w40k_calc_advise_ok_v1';
+const adviseAgreed = () => { try { return localStorage.getItem(ADVISE_OK_KEY) === '1'; } catch { return false; } };
+/** A unit that is not on the table and not destroyed: when and where it can arrive (20.03 / 20.04, 24.09: planeval ARRIVE). */
+function reserveNote(X, key, round) {
+  const ds = !!unitInfo(X, key)?.flags?.deepStrike;
+  if (round < 2) return 'in reserves: cannot arrive before battle round 2';
+  if (round > 3) return 'in reserves: a unit still in reserves at the end of battle round 3 is destroyed';
+  return ds ? 'in reserves: can arrive this turn by Deep Strike, anywhere more than 8" from all enemy units'
+    : `in reserves: can arrive this turn wholly within 6" of a battlefield edge and more than 8" from all enemy units${round < 3 ? ', not in the enemy deployment zone' : ''}`;
+}
+/** What is sent for the table on screen (null until the cards have worked it out). */
+function adviseRequest() {
+  const d = nextMemo.v, st = ctx.state;
+  if (!d?.res || !d.my) return null;
+  const g = gameNow(), ms = missionsFor(dispOf('A'), dispOf('B')), toks = new Map(placed().map(t => [t.tk, t])), inside = embarkedIn(stepTokens());
+  const armyOf = (X) => ({ faction: st.armies[X].faction, units: st.armies[X].units.map(u => ({ name: u.name, points: u.points, models: u.models, keywords: u.keywords ?? [], abilities: abilitiesOf(u).map(a => ({ name: a.name, text: a.text })) })), stratagems: armyIntel(st.armies[X]).stratagems });
+  const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : inside.has(tk) ? 'embarked in a transport' : reserveNote(X, u.key, g.round) }; });
+  const card = (id) => { const c = SECONDARIES.find(x => x.id === id); return c ? { name: c.name, text: c.text } : { name: id, text: '' }; };
+  return advisePayload({
+    armies: { me: armyOf(d.me), them: armyOf(d.opp) },
+    game: { round: g.round, mine: g.turn === d.me || !g.started, phase: g.phase, myMission: ms[d.me], theirMission: ms[d.opp], myCP: g.cp?.[d.me] ?? 0, theirCP: g.cp?.[d.opp] ?? 0, myVP: g.vp?.[d.me] ?? 0, theirVP: g.vp?.[d.opp] ?? 0 },
+    hands: { me: (g.hand?.[d.me] ?? []).map(card), them: (g.hand?.[d.opp] ?? []).map(card) },
+    unitsNow: { me: nowOf(d.me), them: nowOf(d.opp) },
+    res: d.res, my: d.my, moves: moveMemo.key === nextMemo.key && moveMemo.state === 'done' ? moveMemo : null,
+  });
+}
+async function askForPlan() {
+  const b = boardState(), key = nextMemo.key, g = gameNow();
+  const req = adviseRequest();
+  if (!req) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) { b.advice = { key, state: 'error', error: 'you are offline, and a plan needs a connection', round: g.round, turn: g.turn }; refreshBoard(); return; }
+  const size = payloadSize(req), t0 = Date.now();
+  b.advice = { key, state: 'asking', round: g.round, turn: g.turn };
+  console.log(`[board] asking for a plan: ${size.static} + ${size.dynamic} characters`);
+  const redraw = () => { const host = document.getElementById('board-next-host'); if (host) host.innerHTML = nextTurnHtml(); };
+  redraw();
+  try {
+    const r = await fetch('/api/calc-advise', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `The server answered ${r.status}`);
+    b.advice = { key, state: 'done', text: String(j.text ?? ''), round: g.round, turn: g.turn, ms: Date.now() - t0, left: j.left, truncated: !!j.truncated };
+    console.log(`[board] plan received in ${b.advice.ms} ms (${b.advice.text.split(/\s+/).length} words, ${j.model})`);
+  } catch (err) {
+    b.advice = { key, state: 'error', error: err?.message || 'Could not get a plan', round: g.round, turn: g.turn };
+    console.log(`[board] no plan: ${b.advice.error}`);
+  }
+  redraw();
+}
+// ---- the same by hand, with no server and no API key: the prompt is copied, pasted into Claude (claude.ai or the
+// Claude app), and Claude's answer is pasted back here. The pasted plan is kept with the live table (lv.advice).
+const sigOf = (key) => { let h = 5381; for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0; return String(h >>> 0); };
+/** The plan on screen: one asked for or pasted in this visit, else the one kept with the live table. */
+function currentAdvice() {
+  const b = boardState();
+  if (b.advice) return b.advice;
+  const kept = livePlan()?.advice;
+  return kept ? { ...kept, state: 'done', key: kept.sig === sigOf(nextMemo.key ?? '') ? nextMemo.key : null } : null;
+}
+async function copyPrompt() {
+  const b = boardState(), req = adviseRequest();
+  if (!req) return;
+  const text = promptText(req);
+  b.promptCopy = { chars: text.length, ok: false, text: null };
+  try { await navigator.clipboard.writeText(text); b.promptCopy.ok = true; } catch { b.promptCopy.text = text; }   // no clipboard: the prompt is shown, to select and copy
+  b.pasteOpen = true;
+  console.log(`[board] prompt for Claude: ${text.length} characters, ${b.promptCopy.ok ? 'copied' : 'shown (the clipboard is not available)'}`);
+  refreshBoard();
+  if (!b.promptCopy.ok) document.getElementById('board-advise-prompt')?.select();
+}
+function pasteAnswer() {
+  const b = boardState(), lv = livePlan(), g = gameNow();
+  const text = tidyAnswer(document.getElementById('board-advise-paste')?.value ?? '');
+  if (!text || !lv) return;
+  b.advice = { key: nextMemo.key, state: 'done', text, round: g.round, turn: g.turn, pasted: true };
+  lv.advice = { text, round: g.round, turn: g.turn, pasted: true, sig: sigOf(nextMemo.key ?? '') };
+  b.pasteOpen = false; b.promptCopy = null;
+  console.log(`[board] plan pasted in: ${text.split(/\s+/).length} words, for round ${g.round}, ${g.turn}'s turn`);
+  persistBoard();
+  refreshBoard();
+}
+/** The plan section of the Your turn card: copy the prompt and paste the answer (always), or ask through the server (where it is switched on). */
+function adviceHtml() {
+  if (!nextMemo.v?.my) return '';
+  const esc = ctx.esc, b = boardState(), a = currentAdvice(), api = !!adviseInfo?.enabled;
+  const stale = a && a.key !== nextMemo.key;
+  const what = 'Both army lists and the units on this table are sent to Anthropic’s Claude through this app’s server, which writes the plan. This app’s server keeps none of it; Anthropic handles it under its API terms. It takes about half a minute.';
+  const ask = (label, primary = true) => (api ? `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise" id="board-advise">${label}</button>` : '');
+  const copy = (label, primary = !api) => `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise-copy" id="board-advise-copy">${label}</button>`;
+  const pc = b.promptCopy;
+  // copied (or shown): where to paste it, and the box for the answer
+  const pasteBox = b.pasteOpen ? `<div class="card" id="board-advise-pastebox" style="margin-top:6px;padding:10px">
+      ${pc ? `<div class="small" id="board-advise-copied">${pc.ok ? `✓ Prompt copied (${pc.chars.toLocaleString('en')} characters).` : 'Your browser did not allow copying. Select all of this and copy it:'} Paste it into a new chat with Claude: <a href="https://claude.ai/new" target="_blank" rel="noopener">claude.ai</a> or the Claude app.</div>` : ''}
+      ${pc && !pc.ok ? `<textarea id="board-advise-prompt" class="paste" readonly rows="4" aria-label="The prompt for Claude">${esc(pc.text)}</textarea>` : ''}
+      <label class="lab tiny muted" for="board-advise-paste" style="display:block;margin-top:8px">Then paste Claude’s answer here</label>
+      <textarea id="board-advise-paste" class="paste" rows="5" placeholder="Paste the answer"></textarea>
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn primary" data-action="board-advise-paste" id="board-advise-show">Show the plan</button><button class="btn ghost" data-action="board-advise-paste-cancel">Cancel</button></div></div>` : '';
+  let body;
+  if (b.adviseAsk && !adviseAgreed()) body = `<div class="warnbox" id="board-advise-consent"><div>${what}</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn primary" data-action="board-advise-agree" id="board-advise-agree">Send and ask</button><button class="btn ghost" data-action="board-advise-cancel">Not now</button></div></div>`;
+  else if (a?.state === 'asking') body = `<div class="small muted" id="board-advise-wait">⏳ Claude is reading the table… about half a minute.</div>`;
+  else if (a?.state === 'done') body = `<div class="plan-text" id="board-advise-text" data-stale="${stale ? 1 : 0}" data-pasted="${a.pasted ? 1 : 0}">${esc(a.text)}</div>
+      <div class="tiny ${stale ? '' : 'muted'}" id="board-advise-note" style="margin-top:4px${stale ? ';color:var(--warn-ink)' : ''}">${stale ? '⚠ The table has changed since this plan was written.' : `${a.pasted ? 'Pasted in' : 'Written'} for round ${a.round}, ${esc(a.turn)}’s turn.`}${a.truncated ? ' The answer was cut short.' : ''} A suggestion from an AI model reading the cards above: check it against the table.</div>
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${copy(stale ? '📋 Copy a new prompt for this table' : '📋 Copy the prompt again', !api && stale)}${ask(stale ? 'Ask again for this table' : 'Ask again', stale)}<button class="btn ghost" data-action="board-advise-clear" id="board-advise-clear">Clear</button></div>${pasteBox}`;
+  else if (a?.state === 'error') body = `<div class="small" id="board-advise-error" style="color:var(--warn-ink)">No plan: ${esc(a.error)}</div><div class="row" style="gap:6px;margin-top:6px">${ask('Try again')}${copy('📋 Copy the prompt instead', false)}</div>${pasteBox}`;
+  else body = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">${copy('📋 Copy prompt for Claude')}${ask('✨ Ask Claude directly', false)}</div>
+      <div class="tiny muted" style="margin-top:4px" id="board-advise-help">Copies a prompt with the cards above and both armies’ stratagem and ability text. Paste it into Claude (claude.ai or the Claude app, with your own plan), then paste its answer back here to keep the plan with the table.${api ? ' Ask Claude directly sends it through this app’s server instead; you are asked first.' : ''}</div>${pasteBox}`;
+  return `<div class="lab tiny muted" style="margin-top:10px">Plan from Claude</div><div id="board-advise-box" data-state="${a?.state ?? 'idle'}" data-api="${api ? 1 : 0}">${body}</div>`;
+}
+
 /** "My turn": one suggestion per unit of mine (take / hold an objective, a card, its target), the targets worth destroying, my cards. */
 function myTurnHtml(d) {
   const m = d.my;
@@ -590,12 +716,13 @@ function myTurnHtml(d) {
     const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? `↩ Pull back ${fmtIn(k.dist)}` : `→ Move ${fmtIn(k.dist)} ${k.hosted ? 'into' : 'to'} ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
       : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
         : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
-    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
+    const thereNote = k && k.riskThere != null && (k.riskThere >= 0.05 || k.riskHere >= 0.05) ? ` <span data-risk-there="${k.riskThere.toFixed(3)}" style="color:${k.riskThere >= 0.25 ? 'var(--warn-ink)' : 'inherit'}">· ${pct(k.riskThere)} destroyed in their turn after the move${Math.abs(k.riskThere - k.riskHere) >= 0.05 ? ` (${pct(k.riskHere)} where it stands)` : ''}</span>` : '';
+    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') + thereNote : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
       : mv.state === 'done' && u.job.kind === 'take' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
     const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`})</span>` : '<span class="muted">nothing in reach to attack</span>';
     return `<div class="next-unit tap${boardState().hint?.kind === 'my-unit' && boardState().hint.tk === u.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-unit" data-tk="${esc(u.key)}" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
       <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
-      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
+      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 && !(k && k.riskThere != null) ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
   }).join('');
   const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj tap${boardState().hint?.kind === 'my-kill' && boardState().hint.tk === k.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-kill" data-tk="${esc(k.key)}" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
       <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div></div>`).join('');
@@ -606,6 +733,7 @@ function myTurnHtml(d) {
     ${m.units.length > shown.length || all ? `<button class="chip" data-action="board-my-all" id="board-my-all" style="margin-top:4px">${all ? 'Fewer' : `All ${m.units.length} units`}</button>` : ''}
     ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
+    ${adviceHtml()}
     <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress, the rounds after it are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Targets: where the unit adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. Stratagems, reserves and terrain in the way of a move are not counted.</div>
   </div>`;
 }
@@ -2941,6 +3069,23 @@ export function boardAction(action, el) {
       if (b.hint && r && (r.bottom < 120 || r.top > (window.innerHeight || 0) - 120)) host.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       return null;
     }
+    case 'board-advise': {
+      // the first time the player is told what is sent and agrees; after that a tap asks
+      if (!adviseAgreed()) { b.adviseAsk = true; refreshBoard(); return null; }
+      askForPlan();
+      return null;
+    }
+    case 'board-advise-agree': {
+      try { localStorage.setItem(ADVISE_OK_KEY, '1'); } catch { /* asked again next time */ }
+      b.adviseAsk = false;
+      askForPlan();
+      return null;
+    }
+    case 'board-advise-cancel': b.adviseAsk = false; refreshBoard(); return null;
+    case 'board-advise-copy': copyPrompt(); return null;
+    case 'board-advise-paste': pasteAnswer(); return null;
+    case 'board-advise-paste-cancel': b.pasteOpen = false; b.promptCopy = null; refreshBoard(); return null;
+    case 'board-advise-clear': { const lv = livePlan(); b.advice = null; if (lv?.advice) { delete lv.advice; persistBoard(); } refreshBoard(); return null; }
     case 'board-hint-clear': b.hint = null; refreshBoard(); return null;
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
     case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
@@ -3360,7 +3505,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
-    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };

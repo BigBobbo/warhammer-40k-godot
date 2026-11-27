@@ -96,6 +96,30 @@ npm run test:e2e  # boots the server on a temp DB and drives the real page
                   # headless (Playwright; uses /opt/pw-browsers/chromium)
 ```
 
+## Combat Calc "Ask Claude for a plan" (off by default)
+
+The Board's Your turn card can send what it computed, plus both armies' stratagem and ability text, to Claude
+and show a short plan (`calc-advise.js`, `public/calc/advise.mjs`). It is **off unless the server has an API key**:
+
+```bash
+fly secrets set ANTHROPIC_API_KEY=sk-ant-... -a warhammer-40k-godot
+```
+
+Without the key `GET /api/calc-advise` answers `{ "enabled": false }` and the page shows nothing new. To switch it
+off again: `fly secrets unset ANTHROPIC_API_KEY -a warhammer-40k-godot`.
+
+| Variable | Default | What it sets |
+|---|---|---|
+| `CALC_ADVISE_MODEL` | `claude-opus-5-5` | the model |
+| `CALC_ADVISE_EFFORT` | `high` | `low` is quicker and cheaper, a little weaker |
+| `CALC_ADVISE_PER_CLIENT_DAY` | `30` | plans per client address per day |
+| `CALC_ADVISE_GLOBAL_DAY` | `300` | plans per day for everyone: the cap on what a day can cost |
+| `CALC_ADVISE_MOCK` | unset | `1`: a fixed answer and no API call (the e2e test) |
+
+Cost and speed, measured in a trial (2026-11-27, list prices): about 15,000 input and 3,000 output tokens a plan,
+30 to 45 seconds, roughly $0.12 with Claude Opus 5.5 at high effort. At the default cap a day costs at most about
+$40. Every plan is billed to the key's account; there is no login, so the limits are per client address.
+
 ## Save & army persistence on fly.io (read this if "online saves disappear")
 
 Saves and army lists are stored in a single **SQLite** file

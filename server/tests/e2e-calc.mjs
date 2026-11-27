@@ -35,7 +35,8 @@ function check(label, cond, detail = '') {
 }
 
 const server = spawn(process.execPath, [join(here, '..', 'relay-server.js')], {
-  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db') },
+  // (CALC_ADVISE_MOCK: "Ask for a plan" answers with a fixed text, no API call)
+  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
@@ -2851,6 +2852,9 @@ Aggressor Squad (95 points)
     // moving a path after the forecast: its win chance is not shown until worked out again
     await mset(MN, 30, 31);
     await mp.waitForTimeout(200);
+    // (a forecast still running shows "…" in every row: the check is about what stays once nothing is running.
+    //  Read 200 ms after the move, it failed 1 run in 7 when the Mission forecast was still at work.)
+    await mp.waitForFunction(() => !window.__calc.mission().busy, null, { timeout: 30000 });
     const after = await mp.$$eval('#board-treemap .tm-win', els => els.map(e => e.textContent.trim()));
     check('a path changed after the forecast loses its win chance (no stale numbers); ⚡ is offered again', after[0] === '' && /^\d+%$/.test(after[2]) && (await mp.locator('#board-tree-forecast').count()) === 1, JSON.stringify(after));
     await mctx.close();
@@ -4546,6 +4550,7 @@ Aggressor Squad (95 points)
       const ghMove = mvs.kept.moves.find(x => x.unit === gh);
       check('forecast, battle round 2: moving the Grey Hunters onto an objective in reach beats standing still by 3+ VP and is the suggestion on their row',
         ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 3 && mvs.kept.vp > mvs.base.vp + 3
+        && mvs.best.every(x => x.riskThere >= 0 && x.riskThere <= 1 && x.riskHere >= 0)   // (1.141.0) how exposed the unit is where the move ends
         && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move [\\d¼½¾]+" (into|to) ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
       check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round/.test(await lp.textContent('#board-my-moves')));
       // (1.139.0) tap the suggestion: the unit ringed on the map, the move as a dashed arrow to dashed bases, the attack as an arrow
@@ -4569,6 +4574,64 @@ Aggressor Squad (95 points)
         check('tap one of my units under Their next turn: an arrow from each enemy unit that can reach it', th.h.kind === 'their-unit' && th.hits >= 1, JSON.stringify(th));
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
+      }
+      // (1.142.0) by hand, with no API key: copy the prompt, paste it into Claude, paste the answer back
+      {
+        await lctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+        const posts = [];
+        const onReq = (r) => { if (r.url().endsWith('/api/calc-advise') && r.method() === 'POST') posts.push(1); };
+        lp.on('request', onReq);
+        check('Plan from Claude: 📋 Copy prompt for Claude is there next to the direct route', (await lp.locator('#board-advise-copy').count()) === 1 && /Copy prompt for Claude/.test(await lp.textContent('#board-advise-copy')));
+        await lp.tap('#board-advise-copy');
+        await lp.waitForSelector('#board-advise-pastebox');
+        const clip = await lp.evaluate(() => navigator.clipboard.readText());
+        const want = await lp.evaluate(() => window.__calc.board().next.advise.prompt());
+        check('the prompt is on the clipboard: the instructions, both armies and the game now; nothing was sent to the server',
+          clip === want && clip.startsWith('You advise a Warhammer 40,000 (11th edition) player') && /BOTH ARMIES \(the same all game\):\n\{/.test(clip) && /THE GAME NOW:\n\{/.test(clip) && /"faction":"Orks"/.test(clip) && posts.length === 0
+          && /Prompt copied \([\d,]+ characters\)/.test(await lp.textContent('#board-advise-copied')) && (await lp.getAttribute('#board-advise-pastebox a', 'href')) === 'https://claude.ai/new', `${clip.length} chars`);
+        await lp.fill('#board-advise-paste', '## Plan\n**Hold** the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.');
+        await lp.locator('#board-advise-pastebox').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_142_copy_prompt_paste_answer.png') });
+        await lp.tap('#board-advise-show');
+        await lp.waitForSelector('#board-advise-text');
+        check('paste the answer, Show the plan: shown without the chat markdown, marked as pasted in for this round and turn, kept with the live table',
+          (await lp.textContent('#board-advise-text')) === 'Plan\nHold the centre with the Grey Hunters.\n\n1. Grey Hunters: stay on the objective.' && (await lp.getAttribute('#board-advise-text', 'data-pasted')) === '1'
+          && /Pasted in for round 2, A’s turn/.test(await lp.textContent('#board-advise-note')) && (await lp.evaluate(() => window.__calc.board().next.advise.kept?.text ?? '')).startsWith('Plan\nHold') && posts.length === 0);
+        await lp.reload(); await lp.waitForSelector('#board-advise-text');
+        check('the pasted plan is still there after a reload', /^Plan\nHold the centre/.test(await lp.textContent('#board-advise-text')) && (await lp.getAttribute('#board-advise-text', 'data-stale')) === '0');
+        await weighed();
+        await lp.tap('#board-advise-clear');
+        check('Clear takes the plan away (from the live table too)', (await lp.locator('#board-advise-text').count()) === 0 && (await lp.evaluate(() => window.__calc.board().next.advise.kept)) === null && (await lp.locator('#board-advise-copy').count()) === 1);
+        lp.off('request', onReq);
+      }
+      // (1.140.0) Ask Claude for a plan: told what is sent and asked once, then the plan under the cards; marked when the table changes
+      {
+        const adv = () => lp.evaluate(() => { const a = window.__calc.board().next.advise; return { info: a.info, state: a.state, text: a.text, agreed: a.agreed, size: a.size }; });
+        const a0 = await adv();
+        check('Ask for a plan: on because the server says so; the request is built from the cards (armies apart from the game)', a0.info?.enabled === true && a0.state == null && a0.size.static > 2000 && a0.size.dynamic > 1000 && a0.size.static < 80000 && a0.size.dynamic < 40000 && (await lp.locator('#board-advise').count()) === 1, JSON.stringify(a0));
+        const sent = [];
+        lp.on('request', (r) => { if (r.url().endsWith('/api/calc-advise') && r.method() === 'POST') sent.push(r.postDataJSON()); });
+        await lp.tap('#board-advise');
+        check('the first tap sends nothing: it says what would be sent and asks', sent.length === 0 && (await lp.locator('#board-advise-consent').count()) === 1 && /Both army lists and the units on this table are sent to Anthropic/.test(await lp.textContent('#board-advise-consent')));
+        await lp.locator('button[data-action="board-advise-cancel"]').tap();
+        check('Not now: nothing sent, the button is back', sent.length === 0 && (await lp.locator('#board-advise-consent').count()) === 0 && (await lp.locator('#board-advise').count()) === 1);
+        await lp.tap('#board-advise'); await lp.tap('#board-advise-agree');
+        await lp.waitForSelector('#board-advise-text');
+        const a1 = await adv();
+        check('Send and ask: one request with both armies and the game; the plan is shown with the round and turn it was written for',
+          sent.length === 1 && sent[0].static?.me?.units?.length >= 2 && sent[0].static.them.faction === 'Orks' && sent[0].dynamic?.game?.round === 2 && Array.isArray(sent[0].dynamic.computed?.myUnitSuggestions)
+          && a1.state === 'done' && /^Plan: /.test(a1.text) && /Written for round 2, A’s turn/.test(await lp.textContent('#board-advise-note')) && (await lp.getAttribute('#board-advise-text', 'data-stale')) === '0', JSON.stringify({ n: sent.length, a1 }).slice(0, 400));
+        await lp.locator('#board-advise-text').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_141_plan_from_claude.png') });
+        await moveTo(gh, 22, 21);
+        await weighed();
+        await lp.waitForSelector('#board-advise-text[data-stale="1"]');
+        check('a unit moves: the plan stays but is marked as written for another table', /The table has changed since this plan was written/.test(await lp.textContent('#board-advise-note')));
+        await lp.tap('#board-advise');
+        await lp.waitForSelector('#board-advise-text[data-stale="0"]');
+        check('Ask again: asked at once this time (already agreed), a second request', sent.length === 2 && (await lp.locator('#board-advise-consent').count()) === 0);
+        await moveTo(gh, 22, 20);
+        await weighed();
       }
       await lp.locator('#board-my').scrollIntoViewIfNeeded();
       await lp.screenshot({ path: join(SHOTS, 'calc_138_moves_by_forecast.png'), fullPage: true });
