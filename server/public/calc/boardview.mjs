@@ -21,7 +21,7 @@ import { ensureIds, resolveSteps, rootOf, treeOf, choiceLabel, subtree, branch a
 import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
-import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, MOVE_MIN_VP } from './nextturn.mjs';
+import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, riskAfterMove, MOVE_MIN_VP } from './nextturn.mjs';
 import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -418,7 +418,7 @@ let nextMemo = { key: null, v: null };
 // moveMemo: { key (of the table it was worked out for), state: 'pending' | 'done', n (candidates), base: { win, vp },
 //             best: [move] (each unit's best move alone), kept: { moves, win, vp } (the ones worth making together) }
 let moveMemo = { key: null, state: 'idle' };
-function weighMoves(key, v, mine, pieces, home) {
+function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null) {
   if (moveMemo.key === key || !ctx.moveForecasts) return;
   const li = liveIndex(), plan = li >= 0 ? boardPlans()[li] : null;
   const last = plan ? plan.steps.length - 1 : -1;
@@ -432,6 +432,9 @@ function weighMoves(key, v, mine, pieces, home) {
   const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
   const done = (r1, stacked, best) => {
     if (moveMemo.key !== key) return;
+    // how exposed each unit is where the move ends, against where it stands
+    const here = Object.fromEntries(v.res.threats.map(t => [t.key, t.likely]));
+    for (const m of best) { const r = riskAfterMove(mine, theirs, pair, m, pieces); m.riskThere = r.likely; m.focusThere = r.focus; m.riskHere = here[m.unit] ?? 0; }
     const kept = keepMoves(best, r1.base, stacked, me);
     moveMemo = { key, state: 'done', n: cands.length, base: worthOf(r1.base, me), best, kept };
     console.log(`[board] my moves weighed with the forecast: ${cands.length} tried, ${best.length} beat standing still by ${MOVE_MIN_VP}+ VP, ${kept.moves.length} kept together (${kept.moves.map(m => `${m.name} -> ${m.label} +${m.addVp.toFixed(1)}`).join('; ') || 'none'}); win ${Math.round(moveMemo.base.win * 100)}% -> ${Math.round((kept.moves.length ? kept.win : moveMemo.base.win) * 100)}%`);
@@ -481,7 +484,7 @@ function nextTurnData(compute = true) {
   if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
   nextMemo = { key, v };
-  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null);
+  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair);
   return v;
 }
 // ---- a suggestion tapped on a card, shown on the map: the unit ringed, its suggested move as a dashed arrow to
@@ -569,13 +572,21 @@ function cardRows(cards, offTurnNote, good = false) {
 let adviseInfo = null;
 const ADVISE_OK_KEY = 'w40k_calc_advise_ok_v1';
 const adviseAgreed = () => { try { return localStorage.getItem(ADVISE_OK_KEY) === '1'; } catch { return false; } };
+/** A unit that is not on the table and not destroyed: when and where it can arrive (20.03 / 20.04, 24.09: planeval ARRIVE). */
+function reserveNote(X, key, round) {
+  const ds = !!unitInfo(X, key)?.flags?.deepStrike;
+  if (round < 2) return 'in reserves: cannot arrive before battle round 2';
+  if (round > 3) return 'in reserves: a unit still in reserves at the end of battle round 3 is destroyed';
+  return ds ? 'in reserves: can arrive this turn by Deep Strike, anywhere more than 8" from all enemy units'
+    : `in reserves: can arrive this turn wholly within 6" of a battlefield edge and more than 8" from all enemy units${round < 3 ? ', not in the enemy deployment zone' : ''}`;
+}
 /** What is sent for the table on screen (null until the cards have worked it out). */
 function adviseRequest() {
   const d = nextMemo.v, st = ctx.state;
   if (!d?.res || !d.my) return null;
   const g = gameNow(), ms = missionsFor(dispOf('A'), dispOf('B')), toks = new Map(placed().map(t => [t.tk, t])), inside = embarkedIn(stepTokens());
   const armyOf = (X) => ({ faction: st.armies[X].faction, units: st.armies[X].units.map(u => ({ name: u.name, points: u.points, models: u.models, keywords: u.keywords ?? [], abilities: abilitiesOf(u).map(a => ({ name: a.name, text: a.text })) })), stratagems: armyIntel(st.armies[X]).stratagems });
-  const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : inside.has(tk) ? 'embarked in a transport' : 'in reserves, not on the table' }; });
+  const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : inside.has(tk) ? 'embarked in a transport' : reserveNote(X, u.key, g.round) }; });
   const card = (id) => { const c = SECONDARIES.find(x => x.id === id); return c ? { name: c.name, text: c.text } : { name: id, text: '' }; };
   return advisePayload({
     armies: { me: armyOf(d.me), them: armyOf(d.opp) },
@@ -656,12 +667,13 @@ function myTurnHtml(d) {
     const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? `↩ Pull back ${fmtIn(k.dist)}` : `→ Move ${fmtIn(k.dist)} ${k.hosted ? 'into' : 'to'} ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
       : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
         : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
-    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
+    const thereNote = k && k.riskThere != null && (k.riskThere >= 0.05 || k.riskHere >= 0.05) ? ` <span data-risk-there="${k.riskThere.toFixed(3)}" style="color:${k.riskThere >= 0.25 ? 'var(--warn-ink)' : 'inherit'}">· ${pct(k.riskThere)} destroyed in their turn after the move${Math.abs(k.riskThere - k.riskHere) >= 0.05 ? ` (${pct(k.riskHere)} where it stands)` : ''}</span>` : '';
+    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') + thereNote : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
       : mv.state === 'done' && u.job.kind === 'take' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
     const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`})</span>` : '<span class="muted">nothing in reach to attack</span>';
     return `<div class="next-unit tap${boardState().hint?.kind === 'my-unit' && boardState().hint.tk === u.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-unit" data-tk="${esc(u.key)}" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
       <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
-      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
+      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 && !(k && k.riskThere != null) ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
   }).join('');
   const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj tap${boardState().hint?.kind === 'my-kill' && boardState().hint.tk === k.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-kill" data-tk="${esc(k.key)}" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
       <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div></div>`).join('');

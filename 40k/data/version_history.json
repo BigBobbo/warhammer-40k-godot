@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.141.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: a suggested move now says how exposed the unit is where the move ends",
+      "changes": [
+        "Board, Live table, Your turn: each suggested move shows the chance the unit is destroyed in their next turn after the move, next to the chance where it stands now",
+        "So a move onto an objective that walks into their guns reads, for example, 62% destroyed in their turn after the move (8% where it stands)",
+        "The same figures go to Claude when you ask for a plan"
+      ]
+    },
+    {
       "version": "1.140.0",
       "date": "2026-11-27",
       "summary": "Combat Calc: ask Claude for a plan on the Your turn card (only where the server has it switched on)",

@@ -2852,6 +2852,9 @@ Aggressor Squad (95 points)
     // moving a path after the forecast: its win chance is not shown until worked out again
     await mset(MN, 30, 31);
     await mp.waitForTimeout(200);
+    // (a forecast still running shows "…" in every row: the check is about what stays once nothing is running.
+    //  Read 200 ms after the move, it failed 1 run in 7 when the Mission forecast was still at work.)
+    await mp.waitForFunction(() => !window.__calc.mission().busy, null, { timeout: 30000 });
     const after = await mp.$$eval('#board-treemap .tm-win', els => els.map(e => e.textContent.trim()));
     check('a path changed after the forecast loses its win chance (no stale numbers); ⚡ is offered again', after[0] === '' && /^\d+%$/.test(after[2]) && (await mp.locator('#board-tree-forecast').count()) === 1, JSON.stringify(after));
     await mctx.close();
@@ -4547,6 +4550,7 @@ Aggressor Squad (95 points)
       const ghMove = mvs.kept.moves.find(x => x.unit === gh);
       check('forecast, battle round 2: moving the Grey Hunters onto an objective in reach beats standing still by 3+ VP and is the suggestion on their row',
         ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 3 && mvs.kept.vp > mvs.base.vp + 3
+        && mvs.best.every(x => x.riskThere >= 0 && x.riskThere <= 1 && x.riskHere >= 0)   // (1.141.0) how exposed the unit is where the move ends
         && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move [\\d¼½¾]+" (into|to) ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
       check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round/.test(await lp.textContent('#board-my-moves')));
       // (1.139.0) tap the suggestion: the unit ringed on the map, the move as a dashed arrow to dashed bases, the attack as an arrow

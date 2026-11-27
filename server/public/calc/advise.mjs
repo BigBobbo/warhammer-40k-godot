@@ -57,7 +57,7 @@ export function advisePayload(d) {
         targets: d.my.kills.map(k => ({ target: k.name, points: k.points, destroyedPct: pc(k.p), by: k.by.map(b => b.name) })),
         myCardsOutlook: cards(d.my.cards),
         forecast: mv?.base ? { winPctAsItStands: pc(mv.base.win), note: 'the table as it stands counts for this battle round; later rounds are forecast from the mission plan',
-          movesWorth3vpOrMore: (mv.best ?? []).map(b => ({ unit: b.name, move: `${r2(b.dist)}" ${b.kind === 'back' ? 'back towards home' : `onto ${b.label}`}`, vpGainAlone: r2(b.dVp) })),
+          movesWorth3vpOrMore: (mv.best ?? []).map(b => ({ unit: b.name, move: `${r2(b.dist)}" ${b.kind === 'back' ? 'back towards home' : `onto ${b.label}`}`, vpGainAlone: r2(b.dVp), ...(b.riskThere != null ? { riskInTheirTurnAfterTheMovePct: pc(b.riskThere), riskWhereItStandsPct: pc(b.riskHere) } : {}) })),
           keptTogether: (mv.kept?.moves ?? []).map(b => `${b.name} -> ${b.kind === 'back' ? 'back towards home' : b.label}`), winPctWithThem: pc(mv.kept?.moves?.length ? mv.kept.win : mv.base.win) }
           : { note: 'the move forecast has not run' },
       },

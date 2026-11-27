@@ -560,6 +560,16 @@ export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, ma
   return out.sort((a, b) => (a.kind === 'back') - (b.kind === 'back') || a.dist - b.dist).slice(0, max);
 }
 
+/**
+ * How exposed a unit of mine is after a suggested move: their next turn worked out again with that unit at the
+ * end of the move (every other unit where it stands). -> { likely, focus } (as turnThreats)
+ */
+export function riskAfterMove(mine, theirs, pair, move, pieces = null) {
+  const moved = mine.map(u => (u.key === move.unit ? { ...u, x: move.x, y: move.y } : u));
+  const row = turnThreats(moved, theirs, pair, { pieces }).find(t => t.key === move.unit);
+  return { likely: row?.likely ?? 0, focus: row?.focus ?? 0 };
+}
+
 /** What a forecast result is worth to player X: { win (P), vp (X's mean VP minus the other player's) }. */
 export function worthOf(result, X) {
   const Y = X === 'A' ? 'B' : 'A';
