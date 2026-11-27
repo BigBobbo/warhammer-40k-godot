@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.144.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: after an update the app can no longer run a mix of old and new code",
+      "changes": [
+        "After a new release, on a slow connection, the app could show the new version number while still running the old Board: new features looked as if they did nothing",
+        "The app now loads one version as a whole, always: every file comes from the same saved set",
+        "A new release is downloaded in the background as a complete set; the app then reloads into it by itself if you have not touched it yet, else it shows a New version bar with Reload",
+        "Opening the app no longer downloads everything again each time, so it starts faster and uses less data",
+        "Board: a suggested or planned move onto an objective that is approached at a slant is now drawn (it was listed as not drawn)"
+      ]
+    },
+    {
       "version": "1.143.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: Claude's plan is drawn on the map, and pasting it back can no longer fail without saying why",

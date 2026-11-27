@@ -2977,9 +2977,14 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     // check for a new version whenever the app comes back to the foreground
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch(err => console.warn('[calc] service worker not registered', err));
-  // a new version took over: offer to reload into it (lists and plans are saved)
+  // a new version took over (sw.js: its whole set of files is ready). The page still runs the version it was
+  // loaded with: if it has not been touched yet it reloads into the new one at once, else it offers to
+  // (lists and plans are saved either way).
+  let touched = false;
+  for (const t of ['pointerdown', 'keydown', 'input']) window.addEventListener(t, () => { touched = true; }, { once: true, capture: true });
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || document.getElementById('update-banner')) return;
+    if (!touched) { console.log('[calc] new version: reloading into it'); location.reload(); return; }
     const bar = document.createElement('div');
     bar.id = 'update-banner';
     bar.className = 'update-banner';

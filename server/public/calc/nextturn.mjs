@@ -547,8 +547,11 @@ export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, ma
       let near = null;
       for (const m of u.models) { const dd = Math.hypot(u.x + m.dx - o.x, u.y + m.dy - o.y); if (!near || dd < near.dd) near = { dd, m }; }
       const len = Math.hypot(o.x - (u.x + near.m.dx), o.y - (u.y + near.m.dy)) || 1;
-      const step = Math.min(M, d + 0.75);
-      const x = u.x + (o.x - (u.x + near.m.dx)) / len * step, y = u.y + (o.y - (u.y + near.m.dy)) / len * step;
+      // just far enough for a model to be in range: the gap is to the nearest edge of the objective's area, the line
+      // goes towards its marker, so a slanting approach needs a little more than the gap
+      const ux = (o.x - (u.x + near.m.dx)) / len, uy = (o.y - (u.y + near.m.dy)) / len, most = Math.min(M, len);
+      let step = Math.min(most, d + 0.75), x = u.x + ux * step, y = u.y + uy * step;
+      while (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0) && step < most - 1e-9) { step = Math.min(most, step + 0.5); x = u.x + ux * step; y = u.y + uy * step; }
       if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;     // the straight line does not get it in range
       out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step, hosted: (o.host ?? []).length > 0 });
     }
