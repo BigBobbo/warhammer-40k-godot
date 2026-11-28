@@ -315,11 +315,16 @@ export function missionNow() {
  * -> Promise<{ base: result, variants: { [key]: result } } | null (dropped, or no forecast possible)>
  */
 export const MOVE_TRIALS = 1500;
+/** The last battle round the live table's positions count for when moves are weighed: the round in progress and the next. */
+export const LIVE_ROUNDS_AHEAD = 1;
+export const liveUntil = () => Math.min(RULES.rounds, ms().game.round + LIVE_ROUNDS_AHEAD);
 let moveWorker = null, moveReq = 0;
 export function moveForecasts(base, variants) {
   return new Promise((resolve) => {
-    // the table as it stands counts for the battle round in progress; the rounds after it are forecast as usual
-    const until = ms().game.round;
+    // the table as it stands counts for the battle round in progress and the one after it (a move made now is
+    // still where the unit stands next round: counted for this round alone, a move that sets the next round up
+    // showed no gain); the rounds after that are forecast as usual
+    const until = liveUntil();
     const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS });
     if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
     // (a variant with `until` of its own: a plan that goes on past the round in progress - the Board's play-out)

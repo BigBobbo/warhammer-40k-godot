@@ -4533,8 +4533,8 @@ Aggressor Squad (95 points)
           && (mvs.kept.moves.length ? /you win \d+% of games instead of \d+%/ : /none of the \d+ moves? tried beats standing still by 3 VP/).test(await lp.textContent('#board-my-moves')), JSON.stringify(mvs).slice(0, 600));
         // the live table counts for the round in progress only: not the frozen-table forecast
         const frozen = await lp.evaluate(async () => { const M = await import('/calc/missionview.mjs'), F = await import('/calc/forecast.mjs'), B = await import('/calc/boardview.mjs'); const plan = B.boardPlans().find(x => x.name === 'Live table');
-          const vp = (o) => { const r = F.forecast(M.forecastParams({ boardSteps: plan, trials: 1500, ...o })); return r.A.mean + r.B.mean; }; return { frozen: vp({}), round: vp({ boardUntil: M.missionState().game.round }) }; });
-        check('the forecast counts the table for this battle round only: far more VP are scored in the rest of the game than with every unit frozen where it stands; the card says so', frozen.round > frozen.frozen + 20 && /count for the battle round in progress/.test(await lp.textContent('#board-my-how')), JSON.stringify(frozen));
+          const vp = (o) => { const r = F.forecast(M.forecastParams({ boardSteps: plan, trials: 1500, ...o })); return r.A.mean + r.B.mean; }; return { frozen: vp({}), round: vp({ boardUntil: M.liveUntil() }), until: M.liveUntil(), now: M.missionState().game.round }; });
+        check('the forecast counts the table for this battle round and the next (1.147.0), not for the whole game: far more VP are scored in the rest of the game than with every unit frozen where it stands; the card says so', frozen.until === Math.min(5, frozen.now + 1) && frozen.round > frozen.frozen + 20 && /count for the battle round in progress and the one after it/.test(await lp.textContent('#board-my-how')), JSON.stringify(frozen));
         await moveTo(gh, 22, 28);     // back on the centre for the checks below
         await weighed();
       }
@@ -4568,7 +4568,7 @@ Aggressor Squad (95 points)
         ghMove && ghMove.kind === 'obj' && ghMove.dist <= 7.01 && ghMove.addVp >= 3 && mvs.kept.vp > mvs.base.vp + 3
         && mvs.best.every(x => x.riskThere >= 0 && x.riskThere <= 1 && x.riskHere >= 0)   // (1.141.0) how exposed the unit is where the move ends
         && (await lp.getAttribute(`#board-my-units [data-unit="${gh}"] [data-move]`, 'data-move')) === ghMove.obj && new RegExp(`Move [\\d¼½¾]+" (into|to) ${ghMove.label} · \\+\\d+ VP`).test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(mvs).slice(0, 900));
-      check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round/.test(await lp.textContent('#board-my-moves')));
+      check('one line sums the moves up: win % with them against win % as it stands, the table counting for this battle round', /you win \d+% of games instead of \d+%/.test(await lp.textContent('#board-my-moves')) && /counts for this battle round and the next/.test(await lp.textContent('#board-my-moves')));
       // (1.139.0) tap the suggestion: the unit ringed on the map, the move as a dashed arrow to dashed bases, the attack as an arrow
       if (ghMove) {
         await lp.locator(`#board-my-units [data-unit="${gh}"]`).tap();
@@ -4631,18 +4631,18 @@ Aggressor Squad (95 points)
             for (const t of b.tokens) { if (t.tk.startsWith(F + ':')) { o.nFirst++; o.firstAtR += same(t, st[r].tokens[t.tk]); } else { o.nOther++; o.otherAtR += same(t, st[r].tokens[t.tk]); o.otherAtPrev += same(t, st[r - 1].tokens[t.tk]); if (!same(st[r].tokens[t.tk], st[r - 1].tokens[t.tk])) o.differ++; } }
             return o; });
           const endV = await half();
-          check('👥 By player turn is a switch next to the turns; it is on for the played-out game', (await lp.getAttribute('#board-by-turn', 'aria-pressed')) === 'true');
-          await lp.tap('#board-by-turn');
-          check('off: no row of player turns, the turns are battle rounds as before', (await lp.locator('#board-half-row').count()) === 0 && (await lp.evaluate(() => window.__calc.board().half)) === false);
-          await lp.tap('#board-by-turn');
-          check('a row under the turns shows the round by player turn, with who moves first', (await lp.locator('#board-half-row').count()) === 1 && ['A', 'B'].includes(endV.first) && endV.half === false && endV.otherAtR === endV.nOther && endV.pos === 10, JSON.stringify(endV));
+          const chips = await lp.evaluate(() => ({ pairs: [...document.querySelectorAll('.b-steps .pt-pair')].map(e => e.textContent.replace(/\s+/g, '')), plain: [...document.querySelectorAll('.b-steps [data-action="board-step"]')].map(e => e.textContent.trim()), on: document.querySelector('.b-steps .chip.pt.on')?.dataset }));
+          check('with it on each round is a pair of chips, the first player then the other, in one row with Deploy (1.147.0)',
+            chips.pairs.length === 5 && chips.pairs.every((x, k) => x === `${k + 1}${endV.first}${endV.first === 'A' ? 'B' : 'A'}`) && chips.plain.join() === 'Deploy' && chips.on?.i === '5' && chips.on?.h === '0', JSON.stringify(chips));
+          check('the line under the chips says what is on the board; the end of round 5 is the last player turn', ['A', 'B'].includes(endV.first) && endV.half === false && endV.otherAtR === endV.nOther && endV.pos === 10 && /Round 5, after .* has moved too \(the end of the round\)/.test(await lp.textContent('#board-half-note')) && await lp.isDisabled('#board-half-next'), JSON.stringify(endV));
           // a round in which the second player moved: look at it after the first player's turn
           let hv = endV;
           for (let k = 0; k < 9 && !(hv.half && hv.differ > 0); k++) { await lp.tap('#board-half-prev'); hv = await half(); }
           check('after the first player\'s turn: the first player\'s units as at the end of the round, the other player\'s still where the round before left them',
-            hv.half && hv.differ > 0 && hv.firstAtR === hv.nFirst && hv.otherAtPrev === hv.nOther && hv.otherAtR < hv.nOther && /has not moved yet this round/.test(await lp.textContent('#board-half-note')), JSON.stringify(hv));
+            hv.half && hv.differ > 0 && hv.firstAtR === hv.nFirst && hv.otherAtPrev === hv.nOther && hv.otherAtR < hv.nOther && /still stands where (round \d|deployment) left it/.test(await lp.textContent('#board-half-note'))
+            && (await lp.getAttribute(`.pt-pair[data-round="${hv.cur}"] [data-h="1"]`, 'aria-pressed')) === 'true', JSON.stringify(hv));
           await lp.evaluate(() => window.scrollTo(0, 0));
-          await lp.screenshot({ path: join(SHOTS, 'calc_146_by_player_turn.png') });
+          await lp.screenshot({ path: join(SHOTS, 'calc_147_by_player_turn.png') });
           // a unit of the other player moved in this view: that is where it stood at the end of the round before
           const S = hv.first === 'A' ? 'B' : 'A';
           const tkS = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, S), tkF = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, hv.first);
@@ -4655,9 +4655,10 @@ Aggressor Squad (95 points)
           await lp.tap('#board-half-next');
           const nx = await half();
           check('▶ goes on a player turn: the end of the same round', nx.cur === hv.cur && nx.half === false && nx.pos === hv.pos + 1 && nx.otherAtR === nx.nOther, JSON.stringify(nx));
-          await lp.tap('#board-half-1');
-          check('the switch shows the same round after the first player\'s turn again', (await half()).half === true && (await lp.getAttribute('#board-half-1', 'aria-pressed')) === 'true');
-          await lp.tap('#board-half-2');
+          await lp.tap('.pt-pair[data-round="1"] [data-h="1"]');
+          const r1 = await half();
+          check('a tap on a chip picks the round and the player turn at once: round 1, after the first player', r1.cur === 1 && r1.half === true && r1.pos === 1, JSON.stringify(r1));
+          await lp.tap('.pt-pair[data-round="5"] [data-h="0"]');
         }
         // the live table is untouched; the plan is removed again
         await lp.tap('button[data-action="board-plan-delete"]');

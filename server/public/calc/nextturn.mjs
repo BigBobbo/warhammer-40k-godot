@@ -580,7 +580,7 @@ export function worthOf(result, X) {
 }
 /**
  * A move counts as better than standing still from this many VP of margin: about 3x the noise of the difference
- * between two forecasts of 1,500 games (measured 0.95 VP on a live table counted for the round in progress).
+ * between two forecasts of 1,500 games (measured 0.95 VP on a live table counted for the round in progress, 0.45 VP counted for that round and the next).
  */
 export const MOVE_MIN_VP = 3;
 /**
