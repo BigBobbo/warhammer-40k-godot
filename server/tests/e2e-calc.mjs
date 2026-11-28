@@ -4618,10 +4618,10 @@ Aggressor Squad (95 points)
         const liveTokens = await lp.evaluate(() => JSON.stringify(window.__calc.board().stepTokens));
         await lp.tap('#board-playout-plan');
         await lp.waitForFunction(() => !window.__calc.board().live?.on);
-        const pv = await lp.evaluate(() => ({ plans: [...document.querySelectorAll('[data-action="board-plan-pick"]')].map(e => [e.textContent.trim(), e.classList.contains('on')]), steps: [...document.querySelectorAll('[data-action="board-step"]')].map(e => e.textContent.trim()) }));
-        check('See it on the board: a plan "Played out" of its own, with a step per battle round to Turn 5', pv.plans.some(x => /Played out/.test(x[0]) && x[1]) && pv.steps.some(x => /Turn 5/.test(x)), JSON.stringify(pv));
+        const pv = await lp.evaluate(() => ({ plans: [...document.querySelectorAll('[data-action="board-plan-pick"]')].map(e => [e.textContent.trim(), e.classList.contains('on')]), steps: window.__calc.board().plan.steps.map(x => x.name), rounds: [...document.querySelectorAll('.b-steps .pt-pair')].map(e => e.dataset.round) }));
+        check('See it on the board: a plan "Played out" of its own, with a step per battle round to Turn 5', pv.plans.some(x => /Played out/.test(x[0]) && x[1]) && pv.steps.at(-1) === 'Turn 5' && pv.rounds.join() === '1,2,3,4,5', JSON.stringify(pv));
         await lp.evaluate(() => window.scrollTo(0, 0));
-        await lp.locator('[data-action="board-step"]', { hasText: 'Turn 5' }).tap();
+        await lp.tap('.pt-pair[data-round="5"] [data-h="0"]');
         await lp.screenshot({ path: join(SHOTS, 'calc_145_played_out_turn5.png') });
         // (1.146.0) a battle round by player turn: after the first player's turn the other player's units still stand
         // where the round before left them; ◀ ▶ step a player turn at a time; a unit moved there is moved in its own step
