@@ -220,7 +220,7 @@ test('best moves: the best candidate of each unit, only when it beats standing s
   const base = res(50, 45, 0.6);
   const m = N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7), 'u1>e1': res(53, 45, 0.65), 'u2>c': res(51, 45, 0.61), 'u3>back': res(49, 40, 0.68) }, 'A');
   assert.deepEqual(m.map(x => x.key), ['u1>c', 'u3>back'], 'u2 gains 1 VP: within the noise');
-  assert.equal(N.MOVE_MIN_VP, 2, 'over 4x the measured noise of a difference (0.45 VP)');
+  assert.equal(N.MOVE_MIN_VP, 2, 'about 3.4x the measured noise of a move (0.59 VP)');
   assert.ok(Math.abs(m[0].dVp - 7) < 1e-9 && Math.abs(m[0].dWin - 0.1) < 1e-9);
   assert.ok(Math.abs(N.bestMoves(cands, base, { 'u1>c': res(56, 44, 0.7) }, 'B').length) === 0, 'for B the same move is worse');
 });
@@ -454,4 +454,31 @@ test('move candidates: the least exposed place for a unit at risk (on its object
   const cands = N.moveCandidates([u], swing, [], { risk: { 'A:h': 0.6 }, theirs: [g2], pair: pr, keep: { 'A:h': OBJS[1] }, cards: [{ unit: 'A:h', name: 'A:h', label: 'Centre Ground', x: 22, y: 28, dist: 2 }] });
   assert.ok(cands.some(x => x.kind === 'safe' && /still on Centre/.test(x.label)) && cands.some(x => x.kind === 'card'));
   assert.equal(N.safeSpot(u, [g2], pairs(['B:gun'], ['A:h'], { shoot: 0.05, sMu: 0.5 }), [], OBJS[1]), null, 'hardly at risk: nothing to gain');
+});
+
+// ---------------------------------------------------------------------------
+// 1.153.0: wounds lost on a model, and where the shot is made from
+
+test('wounds a damaged model has lost count: fewer to remove, and half-strength for a unit of one model (01.02.01)', () => {
+  const tank = (o = {}) => unit('A:tank', 22, 20, 1, { ld: 7, ...o });
+  const pr = pairs(['B:gun'], ['A:tank'], { sMu: 4, sSd: 1.5, shoot: 0.02, W: 12 });
+  const gun = [unit('B:gun', 22, 40, 1, { melee: false })];
+  const fresh = N.turnThreats([tank()], gun, pr)[0], hurt = N.turnThreats([tank({ wFrac: 4 / 12 })], gun, pr)[0];
+  assert.equal(fresh.wounds, 12); assert.equal(hurt.wounds, 4);
+  assert.ok(fresh.likely < 0.05 && hurt.likely > 0.4, `4 wounds left of 12: ${hurt.likely} against ${fresh.likely} at full wounds`);
+  assert.equal(N.halfStrength({ total: 1, left: 1, wFrac: 0.5 }), true); assert.equal(N.halfStrength({ total: 1, left: 1, wFrac: 0.6 }), false);
+  assert.equal(hurt.isHalf, true); assert.equal(fresh.isHalf, false);
+  assert.ok(fresh.half > fresh.likely, 'at full wounds: six of twelve to get it to half');
+});
+
+test('where the shot is made from: standing still in range and sight ([HEAVY]), or within half range ([RAPID FIRE], [MELTA])', () => {
+  const pr = pairs(['B:gun'], ['A:t'], { sMu: 4, sSd: 1.5, shoot: 0.1, sMuH: 5, sMuR: 7, W: 10 });
+  const mu = (gunY, o = {}) => N.turnThreats([unit('A:t', 22, 20, 1)], [unit('B:gun', 22, gunY, 1, { melee: false, halfAt: 12, ...o })], pr)[0].by[0];
+  assert.equal(mu(50).mu, 4, '28.7" away: it has to move (no Heavy) and does not get within 12"');
+  const still = mu(40);
+  assert.equal(still.mu, 5); assert.equal(still.shoot.how, 'still'); assert.ok(still.p >= 0.1 - 1e-9, 'never less likely than the calculator figure without it');
+  const close = mu(36);
+  assert.equal(close.mu, 7, '14.7" away: a move brings it within half range, worth more than standing still'); assert.equal(close.shoot.how, 'half');
+  assert.equal(mu(40, { movedFar: true }).mu, 4, 'a unit that has moved more than 3" has no Heavy');
+  assert.equal(N.turnThreats([unit('A:t', 22, 20, 1)], [unit('B:gun', 22, 40, 1, { melee: false })], pairs(['B:gun'], ['A:t'], { sMu: 4 }))[0].by[0].mu, 4, 'no such weapons: nothing changes');
 });

@@ -23,9 +23,9 @@ import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mj
 import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
 import { printSheetHtml } from './printsheet.mjs';
 import { armyTricks } from './adapter.mjs';
-import { boardContext } from './boardview.mjs';
+import { boardContext, boardOddsIn } from './boardview.mjs';
 import { roundLabel } from './eventview.mjs';
-import { initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, missionLoss, pairWipe, registerHost, branchWins, missionNow, pairTable, moveForecasts, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
+import { pairsComplete, initMission, missionView, missionAction, missionChange, missionAfterRender, scheduleForecast, missionNewGame, missionInProgress, missionScore, missionState, missionSetSavedId, missionLoadGame, missionLoss, pairWipe, registerHost, branchWins, missionNow, pairTable, moveForecasts, forecastBranches, syncWake, _missionDebug } from './missionview.mjs';
 import { GAMES_KEY, MISSION_FIELDS, makeGame, checkGame, upsertGame, removeGame, sameGame, summarize, stateText, defaultName } from './games.mjs';
 import { initEvent, eventCard, eventAction, eventChange, eventRoundInfo, _eventDebug } from './eventview.mjs';
 import { initBrief, briefHtml } from './briefview.mjs';
@@ -1455,19 +1455,20 @@ function renderSheet() {
 // ---- Matchup grid: every attacking unit against every enemy unit
 
 // Default matchup (always-on rules only) between any two armies, in any phase.
-function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase, manual = {}) {
+function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase, manual = {}, { full = false, atkMods = null } = {}) {
   const profile = defenderProfile(defCu, defArmyObj);
-  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, manual, lossesOf(armySide(defArmyObj), defCu.key));
-  return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
+  // (full: the target at full strength, whatever it has lost - the unit-vs-unit odds, which the Board scales itself)
+  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, manual, full ? {} : lossesOf(armySide(defArmyObj), defCu.key));
+  return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase, null, atkMods);
 }
 /** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
-function scenarioVs(atkArmyObj, atkCu, tinfo, phase, ruleOverrides = null) {
+function scenarioVs(atkArmyObj, atkCu, tinfo, phase, ruleOverrides = null, atkMods = null) {
   const entry = { unitKey: atkCu.key, counts: {}, mods: {}, ...(ruleOverrides ? { ruleOverrides } : {}) };
   // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
   const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
   if (!rows.some(r => r.usable !== false && r.max > 0)) return null;
   const { rules, on } = rulesFor(entry, atkCu, tinfo, atkArmyObj, phase);
-  const attacker = buildAttacker(atkCu, rows, {}, rules, on, phase);
+  const attacker = buildAttacker(atkCu, rows, atkMods ?? {}, rules, on, phase);
   if (problem && decisions(problem).length) attacker.choice = { groups: problem.groups, rows: problem.rows, shooting: problem.shooting, target: problem.target };
   else if (!attacker.weapons.length) return null;
   return { phase, attackers: [attacker], defender: tinfo.defender, seed: 99 };
@@ -1482,7 +1483,13 @@ function pairOdds(jobs) {
       const A = state.armies[j.atkSide], D = state.armies[other(j.atkSide)];
       const ac = A?.units.find(u => u.key === j.atkKey), dc = D?.units.find(u => u.key === j.defKey);
       // (j.cover: the target has the benefit of cover, 13.08 - the Board uses it for a unit that stands in cover)
-      const sc = ac && dc ? defaultScenarioFor(A, D, ac, dc, j.phase, j.cover ? { cover: true } : {}) : null;
+      // j.atk: the attacker's situation - 'heavy' (it stood still: [HEAVY] +1 to hit, 24.16) or 'half' (the target
+      // within half range: [RAPID FIRE], [MELTA]); only worked out for a unit that has such weapons
+      let sc = null;
+      if (ac && dc) {
+        const need = j.atk === 'heavy' ? (r) => r.kw?.heavy : j.atk === 'half' ? (r) => r.kw?.rapidFire || r.kw?.melta : null;
+        if (!need || attackerRows(ac, 'shooting', null).some(need)) sc = defaultScenarioFor(A, D, ac, dc, j.phase, j.cover ? { cover: true } : {}, { full: true, atkMods: j.atk === 'heavy' ? { stationary: true } : j.atk === 'half' ? { halfRange: true } : null });
+      }
       if (sc) items.push({ key: j.key, scenario: sc });
     }
     const res = {};
@@ -2951,7 +2958,7 @@ initBoard({
   // the mission set-up is locked while a game is on the tracker
   gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round, gameScore: () => missionScore(),
   // the Board's live table follows the tracker (round, turn, phase, hands) and reads the unit-vs-unit odds
-  gameNow: () => missionNow(), pairTable: () => pairTable(), moveForecasts: (base, variants) => moveForecasts(base, variants), stratOdds: (jobs) => stratOdds(jobs),
+  gameNow: () => missionNow(), pairTable: () => pairTable(), pairsComplete: () => pairsComplete(), moveForecasts: (base, variants, opts) => moveForecasts(base, variants, opts), stratOdds: (jobs) => stratOdds(jobs),
   // models left (the game on the tracker): the board draws the models that are left and edits the same record
   groupsLeft: (side, cu, round) => groupsLeft(side, cu, round), lossSteppers: (side, cu, opt) => lossSteppers(side, cu, opt),
   // the board's tablet / phone layout follows its own breakpoint (a portrait tablet is under 900 px wide)
@@ -2980,7 +2987,7 @@ initBoard({
     console.log(`[calc] board -> calculator: ${attacker} ${phase} into ${target}, ${distance}" (half range ${halfRange}${cover !== undefined ? `, cover ${cover}, models seeing ${inRange ?? 'all'}` : ''})`);
   },
 });
-initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave });
+initMission({ state, esc, seg, chip, pairOdds, wide, gamesCard, autoSave, oddsIn: () => boardOddsIn() });
 // casualties set on the Attack tab before models left were kept per attack set-up: carry them into the game's
 // record once, from the start of the battle (round 0); the old setting stays where it was, unused
 for (const [k, st] of Object.entries(state.setups ?? {})) {
