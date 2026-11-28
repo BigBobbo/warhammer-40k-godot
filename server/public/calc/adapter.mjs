@@ -1543,5 +1543,13 @@ export function boardUnit(cu, army = null) {
   const ranged = attackerRows(cu, 'shooting', null);
   const ranges = [...new Set(ranged.map(r => parseFloat(r.range)).filter(n => n > 0))].sort((a, b) => a - b);
   const rfMelta = [...new Set(ranged.filter(r => r.kw.rapidFire || r.kw.melta).map(r => parseFloat(r.range)).filter(n => n > 0))];
-  return { members, move, moveBonus: mv.bonus, moveBonusFrom: mv.source, ranges, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0, flags: coreFlags(cu) };
+  // the share of the unit's shooting that each range carries (a rough value against a T4, 3+ target): a unit
+  // with one long gun does not shoot with everything from afar (nextturn.rangeShare)
+  const dmg = new Map();
+  for (const r of ranged) { const rg = parseFloat(r.range), v = (r.count ?? 0) * quickStat(r).v; if (rg > 0 && v > 0) dmg.set(rg, (dmg.get(rg) ?? 0) + v); }
+  const sum = [...dmg.values()].reduce((x, y) => x + y, 0);
+  const bands = sum > 0 ? [...dmg].sort((x, y) => x[0] - y[0]).map(([range, v]) => ({ range, share: v / sum })) : [];
+  // Leadership: a battle-shock roll succeeds against "one or more of the unit's Ld characteristics" (01.07): the best one
+  const lds = cu.members.flatMap(m => (m.dcUnit.profiles ?? []).map(q => parseInt(q.Ld, 10))).filter(n => n > 0);
+  return { members, move, moveBonus: mv.bonus, moveBonusFrom: mv.source, ranges, bands, ld: lds.length ? Math.min(...lds) : null, halfRangeWeapons: rfMelta, melee: attackerRows(cu, 'fight', null).length > 0, flags: coreFlags(cu) };
 }

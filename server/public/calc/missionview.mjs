@@ -203,7 +203,7 @@ function ensurePairs() {
   if (m.pairs?.sig === sig || pairsPending || !ctx.pairOdds) return m.pairs?.sig === sig;
   const st = ctx.state, jobs = [];
   for (const X of ['A', 'B']) for (const a of st.armies[X].units) for (const d of st.armies[other(X)].units)
-    for (const phase of ['shooting', 'fight']) jobs.push({ key: `${X}:${a.key}>${other(X)}:${d.key}|${phase}`, atkSide: X, atkKey: a.key, defKey: d.key, phase });
+    for (const phase of ['shooting', 'fight', 'cover']) jobs.push({ key: `${X}:${a.key}>${other(X)}:${d.key}|${phase}`, atkSide: X, atkKey: a.key, defKey: d.key, phase: phase === 'cover' ? 'shooting' : phase, cover: phase === 'cover' });
   pairsPending = true;
   ctx.pairOdds(jobs).then((res) => {
     const table = {};
@@ -211,6 +211,8 @@ function ensurePairs() {
       const [ad, phase] = k.split('|');
       const [atk, def] = ad.split('>');
       const cell = ((table[atk] ??= {})[def] ??= { shoot: 0, fight: 0, sMu: 0, sSd: 0, fMu: 0, fSd: 0, W: 0 });
+      // shooting at the target in cover (13.08: BS worse by 1): for a unit the Board finds in cover
+      if (phase === 'cover') { cell.shootC = v.pWipe ?? 0; cell.sMuC = v.meanWounds ?? 0; cell.sSdC = v.sdWounds ?? 0; continue; }
       const sh = phase === 'shooting';
       cell[sh ? 'shoot' : 'fight'] = v.pWipe ?? 0;        // P(destroyed by this unit alone)
       cell[sh ? 'sMu' : 'fMu'] = v.meanWounds ?? 0;       // mean wounds removed

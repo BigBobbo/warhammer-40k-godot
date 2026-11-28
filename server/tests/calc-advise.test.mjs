@@ -54,7 +54,7 @@ test('what is refused before any API call: not a plan request, too large', async
   A._reset(); seen.length = 0;
   assert.equal((await A.advise({ hello: 1 }, 'ip1')).status, 400);
   assert.equal((await A.advise({ static: { me: {}, them: {} }, dynamic: { game: {} } }, 'ip1')).status, 400);
-  const big = { ...BODY, static: { ...BODY.static, pad: 'x'.repeat(90000) } };
+  const big = { ...BODY, static: { ...BODY.static, pad: 'x'.repeat(210000) } };
   assert.equal((await A.advise(big, 'ip1')).status, 413);
   assert.equal(seen.length, 0);
 });

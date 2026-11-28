@@ -52,7 +52,7 @@ test('the game now: round, cards, where units are, and what the cards computed',
   assert.ok(centre.myUnitsThatCanReachIt.some(s => /^Hunters \(OC \d+, normal move\)$/.test(s)), JSON.stringify(centre));
   const hunters = d.computed.myUnitSuggestions.find(u => u.unit === 'Hunters');
   assert.match(hunters.target, /Boyz$/); assert.equal(typeof hunters.targetDestroyedPct, 'number'); assert.ok('chargeOddsPct' in hunters && 'canShootWithoutMoving' in hunters);
-  assert.deepEqual(d.computed.forecast.movesWorth3vpOrMore, [{ unit: 'Hunters', move: '4.25" onto Centre', vpGainAlone: 8.71 }]);
+  assert.deepEqual(d.computed.forecast.movesWorthMaking, [{ unit: 'Hunters', move: '4.25" onto Centre', vpGainAlone: 8.71 }]);
   assert.equal(d.computed.forecast.winPctAsItStands, 47); assert.equal(d.computed.forecast.winPctWithThem, 61);
   assert.equal(P.advisePayload({ ...IN, moves: null }).dynamic.computed.forecast.note, 'the move forecast has not run');
 });
@@ -62,7 +62,7 @@ test('the server takes it: it passes the server\'s own check and stays far under
   const p = P.advisePayload(IN), v = A.validate(p);
   assert.equal(v.ok, true);
   const size = P.payloadSize(p);
-  assert.ok(size.static < 80000 && size.dynamic < 40000, JSON.stringify(size));
+  assert.ok(size.static < 200000 && size.dynamic < 80000, JSON.stringify(size));
 });
 
 test('the prompt to paste into Claude by hand: the same instructions the server sends, then the armies, then the game', () => {
@@ -104,4 +104,41 @@ test('the instructions ask for the ACTIONS lines; the server\'s stand-in answer 
   assert.match(P.ADVISE_INSTRUCTIONS, /write the single word ACTIONS/); assert.match(P.ADVISE_INSTRUCTIONS, /MOVE \| unit \| objective/);
   assert.equal(P.ADVISE_INSTRUCTIONS, A.SYSTEM);
   assert.deepEqual(P.parsePlan(A.MOCK_TEXT).actions, [{ kind: 'hold', unit: 'Grey Hunters', target: 'Centre' }]);
+});
+
+test('the armies carry what a plan needs to read: rules, unit stats and weapons; stratagems are the ones for the turn asked about', () => {
+  const rich = { ...IN, armies: { me: { ...IN.armies.me, rules: [{ name: 'Oath of Moment', text: 'Select one enemy unit ...' }], units: IN.armies.me.units.map(u => ({ ...u, stats: ['M6 T4 Sv3+ W2 Ld6 OC2'], weapons: ['5x Bolt rifle, 24", A2 BS3+ S4 AP-1 D1 [assault, heavy]'] })) }, them: IN.armies.them } };
+  const p = P.advisePayload(rich);
+  assert.deepEqual(p.static.me.rules, ['Oath of Moment: Select one enemy unit ...']);
+  assert.deepEqual(p.static.me.units[0].stats, ['M6 T4 Sv3+ W2 Ld6 OC2']); assert.match(p.static.me.units[0].weapons[0], /Bolt rifle, 24"/);
+  assert.ok(!('stats' in p.static.them.units[0]), 'nothing made up for a unit without them');
+  // their turn: my stratagems for their turn, all of theirs
+  const theirs = P.advisePayload({ ...IN, game: { ...IN.game, mine: false } });
+  assert.deepEqual(theirs.static.them.stratagems.map(s => s.name), ['ERE WE GO', 'ORKS IS NEVER BEATEN']);
+  assert.deepEqual(theirs.static.me.stratagems.map(s => s.name), ['ARMOUR OF CONTEMPT'], 'usable in either player\'s turn');
+});
+
+test('the game now also says: turn order, what each mission scores, where the objectives and terrain are, distances, and who is shocked', () => {
+  const p = P.advisePayload({ ...IN, game: { ...IN.game, first: 'me', theirTurnsLeft: 0, myMissionText: '3 VP for holding a central objective.' }, terrain: [{ kind: 'dense area', at: [10, 20], size: [6, 4] }],
+    gaps: { Hunters: [{ enemy: 'Boyz', inches: 12.4 }] }, flags: { Hunters: { battleShocked: true, halfStrength: true } } }).dynamic;
+  assert.equal(p.game.firstTurnEachRound, 'me'); assert.equal(p.game.theirTurnsStillToComeAfterMine, 0); assert.match(p.game.note, /last turn of the battle/);
+  assert.equal(p.game.myMissionScoring, '3 VP for holding a central objective.');
+  assert.deepEqual(p.terrain, [{ kind: 'dense area', at: [10, 20], size: [6, 4] }]);
+  assert.deepEqual(p.computed.inchesToNearestEnemies, { Hunters: [{ enemy: 'Boyz', inches: 12.4 }] });
+  assert.deepEqual(p.myUnits[0], { name: 'Hunters', modelsLeft: 5, at: [22, 22], battleShocked: true, atOrBelowHalfStrength: true });
+  const centre = p.computed.objectives.find(o => o.name === 'Centre');
+  assert.deepEqual(centre.at, [22, 30]); assert.equal(centre.kind, 'centre');
+  assert.ok(Array.isArray(p.computed.coreStratagemsTheyCanAnswerWithInMyTurn), 'what they can answer with (CP not known here: all named)');
+  assert.ok(p.computed.targets.every(t => !('worthMoreBecause' in t) || t.worthMoreBecause.length > 0));
+});
+
+test('the ACTIONS lines can say how: Advance, Fall Back, arrive, shoot, charge, fight, and a stratagem on a unit', () => {
+  const p = P.parsePlan('ACTIONS\nADVANCE | Hunters | Centre\nFALL BACK | Guard | Your home\nARRIVE | Wolf Guard | Centre\nSHOOT | Hunters | Boyz\nCHARGE | Hunters | Boyz\nFIGHT | Guard | Boyz\nSTRATAGEM | Armour of Contempt | Hunters');
+  assert.deepEqual(p.actions, [{ kind: 'move', how: 'advance', unit: 'Hunters', target: 'Centre' }, { kind: 'move', how: 'fall back', unit: 'Guard', target: 'Your home' }, { kind: 'move', how: 'arrive', unit: 'Wolf Guard', target: 'Centre' },
+    { kind: 'attack', how: 'shoot', unit: 'Hunters', target: 'Boyz' }, { kind: 'attack', how: 'charge', unit: 'Hunters', target: 'Boyz' }, { kind: 'attack', how: 'fight', unit: 'Guard', target: 'Boyz' }, { kind: 'stratagem', unit: 'Hunters', target: 'Armour of Contempt' }]);
+  const r = P.resolveActions(p.actions, { mine: [{ key: 'A:u1', name: 'Hunters' }, { key: 'A:u2', name: 'Guard' }], theirs: [{ key: 'B:u1', name: 'Boyz' }], objectives: [{ id: 'c', name: 'Centre' }, { id: 'h', name: 'Your home' }] });
+  assert.deepEqual([r[0].ok, r[0].how, r[0].objId], [true, 'advance', 'c']); assert.equal(r[2].ok, false, 'no unit of mine is called Wolf Guard here');
+  assert.deepEqual([r[6].ok, r[6].unitKey, r[6].target], [true, 'A:u1', 'Armour of Contempt']);
+  for (const f of ['ADVANCE | unit | objective', 'FALLBACK | unit | objective', 'ARRIVE | unit | objective', 'SHOOT | unit | enemy unit', 'CHARGE | unit | enemy unit', 'STRATAGEM | stratagem name | unit']) assert.ok(P.ADVISE_INSTRUCTIONS.includes(f), f);
+  assert.match(P.ADVISE_INSTRUCTIONS, /Play to the score, not to kills/);
 });
