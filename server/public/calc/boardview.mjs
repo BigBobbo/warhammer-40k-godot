@@ -507,7 +507,7 @@ function playOutToPlan() {
   }
   const old = root.variants.findIndex(x => x.playout);
   const vv = { name: 'Played out', playout: true, first: playMemo.first, steps, cur: R };
-  boardState().half = false;
+  boardState().half = false; boardState().byTurn = true;
   if (old >= 0) root.variants[old] = { ...vv, id: root.variants[old].id }; else root.variants.push(vv);
   ensureIds(root.variants);
   root.v = old >= 0 ? old : root.variants.length - 1;
@@ -1330,7 +1330,7 @@ function firstOf() {
 }
 /** Can this step be looked at by player turn? (not the deployment, a drop drill, or the table now of the live table) */
 function halfCan() { const p = plan(), i = curIndex(); return !!p && i >= 1 && !p.drill && !(p.live && i === curSteps().length - 1); }
-const halfOn = () => !!boardState().half && halfCan() && !!firstOf();
+const halfOn = () => !!boardState().byTurn && !!boardState().half && halfCan() && !!firstOf();
 function halfTokens(end, prev, F) {
   const src = (tk) => (String(tk).startsWith(`${F}:`) ? end : prev);
   return new Proxy({}, {
@@ -1351,7 +1351,7 @@ function stepTokens() {
 /** The switch under the turn chips: the table after the first player's turn / at the end of the round, and ◀ ▶ a player turn at a time. */
 function halfRowHtml() {
   const p = plan(), esc = ctx.esc;
-  if (!p || p.drill || curSteps().length < 2) return '';
+  if (!p || p.drill || curSteps().length < 2 || !boardState().byTurn) return '';
   const F = firstOf(), i = curIndex(), n = curSteps().length, liveNow = p.live && i === n - 1;
   const nm = (X) => esc(ctx.state.armies[X]?.faction ?? X);
   if (!F) return `<div class="row tiny" id="board-half-row" data-first="" style="gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px"><span class="muted">See each round by player turn: who has the first turn?</span>
@@ -2094,6 +2094,7 @@ function stepsRowHtml() {
         ${p?.live ? '' : `<button class="chip" data-action="board-step-add">＋ Next turn</button>
         <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>`}
         <button class="chip ${p?.live ? 'on' : ''}" data-action="board-live" id="board-live" aria-pressed="${!!p?.live}" title="The table as it is now, following the round and turn of the game on the tracker">🔴 Live table</button>
+        ${p && !p.drill && curSteps().length > 1 ? `<button class="chip ${b.byTurn ? 'on' : ''}" data-action="board-by-turn" id="board-by-turn" aria-pressed="${!!b.byTurn}" title="Look at each battle round one player turn at a time">👥 By player turn</button>` : ''}
         <button class="chip" data-action="board-ar" id="board-ar" title="Live AR: this layout and plan over the camera view of your table">🥽 AR</button>
         <span class="grow"></span>
         <span class="row board-tools"><span class="row undo-host" id="board-undo-host">${undoButtons()}</span>${ctx.seg('board-mode', b.mode, [['move', '✋ Move'], ['ruler', '📏 Ruler'], ['meas', '📐 Bases']], 'compact')}</span>
@@ -2198,7 +2199,7 @@ function triView() {
   const onDeploy = curIndex() === 0;
   const reuse = reusablePlan();
   const di = drillInfo();
-  return `<div class="tri ${onDeploy ? 'deploy' : ''}" id="board-tri" data-me="${me}">
+  return `<div class="tri ${onDeploy ? 'deploy' : ''}${b.byTurn && curSteps().length > 1 ? ' byturn' : ''}" id="board-tri" data-me="${me}">
     <aside class="tri-l tri-army" id="board-army-${me}" data-side="${me}" style="--side-ink:${sideInk(me)}"><div id="board-army-${me}-in">${armyColInner(me)}</div></aside>
     <div class="tri-c">
       <section class="section b-steps">${stepsRowHtml()}<div id="board-treemap-host">${treeMapHtml()}</div></section>
@@ -3167,6 +3168,7 @@ export function boardAction(action, el) {
     case 'board-zoom':
       zoomBoard(Number(el.dataset.z));
       return null;
+    case 'board-by-turn': b.byTurn = !b.byTurn; if (!b.byTurn) b.half = false; b.sel = b.sel2 = null; return 'render';
     case 'board-half': b.half = el.dataset.value === '1'; b.sel = b.sel2 = null; return 'render';
     case 'board-half-first': { const p = plan(); if (p) { p.first = el.dataset.value === 'B' ? 'B' : 'A'; b.half = true; persistBoard(); } return 'render'; }
     case 'board-half-go': {

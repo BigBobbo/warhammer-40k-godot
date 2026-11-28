@@ -4631,6 +4631,10 @@ Aggressor Squad (95 points)
             for (const t of b.tokens) { if (t.tk.startsWith(F + ':')) { o.nFirst++; o.firstAtR += same(t, st[r].tokens[t.tk]); } else { o.nOther++; o.otherAtR += same(t, st[r].tokens[t.tk]); o.otherAtPrev += same(t, st[r - 1].tokens[t.tk]); if (!same(st[r].tokens[t.tk], st[r - 1].tokens[t.tk])) o.differ++; } }
             return o; });
           const endV = await half();
+          check('👥 By player turn is a switch next to the turns; it is on for the played-out game', (await lp.getAttribute('#board-by-turn', 'aria-pressed')) === 'true');
+          await lp.tap('#board-by-turn');
+          check('off: no row of player turns, the turns are battle rounds as before', (await lp.locator('#board-half-row').count()) === 0 && (await lp.evaluate(() => window.__calc.board().half)) === false);
+          await lp.tap('#board-by-turn');
           check('a row under the turns shows the round by player turn, with who moves first', (await lp.locator('#board-half-row').count()) === 1 && ['A', 'B'].includes(endV.first) && endV.half === false && endV.otherAtR === endV.nOther && endV.pos === 10, JSON.stringify(endV));
           // a round in which the second player moved: look at it after the first player's turn
           let hv = endV;
