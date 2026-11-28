@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.152.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: the play-out is more careful about who is destroyed, and about walking into danger",
+      "changes": [
+        "Play the game out: a unit is counted as destroyed only by what can really attack it from where the other units ended their move: in range and in sight, or in engagement range (before, anything that could have got there counted)",
+        "A charge counts only as often as its charge roll comes off, and each unit attacks one target",
+        "A unit no longer walks into a place where it is likely to be destroyed next turn, unless the walk takes an objective or it is no safer where it stands; Show who did what says holds back from",
+        "On a test table this dropped the units removed along the way from 9 of 14 to 6"
+      ]
+    },
+    {
       "version": "1.151.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: a prediction record that checks the app's calls against your real games",

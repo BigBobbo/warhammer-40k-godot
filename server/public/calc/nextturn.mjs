@@ -59,7 +59,8 @@ const share = (u) => (u.total > 0 && u.left != null ? Math.max(0, Math.min(1, u.
  * opts.pieces: the layout's terrain (who is Hidden / a Lone Operative, and who has a sight line now).
  * -> [{ key, name, points, wounds, focus (P destroyed if everything in reach attacks it), likely (P destroyed
  *       when each of their units attacks the target it is worth most against), by: [{ key, name, shoot: { range,
- *       now (in range and in sight without moving) } | null, charge (P), engaged, mu, p }] }], most at risk first
+ *       now (in range and in sight without moving) } | null, charge (P), engaged, mu, p, sp / fp ({ mu, v, p }: its
+ *       shooting alone / its fighting alone) }] }], most at risk first
  */
 export function turnThreats(mine, theirs, pair, { pieces = null } = {}) {
   const rows = mine.map(t => ({ key: t.key, name: t.name, points: t.points ?? 0, wounds: 0, focus: 0, likely: 0, by: [], parts: [], scaled: false }));
@@ -88,7 +89,10 @@ export function turnThreats(mine, theirs, pair, { pieces = null } = {}) {
         now = s.attackersSeeing > 0 && s.targetSeen > 0 && !s.hidden;
       }
       const part = { mu, v, p: scaled ? undefined : p };
-      row.by.push({ key: a.key, name: a.name, shoot: th.shoot ? { range: th.shoot.range, now } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part });
+      // (the two halves apart, for a caller that knows what the unit did: sp = it shoots, fp = it fights)
+      const sp = th.shoot && pr ? { mu: sMu, v: ((pr.sSd ?? 0) * as) ** 2, p: scaled ? undefined : pr.shoot ?? 0 } : null;
+      const fp = pr && fMu > 0 ? { mu: fMu, v: ((pr.fSd ?? 0) * as) ** 2, p: scaled ? undefined : pr.fight ?? 0 } : null;
+      row.by.push({ key: a.key, name: a.name, shoot: th.shoot ? { range: th.shoot.range, now } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part, sp, fp });
       row.parts.push(part);
       const value = p * Math.max(1, t.points ?? 1);
       if (value > (best.get(a.key)?.value ?? 0)) best.set(a.key, { row, value, part });

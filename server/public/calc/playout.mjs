@@ -9,22 +9,26 @@
 //  - the moves follow one fixed rule; nobody looks ahead, baits, screens or trades;
 //  - a unit that cannot pass dense terrain goes round it (paths.mjs); climbing is not modelled;
 //  - a unit with nothing to shoot or charge Advances (its Move + 3", the D6's average less a half);
+//  - a unit does not walk into a place where it is likely destroyed next turn, unless the walk takes an objective;
 //  - units do not stand on each other: a unit that would end on other bases ends beside them;
 //  - a unit that is more likely destroyed than not by then stops acting, holding and being a target in the walk
-//    (the forecast still rolls its own dice for it when it scores the plan);
+//    (the forecast still rolls its own dice for it when it scores the plan). What destroys it is what can attack
+//    it from where the other player's units ended their move: in range and in sight, or in engagement range;
 //  - reserves arrive from battle round 2 (20.03 / 20.04: 6" from a battlefield edge, more than 8" from the enemy,
 //    not in the opponent's deployment zone before round 3; Deep Strike 24.09: anywhere more than 8" away), units
 //    in a TRANSPORT get out within 3" of it (18.04) when it is near an objective or by round 3;
 //  - cards count for the round in progress only (the hands of later rounds are not known).
 // Pure module (no DOM), unit-tested (tests/calc-playout.test.mjs).
 
-import { myTurn, moveCandidates, objectiveGap, turnThreats } from './nextturn.mjs';
+import { myTurn, moveCandidates, objectiveGap, turnThreats, killChance } from './nextturn.mjs';
 import { route, along, goesRound } from './paths.mjs';
 import { inPoly } from './board.mjs';
+import { p2d6 } from './sight.mjs';
 
 const W = 44, H = 60, ROUNDS = 5;
 const CHARGE = 7;          // the average charge roll: a charge is walked when a move and this get the unit there
 const ADVANCE = 3;         // an Advance adds a D6: counted as 3"
+const RISKY = 0.5;          // a walk is not made to where the unit is this likely to be destroyed next turn
 const ENGAGE = 1;          // a unit that does not charge ends more than this from enemy bases (engagement range)
 const other = (X) => (X === 'A' ? 'B' : 'A');
 const extent = (fp) => fp?.r ?? Math.max(fp?.rx ?? 0, fp?.hw ?? 0, fp?.ry ?? 0, fp?.hh ?? 0);
@@ -87,7 +91,7 @@ export function freeSpot(u, x, y, others, { engage = false, ok = null, reach = 5
 /**
  * What every unit of one player does in a turn of theirs, by the rule of the "Your turn" card.
  * c: as nextturn.myTurn ({ me, mine, theirs, pair, objs, geo, round, hand }).
- * -> [{ unit, name, kind: 'take' | 'hold' | 'charge' | 'shoot' | 'fight' | 'advance' | 'stay', label (the objective or the
+ * -> [{ unit, name, kind: 'take' | 'hold' | 'charge' | 'shoot' | 'fight' | 'advance' | 'wait' (it holds back: the way on is too dangerous) | 'stay', label (the objective or the
  *       target), x, y (the unit's centre after the turn), dist }], in the order of c.mine
  */
 export function turnMoves(c) {
@@ -122,7 +126,8 @@ export function turnMoves(c) {
       // the odds, not in the walk); else its move towards it
       const gap = Math.max(0, unitGap(u, t) - 0.5);
       const p = towards(u, t.x, t.y, gap <= M + CHARGE ? gap : M, pieces);
-      out.set(u.key, { unit: u.key, name: u.name, kind: gap <= M + CHARGE ? 'charge' : 'advance', label: t.name, target: t.key, ...p });
+      // (chargeP: the chance the charge roll covers what the normal move leaves; 1 when the move alone gets there)
+      out.set(u.key, { unit: u.key, name: u.name, kind: gap <= M + CHARGE ? 'charge' : 'advance', label: t.name, target: t.key, ...(gap <= M + CHARGE ? { chargeP: gap <= M ? 1 : p2d6(Math.ceil(gap - M - 1e-9)) } : {}), ...p });
     } else if (t) {
       // it shoots (or is fighting already): a step forward first if its target is beyond its longest range
       const need = r.attack.how === 'fight' ? 0 : unitGap(u, t) - Math.max(1, reachOf(u) - 1);
@@ -147,6 +152,13 @@ export function turnMoves(c) {
       // out of reach of it with a normal move and nothing to shoot: it Advances (it gives up no shot or charge)
       const adv = !shot && best.gap + 0.75 > M;
       const p = towards(u, best.o.x, best.o.y, Math.min(M + (adv ? ADVANCE : 0), best.gap + 0.75), pieces);
+      // caution (1.152.0): a walk that does not get onto the objective is not made into a place where the unit is
+      // likely destroyed in the other player's next turn, unless it is no safer where it stands
+      if (p.dist > 0 && c.pair && !(objectiveGap({ ...u, x: p.x, y: p.y }, best.o, pieces) <= 0)) {
+        const riskAt = (x, y) => turnThreats([{ ...u, x, y }], c.theirs, c.pair, { pieces })[0]?.likely ?? 0;
+        const there = riskAt(p.x, p.y);
+        if (there >= RISKY && there > riskAt(u.x, u.y) + 0.15) { out.set(u.key, shot ?? { ...stay(u, 'wait', best.o.label), risk: there }); continue; }
+      }
       busy.set(best.o.id, (busy.get(best.o.id) ?? 0) + 1);
       out.set(u.key, { unit: u.key, name: u.name, kind: p.dist > 0 ? 'advance' : 'stay', label: best.o.label, obj: best.o.id, ...(adv && p.dist > M ? { adv: true } : {}), ...p });
       continue;
@@ -160,6 +172,34 @@ export function turnMoves(c) {
     else out.set(u.key, stay(u, 'stay', ''));
   }
   return c.mine.map(u => out.get(u.key));
+}
+
+/**
+ * What a player's turn does to the other player's units, once its units have moved (1.152.0). The turn cards'
+ * "likely destroyed" is an upper bound - everything that could get into range or charge counts. Here the units
+ * stand where their move ended, so only what can really attack from there counts: a unit shoots if its target is
+ * in range and in sight from where it stands, fights if it is in engagement range, and attacks one target - the
+ * one it is worth most against. A unit that charged this turn fights with the chance its charge roll came off.
+ * -> [{ key, name, p (destroyed this turn), by: [attacker keys] }], p > 0 only
+ */
+export function turnCasualties(targets, attackers, pair, pieces, charged = null) {
+  const rows = turnThreats(targets, attackers, pair, { pieces });
+  const pts = new Map(targets.map(t => [t.key, t.points ?? 0]));
+  const best = new Map();                 // attacker -> { row, part, value }
+  for (const row of rows) {
+    for (const b of row.by) {
+      let part = b.engaged ? b.fp : b.shoot?.now ? b.sp : null;
+      if (!part) continue;
+      // a unit that charged this turn fights only if its charge roll came off (charged: Map attacker -> that chance)
+      const cp = b.engaged ? charged?.get(b.key) ?? 1 : 1;
+      if (cp < 1) part = { mu: part.mu * cp, v: part.v * cp + cp * (1 - cp) * part.mu ** 2, p: part.p == null ? undefined : part.p * cp };
+      const alone = killChance([part], row.wounds), value = alone * Math.max(1, pts.get(row.key) ?? 1) + 1e-6 * part.mu;
+      if (value > (best.get(b.key)?.value ?? 0)) best.set(b.key, { row, part, value });
+    }
+  }
+  const on = new Map();
+  for (const [ak, x] of best) { if (!on.has(x.row)) on.set(x.row, { parts: [], by: [] }); on.get(x.row).parts.push(x.part); on.get(x.row).by.push(ak); }
+  return [...on].map(([row, x]) => ({ key: row.key, name: row.name, p: killChance(x.parts, row.wounds), by: x.by })).filter(r => r.p > 0);
 }
 
 /**
@@ -235,7 +275,7 @@ export function playOut(s) {
       const c = { me: X, mine: live(X), theirs: live(Y), pair: s.pair, objs: s.objs, geo: s.geo, round: r, hand: r === s.round ? s.hand?.[X] ?? [] : [] };
       const moves = turnMoves(c);
       // each unit ends where no other base is: the units that hold first, then the ones that take, then the rest
-      const rank = { hold: 0, fight: 0, shoot: 1, take: 2, charge: 3, advance: 4, stay: 5 };
+      const rank = { hold: 0, fight: 0, shoot: 1, take: 2, charge: 3, advance: 4, stay: 5, wait: 5 };
       const order = [...moves].sort((a, b) => rank[a.kind] - rank[b.kind]);
       const where = new Map(pos[X].map(u => [u.key, u]));
       for (const m of order) {
@@ -281,9 +321,9 @@ export function playOut(s) {
       // what this turn does to the other player: a unit more likely destroyed than not stops acting from here on
       const lost = [];
       if (s.pair) {
-        for (const t of turnThreats(live(Y), live(X), s.pair, { pieces })) {
-          if (!(t.likely > 0)) continue;
-          alive[t.key] = (alive[t.key] ?? 1) * (1 - t.likely);
+        const charged = new Map(moves.filter(m => m.kind === 'charge').map(m => [m.unit, m.chargeP ?? 1]));
+        for (const t of turnCasualties(live(Y), live(X), s.pair, pieces, charged)) {
+          alive[t.key] = (alive[t.key] ?? 1) * (1 - t.p);
           if (alive[t.key] < 0.5) { gone[t.key] = r; lost.push({ unit: t.key, name: t.name, p: 1 - alive[t.key] }); }
         }
       }
