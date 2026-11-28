@@ -2866,6 +2866,9 @@ Aggressor Squad (95 points)
     await mp.waitForSelector('#board-ghosts [data-ghost-gone]');
     check('a unit destroyed in the other path is crossed out', /Grey Hunters is not on the board there/.test(await mtxt('#board-cmp-info')));
     // moving a path after the forecast: its win chance is not shown until worked out again
+    // (the unit-vs-unit odds arriving start a forecast of their own, which works every path out again: wait for them
+    //  first, so that the check is about the move alone - they take longer since 1.148.0, the in-cover odds)
+    await mp.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 90000 });
     await mset(MN, 30, 31);
     await mp.waitForTimeout(200);
     // (a forecast still running shows "…" in every row: the check is about what stays once nothing is running.
