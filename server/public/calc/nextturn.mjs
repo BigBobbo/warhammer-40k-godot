@@ -144,7 +144,8 @@ const wshare = (u) => (u.wFrac != null ? Math.max(0, Math.min(1, u.wFrac)) : sha
  * opts.pieces: the layout's terrain (who is Hidden / a Lone Operative, and who has a sight line now).
  * -> [{ key, name, points, wounds, focus (P destroyed if everything in reach attacks it), likely (P destroyed
  *       when each of their units attacks the target it is worth most against), by: [{ key, name, shoot: { range,
- *       now (in range and in sight without moving) } | null, charge (P), engaged, mu, p }] }], most at risk first
+ *       now (in range and in sight without moving) } | null, charge (P), engaged, mu, p, sp / fp ({ mu, v, p }: its
+ *       shooting alone / its fighting alone) }] }], most at risk first
  */
 export function turnThreats(mine, theirs, pair, { pieces = null, strictSight = false, reserves = [], quiet = null, cache = null } = {}) {
   const rows = mine.map(t => ({ key: t.key, name: t.name, points: t.points ?? 0, wounds: 0, focus: 0, likely: 0, by: [], parts: [], scaled: false }));
@@ -210,7 +211,10 @@ export function turnThreats(mine, theirs, pair, { pieces = null, strictSight = f
       const p = !pr || !(Wt > 0) ? 0 : less ? killChance([{ mu, v }], Wt) : scaled ? Math.max(pCalc, killChance([{ mu, v }], Wt)) : pCalc;
       if (!(mu > 0) && !(p > 0) && !th.engaged) continue;
       const part = { mu, v, p: scaled ? undefined : p };
-      row.by.push({ key: a.key, name: a.name, shoot: shoot ? { range: shoot.range, now, share: rs, cover: inCover, ...(sit > 1.001 ? { boost: sit, how: still && pr.sMuH >= (close ? pr.sMuR : 0) ? 'still' : 'half' } : {}) } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part,
+      // (the two halves apart, for a caller that knows what the unit did - the play-out: sp = it shoots, fp = it fights)
+      const sp = shoot && pr ? { mu: sMu, v: (sSd0 * as * rs) ** 2, p: scaled ? undefined : sP0 } : null;
+      const fp = pr && fMu > 0 ? { mu: fMu, v: ((pr.fSd ?? 0) * as) ** 2, p: as < 1 || ts < 1 ? undefined : pr.fight ?? 0 } : null;
+      row.by.push({ key: a.key, name: a.name, shoot: shoot ? { range: shoot.range, now, share: rs, cover: inCover, ...(sit > 1.001 ? { boost: sit, how: still && pr.sMuH >= (close ? pr.sMuR : 0) ? 'still' : 'half' } : {}) } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part, sp, fp,
         ...(off ? { reserve: true } : {}), ...(a.embarked ? { embarked: a.embarked } : {}) });
       row.parts.push(part);
       const value = p * Math.max(1, t.points ?? 1);

@@ -37,7 +37,7 @@ export function addTurn(rec, e) {
     moves: (e.moves ?? []).map(m => ({ unit: m.unit, name: m.name, label: m.label, obj: m.obj ?? null, vp: r1(m.vp ?? 0), made: m.made ?? null })),
     playout: e.playout ? { win: e.playout.win, vpMe: r1(e.playout.vpMe ?? 0), vpOpp: r1(e.playout.vpOpp ?? 0) } : null,
     ahead: e.ahead ? { side: e.ahead.side, destroyed: (e.ahead.destroyed ?? []).map(d => ({ tk: d.tk, name: d.name, p: Math.round(d.p * 1000) / 1000 })),
-      // (1.153.0) halved: [{ tk, name, p }] - units expected to be left at or below half-strength (destroyed counts)
+      // (1.154.0) halved: [{ tk, name, p }] - units expected to be left at or below half-strength (destroyed counts)
       ...(e.ahead.halved ? { halved: e.ahead.halved.map(d => ({ tk: d.tk, name: d.name, p: Math.round(d.p * 1000) / 1000 })) } : {}) } : null,
   };
   const i = rec.turns.findIndex(t => t.round === entry.round && t.turn === entry.turn);

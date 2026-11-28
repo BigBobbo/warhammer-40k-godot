@@ -2871,7 +2871,8 @@ Aggressor Squad (95 points)
     // win chances worked out from here
     check('⚡ Work out win chances is offered before any forecast', (await mp.locator('#board-tree-forecast').count()) === 1);
     await mp.locator('#board-tree-forecast').tap();
-    await mp.waitForFunction(() => [...document.querySelectorAll('#board-treemap .tm-win')].every(t => /^\d+%$/.test(t.textContent.trim())), null, { timeout: 240000 });
+    // (with the unit-vs-unit odds in and nothing running: their arrival works every path out once more)
+    await mp.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy && [...document.querySelectorAll('#board-treemap .tm-win')].every(t => /^\d+%$/.test(t.textContent.trim())), null, { timeout: 240000 });
     const wins = await mp.evaluate(() => { const m = window.__calc.mission(); return Object.fromEntries(m.compare.map(c => [c.key, Math.round(c.result.pWinA * 100)])); });
     const shown = await mp.$$eval('#board-treemap .tm-win', els => els.map(e => Number(e.textContent.replace('%', ''))));
     const head = await mtxt('#board-treemap .small');
