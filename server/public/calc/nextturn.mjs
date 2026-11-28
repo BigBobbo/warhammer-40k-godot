@@ -13,6 +13,7 @@ import { OBJECTIVE_RANGE, inPoly } from './board.mjs';
 import { threatTo, unitSight } from './sight.mjs';
 import { detectRange, unitFacts, ocInRange, inRange } from './planeval.mjs';
 import { SECONDARIES } from './missions-11e.mjs';
+import { route, along, goesRound, detour } from './paths.mjs';
 
 const W = 44, H = 60;
 const extent = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
@@ -148,7 +149,9 @@ export function objectiveSwing(mine, theirs, objs, pieces, { me = 'A', risk = {}
     const there = [], movers = [];
     let now = 0, max = 0, maxAdvance = 0;
     for (const u of theirs) {
-      const d = objectiveGap(u, o, pieces), full = u.oc ?? 0;
+      const d0 = objectiveGap(u, o, pieces), full = u.oc ?? 0;
+      // (a unit that has to go round dense terrain - 13.06 - has further to go than the straight line)
+      const d = d0 > 0 && full > 0 && d0 <= (u.move ?? 6) + 6 && goesRound(u) ? d0 + detour(u, o.x, o.y, pieces) : d0;
       if (d <= 0) {
         const oc = ocInRange(u, o, pieces);
         there.push({ key: u.key, name: u.name, oc, full });
@@ -533,7 +536,8 @@ export function myTurn(c) {
  * normal move back towards my home objective.
  * swing: myTurn().swing (its movers are my units). -> [{ key: `${unitKey}>${what}`, unit, name, kind: 'obj' | 'back',
  *   obj (id), label, x, y (the unit's centre after the move), dist, hosted (the objective is in a terrain area:
- *   a base in that area is in range) }], at most `max` (nearest objectives first)
+ *   a base in that area is in range), via ([[x, y]]: the corners it goes round, for a unit that cannot pass dense
+ *   terrain) }], at most `max` (nearest objectives first)
  */
 export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, max = 24 } = {}) {
   const out = [];
@@ -543,17 +547,30 @@ export function moveCandidates(mine, swing, pieces, { risk = {}, home = null, ma
       const mv = o.movers.find(m => m.key === u.key && m.via === 'move');
       if (!mv) continue;
       const d = objectiveGap(u, o, pieces);
-      // towards the objective, from the model nearest to it
-      let near = null;
-      for (const m of u.models) { const dd = Math.hypot(u.x + m.dx - o.x, u.y + m.dy - o.y); if (!near || dd < near.dd) near = { dd, m }; }
-      const len = Math.hypot(o.x - (u.x + near.m.dx), o.y - (u.y + near.m.dy)) || 1;
-      // just far enough for a model to be in range: the gap is to the nearest edge of the objective's area, the line
-      // goes towards its marker, so a slanting approach needs a little more than the gap
-      const ux = (o.x - (u.x + near.m.dx)) / len, uy = (o.y - (u.y + near.m.dy)) / len, most = Math.min(M, len);
-      let step = Math.min(most, d + 0.75), x = u.x + ux * step, y = u.y + uy * step;
-      while (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0) && step < most - 1e-9) { step = Math.min(most, step + 0.5); x = u.x + ux * step; y = u.y + uy * step; }
-      if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;     // the straight line does not get it in range
-      out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step, hosted: (o.host ?? []).length > 0 });
+      let x, y, step, via = null;
+      const rt = goesRound(u) ? route(u, o.x, o.y, pieces) : null;
+      if (rt && !rt.direct && !rt.blocked) {
+        // round the terrain in the way: along that path, just far enough for a model to be in range
+        const most = Math.min(M, rt.len);
+        for (step = Math.min(most, Math.max(0.5, d)); ; step = Math.min(most, step + 0.5)) {
+          ({ x, y } = along(rt.pts, step));
+          if (objectiveGap({ ...u, x, y }, o, pieces) <= 0 || step >= most - 1e-9) break;
+        }
+        if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;
+        via = rt.pts.slice(1, -1).filter((q, i) => { let l = 0; for (let k = 1; k <= i + 1; k++) l += Math.hypot(rt.pts[k][0] - rt.pts[k - 1][0], rt.pts[k][1] - rt.pts[k - 1][1]); return l < step; });
+      } else {
+        // towards the objective, from the model nearest to it
+        let near = null;
+        for (const m of u.models) { const dd = Math.hypot(u.x + m.dx - o.x, u.y + m.dy - o.y); if (!near || dd < near.dd) near = { dd, m }; }
+        const len = Math.hypot(o.x - (u.x + near.m.dx), o.y - (u.y + near.m.dy)) || 1;
+        // just far enough for a model to be in range: the gap is to the nearest edge of the objective's area, the line
+        // goes towards its marker, so a slanting approach needs a little more than the gap
+        const ux = (o.x - (u.x + near.m.dx)) / len, uy = (o.y - (u.y + near.m.dy)) / len, most = Math.min(M, len);
+        step = Math.min(most, d + 0.75); x = u.x + ux * step; y = u.y + uy * step;
+        while (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0) && step < most - 1e-9) { step = Math.min(most, step + 0.5); x = u.x + ux * step; y = u.y + uy * step; }
+        if (!(objectiveGap({ ...u, x, y }, o, pieces) <= 0)) continue;     // the straight line does not get it in range
+      }
+      out.push({ key: `${u.key}>${o.id}`, unit: u.key, name: u.name, kind: 'obj', obj: o.id, label: o.label, x, y, dist: step, hosted: (o.host ?? []).length > 0, ...(via?.length ? { via } : {}) });
     }
     if (home && (risk[u.key] ?? 0) >= 0.25) {
       const len = Math.hypot(home.x - u.x, home.y - u.y);

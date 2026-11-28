@@ -4638,7 +4638,19 @@ Aggressor Squad (95 points)
           rws.length === pl.rounds.length && rws.every((x, i) => x.r === pl.rounds[i] && (i === 0 || (x.me >= rws[i - 1].me - 1e-6 && x.opp >= rws[i - 1].opp - 1e-6)) && x.ahead >= 0 && x.ahead <= 1)
           && Math.abs(rws.at(-1).me - pl.vp.me) < 0.06 && Math.abs(rws.at(-1).opp - pl.vp.opp) < 0.06 && /Units left/.test(await lp.textContent('#board-playout-rounds')), JSON.stringify(rws));
         check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
-        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /straight line/.test(await lp.textContent('#board-playout-how')));
+        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /go round dense terrain/.test(await lp.textContent('#board-playout-how')));
+        // (1.148.0) the walk itself: nobody on anybody else, reserves come on, likely casualties take no further part
+        const walk = await lp.evaluate(() => { const m = window.__calc.board().next.play, ext = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
+          let overlaps = 0; const start = new Set([...m.steps[0].A, ...m.steps[0].B].map(u => u.key));
+          for (const st of m.steps.slice(1)) { const all = [...st.A, ...st.B].flatMap(u => u.models.map(md => ({ k: u.key, x: u.x + md.dx, y: u.y + md.dy, r: ext(md.fp) })));
+            for (const p of all) for (const q of all) if (p.k < q.k && Math.hypot(p.x - q.x, p.y - q.y) < p.r + q.r - 0.05) { overlaps++; } }
+          const arrive = m.log.flatMap(l => l.moves.filter(x => x.kind === 'arrive').map(x => ({ unit: x.unit, round: l.round })));
+          const lost = m.log.flatMap(l => (l.lost ?? []).map(x => ({ unit: x.unit, round: l.round, p: x.p })));
+          const actsAfter = lost.filter(x => m.log.some(l => l.round > x.round && l.moves.some(mv => mv.unit === x.unit))).length;
+          return { overlaps, arrive, lost: lost.length, actsAfter, gone: Object.keys(m.gone ?? {}).length, last: m.steps.at(-1).A.length + m.steps.at(-1).B.length, first: start.size }; });
+        check('play-out: from round 2 on no base ends on another base', walk.overlaps === 0, JSON.stringify(walk));
+        check('play-out: reserves come on from round 2 (never round 1), and are on the table from then on', walk.arrive.every(x => x.round >= 2 && x.round <= 3) && walk.last >= walk.first, JSON.stringify(walk));
+        check('play-out: a unit that is likely destroyed takes no further part, and the log says so', walk.actsAfter === 0 && walk.lost <= walk.gone, JSON.stringify(walk));
         await lp.tap('#board-playout-log-btn');
         const logText = await lp.textContent('#board-playout-log');
         check('Show who did what: a block per player turn with each unit\'s action', /Round \d · /.test(logText) && /(takes|holds|walks towards|charges|shoots) /.test(logText) && (await lp.locator('#board-playout-log > div').count()) === pl.turns.length, logText.slice(0, 200));

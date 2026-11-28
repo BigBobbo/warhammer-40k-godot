@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.148.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: moves go round terrain, and a far more lifelike play-out",
+      "changes": [
+        "Board, turn cards: a vehicle, monster, bike or cavalry unit no longer walks through dense terrain. Its move to an objective is measured round the terrain in its way (core rules 13.06), and the map shows the path by its corners",
+        "Play the game out: units no longer end on top of each other; a unit that would stands beside the others instead",
+        "Play the game out: a unit that is more likely destroyed than not takes no further part (it no longer walks, holds or shoots), and Show who did what says when",
+        "Play the game out: a unit with nothing to shoot or charge Advances; reserves come on from battle round 2 (6 inches from an edge and more than 8 inches from the enemy, Deep Strike anywhere); units get out of their transports",
+        "A unit that came on or got out of a transport is on the played-out plan from that round on"
+      ]
+    },
+    {
       "version": "1.147.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: one chip per player turn on the Board, and move suggestions that see the next round",

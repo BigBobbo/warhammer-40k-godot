@@ -469,15 +469,20 @@ function runPlayOut() {
   if (!key || !v?.my || !base || !plan || curIndex() !== last || !ctx.moveForecasts || moveMemo.state === 'pending') return;
   const g = gameNow(), me = v.me, opp = v.opp;
   const t0 = performance.now?.() ?? 0;
+  const off = base.off ?? { A: [], B: [] };
   const po = playOut({ [me]: base.mine, [opp]: base.theirs, objs: base.objs, geo: base.geo, pair: base.pair, round: last, turn: g.turn, first: g.first ?? null,
-    moved: !!g.started && !['command', 'movement'].includes(g.phase), hand: g.hand ?? {} });
+    moved: !!g.started && !['command', 'movement'].includes(g.phase), hand: g.hand ?? {},
+    reserves: { A: off.A.filter(u => !u.in), B: off.B.filter(u => !u.in) }, embarked: { A: off.A.filter(u => u.in), B: off.B.filter(u => u.in) } });
   // the plan the forecast scores: the game so far as on the live table, then a step per battle round played out
   const tpl = plan.steps[last];
-  const place = (ps) => ({ ...tpl, A: tpl.A.map(u => { const q = ps.A.find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }), B: tpl.B.map(u => { const q = ps.B.find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }) });
+  // (a unit that came on from reserves or got out of a transport is in the step from then on)
+  const side = (ps, X) => [...tpl[X].map(u => { const q = ps[X].find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }), ...ps[X].filter(q => !tpl[X].some(u => u.key === q.key))];
+  const place = (ps) => ({ ...tpl, A: side(ps, 'A'), B: side(ps, 'B') });
   const full = { ...plan, steps: [...plan.steps.slice(0, last), ...po.steps.map(st => place(st))] };
   const turns = po.log.filter(l => !l.done).length;
-  console.log(`[board] play-out: battle rounds ${last}-${last + po.steps.length - 1}, ${turns} player turns, ${po.log.reduce((a, l) => a + l.moves.filter(m => m.dist > 0).length, 0)} moves worked out in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
-  playMemo = { key, state: 'pending', log: po.log, steps: po.steps, from: last, me, first: g.first ?? g.turn ?? 'A' };
+  const nOf = (kind) => po.log.reduce((a, l) => a + l.moves.filter(m => m.kind === kind).length, 0);
+  console.log(`[board] play-out: battle rounds ${last}-${last + po.steps.length - 1}, ${turns} player turns, ${po.log.reduce((a, l) => a + l.moves.filter(m => m.dist > 0).length, 0)} moves (${po.log.reduce((a, l) => a + l.moves.filter(m => m.adv).length, 0)} Advances), ${nOf('arrive')} from reserves, ${nOf('disembark')} out of transports, ${Object.keys(po.gone).length} units likely destroyed on the way; worked out in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
+  playMemo = { key, state: 'pending', log: po.log, steps: po.steps, gone: po.gone, from: last, me, first: g.first ?? g.turn ?? 'A' };
   const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
   redraw();
   ctx.moveForecasts(plan, [{ key: 'playout', plan: full, until: Infinity }]).then((r) => {
@@ -502,7 +507,11 @@ function playOutToPlan() {
   const steps = cloneJson(lv.steps.slice(0, R + 1)), now = cloneJson(lv.steps[R].tokens ?? {});
   for (const [i, st] of playMemo.steps.entries()) {
     const tokens = cloneJson(now);
-    for (const X of ['A', 'B']) for (const u of st[X]) if (tokens[u.key] && !tokens[u.key].in) { tokens[u.key].x = u.x; tokens[u.key].y = u.y; }
+    for (const X of ['A', 'B']) for (const u of st[X]) {
+      // (on the table in this round: moved; came on from reserves: a token of its own; out of its transport: no longer in it)
+      if (!tokens[u.key]) tokens[u.key] = { x: u.x, y: u.y, rot: 0 };
+      else { if (tokens[u.key].in) delete tokens[u.key].in; tokens[u.key].x = u.x; tokens[u.key].y = u.y; }
+    }
     steps[R + i] = { name: `Turn ${R + i}`, tokens };
   }
   const old = root.variants.findIndex(x => x.playout);
@@ -526,9 +535,10 @@ function playOutHtml(d) {
       <span class="tiny muted">${pm.state === 'failed' ? 'It could not be scored just now. Try again. ' : ''}A second opinion next to the forecast: ${what}.</span></div>`;
   }
   const b = boardState(), open = !!b.playLog;
-  const VERB = { take: 'takes', hold: 'holds', charge: 'charges', shoot: 'shoots', fight: 'fights', advance: 'walks towards' };
+  const VERB = { take: 'takes', hold: 'holds', charge: 'charges', shoot: 'shoots', fight: 'fights', advance: 'walks towards', arrive: 'comes on from reserves near', disembark: 'gets out of' };
   const logHtml = !open ? '' : `<div id="board-playout-log" class="tiny" style="margin-top:6px">${pm.log.map(l => `<div style="margin-top:4px"><b>Round ${l.round} · <span style="color:var(--side-${l.side.toLowerCase()}-ink)">${esc(ctx.state.armies[l.side].faction)}</span></b>${l.done ? ' <span class="muted">has moved already</span>' : !l.moves.length ? ' <span class="muted">nothing to do</span>' : ''}
-      ${l.moves.map(m => `<div class="muted">${esc(shortName(m.name))} ${VERB[m.kind] ?? m.kind} ${esc(shortName(m.label))}${m.dist > 0 && m.kind !== 'advance' && m.kind !== 'take' && m.kind !== 'charge' ? ` after ${fmtIn(m.dist)}` : m.dist > 0 ? ` (${fmtIn(m.dist)})` : ''}</div>`).join('')}</div>`).join('')}</div>`;
+      ${l.moves.map(m => `<div class="muted" data-kind="${m.kind}"${m.adv ? ' data-adv="1"' : ''}>${esc(shortName(m.name))} ${m.adv ? 'Advances towards' : VERB[m.kind] ?? m.kind} ${esc(shortName(m.label))}${m.dist > 0 && m.kind !== 'advance' && m.kind !== 'take' && m.kind !== 'charge' ? ` after ${fmtIn(m.dist)}` : m.dist > 0 ? ` (${fmtIn(m.dist)})` : ''}</div>`).join('')}
+      ${(l.lost ?? []).map(x => `<div data-lost="${esc(x.unit)}" style="color:var(--warn-ink)">☠ ${esc(shortName(x.name))} is likely destroyed by now (${Math.round(x.p * 100)}%): it takes no further part</div>`).join('')}</div>`).join('')}</div>`;
   const dv = pm.out.win - pm.base.win;
   return `<div class="small" id="board-playout" data-state="done" data-win="${pm.out.win.toFixed(3)}" data-base="${pm.base.win.toFixed(3)}" data-rounds="${pm.steps.length}" style="margin-top:6px">▶ Played out to the end of the game: you win <b>${pct(pm.out.win)}</b> of games, <b>${pm.vp.me.toFixed(0)} – ${pm.vp.opp.toFixed(0)} VP</b> on average.
     <span class="muted">The forecast of the table as it stands says ${pct(pm.base.win)} (${pm.baseVp.me.toFixed(0)} – ${pm.baseVp.opp.toFixed(0)} VP)${Math.abs(dv) >= 0.1 ? `: the two disagree by ${Math.round(Math.abs(dv) * 100)} points, so treat both as rough` : ''}.</span>
@@ -539,7 +549,7 @@ function playOutHtml(d) {
       ${pm.rounds.map((x, i) => { const bs = pm.baseRounds[i]; return `<tr data-round="${x.round}" data-me="${x.me.toFixed(1)}" data-opp="${x.opp.toFixed(1)}" data-ahead="${(x.ahead ?? 0).toFixed(3)}" style="border-top:1px solid var(--line, #ddd)"><td style="padding:3px 8px 3px 0"><b>${x.round}</b></td><td style="padding:3px 8px"><b>${x.me.toFixed(0)} – ${x.opp.toFixed(0)}</b></td><td style="padding:3px 8px">${x.ahead == null ? '' : `${pct(x.ahead)} of games`}</td><td style="padding:3px 8px">${x.left.me == null ? '' : `${x.left.me.toFixed(1)} – ${x.left.opp.toFixed(1)}`}</td><td class="muted" style="padding:3px 0 3px 8px">${bs.me.toFixed(0)} – ${bs.opp.toFixed(0)}${bs.ahead == null ? '' : ` · ${pct(bs.ahead)}`}</td></tr>`; }).join('')}
     </tbody></table>
     <div class="tiny muted" style="margin-top:4px">Averages over the 1,500 games, at the end of each battle round (the forecast scores by round, not by player turn). Round 5 includes the end-of-battle points.</div>${logHtml}
-    <div class="tiny muted" style="margin-top:6px" id="board-playout-how">Here ${what}; the mission forecast then scores that game 1,500 times (dice, cards, units destroyed). The moves follow one simple rule: nobody plans ahead, a move is a straight line, nobody Advances, units destroyed on the way do not change where the others walk, and cards count for this round only.</div></div>`;
+    <div class="tiny muted" style="margin-top:6px" id="board-playout-how">Here ${what}; the mission forecast then scores that game 1,500 times (dice, cards, units destroyed). The moves follow one simple rule: nobody plans ahead. Vehicles and monsters go round dense terrain; a unit with nothing to shoot or charge Advances; reserves come on from round 2 and units get out of their transports; a unit that is more likely destroyed than not takes no further part; nobody stands on anybody else. Cards count for this round only.</div></div>`;
 }
 function nextTurnData(compute = true) {
   const lv = livePlan(), l = currentLayout(), st = ctx.state;
@@ -574,6 +584,11 @@ function nextTurnData(compute = true) {
     mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
   if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
+  // (for the play-out: the units that are not on the table - in reserves, or inside a transport that is)
+  const offUnit = (X, cu) => { const u = unitInfo(X, cu.key); if (!u || u.dead) return null; const tk = `${X}:${cu.key}`;
+    return { key: tk, name: cu.name, x: 0, y: 0, models: tokenModels(u, {}), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: cu.points ?? 0, keywords: cu.keywords ?? [], lone: u.flags?.loneOperative || 0, left: u.left, total: u.total, deepStrike: !!u.flags?.deepStrike, flags: u.flags ?? {}, ...kindsOf(cu), ...(inside.has(tk) ? { in: inside.get(tk) } : {}) }; };
+  const offOf = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
+  base.off = { [me]: offOf(me), [opp]: offOf(opp) };
   nextMemo = { key, v, base };
   if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair);
   return v;
@@ -592,9 +607,9 @@ function hintData() {
     const u = d.my?.units.find(x => x.key === h.tk);
     if (!u) return null;
     const k = moveMemo.key === nextMemo.key ? moveMemo.kept?.moves.find(x => x.unit === h.tk) : null;
-    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind === 'back', vp: k.addVp } : null;
+    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind === 'back', vp: k.addVp, via: k.via ?? null } : null;
     const hits = u.attack ? [{ from: h.tk, to: u.attack.key, pct: pct(u.attack.p), how: u.attack.how }] : [];
-    const bits = [move ? (move.back ? `pull back ${fmtIn(move.dist)} towards your home` : `move ${fmtIn(move.dist)} ${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
+    const bits = [move ? (move.back ? `pull back ${fmtIn(move.dist)} towards your home` : `move ${fmtIn(move.dist)} ${move.via?.length ? 'round the terrain in its way ' : ''}${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
       u.attack ? `${u.attack.how} ${full(u.attack.key)} (${pct(u.attack.p)} destroyed)` : ''].filter(Boolean);
     return { units: [h.tk], move, hits, text: `${full(h.tk)}: ${bits.join('; then ') || 'nothing suggested'}` };
   }
@@ -636,7 +651,10 @@ function hintSvg() {
     const t = toks.get(hd.move.tk);
     if (t) {
       out.push(`<g data-hint="ghost" transform="translate(${f2(hd.move.x)},${f2(hd.move.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', HINT.move, 0.16, m.rot)).join('')}</g>`);
-      out.push(arrow(t.x, t.y, hd.move.x, hd.move.y, HINT.move, true, fmtIn(hd.move.dist), 'move'));
+      // (a unit that goes round dense terrain: by the corners of its path, the arrow on the last leg)
+      const legs = [[t.x, t.y], ...(hd.move.via ?? []), [hd.move.x, hd.move.y]];
+      for (let i = 1; i < legs.length - 1; i++) out.push(`<line data-hint="via" x1="${f2(legs[i - 1][0])}" y1="${f2(legs[i - 1][1])}" x2="${f2(legs[i][0])}" y2="${f2(legs[i][1])}" stroke="${HINT.move}" stroke-width="0.45" stroke-linecap="round" stroke-dasharray="1 0.7"/>`);
+      out.push(arrow(legs.at(-2)[0], legs.at(-2)[1], hd.move.x, hd.move.y, HINT.move, true, fmtIn(hd.move.dist), 'move'));
     }
   }
   for (const h of hd.hits) {
