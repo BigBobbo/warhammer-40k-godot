@@ -71,9 +71,12 @@ export async function startPhoto(file, key, board, opts) {
   bmp.close?.();
   const src = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.9));
   console.log(`[calc] photo picked: ${sw}x${sh}, ${src.size} bytes`);
-  const taps = await askCorners(src, sw, sh, null, opts);
+  // (opts.init: the corners of the photo before this one, { taps, sw, sh, turn } - a phone that has not moved
+  // sees the table the same way, so the corners start where they were and only need a look)
+  const init = opts?.init?.taps && Math.abs(opts.init.sw / opts.init.sh - sw / sh) < 0.02 ? opts.init.taps.map(t => (Array.isArray(t) ? [t[0] * sw / opts.init.sw, t[1] * sh / opts.init.sh] : { ...t, x: t.x * sw / opts.init.sw, y: t.y * sh / opts.init.sh })) : null;
+  const taps = await askCorners(src, sw, sh, init, opts);
   if (!taps) return false;
-  const rec = { src, sw, sh, taps, turn: 0 };
+  const rec = { src, sw, sh, taps, turn: init ? (opts.init.turn ?? 0) : 0 };
   await idbPut(key, rec);
   await build(key, rec, board);
   return true;

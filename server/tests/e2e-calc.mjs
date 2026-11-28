@@ -649,7 +649,9 @@ try {
   }, PC);
   const photoFile = join(SHOTS, 'calc_synthetic_table_photo.jpg');
   writeFileSync(photoFile, Buffer.from(photoB64, 'base64'));
-  await page.locator('#board-photo-bar').scrollIntoViewIfNeeded();
+  // (the page may be drawn again while the reloaded plan settles: scroll by id, not by a handle on the old element)
+  await page.waitForSelector('#board-photo-bar');
+  await page.evaluate(() => document.getElementById('board-photo-bar')?.scrollIntoView({ block: 'center' }));
   await page.setInputFiles('input[data-input="board-photo"]', photoFile);
   await page.waitForSelector('.photo-ov #photo-svg image');
   const imgToScreen = (x, y) => page.evaluate(([ix, iy]) => {
@@ -2480,6 +2482,9 @@ Aggressor Squad (95 points)
     await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.levers?.length >= 4; }, null, { timeout: 180000 });
     const full = await mission();
     check('Plan: the full forecast (4,000 games, what-ifs, plan comparison)', full.trials === 4000 && full.levers >= 4 && full.compare >= 1, JSON.stringify(full));
+    // (quiet first: a run still on its way from the page settling is not a run started by opening Play)
+    await zp.waitForTimeout(1500);
+    await zp.waitForFunction(() => !window.__calc.mission().busy, null, { timeout: 60000 });
     await zp.tap('button[data-action="mission-tab"][data-value="play"]');
     await zp.waitForSelector('#play-bar');
     await zp.waitForTimeout(700);
@@ -4772,6 +4777,26 @@ Aggressor Squad (95 points)
         await weighed();
         await lp.tap('#board-advise-clear');
         check('Clear takes the plan away (from the live table too)', (await lp.locator('#board-advise-text').count()) === 0 && (await lp.evaluate(() => window.__calc.board().next.advise.kept)) === null && (await lp.locator('#board-advise-copy').count()) === 1);
+        // (1.150.0) back in the app with the answer on the clipboard: the plan is shown without another tap
+        await lp.tap('#board-advise-copy'); await lp.waitForSelector('#board-advise-pastebox');
+        await lp.evaluate((t) => navigator.clipboard.writeText(t), PASTED);
+        await lp.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        const backOk = await lp.waitForFunction(() => window.__calc.board().next.advise.state === 'done' && window.__calc.board().next.advise.pasted, null, { timeout: 8000 }).then(() => true, () => false);
+        check('copy the prompt, come back with Claude\'s answer on the clipboard: the plan is shown and drawn without a tap', backOk && (await lp.locator('#board-plan-bar').count()) === 1 && (await lp.locator('#board-advise-pastebox').count()) === 0);
+        // the clipboard still holding the prompt (nothing copied in Claude yet) is not taken for an answer
+        await lp.tap('#board-advise-clear'); await lp.tap('#board-advise-copy'); await lp.waitForSelector('#board-advise-pastebox');
+        await lp.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await lp.waitForTimeout(500);
+        check('the prompt itself on the clipboard is not taken for an answer', (await lp.locator('#board-advise-pastebox').count()) === 1 && (await lp.evaluate(() => window.__calc.board().next.advise.state)) !== 'done');
+        await lp.tap('[data-action="board-advise-paste-cancel"]');
+        check('a share target is declared for the installed app, and ⇪ Send to Claude is offered where the device can share', (await lp.evaluate(async () => (await (await fetch('/calc/manifest.webmanifest')).json()).share_target?.params?.text)) === 'share_text'
+          && (await lp.locator('#board-advise-share').count()) === (await lp.evaluate(() => (navigator.share ? 1 : 0))));
+        // text shared to the app (Android share target): it opens on the Board with the plan drawn
+        await lp.goto(`${BASE}/calc/?share_text=${encodeURIComponent(PASTED)}`);
+        await lp.waitForSelector('#board-live-bar', { timeout: 30000 });
+        const sharedOk = await lp.waitForFunction(() => window.__calc.board().next?.advise?.state === 'done' && window.__calc.board().next.advise.pasted, null, { timeout: 20000 }).then(() => true, () => false);
+        check('a plan shared to the app opens on the live table, drawn on the map; the address is cleaned', sharedOk && (await lp.locator('#board-plan-bar').count()) === 1 && !/share_text/.test(lp.url()), lp.url().slice(0, 80));
+        await lp.tap('#board-advise-clear');
+        await weighed();
         lp.off('request', onReq);
       }
       // (1.140.0) Ask Claude for a plan: told what is sent and asked once, then the plan under the cards; marked when the table changes
@@ -4839,11 +4864,45 @@ Aggressor Squad (95 points)
     await pp6.tap('button[data-action="view"][data-value="board"]');
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Flash Gitz' }).tap();
+    await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Thunderwolf Cavalry' }).first().tap();
     await pp6.tap('#board-live');
     await pp6.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    check('phone: 🔴 Live table shows the bar above the map and the two cards below the unit panel (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
+    check('phone: 🔴 Live table shows the bar above the map and, below the unit panel, what changed this turn then the two cards (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-upd-list,board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
     await pp6.locator('#board-next').scrollIntoViewIfNeeded();
     await pp6.screenshot({ path: join(SHOTS, 'calc_136_next_turn_phone.png') });
+    // (1.150.0) Update the table: only what changed this turn; place by tapping, one unit after the other
+    {
+      await pp6.waitForSelector('#board-upd[data-open="1"]');
+      const upd = () => pp6.evaluate(() => ({ todo: Number(document.getElementById('board-upd-count')?.dataset.todo), n: Number(document.getElementById('board-upd-count')?.dataset.n), placing: document.getElementById('board-upd-placing')?.dataset.tk ?? null,
+        rows: [...document.querySelectorAll('#board-upd-rows [data-upd]')].map(e => [e.dataset.upd, e.dataset.state]), above: document.getElementById('board-upd').getBoundingClientRect().bottom <= document.getElementById('board-host').getBoundingClientRect().top + 1,
+        below: document.getElementById('board-upd-list').getBoundingClientRect().top >= document.getElementById('board-host').getBoundingClientRect().bottom - 1 }));
+      const u0 = await upd();
+      check('live table, positions not confirmed: "Update the table" lists the units of the player whose turn it is, none looked at yet; a short card above the map, the list under it',
+        u0.n === 2 && u0.todo === 2 && u0.rows.every(r => r[0].startsWith('A:') && r[1] === 'todo') && u0.above && u0.below && /0 of 2 units looked at/.test(await pp6.textContent('#board-upd-count')), JSON.stringify(u0));
+      await pp6.tap('#board-upd-guide');
+      const u1 = await upd();
+      check('📍 Place by tapping names the first unit to place', u1.placing === u0.rows[0][0] && /Tap the map where/.test(await pp6.textContent('#board-upd-placing')), JSON.stringify(u1));
+      await pp6.locator('#board-host').scrollIntoViewIfNeeded();
+      const at = await pp6.evaluate(() => { const svg = document.getElementById('board-svg'); const q = svg.createSVGPoint(); q.x = 30; q.y = 40; const r = q.matrixTransform(svg.getScreenCTM()); return { x: r.x, y: r.y }; });
+      await pp6.touchscreen.tap(at.x, at.y);
+      await pp6.waitForFunction((tk) => document.getElementById('board-upd-placing')?.dataset.tk !== tk, u1.placing);
+      const u2 = await upd(), pos = await pp6.evaluate((tk) => { const t = window.__calc.board().tokens.find(x => x.tk === tk); return [t.x, t.y]; }, u1.placing);
+      check('a tap on the map puts that unit there and goes on to the next one', Math.abs(pos[0] - 30) < 0.6 && Math.abs(pos[1] - 40) < 0.6 && u2.todo === 1 && u2.placing === u0.rows[1][0] && u2.rows[0][1] === 'moved', JSON.stringify({ u2, pos }));
+      await pp6.locator('#board-upd').scrollIntoViewIfNeeded();
+      await pp6.screenshot({ path: join(SHOTS, 'calc_150_update_table_phone.png') });
+      await pp6.tap('#board-upd-placing [data-action="board-upd-same"]');
+      const u3 = await upd();
+      check('✓ It has not moved: looked at, nothing left to place, and the card says to confirm', u3.todo === 0 && u3.placing === null && u3.rows[1][1] === 'same' && /confirm the positions/.test(await pp6.textContent('#board-upd')), JSON.stringify(u3));
+      await pp6.locator('#board-upd-loss').scrollIntoViewIfNeeded(); await pp6.tap('#board-upd-loss');
+      const left0 = await pp6.$$eval('#board-upd-losses [data-left]', els => els.map(e => Number(e.dataset.left)));
+      await pp6.locator('#board-upd-losses [data-action="loss-unit"][data-delta="-1"]').first().tap();
+      await pp6.waitForFunction((n) => Number(document.querySelector('#board-upd-losses [data-left]')?.dataset.left) === n - 1, left0[0]);
+      const tot = await pp6.evaluate(() => window.__calc.board().units.map(u => u.left ?? null));
+      check('☠ Models lost this turn: − takes a model off a unit on either side (the same count as the tracker)', left0.length === 3 && (await pp6.$$eval('#board-upd-losses [data-left]', els => Number(els[0].dataset.left))) === left0[0] - 1, JSON.stringify({ left0, tot }));
+      await pp6.locator('#board-upd-losses [data-action="loss-unit"][data-delta="1"]').first().tap();
+      await pp6.locator('#board-live-confirm').scrollIntoViewIfNeeded(); await pp6.tap('#board-live-confirm');
+      check('once the positions are confirmed the update card folds away', (await pp6.getAttribute('#board-upd', 'data-open')) === '0' && (await pp6.locator('#board-upd-list').count()) === 0);
+    }
     await pctx6.close();
   }
 

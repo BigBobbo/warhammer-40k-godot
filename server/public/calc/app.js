@@ -18,7 +18,7 @@ import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, boardListChanged, _boardDebug } from './boardview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, boardListChanged, _boardDebug, boardSharedText, boardTakeShared } from './boardview.mjs';
 import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
 import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
 import { printSheetHtml } from './printsheet.mjs';
@@ -3041,6 +3041,18 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     bar.querySelector('#update-reload').addEventListener('click', () => location.reload());
     console.log('[calc] new version available');
   });
+}
+
+// Text shared to the installed app (manifest share_target: Claude's answer, "Share" in the Claude app): onto the
+// Board's live table, drawn like a pasted plan. The address is cleaned so a reload does not take it again.
+{
+  const q = new URLSearchParams(location.search), shared = [q.get('share_text'), q.get('share_title'), q.get('share_url')].filter(Boolean).join('\n').trim();
+  if (shared) {
+    history.replaceState(null, '', location.pathname);
+    console.log(`[calc] text shared to the app: ${shared.length} characters`);
+    if (state.armies.A && state.armies.B && boardSharedText(shared)) { state.view = 'board'; render(); if (boardTakeShared()) render(); }
+    else if (state.armies.A && state.armies.B) { state.view = 'board'; render(); }
+  }
 }
 
 // test / debugging hook

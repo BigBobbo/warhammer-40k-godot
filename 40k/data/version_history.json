@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.150.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: update the live table in a few taps, and get a plan to Claude and back with fewer steps",
+      "changes": [
+        "Live table: a new Update the table card lists only the units of the player whose turn it is, each marked moved, stays or not looked at yet",
+        "Place by tapping: tap the map where a unit stands now and the app moves on to the next unit, one tap per unit; The others have not moved clears the rest in one tap",
+        "Photo of the table now, straight from the card: the corners start where they were on your last photo, so they only need a look",
+        "Models lost this turn: a minus and plus for every unit on the table, both sides, without leaving the Board",
+        "Plan from Claude: a Send to Claude button opens the share sheet with the prompt; when you come back with the answer copied, the plan is shown and drawn without another tap",
+        "On an installed Android app, Share in the Claude app can send the answer straight to Combat Calc"
+      ]
+    },
+    {
       "version": "1.149.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: the opponent's reply in every weighed move, a prediction per player turn, and stratagems in the odds",

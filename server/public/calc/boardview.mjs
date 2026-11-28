@@ -363,6 +363,7 @@ export function boardTurnDone(prev, now) {
   while (lv.steps.length <= now.round) lv.steps.push({ name: `Turn ${lv.steps.length}`, tokens: cloneJson(lv.steps[lv.steps.length - 1].tokens) });
   lv.cur = Math.min(now.round, lv.steps.length - 1);
   for (const tk of Object.keys(lv.shock ?? {})) if (tk.startsWith(`${now.turn}:`)) delete lv.shock[tk];
+  lv.seen = {}; boardState().placing = null;
   console.log(`[board] live table: kept the table at the end of round ${prev.round}, ${prev.turn}'s turn (${Object.keys(last.tokens).length} units); now round ${now.round}, ${now.turn}'s turn`);
   persistBoard();
 }
@@ -410,6 +411,75 @@ function liveBarHtml() {
       : stampTxt ? `⚠ Last confirmed in ${stampTxt}. Move the units to where they are on the table now, then confirm.`
         : `⚠ These positions come from your plan “${esc(lv.liveFrom ?? 'Main')}”. Move the units to where they are on the table now, then confirm.`}</div>
   </div>`;
+}
+
+// ---- "Update the table" (1.150.0): after a turn on the real table, only what changed has to be entered. The card
+// lists the units of the player whose turn it is - moved / stays / not looked at yet, against where the table
+// stood when their turn began - and the models lost on either side. "Place by tapping" puts the unit named in the
+// card wherever the map is tapped next and goes on to the next one: with a photo of the table under the map, one
+// tap per unit. lv.seen = { [tk]: 'same' } (said to have stayed) is cleared when a turn is done on the tracker.
+function liveBefore(lv) {
+  // where the table stood when this player turn began: the last turn kept, else the round before
+  const snap = lv.snaps?.length ? lv.snaps[lv.snaps.length - 1].tokens : null;
+  return snap ?? lv.steps[Math.max(0, lv.steps.length - 2)]?.tokens ?? {};
+}
+function updateRows() {
+  const lv = livePlan();
+  if (!lv) return null;
+  const g = gameNow(), before = liveBefore(lv), X = g.turn, seen = lv.seen ?? {};
+  const rows = placed().filter(t => t.side === X).map(t => {
+    const was = before[t.tk], d = was && !was.in ? Math.hypot(t.x - was.x, t.y - was.y) : null;
+    const state = d == null ? 'new' : d > 0.05 || (t.rot ?? 0) !== (was.rot ?? 0) ? 'moved' : seen[t.tk] ? 'same' : 'todo';
+    return { tk: t.tk, name: t.u.cu.name, state, dist: d ?? 0, left: t.u.left, total: t.u.total };
+  });
+  return { X, rows, todo: rows.filter(r => r.state === 'todo'), lv, g };
+}
+/** Above the map: one short card - how far the update is, place by tapping, the photo - so the map stays on screen. */
+function updateCardHtml() {
+  const u = updateRows();
+  if (!u) return '';
+  const b = boardState(), esc = ctx.esc, st = ctx.state, { X, rows, todo, lv, g } = u;
+  const onNow = curIndex() === Math.min(g.round, lv.steps.length - 1);
+  if (!onNow || !rows.length) return '';
+  const fresh = liveFresh(lv, g), open = b.updOpen ?? !fresh;
+  const nm = (Y) => esc(st.armies[Y]?.faction ?? Y), ink = (Y) => `var(--side-${Y.toLowerCase()}-ink)`;
+  const head = `<div class="row" style="gap:6px;align-items:center"><span class="small grow"><b>✎ Update the table</b> · <b style="color:${ink(X)}">${nm(X)}</b>’s turn · <span id="board-upd-count" data-todo="${todo.length}" data-n="${rows.length}">${rows.length - todo.length} of ${rows.length} units looked at</span></span>
+    <button class="icon-btn" data-action="board-upd-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} the update list">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-upd" data-open="0" style="margin-top:6px">${head}</div>`;
+  const placing = b.placing && rows.some(r => r.tk === b.placing) ? b.placing : null;
+  const pr = placing ? rows.find(r => r.tk === placing) : null;
+  const banner = pr ? `<div class="warnbox" id="board-upd-placing" data-tk="${esc(pr.tk)}" style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="grow">📍 Tap the map where <b>${esc(pr.name)}</b> is now.</span>
+      <button class="chip" data-action="board-upd-same" data-tk="${esc(pr.tk)}">✓ It has not moved</button><button class="chip" data-action="board-upd-place" data-tk="">Stop</button></div>` : '';
+  const pick = `<label class="chip" style="cursor:pointer" id="board-upd-photo">📷 Photo of the table now<input type="file" accept="image/*" capture="environment" data-input="board-photo" hidden></label>`;
+  return `<div class="card" id="board-upd" data-open="1" style="margin-top:6px">${head}
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${todo.length ? `<button class="chip ${placing ? 'on' : ''}" data-action="board-upd-place" data-tk="${placing ? '' : esc(todo[0].tk)}" id="board-upd-guide" aria-pressed="${!!placing}">📍 Place by tapping, one unit after the other</button>` : ''}${pick}
+      ${todo.length > 1 ? `<button class="chip" data-action="board-upd-rest" id="board-upd-rest">✓ The other ${todo.length} have not moved</button>` : ''}</div>${banner}
+    ${todo.length ? '' : '<div class="tiny muted" style="margin-top:4px">Everything is looked at: <b>confirm the positions</b> above. The list is under the map.</div>'}</div>`;
+}
+/** Under the map: each unit of the player whose turn it is, and the models lost on either side. */
+function updateListHtml() {
+  const u = updateRows();
+  if (!u) return '';
+  const b = boardState(), esc = ctx.esc, { X, rows, todo, lv, g } = u;
+  const onNow = curIndex() === Math.min(g.round, lv.steps.length - 1);
+  if (!onNow || !rows.length || !(b.updOpen ?? !liveFresh(lv, g))) return '';
+  const ink = (Y) => `var(--side-${Y.toLowerCase()}-ink)`;
+  const placing = b.placing && rows.some(r => r.tk === b.placing) ? b.placing : null;
+  const STATE = { moved: (r) => `<span class="verd ok">✓ moved ${fmtIn(r.dist)}</span>`, same: () => '<span class="verd ok">✓ stays</span>', new: () => '<span class="verd ok">✓ on the table</span>', todo: () => '<span class="verd warn">not looked at</span>' };
+  const rowsHtml = rows.map(r => `<div class="next-unit${r.tk === placing ? ' on' : ''}" data-upd="${esc(r.tk)}" data-state="${r.state}"><div class="row" style="gap:6px;align-items:center">
+      <button class="chip grow" style="text-align:left" data-action="board-pick" data-tk="${esc(r.tk)}"><b style="color:${ink(X)}">${esc(shortName(r.name))}</b></button>${STATE[r.state](r)}
+      <button class="chip" data-action="board-upd-place" data-tk="${esc(r.tk)}" aria-label="Place ${esc(r.name)} by tapping the map" title="Tap the map where it is now">📍</button>
+      ${r.state === 'todo' ? `<button class="chip" data-action="board-upd-same" data-tk="${esc(r.tk)}" title="It has not moved this turn">✓ stays</button>` : ''}</div></div>`).join('');
+  // models lost, either side (the same counts as on the Attack tab and the tracker)
+  const lossRow = (t) => { const [side, key] = t.tk.split(':'); return `<div class="row tiny" data-loss="${esc(t.tk)}" style="gap:6px;align-items:center;padding:2px 0"><span class="grow"><b style="color:${ink(side)}">${esc(shortName(t.u.cu.name))}</b></span>
+      <button class="chip" data-action="loss-unit" data-side="${side}" data-unit="${esc(key)}" data-delta="-1" aria-label="${esc(t.u.cu.name)}: one model fewer" ${t.u.left > 0 ? '' : 'disabled'}>−</button><span data-left="${t.u.left}" style="min-width:44px;text-align:center">${t.u.left} / ${t.u.total}</span>
+      <button class="chip" data-action="loss-unit" data-side="${side}" data-unit="${esc(key)}" data-delta="1" aria-label="${esc(t.u.cu.name)}: one model back" ${t.u.left < t.u.total ? '' : 'disabled'}>＋</button></div>`; };
+  const all = placed(), lossOpen = !!b.updLoss;
+  const lossHtml = `<div style="margin-top:8px"><button class="chip" data-action="board-upd-loss" id="board-upd-loss" aria-expanded="${lossOpen}">${lossOpen ? 'Hide the models lost' : '☠ Models lost this turn'}</button>
+      ${lossOpen ? `<div id="board-upd-losses" style="margin-top:4px">${[otherSide(X), X].map(Y => all.filter(t => t.side === Y).map(lossRow).join('')).join('')}</div>` : ''}</div>`;
+  return `<div class="card" id="board-upd-list" data-todo="${todo.length}"><div class="lab tiny muted">What changed this turn</div>
+    <div id="board-upd-rows" style="margin-top:4px">${rowsHtml}</div>${lossHtml}
+    <div class="tiny muted" style="margin-top:6px">Only what changed: drag a unit, or 📍 and tap the map where it stands now (with a photo of the table under the map, one tap per unit).</div></div>`;
 }
 
 // ---- "Their next turn" (nextturn.mjs): from the live table, what the other player can do in their next turn
@@ -649,6 +719,7 @@ function nextTurnData(compute = true) {
   const offOf = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
   base.off = { [me]: offOf(me), [opp]: offOf(opp) };
   nextMemo = { key, v, base };
+  if (boardState().sharedIn && res && typeof setTimeout === 'function') setTimeout(takeShared, 0);
   if (my) weighStrats(key, v);
   if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair, base);
   return v;
@@ -809,13 +880,71 @@ function currentAdvice() {
   const kept = livePlan()?.advice;
   return kept ? { ...kept, state: 'done', key: kept.sig === sigOf(nextMemo.key ?? '') ? nextMemo.key : null } : null;
 }
+/**
+ * The prompt through the device's share sheet (1.150.0): one tap, pick Claude, send. It is also put on the
+ * clipboard, for a share sheet that drops long text. The answer comes back by itself when the app is opened
+ * again (answerOnReturn) or, on an installed Android app, by sharing it here from Claude (boardSharedText).
+ */
+async function sharePrompt() {
+  const b = boardState(), req = adviseRequest();
+  if (!req || !navigator.share) return copyPrompt();
+  const text = promptText(req);
+  b.promptCopy = { chars: text.length, ok: false, text: null, shared: false };
+  try { await navigator.clipboard.writeText(text); b.promptCopy.ok = true; } catch { /* the share sheet carries it */ }
+  b.pasteOpen = true; b.awaiting = { since: Date.now(), prompt: text.slice(0, 200) };
+  refreshBoard();
+  try { await navigator.share({ text }); b.promptCopy.shared = true; console.log(`[board] prompt for Claude: ${text.length} characters, shared`); }
+  catch (err) { console.log(`[board] prompt for Claude: share sheet closed (${err?.name ?? err})${b.promptCopy.ok ? '; it is on the clipboard' : ''}`); if (!b.promptCopy.ok) b.promptCopy.text = text; }
+  refreshBoard();
+}
+/** Does this text read like Claude's answer (and not the prompt that was sent, or something else on the clipboard)? */
+function looksLikeAnswer(t, b) {
+  // (as it will be shown: Claude's markdown taken off, so **ACTIONS** reads as ACTIONS)
+  const text = tidyAnswer(String(t ?? '')).trim();
+  if (text.length < 80 || text.length > 20000) return false;
+  if (b.awaiting?.prompt && text.startsWith(b.awaiting.prompt.slice(0, 60))) return false;
+  return /(^|\n)\s*ACTIONS\s*(\n|$)/.test(text) && /(^|\n)\s*(MOVE|ATTACK|HOLD)\s*\|/.test(text);
+}
+/** Back in the app with a prompt out: if the answer is on the clipboard, show the plan without another tap. */
+async function answerOnReturn() {
+  const b = boardState();
+  if (!b.pasteOpen || !b.awaiting || !livePlan() || document.visibilityState !== 'visible') return;
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!looksLikeAnswer(t, b)) return;
+    console.log('[board] Claude\'s answer found on the clipboard on the way back: shown');
+    b.pasteDraft = t; b.awaiting = null;
+    pasteAnswer(t);
+  } catch { /* no permission to read the clipboard without a tap: the paste button is there */ }
+}
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { answerOnReturn(); });
+/** Text shared to the app (manifest share_target; app.js reads the address): Claude's answer goes onto the live table. */
+export function boardSharedText(text) {
+  const b = boardState();
+  if (!looksLikeAnswer(text, { awaiting: null })) { console.log('[board] text shared to the app does not read like a plan (no ACTIONS lines): kept in the paste box'); b.pasteDraft = String(text ?? ''); b.pasteOpen = true; return false; }
+  b.pasteDraft = text; b.sharedIn = text;
+  console.log(`[board] a plan was shared to the app: ${text.length} characters`);
+  return true;
+}
+/** The Board opens on its live table for a plan that was shared in; the plan is shown once the turn cards are worked out (takeShared). */
+export function boardTakeShared() {
+  const b = boardState();
+  if (!b.sharedIn) return false;
+  return !!livePlan() || openLive();
+}
+function takeShared() {
+  const b = boardState();
+  if (!b.sharedIn || !livePlan() || !nextMemo.v?.res) return;
+  const t = b.sharedIn; b.sharedIn = null;
+  pasteAnswer(t);
+}
 async function copyPrompt() {
   const b = boardState(), req = adviseRequest();
   if (!req) return;
   const text = promptText(req);
   b.promptCopy = { chars: text.length, ok: false, text: null };
   try { await navigator.clipboard.writeText(text); b.promptCopy.ok = true; } catch { b.promptCopy.text = text; }   // no clipboard: the prompt is shown, to select and copy
-  b.pasteOpen = true;
+  b.pasteOpen = true; b.awaiting = { since: Date.now(), prompt: text.slice(0, 200) };
   console.log(`[board] prompt for Claude: ${text.length} characters, ${b.promptCopy.ok ? 'copied' : 'shown (the clipboard is not available)'}`);
   refreshBoard();
   if (!b.promptCopy.ok) document.getElementById('board-advise-prompt')?.select();
@@ -949,6 +1078,7 @@ function adviceHtml() {
   const what = 'Both army lists and the units on this table are sent to Anthropic’s Claude through this app’s server, which writes the plan. This app’s server keeps none of it; Anthropic handles it under its API terms. It takes about half a minute.';
   const ask = (label, primary = true) => (api ? `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise" id="board-advise">${label}</button>` : '');
   const copy = (label, primary = !api) => `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise-copy" id="board-advise-copy">${label}</button>`;
+  const share = typeof navigator !== 'undefined' && navigator.share ? `<button class="btn ghost" data-action="board-advise-share" id="board-advise-share" title="Send the prompt to the Claude app through the share sheet">⇪ Send to Claude</button>` : '';
   const pc = b.promptCopy;
   // copied (or shown): where to paste it, and the box for the answer
   const pasteBox = b.pasteOpen ? `<div class="card" id="board-advise-pastebox" style="margin-top:6px;padding:10px">
@@ -967,7 +1097,7 @@ function adviceHtml() {
       <div class="tiny ${stale ? '' : 'muted'}" id="board-advise-note" style="margin-top:4px${stale ? ';color:var(--warn-ink)' : ''}">${stale ? '⚠ The table has changed since this plan was written.' : `${a.pasted ? 'Pasted in' : 'Written'} for round ${a.round}, ${esc(a.turn)}’s turn.`}${a.truncated ? ' The answer was cut short.' : ''} A suggestion from an AI model reading the cards above: check it against the table.</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${copy(stale ? '📋 Copy a new prompt for this table' : '📋 Copy the prompt again', !api && stale)}${ask(stale ? 'Ask again for this table' : 'Ask again', stale)}<button class="btn ghost" data-action="board-advise-clear" id="board-advise-clear">Clear</button></div>${pasteBox}`;
   else if (a?.state === 'error') body = `<div class="small" id="board-advise-error" style="color:var(--warn-ink)">No plan: ${esc(a.error)}</div><div class="row" style="gap:6px;margin-top:6px">${ask('Try again')}${copy('📋 Copy the prompt instead', false)}</div>${pasteBox}`;
-  else body = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">${copy('📋 Copy prompt for Claude')}${ask('✨ Ask Claude directly', false)}</div>
+  else body = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">${copy('📋 Copy prompt for Claude')}${share}${ask('✨ Ask Claude directly', false)}</div>
       <div class="tiny muted" style="margin-top:4px" id="board-advise-help">Copies a prompt with the cards above and both armies’ stratagem and ability text. Paste it into Claude (claude.ai or the Claude app, with your own plan), then paste its answer back here to keep the plan with the table.${api ? ' Ask Claude directly sends it through this app’s server instead; you are asked first.' : ''}</div>${pasteBox}`;
   return `<div class="lab tiny muted" style="margin-top:10px">Plan from Claude</div><div id="board-advise-box" data-state="${a?.state ?? 'idle'}" data-api="${api ? 1 : 0}">${body}</div>`;
 }
@@ -1036,7 +1166,8 @@ function nextTurnHtml() {
   const mine = d?.my && /data-state="(ready|updating)"/.test(theirs) ? myTurnHtml({ ...d, g: gameNow() }) : '';
   // the card of the turn that is on comes first
   const g = gameNow(), me = d?.me ?? 'A';
-  return g.started && g.turn !== me ? theirs + mine : mine + theirs;
+  // (first what changed on the table this turn, while the positions are not confirmed)
+  return updateListHtml() + (g.started && g.turn !== me ? theirs + mine : mine + theirs);
 }
 function theirTurnHtml() {
   let d = nextTurnData(false);
@@ -1384,6 +1515,7 @@ function splitNote() {
     : `⚠ The deployment differs between “${ctx.esc(f.name)}” and “${ctx.esc(s.name)}”, but you deploy before the roll-off for the first turn. <button class="btn ghost" data-action="board-plan-sync-deploy" id="board-plan-sync">Use this deployment in both</button>`}</div>`;
 }
 
+let lastCorners = null;     // { taps, sw, sh, turn } of the last photo taken in this session
 // one table photo per plan step (the first plan keeps the original keys)
 function photoKey() {
   const root = planRoot(), p = plan();
@@ -2235,7 +2367,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${updateCardHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -2304,7 +2436,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host">${liveBarHtml()}${updateCardHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
@@ -2769,7 +2901,7 @@ export function refreshBoard() {
   const mb = document.getElementById('board-models-host');
   if (mb) mb.innerHTML = modelsBar();
   const lb = document.getElementById('board-live-host');
-  if (lb) lb.innerHTML = liveBarHtml() + planBarHtml() + hintBarHtml();
+  if (lb) lb.innerHTML = liveBarHtml() + updateCardHtml() + planBarHtml() + hintBarHtml();
   const nx = document.getElementById('board-next-host');
   if (nx) nx.innerHTML = nextTurnHtml();
   const tri = document.getElementById('board-tri');
@@ -2989,6 +3121,16 @@ function wireBoard() {
       if (!g.moved && !g.obj) { selectToken(g.tk); if (b.modelsOf && b.modelsOf !== b.sel) b.modelsOf = null; }
       if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
       if (g.obj && !g.moved) { b.sel = g.tk; b.sel2 = null; }
+      persistBoard();
+      refreshBoard();
+    } else if (g.kind === 'pan' && !g.moved && b.placing && livePlan() && stepTokens()[b.placing] && !stepTokens()[b.placing].in) {
+      // "place by tapping": the unit named in the update card goes where the map was tapped, then the next one
+      const p = toBoard(svg, ev.clientX, ev.clientY), pos = stepTokens()[b.placing], tk = b.placing;
+      pos.x = Math.max(0, Math.min(BOARD.w, p.x)); pos.y = Math.max(0, Math.min(BOARD.h, p.y));
+      const lv = livePlan(); (lv.seen ??= {})[tk] = 'same';
+      const rest = updateRows()?.todo ?? [];
+      b.placing = rest[0]?.tk ?? null; b.sel = b.placing; b.sel2 = null;
+      console.log(`[board] placed by tapping: ${tk} -> ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}; next ${b.placing ?? '-'}`);
       persistBoard();
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
@@ -3471,6 +3613,13 @@ export function boardAction(action, el) {
     case 'board-hint-clear': b.hint = null; refreshBoard(); return null;
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
     case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
+    case 'board-upd-toggle': b.updOpen = !(b.updOpen ?? !liveFresh(livePlan(), gameNow())); refreshBoard(); return null;
+    case 'board-upd-loss': b.updLoss = !b.updLoss; refreshBoard(); return null;
+    case 'board-upd-place': b.placing = el.dataset.tk || null; b.sel = b.placing; b.sel2 = null; if (b.placing) console.log(`[board] place by tapping: ${b.placing}`); refreshBoard(); return null;
+    case 'board-upd-same': { const lv = livePlan(); if (!lv) return null; (lv.seen ??= {})[el.dataset.tk] = 'same'; if (b.placing === el.dataset.tk) { b.placing = (updateRows()?.todo ?? [])[0]?.tk ?? null; b.sel = b.placing; } persistBoard(); refreshBoard(); return null; }
+    case 'board-upd-rest': { const lv = livePlan(); if (!lv) return null; for (const r of updateRows()?.todo ?? []) (lv.seen ??= {})[r.tk] = 'same'; b.placing = null; persistBoard(); refreshBoard(); return null; }
+    case 'board-pick': if (el.dataset.tk) { b.sel = el.dataset.tk; b.sel2 = null; refreshBoard(); } return null;
+    case 'board-advise-share': sharePrompt(); return null;
     case 'board-playout': runPlayOut(); return null;
     case 'board-playout-log': b.playLog = !b.playLog; refreshBoard(); return null;
     case 'board-playout-plan': if (playOutToPlan()) { b.sel = b.sel2 = null; return 'render'; } return null;
@@ -3671,7 +3820,9 @@ export function boardChange(el) {
     const file = el.files?.[0];
     const key = photoKey();
     el.value = '';
-    if (file && key) photoTask(() => startPhoto(file, key, BOARD, { diagram: cornerDiagram }), 'import');
+    // (on the live table the corners start where they were on the last photo: the phone seldom moves between turns)
+    const init = livePlan() ? lastCorners : null;
+    if (file && key) photoTask(async () => { const ok = await startPhoto(file, key, BOARD, { diagram: cornerDiagram, init }); const info = ok ? photoInfo(key) : null; if (info) lastCorners = { taps: info.taps, sw: info.sw, sh: info.sh, turn: info.turn }; return ok; }, 'import');
     return false;
   }
   if (el.dataset.input === 'board-branch-label' || el.dataset.input === 'board-branch-p') {
