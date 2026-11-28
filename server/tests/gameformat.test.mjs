@@ -15,7 +15,7 @@ const V = await import(new URL('../public/js/vendor/40kdc-data.mjs', import.meta
 const { createConverter, DEFAULT_DATA_SOURCE } = await import(new URL('../public/js/lib/gameformat.mjs', import.meta.url).href);
 const { GAME_NAME_CANON_ENTRIES } = await import(new URL('../public/js/lib/canon.mjs', import.meta.url).href);
 const { applyDataPatches } = await import(new URL('../public/js/lib/data-patches.mjs', import.meta.url).href);
-const { pointsFor } = await import(new URL('../public/js/lib/dckit.mjs', import.meta.url).href);
+const { pointsFor, looseName } = await import(new URL('../public/js/lib/dckit.mjs', import.meta.url).href);
 
 // The browser builder patches the vendored dataset before use (store.js) —
 // the Wahapedia codex overlay (WP-W3), codex detachments/enhancements. Test
@@ -100,6 +100,17 @@ test('every bundled army round-trips through gameToRoster -> rosterToGame', () =
       assert.equal(b.meta.is_warlord, a.meta.is_warlord, `${label}: warlord`);
       const an = new Set(a.meta.weapons.map(w => w.name));
       const bn = new Set(b.meta.weapons.map(w => w.name));
+      if (found?.unit.is_legend) {
+        // Warhammer Legends datasheets (Lootas, Burna Boyz: data-patches.mjs
+        // applyLegendsDatasheets). The game's own conversion keeps these units
+        // as the file has them (decision D2), with their pre-codex kit
+        // ("Close combat weapon"); the builder has the 11e Legends datasheet
+        // and re-derives the unit from it, so only the weapons both know stay.
+        const sheet = new Set(found.unit.weapon_ids.map(id => looseName(conv.wres.resolve(found.factionId, id).name)));
+        for (const n of bn) assert.ok(sheet.has(looseName(n)), `${label}: ${n} is on the Legends datasheet`);
+        assert.ok(bn.size > 0 && [...bn].some(n => [...an].some(x => looseName(x) === looseName(n))), `${label}: keeps weapons of the file`);
+        continue;
+      }
       assert.deepEqual([...bn].sort(), [...an].sort(), `${label}: weapon set`);
     }
     assert.equal(out.faction.detachment, army.faction.detachment, `${file}: detachment`);

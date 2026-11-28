@@ -166,3 +166,11 @@ here, at the deployment.
 The dataset is CC BY 4.0 (Alpaca Software and the 40kdc community
 contributors). Public deployments must keep the visible **"Powered by
 40kdc-data"** credit + link (page footer here; main-menu credit in the game).
+
+## Combat Calc: tests, and the game records players choose to send
+
+- `npm run test:calc`: the unit tests.
+- `npm run test:e2e:calc:fast`: the browser tests in four parallel parts, about 4 minutes (`E2E_SHARDS=n` to change the number). `npm run test:e2e:calc` runs the same checks in one process.
+- `STATIC_OVERRIDE_DIR` (tests only): a file in that directory is served in place of the one in `public/`.
+- `POST /api/calc-log`: a finished game's prediction record (`public/calc/gamelog.mjs`), sent only when the player has switched "Send finished games" on. Stored in the `calc_logs` table as JSON, at most 200,000 characters each. `GET /api/calc-log` returns the number stored.
+  To read them: `sqlite3 "$DB_PATH" "select data from calc_logs order by id desc limit 5"`.

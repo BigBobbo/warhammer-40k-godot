@@ -296,3 +296,26 @@ test('Fixed Missions in a game in progress: a card that has already paid its 20V
   const half = run({ ...base, secondary: 20, fixedVp: { assassination: 20 } });
   assert.ok(secOf(half) > 0 && secOf(half) <= 20 && secOf(half) < secOf(fresh), `${secOf(half)} of ${secOf(fresh)}`);
 });
+
+test('by player turn: the score after each of the 10 player turns, ending on the final score; turns over when the forecast starts are null', () => {
+  const plan = planAll({ hA: 'A', eA: 'A', c: 'A', eB: 'B', hB: 'B' });
+  const pl = (o = {}) => ({ mission: 'Battlefield Dominance', army: BIG(), ...o });
+  const r = F.forecast({ players: { A: pl(), B: pl() }, objectives: OBJS, plan, first: 'A', trials: 400 });
+  assert.equal(r.turns.length, 10);
+  assert.ok(r.turns.every(t => t && t.A >= 0 && t.B >= 0 && t.leadA + t.leadB <= 1 + 1e-9));
+  assert.deepEqual(r.turns.map(t => `${t.round}${t.half}`), ['10', '11', '20', '21', '30', '31', '40', '41', '50', '51']);
+  for (let k = 1; k < 10; k++) for (const X of ['A', 'B']) assert.ok(r.turns[k][X] >= r.turns[k - 1][X] - 1e-9, `${X}'s score falls at turn ${k}`);
+  // the last player turn is the end of the game: the final averages and the win chances
+  assert.ok(Math.abs(r.turns[9].A - r.A.mean) < 1e-6 && Math.abs(r.turns[9].B - r.B.mean) < 1e-6, `${r.turns[9].A} vs ${r.A.mean}`);
+  assert.ok(Math.abs(r.turns[9].leadA - r.pWinA) < 1e-9 && Math.abs(r.turns[9].leadB - r.pWinB) < 1e-9);
+  // A has the first turn of every round: it is the mover of the even turns
+  assert.ok(r.turns.every((t, k) => t.moverA === (k % 2 === 0 ? 1 : 0)));
+  // the end of each battle round agrees with the per-round lead
+  for (let rd = 1; rd <= 5; rd++) assert.ok(Math.abs(r.turns[rd * 2 - 1].leadA - r.lead[rd - 1].A) < (rd === 5 ? 1e-9 : 0.02), `round ${rd}: ${r.turns[rd * 2 - 1].leadA} vs ${r.lead[rd - 1].A}`);
+  // units are lost as the game goes on
+  assert.ok(r.turns[9].unitsA < r.turns[0].unitsA && r.turns[9].unitsB <= r.turns[0].unitsB);
+  // from the second player's turn of round 3: the five turns before it are over
+  const mid = F.forecast({ players: { A: pl({ start: { hand: [], used: [], primary: 12, secondary: 5 } }), B: pl({ start: { hand: [], used: [], primary: 10, secondary: 4 } }) }, objectives: OBJS, plan, first: 'A', startRound: 3, startTurn: 1, trials: 200 });
+  assert.deepEqual(mid.turns.map(t => !!t), [false, false, false, false, false, true, true, true, true, true]);
+  assert.ok(mid.turns[5].A >= 17 && mid.turns[5].B >= 14, 'the score so far is in');
+});

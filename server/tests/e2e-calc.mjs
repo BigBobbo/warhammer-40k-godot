@@ -22,9 +22,30 @@ try { pw = await import('playwright'); } catch { pw = require('playwright'); }
 const { chromium, devices } = pw;
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PORT = 19600 + Math.floor(Math.random() * 300);
+const PORT = Number(process.env.E2E_PORT) || 19600 + Math.floor(Math.random() * 300);
 const BASE = `http://localhost:${PORT}`;
 const dbDir = mkdtempSync(join(tmpdir(), 'w40k-calc-e2e-'));
+const overDir = join(dbDir, 'override');
+// Shards: `E2E_SHARD=k/n` runs one of n parts of the suite (tests/e2e-calc-parallel.mjs runs them side by side,
+// each with a server of its own). Part 0 has the main flow (one page from the first load to the plans); the
+// blocks that start from a page of their own are dealt out to the part with the least work so far, by `sec(weight)`
+// (weight: about the seconds the block takes; every part deals the same hand, so each block runs exactly once).
+const [SHARD, SHARDS] = (process.env.E2E_SHARD ?? '0/1').split('/').map(Number);
+const MAIN = SHARD === 0;
+const MAIN_WEIGHT = Number(process.env.E2E_MAIN_WEIGHT ?? 1300);
+const loads = Array.from({ length: SHARDS }, (_, k) => (k === 0 ? MAIN_WEIGHT : 0));
+const secTimes = [];
+let secNo = 0;
+function sec(weight) {
+  let k = 0;
+  for (let i = 1; i < SHARDS; i++) if (loads[i] < loads[k]) k = i;
+  loads[k] += weight;
+  secNo++;
+  if (k !== SHARD) return false;
+  secTimes.push({ no: secNo, t0: Date.now() });
+  if (secTimes.length > 1) secTimes.at(-2).t1 ??= Date.now();
+  return true;
+}
 const SHOTS = process.env.CALC_SHOTS ?? join(here, 'screenshots');
 mkdirSync(SHOTS, { recursive: true });
 
@@ -36,7 +57,7 @@ function check(label, cond, detail = '') {
 
 const server = spawn(process.execPath, [join(here, '..', 'relay-server.js')], {
   // (CALC_ADVISE_MOCK: "Ask for a plan" answers with a fixed text, no API call)
-  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1' },
+  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1', STATIC_OVERRIDE_DIR: overDir },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
@@ -75,6 +96,8 @@ try {
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => consoleErrors.push(String(e)));
 
+  let toScreen, targetValue;
+  if (MAIN) {
   // --- /calc redirects / serves its own index
   const res = await page.goto(`${BASE}/calc`);
   check('/calc serves the calculator', res.ok() && (await page.title()) === '40K Combat Calc');
@@ -94,7 +117,7 @@ try {
   await page.waitForSelector('select[data-input="target"]');
 
   // --- target: Warboss + Boyz (attached unit)
-  const targetValue = await page.$eval('select[data-input="target"]', (sel) =>
+  targetValue = await page.$eval('select[data-input="target"]', (sel) =>
     [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
   check('attached Warboss + Boyz offered as one target', !!targetValue);
   await page.selectOption('select[data-input="target"]', targetValue);
@@ -464,8 +487,10 @@ try {
   // version shown; a release (version.mjs + sw.js change together) is taken as one whole set: the page that is open
   // keeps running the version it loaded, the new set is downloaded, and an untouched page reloads into it
   check('header shows the app version (under the icon on a phone)', (await page.textContent('#app-version-mini')).trim() === `v${CALC_VERSION}` && await page.isVisible('#app-version-mini'));
-  const vFile = join(here, '..', 'public', 'calc', 'version.mjs'), swFile = join(here, '..', 'public', 'calc', 'sw.js');
-  const vOrig = readFileSync(vFile, 'utf8'), swOrig = readFileSync(swFile, 'utf8');
+  // ("the server" here is this run's override directory: the real files stay as they are for the other shards)
+  const vOrig = readFileSync(join(here, '..', 'public', 'calc', 'version.mjs'), 'utf8'), swOrig = readFileSync(join(here, '..', 'public', 'calc', 'sw.js'), 'utf8');
+  mkdirSync(join(overDir, 'calc'), { recursive: true });
+  const vFile = join(overDir, 'calc', 'version.mjs'), swFile = join(overDir, 'calc', 'sw.js');
   const shown = (v) => page.waitForFunction((want) => document.querySelector('#app-version-mini')?.textContent.trim() === want, `v${v}`, { timeout: 30000 }).then(() => true, () => false);
   try {
     // only version.mjs changed on the server (half a release): the page still runs its own complete set
@@ -483,19 +508,19 @@ try {
     check('the old version\'s offline copy is removed', caches9.filter(k => k.startsWith('w40k-calc-')).join() === 'w40k-calc-9.9.9', caches9.join());
     // a page in use is not reloaded under the player's hands: it offers to
     await page.keyboard.press('Shift');
-    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
+    rmSync(vFile); rmSync(swFile);
     await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
     const bar = await page.waitForSelector('#update-banner', { timeout: 30000 }).then(() => true, () => false);
     check('a page already in use shows the New version bar instead of reloading', bar && (await page.textContent('#app-version-mini')).trim() === 'v9.9.9', await page.textContent('#app-version-mini'));
     if (bar) await page.tap('#update-reload');
     check('Reload on the bar opens the new version', await shown(CALC_VERSION), await page.textContent('#app-version-mini'));
   } finally {
-    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
+    rmSync(join(overDir, 'calc'), { recursive: true, force: true });
   }
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
 
   // --- board planner: official GW layout, tokens, rings, gap -> calculator, steps, ruler, export
-  const toScreen = (x, y) => page.evaluate(([bx, by]) => {
+  toScreen = (x, y) => page.evaluate(([bx, by]) => {
     const svg = document.getElementById('board-svg');
     const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by;
     const q = pt.matrixTransform(svg.getScreenCTM());
@@ -624,7 +649,9 @@ try {
   }, PC);
   const photoFile = join(SHOTS, 'calc_synthetic_table_photo.jpg');
   writeFileSync(photoFile, Buffer.from(photoB64, 'base64'));
-  await page.locator('#board-photo-bar').scrollIntoViewIfNeeded();
+  // (the page may be drawn again while the reloaded plan settles: scroll by id, not by a handle on the old element)
+  await page.waitForSelector('#board-photo-bar');
+  await page.evaluate(() => document.getElementById('board-photo-bar')?.scrollIntoView({ block: 'center' }));
   await page.setInputFiles('input[data-input="board-photo"]', photoFile);
   await page.waitForSelector('.photo-ov #photo-svg image');
   const imgToScreen = (x, y) => page.evaluate(([ix, iy]) => {
@@ -1223,8 +1250,10 @@ try {
     check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
   }
 
+  }
+
   // --- table tools on the Play view: command points, the score of each turn, undo, the clock, table mode, screen on
-  {
+  if (sec(189)) {
     const tctx = await browser.newContext({ ...devices['Pixel 7'] });
     // the Screen Wake Lock API is refused in a headless browser: a stand-in that counts the calls
     await tctx.addInitScript(() => {
@@ -1417,7 +1446,7 @@ try {
 
   // --- how current the rules data is: where each army's datasheets come from and from when, and the
   // points in the pasted list against the data (the Space Wolves list is a real export of the official app)
-  {
+  if (sec(45)) {
     const dctx = await browser.newContext({ ...devices['Pixel 7'] });
     const dp = await dctx.newPage();
     await dp.goto(`${BASE}/calc/`);
@@ -1466,7 +1495,7 @@ try {
 
   // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
   // every view at 360 px (most Android phones) and 412 px
-  {
+  if (sec(28)) {
     const small = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 360, height: 740 } });
     const sp = await small.newPage();
     await sp.goto(`${BASE}/calc/`);
@@ -1496,6 +1525,7 @@ try {
     await small.close();
   }
 
+  if (MAIN) {
   // --- tablet layout
   const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });
   const tp = await tab.newPage();
@@ -1567,8 +1597,10 @@ try {
     custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
     !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
 
+  }
+
   // --- board and mission rules (1.101): control per model, Hidden, coherency, reserves, territory, Move bonus
-  {
+  if (sec(131)) {
     const bctx = await browser.newContext({ ...devices['Pixel 7'] });
     const bp = await bctx.newPage();
     bp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board rules: ${m.text()}`); });
@@ -1702,7 +1734,7 @@ try {
   }
 
   // --- stratagem limits, shooting type, Heavy / Damaged, engaged targets, rules for named weapons (1.102)
-  {
+  if (sec(91)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attack rules: ${m.text()}`); });
@@ -1796,7 +1828,7 @@ try {
   }
 
   // --- the exchange (1.103): the target fights back, overwatch, Deadly Demise; battle-shock odds
-  {
+  if (sec(66)) {
     const xctx = await browser.newContext({ ...devices['Pixel 7'] });
     const xp = await xctx.newPage();
     xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`exchange: ${m.text()}`); });
@@ -1865,7 +1897,7 @@ try {
   }
 
   // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
-  {
+  if (sec(109)) {
     const wctx = await browser.newContext({ ...devices['Pixel 7'] });
     const wp = await wctx.newPage();
     wp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`choice: ${m.text()}`); });
@@ -1977,7 +2009,7 @@ try {
   }
 
   // --- my army, phase by phase (1.104): Intel > By phase, once-per-battle ticks
-  {
+  if (sec(94)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet: ${m.text()}`); });
@@ -2073,7 +2105,7 @@ try {
     await pctx.close();
   }
   // tablet, landscape: the sheet uses the width
-  {
+  if (sec(14)) {
     const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const tp = await tctx.newPage();
     tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet tablet: ${m.text()}`); });
@@ -2090,7 +2122,7 @@ try {
   }
 
   // --- board overlays (1.105): where reserves can arrive, and from how far a hidden unit is seen
-  {
+  if (sec(99)) {
     const octx = await browser.newContext({ ...devices['Pixel 7'] });
     const op = await octx.newPage();
     op.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board overlays: ${m.text()}`); });
@@ -2192,7 +2224,7 @@ try {
   }
 
   // --- going first / going second (1.105): two versions of a board plan from one deployment
-  {
+  if (sec(70)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`plan versions: ${m.text()}`); });
@@ -2265,7 +2297,7 @@ try {
   }
 
   // --- event aids (1.106): layout cycle, each round's result, 15VP per round, Fixed cards, the chess clock pause
-  {
+  if (sec(111)) {
     const ectx = await browser.newContext({ ...devices['Pixel 7'] });
     const ep = await ectx.newPage();
     ep.on('console', m => { if (m.type() === 'error') consoleErrors.push(`event aids: ${m.text()}`); });
@@ -2378,7 +2410,7 @@ try {
     await ectx.close();
   }
   // an event saved by an older version (every round on Layout A, never used) gets the cycle once; one in use is left alone
-  {
+  if (sec(13)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('pageerror', e => consoleErrors.push(`event migration: ${e}`));
@@ -2424,7 +2456,7 @@ Aggressor Squad (95 points)
       2x Fragstorm Grenade Launcher
       2x Twin Power Fists
 `;
-  {
+  if (sec(59)) {
     const zctx = await browser.newContext({ ...devices['Pixel 7'] });
     const zp = await zctx.newPage();
     zp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`ease of use: ${m.text()}`); });
@@ -2450,6 +2482,9 @@ Aggressor Squad (95 points)
     await zp.waitForFunction(() => { const m = window.__calc.mission(); return m.result && !m.busy && m.pairsReady && m.levers?.length >= 4; }, null, { timeout: 180000 });
     const full = await mission();
     check('Plan: the full forecast (4,000 games, what-ifs, plan comparison)', full.trials === 4000 && full.levers >= 4 && full.compare >= 1, JSON.stringify(full));
+    // (quiet first: a run still on its way from the page settling is not a run started by opening Play)
+    await zp.waitForTimeout(1500);
+    await zp.waitForFunction(() => !window.__calc.mission().busy, null, { timeout: 60000 });
     await zp.tap('button[data-action="mission-tab"][data-value="play"]');
     await zp.waitForSelector('#play-bar');
     await zp.waitForTimeout(700);
@@ -2485,7 +2520,7 @@ Aggressor Squad (95 points)
     await zctx.close();
   }
   // light theme, and a date after the announced update: readable grey text, and the warning that the rules may be behind
-  {
+  if (sec(40)) {
     const lctx = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'light' });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`ease of use (light): ${e}`));
@@ -2528,7 +2563,7 @@ Aggressor Squad (95 points)
   }
 
   // --- saved games (1.108): save the game on the tracker, play another, load the first one back
-  {
+  if (sec(99)) {
     const { readFileSync } = await import('fs');
     const CUST = readFileSync('/home/user/warhammer-40k-godot/server/tests/fixtures/gw-custodes-nbhyphen.txt', 'utf8');
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2630,7 +2665,7 @@ Aggressor Squad (95 points)
   }
 
   // --- matchup grid (1.108.1): Shooting / Fight in the grid; a tapped cell opens the matchup on the Attack tab
-  {
+  if (sec(38)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`grid: ${m.text()}`); });
@@ -2671,7 +2706,7 @@ Aggressor Squad (95 points)
   }
 
   // --- branching plans (1.109): decisions and chances after a turn; the forecast of each branch
-  {
+  if (sec(107)) {
     const tctx = await browser.newContext({ ...devices['Pixel 7'] });
     const tp = await tctx.newPage();
     tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branches: ${m.text()}`); });
@@ -2781,7 +2816,7 @@ Aggressor Squad (95 points)
   }
 
   // --- branch map (1.110): every path at a glance above the board; tap to switch; win chances; compare positions
-  {
+  if (sec(93)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branch map: ${m.text()}`); });
@@ -2877,7 +2912,7 @@ Aggressor Squad (95 points)
   }
 
   // --- points with an enhancement priced apart (1.110.1): a New Recruit / WTC list
-  {
+  if (sec(15)) {
     const qctx = await browser.newContext({ ...devices['Pixel 7'] });
     const qp = await qctx.newPage();
     qp.on('pageerror', e => consoleErrors.push(`points: ${e}`));
@@ -2895,7 +2930,7 @@ Aggressor Squad (95 points)
   }
 
   // --- set-up path (1.124.0): checklist on Mission, the Board's set-up locked during a game, disposition overrides shown
-  {
+  if (sec(87)) {
     const uctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const up = await uctx.newPage();
     up.on('pageerror', e => consoleErrors.push(`setup: ${e}`));
@@ -2985,7 +3020,7 @@ Aggressor Squad (95 points)
   }
 
   // --- movement rings stay where the unit started the turn (1.111.0): drag it, the Move ring does not follow
-  {
+  if (sec(52)) {
     const rctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const rp = await rctx.newPage();
     rp.on('pageerror', e => consoleErrors.push(`rings: ${e}`));
@@ -3040,7 +3075,7 @@ Aggressor Squad (95 points)
   }
 
   // --- lists in the game (1.111): load a list from the game's army store; send army A / B there
-  {
+  if (sec(48)) {
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
     const gp = await gctx.newPage();
     gp.on('pageerror', e => consoleErrors.push(`game lists: ${e}`));
@@ -3091,7 +3126,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.112: event Start says what is missing / what it set up; the page behind a sheet stays put; cards drawn as cards
-  {
+  if (sec(71)) {
     const xctx = await browser.newContext({ ...devices['Pixel 7'] });
     const xp = await xctx.newPage();
     xp.on('pageerror', e => consoleErrors.push(`1.112: ${e}`));
@@ -3165,7 +3200,7 @@ Aggressor Squad (95 points)
   }
 
   // --- attachments during army set-up (1.113): ask when the list says none, suggest, remember per list
-  {
+  if (sec(47)) {
     const actx = await browser.newContext({ ...devices['Pixel 7'] });
     const ap = await actx.newPage();
     ap.on('pageerror', e => consoleErrors.push(`attach: ${e}`));
@@ -3215,7 +3250,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.114: gap between bases, a letter on every base, transports, stratagems in full
-  {
+  if (sec(68)) {
     const kctx = await browser.newContext({ ...devices['Pixel 7'] });
     const kp = await kctx.newPage();
     kp.on('pageerror', e => consoleErrors.push(`1.114: ${e}`));
@@ -3286,7 +3321,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.115: the score shown to the opponent, a random draw they can see, stratagems usable now + the log
-  {
+  if (sec(58)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('pageerror', e => consoleErrors.push(`1.115: ${e}`));
@@ -3347,7 +3382,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.116: layouts stamped and measured for set-up, how an attack usually goes, saved lists against today's points
-  {
+  if (sec(46)) {
     const vctx = await browser.newContext({ ...devices['Pixel 7'] });
     const vp = await vctx.newPage();
     vp.on('pageerror', e => consoleErrors.push(`1.116: ${e}`));
@@ -3396,7 +3431,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.117: exposure heat map — how much of the enemy can reach each square next turn; tap a square for who
-  {
+  if (sec(31)) {
     const hctx = await browser.newContext({ ...devices['Pixel 7'] });
     const hp = await hctx.newPage();
     hp.on('pageerror', e => consoleErrors.push(`heat: ${e}`));
@@ -3430,7 +3465,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.117: my statistics from saved games
-  {
+  if (sec(31)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('pageerror', e => consoleErrors.push(`stats: ${e}`));
@@ -3464,7 +3499,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.118: deployment drop-order drill — one unit at a time from the Defender, in a plan of its own
-  {
+  if (sec(58)) {
     const dctx = await browser.newContext({ ...devices['Pixel 7'] });
     const dp = await dctx.newPage();
     dp.on('pageerror', e => consoleErrors.push(`drill: ${e}`));
@@ -3525,7 +3560,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.119: read-only share links — the lists, the attack set-up and the board plan inside the link
-  {
+  if (sec(81)) {
     const mk = async (tag) => {
       const c = await browser.newContext({ ...devices['Pixel 7'] });
       const pg = await c.newPage();
@@ -3609,7 +3644,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.120: Scout moves planned on the Deploy step — a dashed ghost you drag, checked against 24.32
-  {
+  if (sec(36)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('pageerror', e => consoleErrors.push(`scout: ${e}`));
@@ -3648,7 +3683,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.121: list gap-finder — the whole list against eight fixed reference targets
-  {
+  if (sec(18)) {
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
     const gp = await gctx.newPage();
     gp.on('pageerror', e => consoleErrors.push(`gaps: ${e}`));
@@ -3669,7 +3704,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.122: printable game-day sheet (Intel → 🖨): their units, tricks, stratagems, my army by phase; no rule text
-  {
+  if (sec(31)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('pageerror', e => consoleErrors.push(`print: ${e}`));
@@ -3703,7 +3738,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.123: what a unit can see (shaded squares) and hull sizes you measured
-  {
+  if (sec(31)) {
     const vctx = await browser.newContext({ ...devices['Pixel 7'] });
     const vp = await vctx.newPage();
     vp.on('pageerror', e => consoleErrors.push(`see: ${e}`));
@@ -3737,7 +3772,7 @@ Aggressor Squad (95 points)
   }
 
   // --- tablet Board in three columns (1.127.0): me | map | opponent; portrait: map on top, armies below
-  {
+  if (sec(85)) {
     const tctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const tp3 = await tctx3.newPage();
     tp3.on('pageerror', e => consoleErrors.push(`tri: ${e}`));
@@ -3826,7 +3861,7 @@ Aggressor Squad (95 points)
 
   // --- 1.125: 📐 base-to-base measuring on a table photo. A synthetic tablet photo of the table taken from one end
   // (perspective, 2400 px wide) with a 32 mm base at (12, 20) and a 40 mm base at (24, 34): truth 17.02" edge to edge.
-  {
+  if (MAIN) {
     const { writeFileSync } = await import('fs');
     const mctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, hasTouch: true });
     const mp = await mctx.newPage();
@@ -3901,7 +3936,7 @@ Aggressor Squad (95 points)
   // --- 1.126: AR measuring test page (/calc/ar-test.html). Real AR needs a device with ARCore: here (1) a browser
   // without AR must say so, and (2) with a STAND-IN WebXR device (scripted hit-test points; no camera, no ARCore)
   // the page's own logic must measure, record and drift-test correctly. (2) is not a test of real AR accuracy.
-  {
+  if (sec(59)) {
     const actx = await browser.newContext({ ...devices['Pixel 7'] });
     const ap = await actx.newPage();
     ap.on('pageerror', e => consoleErrors.push(`ar: ${e}`));
@@ -3965,7 +4000,7 @@ Aggressor Squad (95 points)
   // --- 1.129: live AR on the Board (🥽 AR). Without AR: a clear message. With a STAND-IN WebXR device (scripted
   // hit-test points, a camera looking straight down; no ARCore, no camera image): corners pin the board, the
   // readouts are in board inches, measuring and rings work, and the overlay is drawn where the table is.
-  {
+  if (sec(93)) {
     // 1. no AR on this browser
     const nctx = await browser.newContext({ ...devices['Pixel 7'] });
     const np = await nctx.newPage();
@@ -4061,7 +4096,7 @@ Aggressor Squad (95 points)
   }
 
   // --- Board undo / redo (1.128.0): ↶ ↷ next to Move / Ruler; every plan change, across turns; Ctrl+Z
-  {
+  if (sec(82)) {
     const uctx2 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const up2 = await uctx2.newPage();
     up2.on('pageerror', e => consoleErrors.push(`undo: ${e}`));
@@ -4146,7 +4181,7 @@ Aggressor Squad (95 points)
   }
 
   // --- models left (1.131.0): one record per unit, by battle round — attacker (fewer weapons), target, Board turns
-  {
+  if (sec(127)) {
     const lctx = await browser.newContext({ ...devices['Pixel 7'] });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`losses: ${e}`));
@@ -4276,7 +4311,7 @@ Aggressor Squad (95 points)
   }
 
   // --- models left: the whole unit loses its plain models first; sergeants, special weapons and characters last (1.132.0)
-  {
+  if (sec(42)) {
     const kctx = await browser.newContext({ ...devices['Pixel 7'] });
     const kp = await kctx.newPage();
     kp.on('pageerror', e => consoleErrors.push(`keep: ${e}`));
@@ -4321,7 +4356,7 @@ Aggressor Squad (95 points)
   }
 
   // --- move models one by one (1.133.0): double-tap a unit, drag a base; Done; the block keeps their spacing
-  {
+  if (sec(110)) {
     const mctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const mp3 = await mctx3.newPage();
     mp3.on('pageerror', e => consoleErrors.push(`models: ${e}`));
@@ -4434,7 +4469,7 @@ Aggressor Squad (95 points)
   }
 
   // --- the live table and "Their next turn" (1.135.0): the real table follows the tracker; what the opponent can do next
-  {
+  if (sec(359)) {
     const lctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`live: ${e}`));
@@ -4453,7 +4488,8 @@ Aggressor Squad (95 points)
     const live = () => lp.evaluate(() => window.__calc.board().live);
     const next = () => lp.evaluate(() => window.__calc.board().next);
     const ready = () => lp.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done', null, { timeout: 60000 });
+    // (the card is drawn again when the moves have been weighed and when the stratagems have been looked at)
+    const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 90000 });
     await lp.goto(`${BASE}/calc/`); await lp.waitForSelector('textarea[data-side="A"]');
     await lp.fill('textarea[data-side="A"]', SW_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
     await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
@@ -4505,7 +4541,7 @@ Aggressor Squad (95 points)
     {
       const my0 = (await next()).my;
       const order0 = await lp.$$eval('#board-next-host > .card', els => els.map(e => e.id));
-      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.join() === 'board-next,board-my' && /Your next turn/.test(await lp.textContent('#board-my-title')));
+      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.filter(x => x === 'board-next' || x === 'board-my').join() === 'board-next,board-my' && order0.at(-1) === 'board-log' && /Your next turn/.test(await lp.textContent('#board-my-title')));
       const ghU = my0.units.find(u => u.key === gh), ghK = my0.kills.find(k => k.key === ghU.attack?.key);
       check('Your turn: the Grey Hunters on the centre hold it, they have a target (an Ork unit, with the odds it is destroyed), and the row flags that they are likely destroyed',
         ghU.job.kind === 'hold' && ghU.job.label === 'Centre' && [boyz, gitz, mega].includes(ghU.attack?.key) && ghU.attack.p > 0.3 && ghU.risk > 0.5 && ghK && ghK.by.some(b => b.key === gh) && Math.abs(ghK.p - ghU.attack.p) < 1e-9
@@ -4591,6 +4627,15 @@ Aggressor Squad (95 points)
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
       }
+      // (1.149.0) stratagems in the odds, and the other player's reply in the weighed moves
+      {
+        await lp.waitForFunction(() => window.__calc.board().next?.strats?.state === 'done', null, { timeout: 90000 });
+        const sx = await lp.evaluate(() => { const b = window.__calc.board().next; return { n: b.strats.n ?? 0, best: Object.values(b.strats.best ?? {}).map(x => ({ name: x.name, cp: x.cp, p0: x.p0, p1: x.p1, w0: x.w0, w1: x.w1 })), rows: [...document.querySelectorAll('#board-my-kills [data-strat]')].map(e => ({ name: e.dataset.strat, p0: Number(e.dataset.p0), p1: Number(e.dataset.p1), text: e.textContent })), kills: b.my.kills.length, reply: b.moves?.reply, turn: window.__calc.mission().game?.next }; });
+        check('stratagems: each attack on my targets is run again with each of the attacker\'s stratagems; one is named only where it adds to the attack, with its CP cost',
+          (sx.kills === 0 || sx.n >= 1) && sx.best.every(x => x.cp >= 0 && (x.p1 - x.p0 >= 0.05 - 1e-9 || x.w1 - x.w0 >= 1 - 1e-9)) && sx.rows.length === Math.min(sx.best.length, 4) && sx.rows.every(r => /\(\d CP/.test(r.text) && /(destroyed on its own instead of|wounds on average instead of)/.test(r.text)), JSON.stringify(sx).slice(0, 700));
+        const how = await lp.textContent('#board-my-moves');
+        check('weighed moves: in my own turn the other player\'s likely reply is played in, and the line says so', sx.reply === true ? /reply/.test(how) : !/reply/.test(how), `${sx.reply} ${how.slice(0, 200)}`);
+      }
       // (1.145.0) play the game out: both players follow the cards every turn to round 5, scored by the forecast,
       // shown NEXT TO the usual forecast line (which stays), and put on the board as a plan of its own
       {
@@ -4603,12 +4648,24 @@ Aggressor Squad (95 points)
         check('the game is played to the end of round 5, turn by turn, both players moving', pl.rounds.at(-1) === 5 && pl.rounds[0] === pl.from && pl.turns.length >= pl.rounds.length && ['A', 'B'].every(X => pl.turns.some(t => t.endsWith(X))) && pl.moved >= 2, JSON.stringify(pl));
         const line = await lp.textContent('#board-playout');
         check('the card gives its win chance and average score, and the usual forecast beside it', /Played out to the end of the game: you win \d+% of games, \d+ – \d+ VP on average/.test(line) && /forecast of the table as it stands says \d+%/.test(line) && pl.win >= 0 && pl.win <= 1, line.slice(0, 260));
-        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
-        check('a row per battle round still to play: the score after it, how often I am ahead, units left; scores only grow and round 5 is the final score',
-          rws.length === pl.rounds.length && rws.every((x, i) => x.r === pl.rounds[i] && (i === 0 || (x.me >= rws[i - 1].me - 1e-6 && x.opp >= rws[i - 1].opp - 1e-6)) && x.ahead >= 0 && x.ahead <= 1)
+        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), h: Number(e.dataset.half), mover: e.dataset.mover, me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
+        check('a row per player turn still to play (1.149.0): whose turn, the score after it, how often I am ahead, units left; scores only grow and the last row is the final score',
+          rws.length >= pl.rounds.length && rws.length <= 2 * pl.rounds.length && rws.at(-1).r === 5 && rws.at(-1).h === 1 && rws.every((x, i) => ['A', 'B'].includes(x.mover) && (i === 0 || ((x.r > rws[i - 1].r || x.h > rws[i - 1].h) && x.mover !== rws[i - 1].mover && x.me >= rws[i - 1].me - 0.06 && x.opp >= rws[i - 1].opp - 0.06)) && x.ahead >= 0 && x.ahead <= 1)
           && Math.abs(rws.at(-1).me - pl.vp.me) < 0.06 && Math.abs(rws.at(-1).opp - pl.vp.opp) < 0.06 && /Units left/.test(await lp.textContent('#board-playout-rounds')), JSON.stringify(rws));
         check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
-        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /straight line/.test(await lp.textContent('#board-playout-how')));
+        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /go round dense terrain/.test(await lp.textContent('#board-playout-how')));
+        // (1.148.0) the walk itself: nobody on anybody else, reserves come on, likely casualties take no further part
+        const walk = await lp.evaluate(() => { const m = window.__calc.board().next.play, ext = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
+          let overlaps = 0; const start = new Set([...m.steps[0].A, ...m.steps[0].B].map(u => u.key));
+          for (const st of m.steps.slice(1)) { const all = [...st.A, ...st.B].flatMap(u => u.models.map(md => ({ k: u.key, x: u.x + md.dx, y: u.y + md.dy, r: ext(md.fp) })));
+            for (const p of all) for (const q of all) if (p.k < q.k && Math.hypot(p.x - q.x, p.y - q.y) < p.r + q.r - 0.05) { overlaps++; } }
+          const arrive = m.log.flatMap(l => l.moves.filter(x => x.kind === 'arrive').map(x => ({ unit: x.unit, round: l.round })));
+          const lost = m.log.flatMap(l => (l.lost ?? []).map(x => ({ unit: x.unit, round: l.round, p: x.p })));
+          const actsAfter = lost.filter(x => m.log.some(l => l.round > x.round && l.moves.some(mv => mv.unit === x.unit))).length;
+          return { overlaps, arrive, lost: lost.length, actsAfter, gone: Object.keys(m.gone ?? {}).length, last: m.steps.at(-1).A.length + m.steps.at(-1).B.length, first: start.size }; });
+        check('play-out: from round 2 on no base ends on another base', walk.overlaps === 0, JSON.stringify(walk));
+        check('play-out: reserves come on from round 2 (never round 1), and are on the table from then on', walk.arrive.every(x => x.round >= 2 && x.round <= 3) && walk.last >= walk.first, JSON.stringify(walk));
+        check('play-out: a unit that is likely destroyed takes no further part, and the log says so', walk.actsAfter === 0 && walk.lost <= walk.gone, JSON.stringify(walk));
         await lp.tap('#board-playout-log-btn');
         const logText = await lp.textContent('#board-playout-log');
         check('Show who did what: a block per player turn with each unit\'s action', /Round \d · /.test(logText) && /(takes|holds|walks towards|charges|shoots) /.test(logText) && (await lp.locator('#board-playout-log > div').count()) === pl.turns.length, logText.slice(0, 200));
@@ -4720,6 +4777,26 @@ Aggressor Squad (95 points)
         await weighed();
         await lp.tap('#board-advise-clear');
         check('Clear takes the plan away (from the live table too)', (await lp.locator('#board-advise-text').count()) === 0 && (await lp.evaluate(() => window.__calc.board().next.advise.kept)) === null && (await lp.locator('#board-advise-copy').count()) === 1);
+        // (1.150.0) back in the app with the answer on the clipboard: the plan is shown without another tap
+        await lp.tap('#board-advise-copy'); await lp.waitForSelector('#board-advise-pastebox');
+        await lp.evaluate((t) => navigator.clipboard.writeText(t), PASTED);
+        await lp.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        const backOk = await lp.waitForFunction(() => window.__calc.board().next.advise.state === 'done' && window.__calc.board().next.advise.pasted, null, { timeout: 8000 }).then(() => true, () => false);
+        check('copy the prompt, come back with Claude\'s answer on the clipboard: the plan is shown and drawn without a tap', backOk && (await lp.locator('#board-plan-bar').count()) === 1 && (await lp.locator('#board-advise-pastebox').count()) === 0);
+        // the clipboard still holding the prompt (nothing copied in Claude yet) is not taken for an answer
+        await lp.tap('#board-advise-clear'); await lp.tap('#board-advise-copy'); await lp.waitForSelector('#board-advise-pastebox');
+        await lp.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await lp.waitForTimeout(500);
+        check('the prompt itself on the clipboard is not taken for an answer', (await lp.locator('#board-advise-pastebox').count()) === 1 && (await lp.evaluate(() => window.__calc.board().next.advise.state)) !== 'done');
+        await lp.tap('[data-action="board-advise-paste-cancel"]');
+        check('a share target is declared for the installed app, and ⇪ Send to Claude is offered where the device can share', (await lp.evaluate(async () => (await (await fetch('/calc/manifest.webmanifest')).json()).share_target?.params?.text)) === 'share_text'
+          && (await lp.locator('#board-advise-share').count()) === (await lp.evaluate(() => (navigator.share ? 1 : 0))));
+        // text shared to the app (Android share target): it opens on the Board with the plan drawn
+        await lp.goto(`${BASE}/calc/?share_text=${encodeURIComponent(PASTED)}`);
+        await lp.waitForSelector('#board-live-bar', { timeout: 30000 });
+        const sharedOk = await lp.waitForFunction(() => window.__calc.board().next?.advise?.state === 'done' && window.__calc.board().next.advise.pasted, null, { timeout: 20000 }).then(() => true, () => false);
+        check('a plan shared to the app opens on the live table, drawn on the map; the address is cleaned', sharedOk && (await lp.locator('#board-plan-bar').count()) === 1 && !/share_text/.test(lp.url()), lp.url().slice(0, 80));
+        await lp.tap('#board-advise-clear');
+        await weighed();
         lp.off('request', onReq);
       }
       // (1.140.0) Ask Claude for a plan: told what is sent and asked once, then the plan under the cards; marked when the table changes
@@ -4787,14 +4864,107 @@ Aggressor Squad (95 points)
     await pp6.tap('button[data-action="view"][data-value="board"]');
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Grey Hunters' }).tap();
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Flash Gitz' }).tap();
+    await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Thunderwolf Cavalry' }).first().tap();
     await pp6.tap('#board-live');
     await pp6.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    check('phone: 🔴 Live table shows the bar above the map and the two cards below the unit panel (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
+    check('phone: 🔴 Live table shows the bar above the map and, below the unit panel, what changed this turn then the two cards (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-upd-list,board-my,board-next,board-log' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
     await pp6.locator('#board-next').scrollIntoViewIfNeeded();
     await pp6.screenshot({ path: join(SHOTS, 'calc_136_next_turn_phone.png') });
+    // (1.150.0) Update the table: only what changed this turn; place by tapping, one unit after the other
+    {
+      await pp6.waitForSelector('#board-upd[data-open="1"]');
+      const upd = () => pp6.evaluate(() => ({ todo: Number(document.getElementById('board-upd-count')?.dataset.todo), n: Number(document.getElementById('board-upd-count')?.dataset.n), placing: document.getElementById('board-upd-placing')?.dataset.tk ?? null,
+        rows: [...document.querySelectorAll('#board-upd-rows [data-upd]')].map(e => [e.dataset.upd, e.dataset.state]), above: document.getElementById('board-upd').getBoundingClientRect().bottom <= document.getElementById('board-host').getBoundingClientRect().top + 1,
+        below: document.getElementById('board-upd-list').getBoundingClientRect().top >= document.getElementById('board-host').getBoundingClientRect().bottom - 1 }));
+      const u0 = await upd();
+      check('live table, positions not confirmed: "Update the table" lists the units of the player whose turn it is, none looked at yet; a short card above the map, the list under it',
+        u0.n === 2 && u0.todo === 2 && u0.rows.every(r => r[0].startsWith('A:') && r[1] === 'todo') && u0.above && u0.below && /0 of 2 units looked at/.test(await pp6.textContent('#board-upd-count')), JSON.stringify(u0));
+      await pp6.tap('#board-upd-guide');
+      const u1 = await upd();
+      check('📍 Place by tapping names the first unit to place', u1.placing === u0.rows[0][0] && /Tap the map where/.test(await pp6.textContent('#board-upd-placing')), JSON.stringify(u1));
+      await pp6.locator('#board-host').scrollIntoViewIfNeeded();
+      const at = await pp6.evaluate(() => { const svg = document.getElementById('board-svg'); const q = svg.createSVGPoint(); q.x = 30; q.y = 40; const r = q.matrixTransform(svg.getScreenCTM()); return { x: r.x, y: r.y }; });
+      await pp6.touchscreen.tap(at.x, at.y);
+      await pp6.waitForFunction((tk) => document.getElementById('board-upd-placing')?.dataset.tk !== tk, u1.placing);
+      const u2 = await upd(), pos = await pp6.evaluate((tk) => { const t = window.__calc.board().tokens.find(x => x.tk === tk); return [t.x, t.y]; }, u1.placing);
+      check('a tap on the map puts that unit there and goes on to the next one', Math.abs(pos[0] - 30) < 0.6 && Math.abs(pos[1] - 40) < 0.6 && u2.todo === 1 && u2.placing === u0.rows[1][0] && u2.rows[0][1] === 'moved', JSON.stringify({ u2, pos }));
+      await pp6.locator('#board-upd').scrollIntoViewIfNeeded();
+      await pp6.screenshot({ path: join(SHOTS, 'calc_150_update_table_phone.png') });
+      await pp6.tap('#board-upd-placing [data-action="board-upd-same"]');
+      const u3 = await upd();
+      check('✓ It has not moved: looked at, nothing left to place, and the card says to confirm', u3.todo === 0 && u3.placing === null && u3.rows[1][1] === 'same' && /confirm the positions/.test(await pp6.textContent('#board-upd')), JSON.stringify(u3));
+      await pp6.locator('#board-upd-loss').scrollIntoViewIfNeeded(); await pp6.tap('#board-upd-loss');
+      const left0 = await pp6.$$eval('#board-upd-losses [data-left]', els => els.map(e => Number(e.dataset.left)));
+      await pp6.locator('#board-upd-losses [data-action="loss-unit"][data-delta="-1"]').first().tap();
+      await pp6.waitForFunction((n) => Number(document.querySelector('#board-upd-losses [data-left]')?.dataset.left) === n - 1, left0[0]);
+      const tot = await pp6.evaluate(() => window.__calc.board().units.map(u => u.left ?? null));
+      check('☠ Models lost this turn: − takes a model off a unit on either side (the same count as the tracker)', left0.length === 3 && (await pp6.$$eval('#board-upd-losses [data-left]', els => Number(els[0].dataset.left))) === left0[0] - 1, JSON.stringify({ left0, tot }));
+      await pp6.locator('#board-upd-losses [data-action="loss-unit"][data-delta="1"]').first().tap();
+      await pp6.locator('#board-live-confirm').scrollIntoViewIfNeeded(); await pp6.tap('#board-live-confirm');
+      check('once the positions are confirmed the update card folds away', (await pp6.getAttribute('#board-upd', 'data-open')) === '0' && (await pp6.locator('#board-upd-list').count()) === 0);
+    }
     await pctx6.close();
   }
 
+  // --- the prediction record (1.151.0): a game played through on the live table is kept turn by turn, closed
+  // with the final score, read against what happened, and sent only when the player has turned sending on
+  if (sec(40)) {
+    const gctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`record: ${e}`));
+    gp.on('dialog', d => d.accept());
+    const logs = [];
+    gp.on('console', m => { if (/prediction record/.test(m.text())) logs.push(m.text()); });
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.fill('textarea[data-side="B"]', ORK_LIST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    for (const X of ['A', 'B']) for (let i = 0; i < 3; i++) await gp.locator(`#board-army-${X} button[data-action="board-place"]`).first().tap();
+    await gp.tap('#board-live'); await gp.waitForSelector('#board-live-bar');
+    await gp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 120000 });
+    await gp.locator('#board-log').scrollIntoViewIfNeeded();
+    check('live table: a Prediction record card, folded, nothing kept yet', (await gp.getAttribute('#board-log', 'data-open')) === '0' && (await gp.getAttribute('#board-log-count', 'data-turns')) === '0' && (await gp.getAttribute('#board-log-count', 'data-games')) === '0');
+    await gp.tap('[data-action="board-log-toggle"]');
+    check('it says what is kept, and that the record stays on this device unless sending is turned on', /At each Turn done/.test(await gp.textContent('#board-log')) && /Off: the record stays on this device/.test(await gp.textContent('#board-log-privacy')) && (await gp.getAttribute('#board-log-optin', 'aria-pressed')) === 'false');
+    const games0 = (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games;
+    await gp.tap('#board-log-optin');
+    check('sending on: the card says what a sent game holds and what it does not', (await gp.getAttribute('#board-log-optin', 'aria-pressed')) === 'true' && /On: when a battle ends/.test(await gp.textContent('#board-log-privacy')) && /does not hold your list/.test(await gp.textContent('#board-log-privacy')));
+    // the game on the tracker, turn after turn to the end of the battle
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]'); await gp.waitForSelector('#play-turn-done');
+    await gp.tap('#play-turn-done');
+    const one = await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1') ?? '{}'));
+    check('Turn done keeps that turn: the score, where the units stood, the forecast said at its start, and what the cards expect of the next turn',
+      one.current?.turns.length === 1 && one.current.turns[0].round === 1 && one.current.turns[0].units.length === 6 && one.current.turns[0].units.every(u => Number.isFinite(u.x) && u.left > 0) && one.current.turns[0].forecast?.win >= 0 && one.current.turns[0].ahead?.side !== one.current.turns[0].turn, JSON.stringify(one.current?.turns?.[0] ?? one ?? null).slice(0, 500) + ' | ' + logs.join(' | ').slice(0, 300));
+    let taps = 1;
+    for (; taps < 12 && !(await gp.evaluate(() => window.__calc.mission().game.over)); taps++) { await gp.tap('#play-turn-done'); await gp.waitForTimeout(150); }
+    const store = await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1')));
+    check('End the battle closes the record: 10 turns, the final score, kept with the finished games', taps === 10 && store.current === null && store.done.length === 1 && store.done[0].turns.length === 10 && Number.isFinite(store.done[0].final.A) && store.done[0].turns.map(t => t.round).join('') === '1122334455', JSON.stringify({ taps, n: store.done?.[0]?.turns.length, final: store.done?.[0]?.final }));
+    await gp.waitForFunction(() => true); await gp.waitForTimeout(600);
+    const games1 = (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games;
+    check('with sending on, the finished game reached the server (once)', games1 === games0 + 1 && logs.some(l => /prediction record sent: 201/.test(l)), `${games0} -> ${games1} | ${logs.slice(-2).join(' | ')}`);
+    const bad = await gp.request.post(`${BASE}/api/calc-log`, { data: { format: 'combat-calc-gamelog', v: 1, turns: [], final: { A: 1, B: 2 } } });
+    check('the server takes only a finished, well-formed record', bad.status() === 400 && (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games === games1);
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
+    await gp.waitForFunction(() => window.__calc.board().next?.moves?.state !== 'pending' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 120000 });
+    if ((await gp.getAttribute('#board-log', 'data-open')) === '0') await gp.tap('[data-action="board-log-toggle"]');
+    await gp.waitForSelector('#board-log[data-open="1"]');
+    await gp.evaluate(() => document.getElementById('board-log').scrollIntoView({ block: 'center' }));
+    const card = await gp.textContent('#board-log');
+    check('the card reads the finished game back: the result, what the forecast said at each turn end, and the calls added up', (await gp.getAttribute('#board-log-count', 'data-games')) === '1' && /Your last game: (won|lost|drawn) \d+ – \d+/.test(card) && /the forecast said you win \d+%/.test(card) && /Forecast: you win · \d+ calls?/.test(card), card.slice(0, 400));
+    await gp.screenshot({ path: join(SHOTS, 'calc_151_prediction_record.png') });
+    const dl = gp.waitForEvent('download');
+    await gp.tap('#board-log-export');
+    const file = await (await dl).path(), saved = JSON.parse(readFileSync(file, 'utf8'));
+    check('⇩ Save the record as a file: the finished games as JSON', saved.format === 'combat-calc-gamelog-file' && saved.done.length === 1 && saved.done[0].turns.length === 10);
+    await gp.tap('#board-log-clear');
+    check('Delete the record empties it (the sending switch stays as it was)', (await gp.getAttribute('#board-log-count', 'data-games')) === '0' && (await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1')).optIn)) === true);
+    await gctx.close();
+  }
+
+  if (secTimes.length) secTimes.at(-1).t1 ??= Date.now();
+  console.log(`  shard ${SHARD}/${SHARDS}: blocks ${secTimes.map(x => `#${x.no} ${Math.round((x.t1 - x.t0) / 1000)}s`).join(', ') || '-'}`);
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {

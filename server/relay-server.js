@@ -8,6 +8,7 @@ const PORT = parseInt(process.env.PORT || '9080', 10);
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'persistence.db');
 const MAX_BODY_SIZE = 2 * 1024 * 1024; // 2MB
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const STATIC_OVERRIDE_DIR = process.env.STATIC_OVERRIDE_DIR ? path.resolve(process.env.STATIC_OVERRIDE_DIR) : null;
 
 // ============================================================================
 // SQLite Setup
@@ -56,6 +57,13 @@ db.exec(`
   );
 
   -- Combat Calc: a backup on its way from one device to another (kept one hour)
+  -- Combat Calc: finished games a player chose to send, to check the app's predictions against what happened
+  CREATE TABLE IF NOT EXISTS calc_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS calc_transfers (
     code TEXT PRIMARY KEY,
     data TEXT NOT NULL,
@@ -319,6 +327,16 @@ function serveStaticFile(req, res) {
     return;
   }
 
+  // Tests only (STATIC_OVERRIDE_DIR): a file in that directory is served in place of the one in public/, so a
+  // test can publish "a new release" on its own server without touching the files other test runs are reading.
+  if (STATIC_OVERRIDE_DIR) {
+    const over = path.normalize(path.join(STATIC_OVERRIDE_DIR, urlPath));
+    if (over.startsWith(STATIC_OVERRIDE_DIR) && fs.existsSync(over) && fs.statSync(over).isFile()) {
+      streamFile(req, res, over, path.extname(over).toLowerCase(), fs.statSync(over));
+      return;
+    }
+  }
+
   // Check if file exists
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
@@ -436,6 +454,8 @@ async function handleHTTPRequest(req, res) {
         return handleCalcTransfer(req, res, param);
       case 'calc-advise':
         return handleCalcAdvise(req, res);
+      case 'calc-log':
+        return handleCalcLog(req, res);
       default:
         sendError(res, 404, 'Not found');
     }
@@ -495,6 +515,35 @@ async function handleCalcAdvise(req, res) {
   const r = await calcAdvise.advise(body, String(ip));
   if (!r.ok) return sendError(res, r.status, r.error);
   return sendJSON(res, 200, { text: r.text, model: r.model, ms: r.ms, left: r.left, truncated: !!r.truncated });
+}
+
+// Combat Calc game records (public/calc/gamelog.mjs uploadBody): a finished game's positions, scores and the
+// app's predictions, sent only when the player has switched sending on. Stored as it comes, never logged.
+//   GET  /api/calc-log  -> { enabled, games }
+//   POST /api/calc-log  { format: 'combat-calc-gamelog', v: 1, turns: [...], final: { A, B }, ... } -> 201 { ok }
+const CALC_LOG_MAX_CHARS = 200000, CALC_LOG_MAX_ROWS = 20000;
+function calcLogValid(b) {
+  const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (!isObj(b) || b.format !== 'combat-calc-gamelog' || b.v !== 1) return 'Not a Combat Calc game record';
+  if (!Array.isArray(b.turns) || b.turns.length < 1 || b.turns.length > 12) return 'A game record has 1 to 10 turns';
+  if (!isObj(b.final) || !Number.isFinite(b.final.A) || !Number.isFinite(b.final.B)) return 'The game is not finished';
+  if (!b.turns.every(t => isObj(t) && Number.isInteger(t.round) && t.round >= 1 && t.round <= 5 && (t.turn === 'A' || t.turn === 'B') && Array.isArray(t.units) && t.units.length <= 80)) return 'A turn of the record is not readable';
+  return null;
+}
+async function handleCalcLog(req, res) {
+  if (req.method === 'GET') return sendJSON(res, 200, { enabled: true, games: db.prepare('SELECT COUNT(*) AS n FROM calc_logs').get().n });
+  if (req.method !== 'POST') return sendError(res, 405, 'Method not allowed');
+  if (calcLimited(req, 'log', 10)) return sendError(res, 429, 'Too many game records in a few minutes');
+  let body;
+  try { body = await parseBody(req); } catch (err) { return sendError(res, /too large/i.test(err.message) ? 413 : 400, /too large/i.test(err.message) ? 'Game record too large' : 'Invalid request'); }
+  const why = calcLogValid(body);
+  if (why) return sendError(res, 400, why);
+  const text = JSON.stringify(body);
+  if (text.length > CALC_LOG_MAX_CHARS) return sendError(res, 413, 'Game record too large');
+  if (db.prepare('SELECT COUNT(*) AS n FROM calc_logs').get().n >= CALC_LOG_MAX_ROWS) return sendError(res, 503, 'The record store is full');
+  db.prepare('INSERT INTO calc_logs (data, created_at) VALUES (?, ?)').run(text, Date.now());
+  console.log(`[calc-log] a game record stored: ${body.turns.length} turns, ${text.length} chars`);
+  return sendJSON(res, 201, { ok: true });
 }
 
 async function handleCalcTransfer(req, res, code) {
