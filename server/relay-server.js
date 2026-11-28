@@ -8,6 +8,7 @@ const PORT = parseInt(process.env.PORT || '9080', 10);
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'persistence.db');
 const MAX_BODY_SIZE = 2 * 1024 * 1024; // 2MB
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const STATIC_OVERRIDE_DIR = process.env.STATIC_OVERRIDE_DIR ? path.resolve(process.env.STATIC_OVERRIDE_DIR) : null;
 
 // ============================================================================
 // SQLite Setup
@@ -317,6 +318,16 @@ function serveStaticFile(req, res) {
   if (!filePath.startsWith(PUBLIC_DIR)) {
     sendError(res, 403, 'Forbidden');
     return;
+  }
+
+  // Tests only (STATIC_OVERRIDE_DIR): a file in that directory is served in place of the one in public/, so a
+  // test can publish "a new release" on its own server without touching the files other test runs are reading.
+  if (STATIC_OVERRIDE_DIR) {
+    const over = path.normalize(path.join(STATIC_OVERRIDE_DIR, urlPath));
+    if (over.startsWith(STATIC_OVERRIDE_DIR) && fs.existsSync(over) && fs.statSync(over).isFile()) {
+      streamFile(req, res, over, path.extname(over).toLowerCase(), fs.statSync(over));
+      return;
+    }
   }
 
   // Check if file exists

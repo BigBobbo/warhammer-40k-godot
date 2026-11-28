@@ -16,7 +16,8 @@
     "gen:calc-stratagems": "node tools/gen-calc-stratagems.mjs",
     "test:e2e:calc": "node tests/e2e-calc.mjs",
     "audit:calc-choice": "node tests/audit-weapon-choice.mjs",
-    "gen:calc-terrain": "node tools/gen-calc-terrain.mjs"
+    "gen:calc-terrain": "node tools/gen-calc-terrain.mjs",
+    "test:e2e:calc:fast": "node tests/e2e-calc-parallel.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

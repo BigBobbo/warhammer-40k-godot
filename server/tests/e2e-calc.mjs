@@ -22,9 +22,30 @@ try { pw = await import('playwright'); } catch { pw = require('playwright'); }
 const { chromium, devices } = pw;
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PORT = 19600 + Math.floor(Math.random() * 300);
+const PORT = Number(process.env.E2E_PORT) || 19600 + Math.floor(Math.random() * 300);
 const BASE = `http://localhost:${PORT}`;
 const dbDir = mkdtempSync(join(tmpdir(), 'w40k-calc-e2e-'));
+const overDir = join(dbDir, 'override');
+// Shards: `E2E_SHARD=k/n` runs one of n parts of the suite (tests/e2e-calc-parallel.mjs runs them side by side,
+// each with a server of its own). Part 0 has the main flow (one page from the first load to the plans); the
+// blocks that start from a page of their own are dealt out to the part with the least work so far, by `sec(weight)`
+// (weight: about the seconds the block takes; every part deals the same hand, so each block runs exactly once).
+const [SHARD, SHARDS] = (process.env.E2E_SHARD ?? '0/1').split('/').map(Number);
+const MAIN = SHARD === 0;
+const MAIN_WEIGHT = Number(process.env.E2E_MAIN_WEIGHT ?? 1300);
+const loads = Array.from({ length: SHARDS }, (_, k) => (k === 0 ? MAIN_WEIGHT : 0));
+const secTimes = [];
+let secNo = 0;
+function sec(weight) {
+  let k = 0;
+  for (let i = 1; i < SHARDS; i++) if (loads[i] < loads[k]) k = i;
+  loads[k] += weight;
+  secNo++;
+  if (k !== SHARD) return false;
+  secTimes.push({ no: secNo, t0: Date.now() });
+  if (secTimes.length > 1) secTimes.at(-2).t1 ??= Date.now();
+  return true;
+}
 const SHOTS = process.env.CALC_SHOTS ?? join(here, 'screenshots');
 mkdirSync(SHOTS, { recursive: true });
 
@@ -36,7 +57,7 @@ function check(label, cond, detail = '') {
 
 const server = spawn(process.execPath, [join(here, '..', 'relay-server.js')], {
   // (CALC_ADVISE_MOCK: "Ask for a plan" answers with a fixed text, no API call)
-  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1' },
+  env: { ...process.env, PORT: String(PORT), DB_PATH: join(dbDir, 'e2e.db'), CALC_ADVISE_MOCK: '1', STATIC_OVERRIDE_DIR: overDir },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';
@@ -75,6 +96,8 @@ try {
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => consoleErrors.push(String(e)));
 
+  let toScreen, targetValue;
+  if (MAIN) {
   // --- /calc redirects / serves its own index
   const res = await page.goto(`${BASE}/calc`);
   check('/calc serves the calculator', res.ok() && (await page.title()) === '40K Combat Calc');
@@ -94,7 +117,7 @@ try {
   await page.waitForSelector('select[data-input="target"]');
 
   // --- target: Warboss + Boyz (attached unit)
-  const targetValue = await page.$eval('select[data-input="target"]', (sel) =>
+  targetValue = await page.$eval('select[data-input="target"]', (sel) =>
     [...sel.options].find(o => /Warboss \+ Boyz/.test(o.textContent))?.value);
   check('attached Warboss + Boyz offered as one target', !!targetValue);
   await page.selectOption('select[data-input="target"]', targetValue);
@@ -464,8 +487,10 @@ try {
   // version shown; a release (version.mjs + sw.js change together) is taken as one whole set: the page that is open
   // keeps running the version it loaded, the new set is downloaded, and an untouched page reloads into it
   check('header shows the app version (under the icon on a phone)', (await page.textContent('#app-version-mini')).trim() === `v${CALC_VERSION}` && await page.isVisible('#app-version-mini'));
-  const vFile = join(here, '..', 'public', 'calc', 'version.mjs'), swFile = join(here, '..', 'public', 'calc', 'sw.js');
-  const vOrig = readFileSync(vFile, 'utf8'), swOrig = readFileSync(swFile, 'utf8');
+  // ("the server" here is this run's override directory: the real files stay as they are for the other shards)
+  const vOrig = readFileSync(join(here, '..', 'public', 'calc', 'version.mjs'), 'utf8'), swOrig = readFileSync(join(here, '..', 'public', 'calc', 'sw.js'), 'utf8');
+  mkdirSync(join(overDir, 'calc'), { recursive: true });
+  const vFile = join(overDir, 'calc', 'version.mjs'), swFile = join(overDir, 'calc', 'sw.js');
   const shown = (v) => page.waitForFunction((want) => document.querySelector('#app-version-mini')?.textContent.trim() === want, `v${v}`, { timeout: 30000 }).then(() => true, () => false);
   try {
     // only version.mjs changed on the server (half a release): the page still runs its own complete set
@@ -483,19 +508,19 @@ try {
     check('the old version\'s offline copy is removed', caches9.filter(k => k.startsWith('w40k-calc-')).join() === 'w40k-calc-9.9.9', caches9.join());
     // a page in use is not reloaded under the player's hands: it offers to
     await page.keyboard.press('Shift');
-    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
+    rmSync(vFile); rmSync(swFile);
     await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
     const bar = await page.waitForSelector('#update-banner', { timeout: 30000 }).then(() => true, () => false);
     check('a page already in use shows the New version bar instead of reloading', bar && (await page.textContent('#app-version-mini')).trim() === 'v9.9.9', await page.textContent('#app-version-mini'));
     if (bar) await page.tap('#update-reload');
     check('Reload on the bar opens the new version', await shown(CALC_VERSION), await page.textContent('#app-version-mini'));
   } finally {
-    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
+    rmSync(join(overDir, 'calc'), { recursive: true, force: true });
   }
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
 
   // --- board planner: official GW layout, tokens, rings, gap -> calculator, steps, ruler, export
-  const toScreen = (x, y) => page.evaluate(([bx, by]) => {
+  toScreen = (x, y) => page.evaluate(([bx, by]) => {
     const svg = document.getElementById('board-svg');
     const pt = svg.createSVGPoint(); pt.x = bx; pt.y = by;
     const q = pt.matrixTransform(svg.getScreenCTM());
@@ -1223,8 +1248,10 @@ try {
     check('"Use my deployment" puts my units where I planned them', !!reused && Math.abs(reused.x - ghPos.x) < 0.01 && Math.abs(reused.y - ghPos.y) < 0.01 && (await page.locator('#board-reuse').count()) === 0, JSON.stringify({ ghPos, reused }));
   }
 
+  }
+
   // --- table tools on the Play view: command points, the score of each turn, undo, the clock, table mode, screen on
-  {
+  if (sec(189)) {
     const tctx = await browser.newContext({ ...devices['Pixel 7'] });
     // the Screen Wake Lock API is refused in a headless browser: a stand-in that counts the calls
     await tctx.addInitScript(() => {
@@ -1417,7 +1444,7 @@ try {
 
   // --- how current the rules data is: where each army's datasheets come from and from when, and the
   // points in the pasted list against the data (the Space Wolves list is a real export of the official app)
-  {
+  if (sec(45)) {
     const dctx = await browser.newContext({ ...devices['Pixel 7'] });
     const dp = await dctx.newPage();
     await dp.goto(`${BASE}/calc/`);
@@ -1466,7 +1493,7 @@ try {
 
   // --- no view is wider than the screen (a page that pans sideways is hard to use one-handed):
   // every view at 360 px (most Android phones) and 412 px
-  {
+  if (sec(28)) {
     const small = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 360, height: 740 } });
     const sp = await small.newPage();
     await sp.goto(`${BASE}/calc/`);
@@ -1496,6 +1523,7 @@ try {
     await small.close();
   }
 
+  if (MAIN) {
   // --- tablet layout
   const tab = await browser.newContext({ ...devices['Galaxy Tab S4'], colorScheme: 'dark' });
   const tp = await tab.newPage();
@@ -1567,8 +1595,10 @@ try {
     custodes.units.includes('Caladius Annihilator Grav-Tank') && custodes.units.filter(n => /^Contemptor-Galatus/.test(n)).length === 2 &&
     !custodes.warnings.some(w => /unresolved|not recognised/.test(w)), JSON.stringify(custodes));
 
+  }
+
   // --- board and mission rules (1.101): control per model, Hidden, coherency, reserves, territory, Move bonus
-  {
+  if (sec(131)) {
     const bctx = await browser.newContext({ ...devices['Pixel 7'] });
     const bp = await bctx.newPage();
     bp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board rules: ${m.text()}`); });
@@ -1702,7 +1732,7 @@ try {
   }
 
   // --- stratagem limits, shooting type, Heavy / Damaged, engaged targets, rules for named weapons (1.102)
-  {
+  if (sec(91)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`attack rules: ${m.text()}`); });
@@ -1796,7 +1826,7 @@ try {
   }
 
   // --- the exchange (1.103): the target fights back, overwatch, Deadly Demise; battle-shock odds
-  {
+  if (sec(66)) {
     const xctx = await browser.newContext({ ...devices['Pixel 7'] });
     const xp = await xctx.newPage();
     xp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`exchange: ${m.text()}`); });
@@ -1865,7 +1895,7 @@ try {
   }
 
   // --- weapon choice (choose.mjs): the best legal weapons and profiles against the target, whatever the unit
-  {
+  if (sec(109)) {
     const wctx = await browser.newContext({ ...devices['Pixel 7'] });
     const wp = await wctx.newPage();
     wp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`choice: ${m.text()}`); });
@@ -1977,7 +2007,7 @@ try {
   }
 
   // --- my army, phase by phase (1.104): Intel > By phase, once-per-battle ticks
-  {
+  if (sec(94)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet: ${m.text()}`); });
@@ -2073,7 +2103,7 @@ try {
     await pctx.close();
   }
   // tablet, landscape: the sheet uses the width
-  {
+  if (sec(14)) {
     const tctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const tp = await tctx.newPage();
     tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`phase sheet tablet: ${m.text()}`); });
@@ -2090,7 +2120,7 @@ try {
   }
 
   // --- board overlays (1.105): where reserves can arrive, and from how far a hidden unit is seen
-  {
+  if (sec(99)) {
     const octx = await browser.newContext({ ...devices['Pixel 7'] });
     const op = await octx.newPage();
     op.on('console', m => { if (m.type() === 'error') consoleErrors.push(`board overlays: ${m.text()}`); });
@@ -2192,7 +2222,7 @@ try {
   }
 
   // --- going first / going second (1.105): two versions of a board plan from one deployment
-  {
+  if (sec(70)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`plan versions: ${m.text()}`); });
@@ -2265,7 +2295,7 @@ try {
   }
 
   // --- event aids (1.106): layout cycle, each round's result, 15VP per round, Fixed cards, the chess clock pause
-  {
+  if (sec(111)) {
     const ectx = await browser.newContext({ ...devices['Pixel 7'] });
     const ep = await ectx.newPage();
     ep.on('console', m => { if (m.type() === 'error') consoleErrors.push(`event aids: ${m.text()}`); });
@@ -2378,7 +2408,7 @@ try {
     await ectx.close();
   }
   // an event saved by an older version (every round on Layout A, never used) gets the cycle once; one in use is left alone
-  {
+  if (sec(13)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('pageerror', e => consoleErrors.push(`event migration: ${e}`));
@@ -2424,7 +2454,7 @@ Aggressor Squad (95 points)
       2x Fragstorm Grenade Launcher
       2x Twin Power Fists
 `;
-  {
+  if (sec(59)) {
     const zctx = await browser.newContext({ ...devices['Pixel 7'] });
     const zp = await zctx.newPage();
     zp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`ease of use: ${m.text()}`); });
@@ -2485,7 +2515,7 @@ Aggressor Squad (95 points)
     await zctx.close();
   }
   // light theme, and a date after the announced update: readable grey text, and the warning that the rules may be behind
-  {
+  if (sec(40)) {
     const lctx = await browser.newContext({ ...devices['Pixel 7'], colorScheme: 'light' });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`ease of use (light): ${e}`));
@@ -2528,7 +2558,7 @@ Aggressor Squad (95 points)
   }
 
   // --- saved games (1.108): save the game on the tracker, play another, load the first one back
-  {
+  if (sec(99)) {
     const { readFileSync } = await import('fs');
     const CUST = readFileSync('/home/user/warhammer-40k-godot/server/tests/fixtures/gw-custodes-nbhyphen.txt', 'utf8');
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2630,7 +2660,7 @@ Aggressor Squad (95 points)
   }
 
   // --- matchup grid (1.108.1): Shooting / Fight in the grid; a tapped cell opens the matchup on the Attack tab
-  {
+  if (sec(38)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`grid: ${m.text()}`); });
@@ -2671,7 +2701,7 @@ Aggressor Squad (95 points)
   }
 
   // --- branching plans (1.109): decisions and chances after a turn; the forecast of each branch
-  {
+  if (sec(107)) {
     const tctx = await browser.newContext({ ...devices['Pixel 7'] });
     const tp = await tctx.newPage();
     tp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branches: ${m.text()}`); });
@@ -2781,7 +2811,7 @@ Aggressor Squad (95 points)
   }
 
   // --- branch map (1.110): every path at a glance above the board; tap to switch; win chances; compare positions
-  {
+  if (sec(93)) {
     const mctx = await browser.newContext({ ...devices['Pixel 7'] });
     const mp = await mctx.newPage();
     mp.on('console', m => { if (m.type() === 'error') consoleErrors.push(`branch map: ${m.text()}`); });
@@ -2877,7 +2907,7 @@ Aggressor Squad (95 points)
   }
 
   // --- points with an enhancement priced apart (1.110.1): a New Recruit / WTC list
-  {
+  if (sec(15)) {
     const qctx = await browser.newContext({ ...devices['Pixel 7'] });
     const qp = await qctx.newPage();
     qp.on('pageerror', e => consoleErrors.push(`points: ${e}`));
@@ -2895,7 +2925,7 @@ Aggressor Squad (95 points)
   }
 
   // --- set-up path (1.124.0): checklist on Mission, the Board's set-up locked during a game, disposition overrides shown
-  {
+  if (sec(87)) {
     const uctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const up = await uctx.newPage();
     up.on('pageerror', e => consoleErrors.push(`setup: ${e}`));
@@ -2985,7 +3015,7 @@ Aggressor Squad (95 points)
   }
 
   // --- movement rings stay where the unit started the turn (1.111.0): drag it, the Move ring does not follow
-  {
+  if (sec(52)) {
     const rctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const rp = await rctx.newPage();
     rp.on('pageerror', e => consoleErrors.push(`rings: ${e}`));
@@ -3040,7 +3070,7 @@ Aggressor Squad (95 points)
   }
 
   // --- lists in the game (1.111): load a list from the game's army store; send army A / B there
-  {
+  if (sec(48)) {
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
     const gp = await gctx.newPage();
     gp.on('pageerror', e => consoleErrors.push(`game lists: ${e}`));
@@ -3091,7 +3121,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.112: event Start says what is missing / what it set up; the page behind a sheet stays put; cards drawn as cards
-  {
+  if (sec(71)) {
     const xctx = await browser.newContext({ ...devices['Pixel 7'] });
     const xp = await xctx.newPage();
     xp.on('pageerror', e => consoleErrors.push(`1.112: ${e}`));
@@ -3165,7 +3195,7 @@ Aggressor Squad (95 points)
   }
 
   // --- attachments during army set-up (1.113): ask when the list says none, suggest, remember per list
-  {
+  if (sec(47)) {
     const actx = await browser.newContext({ ...devices['Pixel 7'] });
     const ap = await actx.newPage();
     ap.on('pageerror', e => consoleErrors.push(`attach: ${e}`));
@@ -3215,7 +3245,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.114: gap between bases, a letter on every base, transports, stratagems in full
-  {
+  if (sec(68)) {
     const kctx = await browser.newContext({ ...devices['Pixel 7'] });
     const kp = await kctx.newPage();
     kp.on('pageerror', e => consoleErrors.push(`1.114: ${e}`));
@@ -3286,7 +3316,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.115: the score shown to the opponent, a random draw they can see, stratagems usable now + the log
-  {
+  if (sec(58)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('pageerror', e => consoleErrors.push(`1.115: ${e}`));
@@ -3347,7 +3377,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.116: layouts stamped and measured for set-up, how an attack usually goes, saved lists against today's points
-  {
+  if (sec(46)) {
     const vctx = await browser.newContext({ ...devices['Pixel 7'] });
     const vp = await vctx.newPage();
     vp.on('pageerror', e => consoleErrors.push(`1.116: ${e}`));
@@ -3396,7 +3426,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.117: exposure heat map — how much of the enemy can reach each square next turn; tap a square for who
-  {
+  if (sec(31)) {
     const hctx = await browser.newContext({ ...devices['Pixel 7'] });
     const hp = await hctx.newPage();
     hp.on('pageerror', e => consoleErrors.push(`heat: ${e}`));
@@ -3430,7 +3460,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.117: my statistics from saved games
-  {
+  if (sec(31)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('pageerror', e => consoleErrors.push(`stats: ${e}`));
@@ -3464,7 +3494,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.118: deployment drop-order drill — one unit at a time from the Defender, in a plan of its own
-  {
+  if (sec(58)) {
     const dctx = await browser.newContext({ ...devices['Pixel 7'] });
     const dp = await dctx.newPage();
     dp.on('pageerror', e => consoleErrors.push(`drill: ${e}`));
@@ -3525,7 +3555,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.119: read-only share links — the lists, the attack set-up and the board plan inside the link
-  {
+  if (sec(81)) {
     const mk = async (tag) => {
       const c = await browser.newContext({ ...devices['Pixel 7'] });
       const pg = await c.newPage();
@@ -3609,7 +3639,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.120: Scout moves planned on the Deploy step — a dashed ghost you drag, checked against 24.32
-  {
+  if (sec(36)) {
     const sctx = await browser.newContext({ ...devices['Pixel 7'] });
     const sp = await sctx.newPage();
     sp.on('pageerror', e => consoleErrors.push(`scout: ${e}`));
@@ -3648,7 +3678,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.121: list gap-finder — the whole list against eight fixed reference targets
-  {
+  if (sec(18)) {
     const gctx = await browser.newContext({ ...devices['Pixel 7'] });
     const gp = await gctx.newPage();
     gp.on('pageerror', e => consoleErrors.push(`gaps: ${e}`));
@@ -3669,7 +3699,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.122: printable game-day sheet (Intel → 🖨): their units, tricks, stratagems, my army by phase; no rule text
-  {
+  if (sec(31)) {
     const pctx = await browser.newContext({ ...devices['Pixel 7'] });
     const pp = await pctx.newPage();
     pp.on('pageerror', e => consoleErrors.push(`print: ${e}`));
@@ -3703,7 +3733,7 @@ Aggressor Squad (95 points)
   }
 
   // --- 1.123: what a unit can see (shaded squares) and hull sizes you measured
-  {
+  if (sec(31)) {
     const vctx = await browser.newContext({ ...devices['Pixel 7'] });
     const vp = await vctx.newPage();
     vp.on('pageerror', e => consoleErrors.push(`see: ${e}`));
@@ -3737,7 +3767,7 @@ Aggressor Squad (95 points)
   }
 
   // --- tablet Board in three columns (1.127.0): me | map | opponent; portrait: map on top, armies below
-  {
+  if (sec(85)) {
     const tctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const tp3 = await tctx3.newPage();
     tp3.on('pageerror', e => consoleErrors.push(`tri: ${e}`));
@@ -3826,7 +3856,7 @@ Aggressor Squad (95 points)
 
   // --- 1.125: 📐 base-to-base measuring on a table photo. A synthetic tablet photo of the table taken from one end
   // (perspective, 2400 px wide) with a 32 mm base at (12, 20) and a 40 mm base at (24, 34): truth 17.02" edge to edge.
-  {
+  if (MAIN) {
     const { writeFileSync } = await import('fs');
     const mctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, hasTouch: true });
     const mp = await mctx.newPage();
@@ -3901,7 +3931,7 @@ Aggressor Squad (95 points)
   // --- 1.126: AR measuring test page (/calc/ar-test.html). Real AR needs a device with ARCore: here (1) a browser
   // without AR must say so, and (2) with a STAND-IN WebXR device (scripted hit-test points; no camera, no ARCore)
   // the page's own logic must measure, record and drift-test correctly. (2) is not a test of real AR accuracy.
-  {
+  if (sec(59)) {
     const actx = await browser.newContext({ ...devices['Pixel 7'] });
     const ap = await actx.newPage();
     ap.on('pageerror', e => consoleErrors.push(`ar: ${e}`));
@@ -3965,7 +3995,7 @@ Aggressor Squad (95 points)
   // --- 1.129: live AR on the Board (🥽 AR). Without AR: a clear message. With a STAND-IN WebXR device (scripted
   // hit-test points, a camera looking straight down; no ARCore, no camera image): corners pin the board, the
   // readouts are in board inches, measuring and rings work, and the overlay is drawn where the table is.
-  {
+  if (sec(93)) {
     // 1. no AR on this browser
     const nctx = await browser.newContext({ ...devices['Pixel 7'] });
     const np = await nctx.newPage();
@@ -4061,7 +4091,7 @@ Aggressor Squad (95 points)
   }
 
   // --- Board undo / redo (1.128.0): ↶ ↷ next to Move / Ruler; every plan change, across turns; Ctrl+Z
-  {
+  if (sec(82)) {
     const uctx2 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const up2 = await uctx2.newPage();
     up2.on('pageerror', e => consoleErrors.push(`undo: ${e}`));
@@ -4146,7 +4176,7 @@ Aggressor Squad (95 points)
   }
 
   // --- models left (1.131.0): one record per unit, by battle round — attacker (fewer weapons), target, Board turns
-  {
+  if (sec(127)) {
     const lctx = await browser.newContext({ ...devices['Pixel 7'] });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`losses: ${e}`));
@@ -4276,7 +4306,7 @@ Aggressor Squad (95 points)
   }
 
   // --- models left: the whole unit loses its plain models first; sergeants, special weapons and characters last (1.132.0)
-  {
+  if (sec(42)) {
     const kctx = await browser.newContext({ ...devices['Pixel 7'] });
     const kp = await kctx.newPage();
     kp.on('pageerror', e => consoleErrors.push(`keep: ${e}`));
@@ -4321,7 +4351,7 @@ Aggressor Squad (95 points)
   }
 
   // --- move models one by one (1.133.0): double-tap a unit, drag a base; Done; the block keeps their spacing
-  {
+  if (sec(110)) {
     const mctx3 = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const mp3 = await mctx3.newPage();
     mp3.on('pageerror', e => consoleErrors.push(`models: ${e}`));
@@ -4434,7 +4464,7 @@ Aggressor Squad (95 points)
   }
 
   // --- the live table and "Their next turn" (1.135.0): the real table follows the tracker; what the opponent can do next
-  {
+  if (sec(359)) {
     const lctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
     const lp = await lctx.newPage();
     lp.on('pageerror', e => consoleErrors.push(`live: ${e}`));
@@ -4795,6 +4825,8 @@ Aggressor Squad (95 points)
     await pctx6.close();
   }
 
+  if (secTimes.length) secTimes.at(-1).t1 ??= Date.now();
+  console.log(`  shard ${SHARD}/${SHARDS}: blocks ${secTimes.map(x => `#${x.no} ${Math.round((x.t1 - x.t0) / 1000)}s`).join(', ') || '-'}`);
   check('no console errors', consoleErrors.length === 0, consoleErrors.join(' | '));
   await browser.close();
 } catch (err) {
