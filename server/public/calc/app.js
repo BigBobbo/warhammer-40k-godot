@@ -1455,9 +1455,9 @@ function renderSheet() {
 // ---- Matchup grid: every attacking unit against every enemy unit
 
 // Default matchup (always-on rules only) between any two armies, in any phase.
-function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase) {
+function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase, manual = {}) {
   const profile = defenderProfile(defCu, defArmyObj);
-  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, {}, lossesOf(armySide(defArmyObj), defCu.key));
+  const defender = buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), phase, manual, lossesOf(armySide(defArmyObj), defCu.key));
   return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
 }
 /** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
@@ -1481,7 +1481,8 @@ function pairOdds(jobs) {
     for (const j of jobs) {
       const A = state.armies[j.atkSide], D = state.armies[other(j.atkSide)];
       const ac = A?.units.find(u => u.key === j.atkKey), dc = D?.units.find(u => u.key === j.defKey);
-      const sc = ac && dc ? defaultScenarioFor(A, D, ac, dc, j.phase) : null;
+      // (j.cover: the target has the benefit of cover, 13.08 - the Board uses it for a unit that stands in cover)
+      const sc = ac && dc ? defaultScenarioFor(A, D, ac, dc, j.phase, j.cover ? { cover: true } : {}) : null;
       if (sc) items.push({ key: j.key, scenario: sc });
     }
     const res = {};

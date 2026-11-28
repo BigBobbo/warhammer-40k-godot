@@ -64,10 +64,11 @@ export function turnMoves(c) {
   const shooters = new Map();
   for (const u of c.mine) {
     const r = row.get(u.key), job = r?.job ?? { kind: 'none' };
-    if (job.kind === 'take') {
+    if (job.kind === 'take' || job.kind === 'reinforce') {
       const cd = cands.find(x => x.unit === u.key && x.obj === job.obj);
       if (cd) { out.set(u.key, { unit: u.key, name: u.name, kind: 'take', label: job.label, x: cd.x, y: cd.y, dist: cd.dist }); busy.set(job.obj, (busy.get(job.obj) ?? 0) + 1); continue; }
     }
+    if ((job.kind === 'card' || job.kind === 'screen') && job.x != null) { out.set(u.key, { unit: u.key, name: u.name, kind: 'advance', label: job.label, x: job.x, y: job.y, dist: job.dist ?? 0 }); continue; }
     if (job.kind === 'hold' && keeps.has(u.key)) { out.set(u.key, stay(u, 'hold', job.label)); continue; }
     if (job.kind === 'hold') busy.set(job.obj, Math.max(0, (busy.get(job.obj) ?? 0) - 1));
     const t = r?.attack ? foe.get(r.attack.key) : null;
