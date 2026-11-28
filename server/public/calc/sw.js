@@ -7,7 +7,7 @@
 // cache: the header showed the new version over the old Board. Now a new release is picked up as a whole: the
 // browser checks sw.js on every load, the new worker downloads the whole set, takes over, and the page reloads
 // into it (app.js: at once if it has not been touched yet, else a "new version" bar).
-const CACHE = 'w40k-calc-1.145.0';
+const CACHE = 'w40k-calc-1.146.0';
 const SHELL = [
   './', './index.html', './calc.css', './app.js', './adapter.mjs', './engine.mjs', './choose.mjs', './phasesheet.mjs', './rulesnote.mjs', './games.mjs', './plantree.mjs', './gamelists.mjs', './cardface.mjs', './gamestats.mjs', './droporder.mjs', './sharelink.mjs', './gapfinder.mjs', './printsheet.mjs', './measure.mjs', './ar-test.html', './arview.mjs', './armath.mjs', './worker.mjs', './rules.mjs', './stratagems-11e.mjs', './board.mjs', './boardview.mjs', './terrain-11e.mjs', './photo.mjs', './photoview.mjs', './sight.mjs', './missions-11e.mjs', './forecast.mjs', './missionview.mjs', './planeval.mjs', './nextturn.mjs', './playout.mjs', './advise.mjs', './version.mjs', './backup.mjs', './eventview.mjs', './briefview.mjs', './lists.mjs', './playtools.mjs', './errata-data.mjs',
   './manifest.webmanifest', './icon-192.png', './icon-512.png',

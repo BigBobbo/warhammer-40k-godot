@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.146.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: step through a battle round one player turn at a time on the Board",
+      "changes": [
+        "Board: under the turn buttons, a new row shows each battle round by player turn: after the first player has moved, and at the end of the round",
+        "◀ ▶ step through any plan a player turn at a time, from deployment to the last round",
+        "After the first player's turn the other player's units stand where the round before left them, as on the real table; a unit you move in that view is moved in the turn it belongs to",
+        "Works for every plan, the played-out game included; saved plans, shared links and the forecast are unchanged (a plan still keeps one step per battle round)",
+        "A plan that does not know who goes first asks once; a going-first / going-second plan and a game on the tracker already know"
+      ]
+    },
+    {
       "version": "1.145.0",
       "date": "2026-11-27",
       "summary": "Combat Calc: play the whole game out, both players following the suggestions each turn",

@@ -4623,6 +4623,38 @@ Aggressor Squad (95 points)
         await lp.evaluate(() => window.scrollTo(0, 0));
         await lp.locator('[data-action="board-step"]', { hasText: 'Turn 5' }).tap();
         await lp.screenshot({ path: join(SHOTS, 'calc_145_played_out_turn5.png') });
+        // (1.146.0) a battle round by player turn: after the first player's turn the other player's units still stand
+        // where the round before left them; ◀ ▶ step a player turn at a time; a unit moved there is moved in its own step
+        {
+          const half = () => lp.evaluate(() => { const b = window.__calc.board(), st = b.plan.steps, r = b.cur, F = b.first; const same = (t, o) => !!o && Math.abs(t.x - o.x) < 1e-6 && Math.abs(t.y - o.y) < 1e-6;
+            const o = { cur: r, half: b.half, first: F, firstAtR: 0, nFirst: 0, otherAtR: 0, otherAtPrev: 0, nOther: 0, differ: 0, pos: Number(document.getElementById('board-half-row')?.dataset.pos ?? -1) };
+            for (const t of b.tokens) { if (t.tk.startsWith(F + ':')) { o.nFirst++; o.firstAtR += same(t, st[r].tokens[t.tk]); } else { o.nOther++; o.otherAtR += same(t, st[r].tokens[t.tk]); o.otherAtPrev += same(t, st[r - 1].tokens[t.tk]); if (!same(st[r].tokens[t.tk], st[r - 1].tokens[t.tk])) o.differ++; } }
+            return o; });
+          const endV = await half();
+          check('a row under the turns shows the round by player turn, with who moves first', (await lp.locator('#board-half-row').count()) === 1 && ['A', 'B'].includes(endV.first) && endV.half === false && endV.otherAtR === endV.nOther && endV.pos === 10, JSON.stringify(endV));
+          // a round in which the second player moved: look at it after the first player's turn
+          let hv = endV;
+          for (let k = 0; k < 9 && !(hv.half && hv.differ > 0); k++) { await lp.tap('#board-half-prev'); hv = await half(); }
+          check('after the first player\'s turn: the first player\'s units as at the end of the round, the other player\'s still where the round before left them',
+            hv.half && hv.differ > 0 && hv.firstAtR === hv.nFirst && hv.otherAtPrev === hv.nOther && hv.otherAtR < hv.nOther && /has not moved yet this round/.test(await lp.textContent('#board-half-note')), JSON.stringify(hv));
+          await lp.evaluate(() => window.scrollTo(0, 0));
+          await lp.screenshot({ path: join(SHOTS, 'calc_146_by_player_turn.png') });
+          // a unit of the other player moved in this view: that is where it stood at the end of the round before
+          const S = hv.first === 'A' ? 'B' : 'A';
+          const tkS = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, S), tkF = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, hv.first);
+          const tokAt = (tk) => lp.evaluate((k) => { const b = window.__calc.board(), st = b.plan.steps; return { r: [st[b.cur].tokens[k].x, st[b.cur].tokens[k].y], prev: [st[b.cur - 1].tokens[k].x, st[b.cur - 1].tokens[k].y] }; }, tk);
+          const s0 = await tokAt(tkS), f0 = await tokAt(tkF), uS = await unit(tkS), uF = await unit(tkF);
+          await moveTo(tkS, uS.x + 1.5, uS.y); await moveTo(tkF, uF.x - 1.5, uF.y);
+          const s1 = await tokAt(tkS), f1 = await tokAt(tkF);
+          check('a unit moved in this view is moved in the step it belongs to: the other player\'s in the round before, the first player\'s in this round',
+            Math.abs(s1.prev[0] - s0.prev[0]) > 0.5 && s1.r[0] === s0.r[0] && Math.abs(f1.r[0] - f0.r[0]) > 0.5 && f1.prev[0] === f0.prev[0], JSON.stringify({ s0, s1, f0, f1 }));
+          await lp.tap('#board-half-next');
+          const nx = await half();
+          check('▶ goes on a player turn: the end of the same round', nx.cur === hv.cur && nx.half === false && nx.pos === hv.pos + 1 && nx.otherAtR === nx.nOther, JSON.stringify(nx));
+          await lp.tap('#board-half-1');
+          check('the switch shows the same round after the first player\'s turn again', (await half()).half === true && (await lp.getAttribute('#board-half-1', 'aria-pressed')) === 'true');
+          await lp.tap('#board-half-2');
+        }
         // the live table is untouched; the plan is removed again
         await lp.tap('button[data-action="board-plan-delete"]');
         await lp.tap('#board-live'); await lp.waitForSelector('#board-live-bar');
