@@ -4483,7 +4483,8 @@ Aggressor Squad (95 points)
     const live = () => lp.evaluate(() => window.__calc.board().live);
     const next = () => lp.evaluate(() => window.__calc.board().next);
     const ready = () => lp.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done', null, { timeout: 60000 });
+    // (the card is drawn again when the moves have been weighed and when the stratagems have been looked at)
+    const weighed = () => lp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 90000 });
     await lp.goto(`${BASE}/calc/`); await lp.waitForSelector('textarea[data-side="A"]');
     await lp.fill('textarea[data-side="A"]', SW_LIST); await lp.tap('button[data-action="parse"][data-side="A"]');
     await lp.fill('textarea[data-side="B"]', ORK_LIST); await lp.tap('button[data-action="parse"][data-side="B"]');
@@ -4621,6 +4622,15 @@ Aggressor Squad (95 points)
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
       }
+      // (1.149.0) stratagems in the odds, and the other player's reply in the weighed moves
+      {
+        await lp.waitForFunction(() => window.__calc.board().next?.strats?.state === 'done', null, { timeout: 90000 });
+        const sx = await lp.evaluate(() => { const b = window.__calc.board().next; return { n: b.strats.n ?? 0, best: Object.values(b.strats.best ?? {}).map(x => ({ name: x.name, cp: x.cp, p0: x.p0, p1: x.p1, w0: x.w0, w1: x.w1 })), rows: [...document.querySelectorAll('#board-my-kills [data-strat]')].map(e => ({ name: e.dataset.strat, p0: Number(e.dataset.p0), p1: Number(e.dataset.p1), text: e.textContent })), kills: b.my.kills.length, reply: b.moves?.reply, turn: window.__calc.mission().game?.next }; });
+        check('stratagems: each attack on my targets is run again with each of the attacker\'s stratagems; one is named only where it adds to the attack, with its CP cost',
+          (sx.kills === 0 || sx.n >= 1) && sx.best.every(x => x.cp >= 0 && (x.p1 - x.p0 >= 0.05 - 1e-9 || x.w1 - x.w0 >= 1 - 1e-9)) && sx.rows.length === Math.min(sx.best.length, 4) && sx.rows.every(r => /\(\d CP/.test(r.text) && /(destroyed on its own instead of|wounds on average instead of)/.test(r.text)), JSON.stringify(sx).slice(0, 700));
+        const how = await lp.textContent('#board-my-moves');
+        check('weighed moves: in my own turn the other player\'s likely reply is played in, and the line says so', sx.reply === true ? /reply/.test(how) : !/reply/.test(how), `${sx.reply} ${how.slice(0, 200)}`);
+      }
       // (1.145.0) play the game out: both players follow the cards every turn to round 5, scored by the forecast,
       // shown NEXT TO the usual forecast line (which stays), and put on the board as a plan of its own
       {
@@ -4633,9 +4643,9 @@ Aggressor Squad (95 points)
         check('the game is played to the end of round 5, turn by turn, both players moving', pl.rounds.at(-1) === 5 && pl.rounds[0] === pl.from && pl.turns.length >= pl.rounds.length && ['A', 'B'].every(X => pl.turns.some(t => t.endsWith(X))) && pl.moved >= 2, JSON.stringify(pl));
         const line = await lp.textContent('#board-playout');
         check('the card gives its win chance and average score, and the usual forecast beside it', /Played out to the end of the game: you win \d+% of games, \d+ – \d+ VP on average/.test(line) && /forecast of the table as it stands says \d+%/.test(line) && pl.win >= 0 && pl.win <= 1, line.slice(0, 260));
-        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
-        check('a row per battle round still to play: the score after it, how often I am ahead, units left; scores only grow and round 5 is the final score',
-          rws.length === pl.rounds.length && rws.every((x, i) => x.r === pl.rounds[i] && (i === 0 || (x.me >= rws[i - 1].me - 1e-6 && x.opp >= rws[i - 1].opp - 1e-6)) && x.ahead >= 0 && x.ahead <= 1)
+        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), h: Number(e.dataset.half), mover: e.dataset.mover, me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
+        check('a row per player turn still to play (1.149.0): whose turn, the score after it, how often I am ahead, units left; scores only grow and the last row is the final score',
+          rws.length >= pl.rounds.length && rws.length <= 2 * pl.rounds.length && rws.at(-1).r === 5 && rws.at(-1).h === 1 && rws.every((x, i) => ['A', 'B'].includes(x.mover) && (i === 0 || ((x.r > rws[i - 1].r || x.h > rws[i - 1].h) && x.mover !== rws[i - 1].mover && x.me >= rws[i - 1].me - 0.06 && x.opp >= rws[i - 1].opp - 0.06)) && x.ahead >= 0 && x.ahead <= 1)
           && Math.abs(rws.at(-1).me - pl.vp.me) < 0.06 && Math.abs(rws.at(-1).opp - pl.vp.opp) < 0.06 && /Units left/.test(await lp.textContent('#board-playout-rounds')), JSON.stringify(rws));
         check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
         check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /go round dense terrain/.test(await lp.textContent('#board-playout-how')));

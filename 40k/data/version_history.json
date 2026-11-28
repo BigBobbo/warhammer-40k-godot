@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.149.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: the opponent's reply in every weighed move, a prediction per player turn, and stratagems in the odds",
+      "changes": [
+        "Board, Your turn: in your own turn each move is now weighed with what the other player is likely to do in reply (their next turn by the rule of the turn cards), instead of assuming they stand still",
+        "Play the game out: the predicted outcome is shown after every player turn (the score, how often you are ahead, the units left), not only at the end of each battle round",
+        "Board, Your turn: for each target, the stratagem that adds most to one of the attacks on it is named, with its CP cost and what it changes (for example 19% destroyed on its own instead of 10%)",
+        "Armies: Lootas and Burna Boyz (Warhammer Legends) are recognised, in the Combat Calc and in the Army Builder"
+      ]
+    },
+    {
       "version": "1.148.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: moves go round terrain, and a far more lifelike play-out",
