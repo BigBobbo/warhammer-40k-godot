@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.151.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: a prediction record that checks the app's calls against your real games",
+      "changes": [
+        "Board, live table: a new Prediction record card. At each Turn done the app keeps the score, where the units stood and what it had predicted; when the battle ends it checks its calls against what happened",
+        "For your last game it shows what the forecast said at each turn end next to the final result, how many of its destroyed-next-turn calls happened, and how many of the moves it backed you made",
+        "Over your finished games it adds the calls up: of the times it said 60 to 80 percent, how often it happened",
+        "The record stays on your device. A switch, off by default, sends finished games (factions, unit names, positions, scores and the predictions; no list text, no names) to help improve the predictions",
+        "The record can be saved as a file or deleted at any time"
+      ]
+    },
+    {
       "version": "1.150.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: update the live table in a few taps, and get a plan to Claude and back with fewer steps",

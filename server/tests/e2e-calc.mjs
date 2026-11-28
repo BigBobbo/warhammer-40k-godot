@@ -4541,7 +4541,7 @@ Aggressor Squad (95 points)
     {
       const my0 = (await next()).my;
       const order0 = await lp.$$eval('#board-next-host > .card', els => els.map(e => e.id));
-      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.join() === 'board-next,board-my' && /Your next turn/.test(await lp.textContent('#board-my-title')));
+      check('Their turn on the tracker: "Their turn now" comes first, "Your next turn" below it', order0.filter(x => x === 'board-next' || x === 'board-my').join() === 'board-next,board-my' && order0.at(-1) === 'board-log' && /Your next turn/.test(await lp.textContent('#board-my-title')));
       const ghU = my0.units.find(u => u.key === gh), ghK = my0.kills.find(k => k.key === ghU.attack?.key);
       check('Your turn: the Grey Hunters on the centre hold it, they have a target (an Ork unit, with the odds it is destroyed), and the row flags that they are likely destroyed',
         ghU.job.kind === 'hold' && ghU.job.label === 'Centre' && [boyz, gitz, mega].includes(ghU.attack?.key) && ghU.attack.p > 0.3 && ghU.risk > 0.5 && ghK && ghK.by.some(b => b.key === gh) && Math.abs(ghK.p - ghU.attack.p) < 1e-9
@@ -4867,7 +4867,7 @@ Aggressor Squad (95 points)
     await pp6.locator('#board-tray button[data-action="board-place"]', { hasText: 'Thunderwolf Cavalry' }).first().tap();
     await pp6.tap('#board-live');
     await pp6.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
-    check('phone: 🔴 Live table shows the bar above the map and, below the unit panel, what changed this turn then the two cards (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-upd-list,board-my,board-next' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
+    check('phone: 🔴 Live table shows the bar above the map and, below the unit panel, what changed this turn then the two cards (Your turn first)', (await pp6.locator('#board-live-bar').count()) === 1 && (await pp6.$$eval('#board-next-host > .card', els => els.map(e => e.id))).join() === 'board-upd-list,board-my,board-next,board-log' && (await pp6.locator('#board-next-units').count()) === 1 && (await pp6.locator('#board-next-objs .next-obj').count()) >= 3);
     await pp6.locator('#board-next').scrollIntoViewIfNeeded();
     await pp6.screenshot({ path: join(SHOTS, 'calc_136_next_turn_phone.png') });
     // (1.150.0) Update the table: only what changed this turn; place by tapping, one unit after the other
@@ -4904,6 +4904,63 @@ Aggressor Squad (95 points)
       check('once the positions are confirmed the update card folds away', (await pp6.getAttribute('#board-upd', 'data-open')) === '0' && (await pp6.locator('#board-upd-list').count()) === 0);
     }
     await pctx6.close();
+  }
+
+  // --- the prediction record (1.151.0): a game played through on the live table is kept turn by turn, closed
+  // with the final score, read against what happened, and sent only when the player has turned sending on
+  if (sec(40)) {
+    const gctx = await browser.newContext({ ...devices['Galaxy Tab S4 landscape'] });
+    const gp = await gctx.newPage();
+    gp.on('pageerror', e => consoleErrors.push(`record: ${e}`));
+    gp.on('dialog', d => d.accept());
+    const logs = [];
+    gp.on('console', m => { if (/prediction record/.test(m.text())) logs.push(m.text()); });
+    await gp.goto(`${BASE}/calc/`); await gp.waitForSelector('textarea[data-side="A"]');
+    await gp.fill('textarea[data-side="A"]', SW_LIST); await gp.tap('button[data-action="parse"][data-side="A"]');
+    await gp.fill('textarea[data-side="B"]', ORK_LIST); await gp.tap('button[data-action="parse"][data-side="B"]');
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    for (const X of ['A', 'B']) for (let i = 0; i < 3; i++) await gp.locator(`#board-army-${X} button[data-action="board-place"]`).first().tap();
+    await gp.tap('#board-live'); await gp.waitForSelector('#board-live-bar');
+    await gp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 120000 });
+    await gp.locator('#board-log').scrollIntoViewIfNeeded();
+    check('live table: a Prediction record card, folded, nothing kept yet', (await gp.getAttribute('#board-log', 'data-open')) === '0' && (await gp.getAttribute('#board-log-count', 'data-turns')) === '0' && (await gp.getAttribute('#board-log-count', 'data-games')) === '0');
+    await gp.tap('[data-action="board-log-toggle"]');
+    check('it says what is kept, and that the record stays on this device unless sending is turned on', /At each Turn done/.test(await gp.textContent('#board-log')) && /Off: the record stays on this device/.test(await gp.textContent('#board-log-privacy')) && (await gp.getAttribute('#board-log-optin', 'aria-pressed')) === 'false');
+    const games0 = (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games;
+    await gp.tap('#board-log-optin');
+    check('sending on: the card says what a sent game holds and what it does not', (await gp.getAttribute('#board-log-optin', 'aria-pressed')) === 'true' && /On: when a battle ends/.test(await gp.textContent('#board-log-privacy')) && /does not hold your list/.test(await gp.textContent('#board-log-privacy')));
+    // the game on the tracker, turn after turn to the end of the battle
+    await gp.tap('button[data-action="view"][data-value="mission"]');
+    await gp.tap('button[data-action="mission-tab"][data-value="play"]'); await gp.waitForSelector('#play-turn-done');
+    await gp.tap('#play-turn-done');
+    const one = await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1') ?? '{}'));
+    check('Turn done keeps that turn: the score, where the units stood, the forecast said at its start, and what the cards expect of the next turn',
+      one.current?.turns.length === 1 && one.current.turns[0].round === 1 && one.current.turns[0].units.length === 6 && one.current.turns[0].units.every(u => Number.isFinite(u.x) && u.left > 0) && one.current.turns[0].forecast?.win >= 0 && one.current.turns[0].ahead?.side !== one.current.turns[0].turn, JSON.stringify(one.current?.turns?.[0] ?? one ?? null).slice(0, 500) + ' | ' + logs.join(' | ').slice(0, 300));
+    let taps = 1;
+    for (; taps < 12 && !(await gp.evaluate(() => window.__calc.mission().game.over)); taps++) { await gp.tap('#play-turn-done'); await gp.waitForTimeout(150); }
+    const store = await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1')));
+    check('End the battle closes the record: 10 turns, the final score, kept with the finished games', taps === 10 && store.current === null && store.done.length === 1 && store.done[0].turns.length === 10 && Number.isFinite(store.done[0].final.A) && store.done[0].turns.map(t => t.round).join('') === '1122334455', JSON.stringify({ taps, n: store.done?.[0]?.turns.length, final: store.done?.[0]?.final }));
+    await gp.waitForFunction(() => true); await gp.waitForTimeout(600);
+    const games1 = (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games;
+    check('with sending on, the finished game reached the server (once)', games1 === games0 + 1 && logs.some(l => /prediction record sent: 201/.test(l)), `${games0} -> ${games1} | ${logs.slice(-2).join(' | ')}`);
+    const bad = await gp.request.post(`${BASE}/api/calc-log`, { data: { format: 'combat-calc-gamelog', v: 1, turns: [], final: { A: 1, B: 2 } } });
+    check('the server takes only a finished, well-formed record', bad.status() === 400 && (await (await gp.request.get(`${BASE}/api/calc-log`)).json()).games === games1);
+    await gp.tap('button[data-action="view"][data-value="board"]');
+    await gp.waitForSelector('#board-next[data-state="ready"]', { timeout: 60000 });
+    await gp.waitForFunction(() => window.__calc.board().next?.moves?.state !== 'pending' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 120000 });
+    if ((await gp.getAttribute('#board-log', 'data-open')) === '0') await gp.tap('[data-action="board-log-toggle"]');
+    await gp.waitForSelector('#board-log[data-open="1"]');
+    await gp.evaluate(() => document.getElementById('board-log').scrollIntoView({ block: 'center' }));
+    const card = await gp.textContent('#board-log');
+    check('the card reads the finished game back: the result, what the forecast said at each turn end, and the calls added up', (await gp.getAttribute('#board-log-count', 'data-games')) === '1' && /Your last game: (won|lost|drawn) \d+ – \d+/.test(card) && /the forecast said you win \d+%/.test(card) && /Forecast: you win · \d+ calls?/.test(card), card.slice(0, 400));
+    await gp.screenshot({ path: join(SHOTS, 'calc_151_prediction_record.png') });
+    const dl = gp.waitForEvent('download');
+    await gp.tap('#board-log-export');
+    const file = await (await dl).path(), saved = JSON.parse(readFileSync(file, 'utf8'));
+    check('⇩ Save the record as a file: the finished games as JSON', saved.format === 'combat-calc-gamelog-file' && saved.done.length === 1 && saved.done[0].turns.length === 10);
+    await gp.tap('#board-log-clear');
+    check('Delete the record empties it (the sending switch stays as it was)', (await gp.getAttribute('#board-log-count', 'data-games')) === '0' && (await gp.evaluate(() => JSON.parse(localStorage.getItem('w40k_calc_gamelog_v1')).optIn)) === true);
+    await gctx.close();
   }
 
   if (secTimes.length) secTimes.at(-1).t1 ??= Date.now();
