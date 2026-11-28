@@ -111,6 +111,7 @@ const ENHANCEMENT_PATCHES = [
 export function applyDataPatches(rawData) {
   if (!rawData) return rawData;
   applyCodexDatasheets(rawData); // WP-W3: codex datasheets as the game has them (see below)
+  applyLegendsDatasheets(rawData); // Warhammer Legends datasheets the game data does not carry (see below)
   applyOrksCodex(rawData);
   const enhancements = rawData.enhancements ?? (rawData.enhancements = []);
   const detachments = rawData.detachments ?? [];
@@ -223,7 +224,23 @@ function afterFactionBlock(arr, factionId) {
  */
 export function applyCodexDatasheets(rawData) {
   if (!rawData) return rawData;
-  for (const [coll, recs] of Object.entries(CODEX_DATASHEET_RECORDS)) {
+  upsertDatasheetRecords(rawData, CODEX_DATASHEET_RECORDS, CODEX_WARGEAR_OPTION_BLOCKS);
+
+  const units = rawData.units ?? [];
+  const unitAt = new Map(units.map((u, i) => [`${u.faction_id}::${u.id}`, i]));
+  for (const s of CODEX_SUPERSEDED_UNITS) {
+    const u = units[unitAt.get(`${s.faction_id}::${s.id}`)];
+    if (!u) continue;
+    u.superseded_by_codex = s.codex;
+    if (s.superseded_by) u.superseded_by = s.superseded_by;
+  }
+  return rawData;
+}
+
+/** Upsert datasheet records by key and replace whole wargear option blocks
+ * (in place; shared by the codex overlay and the Legends datasheets). */
+function upsertDatasheetRecords(rawData, records, optionBlocks) {
+  for (const [coll, recs] of Object.entries(records)) {
     const keyOf = CODEX_RECORD_KEYS[coll];
     if (!keyOf || !recs.length) continue;
     const arr = rawData[coll] ?? (rawData[coll] = []);
@@ -241,22 +258,81 @@ export function applyCodexDatasheets(rawData) {
 
   // A codex datasheet's wargear option block replaces the bundle's block whole.
   const opts = rawData.wargearOptions ?? (rawData.wargearOptions = []);
-  for (const b of CODEX_WARGEAR_OPTION_BLOCKS) {
+  for (const b of optionBlocks) {
     const mine = o => o.faction_id === b.faction_id && o.unit_id === b.unit_id;
     let pos = opts.findIndex(mine);
     if (pos < 0) pos = afterFactionBlock(opts, b.faction_id);
     for (let j = opts.length - 1; j >= pos; j--) if (mine(opts[j])) opts.splice(j, 1);
     opts.splice(pos, 0, ...b.options.map(cloneRecord));
   }
+}
 
-  const units = rawData.units ?? [];
-  const unitAt = new Map(units.map((u, i) => [`${u.faction_id}::${u.id}`, i]));
-  for (const s of CODEX_SUPERSEDED_UNITS) {
-    const u = units[unitAt.get(`${s.faction_id}::${s.id}`)];
-    if (!u) continue;
-    u.superseded_by_codex = s.codex;
-    if (s.superseded_by) u.superseded_by = s.superseded_by;
-  }
+// ---------------------------------------------------------------------------
+// Warhammer Legends datasheets. The 11th edition Codex: Orks moved Lootas and
+// Burna Boyz to Warhammer Legends. The 40kdc bundle has no datasheet for them
+// (only two orphaned ability records), and the game's Wahapedia codex import
+// skips Legends (owner decision D2), so 40k/data/40kdc has none either: the
+// game only knows them from army files and saves written before the codex,
+// which carry their own stats. A pasted or game list with either unit came in
+// with "unit not recognised" and the unit was left out of the calculator.
+//
+// These records are what scripts/40kdc/wahapedia-import.mjs writes for the two
+// datasheets when its Legends filter lets them through (run on a scratch copy
+// of the data, --faction orks, overlay mode), from the repository's Wahapedia
+// 11e snapshot .llm/codex_11e_wahapedia/orks/wahapedia/*.csv (export
+// 2026-10-16, source "Orks (Warhammer Legends)"): profiles, points, model
+// counts, base sizes, weapons, kits, wargear options and ability text. Only
+// is_legend is set by hand (the importer writes false). Shared weapons whose
+// printed numbers equal the codex record keep its id (big-shoota,
+// rokkit-launcha, burna); the Legends Kustom Mega-blasta is BS 5+ where the
+// codex one is 4+, so each datasheet has its own copy, as the importer does.
+// The two ability records replace the bundle's orphans (same ids; the
+// Wahapedia rules text is added, which the calculator reads).
+//
+// They live in this file, not in codex-11e-datasheets.mjs: that module is
+// generated from 40k/data/40kdc (codex-builder-parity.test.mjs checks it is up
+// to date), and the game data does not have these datasheets.
+export const LEGENDS_DATASHEET_RECORDS = {
+  units: [
+    {"id":"lootas","name":"Lootas","faction_id":"orks","profiles":[{"name":"Spanner","M":6,"T":5,"W":1,"Sv":5,"Ld":7,"OC":1},{"name":"Loota","M":6,"T":5,"W":1,"Sv":5,"Ld":7,"OC":1}],"points":[{"models":5,"cost":50,"unit_count_min":1,"unit_count_max":2},{"models":10,"cost":100,"unit_count_min":1,"unit_count_max":2},{"models":5,"cost":60,"unit_count_min":3,"unit_count_max":null},{"models":10,"cost":110,"unit_count_min":3,"unit_count_max":null}],"keywords":["Infantry","Lootas"],"faction_keywords":["Orks"],"base_size_mm":{"shape":"round","diameter":32},"model_count":{"min":5,"max":10},"weapon_ids":["big-shoota","deffgun","kustom-mega-blasta-lootas","rokkit-launcha","gun-stock-and-fists"],"ability_ids":["dat-s-our-loot"],"is_legend":true,"points_provisional":false,"game_version":{"edition":"11th","dataslate":"codex"},"source":"wahapedia-11e@2026-10-16"},
+    {"id":"burna-boyz","name":"Burna Boyz","faction_id":"orks","profiles":[{"name":"Burna Boy","M":6,"T":5,"W":1,"Sv":5,"Ld":7,"OC":1},{"name":"Spanner","M":6,"T":5,"W":1,"Sv":5,"Ld":7,"OC":1}],"points":[{"models":5,"cost":60},{"models":10,"cost":120}],"keywords":["Infantry","Burna Boyz"],"faction_keywords":["Orks"],"base_size_mm":{"shape":"round","diameter":32},"model_count":{"min":5,"max":10},"weapon_ids":["big-shoota","burna","kustom-mega-blasta-burna-boyz","rokkit-launcha","gun-stock-and-fists","cuttin-flames"],"ability_ids":["pyromaniaks"],"is_legend":true,"points_provisional":false,"game_version":{"edition":"11th","dataslate":"codex"},"source":"wahapedia-11e@2026-10-16"},
+  ],
+  weapons: [
+    {"id":"cuttin-flames","name":"Cuttin' Flames","type":"melee","profiles":[{"name":"Cuttin' Flames","range":"Melee","stats":{"A":2,"S":4,"AP":-2,"D":1,"WS":4},"keywords":[]}],"game_version":{"edition":"11th","dataslate":"codex"},"faction_id":"orks","source":"wahapedia-11e@2026-10-16"},
+    {"id":"deffgun","name":"Deffgun","type":"ranged","profiles":[{"name":"Deffgun","range":48,"stats":{"A":2,"S":8,"AP":-1,"D":2,"BS":6},"keywords":[{"keyword_id":"heavy"},{"keyword_id":"rapid-fire","parameters":{"value":1}}]}],"game_version":{"edition":"11th","dataslate":"codex"},"faction_id":"orks","source":"wahapedia-11e@2026-10-16"},
+    {"id":"gun-stock-and-fists","name":"Gun Stock and Fists","type":"melee","profiles":[{"name":"Gun Stock and Fists","range":"Melee","stats":{"A":2,"S":5,"AP":0,"D":1,"WS":3},"keywords":[]}],"game_version":{"edition":"11th","dataslate":"codex"},"faction_id":"orks","source":"wahapedia-11e@2026-10-16"},
+    {"id":"kustom-mega-blasta-burna-boyz","name":"Kustom Mega-blasta","type":"ranged","profiles":[{"name":"Kustom Mega-blasta","range":24,"stats":{"A":3,"S":9,"AP":-2,"D":3,"BS":5},"keywords":[{"keyword_id":"hazardous"}]}],"game_version":{"edition":"11th","dataslate":"codex"},"faction_id":"orks","source":"wahapedia-11e@2026-10-16"},
+    {"id":"kustom-mega-blasta-lootas","name":"Kustom Mega-blasta","type":"ranged","profiles":[{"name":"Kustom Mega-blasta","range":24,"stats":{"A":3,"S":9,"AP":-2,"D":3,"BS":5},"keywords":[{"keyword_id":"hazardous"}]}],"game_version":{"edition":"11th","dataslate":"codex"},"faction_id":"orks","source":"wahapedia-11e@2026-10-16"},
+  ],
+  abilities: [
+    {"ability_id":"dat-s-our-loot","name":"Dat's Our Loot","authored_by":"40kdc-community","game_version":{"edition":"11th","dataslate":"pre-launch-provisional"},"source_digest":"403d3dd9f94a3346d9c1b8e29185eeabbcb800a47ec1fdba9e1f8eb224155fbc","version":"2025-q3","effect":{"type":"conditional","condition":{"operator":"and","operands":[{"type":"phase-is","parameters":{"phase":"shooting"}},{"type":"target-has-keyword","parameters":{"keyword":"A"}}]},"effect":{"type":"re-roll","target":"unit","modifier":{"roll":"hit","subset":"ones"}}},"scope":{"range":"unit","duration":"permanent"},"unit_ids":["lootas"],"ability_type":"unit","behavior":"passive","disputed":true,"dispute_notes":"Dangling reference: condition gates on keyword \"A\", which no unit in the dataset has, so the gate never fires and the effect is dead; the intended keyword is unrecoverable from the encoding.","faction_id":"orks","rules_text":"• This unit’s ranged attacks can re-roll hit rolls of 1.\n• This unit’s ranged attacks that target a unit within range of an objective can re-roll hit rolls.","source":"wahapedia-11e@2026-10-16"},
+    {"ability_id":"pyromaniaks","name":"Pyromaniaks","authored_by":"40kdc-community","game_version":{"edition":"11th","dataslate":"pre-launch-provisional"},"source_digest":"df40c1edbd49ac78bb493c5b3c9615750f6eff2d08c65b02772ac978640702d8","version":"2025-q3","effect":{"type":"conditional","condition":{"type":"phase-is","parameters":{"phase":"shooting"}},"effect":{"type":"re-roll","target":"unit","modifier":{"roll":"wound","subset":"ones"}}},"scope":{"range":"aura-6","duration":"permanent"},"unit_ids":["burna-boyz","skorchas"],"ability_type":"unit","behavior":"passive","faction_id":"orks","rules_text":"This unit’s attacks that target a unit within 6\" of this unit can re-roll wound rolls of 1.","source":"wahapedia-11e@2026-10-16"},
+  ],
+  unitCompositions: [
+    {"unit_id":"lootas","faction_id":"orks","models":[{"name":"Spanner","min":1,"max":2,"is_leader_model":false,"base_size_mm":{"shape":"round","diameter":32},"default_weapon_ids":["big-shoota","gun-stock-and-fists"],"default_wargear":[]},{"name":"Loota","min":4,"max":8,"is_leader_model":false,"base_size_mm":{"shape":"round","diameter":32},"default_weapon_ids":["deffgun","gun-stock-and-fists"],"default_wargear":[]}],"game_version":{"edition":"11th","dataslate":"codex"},"source":"wahapedia-11e@2026-10-16"},
+    {"unit_id":"burna-boyz","faction_id":"orks","models":[{"name":"Spanner","min":1,"max":2,"is_leader_model":false,"base_size_mm":{"shape":"round","diameter":32},"default_weapon_ids":["big-shoota","gun-stock-and-fists"],"default_wargear":[]},{"name":"Burna Boy","min":4,"max":8,"is_leader_model":false,"base_size_mm":{"shape":"round","diameter":32},"default_weapon_ids":["burna","cuttin-flames"],"default_wargear":[]}],"game_version":{"edition":"11th","dataslate":"codex"},"source":"wahapedia-11e@2026-10-16"},
+  ],
+};
+
+export const LEGENDS_WARGEAR_OPTION_BLOCKS = [
+  {"faction_id":"orks","unit_id":"lootas","options":[{"id":"lootas-wgo-wh-1","unit_id":"lootas","faction_id":"orks","game_version":{"edition":"11th","dataslate":"codex"},"is_free":true,"rules_text":"Any number of Spanner models can each have their Big Shoota replaced with one of the following: 1 Kustom Mega-blasta, 1 Rokkit Launcha","source":"wahapedia-11e@2026-10-16","model_constraint":{"any_number":true,"model_name":"Spanner"},"replaces":["big-shoota"],"replacement_choice":[["kustom-mega-blasta-lootas"],["rokkit-launcha"]]}]},
+  {"faction_id":"orks","unit_id":"burna-boyz","options":[{"id":"burna-boyz-wgo-wh-1","unit_id":"burna-boyz","faction_id":"orks","game_version":{"edition":"11th","dataslate":"codex"},"is_free":true,"rules_text":"Any number of Spanner models can each have their Big Shoota replaced with one of the following: 1 Kustom Mega-blasta, 1 Rokkit Launcha.","source":"wahapedia-11e@2026-10-16","model_constraint":{"any_number":true,"model_name":"Spanner"},"replaces":["big-shoota"],"replacement_choice":[["kustom-mega-blasta-burna-boyz"],["rokkit-launcha"]]}]},
+];
+
+// Keys of the Legends records, by collection: the builder dataset differs
+// from the game data in exactly these (codex-builder-parity.test.mjs).
+export const LEGENDS_RECORD_KEYS = {
+  units: LEGENDS_DATASHEET_RECORDS.units.map(r => `${r.faction_id}::${r.id}`),
+  weapons: LEGENDS_DATASHEET_RECORDS.weapons.map(r => `${r.faction_id}::${r.id}`),
+  abilities: LEGENDS_DATASHEET_RECORDS.abilities.map(r => `${r.faction_id}::${r.ability_id}`),
+  unitCompositions: LEGENDS_DATASHEET_RECORDS.unitCompositions.map(r => `${r.faction_id}::${r.unit_id}`),
+  wargearOptions: LEGENDS_WARGEAR_OPTION_BLOCKS.flatMap(b => b.options.map(o => `${o.faction_id}::${o.unit_id}::${o.id}`)),
+};
+
+/** Upsert the Warhammer Legends datasheets (in place). Idempotent. */
+export function applyLegendsDatasheets(rawData) {
+  if (!rawData) return rawData;
+  upsertDatasheetRecords(rawData, LEGENDS_DATASHEET_RECORDS, LEGENDS_WARGEAR_OPTION_BLOCKS);
   return rawData;
 }
 

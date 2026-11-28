@@ -67,10 +67,18 @@ test('the patched builder dataset equals the game data for the overlaid collecti
   };
   const SM_KIT_FIXES = new Set(['grey-hunters-wgo-mfm-2']);
   const firstByKey = (arr, k) => { const m = new Map(); for (const r of arr) if (!m.has(k(r))) m.set(k(r), r); return m; };
+  // Builder-only Warhammer Legends datasheets (applyLegendsDatasheets: Lootas,
+  // Burna Boyz). The game data has no Legends datasheets (decision D2), so
+  // these records are extra in the builder (or, for the two ability records
+  // the bundle already had, carry the rules text): left out of the comparison.
+  let legends = 0;
   for (const [coll, k] of Object.entries(keys)) {
-    const b = firstByKey(RAW[coll], k);
-    const g = firstByKey(G[coll], k);
-    assert.equal(RAW[coll].length, G[coll].length, `${coll}: record count`);
+    const lk = new Set(P.LEGENDS_RECORD_KEYS[coll]);
+    legends += lk.size;
+    const b = firstByKey(RAW[coll].filter(r => !lk.has(k(r))), k);
+    const g = firstByKey(G[coll].filter(r => !lk.has(k(r))), k);
+    const extra = [...lk].filter(kk => !G[coll].some(r => k(r) === kk)).length;
+    assert.equal(RAW[coll].length, G[coll].length + extra, `${coll}: record count`);
     assert.equal(b.size, g.size, `${coll}: distinct keys`);
     for (const [kk, gr] of g) {
       assert.ok(b.has(kk), `${coll} ${kk} missing from the builder`);
@@ -92,6 +100,8 @@ test('the patched builder dataset equals the game data for the overlaid collecti
   };
   const gb = blocks(G.wargearOptions), bb = blocks(RAW.wargearOptions);
   for (const [kk, ids] of gb) assert.deepEqual(bb.get(kk), ids, `wargear option order ${kk}`);
+  assert.equal(legends, 13, 'the Legends records: 2 datasheets, 5 weapons, 2 abilities, 2 compositions, 2 option records');
+  assert.deepEqual(RAW.units.filter(u => u.is_legend).map(u => `${u.faction_id}::${u.id}`), P.LEGENDS_RECORD_KEYS.units);
 });
 
 test('the committed overlay module is what the generator writes now', async () => {
@@ -134,10 +144,13 @@ test('UNIT_ALIASES: each codex rename targets a codex datasheet; the old one is 
     const codex = /^wahapedia-11e@/.test(u.source ?? '');
     assert.equal(offered.has(`${u.faction_id}::${u.id}`), codex, `${u.name}: offered iff a codex datasheet`);
   }
-  // Orks (overlay import): nothing is hidden.
+  // Orks (overlay import): nothing is hidden. The two Warhammer Legends
+  // datasheets the builder has on top of the game data are offered too.
   S.resetRoster(); S.setFaction('orks');
   const orks = S.unitBrowserGroups('').flatMap(g => g.units).filter(u => u.faction_id === 'orks');
-  assert.equal(orks.length, G.units.filter(u => u.faction_id === 'orks').length);
+  const legendIds = new Set(P.LEGENDS_RECORD_KEYS.units.map(k => k.split('::')[1]));
+  assert.equal(orks.filter(u => !legendIds.has(u.id)).length, G.units.filter(u => u.faction_id === 'orks').length);
+  assert.deepEqual(orks.filter(u => legendIds.has(u.id)).map(u => u.id).sort(), ['burna-boyz', 'lootas']);
 });
 
 test('every codex datasheet at every size, default loadout, passes the builder legality checks', () => {

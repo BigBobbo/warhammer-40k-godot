@@ -254,7 +254,7 @@ test('risk after a move: their next turn worked out again with the unit where th
 });
 
 // ---------------------------------------------------------------------------
-// 1.2xx: suggestions that follow the turn sequence (one action per unit), and what the turn cards now count
+// 1.152.0: suggestions that follow the turn sequence (one action per unit), and what the turn cards now count
 
 const full = (o = {}) => cell({ shoot: 0.5, fight: 0.5, sMu: 6, sSd: 2, fMu: 6, fSd: 2, ...o });
 const pairs = (as, ds, o) => Object.fromEntries(as.map(a => [a, Object.fromEntries(ds.map(d => [d, full(o)]))]));

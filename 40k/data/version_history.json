@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.148.0",
+      "version": "1.152.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: turn suggestions that follow the rules of the turn and play to the score",
       "changes": [
@@ -18,6 +18,54 @@
         "A unit in terrain that would stay Hidden by holding its fire says how much safer that is",
         "The forecast also weighs the least exposed place for a unit at risk and the place a card is scored from, and backs a move from 2 VP of margin (it was 3)",
         "Plan from Claude: the prompt now carries unit stats and weapons, army and detachment rules, both missions' scoring, turn order, terrain, objective positions and distances, and the plan can name an Advance, Fall Back, arrival, charge, shot or stratagem, all drawn on the map"
+      ]
+    },
+    {
+      "version": "1.151.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: a prediction record that checks the app's calls against your real games",
+      "changes": [
+        "Board, live table: a new Prediction record card. At each Turn done the app keeps the score, where the units stood and what it had predicted; when the battle ends it checks its calls against what happened",
+        "For your last game it shows what the forecast said at each turn end next to the final result, how many of its destroyed-next-turn calls happened, and how many of the moves it backed you made",
+        "Over your finished games it adds the calls up: of the times it said 60 to 80 percent, how often it happened",
+        "The record stays on your device. A switch, off by default, sends finished games (factions, unit names, positions, scores and the predictions; no list text, no names) to help improve the predictions",
+        "The record can be saved as a file or deleted at any time"
+      ]
+    },
+    {
+      "version": "1.150.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: update the live table in a few taps, and get a plan to Claude and back with fewer steps",
+      "changes": [
+        "Live table: a new Update the table card lists only the units of the player whose turn it is, each marked moved, stays or not looked at yet",
+        "Place by tapping: tap the map where a unit stands now and the app moves on to the next unit, one tap per unit; The others have not moved clears the rest in one tap",
+        "Photo of the table now, straight from the card: the corners start where they were on your last photo, so they only need a look",
+        "Models lost this turn: a minus and plus for every unit on the table, both sides, without leaving the Board",
+        "Plan from Claude: a Send to Claude button opens the share sheet with the prompt; when you come back with the answer copied, the plan is shown and drawn without another tap",
+        "On an installed Android app, Share in the Claude app can send the answer straight to Combat Calc"
+      ]
+    },
+    {
+      "version": "1.149.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: the opponent's reply in every weighed move, a prediction per player turn, and stratagems in the odds",
+      "changes": [
+        "Board, Your turn: in your own turn each move is now weighed with what the other player is likely to do in reply (their next turn by the rule of the turn cards), instead of assuming they stand still",
+        "Play the game out: the predicted outcome is shown after every player turn (the score, how often you are ahead, the units left), not only at the end of each battle round",
+        "Board, Your turn: for each target, the stratagem that adds most to one of the attacks on it is named, with its CP cost and what it changes (for example 19% destroyed on its own instead of 10%)",
+        "Armies: Lootas and Burna Boyz (Warhammer Legends) are recognised, in the Combat Calc and in the Army Builder"
+      ]
+    },
+    {
+      "version": "1.148.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: moves go round terrain, and a far more lifelike play-out",
+      "changes": [
+        "Board, turn cards: a vehicle, monster, bike or cavalry unit no longer walks through dense terrain. Its move to an objective is measured round the terrain in its way (core rules 13.06), and the map shows the path by its corners",
+        "Play the game out: units no longer end on top of each other; a unit that would stands beside the others instead",
+        "Play the game out: a unit that is more likely destroyed than not takes no further part (it no longer walks, holds or shoots), and Show who did what says when",
+        "Play the game out: a unit with nothing to shoot or charge Advances; reserves come on from battle round 2 (6 inches from an edge and more than 8 inches from the enemy, Deep Strike anywhere); units get out of their transports",
+        "A unit that came on or got out of a transport is on the played-out plan from that round on"
       ]
     },
     {

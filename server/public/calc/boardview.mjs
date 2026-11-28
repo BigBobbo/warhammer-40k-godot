@@ -22,7 +22,9 @@ import { chargeOdds, chargeRollNeeded } from './engine.mjs';
 import { LAYOUTS_SOURCE, longDate } from './rulesnote.mjs';
 import { dropState } from './droporder.mjs';
 import { nextTurn, myTurn, moveCandidates, bestMoves, keepMoves, worthOf, riskAfterMove, objectiveGap, MOVE_MIN_VP } from './nextturn.mjs';
-import { playOut } from './playout.mjs';
+import { playOut, turnMoves } from './playout.mjs';
+import { newRecord, addTurn, finish, review, calibration, uploadBody, KEEP_GAMES } from './gamelog.mjs';
+import { CALC_VERSION } from './version.mjs';
 import { objectiveSides } from './board.mjs';
 
 // fixed map colours (not theme tokens): the board reads the same in light and
@@ -353,16 +355,91 @@ function openLive() {
  * round gets its step, and the battle-shock of the player whose turn starts ends (their Command phase).
  * prev / now: { round, turn } before and after.
  */
+// ---- the prediction record (gamelog.mjs): one entry per player turn of the game on the live table, closed with
+// the final score; on this device only, unless the player turns sending on. { optIn, current, done: [...] }
+const LOG_KEY = 'w40k_calc_gamelog_v1';
+function logStore() {
+  try { return { optIn: false, current: null, done: [], ...(JSON.parse(localStorage.getItem(LOG_KEY) ?? '{}') ?? {}) }; } catch { return { optIn: false, current: null, done: [] }; }
+}
+function logSave(st) { try { localStorage.setItem(LOG_KEY, JSON.stringify(st)); } catch { /* best effort */ } }
+/** The turn that has just ended on the tracker, kept with what the Board said about it and expects of the next. */
+function logTurn(lv, prev, now) {
+  const g = gameNow(), stt = ctx.state;
+  const d = curIndex() === lv.steps.length - 1 ? nextTurnData(true) : null, v = nextMemo.v, base = nextMemo.base;
+  const me = v?.me ?? (stt.armies[ctx.me?.()] ? ctx.me() : 'A'), opp = otherSide(me);
+  const store = logStore();
+  store.current ??= newRecord({ me, factions: { A: stt.armies.A?.faction, B: stt.armies.B?.faction }, layout: currentLayout()?.id ?? null, first: g.first ?? null, version: CALC_VERSION });
+  const units = placed().map(t => ({ tk: t.tk, name: t.u.cu.name, x: t.x, y: t.y, left: t.u.left, total: t.u.total }));
+  // what was said at the start of the turn that ended (kept then: lv.said), else what the cards say of the table now
+  const said = lv.said && lv.said.round === prev.round && lv.said.turn === prev.turn ? lv.said : null;
+  const memoOk = d && moveMemo.key === nextMemo.key && moveMemo.state === 'done';
+  const forecast = said?.forecast ?? (memoOk ? { win: moveMemo.base.win, margin: moveMemo.base.vp } : null);
+  const pieces = base?.geo?.pieces ?? [];
+  const moves = (said?.moves ?? []).map(m => {
+    const t = units.find(u => u.tk === m.unit), o = (base?.objs ?? []).find(x => x.id === m.obj), u0 = [...(base?.mine ?? []), ...(base?.theirs ?? [])].find(u => u.key === m.unit);
+    return { ...m, made: t && o && u0 ? objectiveGap({ ...u0, x: t.x, y: t.y }, o, pieces) <= 0 : null };
+  });
+  const playout = d && playMemo.key === nextMemo.key && playMemo.state === 'done' ? { win: playMemo.out.win, vpMe: playMemo.vp.me, vpOpp: playMemo.vp.opp } : null;
+  // the turn that follows: what the cards expect to be destroyed in it
+  let ahead = null;
+  if (d && v?.res && !g.over) {
+    const calls = now.turn === me ? (v.my?.kills ?? []).map(k => ({ tk: k.key, name: k.name, p: k.p })) : v.res.threats.map(t => ({ tk: t.key, name: t.name, p: t.likely }));
+    ahead = { side: now.turn, destroyed: calls.filter(c => c.p >= 0.2) };
+  }
+  const e = addTurn(store.current, { round: prev.round, turn: prev.turn, vp: g.vp ?? { A: 0, B: 0 }, units, forecast, moves, playout, ahead });
+  console.log(`[board] prediction record: round ${prev.round}, ${prev.turn}'s turn kept (${units.length} units, forecast ${e.forecast ? `${Math.round(e.forecast.win * 100)}%` : '-'}, ${e.moves.length} backed move(s) of which ${e.moves.filter(m => m.made).length} made, ${e.ahead?.destroyed.length ?? 0} call(s) on the next turn)`);
+  if (g.over) {
+    finish(store.current, g.vp ?? { A: 0, B: 0 });
+    const rec = store.current;
+    store.done = [...store.done, rec].slice(-KEEP_GAMES); store.current = null;
+    const rv = review(rec);
+    console.log(`[board] prediction record closed: ${rec.turns.length} turns, final ${rec.final.A} - ${rec.final.B} (${rv.result}); ${rv.kills.filter(k => k.happened).length} of ${rv.kills.length} "destroyed" calls happened${store.optIn ? '; sending it' : ''}`);
+    if (store.optIn && typeof fetch === 'function' && navigator.onLine !== false) {
+      fetch('/api/calc-log', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(uploadBody(rec)) })
+        .then(r => console.log(`[board] prediction record sent: ${r.status}`)).catch(err => console.log(`[board] prediction record not sent: ${err?.message ?? err}`));
+    }
+  }
+  delete lv.said;
+  logSave(store);
+}
+function gameLogHtml() {
+  const lv = livePlan();
+  if (!lv) return '';
+  const b = boardState(), esc = ctx.esc, store = logStore(), open = !!b.logOpen;
+  const cur = store.current?.turns.length ?? 0, n = store.done.length;
+  const head = `<div class="row" style="gap:6px;align-items:center"><div class="title grow">📒 Prediction record <span class="small muted" id="board-log-count" data-turns="${cur}" data-games="${n}">· this game ${cur} turn${cur === 1 ? '' : 's'} kept · ${n} finished game${n === 1 ? '' : 's'}</span></div>
+    <button class="icon-btn" data-action="board-log-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} the prediction record">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-log" data-open="0">${head}</div>`;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  const cal = calibration(store.done), last = store.done[store.done.length - 1], rv = last ? review(last) : null;
+  const band = (t, what) => (t.n ? `<div class="tiny" data-cal="${what}" data-n="${t.n}" style="margin-top:4px"><b>${what}</b> · ${t.n} call${t.n === 1 ? '' : 's'}${t.brier != null ? ` · error score ${t.brier.toFixed(2)} (0 is perfect, 0.25 is a coin toss)` : ''}
+      ${t.bands.filter(x => x.n).map(x => `<div class="muted">said ${pct(x.lo)}–${pct(x.hi)}: happened ${x.hit} of ${x.n}${x.n >= 3 ? ` (${pct(x.rate)})` : ''}</div>`).join('')}</div>` : '');
+  const lastHtml = rv ? `<div class="tiny" id="board-log-last" data-result="${rv.result}" style="margin-top:8px"><b>Your last game</b>: ${rv.result === 'win' ? 'won' : rv.result === 'loss' ? 'lost' : 'drawn'} ${last.final[last.me]} – ${last.final[otherSide(last.me)]}
+      ${rv.wins.map(w => `<div class="muted">Round ${w.round}, ${w.turn}’s turn: ${w.said != null ? `the forecast said you win ${pct(w.said)} (${w.margin >= 0 ? '+' : '−'}${Math.abs(w.margin).toFixed(0)} VP)` : ''}${w.playout != null ? `${w.said != null ? '; ' : ''}the play-out said ${pct(w.playout)}` : ''}</div>`).join('') || '<div class="muted">No forecast was on screen at a turn end in that game.</div>'}
+      ${rv.kills.length ? `<div class="muted">“Destroyed next turn” calls: ${rv.kills.filter(k => k.happened).length} of ${rv.kills.length} happened.</div>` : ''}
+      ${rv.moves.backed ? `<div class="muted">Moves the forecast backed: ${rv.moves.made} of ${rv.moves.backed} were made.</div>` : ''}</div>` : '';
+  return `<div class="card" id="board-log" data-open="1">${head}
+    <div class="small" style="margin-top:6px">At each <b>Turn done</b> with the live table on, the app keeps the score, where the units stood, and what it had predicted. When the battle ends it checks its calls against what happened.</div>
+    ${n ? `<div id="board-log-cal">${band(cal.win, 'Forecast: you win')}${band(cal.playout, 'Play-out: you win')}${band(cal.kills, 'Destroyed in the next turn')}${!cal.win.n && !cal.kills.n ? '<div class="tiny muted" style="margin-top:4px">No calls to check in the finished games yet.</div>' : ''}</div>` : '<div class="tiny muted" style="margin-top:6px" id="board-log-none">No finished game yet: play one through to “End the battle” on the tracker.</div>'}
+    ${lastHtml}
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+      <button class="chip ${store.optIn ? 'on' : ''}" data-action="board-log-optin" id="board-log-optin" aria-pressed="${store.optIn}">Send finished games to improve the predictions</button>
+      ${n || cur ? '<button class="chip" data-action="board-log-export" id="board-log-export">⇩ Save the record as a file</button><button class="chip" data-action="board-log-clear" id="board-log-clear">Delete the record</button>' : ''}</div>
+    <div class="tiny muted" style="margin-top:6px" id="board-log-privacy">${store.optIn ? 'On: when a battle ends, that game is sent to the Combat Calc server' : 'Off: the record stays on this device'}. A sent game holds the two factions, the unit names, where the units stood at each turn end, the scores and the app’s predictions. It does not hold your list’s text, your name or anything typed.</div></div>`;
+}
+
 export function boardTurnDone(prev, now) {
   const root = planRoot(), i = liveIndex(root);
   if (i < 0) return;
   const lv = root.variants[i];
+  try { logTurn(lv, prev, now); } catch (err) { console.log(`[board] prediction record: this turn was not kept (${err?.message ?? err})`); }
   const last = lv.steps[lv.steps.length - 1];
   (lv.snaps ??= []).push({ round: prev.round, turn: prev.turn, tokens: cloneJson(last.tokens), shock: { ...(lv.shock ?? {}) } });
   if (lv.snaps.length > 12) lv.snaps.splice(0, lv.snaps.length - 12);
   while (lv.steps.length <= now.round) lv.steps.push({ name: `Turn ${lv.steps.length}`, tokens: cloneJson(lv.steps[lv.steps.length - 1].tokens) });
   lv.cur = Math.min(now.round, lv.steps.length - 1);
   for (const tk of Object.keys(lv.shock ?? {})) if (tk.startsWith(`${now.turn}:`)) delete lv.shock[tk];
+  lv.seen = {}; boardState().placing = null;
   console.log(`[board] live table: kept the table at the end of round ${prev.round}, ${prev.turn}'s turn (${Object.keys(last.tokens).length} units); now round ${now.round}, ${now.turn}'s turn`);
   persistBoard();
 }
@@ -371,6 +448,7 @@ export function boardTurnDone(prev, now) {
  * turn was played on it) stays as an ordinary plan, "Last game"; an untouched one goes. The next 🔴 starts afresh.
  */
 export function boardNewGame() {
+  { const st2 = logStore(); if (st2.current) { st2.current = null; logSave(st2); console.log('[board] prediction record: the unfinished game was dropped (new game)'); } }
   const root = planRoot(), i = liveIndex(root);
   if (i < 0) return;
   const lv = root.variants[i];
@@ -412,6 +490,75 @@ function liveBarHtml() {
   </div>`;
 }
 
+// ---- "Update the table" (1.150.0): after a turn on the real table, only what changed has to be entered. The card
+// lists the units of the player whose turn it is - moved / stays / not looked at yet, against where the table
+// stood when their turn began - and the models lost on either side. "Place by tapping" puts the unit named in the
+// card wherever the map is tapped next and goes on to the next one: with a photo of the table under the map, one
+// tap per unit. lv.seen = { [tk]: 'same' } (said to have stayed) is cleared when a turn is done on the tracker.
+function liveBefore(lv) {
+  // where the table stood when this player turn began: the last turn kept, else the round before
+  const snap = lv.snaps?.length ? lv.snaps[lv.snaps.length - 1].tokens : null;
+  return snap ?? lv.steps[Math.max(0, lv.steps.length - 2)]?.tokens ?? {};
+}
+function updateRows() {
+  const lv = livePlan();
+  if (!lv) return null;
+  const g = gameNow(), before = liveBefore(lv), X = g.turn, seen = lv.seen ?? {};
+  const rows = placed().filter(t => t.side === X).map(t => {
+    const was = before[t.tk], d = was && !was.in ? Math.hypot(t.x - was.x, t.y - was.y) : null;
+    const state = d == null ? 'new' : d > 0.05 || (t.rot ?? 0) !== (was.rot ?? 0) ? 'moved' : seen[t.tk] ? 'same' : 'todo';
+    return { tk: t.tk, name: t.u.cu.name, state, dist: d ?? 0, left: t.u.left, total: t.u.total };
+  });
+  return { X, rows, todo: rows.filter(r => r.state === 'todo'), lv, g };
+}
+/** Above the map: one short card - how far the update is, place by tapping, the photo - so the map stays on screen. */
+function updateCardHtml() {
+  const u = updateRows();
+  if (!u) return '';
+  const b = boardState(), esc = ctx.esc, st = ctx.state, { X, rows, todo, lv, g } = u;
+  const onNow = curIndex() === Math.min(g.round, lv.steps.length - 1);
+  if (!onNow || !rows.length) return '';
+  const fresh = liveFresh(lv, g), open = b.updOpen ?? !fresh;
+  const nm = (Y) => esc(st.armies[Y]?.faction ?? Y), ink = (Y) => `var(--side-${Y.toLowerCase()}-ink)`;
+  const head = `<div class="row" style="gap:6px;align-items:center"><span class="small grow"><b>✎ Update the table</b> · <b style="color:${ink(X)}">${nm(X)}</b>’s turn · <span id="board-upd-count" data-todo="${todo.length}" data-n="${rows.length}">${rows.length - todo.length} of ${rows.length} units looked at</span></span>
+    <button class="icon-btn" data-action="board-upd-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} the update list">${open ? '▴' : '▾'}</button></div>`;
+  if (!open) return `<div class="card" id="board-upd" data-open="0" style="margin-top:6px">${head}</div>`;
+  const placing = b.placing && rows.some(r => r.tk === b.placing) ? b.placing : null;
+  const pr = placing ? rows.find(r => r.tk === placing) : null;
+  const banner = pr ? `<div class="warnbox" id="board-upd-placing" data-tk="${esc(pr.tk)}" style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="grow">📍 Tap the map where <b>${esc(pr.name)}</b> is now.</span>
+      <button class="chip" data-action="board-upd-same" data-tk="${esc(pr.tk)}">✓ It has not moved</button><button class="chip" data-action="board-upd-place" data-tk="">Stop</button></div>` : '';
+  const pick = `<label class="chip" style="cursor:pointer" id="board-upd-photo">📷 Photo of the table now<input type="file" accept="image/*" capture="environment" data-input="board-photo" hidden></label>`;
+  return `<div class="card" id="board-upd" data-open="1" style="margin-top:6px">${head}
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${todo.length ? `<button class="chip ${placing ? 'on' : ''}" data-action="board-upd-place" data-tk="${placing ? '' : esc(todo[0].tk)}" id="board-upd-guide" aria-pressed="${!!placing}">📍 Place by tapping, one unit after the other</button>` : ''}${pick}
+      ${todo.length > 1 ? `<button class="chip" data-action="board-upd-rest" id="board-upd-rest">✓ The other ${todo.length} have not moved</button>` : ''}</div>${banner}
+    ${todo.length ? '' : '<div class="tiny muted" style="margin-top:4px">Everything is looked at: <b>confirm the positions</b> above. The list is under the map.</div>'}</div>`;
+}
+/** Under the map: each unit of the player whose turn it is, and the models lost on either side. */
+function updateListHtml() {
+  const u = updateRows();
+  if (!u) return '';
+  const b = boardState(), esc = ctx.esc, { X, rows, todo, lv, g } = u;
+  const onNow = curIndex() === Math.min(g.round, lv.steps.length - 1);
+  if (!onNow || !rows.length || !(b.updOpen ?? !liveFresh(lv, g))) return '';
+  const ink = (Y) => `var(--side-${Y.toLowerCase()}-ink)`;
+  const placing = b.placing && rows.some(r => r.tk === b.placing) ? b.placing : null;
+  const STATE = { moved: (r) => `<span class="verd ok">✓ moved ${fmtIn(r.dist)}</span>`, same: () => '<span class="verd ok">✓ stays</span>', new: () => '<span class="verd ok">✓ on the table</span>', todo: () => '<span class="verd warn">not looked at</span>' };
+  const rowsHtml = rows.map(r => `<div class="next-unit${r.tk === placing ? ' on' : ''}" data-upd="${esc(r.tk)}" data-state="${r.state}"><div class="row" style="gap:6px;align-items:center">
+      <button class="chip grow" style="text-align:left" data-action="board-pick" data-tk="${esc(r.tk)}"><b style="color:${ink(X)}">${esc(shortName(r.name))}</b></button>${STATE[r.state](r)}
+      <button class="chip" data-action="board-upd-place" data-tk="${esc(r.tk)}" aria-label="Place ${esc(r.name)} by tapping the map" title="Tap the map where it is now">📍</button>
+      ${r.state === 'todo' ? `<button class="chip" data-action="board-upd-same" data-tk="${esc(r.tk)}" title="It has not moved this turn">✓ stays</button>` : ''}</div></div>`).join('');
+  // models lost, either side (the same counts as on the Attack tab and the tracker)
+  const lossRow = (t) => { const [side, key] = t.tk.split(':'); return `<div class="row tiny" data-loss="${esc(t.tk)}" style="gap:6px;align-items:center;padding:2px 0"><span class="grow"><b style="color:${ink(side)}">${esc(shortName(t.u.cu.name))}</b></span>
+      <button class="chip" data-action="loss-unit" data-side="${side}" data-unit="${esc(key)}" data-delta="-1" aria-label="${esc(t.u.cu.name)}: one model fewer" ${t.u.left > 0 ? '' : 'disabled'}>−</button><span data-left="${t.u.left}" style="min-width:44px;text-align:center">${t.u.left} / ${t.u.total}</span>
+      <button class="chip" data-action="loss-unit" data-side="${side}" data-unit="${esc(key)}" data-delta="1" aria-label="${esc(t.u.cu.name)}: one model back" ${t.u.left < t.u.total ? '' : 'disabled'}>＋</button></div>`; };
+  const all = placed(), lossOpen = !!b.updLoss;
+  const lossHtml = `<div style="margin-top:8px"><button class="chip" data-action="board-upd-loss" id="board-upd-loss" aria-expanded="${lossOpen}">${lossOpen ? 'Hide the models lost' : '☠ Models lost this turn'}</button>
+      ${lossOpen ? `<div id="board-upd-losses" style="margin-top:4px">${[otherSide(X), X].map(Y => all.filter(t => t.side === Y).map(lossRow).join('')).join('')}</div>` : ''}</div>`;
+  return `<div class="card" id="board-upd-list" data-todo="${todo.length}"><div class="lab tiny muted">What changed this turn</div>
+    <div id="board-upd-rows" style="margin-top:4px">${rowsHtml}</div>${lossHtml}
+    <div class="tiny muted" style="margin-top:6px">Only what changed: drag a unit, or 📍 and tap the map where it stands now (with a photo of the table under the map, one tap per unit).</div></div>`;
+}
+
 // ---- "Their next turn" (nextturn.mjs): from the live table, what the other player can do in their next turn
 const kindsOf = (cu) => {
   let chars = 0, w10 = 0;
@@ -427,13 +574,13 @@ let nextMemo = { key: null, v: null };
 // moveMemo: { key (of the table it was worked out for), state: 'pending' | 'done', n (candidates), base: { win, vp },
 //             best: [move] (each unit's best move alone), kept: { moves, win, vp } (the ones worth making together) }
 let moveMemo = { key: null, state: 'idle' };
-function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null) {
+function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null, table = null) {
   if (moveMemo.key === key || !ctx.moveForecasts) return;
   const li = liveIndex(), plan = li >= 0 ? boardPlans()[li] : null;
   const last = plan ? plan.steps.length - 1 : -1;
   // only for the table now (the last step), not for an earlier turn looked at
   if (!plan || curIndex() !== last) { moveMemo = { key, state: 'idle' }; return; }
-  const me = v.me;
+  const me = v.me, opp = v.opp ?? otherSide(me), g = gameNow();
   // (a unit at risk that holds an objective: the least exposed place still in range of it; a card job: where it is scored)
   const keep = {};
   for (const u of v.my.units) if (u.job.kind === 'hold') { const o = v.my.swing.find(x => x.id === u.job.obj); if (o) keep[u.key] = o; }
@@ -441,7 +588,24 @@ function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null) {
   const cands = moveCandidates(mine, v.my.swing, pieces, { risk: Object.fromEntries(v.res.threats.map(t => [t.key, t.likely])), home, theirs, pair, keep, cards: cardMoves });
   moveMemo = { key, state: cands.length ? 'pending' : 'done', n: cands.length, best: [], kept: { moves: [] } };
   if (!cands.length) return;
-  const withMoves = (ms) => ({ ...plan, steps: plan.steps.map((st, si) => (si !== last ? st : { ...st, [me]: st[me].map(u => { const m = ms.find(x => x.unit === u.key); return m ? { ...u, x: m.x, y: m.y } : u; }) })) });
+  // The other player's reply (1.149.0). In my own turn a move is weighed with what they then do: their next turn
+  // by the rule of the turn cards (playout.turnMoves), from the table as my move leaves it - in this battle round
+  // if they still have their turn in it, else as the first turn of the next. Standing still gets its reply too.
+  // (In their turn my moves are for later: weighed on the table as it stands, as before.)
+  const reply = !!table && !!pair && g.turn === me;
+  const meFirst = (g.first ?? g.turn) === me;
+  const withMoves = (ms) => {
+    const st = plan.steps[last];
+    const mineSt = st[me].map(u => { const m = ms.find(x => x.unit === u.key); return m ? { ...u, x: m.x, y: m.y } : u; });
+    if (!reply) return { ...plan, steps: plan.steps.map((x, si) => (si !== last ? x : { ...st, [me]: mineSt })) };
+    const mineNow = mine.map(u => { const m = ms.find(x => x.unit === u.key); return m ? { ...u, x: m.x, y: m.y } : u; });
+    const back = new Map(turnMoves({ me: opp, mine: theirs, theirs: mineNow, pair, objs: table.objs, geo: table.geo, round: last, hand: g.hand?.[opp] ?? [] }).map(m => [m.unit, m]));
+    const oppSt = st[opp].map(u => { const m = back.get(u.key); return m && (m.x !== u.x || m.y !== u.y) ? { ...u, x: m.x, y: m.y } : u; });
+    const head = plan.steps.slice(0, last);
+    return { ...plan, steps: meFirst ? [...head, { ...st, [me]: mineSt, [opp]: oppSt }] : [...head, { ...st, [me]: mineSt }, { ...st, name: `Turn ${last + 1}`, [me]: mineSt, [opp]: oppSt }] };
+  };
+  // (a reply is worked out per move: a few at a time, so the page stays responsive)
+  const build = async (lists) => { const out = []; for (const [i, ms] of lists.entries()) { out.push(withMoves(ms)); if (reply && i % 3 === 2) await new Promise(r => setTimeout(r, 0)); } return out; };
   const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
   const done = (r1, stacked, best) => {
     if (moveMemo.key !== key) return;
@@ -449,19 +613,30 @@ function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null) {
     const here = Object.fromEntries(v.res.threats.map(t => [t.key, t.likely]));
     for (const m of best) { const r = riskAfterMove(mine, theirs, pair, m, pieces); m.riskThere = r.likely; m.focusThere = r.focus; m.riskHere = here[m.unit] ?? 0; }
     const kept = keepMoves(best, r1.base, stacked, me);
-    moveMemo = { key, state: 'done', n: cands.length, base: worthOf(r1.base, me), best, kept };
-    console.log(`[board] my moves weighed with the forecast: ${cands.length} tried, ${best.length} beat standing still by ${MOVE_MIN_VP}+ VP, ${kept.moves.length} kept together (${kept.moves.map(m => `${m.name} -> ${m.label} +${m.addVp.toFixed(1)}`).join('; ') || 'none'}); win ${Math.round(moveMemo.base.win * 100)}% -> ${Math.round((kept.moves.length ? kept.win : moveMemo.base.win) * 100)}%`);
+    moveMemo = { key, state: 'done', n: cands.length, base: worthOf(r1.base, me), best, kept, reply };
+    // (for the prediction record: the first forecast of a turn is what was "said" for it, before any unit moved)
+    { const lv = livePlan(); if (lv && !(lv.said && lv.said.round === g.round && lv.said.turn === g.turn)) lv.said = { round: g.round, turn: g.turn, forecast: { win: moveMemo.base.win, margin: moveMemo.base.vp }, moves: kept.moves.map(m => ({ unit: m.unit, name: m.name, label: m.label, obj: m.obj ?? null, vp: m.addVp })) }; }
+    console.log(`[board] my moves weighed with the forecast${reply ? ' (with the other player\'s reply played in)' : ''}: ${cands.length} tried, ${best.length} beat standing still by ${MOVE_MIN_VP}+ VP, ${kept.moves.length} kept together (${kept.moves.map(m => `${m.name} -> ${m.label} +${m.addVp.toFixed(1)}`).join('; ') || 'none'}); win ${Math.round(moveMemo.base.win * 100)}% -> ${Math.round((kept.moves.length ? kept.win : moveMemo.base.win) * 100)}%`);
     redraw();
   };
   // (started once the table has been still for a moment: every drop of a unit would start a run of its own)
   const start = (fn) => (typeof setTimeout === 'function' ? setTimeout(fn, 500) : fn());
-  start(() => moveMemo.key === key && ctx.moveForecasts(plan, cands.map(c => ({ key: c.key, plan: withMoves([c]) }))).then((r1) => {
+  start(async () => {
+    if (moveMemo.key !== key) return;
+    const t0 = performance.now?.() ?? 0;
+    const [basePlan, ...plans] = await build([[], ...cands.map(c => [c])]);
+    if (moveMemo.key !== key) return;
+    if (reply) console.log(`[board] the other player's reply worked out for ${cands.length + 1} tables in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms (${meFirst ? 'in this battle round' : 'as the first turn of the next round'})`);
+    const r1 = await ctx.moveForecasts(basePlan, cands.map((c, i) => ({ key: c.key, plan: plans[i] })));
     if (moveMemo.key !== key) return;
     if (!r1) { moveMemo = { key, state: 'idle' }; redraw(); return; }
     const best = bestMoves(cands, r1.base, r1.variants, me);
     if (best.length < 2) { done(r1, best.map(b => r1.variants[b.key]), best); return; }
-    ctx.moveForecasts(plan, best.map((b, i) => ({ key: `s${i}`, plan: withMoves(best.slice(0, i + 1)) }))).then((r2) => { if (r2) done(r1, best.map((b, i) => r2.variants[`s${i}`]), best); });
-  }));
+    const stackedPlans = await build(best.map((b, i) => best.slice(0, i + 1)));
+    if (moveMemo.key !== key) return;
+    const r2 = await ctx.moveForecasts(basePlan, best.map((b, i) => ({ key: `s${i}`, plan: stackedPlans[i] })));
+    if (r2) done(r1, best.map((b, i) => r2.variants[`s${i}`]), best);
+  });
 }
 // ---- "Play it out" (playout.mjs): the rest of the game with both players following the turn cards, turn after
 // turn, scored by the mission forecast. Asked for with a button on "Your turn"; shown next to the usual forecast,
@@ -473,25 +648,30 @@ function runPlayOut() {
   if (!key || !v?.my || !base || !plan || curIndex() !== last || !ctx.moveForecasts || moveMemo.state === 'pending') return;
   const g = gameNow(), me = v.me, opp = v.opp;
   const t0 = performance.now?.() ?? 0;
+  const off = base.off ?? { A: [], B: [] };
   const po = playOut({ [me]: base.mine, [opp]: base.theirs, objs: base.objs, geo: base.geo, pair: base.pair, round: last, turn: g.turn, first: g.first ?? null,
-    moved: !!g.started && !['command', 'movement'].includes(g.phase), hand: g.hand ?? {} });
+    moved: !!g.started && !['command', 'movement'].includes(g.phase), hand: g.hand ?? {},
+    reserves: { A: off.A.filter(u => !u.in), B: off.B.filter(u => !u.in) }, embarked: { A: off.A.filter(u => u.in), B: off.B.filter(u => u.in) } });
   // the plan the forecast scores: the game so far as on the live table, then a step per battle round played out
   const tpl = plan.steps[last];
-  const place = (ps) => ({ ...tpl, A: tpl.A.map(u => { const q = ps.A.find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }), B: tpl.B.map(u => { const q = ps.B.find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }) });
+  // (a unit that came on from reserves or got out of a transport is in the step from then on)
+  const side = (ps, X) => [...tpl[X].map(u => { const q = ps[X].find(x => x.key === u.key); return q ? { ...u, x: q.x, y: q.y } : u; }), ...ps[X].filter(q => !tpl[X].some(u => u.key === q.key))];
+  const place = (ps) => ({ ...tpl, A: side(ps, 'A'), B: side(ps, 'B') });
   const full = { ...plan, steps: [...plan.steps.slice(0, last), ...po.steps.map(st => place(st))] };
   const turns = po.log.filter(l => !l.done).length;
-  console.log(`[board] play-out: battle rounds ${last}-${last + po.steps.length - 1}, ${turns} player turns, ${po.log.reduce((a, l) => a + l.moves.filter(m => m.dist > 0).length, 0)} moves worked out in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
-  playMemo = { key, state: 'pending', log: po.log, steps: po.steps, from: last, me, first: g.first ?? g.turn ?? 'A' };
+  const nOf = (kind) => po.log.reduce((a, l) => a + l.moves.filter(m => m.kind === kind).length, 0);
+  console.log(`[board] play-out: battle rounds ${last}-${last + po.steps.length - 1}, ${turns} player turns, ${po.log.reduce((a, l) => a + l.moves.filter(m => m.dist > 0).length, 0)} moves (${po.log.reduce((a, l) => a + l.moves.filter(m => m.adv).length, 0)} Advances), ${nOf('arrive')} from reserves, ${nOf('disembark')} out of transports, ${Object.keys(po.gone).length} units likely destroyed on the way; worked out in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
+  playMemo = { key, state: 'pending', log: po.log, steps: po.steps, gone: po.gone, from: last, me, first: g.first ?? g.turn ?? 'A' };
   const redraw = () => { const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml(); };
   redraw();
   ctx.moveForecasts(plan, [{ key: 'playout', plan: full, until: Infinity }]).then((r) => {
     if (playMemo.key !== key || playMemo.state !== 'pending') return;
     const out = r?.variants?.playout;
     if (!out) { playMemo = { key, state: 'failed' }; console.log('[board] play-out: no forecast came back (another one was started, or the mission is not set up)'); redraw(); return; }
-    // the score after each battle round still to play: the final average less what is scored after that round
-    const after = (res, X, rd) => { let v = res[X]?.mean ?? 0; if (rd < 5) v -= res[X]?.primEnd ?? 0; for (let k = rd; k < 5; k++) v -= (res[X]?.prim?.[k] ?? 0) + (res[X]?.sec?.[k] ?? 0); return v; };
-    const perRound = (res) => po.steps.map(st => ({ round: st.round, me: after(res, me, st.round), opp: after(res, opp, st.round), ahead: res.lead?.[st.round - 1]?.[me] ?? null, behind: res.lead?.[st.round - 1]?.[opp] ?? null,
-      left: { me: res[me]?.unitsLeft?.[st.round - 1] ?? null, opp: res[opp]?.unitsLeft?.[st.round - 1] ?? null } }));
+    // the score after each player turn still to play (forecast.mjs turns: 2 per battle round)
+    const F1 = playMemo.first, lc = (X) => (X === 'A' ? 'A' : 'B');
+    const perRound = (res) => (res.turns ?? []).filter(Boolean).map(t => ({ round: t.round, half: t.half, mover: t.half === 0 ? F1 : otherSide(F1), me: t[lc(me)], opp: t[lc(opp)], ahead: t[`lead${me}`], behind: t[`lead${opp}`],
+      left: { me: t[`units${me}`], opp: t[`units${opp}`] } }));
     playMemo = { ...playMemo, rounds: perRound(out), baseRounds: perRound(r.base) };
     playMemo = { ...playMemo, state: 'done', base: worthOf(r.base, me), out: worthOf(out, me), vp: { me: out[me]?.mean ?? 0, opp: out[opp]?.mean ?? 0 }, baseVp: { me: r.base[me]?.mean ?? 0, opp: r.base[opp]?.mean ?? 0 } };
     console.log(`[board] play-out scored by the forecast: ${me} wins ${Math.round(playMemo.out.win * 100)}% (${playMemo.vp.me.toFixed(1)} - ${playMemo.vp.opp.toFixed(1)} VP); the usual forecast of the table as it stands: ${Math.round(playMemo.base.win * 100)}% (${playMemo.baseVp.me.toFixed(1)} - ${playMemo.baseVp.opp.toFixed(1)} VP)`);
@@ -506,7 +686,11 @@ function playOutToPlan() {
   const steps = cloneJson(lv.steps.slice(0, R + 1)), now = cloneJson(lv.steps[R].tokens ?? {});
   for (const [i, st] of playMemo.steps.entries()) {
     const tokens = cloneJson(now);
-    for (const X of ['A', 'B']) for (const u of st[X]) if (tokens[u.key] && !tokens[u.key].in) { tokens[u.key].x = u.x; tokens[u.key].y = u.y; }
+    for (const X of ['A', 'B']) for (const u of st[X]) {
+      // (on the table in this round: moved; came on from reserves: a token of its own; out of its transport: no longer in it)
+      if (!tokens[u.key]) tokens[u.key] = { x: u.x, y: u.y, rot: 0 };
+      else { if (tokens[u.key].in) delete tokens[u.key].in; tokens[u.key].x = u.x; tokens[u.key].y = u.y; }
+    }
     steps[R + i] = { name: `Turn ${R + i}`, tokens };
   }
   const old = root.variants.findIndex(x => x.playout);
@@ -530,20 +714,54 @@ function playOutHtml(d) {
       <span class="tiny muted">${pm.state === 'failed' ? 'It could not be scored just now. Try again. ' : ''}A second opinion next to the forecast: ${what}.</span></div>`;
   }
   const b = boardState(), open = !!b.playLog;
-  const VERB = { take: 'takes', hold: 'holds', charge: 'charges', shoot: 'shoots', fight: 'fights', advance: 'walks towards' };
+  const VERB = { take: 'takes', hold: 'holds', charge: 'charges', shoot: 'shoots', fight: 'fights', advance: 'walks towards', arrive: 'comes on from reserves near', disembark: 'gets out of' };
   const logHtml = !open ? '' : `<div id="board-playout-log" class="tiny" style="margin-top:6px">${pm.log.map(l => `<div style="margin-top:4px"><b>Round ${l.round} · <span style="color:var(--side-${l.side.toLowerCase()}-ink)">${esc(ctx.state.armies[l.side].faction)}</span></b>${l.done ? ' <span class="muted">has moved already</span>' : !l.moves.length ? ' <span class="muted">nothing to do</span>' : ''}
-      ${l.moves.map(m => `<div class="muted">${esc(shortName(m.name))} ${VERB[m.kind] ?? m.kind} ${esc(shortName(m.label))}${m.dist > 0 && m.kind !== 'advance' && m.kind !== 'take' && m.kind !== 'charge' ? ` after ${fmtIn(m.dist)}` : m.dist > 0 ? ` (${fmtIn(m.dist)})` : ''}</div>`).join('')}</div>`).join('')}</div>`;
+      ${l.moves.map(m => `<div class="muted" data-kind="${m.kind}"${m.adv ? ' data-adv="1"' : ''}>${esc(shortName(m.name))} ${m.adv ? 'Advances towards' : VERB[m.kind] ?? m.kind} ${esc(shortName(m.label))}${m.dist > 0 && m.kind !== 'advance' && m.kind !== 'take' && m.kind !== 'charge' ? ` after ${fmtIn(m.dist)}` : m.dist > 0 ? ` (${fmtIn(m.dist)})` : ''}</div>`).join('')}
+      ${(l.lost ?? []).map(x => `<div data-lost="${esc(x.unit)}" style="color:var(--warn-ink)">☠ ${esc(shortName(x.name))} is likely destroyed by now (${Math.round(x.p * 100)}%): it takes no further part</div>`).join('')}</div>`).join('')}</div>`;
   const dv = pm.out.win - pm.base.win;
   return `<div class="small" id="board-playout" data-state="done" data-win="${pm.out.win.toFixed(3)}" data-base="${pm.base.win.toFixed(3)}" data-rounds="${pm.steps.length}" style="margin-top:6px">▶ Played out to the end of the game: you win <b>${pct(pm.out.win)}</b> of games, <b>${pm.vp.me.toFixed(0)} – ${pm.vp.opp.toFixed(0)} VP</b> on average.
     <span class="muted">The forecast of the table as it stands says ${pct(pm.base.win)} (${pm.baseVp.me.toFixed(0)} – ${pm.baseVp.opp.toFixed(0)} VP)${Math.abs(dv) >= 0.1 ? `: the two disagree by ${Math.round(Math.abs(dv) * 100)} points, so treat both as rough` : ''}.</span>
     <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" data-action="board-playout-plan" id="board-playout-plan">🗺 See it on the board, turn by turn</button>
       <button class="chip" data-action="board-playout-log" id="board-playout-log-btn" aria-expanded="${open}">${open ? 'Hide' : 'Show'} who did what</button>
       <button class="chip" data-action="board-playout" id="board-playout-again">↻ Again</button></div>
-    <table class="tiny" id="board-playout-rounds" style="margin-top:8px;border-collapse:collapse;width:100%"><thead><tr class="muted" style="text-align:left"><th style="font-weight:400;padding:2px 8px 2px 0">After round</th><th style="font-weight:400;padding:2px 8px">Score, you – them</th><th style="font-weight:400;padding:2px 8px">You are ahead</th><th style="font-weight:400;padding:2px 8px">Units left</th><th style="font-weight:400;padding:2px 0 2px 8px">Usual forecast</th></tr></thead><tbody>
-      ${pm.rounds.map((x, i) => { const bs = pm.baseRounds[i]; return `<tr data-round="${x.round}" data-me="${x.me.toFixed(1)}" data-opp="${x.opp.toFixed(1)}" data-ahead="${(x.ahead ?? 0).toFixed(3)}" style="border-top:1px solid var(--line, #ddd)"><td style="padding:3px 8px 3px 0"><b>${x.round}</b></td><td style="padding:3px 8px"><b>${x.me.toFixed(0)} – ${x.opp.toFixed(0)}</b></td><td style="padding:3px 8px">${x.ahead == null ? '' : `${pct(x.ahead)} of games`}</td><td style="padding:3px 8px">${x.left.me == null ? '' : `${x.left.me.toFixed(1)} – ${x.left.opp.toFixed(1)}`}</td><td class="muted" style="padding:3px 0 3px 8px">${bs.me.toFixed(0)} – ${bs.opp.toFixed(0)}${bs.ahead == null ? '' : ` · ${pct(bs.ahead)}`}</td></tr>`; }).join('')}
+    <table class="tiny" id="board-playout-rounds" style="margin-top:8px;border-collapse:collapse;width:100%"><thead><tr class="muted" style="text-align:left"><th style="font-weight:400;padding:2px 8px 2px 0">After the turn of</th><th style="font-weight:400;padding:2px 8px">Score, you – them</th><th style="font-weight:400;padding:2px 8px">You are ahead</th><th style="font-weight:400;padding:2px 8px">Units left</th><th style="font-weight:400;padding:2px 0 2px 8px">Usual forecast</th></tr></thead><tbody>
+      ${pm.rounds.map((x) => { const bs = pm.baseRounds.find(y => y.round === x.round && y.half === x.half); return `<tr data-round="${x.round}" data-half="${x.half}" data-mover="${x.mover}" data-me="${x.me.toFixed(1)}" data-opp="${x.opp.toFixed(1)}" data-ahead="${(x.ahead ?? 0).toFixed(3)}" style="border-top:1px solid var(--line, #ddd)${x.half === 0 ? '' : ';border-top-style:dotted'}"><td style="padding:3px 8px 3px 0"><b>${x.half === 0 ? `Round ${x.round}` : '<span style="visibility:hidden">Round 0</span>'}</b> · <b style="color:var(--side-${x.mover.toLowerCase()}-ink)">${x.mover}</b></td><td style="padding:3px 8px"><b>${x.me.toFixed(0)} – ${x.opp.toFixed(0)}</b></td><td style="padding:3px 8px">${x.ahead == null ? '' : `${pct(x.ahead)} of games`}</td><td style="padding:3px 8px">${x.left.me == null ? '' : `${x.left.me.toFixed(1)} – ${x.left.opp.toFixed(1)}`}</td><td class="muted" style="padding:3px 0 3px 8px">${bs ? `${bs.me.toFixed(0)} – ${bs.opp.toFixed(0)}${bs.ahead == null ? '' : ` · ${pct(bs.ahead)}`}` : ''}</td></tr>`; }).join('')}
     </tbody></table>
-    <div class="tiny muted" style="margin-top:4px">Averages over the 1,500 games, at the end of each battle round (the forecast scores by round, not by player turn). Round 5 includes the end-of-battle points.</div>${logHtml}
-    <div class="tiny muted" style="margin-top:6px" id="board-playout-how">Here ${what}; the mission forecast then scores that game 1,500 times (dice, cards, units destroyed). The moves follow one simple rule: nobody plans ahead, a move is a straight line, nobody Advances, units destroyed on the way do not change where the others walk, and cards count for this round only.</div></div>`;
+    <div class="tiny muted" style="margin-top:4px">Averages over the 1,500 games after each player turn (A and B as on the army lists). The last row is the end of the battle and includes the end-of-battle points.</div>${logHtml}
+    <div class="tiny muted" style="margin-top:6px" id="board-playout-how">Here ${what}; the mission forecast then scores that game 1,500 times (dice, cards, units destroyed). The moves follow one simple rule: nobody plans ahead. Vehicles and monsters go round dense terrain; a unit with nothing to shoot or charge Advances; reserves come on from round 2 and units get out of their transports; a unit that is more likely destroyed than not takes no further part; nobody stands on anybody else. Cards count for this round only.</div></div>`;
+}
+// ---- stratagems in the odds (1.149.0): for the targets of "Your turn", what each attacker's stratagems add to
+// its attack (app.js stratOdds: the same matchup with the stratagem switched on). stratMemo.key = nextMemo.key.
+let stratMemo = { key: null, state: 'idle' };
+function weighStrats(key, v) {
+  if (stratMemo.key === key || !ctx.stratOdds) return;
+  const me = v.me, jobs = [];
+  for (const k of v.my.kills.slice(0, 4)) for (const b of k.by) {
+    const [, ak] = b.key.split(':'), [, dk] = k.key.split(':');
+    if (b.shoot) jobs.push({ key: `${b.key}>${k.key}|shooting`, atkSide: me, atkKey: ak, defKey: dk, phase: 'shooting' });
+    if (b.charge || b.engaged) jobs.push({ key: `${b.key}>${k.key}|fight`, atkSide: me, atkKey: ak, defKey: dk, phase: 'fight' });
+  }
+  stratMemo = { key, state: jobs.length ? 'pending' : 'done', best: {} };
+  if (!jobs.length) return;
+  const start = (fn) => (typeof setTimeout === 'function' ? setTimeout(fn, 900) : fn());
+  start(() => stratMemo.key === key && ctx.stratOdds(jobs).then((res) => {
+    if (stratMemo.key !== key) return;
+    // per target: the stratagem that adds most to one attack on it (a stratagem that adds nothing is not named)
+    const best = {};
+    for (const [jk, r] of Object.entries(res ?? {})) {
+      if (!r.base) continue;
+      const [ad, phase] = jk.split('|'), [atk, def] = ad.split('>');
+      for (const x of r.strats) {
+        const dP = x.pWipe - r.base.pWipe, dW = x.meanWounds - r.base.meanWounds;
+        if (!(dP >= 0.05 || (dW >= 1 && dW >= 0.15 * Math.max(1, r.base.meanWounds)))) continue;
+        const score = dP * 100 + dW;
+        if (!best[def] || score > best[def].score) best[def] = { score, atk, phase, name: x.name, cp: x.cp, label: x.label, p0: r.base.pWipe, p1: x.pWipe, w0: r.base.meanWounds, w1: x.meanWounds, W: r.base.totalWounds };
+      }
+    }
+    stratMemo = { key, state: 'done', best, n: jobs.length };
+    console.log(`[board] stratagems for my targets: ${jobs.length} attacks looked at, a stratagem worth using on ${Object.keys(best).length} target(s) (${Object.entries(best).map(([d, x]) => `${x.name} ${Math.round(x.p0 * 100)}% -> ${Math.round(x.p1 * 100)}%`).join('; ') || 'none'})`);
+    const host = document.getElementById('board-next-host'); if (host && nextMemo.key === key) host.innerHTML = nextTurnHtml();
+  }));
 }
 function nextTurnData(compute = true) {
   const lv = livePlan(), l = currentLayout(), st = ctx.state;
@@ -599,8 +817,15 @@ function nextTurnData(compute = true) {
     mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
   if (my) console.log(`[board] my turn (${me}), battle round ${myRound}, ${theirTurnsLeft} of their turns still to come: ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'reinforce').length} to reinforce one, ${my.units.filter(u => u.job.kind === 'screen').length} to screen, ${my.units.filter(u => u.job.kind === 'arrive').length} in reserves, ${my.warnings.length} stratagems they can answer with, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
+  // (for the play-out: the units that are not on the table - in reserves, or inside a transport that is)
+  const offUnit = (X, cu) => { const u = unitInfo(X, cu.key); if (!u || u.dead) return null; const tk = `${X}:${cu.key}`;
+    return { key: tk, name: cu.name, x: 0, y: 0, models: tokenModels(u, {}), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: cu.points ?? 0, keywords: cu.keywords ?? [], lone: u.flags?.loneOperative || 0, left: u.left, total: u.total, deepStrike: !!u.flags?.deepStrike, flags: u.flags ?? {}, ...kindsOf(cu), ...(inside.has(tk) ? { in: inside.get(tk) } : {}) }; };
+  const offPlay = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
+  base.off = { [me]: offPlay(me), [opp]: offPlay(opp) };
   nextMemo = { key, v, base };
-  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair);
+  if (boardState().sharedIn && res && typeof setTimeout === 'function') setTimeout(takeShared, 0);
+  if (my) weighStrats(key, v);
+  if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair, base);
   return v;
 }
 // ---- a suggestion tapped on a card, shown on the map: the unit ringed, its suggested move as a dashed arrow to
@@ -618,10 +843,10 @@ function hintData() {
     if (!u) return null;
     const k = moveMemo.key === nextMemo.key ? moveMemo.kept?.moves.find(x => x.unit === h.tk) : null;
     const j = u.job;
-    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind !== 'obj', vp: k.addVp }
+    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind !== 'obj', vp: k.addVp, via: k.via ?? null }
       : j.x != null && j.dist > 0.05 && !u.reserve && !u.embarked ? { tk: h.tk, x: j.x, y: j.y, dist: j.dist, label: j.label, hosted: false, back: j.kind === 'card' || j.kind === 'screen', vp: null } : null;
     const hits = u.attack ? [{ from: h.tk, to: u.attack.key, pct: pct(u.attack.p), how: u.attack.how }] : [];
-    const bits = [move ? (k?.kind === 'back' ? `pull back ${fmtIn(move.dist)} towards your home` : move.back ? `move ${fmtIn(move.dist)}: ${move.label}` : `move ${fmtIn(move.dist)} ${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
+    const bits = [move ? (k?.kind === 'back' ? `pull back ${fmtIn(move.dist)} towards your home` : move.back ? `move ${fmtIn(move.dist)}: ${move.label}` : `move ${fmtIn(move.dist)} ${move.via?.length ? 'round the terrain in its way ' : ''}${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
       u.attack ? `${u.attack.how} ${full(u.attack.key)} (${pct(u.attack.p)} destroyed)` : ''].filter(Boolean);
     return { units: [h.tk], move, hits, text: `${full(h.tk)}: ${bits.join('; then ') || 'nothing suggested'}` };
   }
@@ -663,7 +888,10 @@ function hintSvg() {
     const t = toks.get(hd.move.tk);
     if (t) {
       out.push(`<g data-hint="ghost" transform="translate(${f2(hd.move.x)},${f2(hd.move.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', HINT.move, 0.16, m.rot)).join('')}</g>`);
-      out.push(arrow(t.x, t.y, hd.move.x, hd.move.y, HINT.move, true, fmtIn(hd.move.dist), 'move'));
+      // (a unit that goes round dense terrain: by the corners of its path, the arrow on the last leg)
+      const legs = [[t.x, t.y], ...(hd.move.via ?? []), [hd.move.x, hd.move.y]];
+      for (let i = 1; i < legs.length - 1; i++) out.push(`<line data-hint="via" x1="${f2(legs[i - 1][0])}" y1="${f2(legs[i - 1][1])}" x2="${f2(legs[i][0])}" y2="${f2(legs[i][1])}" stroke="${HINT.move}" stroke-width="0.45" stroke-linecap="round" stroke-dasharray="1 0.7"/>`);
+      out.push(arrow(legs.at(-2)[0], legs.at(-2)[1], hd.move.x, hd.move.y, HINT.move, true, fmtIn(hd.move.dist), 'move'));
     }
   }
   for (const h of hd.hits) {
@@ -771,13 +999,71 @@ function currentAdvice() {
   const kept = livePlan()?.advice;
   return kept ? { ...kept, state: 'done', key: kept.sig === sigOf(nextMemo.key ?? '') ? nextMemo.key : null } : null;
 }
+/**
+ * The prompt through the device's share sheet (1.150.0): one tap, pick Claude, send. It is also put on the
+ * clipboard, for a share sheet that drops long text. The answer comes back by itself when the app is opened
+ * again (answerOnReturn) or, on an installed Android app, by sharing it here from Claude (boardSharedText).
+ */
+async function sharePrompt() {
+  const b = boardState(), req = adviseRequest();
+  if (!req || !navigator.share) return copyPrompt();
+  const text = promptText(req);
+  b.promptCopy = { chars: text.length, ok: false, text: null, shared: false };
+  try { await navigator.clipboard.writeText(text); b.promptCopy.ok = true; } catch { /* the share sheet carries it */ }
+  b.pasteOpen = true; b.awaiting = { since: Date.now(), prompt: text.slice(0, 200) };
+  refreshBoard();
+  try { await navigator.share({ text }); b.promptCopy.shared = true; console.log(`[board] prompt for Claude: ${text.length} characters, shared`); }
+  catch (err) { console.log(`[board] prompt for Claude: share sheet closed (${err?.name ?? err})${b.promptCopy.ok ? '; it is on the clipboard' : ''}`); if (!b.promptCopy.ok) b.promptCopy.text = text; }
+  refreshBoard();
+}
+/** Does this text read like Claude's answer (and not the prompt that was sent, or something else on the clipboard)? */
+function looksLikeAnswer(t, b) {
+  // (as it will be shown: Claude's markdown taken off, so **ACTIONS** reads as ACTIONS)
+  const text = tidyAnswer(String(t ?? '')).trim();
+  if (text.length < 80 || text.length > 20000) return false;
+  if (b.awaiting?.prompt && text.startsWith(b.awaiting.prompt.slice(0, 60))) return false;
+  return /(^|\n)\s*ACTIONS\s*(\n|$)/.test(text) && /(^|\n)\s*(MOVE|ATTACK|HOLD)\s*\|/.test(text);
+}
+/** Back in the app with a prompt out: if the answer is on the clipboard, show the plan without another tap. */
+async function answerOnReturn() {
+  const b = boardState();
+  if (!b.pasteOpen || !b.awaiting || !livePlan() || document.visibilityState !== 'visible') return;
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!looksLikeAnswer(t, b)) return;
+    console.log('[board] Claude\'s answer found on the clipboard on the way back: shown');
+    b.pasteDraft = t; b.awaiting = null;
+    pasteAnswer(t);
+  } catch { /* no permission to read the clipboard without a tap: the paste button is there */ }
+}
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { answerOnReturn(); });
+/** Text shared to the app (manifest share_target; app.js reads the address): Claude's answer goes onto the live table. */
+export function boardSharedText(text) {
+  const b = boardState();
+  if (!looksLikeAnswer(text, { awaiting: null })) { console.log('[board] text shared to the app does not read like a plan (no ACTIONS lines): kept in the paste box'); b.pasteDraft = String(text ?? ''); b.pasteOpen = true; return false; }
+  b.pasteDraft = text; b.sharedIn = text;
+  console.log(`[board] a plan was shared to the app: ${text.length} characters`);
+  return true;
+}
+/** The Board opens on its live table for a plan that was shared in; the plan is shown once the turn cards are worked out (takeShared). */
+export function boardTakeShared() {
+  const b = boardState();
+  if (!b.sharedIn) return false;
+  return !!livePlan() || openLive();
+}
+function takeShared() {
+  const b = boardState();
+  if (!b.sharedIn || !livePlan() || !nextMemo.v?.res) return;
+  const t = b.sharedIn; b.sharedIn = null;
+  pasteAnswer(t);
+}
 async function copyPrompt() {
   const b = boardState(), req = adviseRequest();
   if (!req) return;
   const text = promptText(req);
   b.promptCopy = { chars: text.length, ok: false, text: null };
   try { await navigator.clipboard.writeText(text); b.promptCopy.ok = true; } catch { b.promptCopy.text = text; }   // no clipboard: the prompt is shown, to select and copy
-  b.pasteOpen = true;
+  b.pasteOpen = true; b.awaiting = { since: Date.now(), prompt: text.slice(0, 200) };
   console.log(`[board] prompt for Claude: ${text.length} characters, ${b.promptCopy.ok ? 'copied' : 'shown (the clipboard is not available)'}`);
   refreshBoard();
   if (!b.promptCopy.ok) document.getElementById('board-advise-prompt')?.select();
@@ -915,6 +1201,7 @@ function adviceHtml() {
   const what = 'Both army lists and the units on this table are sent to Anthropic’s Claude through this app’s server, which writes the plan. This app’s server keeps none of it; Anthropic handles it under its API terms. It takes about half a minute.';
   const ask = (label, primary = true) => (api ? `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise" id="board-advise">${label}</button>` : '');
   const copy = (label, primary = !api) => `<button class="btn ${primary ? 'primary' : 'ghost'}" data-action="board-advise-copy" id="board-advise-copy">${label}</button>`;
+  const share = typeof navigator !== 'undefined' && navigator.share ? `<button class="btn ghost" data-action="board-advise-share" id="board-advise-share" title="Send the prompt to the Claude app through the share sheet">⇪ Send to Claude</button>` : '';
   const pc = b.promptCopy;
   // copied (or shown): where to paste it, and the box for the answer
   const pasteBox = b.pasteOpen ? `<div class="card" id="board-advise-pastebox" style="margin-top:6px;padding:10px">
@@ -933,7 +1220,7 @@ function adviceHtml() {
       <div class="tiny ${stale ? '' : 'muted'}" id="board-advise-note" style="margin-top:4px${stale ? ';color:var(--warn-ink)' : ''}">${stale ? '⚠ The table has changed since this plan was written.' : `${a.pasted ? 'Pasted in' : 'Written'} for round ${a.round}, ${esc(a.turn)}’s turn.`}${a.truncated ? ' The answer was cut short.' : ''} A suggestion from an AI model reading the cards above: check it against the table.</div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${copy(stale ? '📋 Copy a new prompt for this table' : '📋 Copy the prompt again', !api && stale)}${ask(stale ? 'Ask again for this table' : 'Ask again', stale)}<button class="btn ghost" data-action="board-advise-clear" id="board-advise-clear">Clear</button></div>${pasteBox}`;
   else if (a?.state === 'error') body = `<div class="small" id="board-advise-error" style="color:var(--warn-ink)">No plan: ${esc(a.error)}</div><div class="row" style="gap:6px;margin-top:6px">${ask('Try again')}${copy('📋 Copy the prompt instead', false)}</div>${pasteBox}`;
-  else body = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">${copy('📋 Copy prompt for Claude')}${ask('✨ Ask Claude directly', false)}</div>
+  else body = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">${copy('📋 Copy prompt for Claude')}${share}${ask('✨ Ask Claude directly', false)}</div>
       <div class="tiny muted" style="margin-top:4px" id="board-advise-help">Copies a prompt with the cards above and both armies’ stratagem and ability text. Paste it into Claude (claude.ai or the Claude app, with your own plan), then paste its answer back here to keep the plan with the table.${api ? ' Ask Claude directly sends it through this app’s server instead; you are asked first.' : ''}</div>${pasteBox}`;
   return `<div class="lab tiny muted" style="margin-top:10px">Plan from Claude</div><div id="board-advise-box" data-state="${a?.state ?? 'idle'}" data-api="${api ? 1 : 0}">${body}</div>`;
 }
@@ -958,8 +1245,8 @@ function myTurnHtml(d) {
   const sgn = (n, d = 0) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
   const movesLine = mv.state === 'pending' ? `<div class="small muted" id="board-my-moves" data-state="pending">⏳ Weighing ${mv.n} move${mv.n === 1 ? '' : 's'} with the forecast…</div>`
     : mv.state !== 'done' ? ''
-      : mv.kept.moves.length ? `<div class="small" id="board-my-moves" data-state="done" data-kept="${mv.kept.moves.length}" data-win="${mv.kept.win.toFixed(3)}" data-base="${mv.base.win.toFixed(3)}">📈 Forecast: with ${mv.kept.moves.length === 1 ? 'this move' : `these ${mv.kept.moves.length} moves`} you win <b>${pct(mv.kept.win)}</b> of games instead of ${pct(mv.base.win)} (<b>${sgn(mv.kept.vp - mv.base.vp)} VP</b> of margin). The table as it stands counts for this battle round and the next; later rounds are forecast as on the Mission tab.</div>`
-        : `<div class="small muted" id="board-my-moves" data-state="done" data-kept="0">📈 Forecast: none of the ${mv.n} move${mv.n === 1 ? '' : 's'} tried beats standing still by ${MOVE_MIN_VP} VP or more (you win ${pct(mv.base?.win ?? 0)} as it stands).</div>`;
+      : mv.kept.moves.length ? `<div class="small" id="board-my-moves" data-state="done" data-kept="${mv.kept.moves.length}" data-win="${mv.kept.win.toFixed(3)}" data-base="${mv.base.win.toFixed(3)}">📈 Forecast: with ${mv.kept.moves.length === 1 ? 'this move' : `these ${mv.kept.moves.length} moves`} you win <b>${pct(mv.kept.win)}</b> of games instead of ${pct(mv.base.win)} (<b>${sgn(mv.kept.vp - mv.base.vp)} VP</b> of margin). The table as it stands counts for this battle round and the next${mv.reply ? ', with the other player’s likely reply to each move played in' : ''}; later rounds are forecast as on the Mission tab.</div>`
+        : `<div class="small muted" id="board-my-moves" data-state="done" data-kept="0">📈 Forecast: none of the ${mv.n} move${mv.n === 1 ? '' : 's'} tried beats standing still by ${MOVE_MIN_VP} VP or more${mv.reply ? ', once the other player has replied' : ''} (you win ${pct(mv.base?.win ?? 0)} as it stands).</div>`;
   // units the forecast moves come first
   const ordered = [...m.units].sort((x, y) => (keptOf.get(y.key)?.addVp ?? -1) - (keptOf.get(x.key)?.addVp ?? -1));
   const all = !!b.myAll, busy = ordered.filter(u => u.job.kind !== 'none' || u.attack || u.risk >= 0.25 || keptOf.has(u.key)), shown = all ? ordered : busy.slice(0, 8);
@@ -985,7 +1272,8 @@ function myTurnHtml(d) {
       <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${extra}${fNote}${u.risk >= 0.25 && !(k && k.riskThere != null) ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
   }).join('');
   const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj tap${boardState().hint?.kind === 'my-kill' && boardState().hint.tk === k.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-kill" data-tk="${esc(k.key)}" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
-      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))}${x.reserve ? ' ⤓' : ''} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div>
+      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))}${x.reserve ? ' ⤓' : ''} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div>${(() => { const sx = stratMemo.key === nextMemo.key && stratMemo.state === 'done' ? stratMemo.best[k.key] : null; if (!sx) return ''; const cpNow = d.g.cp?.[d.me] ?? 0; const full = (tk) => { const [s2, k2] = tk.split(':'); return st.armies[s2]?.units.find(u => u.key === k2)?.name ?? tk; };
+        return `<div class="tiny" data-strat="${esc(sx.name)}" data-p0="${sx.p0.toFixed(3)}" data-p1="${sx.p1.toFixed(3)}" style="color:#2e7d4f">✚ <b>${esc(sx.name)}</b> (${sx.cp} CP${d.g.started && cpNow < sx.cp ? `, you have ${cpNow}` : ''}) on ${esc(shortName(full(sx.atk)))} when it ${sx.phase === 'fight' ? 'fights' : 'shoots'}: ${sx.p1 - sx.p0 >= 0.05 ? `${pct(sx.p1)} destroyed on its own instead of ${pct(sx.p0)}` : `${sx.w1.toFixed(1)} wounds on average instead of ${sx.w0.toFixed(1)} (of ${Math.round(sx.W)})`}</div>`; })()}<div style="display:none"></div>
       ${k.why.length ? `<div class="tiny" data-why="${k.why.length}">Worth more than its points: ${esc(k.why.join('; '))}</div>` : ''}
       ${!k.isHalf && k.shockFail > 0 && k.half - k.p >= 0.15 ? `<div class="tiny muted" data-half="${k.half.toFixed(3)}">${pct(k.half)} it is left at half-strength or less: a battle-shock roll on ${k.ld}+ in their Command phase (fails ${pct(k.shockFail)}: no OC)</div>` : ''}</div>`).join('');
   const warnHtml = m.warnings.length ? `<div class="lab tiny muted" style="margin-top:10px">They can answer with${d.g.started ? ` · they have ${d.g.cp?.[d.opp] ?? 0} CP` : ''}</div><div id="board-my-warnings">${m.warnings.map(w => `<div class="tiny" data-warn="${w.kind}">• ${esc(w.text)}</div>`).join('')}</div>` : '';
@@ -999,7 +1287,7 @@ function myTurnHtml(d) {
     ${warnHtml}
     <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
     ${adviceHtml()}
-    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress and the one after it, the rounds after that are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Also weighed: the least exposed place for a unit at risk (↔, staying on its objective) and the place a card of yours is scored from (★). Each unit gets one action: where it goes first (keep an objective with the OC it needs, take one, ＋ add OC where they can take one from you next turn, ⛨ shut their reserves out, ⤓ arrive), then its target from where that leaves it. A unit on an objective shoots from it and only charges what stands next to it; a unit locked in combat can only Fall Back to move, and then does not shoot or charge; a unit doing an action does neither. Targets: worth in victory points - what the unit holds, what it can take from you or score for them next turn (their cards), your own cards, and its points for the turns of theirs still to come (none in the last turn). Shooting counts the weapons that reach, cover, and a line of sight after the move (straight moves: check it on the table). Their army’s own stratagems and terrain in the way of a move are not counted.</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress and the one after it, the rounds after that are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Also weighed: the least exposed place for a unit at risk (↔, staying on its objective) and the place a card of yours is scored from (★). Each unit gets one action: where it goes first (keep an objective with the OC it needs, take one, ＋ add OC where they can take one from you next turn, ⛨ shut their reserves out, ⤓ arrive), then its target from where that leaves it. A unit on an objective shoots from it and only charges what stands next to it; a unit locked in combat can only Fall Back to move, and then does not shoot or charge; a unit doing an action does neither. Targets: worth in victory points - what the unit holds, what it can take from you or score for them next turn (their cards), your own cards, and its points for the turns of theirs still to come (none in the last turn). Shooting counts the weapons that reach, cover, and a line of sight after the move (straight moves: check it on the table). A vehicle, monster, bike or cavalry unit goes round dense terrain; climbing is not counted. Stratagems are not in the odds: where one of yours adds to an attack it is named under the target.</div>
   </div>`;
 }
 let nextTimer = null;
@@ -1011,7 +1299,8 @@ function nextTurnHtml() {
   const mine = d?.my && /data-state="(ready|updating)"/.test(theirs) ? myTurnHtml({ ...d, g: gameNow() }) : '';
   // the card of the turn that is on comes first
   const g = gameNow(), me = d?.me ?? 'A';
-  return g.started && g.turn !== me ? theirs + mine : mine + theirs;
+  // (first what changed on the table this turn, while the positions are not confirmed)
+  return updateListHtml() + (g.started && g.turn !== me ? theirs + mine : mine + theirs) + gameLogHtml();
 }
 function theirTurnHtml() {
   let d = nextTurnData(false);
@@ -1369,6 +1658,7 @@ function splitNote() {
     : `⚠ The deployment differs between “${ctx.esc(f.name)}” and “${ctx.esc(s.name)}”, but you deploy before the roll-off for the first turn. <button class="btn ghost" data-action="board-plan-sync-deploy" id="board-plan-sync">Use this deployment in both</button>`}</div>`;
 }
 
+let lastCorners = null;     // { taps, sw, sh, turn } of the last photo taken in this session
 // one table photo per plan step (the first plan keeps the original keys)
 function photoKey() {
   const root = planRoot(), p = plan();
@@ -2189,6 +2479,8 @@ export function boardView() {
   const b = boardState();
   const esc = ctx.esc;
   if (!st.armies.A || !st.armies.B) return `<p class="hint">Load both armies to plan on the board.</p>`;
+  // (a plan shared to the app is waiting: it belongs on the live table, opened as soon as the Board can)
+  if (b.sharedIn && !livePlan()) { try { openLive(); } catch { /* not ready yet: the next draw tries again */ } }
   if (triMode()) return triView();
   const l = currentLayout();
   const ms = missionsFor(dispOf('A'), dispOf('B'));
@@ -2220,7 +2512,7 @@ export function boardView() {
       ${wideNow ? '' : stepsRow + trayHtml}
       ${wideNow ? '' : `<div id="board-treemap-host">${treeMapHtml()}</div>`}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host" style="margin-top:8px">${liveBarHtml()}${updateCardHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host" style="margin-top:8px">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px;${wideNow ? '' : 'margin-top:8px'}">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or use ± to zoom · drag empty space to pan</span>
@@ -2289,7 +2581,7 @@ function triView() {
       <div id="board-meas-host">${b.mode === 'meas' ? `<div style="margin-bottom:8px">${measPanel()}</div>` : ''}</div>
       ${di ? drillHtml(di) : ''}
       ${reuse ? `<div class="warnbox" id="board-reuse" style="display:flex;gap:8px;align-items:center"><span class="grow">You planned this layout with this list against <b>${esc(reuse.vs)}</b> (${reuse.n} unit positions).</span><button class="btn primary" data-action="board-reuse">Use my deployment</button></div>` : ''}
-      <div id="board-live-host">${liveBarHtml()}${planBarHtml()}${hintBarHtml()}</div>
+      <div id="board-live-host">${liveBarHtml()}${updateCardHtml()}${planBarHtml()}${hintBarHtml()}</div>
       <div id="board-models-host">${modelsBar()}</div>
       <div class="board-wrap card" id="board-host" style="padding:4px">${boardSvg()}</div>
       <div class="row tiny muted" style="margin-top:4px;gap:6px"><span class="grow">Pinch or ± to zoom · drag to pan · tap a unit here or in its list</span>
@@ -2754,7 +3046,7 @@ export function refreshBoard() {
   const mb = document.getElementById('board-models-host');
   if (mb) mb.innerHTML = modelsBar();
   const lb = document.getElementById('board-live-host');
-  if (lb) lb.innerHTML = liveBarHtml() + planBarHtml() + hintBarHtml();
+  if (lb) lb.innerHTML = liveBarHtml() + updateCardHtml() + planBarHtml() + hintBarHtml();
   const nx = document.getElementById('board-next-host');
   if (nx) nx.innerHTML = nextTurnHtml();
   const tri = document.getElementById('board-tri');
@@ -2974,6 +3266,16 @@ function wireBoard() {
       if (!g.moved && !g.obj) { selectToken(g.tk); if (b.modelsOf && b.modelsOf !== b.sel) b.modelsOf = null; }
       if (g.obj && g.moved) { scoutToTurn1(g.tk, g.from, g.obj); console.log(`[board] scout move ${g.tk} -> ${g.obj.x.toFixed(1)},${g.obj.y.toFixed(1)}`); }
       if (g.obj && !g.moved) { b.sel = g.tk; b.sel2 = null; }
+      persistBoard();
+      refreshBoard();
+    } else if (g.kind === 'pan' && !g.moved && b.placing && livePlan() && stepTokens()[b.placing] && !stepTokens()[b.placing].in) {
+      // "place by tapping": the unit named in the update card goes where the map was tapped, then the next one
+      const p = toBoard(svg, ev.clientX, ev.clientY), pos = stepTokens()[b.placing], tk = b.placing;
+      pos.x = Math.max(0, Math.min(BOARD.w, p.x)); pos.y = Math.max(0, Math.min(BOARD.h, p.y));
+      const lv = livePlan(); (lv.seen ??= {})[tk] = 'same';
+      const rest = updateRows()?.todo ?? [];
+      b.placing = rest[0]?.tk ?? null; b.sel = b.placing; b.sel2 = null;
+      console.log(`[board] placed by tapping: ${tk} -> ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}; next ${b.placing ?? '-'}`);
       persistBoard();
       refreshBoard();
     } else if (g.kind === 'pan' && !g.moved) {
@@ -3468,6 +3770,22 @@ export function boardAction(action, el) {
     case 'board-hint-clear': b.hint = null; refreshBoard(); return null;
     case 'board-next-toggle': b.nextOpen = b.nextOpen === false; refreshBoard(); return null;
     case 'board-next-all': b.nextAll = !b.nextAll; refreshBoard(); return null;
+    case 'board-upd-toggle': b.updOpen = !(b.updOpen ?? !liveFresh(livePlan(), gameNow())); refreshBoard(); return null;
+    case 'board-upd-loss': b.updLoss = !b.updLoss; refreshBoard(); return null;
+    case 'board-upd-place': b.placing = el.dataset.tk || null; b.sel = b.placing; b.sel2 = null; if (b.placing) console.log(`[board] place by tapping: ${b.placing}`); refreshBoard(); return null;
+    case 'board-upd-same': { const lv = livePlan(); if (!lv) return null; (lv.seen ??= {})[el.dataset.tk] = 'same'; if (b.placing === el.dataset.tk) { b.placing = (updateRows()?.todo ?? [])[0]?.tk ?? null; b.sel = b.placing; } persistBoard(); refreshBoard(); return null; }
+    case 'board-upd-rest': { const lv = livePlan(); if (!lv) return null; for (const r of updateRows()?.todo ?? []) (lv.seen ??= {})[r.tk] = 'same'; b.placing = null; persistBoard(); refreshBoard(); return null; }
+    case 'board-pick': if (el.dataset.tk) { b.sel = el.dataset.tk; b.sel2 = null; refreshBoard(); } return null;
+    case 'board-advise-share': sharePrompt(); return null;
+    case 'board-log-toggle': b.logOpen = !b.logOpen; refreshBoard(); return null;
+    case 'board-log-optin': { const st2 = logStore(); st2.optIn = !st2.optIn; logSave(st2); console.log(`[board] prediction record: sending finished games ${st2.optIn ? 'on' : 'off'}`); refreshBoard(); return null; }
+    case 'board-log-clear': { const st2 = logStore(); logSave({ optIn: st2.optIn, current: null, done: [] }); console.log('[board] prediction record deleted'); refreshBoard(); return null; }
+    case 'board-log-export': {
+      const st2 = logStore(), blob = new Blob([JSON.stringify({ format: 'combat-calc-gamelog-file', v: 1, current: st2.current, done: st2.done }, null, 1)], { type: 'application/json' });
+      const a2 = document.createElement('a'); a2.href = URL.createObjectURL(blob); a2.download = 'combat-calc-prediction-record.json'; document.body.appendChild(a2); a2.click(); a2.remove();
+      setTimeout(() => URL.revokeObjectURL(a2.href), 5000);
+      return null;
+    }
     case 'board-playout': runPlayOut(); return null;
     case 'board-playout-log': b.playLog = !b.playLog; refreshBoard(); return null;
     case 'board-playout-plan': if (playOutToPlan()) { b.sel = b.sel2 = null; return 'render'; } return null;
@@ -3668,7 +3986,9 @@ export function boardChange(el) {
     const file = el.files?.[0];
     const key = photoKey();
     el.value = '';
-    if (file && key) photoTask(() => startPhoto(file, key, BOARD, { diagram: cornerDiagram }), 'import');
+    // (on the live table the corners start where they were on the last photo: the phone seldom moves between turns)
+    const init = livePlan() ? lastCorners : null;
+    if (file && key) photoTask(async () => { const ok = await startPhoto(file, key, BOARD, { diagram: cornerDiagram, init }); const info = ok ? photoInfo(key) : null; if (info) lastCorners = { taps: info.taps, sw: info.sw, sh: info.sh, turn: info.turn }; return ok; }, 'import');
     return false;
   }
   if (el.dataset.input === 'board-branch-label' || el.dataset.input === 'board-branch-p') {
@@ -3887,7 +4207,7 @@ export function boardContext() {
 // for tests
 export function _boardDebug() {
   return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, secured: lv.secured ?? {}, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
-    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, play: playMemo.key === nextMemo.key ? playMemo : { state: 'idle' }, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, plan: planData(), pasteError: boardState().pasteError ?? null, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
+    next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, play: playMemo.key === nextMemo.key ? playMemo : { state: 'idle' }, log: logStore(), strats: stratMemo.key === nextMemo.key ? stratMemo : { state: 'idle' }, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, plan: planData(), pasteError: boardState().pasteError ?? null, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), half: halfOn(), first: firstOf(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,
     arrive: (() => { const a = arriveInfo(boardState()); return a ? { for: a.X, round: a.round, off: a.off.map(u => u.name), deepStrike: a.dsOff.map(u => u.name), zones: a.zones, zone: a.zone } : null; })() };

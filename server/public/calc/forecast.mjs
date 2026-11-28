@@ -724,12 +724,14 @@ function simulateGame(P, rnd) {
       }
       prev = cur;
       if (t === 1) { S.A.unitsLeft[r - 1] = ground('A'); S.B.unitsLeft[r - 1] = ground('B'); }
+      // the score and the units left after this player turn (2 per battle round: the first player's, then the other's)
+      for (const Z of ['A', 'B']) { const z = S[Z]; (z.turnVp ??= [])[(r - 1) * 2 + t] = z.primTotal + z.secTotal + (z.pl.battleReady === false ? 0 : RULES.battleReady); (z.turnUnits ??= [])[(r - 1) * 2 + t] = ground(Z); }
     }
   }
   const res = {};
   for (const X of ['A', 'B']) {
     const s = S[X];
-    res[X] = { prim: s.prim, sec: s.sec, primEnd: s.primEnd, primTotal: s.primTotal, secTotal: s.secTotal, total: s.primTotal + s.secTotal + (s.pl.battleReady === false ? 0 : RULES.battleReady), stats: s.stats, first: first === X, unitsLeft: s.unitsLeft, tabled: ground(X) === 0 };
+    res[X] = { prim: s.prim, sec: s.sec, primEnd: s.primEnd, primTotal: s.primTotal, secTotal: s.secTotal, total: s.primTotal + s.secTotal + (s.pl.battleReady === false ? 0 : RULES.battleReady), stats: s.stats, turnVp: s.turnVp ?? [], turnUnits: s.turnUnits ?? [], first: first === X, unitsLeft: s.unitsLeft, tabled: ground(X) === 0 };
   }
   return res;
 }
@@ -832,6 +834,8 @@ export function forecast(P) {
   const mk = () => ({ prim: [0, 0, 0, 0, 0], sec: [0, 0, 0, 0, 0], primEnd: 0, total: 0, sq: 0, primTotal: 0, secTotal: 0, units: [0, 0, 0, 0, 0], tabled: 0, whenFirst: 0, nFirst: 0 });
   const sums = { A: mk(), B: mk() };
   const lead = [0, 0, 0, 0, 0].map(() => ({ A: 0, B: 0, tie: 0 }));
+  // by player turn (index (round - 1) * 2 + 0 | 1): n games that played it, the scores and units left after it, who led
+  const turns = Array.from({ length: 2 * RULES.rounds }, () => ({ n: 0, A: 0, B: 0, uA: 0, uB: 0, leadA: 0, leadB: 0, firstA: 0 }));
   const cards = { A: {}, B: {} };
   let winA = 0, winB = 0, draw = 0, cross = 0, firstWins = 0, firstMargin = 0;
   const split = { A: { n: 0, win: 0 }, B: { n: 0, win: 0 } }; // by who took the first turn
@@ -850,6 +854,14 @@ export function forecast(P) {
         const a = (cards[X][id] ??= { drawn: 0, vp: 0, net: 0, scored: 0, quick: 0 });
         a.drawn += s.drawn; a.vp += s.vp; a.net += s.net ?? 0; a.scored += s.scored; a.quick += s.quick ?? 0;
       }
+    }
+    for (let k = 0; k < turns.length; k++) {
+      const va = g.A.turnVp[k], vb = g.B.turnVp[k];
+      if (va == null || vb == null) continue;
+      const T = turns[k];
+      T.n++; T.A += va; T.B += vb; T.uA += g.A.turnUnits[k] ?? 0; T.uB += g.B.turnUnits[k] ?? 0;
+      if (va > vb) T.leadA++; else if (vb > va) T.leadB++;
+      if (g.A.first) T.firstA++;
     }
     let ca = P.players.A.start?.primary ?? 0, cb = P.players.B.start?.primary ?? 0;
     ca += P.players.A.start?.secondary ?? 0; cb += P.players.B.start?.secondary ?? 0;
@@ -893,6 +905,11 @@ export function forecast(P) {
     // who takes the first turn: the first player's win share and average margin, and A's win chance either way
     firstTurn: { pWin: firstWins / trials, margin: firstMargin / trials, pWinAFirst: split.A.n ? split.A.win / split.A.n : null, pWinASecond: split.B.n ? split.B.win / split.B.n : null },
     lead: lead.map(l => ({ A: l.A / trials, B: l.B / trials, tie: l.tie / trials })),
+    // after each player turn still to play (null: a turn already over when the forecast starts): round, half (0: the
+    // first player's turn, 1: the other's), the average scores and units left, how often each player is ahead, and
+    // how often A is the player who moved in that turn
+    turns: turns.map((T, k) => (T.n ? { round: Math.floor(k / 2) + 1, half: k % 2, A: T.A / T.n, B: T.B / T.n, unitsA: T.uA / T.n, unitsB: T.uB / T.n, leadA: T.leadA / T.n, leadB: T.leadB / T.n,
+      moverA: (k % 2 === 0 ? T.firstA : T.n - T.firstA) / T.n } : null)),
   };
 }
 

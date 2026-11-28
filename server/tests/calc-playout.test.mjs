@@ -39,7 +39,9 @@ test('a turn: the unit on its objective holds, the others walk to objectives tha
   assert.equal(of['A:home'].kind, 'hold'); assert.equal(of['A:home'].dist, 0);
   assert.equal(of['A:mid'].kind, 'advance'); assert.equal(of['A:mid'].label, 'Centre');
   assert.equal(of['A:flank'].label, 'A-side');
-  for (const m of mv) assert.ok(m.dist <= 6 + 1e-9, `${m.unit} moves ${m.dist}`);
+  // nothing to shoot and the objective is out of reach: it Advances (Move 6 + 3)
+  for (const m of mv) assert.ok(m.dist <= 9 + 1e-9, `${m.unit} moves ${m.dist}`);
+  assert.equal(of['A:mid'].adv, true); assert.ok(of['A:mid'].dist > 6);
   assert.ok(of['A:mid'].y > 14 && Math.abs(of['A:mid'].x - 22) < 1e-9, 'straight towards the centre');
 });
 
@@ -98,4 +100,102 @@ test('a unit with a target in charge reach closes with it; one that can only sho
   assert.equal(mv['A:gun'].kind, 'shoot'); assert.equal(mv['A:gun'].label, 'B:t');
   const g0 = P.unitGap(A[1], Bs[0]), g1 = P.unitGap({ ...A[1], x: mv['A:gun'].x, y: mv['A:gun'].y }, Bs[0]);
   assert.ok(g0 > 24 && g1 <= 24 && g1 >= 22 && mv['A:gun'].dist <= 6, `${g0} -> ${g1}`);
+});
+
+const T = await import(new URL('../public/calc/paths.mjs', import.meta.url).href);
+const WALL = { id: 'w', cls: 'feature', cat: 'dense', h: 5, poly: [[14, 29], [30, 29], [30, 31], [14, 31]] };
+const TANK = B.footprint({ shape: 'round', diameter: 100 });
+const tank = (key, x, y, o = {}) => ({ key, name: key, x, y, models: [{ dx: 0, dy: 0, fp: TANK, oc: 3 }], move: 10, ranges: [36], melee: true, oc: 3, points: 150, left: 1, total: 1, keywords: ['VEHICLE'], ...o });
+
+test('paths: infantry walks through dense terrain, a vehicle goes round it by the shorter side', () => {
+  const inf = { ...unit('A:i', 22, 20), keywords: ['INFANTRY'] }, tk = tank('A:t', 26, 20);
+  assert.equal(T.goesRound(inf), false); assert.equal(T.goesRound(tk), true);
+  assert.equal(T.goesRound({ ...tk, keywords: ['VEHICLE', 'FLY'] }), false, 'a unit that can FLY passes over');
+  assert.equal(T.route(inf, 22, 40, [WALL]).direct, true);
+  const rt = T.route(tk, 26, 40, [WALL]);
+  assert.equal(rt.direct, false); assert.equal(rt.blocked, false);
+  assert.ok(rt.len > 20.5 && rt.len < 30, `round the wall: ${rt.len}`);
+  assert.ok(rt.pts.some(q => q[0] > 30), 'by the right-hand end, the nearer one');
+  for (let d = 0; d <= rt.len; d += 0.5) { const q = T.along(rt.pts, d); assert.ok(!(q.x > 14 - 1.5 && q.x < 30 + 1.5 && q.y > 29 - 1.5 && q.y < 31 + 1.5), `through the wall at ${d}`); }
+  // light terrain, a low wall and an area are no obstacle
+  for (const p of [{ ...WALL, cat: 'light' }, { ...WALL, h: 2 }, { ...WALL, cls: 'area' }]) assert.equal(T.route(tk, 26, 40, [p]).direct, true);
+  assert.ok(Math.abs(T.detour(tk, 26, 40, [WALL]) - (rt.len - 20)) < 1e-9);
+});
+
+test('the turn cards measure a vehicle\'s move round the terrain in its way', () => {
+  const obj = [{ id: 'c', cls: 'central', side: null, label: 'Centre', x: 26, y: 38, host: [] }];
+  const tk = tank('A:t', 26, 26), foe = [unit('B:x', 22, 57)];
+  const geo = { ...GEO, pieces: [WALL], objectives: obj };
+  const reach = (pieces) => N.objectiveSwing(foe, [tk], obj, pieces, { me: 'B' })[0].movers.map(m => m.via);
+  assert.deepEqual(reach([]), ['move'], 'a straight 10" move gets it in range');
+  assert.deepEqual(reach([WALL]), ['advance'], 'round the wall is further than its Move');
+  const far = tank('A:t', 26, 26, { move: 16 });
+  const sw = N.objectiveSwing(foe, [far], obj, [WALL], { me: 'B' });
+  const cd = N.moveCandidates([far], sw, [WALL]);
+  assert.equal(cd.length, 1); assert.ok(cd[0].via?.length >= 1 && cd[0].dist > 10, JSON.stringify(cd[0]));
+  assert.ok(N.objectiveGap({ ...far, x: cd[0].x, y: cd[0].y }, obj[0], [WALL]) <= 0);
+  const mv = P.turnMoves({ me: 'A', mine: [far], theirs: foe, pair: pairOf([far], foe), objs: obj, geo, round: 2, hand: [] })[0];
+  assert.equal(mv.kind, 'take'); assert.ok(mv.y > 31 + 1.9, 'it ends on the far side of the wall');
+});
+
+test('no stacking: two units sent to the same place end beside each other, both still on the objective', () => {
+  const A = [unit('A:a', 20, 22), unit('A:b', 24, 22)], Bs = [unit('B:x', 22, 57)];
+  const objs = [{ id: 'c', cls: 'central', side: null, label: 'Centre', x: 22, y: 30, host: [] }];
+  const res = P.playOut({ A, B: Bs, objs, geo: { ...GEO, objectives: objs }, pair: pairOf(A, Bs), round: 1, turn: 'A', first: 'A', hand: {}, rounds: 3 });
+  for (const st of res.steps) {
+    const all = [...st.A, ...st.B].flatMap(u => u.models.map(m => ({ k: u.key, x: u.x + m.dx, y: u.y + m.dy, r: 32 / 25.4 / 2 })));
+    for (const p of all) for (const q of all) if (p.k !== q.k) assert.ok(Math.hypot(p.x - q.x, p.y - q.y) >= p.r + q.r - 1e-6, `${p.k} is on ${q.k} in round ${st.round}`);
+  }
+  const sp = P.freeSpot(A[0], 24, 22, A[1].models.map(m => ({ x: 24 + m.dx, y: 22 + m.dy, r: 0.63, foe: false })));
+  assert.ok(sp && sp.moved > 0, 'a spot on another unit is moved off it');
+  assert.equal(P.freeSpot(A[0], 10, 40, []).moved, 0);
+});
+
+test('casualties: a unit more likely destroyed than not stops acting, and the log says when', () => {
+  const A = [unit('A:gun', 22, 14, 5, { oc: 0 })], Bs = [unit('B:prey', 22, 34), unit('B:far', 22, 57)];
+  const pair = pairOf(A, Bs, {}); pair['A:gun']['B:prey'] = cell({ shoot: 0.9, sMu: 14, sSd: 2 });
+  const res = P.playOut({ A, B: Bs, objs: OBJS, geo: GEO, pair, round: 1, turn: 'A', first: 'A', hand: {} });
+  assert.equal(res.gone['B:prey'], 1);
+  assert.deepEqual(res.log[0].lost.map(l => l.unit), ['B:prey']); assert.ok(res.log[0].lost[0].p > 0.5);
+  // it takes no further part: no move of its own after that, the other unit of B goes on
+  for (const l of res.log.filter(x => x.side === 'B')) assert.ok(!l.moves.some(m => m.unit === 'B:prey'), `B:prey still acts in round ${l.round}`);
+  assert.ok(res.log.filter(x => x.side === 'B').some(l => l.moves.some(m => m.unit === 'B:far')));
+  // it stays in the steps where it stood (the forecast rolls its own dice for it)
+  assert.equal(at(res.steps[4], 'B:prey').y, 34);
+});
+
+test('reserves come on from round 2: 6" from an edge, more than 8" from the enemy; Deep Strike anywhere', () => {
+  const { A, B: Bs } = armies();
+  const res1 = unit('A:res', 0, 0), deep = { ...unit('A:deep', 0, 0), deepStrike: true };
+  // (an objective out on the flank that nobody walks to: a place to come down on in round 2)
+  const objs = [...OBJS, { id: 'x', cls: 'exp', side: null, label: 'Flank', x: 38, y: 18, host: [] }];
+  const run = (reserves) => P.playOut({ A, B: Bs, objs, geo: { ...GEO, objectives: objs }, pair: pairOf([...A, res1, deep], Bs), round: 1, turn: 'A', first: 'A', hand: {}, reserves });
+  const out = run({ A: [res1, deep], B: [] });
+  assert.ok(!out.steps[0].A.some(u => u.key === 'A:res' || u.key === 'A:deep'), 'nobody arrives in round 1');
+  const arr = out.log.flatMap(l => l.moves.filter(m => m.kind === 'arrive').map(m => ({ ...m, round: l.round })));
+  assert.deepEqual(arr.map(m => m.unit).sort(), ['A:deep', 'A:res']);
+  for (const m of arr) {
+    assert.ok(m.round === 2 || m.round === 3, `arrives in round ${m.round}`);
+    const u = at(out.steps[m.round - 1], m.unit);
+    assert.ok(u, `${m.unit} is on the table from round ${m.round}`);
+    if (m.unit === 'A:res') for (const md of u.models) assert.ok(Math.min(u.x + md.dx, 44 - u.x - md.dx, u.y + md.dy, 60 - u.y - md.dy) <= 6 - 0.6 + 1e-6, 'wholly within 6" of an edge');
+  }
+  const d = arr.find(m => m.unit === 'A:deep'), ud = at(out.steps[d.round - 1], 'A:deep');
+  assert.equal(d.round, 2); assert.ok(objs.some(o => N.objectiveGap(ud, o, []) <= 0), 'Deep Strike comes down on an objective');
+  assert.deepEqual(P.arrival(res1, 'A', { objs: OBJS, geo: GEO }, { A, B: [unit('B:wall', 22, 30, 5)] }, 2, []) !== null, true);
+});
+
+test('a unit in a transport gets out beside it, by round 3 at the latest', () => {
+  const car = tank('A:car', 22, 10, { keywords: ['VEHICLE', 'TRANSPORT'] });
+  const boys = { ...unit('A:boys', 0, 0), in: 'A:car' };
+  const Bs = [unit('B:home', 22, 54)];
+  const res = P.playOut({ A: [car], B: Bs, objs: OBJS, geo: GEO, pair: pairOf([car, boys], Bs), round: 1, turn: 'A', first: 'A', hand: {}, embarked: { A: [boys], B: [] } });
+  const out = res.log.flatMap(l => l.moves.filter(m => m.kind === 'disembark').map(m => ({ ...m, round: l.round })));
+  assert.equal(out.length, 1); assert.ok(out[0].round <= 3); assert.equal(out[0].label, 'A:car');
+  const st = res.steps[out[0].round - 1], u = at(st, 'A:boys'), c = at(st, 'A:car');
+  assert.ok(u && !('in' in u));
+  // (a unit keeps its formation here: it is set down as near the transport as its bases allow, not model by model)
+  assert.ok(Math.min(...u.models.map(m => Math.hypot(u.x + m.dx - c.x, u.y + m.dy - c.y))) - 100 / 25.4 / 2 <= 3 + 1e-6, 'beside the transport');
+  assert.ok(P.unitGap(u, c) >= 0 && Math.hypot(u.x - c.x, u.y - c.y) <= 8, 'not on it, not far from it');
+  assert.ok(res.log.some(l => l.round > out[0].round && l.moves.some(m => m.unit === 'A:boys')), 'then it acts like any unit');
 });

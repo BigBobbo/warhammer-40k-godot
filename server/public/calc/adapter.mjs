@@ -103,7 +103,9 @@ const SLATE_LABEL = { launch: '11th edition launch data', 'pre-launch-provisiona
 export function recordStamp(dcUnit) {
   const src = /@(\d{4}-\d{2}-\d{2})$/.exec(dcUnit?.source ?? '');
   if (src) {
-    const codex = CODEX_OVERLAY_FACTIONS[dcUnit.faction_id]?.codex?.replace(/\s*\(11th edition\)/, '') ?? 'Codex datasheet';
+    // a Warhammer Legends datasheet (data-patches.mjs applyLegendsDatasheets) is not in the codex
+    if (dcUnit.is_legend) return { kind: 'codex', date: src[1], label: 'Warhammer Legends (Wahapedia)' };
+    const codex =CODEX_OVERLAY_FACTIONS[dcUnit.faction_id]?.codex?.replace(/\s*\(11th edition\)/, '') ?? 'Codex datasheet';
     return { kind: 'codex', date: src[1], label: `${codex} (Wahapedia)` };
   }
   const slate = dcUnit?.game_version?.dataslate ?? null;

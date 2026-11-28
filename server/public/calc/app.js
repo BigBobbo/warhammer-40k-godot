@@ -18,7 +18,7 @@ import { chargeOdds, chargeRollNeeded, CHARGE_MAX } from './engine.mjs';
 import { chooseWeapons, families, decisions, adjustCount, overSidearms } from './choose.mjs';
 import { CALC_VERSION } from './version.mjs';
 import { makeBackup, describeBackup, applyBackup, undoRestore, backupFileName, normalizeCode, CODE_RE, UNDO_KEY, LAST_KEY } from './backup.mjs';
-import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, boardListChanged, _boardDebug } from './boardview.mjs';
+import { initBoard, boardView, boardAction, boardChange, afterRender as boardAfterRender, boardSnapshot, boardRestore, boardShareSnap, persistBoardNow, boardListChanged, _boardDebug, boardSharedText, boardTakeShared } from './boardview.mjs';
 import { packShare, unpackShare, shareTitle, SHARE_PREFIX } from './sharelink.mjs';
 import { GAP_TARGETS, gapProfile, gapStats, gapSummary } from './gapfinder.mjs';
 import { printSheetHtml } from './printsheet.mjs';
@@ -1461,8 +1461,8 @@ function defaultScenarioFor(atkArmyObj, defArmyObj, atkCu, defCu, phase, manual 
   return scenarioVs(atkArmyObj, atkCu, { cu: defCu, profile, summary: defenderSummary(profile), defender }, phase);
 }
 /** Default matchup of one unit against a target already built (tinfo: { cu, profile, summary, defender }). */
-function scenarioVs(atkArmyObj, atkCu, tinfo, phase) {
-  const entry = { unitKey: atkCu.key, counts: {}, mods: {} };
+function scenarioVs(atkArmyObj, atkCu, tinfo, phase, ruleOverrides = null) {
+  const entry = { unitKey: atkCu.key, counts: {}, mods: {}, ...(ruleOverrides ? { ruleOverrides } : {}) };
   // the weapon choice is left to the worker (choose.mjs resolveScenario): hundreds of matchups, none on the page's thread
   const { rows, problem } = rowsFor(entry, tinfo, atkArmyObj, phase, { defer: true });
   if (!rows.some(r => r.usable !== false && r.max > 0)) return null;
@@ -1494,6 +1494,54 @@ function pairOdds(jobs) {
       if (ev.data.done) { console.log(`[calc] unit-vs-unit odds: ${Object.keys(res).length} pairs`); resolve(res); } else if (ev.data.result) res[ev.data.key] = ev.data.result;
     };
     pairWorker.postMessage({ id, batch: items, trials: 400 });
+  });
+}
+
+/**
+ * What a stratagem adds to a default matchup (the Board's "Your turn"): for each job { key, atkSide, atkKey, defKey,
+ * phase } the matchup as it is, then once more with each stratagem the attacker can use in that phase switched on.
+ * -> Promise<{ [key]: { base: { pWipe, meanWounds }, strats: [{ id, name, cp, pWipe, meanWounds, label }] } }>
+ * (a stratagem whose effect the calculator does not read - no rule parsed from its text - is not in the list)
+ */
+let stratWorker = null, stratReq = 0;
+function stratOdds(jobs) {
+  return new Promise((resolve) => {
+    const items = [], meta = {};
+    for (const j of jobs) {
+      const A = state.armies[j.atkSide], D = state.armies[other(j.atkSide)];
+      const ac = A?.units.find(u => u.key === j.atkKey), dc = D?.units.find(u => u.key === j.defKey);
+      if (!ac || !dc) continue;
+      const profile = defenderProfile(dc, D);
+      const tinfo = { cu: dc, profile, summary: defenderSummary(profile), defender: buildDefender(profile, enabledRules(profile, { ruleOverrides: {} }), j.phase, {}, lossesOf(armySide(D), dc.key)) };
+      const base = scenarioVs(A, ac, tinfo, j.phase);
+      if (!base) continue;
+      const strats = attackerRules(ac, A).rules.filter(r => r.kind === 'stratagem' && r.phases.includes(j.phase) && (r.option ?? 1) === 1);
+      meta[j.key] = { base: null, strats: [] };
+      items.push({ key: `${j.key}#`, scenario: base });
+      for (const r of strats) {
+        const sc = scenarioVs(A, ac, tinfo, j.phase, { [r.id]: true });
+        if (!sc) continue;
+        meta[j.key].strats.push({ id: r.id, name: String(r.source ?? r.id).replace(/\s*\(\d+CP\)$/, ''), cp: r.cp ?? 1, label: r.label ?? '' });
+        items.push({ key: `${j.key}#${r.id}`, scenario: sc });
+      }
+    }
+    const id = ++stratReq;
+    if (!items.length) { resolve({}); return; }
+    stratWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    const got = {};
+    stratWorker.onmessage = (ev) => {
+      if (ev.data.id !== id) return;
+      if (ev.data.result) got[ev.data.key] = ev.data.result;
+      if (!ev.data.done) return;
+      for (const [k, m] of Object.entries(meta)) {
+        const b = got[`${k}#`];
+        m.base = b ? { pWipe: b.pWipe ?? 0, meanWounds: b.meanWounds ?? 0, totalWounds: b.totalWounds ?? 0 } : null;
+        m.strats = m.strats.map(x => ({ ...x, pWipe: got[`${k}#${x.id}`]?.pWipe ?? null, meanWounds: got[`${k}#${x.id}`]?.meanWounds ?? null })).filter(x => x.pWipe != null);
+      }
+      console.log(`[calc] stratagems in the odds: ${items.length} matchups for ${Object.keys(meta).length} attacks`);
+      resolve(meta);
+    };
+    stratWorker.postMessage({ id, batch: items, trials: 600 });
   });
 }
 
@@ -2903,7 +2951,7 @@ initBoard({
   // the mission set-up is locked while a game is on the tracker
   gameInProgress: () => missionInProgress(), gameRound: () => missionState().game.round, gameScore: () => missionScore(),
   // the Board's live table follows the tracker (round, turn, phase, hands) and reads the unit-vs-unit odds
-  gameNow: () => missionNow(), pairTable: () => pairTable(), moveForecasts: (base, variants) => moveForecasts(base, variants),
+  gameNow: () => missionNow(), pairTable: () => pairTable(), moveForecasts: (base, variants) => moveForecasts(base, variants), stratOdds: (jobs) => stratOdds(jobs),
   // models left (the game on the tracker): the board draws the models that are left and edits the same record
   groupsLeft: (side, cu, round) => groupsLeft(side, cu, round), lossSteppers: (side, cu, opt) => lossSteppers(side, cu, opt),
   // the board's tablet / phone layout follows its own breakpoint (a portrait tablet is under 900 px wide)
@@ -2994,6 +3042,18 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     bar.querySelector('#update-reload').addEventListener('click', () => location.reload());
     console.log('[calc] new version available');
   });
+}
+
+// Text shared to the installed app (manifest share_target: Claude's answer, "Share" in the Claude app): onto the
+// Board's live table, drawn like a pasted plan. The address is cleaned so a reload does not take it again.
+{
+  const q = new URLSearchParams(location.search), shared = [q.get('share_text'), q.get('share_title'), q.get('share_url')].filter(Boolean).join('\n').trim();
+  if (shared) {
+    history.replaceState(null, '', location.pathname);
+    console.log(`[calc] text shared to the app: ${shared.length} characters`);
+    if (state.armies.A && state.armies.B && boardSharedText(shared)) { state.view = 'board'; render(); if (boardTakeShared()) render(); }
+    else if (state.armies.A && state.armies.B) { state.view = 'board'; render(); }
+  }
 }
 
 // test / debugging hook
