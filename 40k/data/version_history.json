@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.152.0",
+      "version": "1.153.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: the play-out is more careful about who is destroyed, and about walking into danger",
       "changes": [
@@ -10,6 +10,25 @@
         "A charge counts only as often as its charge roll comes off, and each unit attacks one target",
         "A unit no longer walks into a place where it is likely to be destroyed next turn, unless the walk takes an objective or it is no safer where it stands; Show who did what says holds back from",
         "On a test table this dropped the units removed along the way from 9 of 14 to 6"
+      ]
+    },
+    {
+      "version": "1.152.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: turn suggestions that follow the rules of the turn and play to the score",
+      "changes": [
+        "Board, Your turn: each unit now gets one action that hangs together: where it goes first, then what it can still attack from there. A unit kept on an objective no longer gets a charge that takes it off it",
+        "A unit locked in combat is no longer told to walk onto an objective: it can only Fall Back there, and the card says it then cannot shoot or charge",
+        "New jobs: ＋ Reinforce an objective they can take from you next turn, ⛨ Screen an objective their reserves can land on, and ⤓ Arrive for your own units in reserves",
+        "Objectives now count a charge onto the units holding them, units arriving from reserves (from battle round 2) and units getting out of a transport; a tied objective keeps your units on it",
+        "🔒 Mark an objective a rule has secured: it stays its player's with nobody in range, and your units on it are freed when nothing can reach it",
+        "Targets are valued in victory points: what the unit holds, what it could take from you or score with their cards next turn, your own cards, and its points only for the turns still to come (none in the last turn). Each target says why it is worth more",
+        "Shooting counts only the weapons that reach, the target's cover, and whether a sight line is found after the move; a charge shows the chance your unit is destroyed when they fight back",
+        "Half-strength: the cards show the chance a unit is left at half-strength and fails its battle-shock roll (no OC), yours and theirs",
+        "Stratagems the other player can answer with, by the CP they have: Fire Overwatch, Heroic Intervention, Counteroffensive, Rapid Ingress; and the ones you can answer with in their turn",
+        "A unit in terrain that would stay Hidden by holding its fire says how much safer that is",
+        "The forecast also weighs the least exposed place for a unit at risk and the place a card is scored from, and backs a move from 2 VP of margin (it was 3)",
+        "Plan from Claude: the prompt now carries unit stats and weapons, army and detachment rules, both missions' scoring, turn order, terrain, objective positions and distances, and the plan can name an Advance, Fall Back, arrival, charge, shot or stratagem, all drawn on the map"
       ]
     },
     {

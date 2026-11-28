@@ -10,9 +10,9 @@ import {
   BOARD, DEPLOYMENTS, OBJECTIVE_RANGE, ENGAGEMENT_RANGE,
   footprint, formation, coherentFormation, coherency, COHERENCY, rotateFormation, unitGap, edgeRadius, layoutsFor, missionsFor, dispositionName, DISPOSITIONS, inPoly, layoutLetter,
 } from './board.mjs';
-import { boardUnit, earlyArrival, transportOf, passengerCheck, abilitiesOf, armyIntel } from './adapter.mjs';
+import { boardUnit, earlyArrival, transportOf, passengerCheck, abilitiesOf, armyIntel, unitIntel } from './adapter.mjs';
 import { advisePayload, payloadSize, promptText, tidyAnswer, parsePlan, resolveActions } from './advise.mjs';
-import { SECONDARIES } from './missions-11e.mjs';
+import { SECONDARIES, PRIMARIES } from './missions-11e.mjs';
 import { sightVerdict, threatTo, chargeReach, canHide, visibleCells, HIDDEN_RANGE, GONE_TO_GROUND } from './sight.mjs';
 import { inRange, ocInRange, planWarnings, arrivalZones, scoutCheck } from './planeval.mjs';
 import { photoFor, photoInfo, startPhoto, adjustPhoto, turnPhoto, removePhoto, photoScaleAt, _photoDebug } from './photoview.mjs';
@@ -581,7 +581,11 @@ function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null, table 
   // only for the table now (the last step), not for an earlier turn looked at
   if (!plan || curIndex() !== last) { moveMemo = { key, state: 'idle' }; return; }
   const me = v.me, opp = v.opp ?? otherSide(me), g = gameNow();
-  const cands = moveCandidates(mine, v.my.swing, pieces, { risk: Object.fromEntries(v.res.threats.map(t => [t.key, t.likely])), home });
+  // (a unit at risk that holds an objective: the least exposed place still in range of it; a card job: where it is scored)
+  const keep = {};
+  for (const u of v.my.units) if (u.job.kind === 'hold') { const o = v.my.swing.find(x => x.id === u.job.obj); if (o) keep[u.key] = o; }
+  const cardMoves = v.my.units.filter(u => u.job.kind === 'card' && u.job.x != null).map(u => ({ unit: u.key, name: u.name, label: u.job.label, x: u.job.x, y: u.job.y, dist: u.job.dist ?? 0 }));
+  const cands = moveCandidates(mine, v.my.swing, pieces, { risk: Object.fromEntries(v.res.threats.map(t => [t.key, t.likely])), home, theirs, pair, keep, cards: cardMoves });
   moveMemo = { key, state: cands.length ? 'pending' : 'done', n: cands.length, best: [], kept: { moves: [] } };
   if (!cands.length) return;
   // The other player's reply (1.149.0). In my own turn a move is weighed with what they then do: their next turn
@@ -767,12 +771,31 @@ function nextTurnData(compute = true) {
   const toks = placed(), inside = embarkedIn(stepTokens());
   const pair = ctx.pairTable?.() ?? null;
   const hand = g.hand?.[opp] ?? [], myHand = g.hand?.[me] ?? [];
-  const key = JSON.stringify([l.id, me, g.round, hand, myHand, !!pair, zoneOf('A'), lv.shock, toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
+  const key = JSON.stringify([l.id, me, g.round, g.turn, g.first, g.cp, hand, myHand, !!pair, zoneOf('A'), lv.shock, lv.secured, [...inside], toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
   if (nextMemo.key === key) return { ...nextMemo.v, g, fresh: liveFresh(lv, g) };
   // (the work is put off until after the frame a unit was dropped in: see nextTurnHtml)
   if (!compute) return { pending: true, prev: nextMemo.v ? { ...nextMemo.v, g, fresh: liveFresh(lv, g) } : null };
   const unitOf = (t) => ({ key: t.tk, name: t.u.cu.name, x: t.x, y: t.y, models: t.models, move: t.u.move, ranges: t.u.ranges, melee: t.u.melee, oc: t.u.oc, points: t.u.cu.points ?? 0,
-    keywords: t.u.cu.keywords ?? [], lone: t.u.flags?.loneOperative || 0, left: t.u.left, total: t.u.total, shocked: !!lv.shock?.[t.tk], ...kindsOf(t.u.cu) });
+    keywords: t.u.cu.keywords ?? [], lone: t.u.flags?.loneOperative || 0, left: t.u.left, total: t.u.total, shocked: !!lv.shock?.[t.tk], ld: t.u.ld ?? null, bands: t.u.bands ?? [], ...kindsOf(t.u.cu) });
+  const ext = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
+  // not on the table and not destroyed: in reserves (20.03 / 20.04, 24.09), or inside a transport (18.04: it is set up
+  // within 3" of the transport and then moves - measured from the transport)
+  const offOf = (X) => st.armies[X].units.filter(u => !toks.some(t => t.tk === `${X}:${u.key}`) && !unitInfo(X, u.key)?.dead).map(u => ({ tk: `${X}:${u.key}`, u: unitInfo(X, u.key) })).filter(x => x.u);
+  const reserveOf = (X) => offOf(X).filter(x => !inside.has(x.tk)).map(({ tk, u }) => ({ key: tk, name: u.cu.name, oc: u.oc, ranges: u.ranges, bands: u.bands ?? [], melee: u.melee, deepStrike: !!u.flags?.deepStrike,
+    base: Math.max(0.5, ...u.models.map(m => ext(m.fp))), points: u.cu.points ?? 0, keywords: u.cu.keywords ?? [], left: u.left, total: u.total, ld: u.ld ?? null }));
+  const riderOf = (X) => offOf(X).filter(x => inside.has(x.tk)).map(({ tk, u }) => {
+    const tt = toks.find(t => t.tk === inside.get(tk));
+    if (!tt) return null;
+    const rT = Math.max(...tt.models.map(m => Math.hypot(m.dx, m.dy) + ext(m.fp)));
+    return { key: tk, name: u.cu.name, x: tt.x, y: tt.y, models: u.models, move: u.move + 3 + rT, shootMove: Math.max(u.move, tt.u.move) + 3 + rT, ranges: u.ranges, bands: u.bands ?? [], melee: u.melee, oc: u.oc, points: u.cu.points ?? 0,
+      keywords: u.cu.keywords ?? [], left: u.left, total: u.total, ld: u.ld ?? null, embarked: tt.u.cu.name, ...kindsOf(u.cu) };
+  }).filter(Boolean);
+  // whose turn comes when: the player with the first turn of each battle round, and so the battle round of my turn
+  // and of their next one, and how many turns of theirs are still to come after mine
+  const first = g.first ?? (g.started ? g.turn : me), myNow = g.turn === me || !g.started;
+  const myRound = myNow ? g.round : first === me ? g.round + 1 : g.round;
+  const theirRound = myNow ? (first === me ? g.round : g.round + 1) : g.round;
+  const theirTurnsLeft = Math.max(0, first === me ? 5 - myRound + 1 : 5 - myRound);
   const pick = (list, X) => list?.find(z => z.player === zoneOf(X))?.poly ?? null;
   const geo = { zones: { A: pick(dep?.zones, 'A'), B: pick(dep?.zones, 'B') }, territories: { A: pick(dep?.territories, 'A'), B: pick(dep?.territories, 'B') }, pieces: l.pieces, objectives: l.objectives };
   // the objectives by whose side they are on, named as on the Mission tab
@@ -781,22 +804,24 @@ function nextTurnData(compute = true) {
   const seen = {};
   for (const o of objs) if (objs.filter(x => x.label === o.label).length > 1) o.label = `${o.label} ${(seen[o.label.replace(/ \d+$/, '')] = (seen[o.label.replace(/ \d+$/, '')] ?? 0) + 1)}`;
   const t0 = performance.now?.() ?? 0;
-  const base = { me, mine: toks.filter(t => t.side === me).map(unitOf), theirs: toks.filter(t => t.side === opp).map(unitOf), pair, geo, objs, round: g.round };
+  const base = { me, mine: toks.filter(t => t.side === me).map(unitOf), theirs: toks.filter(t => t.side === opp).map(unitOf), pair, geo, objs, round: g.round,
+    reserves: { mine: reserveOf(me), theirs: reserveOf(opp) }, riders: { mine: riderOf(me), theirs: riderOf(opp) }, secured: { ...(lv.secured ?? {}) },
+    cp: g.started ? { me: g.cp?.[me] ?? 0, them: g.cp?.[opp] ?? 0 } : {}, theirRound, theirTurnsLeft };
   const res = pair ? nextTurn({ ...base, hand }) : null;
   // my turn: the same measurements from my side; a unit's risk is what their next turn does to it where it stands
-  const my = res ? myTurn({ ...base, hand: myHand, risk: Object.fromEntries(res.threats.map(t => [t.key, t.likely])) }) : null;
+  const my = res ? myTurn({ ...base, round: Math.min(5, myRound), hand: myHand, theirHand: hand, threats: res.threats, risk: Object.fromEntries(res.threats.map(t => [t.key, t.likely])) }) : null;
   const onBoard = new Set(toks.map(t => t.tk));
   const off = st.armies[opp].units.filter(u => !onBoard.has(`${opp}:${u.key}`) && !unitInfo(opp, u.key)?.dead);
-  const v = { me, opp, g, res, my, hand, myHand, fresh: liveFresh(lv, g),
+  const v = { me, opp, g, res, my, hand, myHand, fresh: liveFresh(lv, g), myRound, theirRound, theirTurnsLeft, counted: theirRound >= 2 && theirRound <= 3,
     embarked: off.filter(u => inside.has(`${opp}:${u.key}`)).map(u => u.name), reserves: off.filter(u => !inside.has(`${opp}:${u.key}`)).map(u => u.name),
     mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
-  if (my) console.log(`[board] my turn (${me}): ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
+  if (my) console.log(`[board] my turn (${me}), battle round ${myRound}, ${theirTurnsLeft} of their turns still to come: ${my.units.filter(u => u.job.kind === 'take').length} units sent to take an objective, ${my.units.filter(u => u.job.kind === 'reinforce').length} to reinforce one, ${my.units.filter(u => u.job.kind === 'screen').length} to screen, ${my.units.filter(u => u.job.kind === 'arrive').length} in reserves, ${my.warnings.length} stratagems they can answer with, ${my.units.filter(u => u.job.kind === 'hold').length} holding, ${my.kills.length} targets (best ${my.kills[0] ? `${my.kills[0].name} ${Math.round(my.kills[0].p * 100)}%` : '-'}), ${my.cards.filter(c => c.verdict === 'yes').length} of ${myHand.length} cards by moving (${my.vp} VP)`);
   if (res) console.log(`[board] their next turn (${opp}): ${res.threats.filter(x => x.likely >= 0.25).length} of my units likely destroyed at 25%+, ${res.swing.filter(o => o.verdict === 'lose' || o.verdict === 'take').length} objectives they can take, ${res.cards.filter(c => c.verdict === 'yes').length} of ${hand.length} cards by moving (${res.vpAtStake} VP) — ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms`);
   // (for the play-out: the units that are not on the table - in reserves, or inside a transport that is)
   const offUnit = (X, cu) => { const u = unitInfo(X, cu.key); if (!u || u.dead) return null; const tk = `${X}:${cu.key}`;
     return { key: tk, name: cu.name, x: 0, y: 0, models: tokenModels(u, {}), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: cu.points ?? 0, keywords: cu.keywords ?? [], lone: u.flags?.loneOperative || 0, left: u.left, total: u.total, deepStrike: !!u.flags?.deepStrike, flags: u.flags ?? {}, ...kindsOf(cu), ...(inside.has(tk) ? { in: inside.get(tk) } : {}) }; };
-  const offOf = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
-  base.off = { [me]: offOf(me), [opp]: offOf(opp) };
+  const offPlay = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
+  base.off = { [me]: offPlay(me), [opp]: offPlay(opp) };
   nextMemo = { key, v, base };
   if (boardState().sharedIn && res && typeof setTimeout === 'function') setTimeout(takeShared, 0);
   if (my) weighStrats(key, v);
@@ -817,9 +842,11 @@ function hintData() {
     const u = d.my?.units.find(x => x.key === h.tk);
     if (!u) return null;
     const k = moveMemo.key === nextMemo.key ? moveMemo.kept?.moves.find(x => x.unit === h.tk) : null;
-    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind === 'back', vp: k.addVp, via: k.via ?? null } : null;
+    const j = u.job;
+    const move = k ? { tk: h.tk, x: k.x, y: k.y, dist: k.dist, label: k.label, hosted: !!k.hosted, back: k.kind !== 'obj', vp: k.addVp, via: k.via ?? null }
+      : j.x != null && j.dist > 0.05 && !u.reserve && !u.embarked ? { tk: h.tk, x: j.x, y: j.y, dist: j.dist, label: j.label, hosted: false, back: j.kind === 'card' || j.kind === 'screen', vp: null } : null;
     const hits = u.attack ? [{ from: h.tk, to: u.attack.key, pct: pct(u.attack.p), how: u.attack.how }] : [];
-    const bits = [move ? (move.back ? `pull back ${fmtIn(move.dist)} towards your home` : `move ${fmtIn(move.dist)} ${move.via?.length ? 'round the terrain in its way ' : ''}${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
+    const bits = [move ? (k?.kind === 'back' ? `pull back ${fmtIn(move.dist)} towards your home` : move.back ? `move ${fmtIn(move.dist)}: ${move.label}` : `move ${fmtIn(move.dist)} ${move.via?.length ? 'round the terrain in its way ' : ''}${move.hosted ? `into the terrain area of ${move.label}` : `to within range of ${move.label}`}`) : u.job.kind === 'hold' ? `hold ${u.job.label}` : '',
       u.attack ? `${u.attack.how} ${full(u.attack.key)} (${pct(u.attack.p)} destroyed)` : ''].filter(Boolean);
     return { units: [h.tk], move, hits, text: `${full(h.tk)}: ${bits.join('; then ') || 'nothing suggested'}` };
   }
@@ -913,12 +940,25 @@ function adviseRequest() {
   const d = nextMemo.v, st = ctx.state;
   if (!d?.res || !d.my) return null;
   const g = gameNow(), ms = missionsFor(dispOf('A'), dispOf('B')), toks = new Map(placed().map(t => [t.tk, t])), inside = embarkedIn(stepTokens());
-  const armyOf = (X) => ({ faction: st.armies[X].faction, units: st.armies[X].units.map(u => ({ name: u.name, points: u.points, models: u.models, keywords: u.keywords ?? [], abilities: abilitiesOf(u).map(a => ({ name: a.name, text: a.text })) })), stratagems: armyIntel(st.armies[X]).stratagems });
+  // (unit stats and weapons: the datasheet lines, as on the enemy cheat sheet)
+  const plus = (v) => (/^\d+$/.test(String(v)) ? `${v}+` : v);
+  const sheet = (X, u) => { try { const it = unitIntel(u, st.armies[X]); return { stats: it.stats.map(p => `${it.stats.length > 1 ? `${p.member}: ` : ''}M${p.M} T${p.T} Sv${plus(p.Sv)}${p.InSv ? ` invulnerable ${plus(p.InSv)}` : ''} W${p.W} Ld${plus(p.Ld)} OC${p.OC}`), weapons: it.weapons.map(w => `${w.count}x ${w.label}, ${w.melee ? 'melee' : w.range}, ${w.stats}${(w.tags ?? []).length ? ` [${w.tags.map(t => String(t?.label ?? t)).join(', ')}]` : ''}`) }; } catch { return {}; } };
+  const armyOf = (X) => { const ai = armyIntel(st.armies[X]); return { faction: st.armies[X].faction, rules: [...(ai.armyRules ?? []), ...(ai.detachmentRules ?? [])].filter(r => r?.name && r.text).map(r => ({ name: r.name, text: r.text })),
+    units: st.armies[X].units.map(u => ({ name: u.name, points: u.points, models: u.models, keywords: u.keywords ?? [], ...sheet(X, u), abilities: abilitiesOf(u).map(a => ({ name: a.name, text: a.text })) })), stratagems: ai.stratagems }; };
+  const l = currentLayout(), lv = livePlan(), base = nextMemo.base;
+  const flags = {};
+  for (const u of [...(base?.mine ?? []), ...(base?.theirs ?? [])]) { const hs = (u.total ?? 0) >= 2 && u.left * 2 <= u.total; if (u.shocked || hs) flags[u.name] = { battleShocked: !!u.shocked, halfStrength: hs }; }
+  const gapOf = (a, z) => { let m = Infinity; for (const p of a.models) for (const q of z.models) m = Math.min(m, Math.hypot(a.x + p.dx - z.x - q.dx, a.y + p.dy - z.y - q.dy) - (p.fp.r ?? Math.max(p.fp.rx ?? 0, p.fp.hw ?? 0)) - (q.fp.r ?? Math.max(q.fp.rx ?? 0, q.fp.hw ?? 0))); return Math.max(0, m); };
+  const gaps = Object.fromEntries((base?.mine ?? []).map(u => [u.name, (base.theirs ?? []).map(t => ({ enemy: t.name, inches: Math.round(gapOf(u, t) * 10) / 10 })).sort((x, y) => x.inches - y.inches).slice(0, 5)]));
+  const terrain = (l?.pieces ?? []).filter(p => p.poly?.length >= 3 && p.cls !== 'feature').map(p => { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); return { kind: `${p.cat ?? 'terrain'} area`, at: [Math.round((Math.min(...xs) + Math.max(...xs)) / 2), Math.round((Math.min(...ys) + Math.max(...ys)) / 2)], size: [Math.round(Math.max(...xs) - Math.min(...xs)), Math.round(Math.max(...ys) - Math.min(...ys))] }; });
+  const first = g.first ?? (g.started ? g.turn : d.me);
   const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : inside.has(tk) ? 'embarked in a transport' : reserveNote(X, u.key, g.round) }; });
   const card = (id) => { const c = SECONDARIES.find(x => x.id === id); return c ? { name: c.name, text: c.text } : { name: id, text: '' }; };
   return advisePayload({
     armies: { me: armyOf(d.me), them: armyOf(d.opp) },
-    game: { round: g.round, mine: g.turn === d.me || !g.started, phase: g.phase, myMission: ms[d.me], theirMission: ms[d.opp], myCP: g.cp?.[d.me] ?? 0, theirCP: g.cp?.[d.opp] ?? 0, myVP: g.vp?.[d.me] ?? 0, theirVP: g.vp?.[d.opp] ?? 0 },
+    game: { round: g.round, mine: g.turn === d.me || !g.started, phase: g.phase, myMission: ms[d.me], theirMission: ms[d.opp], myCP: g.cp?.[d.me] ?? 0, theirCP: g.cp?.[d.opp] ?? 0, myVP: g.vp?.[d.me] ?? 0, theirVP: g.vp?.[d.opp] ?? 0,
+      myMissionText: PRIMARIES[ms[d.me]]?.text ?? null, theirMissionText: PRIMARIES[ms[d.opp]]?.text ?? null, first: first === d.me ? 'me' : 'them', theirTurnsLeft: d.theirTurnsLeft ?? null },
+    flags, gaps, terrain,
     hands: { me: (g.hand?.[d.me] ?? []).map(card), them: (g.hand?.[d.opp] ?? []).map(card) },
     unitsNow: { me: nowOf(d.me), them: nowOf(d.opp) },
     res: d.res, my: d.my, moves: moveMemo.key === nextMemo.key && moveMemo.state === 'done' ? moveMemo : null,
@@ -1069,7 +1109,8 @@ function planBarHtml() {
   if (!pd || b.planOnMap === false) return '';
   const ok = pd.actions.filter(x => x.ok);
   if (!ok.length) return '';
-  const esc = ctx.esc, VERB = { move: 'moves to', attack: 'attacks', hold: 'holds' };
+  const esc = ctx.esc, VERB0 = { move: 'moves to', attack: 'attacks', hold: 'holds', stratagem: 'gets' };
+  const VERB = new Proxy({}, { get: (_, k) => VERB0[k] });
   const f = b.planFocus != null ? pd.actions[b.planFocus] : null;
   return `<div class="card hint-bar plan-bar" id="board-plan-bar" data-actions="${ok.length}" data-focus="${f ? b.planFocus + 1 : ''}"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
       <span class="grow small"><b>🗺 Claude’s plan is drawn on the map</b>: ${f ? `step ${b.planFocus + 1} of ${pd.actions.length}, <b>${esc(f.unit)}</b> ${VERB[f.kind]} <b>${esc(f.target)}</b>.` : `${ok.length} step${ok.length === 1 ? '' : 's'}, numbered in the plan’s order.`}
@@ -1080,7 +1121,7 @@ function planBarHtml() {
 }
 
 // ---- the plan drawn on the map: Claude's ACTIONS lines (advise.parsePlan) against the units on the table
-const PLAN = { move: '#1d6fd1', attack: '#c0392b', hold: '#2e9e5b' };
+const PLAN = { move: '#1d6fd1', attack: '#c0392b', hold: '#2e9e5b', stratagem: '#8e44ad' };
 let planMemo = { key: null, v: null };
 /** -> { text (the plan without its ACTIONS lines), actions: [resolved, with where a move ends], stale } | null */
 function planData() {
@@ -1095,14 +1136,16 @@ function planData() {
   const actions = resolveActions(parsed.actions, { mine: names(d.me), theirs: names(d.opp), objectives: objs }).map((x) => {
     if (!x.ok) return x;
     const t = byTk.get(x.unitKey);
+    if (!t && x.how === 'arrive') return { ...x, ok: false, why: `${x.unit} is in reserves: set it up in range of ${x.target}, more than 8" from their units` };
     if (!t) return { ...x, ok: false, why: `${x.unit} is not on the table` };
+    if (x.kind === 'stratagem') return { ...x, there: true };
     if (x.kind === 'attack') return byTk.get(x.targetKey) ? x : { ...x, ok: false, why: `${x.target} is not on the table` };
     const o = d.my.swing.find(q => q.id === x.objId), unit = { key: t.tk, name: x.unit, x: t.x, y: t.y, models: t.models, move: 99 };
     const gap = objectiveGap(unit, o, l.pieces);
     if (gap <= 0) return { ...x, there: true };
     // where the move ends: a straight line, just far enough for a model to be in range of the objective
     const end = moveCandidates([unit], [{ ...o, movers: [{ key: t.tk, via: 'move' }] }], l.pieces)[0];
-    return end ? { ...x, x: end.x, y: end.y, dist: end.dist, far: end.dist > t.u.move + 0.01, M: t.u.move } : { ...x, ok: false, why: `no straight move puts ${x.unit} in range of ${x.target}` };
+    return end ? { ...x, x: end.x, y: end.y, dist: end.dist, far: x.how !== 'advance' && end.dist > t.u.move + 0.01, M: t.u.move } : { ...x, ok: false, why: `no straight move puts ${x.unit} in range of ${x.target}` };
   });
   planMemo = { key, v: { text: parsed.text, actions, stale: a.key !== nextMemo.key } };
   return planMemo.v;
@@ -1126,16 +1169,16 @@ function planSvg() {
     // the action's number (as in the list under the plan): on the ring, where the move ends, or along the attack
     const badge = (bx, by) => `<g data-plan-n="${i + 1}"><circle cx="${f2(bx)}" cy="${f2(by)}" r="0.95" fill="${PLAN[x.kind]}" stroke="${C.mat}" stroke-width="0.15"/><text x="${f2(bx)}" y="${f2(by)}" font-size="1.2" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="system-ui,sans-serif">${i + 1}</text></g>`;
     if (x.kind === 'hold' || x.there) {
-      const R = reach(t) + 0.7;
-      out.push(`<g data-plan="hold" data-tk="${ctx.esc(x.unitKey)}"><circle cx="${f2(t.x)}" cy="${f2(t.y)}" r="${f2(R)}" fill="none" stroke="${PLAN.hold}" stroke-width="0.4"/>${badge(t.x - R * 0.71, t.y - R * 0.71)}</g>`);
+      const R = reach(t) + (x.kind === 'stratagem' ? 1.3 : 0.7);
+      out.push(`<g data-plan="${x.kind === 'stratagem' ? 'stratagem' : 'hold'}" data-tk="${ctx.esc(x.unitKey)}"><circle cx="${f2(t.x)}" cy="${f2(t.y)}" r="${f2(R)}" fill="none" stroke="${PLAN[x.kind === 'stratagem' ? 'stratagem' : 'hold']}" stroke-width="0.4"${x.kind === 'stratagem' ? ' stroke-dasharray="0.5 0.5"' : ''}/>${badge(t.x - R * 0.71, t.y - R * 0.71)}</g>`);
     } else if (x.kind === 'move') {
-      out.push(`<g data-plan="move" data-tk="${ctx.esc(x.unitKey)}" data-dist="${x.dist.toFixed(2)}"><g transform="translate(${f2(x.x)},${f2(x.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', PLAN.move, 0.16, m.rot)).join('')}</g>${arrowSvg(t.x, t.y, x.x, x.y, PLAN.move, true, `${fmtIn(x.dist)}${x.far ? ' ⚠' : ''}`)}${badge(x.x + reach(t) + 0.6, x.y)}</g>`);
+      out.push(`<g data-plan="move" data-tk="${ctx.esc(x.unitKey)}" data-dist="${x.dist.toFixed(2)}"><g transform="translate(${f2(x.x)},${f2(x.y)})" opacity="0.9">${t.models.map(m => shapeSvg(m.fp, m.dx, m.dy, 'rgba(29,111,209,0.18)', PLAN.move, 0.16, m.rot)).join('')}</g>${arrowSvg(t.x, t.y, x.x, x.y, PLAN.move, true, `${x.how ? `${x.how} ` : ''}${fmtIn(x.dist)}${x.far ? ' ⚠' : ''}`)}${badge(x.x + reach(t) + 0.6, x.y)}</g>`);
     } else {
       const z = toks.get(x.targetKey), from = ends.get(x.unitKey) ?? t;
       if (!z) return;
       const len = Math.hypot(z.x - from.x, z.y - from.y) || 1, back = Math.min(len * 0.4, reach(z) * 0.6);
       const ex = z.x - (z.x - from.x) / len * back, ey = z.y - (z.y - from.y) / len * back;
-      out.push(`<g data-plan="attack" data-tk="${ctx.esc(x.unitKey)}" data-target="${ctx.esc(x.targetKey)}">${arrowSvg(from.x, from.y, ex, ey, PLAN.attack, false, '')}${badge(from.x + (ex - from.x) * 0.6, from.y + (ey - from.y) * 0.6)}</g>`);
+      out.push(`<g data-plan="attack" data-tk="${ctx.esc(x.unitKey)}" data-target="${ctx.esc(x.targetKey)}">${arrowSvg(from.x, from.y, ex, ey, PLAN.attack, false, x.how ?? '')}${badge(from.x + (ex - from.x) * 0.6, from.y + (ey - from.y) * 0.6)}</g>`);
     }
   }
   return `<g id="plan-layer" data-actions="${pd.actions.filter(x => x.ok).length}" pointer-events="none">${out.join('')}</g>`;
@@ -1143,11 +1186,12 @@ function planSvg() {
 /** Under the plan text: what is drawn on the map, in the plan's own order, and what could not be placed. */
 function planActionsHtml(pd) {
   if (!pd?.actions.length) return `<div class="tiny muted" id="board-plan-none" style="margin-top:6px">This answer has no ACTIONS lines, so there is nothing to draw on the map. Copy a new prompt: it asks Claude for them.</div>`;
-  const esc = ctx.esc, on = boardState().planOnMap !== false, VERB = { move: 'moves to', attack: 'attacks', hold: 'holds' };
+  const esc = ctx.esc, on = boardState().planOnMap !== false, HOW = { advance: 'Advances to', 'fall back': 'Falls Back to', arrive: 'arrives on', shoot: 'shoots', charge: 'charges', fight: 'fights' }, VERB0 = { move: 'moves to', attack: 'attacks', hold: 'holds', stratagem: 'gets' };
+  const VERB = new Proxy({}, { get: (_, k) => VERB0[k] });
   const ok = pd.actions.filter(x => x.ok).length;
-  return `<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap" id="board-plan-map-row">${ctx.chip('board-plan-map', on, `🗺 On the map (${ok})`, 'id="board-plan-map"')}<span class="tiny muted">Blue dashed: a move, to where it ends. Red: an attack. Green ring: stays on its objective. Numbers follow the list.</span></div>
+  return `<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap" id="board-plan-map-row">${ctx.chip('board-plan-map', on, `🗺 On the map (${ok})`, 'id="board-plan-map"')}<span class="tiny muted">Blue dashed: a move, to where it ends. Red: an attack. Green ring: stays on its objective. Purple dashed ring: a stratagem on that unit. Numbers follow the list.</span></div>
     <div class="tiny muted" style="margin-top:4px" id="board-plan-tap">Tap a step to see only that one on the map.</div>
-    <ol class="plan-actions" id="board-plan-actions">${pd.actions.map((x, i) => `<li data-ok="${x.ok ? 1 : 0}" data-kind="${x.kind}" class="${x.ok ? 'tap' : ''} ${boardState().planFocus === i ? 'on' : ''}" ${x.ok ? `role="button" data-action="board-plan-focus" data-i="${i}"` : ''} style="color:${x.ok ? 'inherit' : 'var(--text-muted)'}"><span style="color:${x.ok ? PLAN[x.kind] : 'inherit'};font-weight:600">${esc(shortName(x.unit))}</span> ${VERB[x.kind]} <b>${esc(shortName(x.target))}</b>${x.ok ? (x.kind === 'move' ? (x.there ? ' <span class="muted">(already in range)</span>' : ` <span class="muted">(${fmtIn(x.dist)}${x.far ? `: more than its ${x.M}" Move, it needs an Advance` : ''})</span>`) : '') : ` <span class="muted">— not drawn: ${esc(x.why)}</span>`}</li>`).join('')}</ol>`;
+    <ol class="plan-actions" id="board-plan-actions">${pd.actions.map((x, i) => `<li data-ok="${x.ok ? 1 : 0}" data-kind="${x.kind}" class="${x.ok ? 'tap' : ''} ${boardState().planFocus === i ? 'on' : ''}" ${x.ok ? `role="button" data-action="board-plan-focus" data-i="${i}"` : ''} style="color:${x.ok ? 'inherit' : 'var(--text-muted)'}"><span style="color:${x.ok ? PLAN[x.kind] : 'inherit'};font-weight:600">${esc(shortName(x.unit))}</span> ${HOW[x.how] ?? VERB[x.kind]} <b>${esc(x.kind === 'stratagem' ? x.target : shortName(x.target))}</b>${x.ok ? (x.kind === 'move' ? (x.there ? ' <span class="muted">(already in range)</span>' : ` <span class="muted">(${fmtIn(x.dist)}${x.far ? `: more than its ${x.M}" Move, it needs an Advance` : ''})</span>`) : '') : ` <span class="muted">— not drawn: ${esc(x.why)}</span>`}</li>`).join('')}</ol>`;
 }
 /** The plan section of the Your turn card: copy the prompt and paste the answer (always), or ask through the server (where it is switched on). */
 function adviceHtml() {
@@ -1194,7 +1238,7 @@ function myTurnHtml(d) {
       <button class="icon-btn" data-action="board-my-toggle" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} your turn">${open ? '▴' : '▾'}</button></div>`;
   if (!open) return `<div class="card" id="board-my" data-open="0">${head}</div>`;
   const pick = (tk, html) => html;
-  const JOB = { take: ['bad', '→ Take'], hold: ['ok', '■ Hold'], card: ['warn', '★'], none: ['', ''] };
+  const JOB = { take: ['bad', '→ Take'], reinforce: ['bad', '＋ Reinforce'], screen: ['warn', '⛨ Screen'], arrive: ['bad', '⤓ Arrive on'], hold: ['ok', '■ Hold'], card: ['warn', '★'], none: ['', ''] };
   // moves weighed with the forecast (for the table this card was worked out for)
   const mv = moveMemo.key === nextMemo.key ? moveMemo : { state: 'idle' };
   const keptOf = new Map((mv.kept?.moves ?? []).map(x => [x.unit, x])), aloneOf = new Map((mv.best ?? []).map(x => [x.unit, x]));
@@ -1205,35 +1249,45 @@ function myTurnHtml(d) {
         : `<div class="small muted" id="board-my-moves" data-state="done" data-kept="0">📈 Forecast: none of the ${mv.n} move${mv.n === 1 ? '' : 's'} tried beats standing still by ${MOVE_MIN_VP} VP or more${mv.reply ? ', once the other player has replied' : ''} (you win ${pct(mv.base?.win ?? 0)} as it stands).</div>`;
   // units the forecast moves come first
   const ordered = [...m.units].sort((x, y) => (keptOf.get(y.key)?.addVp ?? -1) - (keptOf.get(x.key)?.addVp ?? -1));
-  const all = !!b.myAll, busy = ordered.filter(u => u.job.kind !== 'none' || u.attack || u.risk >= 0.25 || keptOf.has(u.key)), shown = all ? ordered : busy.slice(0, 6);
+  const all = !!b.myAll, busy = ordered.filter(u => u.job.kind !== 'none' || u.attack || u.risk >= 0.25 || keptOf.has(u.key)), shown = all ? ordered : busy.slice(0, 8);
   const unitsHtml = shown.map(u => {
     const [cls, verb] = JOB[u.job.kind];
     const k = keptOf.get(u.key), alone = aloneOf.get(u.key);
     // the forecast's move for this unit; else the measured job (a "take" the forecast does not back is said so)
-    const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? 'back')}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? `↩ Pull back ${fmtIn(k.dist)}` : `→ Move ${fmtIn(k.dist)} ${k.hosted ? 'into' : 'to'} ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
-      : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
-        : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${verb} ${esc(u.job.label)}</span>`;
+    const jv = u.job.kind === 'take' && u.job.via === 'fallback' ? '↩ Fall Back to take' : u.job.kind === 'arrive' && !u.job.obj ? '⤓ In reserves' : verb;
+    const job = k ? `<span class="verd go" data-move="${esc(k.obj ?? k.kind)}" data-kind="${k.kind}" data-dvp="${k.addVp.toFixed(2)}">${k.kind === 'back' ? `↩ Pull back ${fmtIn(k.dist)}` : k.kind === 'safe' ? `↔ Shift ${fmtIn(k.dist)}: ${esc(k.label)}` : k.kind === 'card' ? `★ Move ${fmtIn(k.dist)} for ${esc(k.label)}` : `→ Move ${fmtIn(k.dist)} ${k.hosted ? 'into' : 'to'} ${esc(k.label)}`} · ${sgn(k.addVp)} VP</span>`
+      : u.job.kind === 'none' ? '' : mv.state === 'done' && u.job.kind === 'take' && u.job.via !== 'fallback' ? `<span class="verd them">${verb} ${esc(u.job.label)}?</span>`
+        : `<span class="verd ${cls === 'bad' ? 'go' : cls}">${jv} ${esc(u.job.label ?? '')}</span>`;
     const thereNote = k && k.riskThere != null && (k.riskThere >= 0.05 || k.riskHere >= 0.05) ? ` <span data-risk-there="${k.riskThere.toFixed(3)}" style="color:${k.riskThere >= 0.25 ? 'var(--warn-ink)' : 'inherit'}">· ${pct(k.riskThere)} destroyed in their turn after the move${Math.abs(k.riskThere - k.riskHere) >= 0.05 ? ` (${pct(k.riskHere)} where it stands)` : ''}</span>` : '';
-    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') + thereNote : alone ? ` <span class="muted">· moving onto ${esc(alone.label)} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
-      : mv.state === 'done' && u.job.kind === 'take' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
-    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`})</span>` : '<span class="muted">nothing in reach to attack</span>';
+    const fNote = k ? (k.kind === 'obj' ? ` <span class="muted">· ${k.hosted ? 'a base in the terrain area the objective is in counts as in range' : 'ends within 3" of the objective'}</span>` : '') + thereNote : alone ? ` <span class="muted">· ${alone.kind === 'obj' ? `moving onto ${esc(alone.label)}` : 'that move'} alone ${sgn(alone.dVp)} VP, little on top of the other moves</span>`
+      : mv.state === 'done' && u.job.kind === 'take' && u.job.via !== 'fallback' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
+    const from = u.reserve ? 'once it has arrived' : u.job.kind === 'hold' ? 'from the objective' : ['take', 'reinforce', 'screen', 'card'].includes(u.job.kind) ? 'from where that move ends' : '';
+    const noAtk = u.job.wait ? '' : u.job.via === 'fallback' ? 'a unit that Falls Back does not shoot or charge' : u.job.action || u.job.act ? `it starts the ${esc(u.job.act ?? u.job.card ?? 'card')} action: no shooting or charge` : `nothing in reach to attack${from ? ` ${from}` : ''}`;
+    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`}${from ? `, ${from}` : ''}${u.attack.share ? `; ${pct(u.attack.share)} of its shooting reaches` : ''}${u.attack.cover ? '; it has cover' : ''})</span>${u.attack.back >= 0.05 ? ` <span data-back="${u.attack.back.toFixed(3)}" style="color:var(--warn-ink)">· ${pct(u.attack.back)} it is destroyed when they fight back</span>` : ''}` : `<span class="muted">${noAtk}</span>`;
+    const extra = [u.embarked ? `inside ${esc(shortName(u.embarked))}: it gets out within 3" first` : '', u.job.freed ? `free to leave ${esc(u.job.freed)}: it is held without it` : '', u.job.short ? `<span style="color:var(--warn-ink)">not enough OC in reach to keep it against ${u.job.short}</span>` : '',
+      u.shock ? `<span data-shock="${u.shock.toFixed(3)}" style="color:var(--warn-ink)">at half-strength: battle-shock roll in your Command phase (fails ${pct(u.shock)}: no OC)</span>` : '',
+      u.hide ? `<span data-hide="1">Hidden if it holds its fire: ${pct(u.hide.quiet)} destroyed instead of ${pct(u.hide.loud)}</span>` : ''].filter(Boolean).map(x => ` <span class="muted">· ${x}</span>`).join('');
     return `<div class="next-unit tap${boardState().hint?.kind === 'my-unit' && boardState().hint.tk === u.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-unit" data-tk="${esc(u.key)}" data-unit="${esc(u.key)}" data-job="${u.job.kind}" data-target="${esc(u.attack?.key ?? '')}">
       <div class="row" style="gap:6px;align-items:baseline">${pick(u.key, `<b style="color:${ink(d.me)}">${esc(shortName(u.name))}</b>`)}<span class="grow"></span>${job}</div>
-      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${fNote}${u.risk >= 0.25 && !(k && k.riskThere != null) ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
+      <div class="tiny">${atk}${u.job.note && !k ? ` <span class="muted">· ${esc(u.job.note)}</span>` : ''}${extra}${fNote}${u.risk >= 0.25 && !(k && k.riskThere != null) ? ` <span style="color:var(--warn-ink)">· ${pct(u.risk)} destroyed in their turn where it stands</span>` : ''}</div></div>`;
   }).join('');
   const killsHtml = m.kills.slice(0, 4).map(k => `<div class="next-obj tap${boardState().hint?.kind === 'my-kill' && boardState().hint.tk === k.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="my-kill" data-tk="${esc(k.key)}" data-kill="${esc(k.key)}" data-p="${k.p.toFixed(3)}"><div class="row" style="gap:6px;align-items:center">${pick(k.key, `<b style="color:${ink(d.opp)}">${esc(shortName(k.name))}</b>`)}<span class="tiny muted">${k.points} pts</span><span class="grow"></span><span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, k.p) * 100)}%"></i></span><b class="next-pct">${pct(k.p)}</b></div>
-      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div>${(() => { const sx = stratMemo.key === nextMemo.key && stratMemo.state === 'done' ? stratMemo.best[k.key] : null; if (!sx) return ''; const cpNow = d.g.cp?.[d.me] ?? 0; const full = (tk) => { const [s2, k2] = tk.split(':'); return st.armies[s2]?.units.find(u => u.key === k2)?.name ?? tk; };
-        return `<div class="tiny" data-strat="${esc(sx.name)}" data-p0="${sx.p0.toFixed(3)}" data-p1="${sx.p1.toFixed(3)}" style="color:#2e7d4f">✚ <b>${esc(sx.name)}</b> (${sx.cp} CP${d.g.started && cpNow < sx.cp ? `, you have ${cpNow}` : ''}) on ${esc(shortName(full(sx.atk)))} when it ${sx.phase === 'fight' ? 'fights' : 'shoots'}: ${sx.p1 - sx.p0 >= 0.05 ? `${pct(sx.p1)} destroyed on its own instead of ${pct(sx.p0)}` : `${sx.w1.toFixed(1)} wounds on average instead of ${sx.w0.toFixed(1)} (of ${Math.round(sx.W)})`}</div>`; })()}<div style="display:none"></div></div>`).join('');
+      <div class="tiny muted">${k.by.map(x => `${esc(shortName(x.name))}${x.reserve ? ' ⤓' : ''} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`).join(' · ')}</div>${(() => { const sx = stratMemo.key === nextMemo.key && stratMemo.state === 'done' ? stratMemo.best[k.key] : null; if (!sx) return ''; const cpNow = d.g.cp?.[d.me] ?? 0; const full = (tk) => { const [s2, k2] = tk.split(':'); return st.armies[s2]?.units.find(u => u.key === k2)?.name ?? tk; };
+        return `<div class="tiny" data-strat="${esc(sx.name)}" data-p0="${sx.p0.toFixed(3)}" data-p1="${sx.p1.toFixed(3)}" style="color:#2e7d4f">✚ <b>${esc(sx.name)}</b> (${sx.cp} CP${d.g.started && cpNow < sx.cp ? `, you have ${cpNow}` : ''}) on ${esc(shortName(full(sx.atk)))} when it ${sx.phase === 'fight' ? 'fights' : 'shoots'}: ${sx.p1 - sx.p0 >= 0.05 ? `${pct(sx.p1)} destroyed on its own instead of ${pct(sx.p0)}` : `${sx.w1.toFixed(1)} wounds on average instead of ${sx.w0.toFixed(1)} (of ${Math.round(sx.W)})`}</div>`; })()}<div style="display:none"></div>
+      ${k.why.length ? `<div class="tiny" data-why="${k.why.length}">Worth more than its points: ${esc(k.why.join('; '))}</div>` : ''}
+      ${!k.isHalf && k.shockFail > 0 && k.half - k.p >= 0.15 ? `<div class="tiny muted" data-half="${k.half.toFixed(3)}">${pct(k.half)} it is left at half-strength or less: a battle-shock roll on ${k.ld}+ in their Command phase (fails ${pct(k.shockFail)}: no OC)</div>` : ''}</div>`).join('');
+  const warnHtml = m.warnings.length ? `<div class="lab tiny muted" style="margin-top:10px">They can answer with${d.g.started ? ` · they have ${d.g.cp?.[d.opp] ?? 0} CP` : ''}</div><div id="board-my-warnings">${m.warnings.map(w => `<div class="tiny" data-warn="${w.kind}">• ${esc(w.text)}</div>`).join('')}</div>` : '';
   const cardsHtml = !d.myHand.length ? `<div class="small muted" id="board-my-nocards">No cards in your hand on the tracker (Mission → Play).</div>` : cardRows(m.cards, 'At the end of their turn, as the table stands:', true);
   return `<div class="card" id="board-my" data-state="ready" data-vp="${m.vp}" data-moves="${mv.state}">${head}
     ${movesLine}
     ${playOutHtml(d)}
     <div class="lab tiny muted" style="margin-top:8px">Each unit <span id="board-my-tap">· tap a row to see it on the map</span></div><div id="board-my-units">${unitsHtml || '<div class="small muted">Nothing in reach of an objective or a target this turn.</div>'}</div>
     ${m.units.length > shown.length || all ? `<button class="chip" data-action="board-my-all" id="board-my-all" style="margin-top:4px">${all ? 'Fewer' : `All ${m.units.length} units`}</button>` : ''}
-    ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
+    ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first${d.theirTurnsLeft === 0 ? ' · the last turn of the battle: only what scores counts' : ''}</div><div id="board-my-kills">${killsHtml}</div>` : ''}
+    ${warnHtml}
     <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
     ${adviceHtml()}
-    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress and the one after it, the rounds after that are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Targets: where the unit adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. A vehicle, monster, bike or cavalry unit goes round dense terrain; climbing is not counted. Stratagems are not in the odds: where one adds to an attack it is named under the target. Reserves are not counted here (the play-out brings them on).</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress and the one after it, the rounds after that are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Also weighed: the least exposed place for a unit at risk (↔, staying on its objective) and the place a card of yours is scored from (★). Each unit gets one action: where it goes first (keep an objective with the OC it needs, take one, ＋ add OC where they can take one from you next turn, ⛨ shut their reserves out, ⤓ arrive), then its target from where that leaves it. A unit on an objective shoots from it and only charges what stands next to it; a unit locked in combat can only Fall Back to move, and then does not shoot or charge; a unit doing an action does neither. Targets: worth in victory points - what the unit holds, what it can take from you or score for them next turn (their cards), your own cards, and its points for the turns of theirs still to come (none in the last turn). Shooting counts the weapons that reach, cover, and a line of sight after the move (straight moves: check it on the table). A vehicle, monster, bike or cavalry unit goes round dense terrain; climbing is not counted. Stratagems are not in the odds: where one of yours adds to an attack it is named under the target.</div>
   </div>`;
 }
 let nextTimer = null;
@@ -1263,7 +1317,7 @@ function theirTurnHtml() {
     updating = true;
     d = d.prev ?? { pendingOnly: true };
   }
-  const esc = ctx.esc, b = boardState(), st = ctx.state;
+  const esc = ctx.esc, b = boardState(), st = ctx.state, lv = livePlan();
   if (d.pendingOnly) return `<div class="card" id="board-next" data-state="wait"><div class="title">🔮 Their next turn</div><p class="muted small" style="margin:6px 0 0">Working it out…</p></div>`;
   const pct = (p) => `${Math.round(p * 100)}%`;
   const ink = (X) => `var(--side-${X.toLowerCase()}-ink)`;
@@ -1281,41 +1335,51 @@ function theirTurnHtml() {
   const risky = r.threats.filter(t => t.by.length);
   const all = !!b.nextAll, shown = all ? risky : risky.slice(0, 5);
   const bar = (p) => `<span class="riskbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, p) * 100)}%"></i></span>`;
-  const byTxt = (x) => `${esc(shortName(x.name))} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}` : '', x.engaged ? '⚔ in combat' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`;
+  const byTxt = (x) => `${esc(shortName(x.name))}${x.reserve ? ' ⤓' : x.embarked ? ' 🚚' : ''} ${[x.shoot ? `🎯${x.shoot.now ? '' : '→'}${x.shoot.cover ? '☂' : ''}` : '', x.engaged ? '⚔ in combat' : x.charge ? `⚔${pct(x.charge)}` : ''].filter(Boolean).join(' ')}`;
+  // (08.03 / 01.07) at or below half-strength it takes a battle-shock roll in my next Command phase: failed, it has no OC
+  const halfTxt = (t) => (!(t.shockFail > 0) ? '' : t.isHalf ? ` <span data-half="1" style="color:var(--warn-ink)">· at half-strength: battle-shock roll on ${t.ld}+ in your Command phase (fails ${pct(t.shockFail)}: no OC)</span>`
+    : t.half - t.likely >= 0.15 ? ` <span data-half="${t.half.toFixed(3)}">· ${pct(t.half)} left at half-strength or less: then a battle-shock roll on ${t.ld}+ (fails ${pct(t.shockFail)}: no OC)</span>` : '');
   const unitsHtml = risky.length ? `${shown.map(t => `<div class="next-unit tap${boardState().hint?.kind === 'their-unit' && boardState().hint.tk === t.key ? ' on' : ''}" role="button" tabindex="0" data-action="board-hint" data-kind="their-unit" data-tk="${esc(t.key)}" data-unit="${esc(t.key)}" data-likely="${t.likely.toFixed(3)}" data-focus="${t.focus.toFixed(3)}">
         <div class="row" style="gap:6px;align-items:center">${pick(t.key, `<b style="color:${ink(d.me)}">${esc(shortName(t.name))}</b>`)}<span class="grow"></span>${bar(t.likely)}<b class="next-pct">${pct(t.likely)}</b><span class="tiny muted">likely · ${pct(t.focus)} if focused</span></div>
-        <div class="tiny muted">${t.by.slice(0, 4).map(byTxt).join(' · ')}${t.by.length > 4 ? ` · +${t.by.length - 4}` : ''}</div></div>`).join('')}
+        <div class="tiny muted">${t.by.slice(0, 4).map(byTxt).join(' · ')}${t.by.length > 4 ? ` · +${t.by.length - 4}` : ''}${halfTxt(t)}</div></div>`).join('')}
       ${risky.length > 5 ? `<button class="chip" data-action="board-next-all" id="board-next-all" style="margin-top:4px">${all ? 'Fewer' : `All ${risky.length} units in reach`}</button>` : ''}`
     : '<div class="small muted">Nothing of theirs can shoot or charge a unit of yours next turn.</div>';
   // --- objectives
-  const mv = (m) => `${esc(shortName(m.name))} (OC ${m.oc}${m.via === 'advance' ? `, Advance ${m.need}+` : ''})`;
+  const mv = (m) => `${esc(shortName(m.name))} (OC ${m.oc}${m.via === 'advance' ? `, Advance ${m.need}+` : m.via === 'charge' ? `, charge ${m.need}+: ${pct(m.p)}` : m.via === 'fight' ? ', in combat on it' : m.via === 'fallback' ? ', Falls Back onto it' : m.via === 'reserves' ? `, ${m.deepStrike ? 'Deep Strike' : 'from reserves'}` : ''}${m.embarked ? `, out of ${esc(shortName(m.embarked))}` : ''})`;
   const VERD = {
     theirs: ['them', 'They control it'], lose: ['bad', 'They can take it'], contest: ['warn', 'They can tie it (nobody controls)'], advance: ['warn', 'Only with an Advance'],
+    charge: ['warn', 'Only with a charge'], reserves: ['warn', 'Only from reserves'],
     safe: ['ok', 'Yours unless they kill the holders'], take: ['bad', 'Empty: they can take it'], open: ['', 'Out of their reach'],
   };
   const objHtml = r.swing.map(o => {
     const [cls, text] = VERD[o.verdict] ?? ['', o.verdict];
     const moveIn = o.movers.filter(m => m.via === 'move'), adv = o.movers.filter(m => m.via === 'advance');
-    const who = o.verdict === 'advance' ? adv : moveIn.length ? moveIn : adv;
+    const moveIn2 = [...moveIn, ...o.movers.filter(m => m.via === 'fallback')], chg = o.movers.filter(m => m.via === 'charge' || m.via === 'fight'), rsv = o.movers.filter(m => m.via === 'reserves');
+    const who = o.verdict === 'advance' ? adv : o.verdict === 'charge' ? chg : o.verdict === 'reserves' ? rsv : moveIn2.length ? moveIn2 : adv;
+    const upTo = o.verdict === 'advance' ? o.maxAdvance : o.verdict === 'charge' ? o.maxCharge : o.verdict === 'reserves' ? o.maxAll : o.max;
+    const secs = lv.secured?.[o.id], secTxt = !secs ? '🔓 Not secured' : secs === d.me ? '🔒 Secured by you' : '🔒 Secured by them';
     const hold = o.holders.filter(h => h.oc > 0 || h.risk > 0);
     return `<div class="next-obj" data-obj="${esc(o.id)}" data-verdict="${o.verdict}"><div class="row" style="gap:6px;align-items:baseline"><b>${esc(o.label)}</b><span class="tiny muted">you ${o.mine} · them ${o.theirs} OC</span><span class="grow"></span><span class="verd ${cls}">${text}</span></div>
-      ${who.length && o.verdict !== 'theirs' && o.verdict !== 'open' ? `<div class="tiny muted">${who.slice(0, 3).map(mv).join(' · ')}${who.length > 3 ? ` · +${who.length - 3}` : ''} → up to ${o.verdict === 'advance' ? o.maxAdvance : o.max} OC</div>` : ''}
+      ${who.length && o.verdict !== 'theirs' && o.verdict !== 'open' ? `<div class="tiny muted">${who.slice(0, 3).map(mv).join(' · ')}${who.length > 3 ? ` · +${who.length - 3}` : ''} → up to ${upTo} OC</div>` : ''}
+      <button class="chip nocheck${secs ? ' on' : ''}" data-action="board-secure" data-obj="${esc(o.id)}" data-secured="${esc(secs ?? '')}" style="margin-top:3px;font-size:11px;padding:1px 8px" aria-label="Who has secured ${esc(o.label)}">${secTxt}</button>
       ${hold.length && o.verdict !== 'theirs' ? `<div class="tiny muted">Held by ${hold.slice(0, 3).map(h => `${esc(shortName(h.name))}${h.risk >= 0.05 ? ` <span style="color:var(--warn-ink)">(${pct(h.risk)} destroyed)</span>` : ''}`).join(' · ')}</div>` : ''}</div>`;
   }).join('');
   // --- their cards
   const cardsHtml = !d.hand.length ? `<div class="small muted" id="board-next-nocards">No cards in ${esc(d.opp)}'s hand on the tracker (Mission → Play: draw their cards there to see which they can score).</div>`
     : cardRows(r.cards, 'At the end of your turn, as the table stands:');
   const notes = [
-    d.reserves.length ? `Not on the table and not counted: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''} (reserves arrive more than 8" away: a 9" charge, and their guns).` : '',
-    d.embarked.length ? `Embarked and not counted: ${esc(d.embarked.slice(0, 4).map(shortName).join(', '))} (they get out within 3" of their transport).` : '',
+    d.reserves.length ? `In reserves ⤓: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''}. ${d.counted ? `Counted for battle round ${d.theirRound}: set up more than 8" from your units (without Deep Strike: within 6" of a battlefield edge), then their guns and a charge on a 9+.` : d.theirRound < 2 ? 'Not counted: reserves cannot arrive before battle round 2.' : 'Not counted: a unit still in reserves after battle round 3 is destroyed.'}` : '',
+    d.embarked.length ? `Embarked 🚚 and counted from their transport: ${esc(d.embarked.slice(0, 4).map(shortName).join(', '))} (set up within 3" of it, then a move, guns and a charge).` : '',
   ].filter(Boolean);
+  const answersHtml = (r.answers ?? []).length ? `<div class="lab tiny muted" style="margin-top:10px">You can answer with${d.g.started ? ` · you have ${d.g.cp?.[d.me] ?? 0} CP` : ''}</div><div id="board-next-answers">${r.answers.map(a => `<div class="tiny" data-answer="${a.kind}">• ${esc(a.text)}</div>`).join('')}</div>` : '';
   return `<div class="card" id="board-next" data-state="${updating ? 'updating' : 'ready'}" data-opp="${d.opp}" data-vp="${r.vpAtStake}"${updating ? ' style="opacity:.6"' : ''}>${head}
     ${d.fresh ? '' : `<div class="tiny" id="board-next-stale" style="color:var(--warn-ink);margin-top:2px">⚠ From positions that are not confirmed for this turn.</div>`}
     <div class="lab tiny muted" style="margin-top:8px">Your units they can destroy</div><div id="board-next-units">${unitsHtml}</div>
     <div class="lab tiny muted" style="margin-top:10px">Objectives</div><div id="board-next-objs">${objHtml}</div>
     <div class="lab tiny muted" style="margin-top:10px">Their cards${d.hand.length && r.vpAtStake ? ` · <b style="color:var(--warn-ink)">${r.vpAtStake} VP by moving alone</b>` : ''}</div><div id="board-next-cards">${cardsHtml}</div>
+    ${answersHtml}
     ${notes.length ? `<div class="tiny muted" id="board-next-off" style="margin-top:8px">${notes.join('<br>')}</div>` : ''}
-    <div class="tiny muted" style="margin-top:8px" id="board-next-how">Likely: each of their units attacks the target it is worth most against. If focused: everything in reach attacks that unit. 🎯 can shoot it now, 🎯→ after a normal move, ⚔ charge odds. Moves are straight lines (terrain in the way is not checked); stratagems are not counted.</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-next-how">Likely: each of their units attacks the target it is worth most against. If focused: everything in reach attacks that unit. 🎯 can shoot it now, 🎯→ after a normal move, ☂ your unit has cover (their BS is 1 worse), ⚔ charge odds, ⤓ arriving from reserves, 🚚 getting out of a transport. A unit shoots with the weapons that reach; one locked in combat only fights. Objectives count a charge onto your holders (then 3" + 3" onto the objective) and reserves. 🔒 mark an objective a rule has secured (it stays its player’s with nobody in range). Moves are straight lines (terrain in the way is not checked); their army’s own stratagems are not counted.</div>
   </div>`;
 }
 
@@ -3651,6 +3715,18 @@ export function boardAction(action, el) {
       refreshBoard();
       return null;
     }
+    case 'board-secure': {
+      // 14.03: an objective a rule has secured for a player stays theirs with nobody in range (none -> you -> them -> none)
+      const lv = livePlan(), id = el.dataset.obj, me = nextMemo.v?.me ?? 'A';
+      if (!lv || !id) return null;
+      lv.secured ??= {};
+      const cur = lv.secured[id];
+      if (!cur) lv.secured[id] = me; else if (cur === me) lv.secured[id] = otherSide(me); else delete lv.secured[id];
+      console.log(`[board] live table: objective ${id} ${lv.secured[id] ? `secured by ${lv.secured[id]}` : 'not secured'}`);
+      persistBoard();
+      refreshBoard();
+      return null;
+    }
     case 'board-hint': {
       // a row of the cards: that unit selected and ringed on the map, its move and its attack drawn
       const same = b.hint && b.hint.kind === el.dataset.kind && b.hint.tk === el.dataset.tk;
@@ -4130,7 +4206,7 @@ export function boardContext() {
 
 // for tests
 export function _boardDebug() {
-  return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
+  return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, secured: lv.secured ?? {}, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
     next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, play: playMemo.key === nextMemo.key ? playMemo : { state: 'idle' }, log: logStore(), strats: stratMemo.key === nextMemo.key ? stratMemo : { state: 'idle' }, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, plan: planData(), pasteError: boardState().pasteError ?? null, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), half: halfOn(), first: firstOf(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,

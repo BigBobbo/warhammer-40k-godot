@@ -2901,6 +2901,9 @@ Aggressor Squad (95 points)
     await mp.waitForSelector('#board-ghosts [data-ghost-gone]');
     check('a unit destroyed in the other path is crossed out', /Grey Hunters is not on the board there/.test(await mtxt('#board-cmp-info')));
     // moving a path after the forecast: its win chance is not shown until worked out again
+    // (the unit-vs-unit odds arriving start a forecast of their own, which works every path out again: wait for them
+    //  first, so that the check is about the move alone - they take longer since 1.152.0, the in-cover odds)
+    await mp.waitForFunction(() => window.__calc.mission().pairsReady && !window.__calc.mission().busy, null, { timeout: 90000 });
     await mset(MN, 30, 31);
     await mp.waitForTimeout(200);
     // (a forecast still running shows "…" in every row: the check is about what stays once nothing is running.
@@ -4558,6 +4561,44 @@ Aggressor Squad (95 points)
       check('Your cards from the tracker: Assassination and No Prisoners only by a kill (with odds), Behind Enemy Lines not this turn; said about "you", not "they"',
         mc('assassination').verdict === 'kill' && mc('assassination').p > 0 && mc('no-prisoners').verdict === 'kill' && mc('behind-enemy-lines').verdict === 'no' && /none of your units/.test(mc('behind-enemy-lines').why)
         && /Warboss/.test(mc('assassination').why) && /if you destroy/.test(mc('assassination').why) && (await lp.locator('#board-my-cards .next-card').count()) === 3 && (await lp.locator('#board-my-kills [data-kill]').first().getAttribute('data-kill')) === my1.kills[0].key, JSON.stringify(my1.cards));
+      // 1.152.0: suggestions that follow the turn sequence and play to the score
+      {
+        const kTop = my1.kills.find(k => /Warboss/.test(k.name));
+        check('targets are valued in victory points and say why: the Warboss unit is worth more for my Assassination and No Prisoners',
+          kTop && kTop.why.some(w => /Assassination/.test(w)) && kTop.why.some(w => /No Prisoners/.test(w)) && /Worth more than its points: .*Assassination/.test(await lp.textContent(`#board-my-kills [data-kill="${kTop.key}"]`)), JSON.stringify(my1.kills.map(k => [k.name, k.why])));
+        check('Your turn carries what the cards now work out: the same objectives in their next turn, their cards, and what they can answer with',
+          my1.danger.length === my1.swing.length && Array.isArray(my1.warnings) && my1.theirCards.length === 4 && (await lp.locator('#board-my-warnings [data-warn]').count()) === my1.warnings.length, JSON.stringify({ w: my1.warnings, tc: my1.theirCards.map(c => c.id) }));
+        check('Their turn: reserves are named with the round they count from (not in battle round 1), and the objectives have a 🔒 chip each',
+          /In reserves ⤓: .*Battlewagon/.test(await lp.textContent('#board-next-off')) && /cannot arrive before battle round 2/.test(await lp.textContent('#board-next-off')) && (await lp.locator('#board-next-objs button[data-action="board-secure"]').count()) === (await next()).res.swing.length);
+        // 🔒 secured: none -> you -> them -> none
+        const cid = (await next()).res.swing.find(o => o.label === 'Centre').id, chip = `#board-next-objs [data-obj="${cid}"] button[data-action="board-secure"]`;
+        await lp.locator(chip).scrollIntoViewIfNeeded();
+        await lp.tap(chip); await ready();
+        const s1 = (await next()).res.swing.find(o => o.id === cid);
+        check('🔒 on the centre: secured by you (14.03), kept on the live table', s1.secured === 'me' && (await live()).secured[cid] === 'A' && /Secured by you/.test(await lp.textContent(chip)), JSON.stringify(s1.secured));
+        await lp.tap(chip); await ready();
+        check('🔒 again: secured by them', (await next()).res.swing.find(o => o.id === cid).secured === 'them' && /Secured by them/.test(await lp.textContent(chip)));
+        await lp.tap(chip); await ready();
+        check('🔒 a third time: not secured', (await next()).res.swing.find(o => o.id === cid).secured == null && Object.keys((await live()).secured).length === 0 && /Not secured/.test(await lp.textContent(chip)));
+        // a unit locked in combat: the Meganobz dragged into the Grey Hunters fight them and threaten nobody else
+        const megaAt = await unit(mega), ghAt = await unit(gh);
+        await moveTo(mega, ghAt.x, ghAt.y + 3.2); await ready();
+        const n2 = await next(), logan = await tkOf('A', 'Logan'), megaOnGh = n2.res.threats.find(t => t.key === gh).by.find(b => b.key === mega);
+        check('a unit in engagement range: the Meganobz are in combat with the Grey Hunters and are not counted against Logan (they would have to Fall Back first)',
+          megaOnGh?.engaged === true && !(n2.res.threats.find(t => t.key === logan)?.by ?? []).some(b => b.key === mega) && /⚔ in combat/.test(await lp.textContent(`#board-next-units [data-unit="${gh}"]`)), JSON.stringify(megaOnGh));
+        const ghNow = n2.my.units.find(u => u.key === gh);
+        check('Your turn with the Grey Hunters in combat on the centre: they hold it and fight (no shooting at another unit), with the chance they are destroyed when the target fights back',
+          ghNow.job.kind === 'hold' && /fight/.test(ghNow.attack?.how ?? '') && !/shoot/.test(ghNow.attack.how) && ghNow.attack.key === mega && ghNow.attack.back >= 0 && /from the objective/.test(await lp.textContent(`#board-my-units [data-unit="${gh}"]`)), JSON.stringify(ghNow));
+        await lp.locator('#board-my').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_152_turn_suggestions.png'), fullPage: true });
+        await moveTo(mega, megaAt.x, megaAt.y); await ready();
+        check('the Meganobz back where they were: the Grey Hunters shoot again', /shoot/.test((await next()).my.units.find(u => u.key === gh).attack?.how ?? ''));
+        // the prompt for Claude carries the stats, the rules and the wider ACTIONS forms
+        const pr = await lp.evaluate(() => window.__calc.board().next.advise.prompt());
+        check('the prompt for Claude: unit stats and weapons, mission scoring, turn order, objective positions, distances, and the new ACTIONS forms',
+          /"stats":\["[^"]*M\d+(\\")? T\d+ Sv\d\+/.test(pr) && /"weapons":\["\d+x /.test(pr) && /"myMissionScoring":"/.test(pr) && /"firstTurnEachRound":"(me|them)"/.test(pr) && /"inchesToNearestEnemies":\{/.test(pr) && /"name":"Centre","at":\[\d+,\d+\]/.test(pr)
+          && /CHARGE \| unit \| enemy unit/.test(pr) && /STRATAGEM \| stratagem name \| unit/.test(pr), pr.slice(0, 200));
+      }
       // moves weighed with the mission forecast (1.137.0; 1.138.0: the table counts for the round in progress only)
       {
         await moveTo(gh, 22, 20);
@@ -4565,8 +4606,8 @@ Aggressor Squad (95 points)
         await lp.waitForSelector('#board-my[data-moves="done"] #board-my-moves[data-state="done"]');
         const mvs = (await next()).moves;
         check('forecast, battle round 1: every candidate move was weighed; only moves worth 3+ VP over standing still are suggested, and the line says how many',
-          mvs.n >= 1 && mvs.best.every(x => x.dVp >= 3) && mvs.kept.moves.every(x => mvs.best.some(y => y.key === x.key)) && (await lp.getAttribute('#board-my-moves', 'data-kept')) === String(mvs.kept.moves.length)
-          && (mvs.kept.moves.length ? /you win \d+% of games instead of \d+%/ : /none of the \d+ moves? tried beats standing still by 3 VP/).test(await lp.textContent('#board-my-moves')), JSON.stringify(mvs).slice(0, 600));
+          mvs.n >= 1 && mvs.best.every(x => x.dVp >= 2) && mvs.kept.moves.every(x => mvs.best.some(y => y.key === x.key)) && (await lp.getAttribute('#board-my-moves', 'data-kept')) === String(mvs.kept.moves.length)
+          && (mvs.kept.moves.length ? /you win \d+% of games instead of \d+%/ : /none of the \d+ moves? tried beats standing still by 2 VP/).test(await lp.textContent('#board-my-moves')), JSON.stringify(mvs).slice(0, 600));
         // the live table counts for the round in progress only: not the frozen-table forecast
         const frozen = await lp.evaluate(async () => { const M = await import('/calc/missionview.mjs'), F = await import('/calc/forecast.mjs'), B = await import('/calc/boardview.mjs'); const plan = B.boardPlans().find(x => x.name === 'Live table');
           const vp = (o) => { const r = F.forecast(M.forecastParams({ boardSteps: plan, trials: 1500, ...o })); return r.A.mean + r.B.mean; }; return { frozen: vp({}), round: vp({ boardUntil: M.liveUntil() }), until: M.liveUntil(), now: M.missionState().game.round }; });
@@ -4619,7 +4660,7 @@ Aggressor Squad (95 points)
         await lp.screenshot({ path: join(SHOTS, 'calc_140_suggestion_on_map.png') });
         // a target: everything sent at it points to it; one of my units under Their next turn: who can reach it
         await lp.locator('#board-my-kills .next-obj').first().tap();
-        const kh = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, hits: document.querySelectorAll('#hint-layer [data-hint="hit"]').length, by: window.__calc.board().next.my.kills[0].by.length }));
+        const kh = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, hits: document.querySelectorAll('#hint-layer [data-hint="hit"]').length, by: window.__calc.board().next.my.kills[0].by.filter(x => !x.reserve).length }));
         check('tap a target: an arrow from each unit sent at it', kh.h.kind === 'my-kill' && kh.hits === kh.by && kh.hits >= 1, JSON.stringify(kh));
         await lp.locator('#board-next-units .next-unit').first().tap();
         const th = await lp.evaluate(() => ({ h: window.__calc.board().next.hint, hits: document.querySelectorAll('#hint-layer [data-hint="hit"]').length }));
