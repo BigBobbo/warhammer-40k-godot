@@ -199,3 +199,56 @@ test('a unit in a transport gets out beside it, by round 3 at the latest', () =>
   assert.ok(P.unitGap(u, c) >= 0 && Math.hypot(u.x - c.x, u.y - c.y) <= 8, 'not on it, not far from it');
   assert.ok(res.log.some(l => l.round > out[0].round && l.moves.some(m => m.unit === 'A:boys')), 'then it acts like any unit');
 });
+
+test('casualties count only what can attack from where it stands: in range and in sight, or in engagement range; one target each', () => {
+  const pairFor = (A, Bs, c) => pairOf(A, Bs, c);
+  const gun = unit('A:gun', 22, 14, 5, { oc: 0, melee: false }), prey = unit('B:prey', 22, 34), far = unit('B:far', 22, 57);
+  const c = { shoot: 0.8, sMu: 13, sSd: 2, fight: 0.9, fMu: 15, fSd: 2 };
+  // in range (20") and in sight: counted, at the calculator's figure
+  const open = P.turnCasualties([prey, far], [gun], pairFor([gun], [prey, far], c), []);
+  assert.deepEqual(open.map(r => [r.key, r.p, r.by]), [['B:prey', 0.8, ['A:gun']]]);
+  // a wall that hides the target: the turn cards still say "likely" (it could move round), the play-out does not
+  const wall = [{ id: 'ruin', cls: 'area', cat: 'dense', h: 5, parent: null, link: null, traits: ['obscuring'], poly: [[10, 22], [34, 22], [34, 26], [10, 26]] }];
+  assert.ok(N.turnThreats([prey], [gun], pairFor([gun], [prey], c), { pieces: wall })[0].likely > 0.5, 'the card\'s upper bound');
+  assert.deepEqual(P.turnCasualties([prey], [gun], pairFor([gun], [prey], c), wall), []);
+  // out of range from where it stands (26"), though a move would bring it in: not counted
+  assert.deepEqual(P.turnCasualties([prey], [{ ...gun, y: 8 }], pairFor([gun], [prey], c), []), []);
+  // a unit in engagement range fights; it does not also count as charging something else
+  const fist = unit('A:fist', 22, 32.2, 5, { ranges: [] });
+  const melee = P.turnCasualties([prey, far], [fist], pairFor([fist], [prey, far], c), []);
+  assert.deepEqual(melee.map(r => [r.key, r.p]), [['B:prey', 0.9]]);
+  // it charged this turn and needed a 7 (58%): it fights that often
+  const half = P.turnCasualties([prey, far], [fist], pairFor([fist], [prey, far], c), [], new Map([['A:fist', 21 / 36]]));
+  assert.ok(Math.abs(half[0].p - 0.9 * 21 / 36) < 1e-9, String(half[0].p));
+  // turnMoves says how likely each charge it walks is
+  const runner = unit('A:run', 22, 20.2, 5, { ranges: [] });
+  const cm = P.turnMoves({ me: 'A', mine: [runner], theirs: [prey], pair: pairFor([runner], [prey], c), objs: [], geo: { ...GEO, objectives: [] }, round: 2, hand: [] })[0];
+  assert.equal(cm.kind, 'charge'); assert.ok(cm.chargeP > 0.2 && cm.chargeP < 1, String(cm.chargeP));
+  // two shooters with two targets in reach: each attacks one, the one it is worth most against
+  const g2 = unit('A:g2', 30, 14, 5, { oc: 0, melee: false }), cheap = unit('B:cheap', 30, 34, 5, { points: 40 });
+  const two = P.turnCasualties([prey, cheap], [gun, g2], pairFor([gun, g2], [prey, cheap], c), []);
+  assert.deepEqual(two.map(r => r.key), ['B:prey']); assert.deepEqual(two[0].by.sort(), ['A:g2', 'A:gun']);
+  assert.ok(two[0].p > 0.8);
+});
+
+test('caution: a unit does not walk into a place where it is likely destroyed, unless the walk takes the objective or it is no safer where it stands', () => {
+  const objs = [{ id: 'c', cls: 'central', side: null, label: 'Centre', x: 22, y: 40, host: [] }];
+  const geo = { ...GEO, objectives: objs };
+  const walker = unit('A:w', 22, 10, 5, { ranges: [] }), brute = unit('B:brute', 22, 46, 5, { ranges: [], oc: 0 });
+  // the brute destroys what it reaches (charge reach: its Move 6 + the charge roll); 10" of walking ends inside that reach
+  const deadly = pairOf([walker], [brute], { fight: 0.95, fMu: 20, fSd: 2 });
+  const run = (mine, pair) => P.turnMoves({ me: 'A', mine, theirs: [brute], pair, objs, geo, round: 2, hand: [] })[0];
+  const far = run([walker], deadly);
+  assert.equal(far.kind, 'advance', 'out of the brute\'s reach where the walk ends: it walks');
+  const near = unit('A:w', 22, 24, 5, { ranges: [] });
+  const held = run([near], deadly);
+  assert.equal(held.kind, 'wait'); assert.equal(held.dist, 0); assert.equal(held.label, 'Centre'); assert.ok(held.risk >= 0.5);
+  // a harmless enemy: it walks on
+  assert.equal(run([near], pairOf([near], [brute], { fight: 0.05, fMu: 1, fSd: 1 })).kind, 'advance');
+  // the walk gets onto the objective: it is made whatever the danger
+  const close = unit('A:w', 22, 31, 5, { ranges: [] });
+  assert.equal(run([close], deadly).kind, 'take');
+  // already as exposed where it stands: nothing is gained by waiting
+  const stuck = unit('A:w', 22, 34, 5, { ranges: [], move: 1 });
+  assert.notEqual(run([stuck], deadly).kind, 'wait');
+});
