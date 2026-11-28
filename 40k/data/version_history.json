@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.147.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: one chip per player turn on the Board, and move suggestions that see the next round",
+      "changes": [
+        "Board, By player turn: each battle round is now a pair of chips in the players' colours (1 A B, 2 A B, ...), the first player's turn then the other's: one tap picks the round and the player turn",
+        "The separate row of long buttons is gone; a single line says what is on the board, with ◀ ▶ to step a player turn at a time, so the map keeps its size on a tablet",
+        "Board, Your turn: when moves are weighed with the forecast, the table as it stands now counts for this battle round and the next (it was this round only), so a move that sets the next round up shows its worth",
+        "In a test game with every unit still in its deployment zone the forecast now backs two moves onto objectives, where before it backed none"
+      ]
+    },
+    {
       "version": "1.146.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: step through a battle round one player turn at a time on the Board",

@@ -914,7 +914,7 @@ function myTurnHtml(d) {
   const sgn = (n, d = 0) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
   const movesLine = mv.state === 'pending' ? `<div class="small muted" id="board-my-moves" data-state="pending">⏳ Weighing ${mv.n} move${mv.n === 1 ? '' : 's'} with the forecast…</div>`
     : mv.state !== 'done' ? ''
-      : mv.kept.moves.length ? `<div class="small" id="board-my-moves" data-state="done" data-kept="${mv.kept.moves.length}" data-win="${mv.kept.win.toFixed(3)}" data-base="${mv.base.win.toFixed(3)}">📈 Forecast: with ${mv.kept.moves.length === 1 ? 'this move' : `these ${mv.kept.moves.length} moves`} you win <b>${pct(mv.kept.win)}</b> of games instead of ${pct(mv.base.win)} (<b>${sgn(mv.kept.vp - mv.base.vp)} VP</b> of margin). The table as it stands counts for this battle round; later rounds are forecast as on the Mission tab.</div>`
+      : mv.kept.moves.length ? `<div class="small" id="board-my-moves" data-state="done" data-kept="${mv.kept.moves.length}" data-win="${mv.kept.win.toFixed(3)}" data-base="${mv.base.win.toFixed(3)}">📈 Forecast: with ${mv.kept.moves.length === 1 ? 'this move' : `these ${mv.kept.moves.length} moves`} you win <b>${pct(mv.kept.win)}</b> of games instead of ${pct(mv.base.win)} (<b>${sgn(mv.kept.vp - mv.base.vp)} VP</b> of margin). The table as it stands counts for this battle round and the next; later rounds are forecast as on the Mission tab.</div>`
         : `<div class="small muted" id="board-my-moves" data-state="done" data-kept="0">📈 Forecast: none of the ${mv.n} move${mv.n === 1 ? '' : 's'} tried beats standing still by ${MOVE_MIN_VP} VP or more (you win ${pct(mv.base?.win ?? 0)} as it stands).</div>`;
   // units the forecast moves come first
   const ordered = [...m.units].sort((x, y) => (keptOf.get(y.key)?.addVp ?? -1) - (keptOf.get(x.key)?.addVp ?? -1));
@@ -945,7 +945,7 @@ function myTurnHtml(d) {
     ${m.kills.length ? `<div class="lab tiny muted" style="margin-top:10px">Targets, best first</div><div id="board-my-kills">${killsHtml}</div>` : ''}
     <div class="lab tiny muted" style="margin-top:10px">Your cards${d.myHand.length && m.vp ? ` · <b style="color:#2e9e5b">${m.vp} VP by moving alone</b>` : ''}</div><div id="board-my-cards">${cardsHtml}</div>
     ${adviceHtml()}
-    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress, the rounds after it are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Targets: where the unit adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. Stratagems, reserves and terrain in the way of a move are not counted.</div>
+    <div class="tiny muted" style="margin-top:8px" id="board-my-how">A suggestion per unit, not a plan checked move by move. Moves (→ with VP): each move onto an objective in reach, and a pull back for a unit at risk, is played out to the end of the game by the mission forecast (1,500 games each; the positions on the table count for the battle round in progress and the one after it, the rounds after that are forecast as on the Mission tab) and kept if it beats standing still by ${MOVE_MIN_VP} VP of margin or more, alone and on top of the other moves. Targets: where the unit adds most to a kill (points, more for a unit on an objective or one a card of yours pays for). Its move and its target are both worked out from where it stands now, so after a move to an objective the target may be out of reach. Stratagems, reserves and terrain in the way of a move are not counted.</div>
   </div>`;
 }
 let nextTimer = null;
@@ -1348,24 +1348,42 @@ function stepTokens() {
   st.tokens ??= {};
   return halfOn() ? halfTokens(st.tokens, (steps[i - 1].tokens ??= {}), firstOf()) : st.tokens;
 }
-/** The switch under the turn chips: the table after the first player's turn / at the end of the round, and ◀ ▶ a player turn at a time. */
+/**
+ * The turn chips. By battle round: Deploy, Turn 1, Turn 2... With "By player turn" on and the first player known:
+ * each round is a pair, the first player's turn and the other player's (the end of the round), in that order and
+ * in the players' colours - "2 A | B" - so a tap picks the round and the player turn at once.
+ */
+function stepChipsHtml() {
+  const esc = ctx.esc, steps = curSteps(), cur = curIndex(), p = plan(), b = boardState();
+  const plain = (s, i) => `<button class="chip ${i === cur ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`;
+  const F = b.byTurn && !p.drill ? firstOf() : null;
+  if (!F) return steps.map(plain).join('');
+  const S = otherSide(F), on = halfOn();
+  const nm = (X) => esc(ctx.state.armies[X]?.faction ?? X), ink = (X) => `var(--side-${X.toLowerCase()}-ink)`;
+  return steps.map((s, i) => {
+    if (i < 1) return plain(s, i);
+    // (the table now of the live table is one position: it follows the game, not a plan of two halves)
+    if (p.live && i === steps.length - 1) return `<button class="chip ${i === cur ? 'on' : ''}" data-action="board-step" data-i="${i}" id="board-turn-now">${i} · now</button>`;
+    const half = (h, X) => `<button class="chip pt ${i === cur && on === !!h ? 'on' : ''}" data-action="board-half-pick" data-i="${i}" data-h="${h}" data-side="${X}" aria-pressed="${i === cur && on === !!h}" aria-label="Battle round ${i}, after ${nm(X)} has moved${h ? '' : ' (the end of the round)'}" title="Round ${i}: after ${nm(X)} has moved${h ? '' : ' (the end of the round)'}"><b style="color:${ink(X)}">${X}</b></button>`;
+    return `<span class="pt-pair" data-round="${i}"><span class="pt-n">${i}</span>${half(1, F)}${half(0, S)}</span>`;
+  }).join('');
+}
+/** Under the chips with "By player turn" on: who has the first turn (asked when the plan does not know), or what is on the board, with ◀ ▶. */
 function halfRowHtml() {
   const p = plan(), esc = ctx.esc;
   if (!p || p.drill || curSteps().length < 2 || !boardState().byTurn) return '';
-  const F = firstOf(), i = curIndex(), n = curSteps().length, liveNow = p.live && i === n - 1;
-  const nm = (X) => esc(ctx.state.armies[X]?.faction ?? X);
-  if (!F) return `<div class="row tiny" id="board-half-row" data-first="" style="gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px"><span class="muted">See each round by player turn: who has the first turn?</span>
-    ${['A', 'B'].map(X => `<button class="chip" data-action="board-half-first" data-value="${X}">${nm(X)}</button>`).join('')}</div>`;
+  const F = firstOf(), i = curIndex(), n = curSteps().length;
+  const nm = (X) => `<b style="color:var(--side-${X.toLowerCase()}-ink)">${esc(ctx.state.armies[X]?.faction ?? X)}</b>`;
+  if (!F) return `<div class="row tiny" id="board-half-row" data-first="" style="gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px"><span class="muted">By player turn: who has the first turn?</span>
+    ${['A', 'B'].map(X => `<button class="chip" data-action="board-half-first" data-value="${X}">${esc(ctx.state.armies[X]?.faction ?? X)}</button>`).join('')}</div>`;
   const S = otherSide(F), on = halfOn();
   // (a position in player turns: 2 per round from Turn 1 on; the deployment is 0)
   const pos = i < 1 ? 0 : 2 * i - (on ? 1 : 0), last = 2 * (n - 1) - (p.live ? 1 : 0);
-  const can = halfCan();
-  return `<div class="row tiny" id="board-half-row" data-first="${F}" data-half="${on ? 1 : 0}" data-pos="${pos}" style="gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">
-    <button class="chip" data-action="board-half-go" data-d="-1" id="board-half-prev" aria-label="The player turn before" ${pos <= 0 ? 'disabled' : ''}>◀</button>
-    ${i < 1 ? '<span class="muted">Deployment</span>' : `<button class="chip ${on ? 'on' : ''}" data-action="board-half" data-value="1" id="board-half-1" aria-pressed="${on}" ${can ? '' : 'disabled'}>Round ${i} · after <b style="color:var(--side-${F.toLowerCase()}-ink)">${nm(F)}</b> moves</button>
-    <button class="chip ${on ? '' : 'on'}" data-action="board-half" data-value="0" id="board-half-2" aria-pressed="${!on}">${liveNow ? 'the table now' : `after <b style="color:var(--side-${S.toLowerCase()}-ink)">${nm(S)}</b> moves (end of round)`}</button>`}
-    <button class="chip" data-action="board-half-go" data-d="1" id="board-half-next" aria-label="The next player turn" ${pos >= last ? 'disabled' : ''}>▶</button>
-    ${on ? `<span class="muted" id="board-half-note">${nm(S)} has not moved yet this round: its units stand where ${i > 1 ? `round ${i - 1}` : 'deployment'} left them.</span>` : ''}</div>`;
+  const what = i < 1 ? 'Deployment' : p.live && i === n - 1 ? `Round ${i}: the table now` : on ? `Round ${i}, after ${nm(F)} has moved · ${nm(S)} still stands where ${i > 1 ? `round ${i - 1}` : 'deployment'} left it` : `Round ${i}, after ${nm(S)} has moved too (the end of the round)`;
+  return `<div class="row tiny" id="board-half-row" data-first="${F}" data-half="${on ? 1 : 0}" data-pos="${pos}" style="gap:6px;align-items:center;margin-top:6px">
+    <button class="icon-btn" data-action="board-half-go" data-d="-1" id="board-half-prev" aria-label="The player turn before" ${pos <= 0 ? 'disabled' : ''}>◀</button>
+    <button class="icon-btn" data-action="board-half-go" data-d="1" id="board-half-next" aria-label="The next player turn" ${pos >= last ? 'disabled' : ''}>▶</button>
+    <span class="grow" id="board-half-note">${what}</span></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2090,7 +2108,7 @@ function closestCentres(a, b) {
 function stepsRowHtml() {
   const b = boardState(), p = plan(), esc = ctx.esc;
   return `<div class="row" style="gap:6px;flex-wrap:wrap">
-        ${p ? curSteps().map((s, i) => `<button class="chip ${i === curIndex() ? 'on' : ''}" data-action="board-step" data-i="${i}">${esc(s.name)}</button>`).join('') : ''}
+        ${p ? stepChipsHtml() : ''}
         ${p?.live ? '' : `<button class="chip" data-action="board-step-add">＋ Next turn</button>
         <button class="chip" data-action="board-branch" id="board-branch" title="Split the plan after this turn: your decision, or a chance outcome">⑂ Branch here</button>`}
         <button class="chip ${p?.live ? 'on' : ''}" data-action="board-live" id="board-live" aria-pressed="${!!p?.live}" title="The table as it is now, following the round and turn of the game on the tracker">🔴 Live table</button>
@@ -3169,7 +3187,7 @@ export function boardAction(action, el) {
       zoomBoard(Number(el.dataset.z));
       return null;
     case 'board-by-turn': b.byTurn = !b.byTurn; if (!b.byTurn) b.half = false; b.sel = b.sel2 = null; return 'render';
-    case 'board-half': b.half = el.dataset.value === '1'; b.sel = b.sel2 = null; return 'render';
+    case 'board-half-pick': { const p = plan(); if (!p) return null; p.cur = Number(el.dataset.i); b.half = el.dataset.h === '1'; b.sel = b.sel2 = null; persistBoard(); return 'render'; }
     case 'board-half-first': { const p = plan(); if (p) { p.first = el.dataset.value === 'B' ? 'B' : 'A'; b.half = true; persistBoard(); } return 'render'; }
     case 'board-half-go': {
       // a player turn on or back: deployment, round 1 first player, round 1 end, round 2 first player, ...
