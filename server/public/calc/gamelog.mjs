@@ -36,7 +36,9 @@ export function addTurn(rec, e) {
     forecast: e.forecast ? { win: e.forecast.win, margin: r1(e.forecast.margin ?? 0) } : null,
     moves: (e.moves ?? []).map(m => ({ unit: m.unit, name: m.name, label: m.label, obj: m.obj ?? null, vp: r1(m.vp ?? 0), made: m.made ?? null })),
     playout: e.playout ? { win: e.playout.win, vpMe: r1(e.playout.vpMe ?? 0), vpOpp: r1(e.playout.vpOpp ?? 0) } : null,
-    ahead: e.ahead ? { side: e.ahead.side, destroyed: (e.ahead.destroyed ?? []).map(d => ({ tk: d.tk, name: d.name, p: Math.round(d.p * 1000) / 1000 })) } : null,
+    ahead: e.ahead ? { side: e.ahead.side, destroyed: (e.ahead.destroyed ?? []).map(d => ({ tk: d.tk, name: d.name, p: Math.round(d.p * 1000) / 1000 })),
+      // (1.153.0) halved: [{ tk, name, p }] - units expected to be left at or below half-strength (destroyed counts)
+      ...(e.ahead.halved ? { halved: e.ahead.halved.map(d => ({ tk: d.tk, name: d.name, p: Math.round(d.p * 1000) / 1000 })) } : {}) } : null,
   };
   const i = rec.turns.findIndex(t => t.round === entry.round && t.turn === entry.turn);
   if (i >= 0) rec.turns.splice(i, rec.turns.length - i, entry); else rec.turns.push(entry);
@@ -61,7 +63,7 @@ export function review(rec) {
   const margin = rec.final ? rec.final[me] - rec.final[opp] : null;
   const result = margin == null ? null : margin > 0 ? 'win' : margin < 0 ? 'loss' : 'draw';
   const wins = rec.turns.filter(t => t.forecast || t.playout).map(t => ({ round: t.round, turn: t.turn, said: t.forecast?.win ?? null, margin: t.forecast?.margin ?? null, playout: t.playout?.win ?? null }));
-  const kills = [];
+  const kills = [], halves = [];
   for (let i = 0; i + 1 < rec.turns.length; i++) {
     const a = rec.turns[i], b = rec.turns[i + 1];
     if (!a.ahead || b.turn !== a.ahead.side) continue;
@@ -71,9 +73,16 @@ export function review(rec) {
       // gone from the table, or no models left, at the end of the turn the call was about
       kills.push({ round: b.round, turn: b.turn, side: a.ahead.side, tk: d.tk, name: d.name, p: d.p, happened: !left.has(d.tk) || left.get(d.tk) === 0 });
     }
+    // at or below half-strength at the end of that turn: half the models it started the game with, or gone
+    const total = new Map(a.units.map(u => [u.tk, u.total]));
+    for (const d of a.ahead.halved ?? []) {
+      const t = total.get(d.tk);
+      if (!before.has(d.tk) || before.get(d.tk) === 0 || !(t >= 2)) continue;
+      halves.push({ round: b.round, turn: b.turn, side: a.ahead.side, tk: d.tk, name: d.name, p: d.p, happened: !left.has(d.tk) || left.get(d.tk) * 2 <= t });
+    }
   }
   const all = rec.turns.flatMap(t => t.moves ?? []);
-  return { result, margin, wins, kills, moves: { backed: all.length, made: all.filter(m => m.made === true).length } };
+  return { result, margin, wins, kills, halves, moves: { backed: all.length, made: all.filter(m => m.made === true).length } };
 }
 
 const BANDS = [[0, 0.2], [0.2, 0.4], [0.4, 0.6], [0.6, 0.8], [0.8, 1.0001]];
@@ -93,15 +102,16 @@ function tally(rows) {
  */
 export function calibration(records) {
   const done = records.filter(r => r.final);
-  const win = [], po = [], kills = [];
+  const win = [], po = [], kills = [], halves = [];
   let backed = 0, made = 0;
   for (const rec of done) {
     const rv = review(rec), won = rv.result === 'win';
     for (const w of rv.wins) { if (w.said != null) win.push({ p: w.said, hit: won }); if (w.playout != null) po.push({ p: w.playout, hit: won }); }
     for (const k of rv.kills) kills.push({ p: k.p, hit: k.happened });
+    for (const k of rv.halves) halves.push({ p: k.p, hit: k.happened });
     backed += rv.moves.backed; made += rv.moves.made;
   }
-  return { games: done.length, win: tally(win), playout: tally(po), kills: tally(kills), moves: { backed, made } };
+  return { games: done.length, win: tally(win), playout: tally(po), kills: tally(kills), halves: tally(halves), moves: { backed, made } };
 }
 
 /** What is sent when the player has turned sending on: the record as it is, less the times of day. */

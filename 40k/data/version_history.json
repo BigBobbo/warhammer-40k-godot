@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.153.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: wounds on damaged models, units not in the game, and where a shot is made from",
+      "changes": [
+        "Board, live table: the wounds a damaged model has lost now count in the turn cards. A vehicle on 4 of 12 wounds is far more likely destroyed than a fresh one, and a single model at half its wounds is at half-strength",
+        "A unit that is not on the live table counts as in reserves; a new ⤓ button next to it in the army list marks it as not in this game, so a table that is only half set up no longer fills with arriving units",
+        "Shooting odds follow where the shot is made from: a unit that stands still in range and sight gets its Heavy weapons' bonus, one that can get within half range gets Rapid Fire and Melta. The unit row says which",
+        "The turn cards show their first numbers as fast as before: the in-cover, standing-still and half-range odds are worked out afterwards and the cards update when they are in",
+        "Unit-vs-unit odds are always for a full-strength target; the Board scales them by the models and wounds left (before, a list loaded mid-game could count losses twice)",
+        "Prediction record: calls that a unit is left at half-strength or less are now kept and checked against the models left, next to the destroyed calls",
+        "The 2 VP bar for a move was measured again with the other player's reply in the forecast: a move's gain varies by about 0.6 VP between runs, so the bar stays"
+      ]
+    },
+    {
       "version": "1.152.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: turn suggestions that follow the rules of the turn and play to the score",

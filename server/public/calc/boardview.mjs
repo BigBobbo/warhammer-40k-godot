@@ -384,7 +384,9 @@ function logTurn(lv, prev, now) {
   let ahead = null;
   if (d && v?.res && !g.over) {
     const calls = now.turn === me ? (v.my?.kills ?? []).map(k => ({ tk: k.key, name: k.name, p: k.p })) : v.res.threats.map(t => ({ tk: t.key, name: t.name, p: t.likely }));
-    ahead = { side: now.turn, destroyed: calls.filter(c => c.p >= 0.2) };
+    // ... and left at or below half-strength (a call that can be checked from the models left)
+    const halves = (now.turn === me ? (v.my?.kills ?? []) : v.res.threats).filter(x => !x.isHalf && (x.half ?? 0) >= 0.2).map(x => ({ tk: x.key, name: x.name, p: x.half }));
+    ahead = { side: now.turn, destroyed: calls.filter(c => c.p >= 0.2), halved: halves };
   }
   const e = addTurn(store.current, { round: prev.round, turn: prev.turn, vp: g.vp ?? { A: 0, B: 0 }, units, forecast, moves, playout, ahead });
   console.log(`[board] prediction record: round ${prev.round}, ${prev.turn}'s turn kept (${units.length} units, forecast ${e.forecast ? `${Math.round(e.forecast.win * 100)}%` : '-'}, ${e.moves.length} backed move(s) of which ${e.moves.filter(m => m.made).length} made, ${e.ahead?.destroyed.length ?? 0} call(s) on the next turn)`);
@@ -417,10 +419,11 @@ function gameLogHtml() {
   const lastHtml = rv ? `<div class="tiny" id="board-log-last" data-result="${rv.result}" style="margin-top:8px"><b>Your last game</b>: ${rv.result === 'win' ? 'won' : rv.result === 'loss' ? 'lost' : 'drawn'} ${last.final[last.me]} – ${last.final[otherSide(last.me)]}
       ${rv.wins.map(w => `<div class="muted">Round ${w.round}, ${w.turn}’s turn: ${w.said != null ? `the forecast said you win ${pct(w.said)} (${w.margin >= 0 ? '+' : '−'}${Math.abs(w.margin).toFixed(0)} VP)` : ''}${w.playout != null ? `${w.said != null ? '; ' : ''}the play-out said ${pct(w.playout)}` : ''}</div>`).join('') || '<div class="muted">No forecast was on screen at a turn end in that game.</div>'}
       ${rv.kills.length ? `<div class="muted">“Destroyed next turn” calls: ${rv.kills.filter(k => k.happened).length} of ${rv.kills.length} happened.</div>` : ''}
+      ${rv.halves?.length ? `<div class="muted" id="board-log-halves">“Left at half-strength or less” calls: ${rv.halves.filter(k => k.happened).length} of ${rv.halves.length} happened.</div>` : ''}
       ${rv.moves.backed ? `<div class="muted">Moves the forecast backed: ${rv.moves.made} of ${rv.moves.backed} were made.</div>` : ''}</div>` : '';
   return `<div class="card" id="board-log" data-open="1">${head}
     <div class="small" style="margin-top:6px">At each <b>Turn done</b> with the live table on, the app keeps the score, where the units stood, and what it had predicted. When the battle ends it checks its calls against what happened.</div>
-    ${n ? `<div id="board-log-cal">${band(cal.win, 'Forecast: you win')}${band(cal.playout, 'Play-out: you win')}${band(cal.kills, 'Destroyed in the next turn')}${!cal.win.n && !cal.kills.n ? '<div class="tiny muted" style="margin-top:4px">No calls to check in the finished games yet.</div>' : ''}</div>` : '<div class="tiny muted" style="margin-top:6px" id="board-log-none">No finished game yet: play one through to “End the battle” on the tracker.</div>'}
+    ${n ? `<div id="board-log-cal">${band(cal.win, 'Forecast: you win')}${band(cal.playout, 'Play-out: you win')}${band(cal.kills, 'Destroyed in the next turn')}${band(cal.halves, 'At half-strength or less after the next turn')}${!cal.win.n && !cal.kills.n ? '<div class="tiny muted" style="margin-top:4px">No calls to check in the finished games yet.</div>' : ''}</div>` : '<div class="tiny muted" style="margin-top:6px" id="board-log-none">No finished game yet: play one through to “End the battle” on the tracker.</div>'}
     ${lastHtml}
     <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="chip ${store.optIn ? 'on' : ''}" data-action="board-log-optin" id="board-log-optin" aria-pressed="${store.optIn}">Send finished games to improve the predictions</button>
@@ -574,6 +577,27 @@ let nextMemo = { key: null, v: null };
 // moveMemo: { key (of the table it was worked out for), state: 'pending' | 'done', n (candidates), base: { win, vp },
 //             best: [move] (each unit's best move alone), kept: { moves, win, vp } (the ones worth making together) }
 let moveMemo = { key: null, state: 'idle' };
+// the last run's inputs, kept so that its noise can be measured (moveNoise below)
+let moveRun = null;
+/**
+ * How much the forecast's verdict on each move changes with the dice alone: the moves of the last run weighed again
+ * with other seeds. -> { n (games each), seeds, moves: [{ key, dVp: [per seed], mean, sd }], sd (the typical SD of a
+ * move's VP gain between runs) }. A measuring tool (window.__calc.board().moveNoise), not part of the cards.
+ */
+async function moveNoise(seeds = [1, 2, 3, 4, 5, 6]) {
+  if (!moveRun || moveRun.key !== nextMemo.key || moveMemo.state !== 'done') return null;
+  const rows = new Map(moveRun.vars.map(v => [v.key, []]));
+  for (const seed of seeds) {
+    const r = await ctx.moveForecasts(moveRun.basePlan, moveRun.vars, { seed: 7700000 + seed });
+    if (!r) return null;
+    const b = worthOf(r.base, moveRun.me);
+    for (const v of moveRun.vars) rows.get(v.key).push(worthOf(r.variants[v.key], moveRun.me).vp - b.vp);
+  }
+  const moves = [...rows].map(([key, d]) => { const mean = d.reduce((a, x) => a + x, 0) / d.length; return { key, dVp: d, mean, sd: Math.sqrt(d.reduce((a, x) => a + (x - mean) ** 2, 0) / Math.max(1, d.length - 1)) }; });
+  const sd = Math.sqrt(moves.reduce((a, m) => a + m.sd ** 2, 0) / Math.max(1, moves.length));
+  console.log(`[board] move noise: ${moves.length} moves x ${seeds.length} seeds: the VP gain of a move varies by SD ${sd.toFixed(2)} between runs (largest ${Math.max(0, ...moves.map(m => m.sd)).toFixed(2)}); a move counts from ${MOVE_MIN_VP} VP`);
+  return { seeds: seeds.length, moves, sd };
+}
 function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null, table = null) {
   if (moveMemo.key === key || !ctx.moveForecasts) return;
   const li = liveIndex(), plan = li >= 0 ? boardPlans()[li] : null;
@@ -627,7 +651,8 @@ function weighMoves(key, v, mine, pieces, home, theirs = [], pair = null, table 
     const [basePlan, ...plans] = await build([[], ...cands.map(c => [c])]);
     if (moveMemo.key !== key) return;
     if (reply) console.log(`[board] the other player's reply worked out for ${cands.length + 1} tables in ${((performance.now?.() ?? 0) - t0).toFixed(0)} ms (${meFirst ? 'in this battle round' : 'as the first turn of the next round'})`);
-    const r1 = await ctx.moveForecasts(basePlan, cands.map((c, i) => ({ key: c.key, plan: plans[i] })));
+    moveRun = { key, me, basePlan, vars: cands.map((c, i) => ({ key: c.key, plan: plans[i] })) };
+    const r1 = await ctx.moveForecasts(basePlan, moveRun.vars);
     if (moveMemo.key !== key) return;
     if (!r1) { moveMemo = { key, state: 'idle' }; redraw(); return; }
     const best = bestMoves(cands, r1.base, r1.variants, me);
@@ -771,16 +796,20 @@ function nextTurnData(compute = true) {
   const toks = placed(), inside = embarkedIn(stepTokens());
   const pair = ctx.pairTable?.() ?? null;
   const hand = g.hand?.[opp] ?? [], myHand = g.hand?.[me] ?? [];
-  const key = JSON.stringify([l.id, me, g.round, g.turn, g.first, g.cp, hand, myHand, !!pair, zoneOf('A'), lv.shock, lv.secured, [...inside], toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, stepTokens()[t.tk]?.mo ?? 0])]);
-  if (nextMemo.key === key) return { ...nextMemo.v, g, fresh: liveFresh(lv, g) };
+  const key = JSON.stringify([l.id, me, g.round, g.turn, g.first, g.cp, hand, myHand, !!pair, zoneOf('A'), lv.shock, lv.secured, lv.out, [...inside], toks.map(t => [t.tk, f2(t.x), f2(t.y), t.rot, t.per, t.gap, t.u.left, t.u.wNow, stepTokens()[t.tk]?.mo ?? 0])]);
+  // (the in-cover / standing-still / half-range odds arrive after the first ones: the cards are worked out again with
+  //  them, under the same key - the moves weighed, the play-out and a plan from Claude for this table stay)
+  const more = !!ctx.pairsComplete?.();
+  if (nextMemo.key === key && nextMemo.more === more) return { ...nextMemo.v, g, fresh: liveFresh(lv, g) };
   // (the work is put off until after the frame a unit was dropped in: see nextTurnHtml)
   if (!compute) return { pending: true, prev: nextMemo.v ? { ...nextMemo.v, g, fresh: liveFresh(lv, g) } : null };
   const unitOf = (t) => ({ key: t.tk, name: t.u.cu.name, x: t.x, y: t.y, models: t.models, move: t.u.move, ranges: t.u.ranges, melee: t.u.melee, oc: t.u.oc, points: t.u.cu.points ?? 0,
-    keywords: t.u.cu.keywords ?? [], lone: t.u.flags?.loneOperative || 0, left: t.u.left, total: t.u.total, shocked: !!lv.shock?.[t.tk], ld: t.u.ld ?? null, bands: t.u.bands ?? [], ...kindsOf(t.u.cu) });
+    keywords: t.u.cu.keywords ?? [], lone: t.u.flags?.loneOperative || 0, left: t.u.left, total: t.u.total, shocked: !!lv.shock?.[t.tk], ld: t.u.ld ?? null, bands: t.u.bands ?? [], wFrac: t.u.wTot > 0 ? t.u.wNow / t.u.wTot : undefined, halfAt: t.u.halfRangeWeapons?.length ? Math.min(...t.u.halfRangeWeapons) / 2 : 0, ...kindsOf(t.u.cu) });
   const ext = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
   // not on the table and not destroyed: in reserves (20.03 / 20.04, 24.09), or inside a transport (18.04: it is set up
   // within 3" of the transport and then moves - measured from the transport)
-  const offOf = (X) => st.armies[X].units.filter(u => !toks.some(t => t.tk === `${X}:${u.key}`) && !unitInfo(X, u.key)?.dead).map(u => ({ tk: `${X}:${u.key}`, u: unitInfo(X, u.key) })).filter(x => x.u);
+  // (lv.out: a unit the player has marked as not in this game yet - not set up, not in reserves: it is not counted)
+  const offOf = (X) => st.armies[X].units.filter(u => !toks.some(t => t.tk === `${X}:${u.key}`) && !unitInfo(X, u.key)?.dead && !lv.out?.[`${X}:${u.key}`]).map(u => ({ tk: `${X}:${u.key}`, u: unitInfo(X, u.key) })).filter(x => x.u);
   const reserveOf = (X) => offOf(X).filter(x => !inside.has(x.tk)).map(({ tk, u }) => ({ key: tk, name: u.cu.name, oc: u.oc, ranges: u.ranges, bands: u.bands ?? [], melee: u.melee, deepStrike: !!u.flags?.deepStrike,
     base: Math.max(0.5, ...u.models.map(m => ext(m.fp))), points: u.cu.points ?? 0, keywords: u.cu.keywords ?? [], left: u.left, total: u.total, ld: u.ld ?? null }));
   const riderOf = (X) => offOf(X).filter(x => inside.has(x.tk)).map(({ tk, u }) => {
@@ -811,7 +840,7 @@ function nextTurnData(compute = true) {
   // my turn: the same measurements from my side; a unit's risk is what their next turn does to it where it stands
   const my = res ? myTurn({ ...base, round: Math.min(5, myRound), hand: myHand, theirHand: hand, threats: res.threats, risk: Object.fromEntries(res.threats.map(t => [t.key, t.likely])) }) : null;
   const onBoard = new Set(toks.map(t => t.tk));
-  const off = st.armies[opp].units.filter(u => !onBoard.has(`${opp}:${u.key}`) && !unitInfo(opp, u.key)?.dead);
+  const off = st.armies[opp].units.filter(u => !onBoard.has(`${opp}:${u.key}`) && !unitInfo(opp, u.key)?.dead && !lv.out?.[`${opp}:${u.key}`]);
   const v = { me, opp, g, res, my, hand, myHand, fresh: liveFresh(lv, g), myRound, theirRound, theirTurnsLeft, counted: theirRound >= 2 && theirRound <= 3,
     embarked: off.filter(u => inside.has(`${opp}:${u.key}`)).map(u => u.name), reserves: off.filter(u => !inside.has(`${opp}:${u.key}`)).map(u => u.name),
     mineOn: toks.filter(t => t.side === me).length, theirsOn: toks.filter(t => t.side === opp).length };
@@ -820,9 +849,9 @@ function nextTurnData(compute = true) {
   // (for the play-out: the units that are not on the table - in reserves, or inside a transport that is)
   const offUnit = (X, cu) => { const u = unitInfo(X, cu.key); if (!u || u.dead) return null; const tk = `${X}:${cu.key}`;
     return { key: tk, name: cu.name, x: 0, y: 0, models: tokenModels(u, {}), move: u.move, ranges: u.ranges, melee: u.melee, oc: u.oc, points: cu.points ?? 0, keywords: cu.keywords ?? [], lone: u.flags?.loneOperative || 0, left: u.left, total: u.total, deepStrike: !!u.flags?.deepStrike, flags: u.flags ?? {}, ...kindsOf(cu), ...(inside.has(tk) ? { in: inside.get(tk) } : {}) }; };
-  const offPlay = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`)).map(u => offUnit(X, u)).filter(Boolean);
+  const offPlay = (X) => st.armies[X].units.filter(u => !onBoard.has(`${X}:${u.key}`) && !lv.out?.[`${X}:${u.key}`]).map(u => offUnit(X, u)).filter(Boolean);
   base.off = { [me]: offPlay(me), [opp]: offPlay(opp) };
-  nextMemo = { key, v, base };
+  nextMemo = { key, v, base, more };
   if (boardState().sharedIn && res && typeof setTimeout === 'function') setTimeout(takeShared, 0);
   if (my) weighStrats(key, v);
   if (my) weighMoves(key, v, base.mine, l.pieces, objs.find(o => o.cls === 'home' && o.side === me) ?? null, base.theirs, pair, base);
@@ -952,7 +981,7 @@ function adviseRequest() {
   const gaps = Object.fromEntries((base?.mine ?? []).map(u => [u.name, (base.theirs ?? []).map(t => ({ enemy: t.name, inches: Math.round(gapOf(u, t) * 10) / 10 })).sort((x, y) => x.inches - y.inches).slice(0, 5)]));
   const terrain = (l?.pieces ?? []).filter(p => p.poly?.length >= 3 && p.cls !== 'feature').map(p => { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); return { kind: `${p.cat ?? 'terrain'} area`, at: [Math.round((Math.min(...xs) + Math.max(...xs)) / 2), Math.round((Math.min(...ys) + Math.max(...ys)) / 2)], size: [Math.round(Math.max(...xs) - Math.min(...xs)), Math.round(Math.max(...ys) - Math.min(...ys))] }; });
   const first = g.first ?? (g.started ? g.turn : d.me);
-  const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : inside.has(tk) ? 'embarked in a transport' : reserveNote(X, u.key, g.round) }; });
+  const nowOf = (X) => st.armies[X].units.map(u => { const tk = `${X}:${u.key}`, t = toks.get(tk); return { name: u.name, modelsLeft: t ? t.models.length : 0, at: t ? [t.x, t.y] : null, status: t ? undefined : unitInfo(X, u.key)?.dead ? 'destroyed' : livePlan()?.out?.[tk] ? 'not in this game' : inside.has(tk) ? 'embarked in a transport' : reserveNote(X, u.key, g.round) }; });
   const card = (id) => { const c = SECONDARIES.find(x => x.id === id); return c ? { name: c.name, text: c.text } : { name: id, text: '' }; };
   return advisePayload({
     armies: { me: armyOf(d.me), them: armyOf(d.opp) },
@@ -1263,7 +1292,7 @@ function myTurnHtml(d) {
       : mv.state === 'done' && u.job.kind === 'take' && u.job.via !== 'fallback' ? ' <span class="muted">· the forecast sees no gain in it</span>' : '';
     const from = u.reserve ? 'once it has arrived' : u.job.kind === 'hold' ? 'from the objective' : ['take', 'reinforce', 'screen', 'card'].includes(u.job.kind) ? 'from where that move ends' : '';
     const noAtk = u.job.wait ? '' : u.job.via === 'fallback' ? 'a unit that Falls Back does not shoot or charge' : u.job.action || u.job.act ? `it starts the ${esc(u.job.act ?? u.job.card ?? 'card')} action: no shooting or charge` : `nothing in reach to attack${from ? ` ${from}` : ''}`;
-    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`}${from ? `, ${from}` : ''}${u.attack.share ? `; ${pct(u.attack.share)} of its shooting reaches` : ''}${u.attack.cover ? '; it has cover' : ''})</span>${u.attack.back >= 0.05 ? ` <span data-back="${u.attack.back.toFixed(3)}" style="color:var(--warn-ink)">· ${pct(u.attack.back)} it is destroyed when they fight back</span>` : ''}` : `<span class="muted">${noAtk}</span>`;
+    const atk = u.attack ? `${esc(u.attack.how.replace(/^./, ch => ch.toUpperCase()))} <b style="color:${ink(d.opp)}">${esc(shortName(u.attack.name))}</b> <span class="muted">(${u.attack.p < 0.05 ? 'it will not destroy it; nothing better in reach' : `${pct(u.attack.p)} destroyed${u.attack.with > 1 ? ` with ${u.attack.with - 1} other${u.attack.with > 2 ? 's' : ''}` : ''}`}${from ? `, ${from}` : ''}${u.attack.share ? `; ${pct(u.attack.share)} of its shooting reaches` : ''}${u.attack.cover ? '; it has cover' : ''}${u.attack.boost === 'still' ? '; standing still: Heavy' : u.attack.boost === 'half' ? '; within half range' : ''})</span>${u.attack.back >= 0.05 ? ` <span data-back="${u.attack.back.toFixed(3)}" style="color:var(--warn-ink)">· ${pct(u.attack.back)} it is destroyed when they fight back</span>` : ''}` : `<span class="muted">${noAtk}</span>`;
     const extra = [u.embarked ? `inside ${esc(shortName(u.embarked))}: it gets out within 3" first` : '', u.job.freed ? `free to leave ${esc(u.job.freed)}: it is held without it` : '', u.job.short ? `<span style="color:var(--warn-ink)">not enough OC in reach to keep it against ${u.job.short}</span>` : '',
       u.shock ? `<span data-shock="${u.shock.toFixed(3)}" style="color:var(--warn-ink)">at half-strength: battle-shock roll in your Command phase (fails ${pct(u.shock)}: no OC)</span>` : '',
       u.hide ? `<span data-hide="1">Hidden if it holds its fire: ${pct(u.hide.quiet)} destroyed instead of ${pct(u.hide.loud)}</span>` : ''].filter(Boolean).map(x => ` <span class="muted">· ${x}</span>`).join('');
@@ -1368,7 +1397,7 @@ function theirTurnHtml() {
   const cardsHtml = !d.hand.length ? `<div class="small muted" id="board-next-nocards">No cards in ${esc(d.opp)}'s hand on the tracker (Mission → Play: draw their cards there to see which they can score).</div>`
     : cardRows(r.cards, 'At the end of your turn, as the table stands:');
   const notes = [
-    d.reserves.length ? `In reserves ⤓: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''}. ${d.counted ? `Counted for battle round ${d.theirRound}: set up more than 8" from your units (without Deep Strike: within 6" of a battlefield edge), then their guns and a charge on a 9+.` : d.theirRound < 2 ? 'Not counted: reserves cannot arrive before battle round 2.' : 'Not counted: a unit still in reserves after battle round 3 is destroyed.'}` : '',
+    d.reserves.length ? `In reserves ⤓: ${esc(d.reserves.slice(0, 4).map(shortName).join(', '))}${d.reserves.length > 4 ? ` and ${d.reserves.length - 4} more` : ''}. ${d.counted ? `Counted for battle round ${d.theirRound}: set up more than 8" from your units (without Deep Strike: within 6" of a battlefield edge), then their guns and a charge on a 9+.` : d.theirRound < 2 ? 'Not counted: reserves cannot arrive before battle round 2.' : 'Not counted: a unit still in reserves after battle round 3 is destroyed.'} A unit that is not in this game at all: tap ⤓ next to it in the army list.` : '',
     d.embarked.length ? `Embarked 🚚 and counted from their transport: ${esc(d.embarked.slice(0, 4).map(shortName).join(', '))} (set up within 3" of it, then a move, guns and a charge).` : '',
   ].filter(Boolean);
   const answersHtml = (r.answers ?? []).length ? `<div class="lab tiny muted" style="margin-top:10px">You can answer with${d.g.started ? ` · you have ${d.g.cp?.[d.me] ?? 0} CP` : ''}</div><div id="board-next-answers">${r.answers.map(a => `<div class="tiny" data-answer="${a.kind}">• ${esc(a.text)}</div>`).join('')}</div>` : '';
@@ -1754,7 +1783,9 @@ function unitInfo(side, key, round = curIndex()) {
   const gl = ctx.groupsLeft?.(side, cu, round) ?? [];
   const aliveOf = new Map();
   for (const g of gl) aliveOf.set(g.member, (aliveOf.get(g.member) ?? 0) + g.left);
-  const lostSig = gl.some(g => g.left < g.count) ? gl.map(g => g.left).join(',') : '';
+  const lostSig = gl.some(g => g.left < g.count || (g.wl ?? g.W) < g.W) ? gl.map(g => `${g.left}/${g.wl ?? ''}`).join(',') : '';
+  // wounds: what the unit started with, and what it has now (models lost, and the wounds one damaged model has lost)
+  const wTot = gl.reduce((a, g) => a + g.count * (g.W || 1), 0), wNow = gl.reduce((a, g) => a + g.left * (g.W || 1) - (g.left > 0 && g.wl != null && g.wl < g.W ? g.W - g.wl : 0), 0);
   const ck = `${side}|${key}|${cu.name}|${cu.models}|${(army.roster?.detachments ?? []).map(d => d?.ref?.id).join(',')}|${JSON.stringify(mine)}|${lostSig}`;
   if (!unitCache.has(ck)) {
     const bu = boardUnit(cu, army);
@@ -1765,7 +1796,7 @@ function unitInfo(side, key, round = curIndex()) {
     for (const m of bu.members) { const h = hulls[m.label]; if (h && m.fp.approx && m.fp.shape === 'rect') m.fp = { shape: 'rect', hw: h.l / 2, hh: h.w / 2, measured: true }; }
     // Objective Control: each model's OC (datasheet), summed over the unit
     const oc = bu.members.reduce((a, m) => a + (m.oc || 0) * m.count, 0);
-    unitCache.set(ck, { cu, ...bu, oc, left, total, dead: left === 0, models: left ? coherentFormation(bu.members) : [], formations: new Map() });
+    unitCache.set(ck, { cu, ...bu, oc, left, total, wTot, wNow, dead: left === 0, models: left ? coherentFormation(bu.members) : [], formations: new Map() });
   }
   return unitCache.get(ck);
 }
@@ -2474,6 +2505,11 @@ function stepsRowHtml() {
       </div>${halfRowHtml()}`;
 }
 
+/** The later unit-vs-unit odds (cover, standing still, half range) are in: only the turn cards are drawn again, if they are on screen. */
+export function boardOddsIn() {
+  const host = typeof document !== 'undefined' ? document.getElementById('board-next-host') : null;
+  if (host && livePlan()) host.innerHTML = nextTurnHtml();
+}
 export function boardView() {
   const st = ctx.state;
   const b = boardState();
@@ -2658,7 +2694,10 @@ function armyColInner(X) {
     if (emb.has(tk)) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">embarked</span></div>`;
     // in a drop drill the drill card in the middle sets units up, one at a time
     if (di) return `<div class="tri-unit off">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny muted">${di.res.has(tk) ? 'reserves' : 'to set up'}</span></div>`;
-    return `<button class="tri-unit off" data-action="board-place" data-side="${X}" data-key="${esc(u.key)}">${dot}<span class="nm">${esc(u.name)}</span><span class="tiny tri-add">${onDeploy ? '＋ Place' : 'reserves ＋'}</span></button>`;
+    // on the live table a unit that is not on it counts as in reserves; ⤓ marks it as not in this game (not counted)
+    const lvp = livePlan(), isOut = !!lvp?.out?.[tk];
+    const place = `<button class="tri-unit off" data-action="board-place" data-side="${X}" data-key="${esc(u.key)}"${lvp ? ' style="flex:1;min-width:0"' : ''}>${dot}<span class="nm">${esc(u.name)}</span><span class="tiny tri-add">${onDeploy ? '＋ Place' : isOut ? 'not counted ＋' : 'reserves ＋'}</span></button>`;
+    return lvp ? `<div class="row" style="gap:4px;align-items:stretch" data-off="${esc(tk)}" data-out="${isOut ? 1 : 0}">${place}<button class="icon-btn" data-action="board-out" data-tk="${esc(tk)}" aria-pressed="${!isOut}" aria-label="${isOut ? `Count ${esc(u.name)} as in reserves` : `${esc(u.name)} is not in this game: do not count it`}" title="${isOut ? 'Not counted. Tap: in reserves' : 'In reserves (counted from battle round 2). Tap: not in this game'}">${isOut ? '⦸' : '⤓'}</button></div>` : place;
   }).join('');
   return `<div class="row" style="align-items:baseline;gap:6px"><b class="tri-letter">${X}</b><b class="grow ellipsis">${esc(a.faction)}${me ? ' <span class="tiny muted">(me)</span>' : ''}</b><span class="tiny muted">${pts} pts</span></div>
     ${onDeploy ? `<fieldset class="plain" style="margin-top:6px" ${locked ? 'disabled' : ''}>${dispSel}</fieldset>${dispOverridden(X) ? `<div class="warnbox" id="board-disp-override-${X}"><b>${X}</b> is set to <b>${esc(dispositionName(dispOf(X)))}</b> here, but ${X}'s list says <b>${esc(dispositionName(listDisp(X)))}</b>. The missions and layouts follow the one set here.
@@ -3715,6 +3754,16 @@ export function boardAction(action, el) {
       refreshBoard();
       return null;
     }
+    case 'board-out': {
+      // a unit that is not on the live table: in reserves (counted), or not in this game (not counted)
+      const lv = livePlan(), tk = el.dataset.tk;
+      if (!lv || !tk) return null;
+      lv.out ??= {};
+      if (lv.out[tk]) delete lv.out[tk]; else lv.out[tk] = true;
+      console.log(`[board] live table: ${tk} ${lv.out[tk] ? 'is not in this game (not counted)' : 'is in reserves (counted)'}`);
+      persistBoard();
+      return 'render';
+    }
     case 'board-secure': {
       // 14.03: an objective a rule has secured for a player stays theirs with nobody in range (none -> you -> them -> none)
       const lv = livePlan(), id = el.dataset.obj, me = nextMemo.v?.me ?? 'A';
@@ -4206,7 +4255,7 @@ export function boardContext() {
 
 // for tests
 export function _boardDebug() {
-  return { live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, secured: lv.secured ?? {}, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
+  return { moveNoise: (seeds) => moveNoise(seeds), live: (() => { const root = planRoot(), i = liveIndex(root), lv = i >= 0 ? root.variants[i] : null; return lv ? { on: !!livePlan(), steps: lv.steps.map(x => x.name), cur: lv.cur, stamp: lv.stamp, shock: lv.shock, secured: lv.secured ?? {}, out: lv.out ?? {}, snaps: (lv.snaps ?? []).map(x => ({ round: x.round, turn: x.turn, units: Object.keys(x.tokens).length })), from: lv.liveFrom } : null; })(),
     next: (() => { const d = nextTurnData(); return d ? { opp: d.opp, fresh: d.fresh, hand: d.hand, reserves: d.reserves, res: d.res, my: d.my, play: playMemo.key === nextMemo.key ? playMemo : { state: 'idle' }, log: logStore(), strats: stratMemo.key === nextMemo.key ? stratMemo : { state: 'idle' }, advise: { info: adviseInfo, state: currentAdvice()?.state ?? null, text: currentAdvice()?.text ?? null, pasted: !!currentAdvice()?.pasted, plan: planData(), pasteError: boardState().pasteError ?? null, kept: livePlan()?.advice ?? null, prompt: () => { const r = adviseRequest(); return r ? promptText(r) : null; }, agreed: adviseAgreed(), size: (() => { const r = adviseRequest(); return r ? payloadSize(r) : null; })(), request: adviseRequest }, hint: boardState().hint ?? null, hintText: hintData()?.text ?? null, moves: moveMemo.key === nextMemo.key ? moveMemo : null } : null; })(),
     stepTokens: stepTokens(), half: halfOn(), first: firstOf(), cur: curIndex(), layout: currentLayout()?.id, tokens: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, rot: t.rot, per: t.per })), plan: plan(), sel: boardState().sel, sel2: boardState().sel2, photoKey: photoKey(), photo: photoInfo(photoKey()), photos: _photoDebug(),
     units: placed().map(t => ({ tk: t.tk, x: t.x, y: t.y, models: t.models, keywords: t.u.cu.keywords ?? [], ranges: t.u.ranges })), danger: boardState().danger ?? null,

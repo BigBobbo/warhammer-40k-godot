@@ -67,3 +67,15 @@ test('what is sent: the record without times of day; only a finished, well-forme
   assert.equal(G.validUpload({ ...body, turns: [{ ...body.turns[0], round: 9 }] }).ok, false);
   assert.equal(G.validUpload(null).ok, false);
 });
+
+test('half-strength calls (1.153.0): kept with the turn, read against the models left; older records without them still read', () => {
+  const rec = G.newRecord({ me: 'A', first: 'A', started: 1 });
+  G.addTurn(rec, { round: 1, turn: 'A', vp: { A: 0, B: 0 }, units: units(), ahead: { side: 'B', destroyed: [], halved: [{ tk: 'A:a', name: 'Alpha', p: 0.7 }, { tk: 'A:b', name: 'Bravo', p: 0.4 }] } });
+  G.addTurn(rec, { round: 1, turn: 'B', vp: { A: 0, B: 0 }, units: units({ 'A:a': 2, 'A:b': 3 }), ahead: null });
+  G.finish(rec, { A: 60, B: 50 });
+  const rv = G.review(rec);
+  assert.deepEqual(rv.halves.map(h => [h.name, h.p, h.happened]), [['Alpha', 0.7, true], ['Bravo', 0.4, false]], '2 of 5 left is half or less; 3 of 5 is not');
+  assert.equal(G.calibration([rec]).halves.n, 2);
+  assert.deepEqual(G.review(game()).halves, [], 'a record from before has no such calls');
+  assert.equal(G.calibration([G.finish(game(), { A: 1, B: 0 })]).halves.n, 0);
+});

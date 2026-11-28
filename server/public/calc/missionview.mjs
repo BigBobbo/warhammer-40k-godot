@@ -203,7 +203,7 @@ function ensurePairs() {
   if (m.pairs?.sig === sig || pairsPending || !ctx.pairOdds) return m.pairs?.sig === sig;
   const st = ctx.state, jobs = [];
   for (const X of ['A', 'B']) for (const a of st.armies[X].units) for (const d of st.armies[other(X)].units)
-    for (const phase of ['shooting', 'fight', 'cover']) jobs.push({ key: `${X}:${a.key}>${other(X)}:${d.key}|${phase}`, atkSide: X, atkKey: a.key, defKey: d.key, phase: phase === 'cover' ? 'shooting' : phase, cover: phase === 'cover' });
+    for (const phase of ['shooting', 'fight']) jobs.push({ key: `${X}:${a.key}>${other(X)}:${d.key}|${phase}`, atkSide: X, atkKey: a.key, defKey: d.key, phase });
   pairsPending = true;
   ctx.pairOdds(jobs).then((res) => {
     const table = {};
@@ -211,8 +211,6 @@ function ensurePairs() {
       const [ad, phase] = k.split('|');
       const [atk, def] = ad.split('>');
       const cell = ((table[atk] ??= {})[def] ??= { shoot: 0, fight: 0, sMu: 0, sSd: 0, fMu: 0, fSd: 0, W: 0 });
-      // shooting at the target in cover (13.08: BS worse by 1): for a unit the Board finds in cover
-      if (phase === 'cover') { cell.shootC = v.pWipe ?? 0; cell.sMuC = v.meanWounds ?? 0; cell.sSdC = v.sdWounds ?? 0; continue; }
       const sh = phase === 'shooting';
       cell[sh ? 'shoot' : 'fight'] = v.pWipe ?? 0;        // P(destroyed by this unit alone)
       cell[sh ? 'sMu' : 'fMu'] = v.meanWounds ?? 0;       // mean wounds removed
@@ -223,6 +221,25 @@ function ensurePairs() {
     pairsPending = false;
     refresh();
     scheduleForecast();
+    // then, without holding anything up, the same shooting in three situations the Board reads from the table: the
+    // target in cover (13.08: BS worse by 1), the attacker standing still ([HEAVY], 24.16), the target within half
+    // range ([RAPID FIRE], [MELTA]). The forecast does not use them; the turn cards are worked out again when they are in.
+    const more = [];
+    for (const j of jobs) if (j.phase === 'shooting') for (const how of ['cover', 'heavy', 'half']) more.push({ ...j, key: `${j.key.split('|')[0]}|${how}`, cover: how === 'cover', atk: how === 'cover' ? null : how });
+    ctx.pairOdds(more).then((res2) => {
+      if (ms().pairs?.table !== table) return;
+      for (const [k, v] of Object.entries(res2)) {
+        const [ad, how] = k.split('|');
+        const [atk, def] = ad.split('>');
+        const cell = table[atk]?.[def];
+        if (!cell) continue;
+        if (how === 'cover') { cell.shootC = v.pWipe ?? 0; cell.sMuC = v.meanWounds ?? 0; cell.sSdC = v.sdWounds ?? 0; }
+        else cell[how === 'heavy' ? 'sMuH' : 'sMuR'] = v.meanWounds ?? 0;
+      }
+      ms().pairs.more = true;
+      // (not a redraw of the page: only the Board's turn cards use them)
+      ctx.oddsIn?.();
+    });
   });
   return false;
 }
@@ -321,16 +338,16 @@ export const MOVE_TRIALS = 1500;
 export const LIVE_ROUNDS_AHEAD = 1;
 export const liveUntil = () => Math.min(RULES.rounds, ms().game.round + LIVE_ROUNDS_AHEAD);
 let moveWorker = null, moveReq = 0;
-export function moveForecasts(base, variants) {
+export function moveForecasts(base, variants, { seed = undefined } = {}) {
   return new Promise((resolve) => {
     // the table as it stands counts for the battle round in progress and the one after it (a move made now is
     // still where the unit stands next round: counted for this round alone, a move that sets the next round up
     // showed no gain); the rounds after that are forecast as usual
     const until = liveUntil();
-    const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS });
+    const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS, seed });
     if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
     // (a variant with `until` of its own: a plan that goes on past the round in progress - the Board's play-out)
-    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: v.until ?? until, trials: MOVE_TRIALS }) }));
+    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: v.until ?? until, seed, trials: MOVE_TRIALS }) }));
     const id = ++moveReq;
     moveWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
     const t0 = Date.now();
@@ -346,6 +363,8 @@ export function moveForecasts(base, variants) {
   });
 }
 /** The unit-vs-unit odds of the two lists (null while they are being worked out; asking starts the work). */
+/** Are the situation odds (cover, standing still, half range) in too? */
+export const pairsComplete = () => !!ms().pairs?.more;
 export function pairTable() {
   const st = ctx.state;
   if (!st.armies.A || !st.armies.B) return null;
@@ -484,7 +503,7 @@ export function forecastParams(over = {}) {
     startDrawn: live ? Math.min(RULES.drawPerTurn, g.drawn ?? 0) : 0,
     // who is the stronger player (0 = even): the forecast's edge is A's
     edge: (m.me === 'A' ? 1 : -1) * (m.edge ?? 0),
-    trials: over.trials ?? 4000, seed: 20261116,
+    trials: over.trials ?? 4000, seed: over.seed ?? 20261116,
   };
 }
 
@@ -1754,5 +1773,5 @@ export function missionAfterRender() {
 // for tests
 export function _missionDebug() {
   const m = ms();
-  return { me: m.me, first: m.first, table: !!m.table, clock: m.clock, undo: m.undo.length, wake: !!wake, result: m.result, levers: m.levers, compare: m.compare, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, source: m.source, pairsReady: !!m.pairs?.table && m.pairs.sig === pairSig(), kill: autoKill(), killRate: { A: killRateOf('A'), B: killRateOf('B') }, board: sourcePlan() != null ? boardModel(sourcePlan()) : null, params: forecastParams({ trials: 10 }) };
+  return { me: m.me, first: m.first, table: !!m.table, clock: m.clock, undo: m.undo.length, wake: !!wake, result: m.result, levers: m.levers, compare: m.compare, busy: !!m.busy, objectives: objectives(), plan: plan(), game: m.game, source: m.source, pairsMore: !!m.pairs?.more, pairs: m.pairs?.table ?? null, pairsReady: !!m.pairs?.table && m.pairs.sig === pairSig(), kill: autoKill(), killRate: { A: killRateOf('A'), B: killRateOf('B') }, board: sourcePlan() != null ? boardModel(sourcePlan()) : null, params: forecastParams({ trials: 10 }) };
 }

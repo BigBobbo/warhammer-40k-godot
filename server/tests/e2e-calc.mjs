@@ -4593,6 +4593,21 @@ Aggressor Squad (95 points)
         await lp.screenshot({ path: join(SHOTS, 'calc_152_turn_suggestions.png'), fullPage: true });
         await moveTo(mega, megaAt.x, megaAt.y); await ready();
         check('the Meganobz back where they were: the Grey Hunters shoot again', /shoot/.test((await next()).my.units.find(u => u.key === gh).attack?.how ?? ''));
+        // 1.153.0: a unit off the table is in reserves, or (⤓) not in this game at all
+        {
+          const resRows = async () => (await next()).my.units.filter(u => u.reserve).length;
+          const r0 = await resRows(), outBtn = lp.locator('#board-army-A button[data-action="board-out"]').first();
+          await outBtn.scrollIntoViewIfNeeded(); const outTk = await outBtn.getAttribute('data-tk');
+          await outBtn.tap(); await ready();
+          check('⤓ next to a unit that is not on the live table: marked as not in this game, it is no longer counted as arriving from reserves',
+            r0 >= 2 && (await resRows()) === r0 - 1 && (await live()).out[outTk] === true && !(await next()).my.units.some(u => u.key === outTk) && (await lp.getAttribute(`#board-army-A [data-off="${outTk}"]`, 'data-out')) === '1' && /not counted/.test(await lp.textContent(`#board-army-A [data-off="${outTk}"]`)), `${r0} -> ${await resRows()}`);
+          await lp.locator(`#board-army-A [data-off="${outTk}"] button[data-action="board-out"]`).tap(); await ready();
+          check('⤓ again: in reserves and counted', (await resRows()) === r0 && Object.keys((await live()).out).length === 0);
+          await lp.waitForFunction(() => window.__calc.mission().pairsMore, null, { timeout: 120000 }); await ready();
+          const cells = await lp.evaluate(() => Object.values(window.__calc.mission().pairs ?? {}).flatMap(r => Object.values(r)));
+          check('the in-cover, standing-still and half-range odds arrive after the first ones: every pair that shoots has in-cover odds, and units with such weapons the other two',
+            cells.some(c => c.sMuC != null) && cells.filter(c => c.sMu > 0).every(c => c.sMuC != null && c.sMuC <= c.sMu * 1.15 + 0.3) && cells.some(c => c.sMuR != null && c.sMuR >= c.sMu) && cells.every(c => c.sMuH == null || c.sMuH >= c.sMu * 0.85 - 0.3), `${cells.length} cells, ${cells.filter(c => c.sMuC != null).length} cover, ${cells.filter(c => c.sMuH != null).length} heavy, ${cells.filter(c => c.sMuR != null).length} half`);
+        }
         // the prompt for Claude carries the stats, the rules and the wider ACTIONS forms
         const pr = await lp.evaluate(() => window.__calc.board().next.advise.prompt());
         check('the prompt for Claude: unit stats and weapons, mission scoring, turn order, objective positions, distances, and the new ACTIONS forms',
@@ -4697,13 +4712,15 @@ Aggressor Squad (95 points)
         check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /go round dense terrain/.test(await lp.textContent('#board-playout-how')));
         // (1.148.0) the walk itself: nobody on anybody else, reserves come on, likely casualties take no further part
         const walk = await lp.evaluate(() => { const m = window.__calc.board().next.play, ext = (fp) => fp.r ?? Math.max(fp.rx ?? 0, fp.hw ?? 0, fp.ry ?? 0, fp.hh ?? 0);
-          let overlaps = 0; const start = new Set([...m.steps[0].A, ...m.steps[0].B].map(u => u.key));
+          let overlaps = 0; const which = []; const start = new Set([...m.steps[0].A, ...m.steps[0].B].map(u => u.key));
+          // (two units the test itself set down on each other, neither of which moves in the play-out, are not its doing)
+          const at0 = new Map([...m.steps[0].A, ...m.steps[0].B].map(u => [u.key, `${u.x},${u.y}`])), still = (st, k) => { const u = [...st.A, ...st.B].find(q => q.key === k); return !!u && at0.get(k) === `${u.x},${u.y}`; };
           for (const st of m.steps.slice(1)) { const all = [...st.A, ...st.B].flatMap(u => u.models.map(md => ({ k: u.key, x: u.x + md.dx, y: u.y + md.dy, r: ext(md.fp) })));
-            for (const p of all) for (const q of all) if (p.k < q.k && Math.hypot(p.x - q.x, p.y - q.y) < p.r + q.r - 0.05) { overlaps++; } }
+            for (const p of all) for (const q of all) if (p.k < q.k && Math.hypot(p.x - q.x, p.y - q.y) < p.r + q.r - 0.05 && !(still(st, p.k) && still(st, q.k))) { overlaps++; if (which.length < 6) which.push(`r${st.round}:${p.k}/${q.k}`); } }
           const arrive = m.log.flatMap(l => l.moves.filter(x => x.kind === 'arrive').map(x => ({ unit: x.unit, round: l.round })));
           const lost = m.log.flatMap(l => (l.lost ?? []).map(x => ({ unit: x.unit, round: l.round, p: x.p })));
           const actsAfter = lost.filter(x => m.log.some(l => l.round > x.round && l.moves.some(mv => mv.unit === x.unit))).length;
-          return { overlaps, arrive, lost: lost.length, actsAfter, gone: Object.keys(m.gone ?? {}).length, last: m.steps.at(-1).A.length + m.steps.at(-1).B.length, first: start.size }; });
+          return { overlaps, which, kinds: m.log.flatMap(l => l.moves.map(x => `r${l.round}${l.side}:${x.unit}:${x.kind}`)).slice(0, 60), arrive, lost: lost.length, actsAfter, gone: Object.keys(m.gone ?? {}).length, last: m.steps.at(-1).A.length + m.steps.at(-1).B.length, first: start.size }; });
         check('play-out: from round 2 on no base ends on another base', walk.overlaps === 0, JSON.stringify(walk));
         check('play-out: reserves come on from round 2 (never round 1), and are on the table from then on', walk.arrive.every(x => x.round >= 2 && x.round <= 3) && walk.last >= walk.first, JSON.stringify(walk));
         check('play-out: a unit that is likely destroyed takes no further part, and the log says so', walk.actsAfter === 0 && walk.lost <= walk.gone, JSON.stringify(walk));
@@ -4963,6 +4980,8 @@ Aggressor Squad (95 points)
     for (const X of ['A', 'B']) for (let i = 0; i < 3; i++) await gp.locator(`#board-army-${X} button[data-action="board-place"]`).first().tap();
     await gp.tap('#board-live'); await gp.waitForSelector('#board-live-bar');
     await gp.waitForFunction(() => window.__calc.board().next?.moves?.state === 'done' && window.__calc.board().next?.strats?.state !== 'pending', null, { timeout: 120000 });
+    // (the later odds redraw the turn cards once: wait for them, so that the card is not swapped while it is scrolled to)
+    await gp.waitForFunction(() => window.__calc.mission().pairsMore, null, { timeout: 120000 });
     await gp.locator('#board-log').scrollIntoViewIfNeeded();
     check('live table: a Prediction record card, folded, nothing kept yet', (await gp.getAttribute('#board-log', 'data-open')) === '0' && (await gp.getAttribute('#board-log-count', 'data-turns')) === '0' && (await gp.getAttribute('#board-log-count', 'data-games')) === '0');
     await gp.tap('[data-action="board-log-toggle"]');

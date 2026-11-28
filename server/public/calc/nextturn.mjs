@@ -76,6 +76,8 @@ const isVM = (u) => (u.keywords ?? []).some(k => /^(MONSTER|VEHICLE)$/i.test(k))
  */
 export function halfStrength(u) {
   if ((u.total ?? 0) >= 2) return u.left != null && u.left * 2 <= u.total;
+  // one model at the start: its wounds (u.wFrac = the share it has left)
+  if (u.wFrac != null) return u.wFrac <= 0.5 + 1e-9;
   return u.wLeft != null && u.W1 > 0 && u.wLeft * 2 <= u.W1;
 }
 /** 01.07: P(a battle-shock roll fails) = P(2D6 < Ld). 0 when the Leadership is not known. */
@@ -132,6 +134,8 @@ function outer(u, n = 6) {
   return { ...u, models: [...new Set([by(m => m.dx), by(m => -m.dx), by(m => m.dy), by(m => -m.dy), ms[0], ms[Math.floor(ms.length / 2)]])] };
 }
 const share = (u) => (u.total > 0 && u.left != null ? Math.max(0, Math.min(1, u.left / u.total)) : 1);
+/** The share of a unit's wounds it still has: models lost and the wounds a damaged model has lost (u.wFrac, when the table tracks them). */
+const wshare = (u) => (u.wFrac != null ? Math.max(0, Math.min(1, u.wFrac)) : share(u));
 
 /**
  * What each of their units can do to each of mine in their next turn.
@@ -151,7 +155,7 @@ export function turnThreats(mine, theirs, pair, { pieces = null, strictSight = f
   const attackers = [...theirs.map(a => ({ a, off: false })), ...reserves.map(a => ({ a, off: true }))];
   for (const [ti, t] of mine.entries()) {
     const row = rows[ti];
-    const ts = share(t);
+    const ts = wshare(t);
     const cover0 = areaCover(t, pieces);
     // (13.09) a unit that can be Hidden where it stands and holds its fire is seen from 15" only
     const detect = Math.min(detectRange(t, pieces), quiet?.has(t.key) && pieces?.length && canHide(t, pieces) ? HIDDEN_RANGE : Infinity);
@@ -190,16 +194,23 @@ export function turnThreats(mine, theirs, pair, { pieces = null, strictSight = f
       const rs = shoot ? (off ? rangeShare(a, th.gap) : rangeShare(a, th.gap - (lock?.size ? 0 : (a.shootMove ?? mv)))) * (lock?.size ? 0.8 : 1) : 0;
       const inCover = !!shoot && cover && pr?.sMuC != null;
       const sMu0 = inCover ? pr.sMuC : pr?.sMu ?? 0, sSd0 = inCover ? pr.sSdC ?? pr.sSd ?? 0 : pr?.sSd ?? 0, sP0 = inCover ? pr.shootC ?? pr.shoot ?? 0 : pr?.shoot ?? 0;
-      const sMu = sMu0 * as * rs, fMu = (pr?.fMu ?? 0) * as;
+      // where the attack is made from: standing still within range and in sight ([HEAVY] +1 to hit, 24.16: no model
+      // moved more than 3", not set up this turn), or close enough for half range ([RAPID FIRE], [MELTA]) - one or the other
+      const base0 = pr?.sMu ?? 0;
+      const still = !!shoot && !off && !a.movedFar && pr?.sMuH != null && th.gap <= shoot.range + 1e-9 && (pieces ? now : true);
+      const close = !!shoot && pr?.sMuR != null && a.halfAt > 0 && th.gap - (off || lock?.size ? 0 : (a.shootMove ?? mv)) <= a.halfAt + 1e-9;
+      const sit = base0 > 0 ? Math.max(1, still ? pr.sMuH / base0 : 1, close ? pr.sMuR / base0 : 1) : 1;
+      const sMu = sMu0 * as * rs * sit, fMu = (pr?.fMu ?? 0) * as;
       const mu = sMu + ch * fMu;
       const v = (shoot ? (sSd0 * as * rs) ** 2 : 0) + ch * ((pr?.fSd ?? 0) * as) ** 2 + ch * (1 - ch) * fMu ** 2;
-      const scaled = as < 1 || ts < 1 || (shoot && rs < 0.999);
-      // on its own: the calculator's figure at full strength, else from the wounds it removes
-      const p = !pr || !(Wt > 0) ? 0 : scaled ? killChance([{ mu, v }], Wt)
-        : 1 - (1 - (shoot ? sP0 : 0)) * (1 - ch * (pr.fight ?? 0));
+      const less = as < 1 || ts < 1 || (shoot && rs < 0.999), scaled = less || sit > 1.001;
+      // on its own: the calculator's figure at full strength, else from the wounds it removes (a better situation
+      // never makes it less likely than the calculator's own figure)
+      const pCalc = pr ? 1 - (1 - (shoot ? sP0 : 0)) * (1 - ch * (pr.fight ?? 0)) : 0;
+      const p = !pr || !(Wt > 0) ? 0 : less ? killChance([{ mu, v }], Wt) : scaled ? Math.max(pCalc, killChance([{ mu, v }], Wt)) : pCalc;
       if (!(mu > 0) && !(p > 0) && !th.engaged) continue;
       const part = { mu, v, p: scaled ? undefined : p };
-      row.by.push({ key: a.key, name: a.name, shoot: shoot ? { range: shoot.range, now, share: rs, cover: inCover } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part,
+      row.by.push({ key: a.key, name: a.name, shoot: shoot ? { range: shoot.range, now, share: rs, cover: inCover, ...(sit > 1.001 ? { boost: sit, how: still && pr.sMuH >= (close ? pr.sMuR : 0) ? 'still' : 'half' } : {}) } : null, charge: ch >= 0.03 ? ch : 0, engaged: th.engaged, mu, p, part,
         ...(off ? { reserve: true } : {}), ...(a.embarked ? { embarked: a.embarked } : {}) });
       row.parts.push(part);
       const value = p * Math.max(1, t.points ?? 1);
@@ -215,7 +226,9 @@ export function turnThreats(mine, theirs, pair, { pieces = null, strictSight = f
     // (08.03) at or below half-strength it takes a battle-shock roll in its next Command phase: the wounds that get it there
     row.ld = t.ld ?? null; row.shockFail = shockFail(t.ld);
     row.isHalf = halfStrength(t);
-    row.halfWounds = (t.total ?? 0) >= 2 && t.left > 0 && row.wounds > 0 ? Math.max(0, t.left - Math.floor(t.total / 2)) * (row.wounds / t.left) : 0;
+    // (a unit of one model: half of the wounds it started with)
+    row.halfWounds = (t.total ?? 0) >= 2 && t.left > 0 && row.wounds > 0 ? Math.max(0, t.left - Math.floor(t.total / 2)) * (row.wounds / t.left)
+      : t.total === 1 && row.wounds > 0 ? Math.max(0, row.wounds - 0.5 * row.wounds / Math.max(1e-9, t.wFrac ?? 1)) : 0;
     row.half = row.isHalf ? 1 : row.halfWounds > 0 ? killChance((likelyParts.get(row) ?? []).map(x => ({ mu: x.mu, v: x.v })), row.halfWounds) : row.likely;
     row.by.sort((x, y) => y.p - x.p || y.mu - x.mu);
     delete row.parts; delete row.scaled;
@@ -831,8 +844,8 @@ export function myTurn(c) {
     const j = jobs.get(u.key) ?? { kind: 'none' };
     const act = actions.has(u.key) || j.action;
     if (j.kind === 'hold') return { ...u, moveLeft: Math.min(u.move ?? 6, OBJECTIVE_RANGE), chargeOnly: nearObj(j.obj), noShoot: act, noCharge: act };
-    if (j.kind === 'take' || j.kind === 'reinforce') { const e = endOf(u, j); Object.assign(j, e); return { ...u, x: e.x, y: e.y, moveLeft: 0, chargeOnly: nearObj(j.obj), noShoot: act || j.via === 'fallback', noCharge: act || j.via === 'fallback' }; }
-    if (j.kind === 'screen' || j.kind === 'card') return { ...u, x: j.x, y: j.y, moveLeft: 0, noCharge: true, noShoot: !!act };
+    if (j.kind === 'take' || j.kind === 'reinforce') { const e = endOf(u, j); Object.assign(j, e); return { ...u, x: e.x, y: e.y, moveLeft: 0, movedFar: e.dist > 3, chargeOnly: nearObj(j.obj), noShoot: act || j.via === 'fallback', noCharge: act || j.via === 'fallback' }; }
+    if (j.kind === 'screen' || j.kind === 'card') return { ...u, x: j.x, y: j.y, moveLeft: 0, movedFar: (j.dist ?? 0) > 3, noCharge: true, noShoot: !!act };
     return u;
   });
   // what a kill is worth beyond the unit's points (in points: VP_POINTS a victory point), and why
@@ -889,7 +902,7 @@ export function myTurn(c) {
     // (12.04) what is left of the target fights back
     const back = melee ? (1 - k.p) * (c.pair?.[k.key]?.[b.key]?.fight ?? 0) * sh(foe.get(k.key) ?? {}) : 0;
     atk.set(b.key, { key: k.key, name: k.name, p: k.p, with: k.by.length, how: [b.shoot ? 'shoot' : '', b.engaged ? 'fight' : b.charge ? 'charge' : ''].filter(Boolean).join(' + '), charge: b.engaged ? 0 : b.charge || 0, back,
-      ...(b.shoot?.cover ? { cover: true } : {}), ...(b.shoot && b.shoot.share < 0.95 ? { share: b.shoot.share } : {}) });
+      ...(b.shoot?.cover ? { cover: true } : {}), ...(b.shoot && b.shoot.share < 0.95 ? { share: b.shoot.share } : {}), ...(b.shoot?.how ? { boost: b.shoot.how } : {}) });
   }
   const after = new Map(build().map(u => [u.key, u]));
   const units = all.map(u => {
@@ -1040,10 +1053,11 @@ export function worthOf(result, X) {
   return { win: result?.[`pWin${X}`] ?? 0, vp: (result?.[X]?.mean ?? 0) - (result?.[Y]?.mean ?? 0) };
 }
 /**
- * A move counts as better than standing still from this many VP of margin: over 4x the noise of the difference
- * between two forecasts of 1,500 games on the same dice (measured 0.45 VP with the table counted for the battle
- * round in progress and the next, as it is now; it was 3 while the table counted for one round only, noise 0.95 VP).
- * Most cards and objectives are worth 2 to 5 VP, so a higher bar hid moves worth making.
+ * A move counts as better than standing still from this many VP of margin: about 3.4x the noise of a move's VP
+ * gain between two runs of 1,500 games. Measured again for 1.153.0 with the other player's reply played in
+ * (boardview moveNoise: 5 moves x 8 seeds on a live table): SD 0.59 VP, 0.69 at most; so a move with no worth
+ * passes about 3 times in 10,000, under 1 in 100 over the 24 moves tried at most. It was 3 while the table counted
+ * for one round only (noise 0.95 VP). Most cards and objectives are worth 2 to 5 VP: a higher bar hid moves worth making.
  */
 export const MOVE_MIN_VP = 2;
 /**
