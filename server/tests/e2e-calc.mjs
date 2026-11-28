@@ -450,11 +450,10 @@ try {
 
   // --- offline (PWA): once the service worker has cached the shell + dataset, a reload with no network still works
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.evaluate(async () => {
-    for (let i = 0; i < 100 && !(await caches.has('w40k-calc-v9') && (await (await caches.open('w40k-calc-v9')).keys()).length >= 20); i++) {
-      await new Promise(r => setTimeout(r, 200));
-    }
-  });
+  // (the worker is active only once its whole set of files is in this version's cache)
+  const { CALC_VERSION } = await import(new URL('../public/calc/version.mjs', import.meta.url).href);
+  const cachedFiles = await page.evaluate(async (name) => (await caches.has(name)) ? (await (await caches.open(name)).keys()).length : 0, `w40k-calc-${CALC_VERSION}`);
+  check('the whole app is saved for offline use under its version', cachedFiles >= 50, `${cachedFiles} files`);
   await ctx.setOffline(true);
   await page.reload();
   await page.waitForSelector('[data-attacker]', { timeout: 30000 });
@@ -462,21 +461,38 @@ try {
   check('works offline after first visit', (await kpi(page)).every(Boolean));
   await ctx.setOffline(false);
 
-  // version shown, and a new version is picked up on the next load (network first, offline copy as fallback)
-  const { CALC_VERSION } = await import(new URL('../public/calc/version.mjs', import.meta.url).href);
+  // version shown; a release (version.mjs + sw.js change together) is taken as one whole set: the page that is open
+  // keeps running the version it loaded, the new set is downloaded, and an untouched page reloads into it
   check('header shows the app version (under the icon on a phone)', (await page.textContent('#app-version-mini')).trim() === `v${CALC_VERSION}` && await page.isVisible('#app-version-mini'));
-  const vFile = join(here, '..', 'public', 'calc', 'version.mjs');
-  const vOrig = readFileSync(vFile, 'utf8');
+  const vFile = join(here, '..', 'public', 'calc', 'version.mjs'), swFile = join(here, '..', 'public', 'calc', 'sw.js');
+  const vOrig = readFileSync(vFile, 'utf8'), swOrig = readFileSync(swFile, 'utf8');
+  const shown = (v) => page.waitForFunction((want) => document.querySelector('#app-version-mini')?.textContent.trim() === want, `v${v}`, { timeout: 30000 }).then(() => true, () => false);
   try {
+    // only version.mjs changed on the server (half a release): the page still runs its own complete set
     writeFileSync(vFile, vOrig.replace(CALC_VERSION, '9.9.9'));
     await page.reload();
     await page.waitForSelector('#app-version-mini');
-    check('a new version is used on the next load even with the offline copy installed', (await page.textContent('#app-version-mini')).trim() === 'v9.9.9', await page.textContent('#app-version-mini'));
+    await page.waitForTimeout(1500);
+    check('a page never mixes in a file of another version', (await page.textContent('#app-version-mini')).trim() === `v${CALC_VERSION}`, await page.textContent('#app-version-mini'));
+    // the release is complete: sw.js names the new version
+    writeFileSync(swFile, swOrig.replaceAll(CALC_VERSION, '9.9.9'));
+    await page.reload();
+    check('a new version is downloaded whole and an untouched page reloads into it', await shown('9.9.9'), await page.textContent('#app-version-mini'));
+    await page.waitForSelector('[data-attacker]', { timeout: 30000 });
+    const caches9 = await page.evaluate(() => caches.keys());
+    check('the old version\'s offline copy is removed', caches9.filter(k => k.startsWith('w40k-calc-')).join() === 'w40k-calc-9.9.9', caches9.join());
+    // a page in use is not reloaded under the player's hands: it offers to
+    await page.keyboard.press('Shift');
+    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
+    await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+    const bar = await page.waitForSelector('#update-banner', { timeout: 30000 }).then(() => true, () => false);
+    check('a page already in use shows the New version bar instead of reloading', bar && (await page.textContent('#app-version-mini')).trim() === 'v9.9.9', await page.textContent('#app-version-mini'));
+    if (bar) await page.tap('#update-reload');
+    check('Reload on the bar opens the new version', await shown(CALC_VERSION), await page.textContent('#app-version-mini'));
   } finally {
-    writeFileSync(vFile, vOrig);
+    writeFileSync(vFile, vOrig); writeFileSync(swFile, swOrig);
   }
-  await page.reload();
-  await page.waitForSelector('#app-version-mini');
+  await page.waitForSelector('[data-attacker]', { timeout: 30000 });
 
   // --- board planner: official GW layout, tokens, rings, gap -> calculator, steps, ruler, export
   const toScreen = (x, y) => page.evaluate(([bx, by]) => {
@@ -4574,6 +4590,80 @@ Aggressor Squad (95 points)
         check('tap one of my units under Their next turn: an arrow from each enemy unit that can reach it', th.h.kind === 'their-unit' && th.hits >= 1, JSON.stringify(th));
         await lp.tap('#board-hint-clear');
         check('✕ clears the suggestion from the map', (await lp.locator('#hint-layer').count()) === 0 && (await lp.locator('#board-hint-bar').count()) === 0);
+      }
+      // (1.145.0) play the game out: both players follow the cards every turn to round 5, scored by the forecast,
+      // shown NEXT TO the usual forecast line (which stays), and put on the board as a plan of its own
+      {
+        const usual = await lp.textContent('#board-my-moves');
+        check('Play the game out is offered on Your turn, as a second opinion', (await lp.locator('#board-playout-run').count()) === 1 && /second opinion next to the forecast/.test(await lp.textContent('#board-playout')));
+        await lp.locator('#board-playout-run').scrollIntoViewIfNeeded();
+        await lp.tap('#board-playout-run');
+        await lp.waitForFunction(() => window.__calc.board().next?.play?.state === 'done', null, { timeout: 120000 });
+        const pl = await lp.evaluate(() => { const m = window.__calc.board().next.play, g = window.__calc.mission(); return { win: m.out.win, base: m.base.win, vp: m.vp, from: m.from, rounds: m.steps.map(x => x.round), turns: m.log.map(l => `${l.round}${l.side}`), moved: m.log.reduce((a, l) => a + l.moves.filter(x => x.dist > 0).length, 0), kinds: [...new Set(m.log.flatMap(l => l.moves.map(x => x.kind)))], round: g.game?.round }; });
+        check('the game is played to the end of round 5, turn by turn, both players moving', pl.rounds.at(-1) === 5 && pl.rounds[0] === pl.from && pl.turns.length >= pl.rounds.length && ['A', 'B'].every(X => pl.turns.some(t => t.endsWith(X))) && pl.moved >= 2, JSON.stringify(pl));
+        const line = await lp.textContent('#board-playout');
+        check('the card gives its win chance and average score, and the usual forecast beside it', /Played out to the end of the game: you win \d+% of games, \d+ – \d+ VP on average/.test(line) && /forecast of the table as it stands says \d+%/.test(line) && pl.win >= 0 && pl.win <= 1, line.slice(0, 260));
+        const rws = await lp.evaluate(() => [...document.querySelectorAll('#board-playout-rounds tbody tr')].map(e => ({ r: Number(e.dataset.round), me: Number(e.dataset.me), opp: Number(e.dataset.opp), ahead: Number(e.dataset.ahead) })));
+        check('a row per battle round still to play: the score after it, how often I am ahead, units left; scores only grow and round 5 is the final score',
+          rws.length === pl.rounds.length && rws.every((x, i) => x.r === pl.rounds[i] && (i === 0 || (x.me >= rws[i - 1].me - 1e-6 && x.opp >= rws[i - 1].opp - 1e-6)) && x.ahead >= 0 && x.ahead <= 1)
+          && Math.abs(rws.at(-1).me - pl.vp.me) < 0.06 && Math.abs(rws.at(-1).opp - pl.vp.opp) < 0.06 && /Units left/.test(await lp.textContent('#board-playout-rounds')), JSON.stringify(rws));
+        check('the usual forecast line is still there, unchanged', (await lp.textContent('#board-my-moves')) === usual && (await lp.getAttribute('#board-my-moves', 'data-state')) === 'done');
+        check('it says plainly how simple the rule is', /nobody plans ahead/.test(await lp.textContent('#board-playout-how')) && /straight line/.test(await lp.textContent('#board-playout-how')));
+        await lp.tap('#board-playout-log-btn');
+        const logText = await lp.textContent('#board-playout-log');
+        check('Show who did what: a block per player turn with each unit\'s action', /Round \d · /.test(logText) && /(takes|holds|walks towards|charges|shoots) /.test(logText) && (await lp.locator('#board-playout-log > div').count()) === pl.turns.length, logText.slice(0, 200));
+        await lp.locator('#board-playout').scrollIntoViewIfNeeded();
+        await lp.screenshot({ path: join(SHOTS, 'calc_145_play_out.png') });
+        await lp.tap('#board-playout-log-btn');
+        const liveTokens = await lp.evaluate(() => JSON.stringify(window.__calc.board().stepTokens));
+        await lp.tap('#board-playout-plan');
+        await lp.waitForFunction(() => !window.__calc.board().live?.on);
+        const pv = await lp.evaluate(() => ({ plans: [...document.querySelectorAll('[data-action="board-plan-pick"]')].map(e => [e.textContent.trim(), e.classList.contains('on')]), steps: [...document.querySelectorAll('[data-action="board-step"]')].map(e => e.textContent.trim()) }));
+        check('See it on the board: a plan "Played out" of its own, with a step per battle round to Turn 5', pv.plans.some(x => /Played out/.test(x[0]) && x[1]) && pv.steps.some(x => /Turn 5/.test(x)), JSON.stringify(pv));
+        await lp.evaluate(() => window.scrollTo(0, 0));
+        await lp.locator('[data-action="board-step"]', { hasText: 'Turn 5' }).tap();
+        await lp.screenshot({ path: join(SHOTS, 'calc_145_played_out_turn5.png') });
+        // (1.146.0) a battle round by player turn: after the first player's turn the other player's units still stand
+        // where the round before left them; ◀ ▶ step a player turn at a time; a unit moved there is moved in its own step
+        {
+          const half = () => lp.evaluate(() => { const b = window.__calc.board(), st = b.plan.steps, r = b.cur, F = b.first; const same = (t, o) => !!o && Math.abs(t.x - o.x) < 1e-6 && Math.abs(t.y - o.y) < 1e-6;
+            const o = { cur: r, half: b.half, first: F, firstAtR: 0, nFirst: 0, otherAtR: 0, otherAtPrev: 0, nOther: 0, differ: 0, pos: Number(document.getElementById('board-half-row')?.dataset.pos ?? -1) };
+            for (const t of b.tokens) { if (t.tk.startsWith(F + ':')) { o.nFirst++; o.firstAtR += same(t, st[r].tokens[t.tk]); } else { o.nOther++; o.otherAtR += same(t, st[r].tokens[t.tk]); o.otherAtPrev += same(t, st[r - 1].tokens[t.tk]); if (!same(st[r].tokens[t.tk], st[r - 1].tokens[t.tk])) o.differ++; } }
+            return o; });
+          const endV = await half();
+          check('👥 By player turn is a switch next to the turns; it is on for the played-out game', (await lp.getAttribute('#board-by-turn', 'aria-pressed')) === 'true');
+          await lp.tap('#board-by-turn');
+          check('off: no row of player turns, the turns are battle rounds as before', (await lp.locator('#board-half-row').count()) === 0 && (await lp.evaluate(() => window.__calc.board().half)) === false);
+          await lp.tap('#board-by-turn');
+          check('a row under the turns shows the round by player turn, with who moves first', (await lp.locator('#board-half-row').count()) === 1 && ['A', 'B'].includes(endV.first) && endV.half === false && endV.otherAtR === endV.nOther && endV.pos === 10, JSON.stringify(endV));
+          // a round in which the second player moved: look at it after the first player's turn
+          let hv = endV;
+          for (let k = 0; k < 9 && !(hv.half && hv.differ > 0); k++) { await lp.tap('#board-half-prev'); hv = await half(); }
+          check('after the first player\'s turn: the first player\'s units as at the end of the round, the other player\'s still where the round before left them',
+            hv.half && hv.differ > 0 && hv.firstAtR === hv.nFirst && hv.otherAtPrev === hv.nOther && hv.otherAtR < hv.nOther && /has not moved yet this round/.test(await lp.textContent('#board-half-note')), JSON.stringify(hv));
+          await lp.evaluate(() => window.scrollTo(0, 0));
+          await lp.screenshot({ path: join(SHOTS, 'calc_146_by_player_turn.png') });
+          // a unit of the other player moved in this view: that is where it stood at the end of the round before
+          const S = hv.first === 'A' ? 'B' : 'A';
+          const tkS = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, S), tkF = await lp.evaluate((X) => window.__calc.board().tokens.find(t => t.tk.startsWith(X + ':')).tk, hv.first);
+          const tokAt = (tk) => lp.evaluate((k) => { const b = window.__calc.board(), st = b.plan.steps; return { r: [st[b.cur].tokens[k].x, st[b.cur].tokens[k].y], prev: [st[b.cur - 1].tokens[k].x, st[b.cur - 1].tokens[k].y] }; }, tk);
+          const s0 = await tokAt(tkS), f0 = await tokAt(tkF), uS = await unit(tkS), uF = await unit(tkF);
+          await moveTo(tkS, uS.x + 1.5, uS.y); await moveTo(tkF, uF.x - 1.5, uF.y);
+          const s1 = await tokAt(tkS), f1 = await tokAt(tkF);
+          check('a unit moved in this view is moved in the step it belongs to: the other player\'s in the round before, the first player\'s in this round',
+            Math.abs(s1.prev[0] - s0.prev[0]) > 0.5 && s1.r[0] === s0.r[0] && Math.abs(f1.r[0] - f0.r[0]) > 0.5 && f1.prev[0] === f0.prev[0], JSON.stringify({ s0, s1, f0, f1 }));
+          await lp.tap('#board-half-next');
+          const nx = await half();
+          check('▶ goes on a player turn: the end of the same round', nx.cur === hv.cur && nx.half === false && nx.pos === hv.pos + 1 && nx.otherAtR === nx.nOther, JSON.stringify(nx));
+          await lp.tap('#board-half-1');
+          check('the switch shows the same round after the first player\'s turn again', (await half()).half === true && (await lp.getAttribute('#board-half-1', 'aria-pressed')) === 'true');
+          await lp.tap('#board-half-2');
+        }
+        // the live table is untouched; the plan is removed again
+        await lp.tap('button[data-action="board-plan-delete"]');
+        await lp.tap('#board-live'); await lp.waitForSelector('#board-live-bar');
+        check('the live table is as it was', (await lp.evaluate(() => JSON.stringify(window.__calc.board().stepTokens))) === liveTokens && (await lp.locator('[data-action="board-plan-pick"]', { hasText: 'Played out' }).count()) === 0);
+        await weighed();
       }
       // (1.142.0) by hand, with no API key: copy the prompt, paste it into Claude, paste the answer back
       {

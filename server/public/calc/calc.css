@@ -626,6 +626,8 @@ fieldset.plain:disabled { opacity: .55; }
 .tri > .tri-r { grid-area: r; }
 .tri .board-wrap #board-svg { max-height: 56dvh; width: auto; max-width: 100%; display: block; margin: 0 auto; }
 .tri .b-steps { margin-bottom: 8px; }
+/* (the row of player turns is open: the map gives up its height, so it still fits on the screen) */
+.tri.byturn .board-wrap #board-svg { max-height: calc(56dvh - 52px); }
 .tri-army { min-width: 0; background: var(--surface-1); border: 1px solid var(--line); border-top: 4px solid var(--side-ink); border-radius: var(--radius); padding: 10px 10px 12px; }
 .tri-letter { color: var(--side-ink); font-size: 18px; }
 .tri-army .warnbox { margin-top: 6px; }

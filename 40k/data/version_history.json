@@ -2,6 +2,43 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.146.0",
+      "date": "2026-11-28",
+      "summary": "Combat Calc: step through a battle round one player turn at a time on the Board",
+      "changes": [
+        "Board: a new By player turn switch next to the turn buttons opens a row that shows each battle round by player turn: after the first player has moved, and at the end of the round",
+        "◀ ▶ step through any plan a player turn at a time, from deployment to the last round",
+        "After the first player's turn the other player's units stand where the round before left them, as on the real table; a unit you move in that view is moved in the turn it belongs to",
+        "Works for every plan, the played-out game included; saved plans, shared links and the forecast are unchanged (a plan still keeps one step per battle round)",
+        "A plan that does not know who goes first asks once; a going-first / going-second plan and a game on the tracker already know"
+      ]
+    },
+    {
+      "version": "1.145.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: play the whole game out, both players following the suggestions each turn",
+      "changes": [
+        "Board, Your turn: a new Play the game out button. From the table as it stands, both players do what the turn cards suggest, turn after turn to the end of round 5, and the mission forecast scores that game",
+        "It is shown next to the usual forecast, which is unchanged: you see both win chances, and a note when they disagree by a lot",
+        "Show who did what lists every unit's action in each player turn",
+        "A table shows the predicted outcome after each battle round: the score, how often you are ahead, the units left, and the usual forecast beside it",
+        "See it on the board puts the played-out game on the map as a plan of its own, a step per battle round; the live table is not touched",
+        "The moves follow one simple rule (take or hold objectives, charge or shoot the best target, else walk to an objective nobody holds): no planning ahead, straight-line moves, no Advances"
+      ]
+    },
+    {
+      "version": "1.144.0",
+      "date": "2026-11-27",
+      "summary": "Combat Calc: after an update the app can no longer run a mix of old and new code",
+      "changes": [
+        "After a new release, on a slow connection, the app could show the new version number while still running the old Board: new features looked as if they did nothing",
+        "The app now loads one version as a whole, always: every file comes from the same saved set",
+        "A new release is downloaded in the background as a complete set; the app then reloads into it by itself if you have not touched it yet, else it shows a New version bar with Reload",
+        "Opening the app no longer downloads everything again each time, so it starts faster and uses less data",
+        "Board: a suggested or planned move onto an objective that is approached at a slant is now drawn (it was listed as not drawn)"
+      ]
+    },
+    {
       "version": "1.143.0",
       "date": "2026-11-28",
       "summary": "Combat Calc: Claude's plan is drawn on the map, and pasting it back can no longer fail without saying why",

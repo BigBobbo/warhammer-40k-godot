@@ -305,13 +305,13 @@ export function missionNewGame() { ctx.autoSave?.('a new game'); const m = ms();
 /** The game on the tracker as the Board's live table needs it: the round, whose turn, the phase, each player's hand. */
 export function missionNow() {
   const g = ms().game;
-  return { round: g.round, turn: turnOf(), phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] },
+  return { round: g.round, turn: turnOf(), first: ms().first ?? null, phase: g.phase ?? 'command', started: inProgress(), over: !!g.over, hand: { A: [...g.A.hand], B: [...g.B.hand] },
     cp: { A: g.A.cp ?? 0, B: g.B.cp ?? 0 }, vp: { A: totalVp('A'), B: totalVp('B') } };
 }
 /**
  * Weigh moves with the forecast (the Board's "Your turn"): the rest of the game from the tracker's state, once
  * for the table as it stands (base) and once for each variant - the same plan with one or more units moved.
- * base / variants[].plan: a plan in boardPlans() shape. Run in a worker of its own; a newer call drops the older.
+ * base / variants[].plan: a plan in boardPlans() shape (variants[].until: the last battle round its positions count for). Run in a worker of its own; a newer call drops the older.
  * -> Promise<{ base: result, variants: { [key]: result } } | null (dropped, or no forecast possible)>
  */
 export const MOVE_TRIALS = 1500;
@@ -322,7 +322,8 @@ export function moveForecasts(base, variants) {
     const until = ms().game.round;
     const P0 = forecastParams({ boardSteps: base, boardUntil: until, trials: MOVE_TRIALS });
     if (!P0 || typeof Worker === 'undefined') { resolve(null); return; }
-    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: until, trials: MOVE_TRIALS }) }));
+    // (a variant with `until` of its own: a plan that goes on past the round in progress - the Board's play-out)
+    const vs = variants.map(v => ({ key: v.key, P: forecastParams({ boardSteps: v.plan, boardUntil: v.until ?? until, trials: MOVE_TRIALS }) }));
     const id = ++moveReq;
     moveWorker ??= new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
     const t0 = Date.now();
